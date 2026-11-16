@@ -171,7 +171,8 @@ describe("실험 유닛 → 전투 사양(서버만 계산)", () => {
     // 직접 값 적정(D-502): STR·INT 20 → 밀리점, AGI 0 = 적정 없음(간격 그대로)
     expect(built.spec.skillAttack?.physical.attackAppropriateMilli).toBe(20_000);
     expect(built.spec.attack.attackAppropriateMilli).toBe(20_000);
-    expect(built.spec.attackIntervalMs).toBe(1100);
+    // 무기 사거리 예산 기본 켬(질문 1814): 사거리 4 → 1100 × 1300‰
+    expect(built.spec.attackIntervalMs).toBe(1430);
     // 사람형 스킬 칸 3(환생 0): 모르는 스킬은 빼고 앞에서 셋
     expect(built.spec.skills.map((skill) => skill.id)).toEqual(["power_strike", "fire_bolt", "war_cry"]);
     expect(built.dropped).toContainEqual({ kind: "skill", id: "no_such_skill" });

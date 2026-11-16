@@ -20,7 +20,8 @@ export const EFFECT_PRIMARY_STAT_IDS = ["str", "dex", "agi", "vit", "int", "wis"
 export const EFFECT_STAT_IDS = [...EFFECT_COMBAT_STAT_IDS, ...EFFECT_PRIMARY_STAT_IDS] as const;
 export type EffectStatId = (typeof EFFECT_STAT_IDS)[number];
 
-export const EFFECT_STATUS_IDS = ["stun", "root", "silence"] as const;
+/** 상태이상 종류. knockback·pull = 밀림 상태이상(저항만 데이터로 든다 — 스킬 이동 부품 displace가 읽는다, 질문 1806 → D-429) */
+export const EFFECT_STATUS_IDS = ["stun", "root", "silence", "knockback", "pull"] as const;
 export type EffectStatusId = (typeof EFFECT_STATUS_IDS)[number];
 
 /** 효과 칸 범위(팩 스키마와 같다) */

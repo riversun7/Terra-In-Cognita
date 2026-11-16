@@ -435,4 +435,39 @@ describe("전투 분류", () => {
       ["references", "skills.json"],
     ]);
   });
+  it("밀림 상태이상(질문 1806 → D-429 데이터 칸): displace 항목은 같은 종류, 효과 줄로는 걸지 않는다", () => {
+    const status = (id: string, kind: string) =>
+      effect({
+        id,
+        kind: "status",
+        stat: undefined,
+        status: kind,
+        resist: { cap: 600, halfConstant: 100, weights: [0, 0, 0, 1000, 0, 0] },
+      });
+    const effects = { entries: [effect({}), status("heavy_push", "knockback"), status("snare", "root")] };
+    const strike = {
+      ...skill("guard"),
+      shape: "single",
+      trigger: "active",
+      target: "enemy",
+      range: 1,
+      damage: "physical",
+      base: "physical",
+    };
+    const codes = (skills: unknown[]) =>
+      issuesOf({ "effects.json": effects, "skills.json": { entries: skills } }).map((issue) => [
+        issue.code,
+        issue.path,
+      ]);
+    expect(codes([{ ...strike, displace: { kind: "knockback", cells: 2, effect: "heavy_push" } }])).toEqual(
+      [],
+    );
+    expect(codes([{ ...strike, displace: { kind: "root", durationMs: 1000, effect: "snare" } }])).toEqual([]);
+    expect(codes([{ ...strike, displace: { kind: "pull", cells: 2, effect: "heavy_push" } }])).toEqual([
+      ["displace_effect_status", "displace.effect"],
+    ]);
+    expect(codes([{ ...strike, effects: [{ effect: "heavy_push", value: 0, chancePm: 1000 }] }])).toEqual([
+      ["effect_displace_status", "effects[0].effect"],
+    ]);
+  });
 });

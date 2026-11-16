@@ -146,10 +146,12 @@ export interface CombatUnitSpec {
   /** 1차 스탯 6개(STR·DEX·AGI·VIT·INT·WIS, 장비 포함): 상태이상 저항(D-429)에 쓴다 */
   readonly primaries: readonly number[];
   /**
-   * 몸 밀림 저항(‰, D-564 1588 "큰 몸·보스는 덜 밀림"): 크기 L·XL·보스 등급이 더한다(curves.ts bodyDisplaceResistPm). 스탯 몫(STR·VIT)은
-   * 판정이 더한다. 0이면 칸을 두지 않는다(옛 시작 자료·상태 JSON 그대로)
+   * 몸 밀림 저항(‰, D-564 1588·1807 "보스는 덜 밀림"): 보스 등급이 더한다(curves.ts bodyDisplaceResistPm). 스탯 몫(VIT, 효과 사전 밀림
+   * 상태이상 항목)은 판정이 더한다. 0이면 칸을 두지 않는다(옛 시작 자료·상태 JSON 그대로)
    */
   readonly displaceResistPm?: number | undefined;
+  /** 몸 크기 거리 배율(‰, D-570: S 더 · L 덜 · XL 훨씬 덜, curves.ts bodyDisplaceSizePm). 1000(크기 M·없음)이면 칸을 두지 않는다 */
+  readonly displaceSizePm?: number | undefined;
   /** 쓸 수 있는 스킬(고유 + 장비, 슬롯 수 안, D-426·D-427). 목록 차례가 AI 우선순위다([임시]) */
   readonly skills: readonly CombatSkill[];
 }

@@ -34,22 +34,17 @@ export interface MoveCoefficients {
   /** 가까이 쏘기: 사거리 2 이상 스킬이 거리 ≤ cells인 대상에 + bonusPm */
   readonly closeShot: { readonly cells: number; readonly bonusPm: number };
   /**
-   * 밀치기 부딪힘 피해(D-564 1587): 밀려 가다 벽(못 지나가는 칸·건물)에 막히면 밀어낸 한 방 피해 × wallPm, 다른 유닛에 막히면 밀린 대상과
-   * 막은 유닛(시전자의 적일 때만)이 한 방 피해 × unitPm을 받는다(방어를 거치지 않고 체력에서, 지속 피해와 같다)
+   * 밀치기 부딪힘 피해(D-564 1587, D-570 1801 "밀어낸 공격 피해의 10~20%"·1803): 밀려 가다 벽(못 지나가는 칸)에 막히면 밀린 대상이
+   * 밀어낸 한 방 피해 × wallPm, 건물에 막히면 밀린 대상과 그 건물(시전자 편 건물 빼고)이 × wallPm, 다른 유닛에 막히면 밀린 대상과 막은
+   * 유닛(시전자 편이 아니면 누구나 — 중립 포함)이 × unitPm을 받는다(유닛은 방어를 거치지 않고 체력에서, 건물은 내구도에서)
    */
   readonly knockback: { readonly wallPm: number; readonly unitPm: number };
   /**
-   * 밀림 저항(D-564 1588, 상태이상 저항 D-429와 같은 모양): 점수 = ⌊(STR × strPm + VIT × vitPm) ÷ 1000⌋, 저항 = capPm × 점수 ÷
-   * (점수 + halfConstant). 몸 저항(큰 몸·보스)을 더해 1000에서 자른다. 밀치기·끌어오기 칸 수와 묶기 지속을 (1000 − 저항)‰로 줄인다
+   * 몸 크기가 밀리는 거리에 곱하는 배율(‰, D-570 "크기 M을 기준으로 S는 더 강하게, L은 더 적게, XL은 훨씬 적게"). M = 1000(칸 없음)
    */
-  readonly resist: {
-    readonly capPm: number;
-    readonly halfConstant: number;
-    readonly strPm: number;
-    readonly vitPm: number;
-  };
-  /** 몸 저항(D-564 1588 "큰 몸·보스는 덜 밀림", 크기 D-5023 S·M·L·XL): L·XL 몸과 보스 등급이 더하는 밀림 저항(‰) */
-  readonly body: { readonly largePm: number; readonly hugePm: number; readonly bossPm: number };
+  readonly size: { readonly smallPm: number; readonly largePm: number; readonly hugePm: number };
+  /** 보스 등급(boss 이상)이 더하는 밀림 저항(‰, D-564 1588·1807 "보스는 덜 밀림") */
+  readonly body: { readonly bossPm: number };
 }
 
 /** [임시] 출발값(ADR 3절 표). 팩 tuning `moves_*`가 같은 값이다 */
@@ -63,8 +58,8 @@ export const DEFAULT_MOVE_COEFFICIENTS: MoveCoefficients = {
   multishot: { stepPm: 150, minPm: 300 },
   closeShot: { cells: 2, bonusPm: 200 },
   knockback: { wallPm: 200, unitPm: 150 },
-  resist: { capPm: 600, halfConstant: 100, strPm: 500, vitPm: 1000 },
-  body: { largePm: 250, hugePm: 500, bossPm: 300 },
+  size: { smallPm: 1500, largePm: 600, hugePm: 300 },
+  body: { bossPm: 300 },
 };
 
 /** 계수표에 moves가 없으면(옛 계수표) 출발값 */
@@ -113,20 +108,35 @@ export function closeShotPm(skillRange: number, distance: number, m: MoveCoeffic
 /** 몸 크기(크리쳐 D-5023). 사람형은 M */
 export type BodySize = "S" | "M" | "L" | "XL";
 
-/** 몸 저항(‰, D-564 1588): L·XL 크기와 보스 등급(boss 이상)이 더한다. 1000에서 자른다 */
-export function bodyDisplaceResistPm(size: BodySize | undefined, boss: boolean, m: MoveCoefficients): number {
-  const bySize = size === "XL" ? m.body.hugePm : size === "L" ? m.body.largePm : 0;
-  return Math.max(0, Math.min(1000, bySize + (boss ? m.body.bossPm : 0)));
+/** 보스 몸 저항(‰, D-564 1588·1807): 보스 등급(boss 이상)이면 bossPm, 아니면 0 */
+export function bodyDisplaceResistPm(boss: boolean, m: MoveCoefficients): number {
+  return boss ? Math.max(0, Math.min(1000, m.body.bossPm)) : 0;
+}
+
+/** 몸 크기 거리 배율(‰, D-570): S·L·XL은 설정 칸, M(과 크기 없음)은 1000 */
+export function bodyDisplaceSizePm(size: BodySize | undefined, m: MoveCoefficients): number {
+  const pm =
+    size === "S" ? m.size.smallPm : size === "L" ? m.size.largePm : size === "XL" ? m.size.hugePm : 1000;
+  return Math.max(0, pm);
 }
 
 /**
- * 밀림 저항(‰, D-564 1588): 1차 스탯 점수(상태이상 저항 D-429 모양) + 몸 저항, 0~1000. primaries = [STR, DEX, AGI, VIT, INT, WIS]
+ * 밀림 상태이상 항목이 없을 때(항목을 싣기 전 시작 자료·항목 없는 계열표)의 저항 칸. 팩 core@118 move_knockback·move_pull과 같은 값
+ * (D-570 "스탯 기여도는 VIT", D-429 모양)
  */
-export function displaceResistPm(primaries: readonly number[], bodyPm: number, m: MoveCoefficients): number {
-  const r = m.resist;
-  const score = Math.floor(((primaries[0] ?? 0) * r.strPm + (primaries[3] ?? 0) * r.vitPm) / 1000);
-  const statPm = score <= 0 ? 0 : Math.floor((r.capPm * score) / (score + Math.max(1, r.halfConstant)));
-  return Math.max(0, Math.min(1000, statPm + Math.max(0, bodyPm)));
+export const DEFAULT_DISPLACE_RESIST: {
+  readonly cap: number;
+  readonly halfConstant: number;
+  readonly weights: readonly number[];
+} = { cap: 600, halfConstant: 100, weights: [0, 0, 0, 1000, 0, 0] };
+
+/**
+ * 밀리는 칸 수(D-570 "넉백 저항은 거리만 줄임"): ⌊칸 × 크기 배율 × (1000 − 저항) ÷ 1000000⌋. 저항 = 스탯 몫(효과 사전 밀림 상태이상
+ * 항목의 resist) + 보스 몸 저항, 0~1000에서 자른다
+ */
+export function displacedCells(cells: number, sizePm: number, resistPm: number): number {
+  const resist = Math.max(0, Math.min(1000, resistPm));
+  return Math.floor((Math.max(0, Math.trunc(cells)) * Math.max(0, sizePm) * (1000 - resist)) / 1_000_000);
 }
 
 /** 배율 곱(버림): value × pm ÷ 1000 */

@@ -35,6 +35,16 @@ export const EFFECT_COMBAT_STATS = [
  * 낚시 DEX·AGI). 1차 스탯 버프는 전투 판정이 아직 읽지 않는다(전투 사양은 시작할 때 셈한 2차라서 — 소비 실행 줄기에서 잇는다)
  */
 export const EFFECT_STATS = [...EFFECT_COMBAT_STATS, ...PRIMARY_STAT_CODES] as const;
+/** 상태이상 종류(판정 코드 packages/sim effects.ts StatusKind와 같은 목록). 뒤 둘은 밀림 상태이상(DISPLACE_STATUS_KINDS) */
+export const EFFECT_STATUS_KINDS = ["stun", "root", "silence", "knockback", "pull"] as const;
+/** 밀림 상태이상: 이동 부품 displace만 읽는다(시간 효과로 걸어도 판정이 아무것도 하지 않는다) */
+export const DISPLACE_STATUS_KINDS: readonly string[] = ["knockback", "pull"];
+/** 대상 옮김 종류마다 기본 효과 사전 항목(@terra/sim moveParts.ts DISPLACE_EFFECT_IDS와 같다) */
+export const DISPLACE_EFFECT_IDS = {
+  knockback: "move_knockback",
+  pull: "move_pull",
+  root: "move_root",
+} as const;
 
 export const effectEntrySchema = z
   .strictObject({
@@ -54,7 +64,11 @@ export const effectEntrySchema = z
     tickMs: z.int().min(0).max(3_600_000),
     stacking: z.enum(["refresh", "stack", "ignore"]),
     maxStacks: z.int().min(1).max(100),
-    status: z.enum(["stun", "root", "silence"]).optional(),
+    /**
+     * 상태이상 종류. knockback·pull = 밀림 상태이상(질문 1806 답 → D-429 "데이터 칸"): 스킬 이동 부품(displace)이 밀림 저항(resist)을 읽는
+     * 항목이고, 스킬·아이템 효과 줄로는 걸지 않는다(references 검사)
+     */
+    status: z.enum(EFFECT_STATUS_KINDS).optional(),
     /** 상태이상 저항(D-429): 확률 모양(상한 ‰, 반감 상수, 1차 6개 가중치 ‰) */
     resist: z
       .strictObject({
@@ -212,11 +226,15 @@ const movePart = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("stealth"), durationMs: moveDuration }),
   z.strictObject({ kind: z.literal("detect"), cells, durationMs: moveDuration }),
 ]);
-/** 맞은 대상 옮김 부품 */
+/**
+ * 맞은 대상 옮김 부품. effect = 밀림 저항(resist)을 읽는 효과 사전 항목(질문 1806 답 → D-429). 없으면 종류마다 DISPLACE_EFFECT_IDS. 항목은
+ * 같은 종류의 상태이상이어야 한다(references 검사)
+ */
+const displaceEffect = ref("effects").optional();
 const displacePart = z.discriminatedUnion("kind", [
-  z.strictObject({ kind: z.literal("knockback"), cells }),
-  z.strictObject({ kind: z.literal("pull"), cells }),
-  z.strictObject({ kind: z.literal("root"), durationMs: moveDuration }),
+  z.strictObject({ kind: z.literal("knockback"), cells, effect: displaceEffect }),
+  z.strictObject({ kind: z.literal("pull"), cells, effect: displaceEffect }),
+  z.strictObject({ kind: z.literal("root"), durationMs: moveDuration, effect: displaceEffect }),
 ]);
 /** 스킬이 고르는 계수 곡선(@terra/sim combat/curves.ts SKILL_CURVES와 같다) */
 export const SKILL_CURVE_IDS = [
@@ -406,7 +424,7 @@ const weaponBody = {
   appropriate: weaponAppropriateSchema.optional(),
   /**
    * 기본 공격 곡선(D-564 1594 → D-557 "사정거리가 길면 공격속도가 낮게", D-568 무기가 정함): range_interval이면 공격 간격 × 사거리 예산
-   * (설정 칸 moves_range_interval_*). 없으면 옛 간격 그대로
+   * (설정 칸 moves_range_interval_*). 칸이 없으면 켬(질문 1814 답: 모든 무기에 기본), 빈 목록 []이면 끔(옛 간격 그대로)
    */
   curves: z.array(z.enum(WEAPON_CURVE_IDS)).max(WEAPON_CURVE_IDS.length).optional(),
 };

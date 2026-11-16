@@ -19,6 +19,7 @@ import { UNARMED, UNARMED_ELEMENTAL } from "./catalog.ts";
 import {
   type BodySize,
   bodyDisplaceResistPm,
+  bodyDisplaceSizePm,
   moveCoefficientsOf,
   rangeIntervalPm,
   scalePm,
@@ -48,6 +49,12 @@ export type AttackField = AttackProfile["kind"];
 
 /** 무기가 고르는 곡선(기본 공격): 사거리 ↔ 공격 간격 예산만 */
 export type WeaponCurve = "range_interval";
+
+/**
+ * 무기 곡선 칸(curves)을 적지 않은 무기의 곡선(질문 1814 답: D-557 "사정거리가 길면 공격속도가 낮게"는 일반 규칙 → 모든 무기에 기본으로
+ * 켠다). 끄려면 무기 자료에 curves: []를 적는다
+ */
+export const DEFAULT_WEAPON_CURVES: readonly WeaponCurve[] = ["range_interval"];
 
 /**
  * 무기 공격력 칸 하나(D-465): 무기 공격력(공격력 = 스탯 공격력 + 이 값 × 적정 비율, D-502). 칸 종류(물리·속성)는 계열(어느 스탯 공격력·
@@ -87,7 +94,7 @@ export interface WeaponSpec {
   readonly intervalMs: number;
   /**
    * 기본 공격이 고른 계수 곡선(D-564 1594·D-557 "사정거리가 길면 공격속도가 낮게", D-568 무기가 정함): range_interval이면 공격 간격 ×
-   * 사거리 예산(curves.ts rangeIntervalPm). 없으면 옛 간격 그대로
+   * 사거리 예산(curves.ts rangeIntervalPm). 없으면 DEFAULT_WEAPON_CURVES(사거리 예산 켬, 질문 1814 답), 빈 목록이면 끔(옛 간격 그대로)
    */
   readonly curves?: readonly WeaponCurve[] | undefined;
   readonly range: number;
@@ -329,14 +336,22 @@ export function specFromStats(
   };
 }
 
-/** 무기가 사거리 예산 곡선을 골랐으면 간격 × rangeIntervalPm(사거리), 아니면 그대로 */
+/** 무기 곡선에 사거리 예산이 있으면(칸이 없으면 기본 켬) 간격 × rangeIntervalPm(사거리, 사거리 1 이하는 1000), 아니면 그대로 */
 function weaponRangeInterval(weapon: WeaponSpec, intervalMs: number, c: CombatCoefficients): number {
-  if (weapon.curves?.includes("range_interval") !== true) return intervalMs;
+  if (!(weapon.curves ?? DEFAULT_WEAPON_CURVES).includes("range_interval")) return intervalMs;
   return scalePm(intervalMs, rangeIntervalPm(weapon.range, moveCoefficientsOf(c)));
 }
 
-/** 몸 밀림 저항 칸(0이면 칸 없음) */
-function bodyResist(body: UnitBody, c: CombatCoefficients): { displaceResistPm?: number } {
-  const pm = bodyDisplaceResistPm(body.size, body.boss === true, moveCoefficientsOf(c));
-  return pm > 0 ? { displaceResistPm: pm } : {};
+/** 몸 밀림 저항(보스, 0이면 칸 없음)·크기 거리 배율(1000이면 칸 없음) 칸 */
+function bodyResist(
+  body: UnitBody,
+  c: CombatCoefficients,
+): { displaceResistPm?: number; displaceSizePm?: number } {
+  const m = moveCoefficientsOf(c);
+  const pm = bodyDisplaceResistPm(body.boss === true, m);
+  const sizePm = bodyDisplaceSizePm(body.size, m);
+  return {
+    ...(pm > 0 ? { displaceResistPm: pm } : {}),
+    ...(sizePm !== 1000 ? { displaceSizePm: sizePm } : {}),
+  };
 }

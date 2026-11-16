@@ -400,6 +400,54 @@
       "compensation": {
         "kind": "none"
       }
+    },
+    {
+      "category": "tuning",
+      "id": "moves_resist_cap_pm",
+      "since": 118,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "moves_resist_half",
+      "since": 118,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "moves_resist_str_pm",
+      "since": 118,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "moves_resist_vit_pm",
+      "since": 118,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "moves_body_large_pm",
+      "since": 118,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "moves_body_huge_pm",
+      "since": 118,
+      "compensation": {
+        "kind": "none"
+      }
     }
   ]
 }

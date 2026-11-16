@@ -53,6 +53,8 @@ const STATUS_TEXT: Readonly<Record<EffectStatusId, Text>> = {
   stun: m.dev_effects_status_stun,
   root: m.dev_effects_status_root,
   silence: m.dev_effects_status_silence,
+  knockback: m.dev_effects_status_knockback,
+  pull: m.dev_effects_status_pull,
 };
 
 export function effectStatusText(status: EffectStatusId): string {

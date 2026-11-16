@@ -127,12 +127,21 @@ const cheb = (a: { x: number; y: number }, b: { x: number; y: number }): number 
   Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 
 describe("움직임 부품이 없는 전투는 그대로(docs/adr/2026-11-15-combat-moves.md 4절)", () => {
-  it("시범 6 대 6 끝 상태·리플레이 사건 지문이 바꾸기 전 코드(24f91102f1)와 같다", () => {
-    expect(movesBaselineHashes()).toEqual({
+  it("시범 6 대 6 끝 상태·리플레이 사건 지문: 무기 곡선을 끄면 바꾸기 전 코드(24f91102f1)와 같다", () => {
+    expect(movesBaselineHashes("off")).toEqual({
       demo1: "9cc8c26e47eb4d66",
       demo7: "cca9acc8145b0310",
       demo42: "c136d8944d3a50ec",
       replay3: "c53aa789a05bce41",
+    });
+  });
+
+  it("무기 사거리 예산 기본 켬(질문 1814, SIM 60): 시범 6 대 6 지문(마법사·사제 지팡이 사거리 5~7이 간격 140~160%)", () => {
+    expect(movesBaselineHashes()).toEqual({
+      demo1: "c74a11e36bc7f11b",
+      demo7: "eac078e813d511b0",
+      demo42: "d1b6ae85a978cdfd",
+      replay3: "877a34ae0893cca6",
     });
   });
 

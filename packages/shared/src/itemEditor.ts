@@ -176,7 +176,7 @@ export interface ItemWeaponJson {
   readonly staminaCost: number;
   readonly mpCost: number;
   readonly skillElementsPm?: readonly number[] | undefined;
-  /** 기본 공격 곡선(D-564 1594): range_interval = 공격 간격 × 사거리 예산 */
+  /** 기본 공격 곡선(D-564 1594): range_interval = 공격 간격 × 사거리 예산. 칸이 없으면 켬(질문 1814 답), 빈 목록이면 끔 */
   readonly curves?: readonly "range_interval"[] | undefined;
   readonly twoHanded?: boolean | undefined;
   /** 탄약 연결: 보조 칸 무기 종류 ID */

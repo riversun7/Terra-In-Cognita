@@ -1,6 +1,7 @@
 // 이동 부품·달리기·은신 판정 — docs/adr/2026-11-15-combat-moves.md 1·2절과 "바뀜 (D-564·D-568)". battle.ts가 부른다.
 // D-564: 은신은 맞아도 풀리지 않는다, 점멸은 사정거리(cells) 안 아군 시야 칸, 도약은 성벽까지 넘는다, 돌진은 아군에도 막힌다,
-// 밀치기는 벽·뒤 유닛에 부딪히면 피해, 큰 몸·보스·상태이상 저항(STR·VIT)이 밀치기·끌어오기·묶기를 줄인다.
+// 밀치기는 벽·건물·뒤 유닛에 부딪히면 피해(D-570 1803: 막은 쪽도 — 시전자 편 빼고), 몸 크기(S 더·L 덜·XL 훨씬 덜)·보스·밀림 저항(효과
+// 사전 밀림 상태이상 항목의 resist = VIT, 질문 1806 → D-429·D-570 1805)이 밀치기·끌어오기 칸 수만 줄인다(묶기 지속은 그대로).
 // 모두 칸 단위 정수다. 굴림을 뽑지 않고, 후보 칸은 (점수, 시작에서 거리, 칸 번호) 차례로 고른다 → 같은 입력이면 같은 칸.
 // 새 상태 칸(running·stealthUntilMs·detectUntilMs·detectCells)은 켜졌을 때만 둔다(안 쓰는 전투의 상태 JSON이 그대로).
 // 곧은 줄은 주축 좌표가 한 칸씩, 부축은 반올림(정수)이다(시선 los.ts와 같은 모양). 걸음마다 모서리 규칙(fields.ts stepAllowed)과
@@ -9,12 +10,12 @@ import type { BattleMap } from "./battleMap.ts";
 import type { BattleTrace } from "./battleTrace.ts";
 import type { UnitState } from "./battleTypes.ts";
 import { type CombatCoefficients, specStaminaCostMilli } from "./coefficients.ts";
-import { displaceResistPm, moveCoefficientsOf, scalePm } from "./curves.ts";
-import { type EffectDef, applyEffect, moveIntervalMs } from "./effects.ts";
+import { DEFAULT_DISPLACE_RESIST, displacedCells, moveCoefficientsOf, scalePm } from "./curves.ts";
+import { type EffectDef, applyEffect, moveIntervalMs, statusResistPm } from "./effects.ts";
 import { stepAllowed } from "./fields.ts";
 import { sightRadius } from "./formula.ts";
 import { lineClear } from "./los.ts";
-import type { SkillDisplace, SkillMotionMove, SkillMove, StealthCause } from "./moveParts.ts";
+import type { CombatDisplace, SkillMotionMove, SkillMove, StealthCause } from "./moveParts.ts";
 import { isMotionMove } from "./moveParts.ts";
 import { resolveSkill, type CombatSkill } from "./skills.ts";
 
@@ -30,6 +31,11 @@ export interface MoveWorld {
   readonly trace?: BattleTrace | undefined;
   /** 사거리·시선 확인(battle.ts reach, 스킬과 같다) */
   readonly reach: (from: UnitState, goal: UnitState, range: number) => boolean;
+  /**
+   * 부딪힘 피해를 건물에(D-570 1803 "건물 포함"): 시전자 편 건물(성문 편·공성 수비 편)이 아니면 내구도에서 뺀다(battle.ts). 없으면 건물은
+   * 받지 않는다(시험 세계)
+   */
+  readonly hitBuilding?: ((source: UnitState, building: number, amount: number) => void) | undefined;
 }
 
 const chebyshev = (ax: number, ay: number, bx: number, by: number): number =>
@@ -210,7 +216,10 @@ export function performMotion(
   return world.reach(unit, goal, skillRange);
 }
 
-/** 묶기(displace root)가 거는 상태이상(효과 사전 root와 같은 판정). 저항은 지속을 줄인다(D-564 1588) */
+/**
+ * 묶기(displace root)가 거는 상태이상의 판정 기본값(효과 사전 move_root 항목이 실리지 않은 스킬 — 옛 시작 자료·항목 없는 계열표).
+ * 항목이 있으면 그 항목을 건다. 밀림 저항은 지속을 줄이지 않는다(D-570 1805 "거리만 줄임")
+ */
 const MOVE_ROOT: EffectDef = {
   id: "move_root",
   kind: "status",
@@ -225,14 +234,27 @@ const MOVE_ROOT: EffectDef = {
 /** 부딪힘 피해의 리플레이·보고서 이름(지속 피해 사건으로 싣는다, 효과 사전에는 없다) */
 export const MOVE_COLLISION = "move_collision";
 
-/** 이 유닛의 밀림 저항(‰): STR·VIT 점수 + 몸 저항(큰 몸·보스), 0~1000 */
-export function unitDisplaceResistPm(unit: UnitState, c: CombatCoefficients): number {
-  return displaceResistPm(unit.primaries, unit.displaceResistPm ?? 0, moveCoefficientsOf(c));
+/**
+ * 이 유닛의 밀림 저항(‰, 0~1000): 스탯 몫 + 보스 몸 저항. 스탯 몫은 효과 사전 밀림 상태이상 항목(def)의 저항(질문 1806 답 → D-429 모양,
+ * D-570 "스탯 기여도는 VIT", 저항 칸이 없는 항목은 0). def가 없으면(항목을 싣기 전 시작 자료·항목 없는 계열표) 같은 값의 기본 칸
+ */
+export function unitDisplaceResistPm(unit: UnitState, def?: EffectDef): number {
+  const statPm = statusResistPm(def ?? DEFAULT_DISPLACE_DEF, unit.primaries);
+  return Math.max(0, Math.min(1000, statPm + Math.max(0, unit.displaceResistPm ?? 0)));
 }
 
-/** 저항을 거친 값: ⌊값 × (1000 − 저항) ÷ 1000⌋ */
-const resisted = (value: number, resistPm: number): number =>
-  Math.floor((Math.max(0, value) * (1000 - Math.min(1000, Math.max(0, resistPm)))) / 1000);
+/** 항목이 없을 때 저항을 셀 자리 항목(curves.ts DEFAULT_DISPLACE_RESIST, 판정은 resist만 읽는다) */
+const DEFAULT_DISPLACE_DEF: EffectDef = {
+  id: "move_knockback",
+  kind: "status",
+  valueMode: "flat",
+  durationMs: 0,
+  tickMs: 0,
+  stacking: "refresh",
+  maxStacks: 1,
+  status: "knockback",
+  resist: DEFAULT_DISPLACE_RESIST,
+};
 
 /**
  * 부딪힘 피해(D-564 1587): 방어를 거치지 않고 체력에서 뺀다(지속 피해와 같다 — 아머·쉴드는 그대로). 0이면 아무것도 하지 않는다.
@@ -250,41 +272,56 @@ function impact(world: MoveWorld, source: UnitState, unit: UnitState, amount: nu
   world.trace?.collision?.(source, unit, before - unit.hp);
 }
 
-/** 밀려 가다 멈춘 까닭: 다 감(null), 벽(못 지나가는 칸·건물·모서리 규칙), 다른 유닛, 전투맵 끝 */
-type PushStop = { readonly kind: "wall" } | { readonly kind: "unit"; readonly blocker: number } | null;
+/** 밀려 가다 멈춘 까닭: 다 감(null), 벽(못 지나가는 칸·모서리 규칙), 건물, 다른 유닛, 전투맵 끝 */
+type PushStop =
+  | { readonly kind: "wall" }
+  | { readonly kind: "building"; readonly building: number }
+  | { readonly kind: "unit"; readonly blocker: number }
+  | null;
 
-/** 밀린 대상이 줄의 다음 칸으로 못 간 까닭(지형이 막으면 벽, 지형은 열렸는데 점유면 유닛, 맵 밖이면 끝 = 피해 없음) */
+/**
+ * 밀린 대상이 줄의 다음 칸으로 못 간 까닭(지형이 막으면 벽 — 그 칸이 서 있는 건물이면 건물, 지형은 열렸는데 점유면 유닛, 맵 밖이면 끝 =
+ * 피해 없음)
+ */
 function pushStop(world: MoveWorld, unit: UnitState, nx: number, ny: number): PushStop {
   const size = world.map.size;
   if (nx < 0 || ny < 0 || nx >= size || ny >= size) return null;
   const pass = unit.air ? () => true : (cell: number) => world.map.passableFor(cell, unit.side, world.gone);
-  if (!stepAllowed(size, unit.x, unit.y, nx - unit.x, ny - unit.y, pass)) return { kind: "wall" };
+  if (!stepAllowed(size, unit.x, unit.y, nx - unit.x, ny - unit.y, pass)) {
+    const cell = ny * size + nx;
+    const building = world.map.buildingAt[cell] ?? 0;
+    return building !== 0 && !pass(cell) ? { kind: "building", building } : { kind: "wall" };
+  }
   const holder = world.occupied[ny * size + nx] ?? 0;
   return holder !== 0 && holder !== unit.id && !unit.air ? { kind: "unit", blocker: holder } : null;
 }
 
 /**
- * 맞은 대상 하나를 옮긴다(밀치기·끌어오기) 또는 묶는다. 쓰러진 대상은 그대로. 밀림 저항이 칸 수·묶기 지속을 줄인다(D-564 1588).
- * 밀치기가 줄 끝까지 못 가고 벽에 막히면 밀린 대상이 한 방 피해 × wallPm, 유닛에 막히면 밀린 대상과 막은 유닛(시전자의 적일 때만)이
- * 한 방 피해 × unitPm을 받는다(D-564 1587). hitDamage = 밀어낸 한 방의 피해(피해 없는 스킬은 0 → 부딪힘 피해 없음)
+ * 맞은 대상 하나를 옮긴다(밀치기·끌어오기) 또는 묶는다. 쓰러진 대상은 그대로. 밀림 저항은 칸 수(거리)만 줄인다(D-570 1805 — 묶기 지속은
+ * 그대로): 칸 = ⌊칸 × 크기 배율 × (1000 − 저항) ÷ 1000000⌋(curves.ts displacedCells).
+ * 밀치기가 줄 끝까지 못 가고 벽에 막히면 밀린 대상이 한 방 피해 × wallPm, 건물에 막히면 밀린 대상과 그 건물(시전자 편 건물 빼고, 판정
+ * hitBuilding)이 × wallPm, 유닛에 막히면 밀린 대상과 막은 유닛(시전자 편이 아니면 누구나 — 중립 포함)이 × unitPm을 받는다(D-564 1587,
+ * D-570 1801·1803). hitDamage = 밀어낸 한 방의 피해(피해 없는 스킬은 0 → 부딪힘 피해 없음)
  */
 export function displaceTarget(
   world: MoveWorld,
   source: UnitState,
   target: UnitState,
-  part: SkillDisplace,
+  part: CombatDisplace,
   hitDamage = 0,
 ): void {
   if (target.status !== "alive") return;
-  const resist = unitDisplaceResistPm(target, world.c);
   if (part.kind === "root") {
-    const durationMs = resisted(part.durationMs, resist);
-    if (durationMs > 0) applyEffect(target, MOVE_ROOT, 0, durationMs, world.nowMs);
+    if (part.durationMs > 0) applyEffect(target, part.def ?? MOVE_ROOT, 0, part.durationMs, world.nowMs);
     return;
   }
   const fromX = target.x;
   const fromY = target.y;
-  const cells = resisted(Math.trunc(part.cells), resist);
+  const cells = displacedCells(
+    part.cells,
+    target.displaceSizePm ?? 1000,
+    unitDisplaceResistPm(target, part.def),
+  );
   if (part.kind === "knockback") {
     const line = awayLine(target.x, target.y, source.x, source.y, cells);
     const moved = walkLine(world, target, line, () => false);
@@ -294,7 +331,11 @@ export function displaceTarget(
     const stop = pushStop(world, target, next[0], next[1]);
     const k = moveCoefficientsOf(world.c).knockback;
     if (stop?.kind === "wall") impact(world, source, target, scalePm(hitDamage, k.wallPm));
-    else if (stop?.kind === "unit") {
+    else if (stop?.kind === "building") {
+      const amount = scalePm(hitDamage, k.wallPm);
+      impact(world, source, target, amount);
+      if (amount > 0) world.hitBuilding?.(source, stop.building, amount);
+    } else if (stop?.kind === "unit") {
       const amount = scalePm(hitDamage, k.unitPm);
       impact(world, source, target, amount);
       const blocker = world.units.find((other) => other.id === stop.blocker);

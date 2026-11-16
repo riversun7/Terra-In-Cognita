@@ -3,6 +3,7 @@
 // "바뀜 (창고·직무)": 재료 자리(도시 창고·창고 시설·화물만), 창고 시설 넣기·꺼내기·용량, 사라진 창고의 물건, 작업 동안 직무 산출 없음.
 import { CONDITION_FULL } from "@terra/shared/facilityRuntime";
 import { waterMaskFromHex } from "@terra/shared/waterNearby";
+import { REPAIR_SERVICE_ITEM } from "@terra/shared/businessBooks";
 import { buildingLocation, cityLocation } from "@terra/shared/goodsPlaces";
 import { UPKEEP_PERIOD_MS } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -15,7 +16,7 @@ import {
   rows,
 } from "../testDb.ts";
 import { ASSET_CREDIT, ASSET_ORE } from "../world/settlement.ts";
-import { addTestUnits, silentLog } from "../world/testSupport.ts";
+import { addTestUnits, silentLog, fundTestVault } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
 import type { Viewer } from "../trpc/context.ts";
 import { facilityScreenSourceOf } from "./appSource.ts";
@@ -304,6 +305,7 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
 
     // 임금형 계약(일함) → 사용 닳음 하루 7% → 30% 아래 → 기능 정지
     const unitId = a.units[0] ?? 0;
+    fundTestVault(p.ledger, a.ownerId, buildingId, 1_000n, clock);
     expect((await p.labor.create(a.userId, { kind: "wage", buildingId, unitId })).ok).toBe(true);
     p.settlement.settleOwner(a.ownerId, clock);
     // 시설이 일하는 동안(30%)은 계약 유닛이 시험 광석을 낸다(다른 일꾼 하나는 계약이 없어 내지 않는다)
@@ -408,19 +410,18 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
     expect(await world.checkInvariants()).toEqual([]);
   });
 
-  it("외주(D-564 1682): 남의 공방에서도 내 장인·내 재료로 장비를 고치고 요금은 그 공방 사업장 금고로", async () => {
+  it("외주(D-570 1785): 남의 공방은 그 공방 일꾼이 고치고 요금(주인이 정한 시간당, 없으면 적정가)은 그 공방 사업장 금고로", async () => {
     const world = await boot();
     const p = persistence(world);
     const service = p.facilities.service;
     const owner = await setup(world, "shopkeeper", 1, { pine_log: 30, iron_ore: 20 });
     const buildingId = await workshop(world, owner, 40);
     const guest = await setup(world, "customer", 1, { iron_ingot: 5, deer_hide: 5 });
-    const unitId = guest.units[0] ?? 0;
     const granted = p.holdings.service.acquire({
       ownerId: guest.ownerId,
       item: "hold_vest",
       quantity: 1,
-      location: -unitId,
+      location: -(guest.units[0] ?? 0),
       source: "dev_grant",
       atMs: clock,
       seed: 7,
@@ -431,23 +432,52 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
       .holdings.find((entry) => entry.id === holdingId);
     if (!record) throw new Error("no vest");
     record.durability = 40;
+    // 공방 일꾼이 없으면 받지 않는다
+    expect(await service.repairEquipment(guest.userId, buildingId, holdingId, [])).toEqual({
+      ok: false,
+      code: "no_shop_worker",
+    });
+    // 주인이 제 유닛을 공방에 직무 배치(공방 = 일터, D-570 1785)
+    const worker = owner.units[0] ?? 0;
+    expect(await p.labor.assign(owner.userId, buildingId, worker)).toEqual({ ok: true });
+    expect(service.shopWorkers(buildingId)).toEqual([worker]);
+    // 주인이 시간당 요금 0 = 받지 않음
+    expect(
+      await p.facilities.businessCommands.run(owner.userId, {
+        kind: "price",
+        buildingId,
+        item: REPAIR_SERVICE_ITEM,
+        price: 0n,
+      }),
+    ).toEqual({ ok: true });
+    expect(await service.repairEquipment(guest.userId, buildingId, holdingId, [])).toEqual({
+      ok: false,
+      code: "service_closed",
+    });
+    // 시간당 600 → 6분(360,000ms) 수리 요금 = 60
+    expect(
+      await p.facilities.businessCommands.run(owner.userId, {
+        kind: "price",
+        buildingId,
+        item: REPAIR_SERVICE_ITEM,
+        price: 600n,
+      }),
+    ).toEqual({ ok: true });
     const vault = () => p.ledger.balanceOf(owner.ownerId, ASSET_CREDIT, buildingLocation(buildingId));
     const wallet = () => p.ledger.balanceOf(guest.ownerId, ASSET_CREDIT);
     const walletBefore = wallet();
-    // 요금 = 재료 기준 값 합 × 외주 요금‰(올림) — 그 공방 금고로(소득세는 도시 나라 국고)
-    const fee = p.facilities.businessCommands.serviceFee([
-      { item: "iron_ingot", qty: 1 },
-      { item: "deer_hide", qty: 1 },
-    ]);
-    expect(fee).toBeGreaterThan(0n);
-    expect(await service.repairEquipment(guest.userId, buildingId, holdingId, [unitId])).toEqual({
+    const vaultBefore = vault();
+    expect(await service.repairEquipment(guest.userId, buildingId, holdingId, [])).toEqual({
       ok: true,
       doneAtMs: clock + 360_000,
     });
+    const fee = 60n;
     expect(goodsStock(p.ledger, guest.ownerId, "iron_ingot")).toBe(4n);
     expect(wallet()).toBe(walletBefore - fee);
     const tax = (fee * BigInt(p.facilities.business.taxRateOf(buildingId, owner.ownerId))) / 10_000n;
-    expect(vault()).toBe(fee - tax);
+    expect(vault() - vaultBefore).toBe(fee - tax);
+    // 그 공방 일꾼이 작업에 묶인다(맡긴 사람 작업)
+    expect(service.unitInJob(worker)).toBe(true);
     clock += 360_000;
     expect(service.finishDue(clock)).toBe(1);
     expect(record.durability).toBe(record.maxDurability);
@@ -561,6 +591,7 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
     expect(service.finishDue(clock)).toBe(1);
     expect(p.ledger.balanceOf(a.ownerId, ASSET_ORE)).toBe(oreBefore);
     // 작업이 끝나면 그 일꾼은 다시 계약을 맺을 수 있다(맺은 계약은 바로 끝낸다 — 아래 화면 자료는 계약과 상관없다)
+    fundTestVault(p.ledger, a.ownerId, yardId, 1_000n, clock);
     const freed = await p.labor.create(a.userId, { kind: "wage", buildingId: yardId, unitId });
     expect(freed.ok).toBe(true);
     const freedId = freed.ok ? (freed.contractId ?? 0) : 0;

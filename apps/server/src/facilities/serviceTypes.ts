@@ -7,6 +7,7 @@ import type { CityCell } from "@terra/shared/goodsPlaces";
 import type { SocietyCoefficients } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldHoldings } from "../holdings/world.ts";
+import type { LaborWorkerEntry } from "../labor/service.ts";
 import type { TerritoryService } from "../territory/service.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
@@ -127,6 +128,10 @@ export interface FacilityServiceOptions {
     | {
         readonly unitBusy: (unitId: number) => boolean;
         readonly buildingInUse: (buildingId: number) => boolean;
+        /** 그 시설 일꾼(외주 수리를 맡는 공방 일꾼 — D-570 1785). 없으면 빈 목록 */
+        readonly workersAt?: ((buildingId: number) => readonly LaborWorkerEntry[]) | undefined;
+        /** 일하지 않는 유닛(비활성·수호신). 없으면 늘 false */
+        readonly unitAway?: ((unitId: number) => boolean) | undefined;
       }
     | undefined;
   readonly now: () => number;

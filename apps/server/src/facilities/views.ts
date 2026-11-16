@@ -58,8 +58,8 @@ export interface FacilityViewSource {
   readonly workersOf?: ((buildingId: number) => readonly LaborWorkerEntry[]) | undefined;
   /** 원자재 오브젝트를 맡는 시설 ID(팩 gather_objects의 facility — 채집소 반경 고리). 없으면 반경 없음 */
   readonly objectFacilities?: (() => ReadonlySet<string>) | undefined;
-  /** 외주 요금(남의 공방 장비 수리, D-564 1682 — business/commands.ts serviceFee). 없으면 남의 공방을 보이지 않는다 */
-  readonly serviceFee?: ((materials: readonly { item: string; qty: number }[]) => bigint) | undefined;
+  /** 남의 공방 외주 수리를 보이나(D-564 1682 — 견적은 건물 서비스 outsourceQuote, D-570 1785). 없으면 남의 공방을 보이지 않는다 */
+  readonly outsource?: boolean | undefined;
   /** 멈춘 사업장인가(적자, D-555 1504) — 외주를 받지 않는다 */
   readonly suspended?: ((buildingId: number) => boolean) | undefined;
   /** 그 숙소를 쓰는 NPC 일꾼 수(도시 경제 쉼터 계획, 질문 1047 다). 없으면 null */
@@ -267,7 +267,7 @@ export function facilitiesOverview(
   }[] = [];
   // 외주(D-564 1682): 내 유닛이 있는 2차맵의 남의 공방도 장비 수리를 받는다(요금은 그 공방 금고)
   const myMaps = new Set<number>();
-  if (ownerId !== undefined && source.serviceFee)
+  if (ownerId !== undefined && source.outsource === true)
     for (const map of source.maps.values())
       map.forEachUnit((unit) => {
         if (unit.ownerId === ownerId) myMaps.add(map.mapKey);
@@ -496,12 +496,20 @@ export function facilitiesOverview(
             if (!rule || !shop.works) return [];
             const materials = repairMaterials(rule, def.tier, lost, record.maxDurability ?? 0);
             if (!shop.outside) return [{ buildingId: shop.buildingId, materials }];
-            const fee = source.serviceFee?.(materials) ?? 0n;
+            // 외주(D-570 1785): 그 공방 일꾼이 고친다 — 일꾼이 없거나 받지 않는 공방은 보이지 않는다
+            const quote = service.outsourceQuote(shop.buildingId, {
+              tier: def.tier,
+              lost,
+              maxDurability: record.maxDurability ?? 0,
+            });
+            if (typeof quote === "string") return [];
             return [
               {
                 buildingId: shop.buildingId,
                 materials,
-                fee: String(fee),
+                fee: String(quote.fee),
+                ms: quote.ms,
+                workers: quote.workers.length,
                 mapKey: shop.mapKey,
                 cityId: shop.cityId ?? null,
               },

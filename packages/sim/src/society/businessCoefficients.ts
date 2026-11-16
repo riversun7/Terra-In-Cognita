@@ -31,10 +31,17 @@ export interface BusinessCoefficients {
    */
   readonly reserveDefaultPm: number;
   /**
-   * [임시] 외주 요금(‰, 기획 D-564 1682 "조선소·상업시설은 외주를 받아 장사" — 요금은 그 사업장 금고). 남의 공방에서 장비를 고치면 쓰는 재료 기준 값
-   * 합 × 이 값/1000(올림)을 그 공방 금고에 낸다. 0이면 요금 없음. 주인이 요금을 정하는 길은 질문 1785
+   * [임시] 적정가 수수료(‰, 기획 D-570 1822 "적정가격 계산은 필요 재료비 인건비, 수수료 세금 등을 대략계산"). 값을 정하는 화면의 적정가 =
+   * (재료비 + 인건비) × (1000 + 이 값)/1000을 세금 뒤에 남기는 값(@terra/shared/fairPrice). 바뀜 (D-570 1785): 예전에는 외주 수리 요금(재료 기준 값
+   * × 이 값)이었다 — 이제 외주 요금은 주인이 정하고(정하지 않으면 적정가), 이 칸은 적정가 셈에만 쓴다
    */
   readonly serviceFeePm: number;
+  /**
+   * [임시] NPC 사업장 장부(기획 D-570 1887 — D-212 "NPC도 같은 시스템"·D-569 1781 "무조건 판매"): 1이면 NPC 세력 시설의 산출을 그 도시(나라)가
+   * 시세에 사들인 매출로, 레시피 재료를 시설이 사들인 재료비로 시설 금고에 적고 바로 국고로 정산한다(손익만 — 물건 흐름·시뮬 판정은 그대로).
+   * 0이면 끈다(원장 거래가 늘어 부하가 크면)
+   */
+  readonly npcBooks: number;
 }
 
 export const START_BUSINESS: BusinessCoefficients = {
@@ -47,4 +54,5 @@ export const START_BUSINESS: BusinessCoefficients = {
   reserveMarginPm: 200,
   reserveDefaultPm: 1000,
   serviceFeePm: 200,
+  npcBooks: 1,
 };

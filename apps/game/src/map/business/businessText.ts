@@ -1,6 +1,7 @@
 // 사업장 장부 글자 — 칸·거래 종류·결과 코드 → 메시지 키(ko·en). docs/adr/2026-11-15-business-ledger.md
 import type { BusinessResultCode } from "@terra/protocol";
 import type { BookColumn, BookOwnerKind } from "@terra/shared/businessBooks";
+import type { FairPriceView } from "@terra/shared/fairPrice";
 import type { LocalizedName } from "@terra/shared/roster";
 import { getLocale } from "../../paraglide/runtime.js";
 import { m } from "../../paraglide/messages.js";
@@ -12,6 +13,7 @@ export const COLUMN_TEXT: Readonly<Record<BookColumn, () => string>> = {
   wages: m.books_col_wages,
   upkeep: m.books_col_upkeep,
   lodging: m.books_col_lodging,
+  materials: m.books_col_materials,
   debt: m.books_col_debt,
   settlement: m.books_col_settlement,
   invest: m.books_col_invest,
@@ -70,6 +72,27 @@ export function ownerText(name: LocalizedName | null | undefined, kind: BookOwne
   const text = localName(name);
   if (text !== null) return text;
   return kind === null ? m.building_owner_none() : OWNER_TEXT[kind]();
+}
+
+/** 적정가 한 줄(기획 D-570 1822 — 재료비·인건비·수수료·세금). 값 글자는 부르는 쪽이 꾸민다 */
+export function fairText(
+  fair: FairPriceView,
+  format: (value: string) => string,
+  message: (parts: {
+    price: string;
+    materials: string;
+    labor: string;
+    fee: string;
+    tax: string;
+  }) => string = m.fair_price_line,
+): string {
+  return message({
+    price: format(fair.price),
+    materials: format(fair.materials),
+    labor: format(fair.labor),
+    fee: format(fair.fee),
+    tax: format(fair.tax),
+  });
 }
 
 /** ‰ → "12.3%" */

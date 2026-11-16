@@ -105,17 +105,17 @@ describe("노동 계약 — 임금형(옛 salary_engine·WAGE)", () => {
     expect(audit.check(book.accounts())).toEqual([]);
   });
 
-  it("30번 내면 보증금이 0 → 다음 지급 시각에 자동 해고. 그동안 일하고 그 뒤는 자유", () => {
+  it("30번 내면 보증금이 0 → 다음 지급 시각에 일시 중지(자동 해고 없음, D-570 1789). 그동안 일하고 그 뒤는 쉼", () => {
     const { book, audit, accounts } = world();
     const c = open(book, accounts);
     const segments = settleLabor(c, 40 * DAY, book, accounts, rules);
-    expect(c.state).toBe("ended");
-    expect(c.endReason).toBe("deposit_used_up");
-    expect(c.endedAtMs).toBe(30 * DAY);
+    expect(c.state).toBe("paused");
+    expect(c.endReason).toBeNull();
+    expect(c.endedAtMs).toBeNull();
     expect(c.paidTotal).toBe(600n);
     expect(segments).toEqual([
       { untilMs: 30 * DAY, mode: "work" },
-      { untilMs: 40 * DAY, mode: "free" },
+      { untilMs: 40 * DAY, mode: "idle" },
     ]);
     expect(book.balanceOf(WORKER, CUR)).toBe(ISSUED + 600n);
     expect(ownerMoney(book)).toBe(2n * ISSUED);

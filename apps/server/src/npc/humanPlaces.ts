@@ -11,12 +11,16 @@
 // 쉼터 계획(질문 1047 다, npc/cityRest.ts — 도시 경제가 맞출 때마다 셈): 있으면 일꾼마다 그 계획의 숙소(침대 수 안, 길 위가 먼저)에서 쉬고, 침대가
 // 모자란 일꾼은 시청 칸 둘레(집)에서 쉰다. 같은 계획이 생산 속도 배율을 정하므로 보이는 쉼터와 셈이 같다.
 // 피로 바퀴(질문 1095 가, 설정 칸 worker_rest_cycle_mode 1): 일꾼은 낮·밤 대신 생산 셈과 같은 일·쉼 바퀴로 일터 ↔ 쉼터를 오간다(지치면 스스로 쉼터로).
+// 보이는 운반꾼(기획 D-564 1626·D-570 1886 "보이는 운반꾼이 원칙(NPC 포함), 부하가 크면 보이지 않는 곳만 시간 계산"): 건물 시설의 산출을 창고로
+// 나르는 시간(도시 경제 haul)이 있으면 그 시설 첫 일꾼이 그 시간 동안 창고 둘레로 걸어가 내려놓는다(BotHome.haul). 보는 사람이 있는 2차맵
+// (구독자가 있는 2차맵)에만 붙인다 — 보지 않는 2차맵은 시간 셈만(같은 결과). 판정은 도시 경제의 시간 셈 그대로다(보이는 모습만).
 import { isCellKey } from "@terra/planet";
 import { cellCenter } from "@terra/planet/projection";
 import { type BuildingPlacement, footprintRect } from "@terra/sim";
 import {
   type BotHome,
   DEFAULT_WORK_SHIFT,
+  type HaulTrip,
   type RestCycle,
   type TripArea,
   type WorkShift,
@@ -25,6 +29,8 @@ import type { CityRestPlan, WorkerRest } from "./cityRest.ts";
 
 /** [임시] 일터 네모 = 건물 가운데 칸 둘레, 건물 반 폭 + 이 칸(건물 칸은 설 수 없어 그 둘레에서 고른다) */
 export const WORK_MARGIN_CELLS = 3;
+/** [임시] 운반꾼이 내려놓는 창고 둘레 반경(칸 — 창고 건물 칸은 설 수 없어 그 둘레) */
+export const HAUL_DROP_RADIUS_CELLS = 4;
 
 /** 시설 하나의 일꾼(도시 경제 시설 ID 차례) */
 export interface WorkFacility {
@@ -33,6 +39,10 @@ export interface WorkFacility {
   /** 건물 ID(도시 직무면 null) */
   readonly buildingId: number | null;
   readonly workers: number;
+  /** 보이는 운반(D-570 1886): 이번 산출을 이 칸(창고 가운데)으로 [fromMs, untilMs)에 나른다. 없으면 운반 모습 없음 */
+  readonly haul?:
+    | { readonly x: number; readonly y: number; readonly fromMs: number; readonly untilMs: number }
+    | undefined;
 }
 
 /**
@@ -94,6 +104,15 @@ export function assignHumanPlaces(input: {
   let next = 0;
   for (const facility of input.facilities.toSorted((a, b) => a.id - b.id)) {
     const work = facility.buildingId === null ? undefined : input.areas.get(facility.buildingId);
+    // 그 시설 첫 일꾼이 운반꾼(D-570 1886)
+    const haul: HaulTrip | undefined =
+      work && facility.haul
+        ? {
+            area: { x: facility.haul.x, y: facility.haul.y, radius: HAUL_DROP_RADIUS_CELLS },
+            fromMs: facility.haul.fromMs,
+            untilMs: facility.haul.untilMs,
+          }
+        : undefined;
     for (let taken = 0; taken < facility.workers && next < humans.length; taken++) {
       const unitId = humans[next] ?? 0;
       next += 1;
@@ -105,12 +124,13 @@ export function assignHumanPlaces(input: {
           : nearestArea(input.lodgings ?? [], work);
       const cycle = input.cycles?.[order];
       const own = cycle ? { ...shift, cycle } : shift;
+      const carry = taken === 0 && haul ? { haul } : {};
       out.set(
         unitId,
         work
           ? rest
-            ? { x: rest.x, y: rest.y, homeRadius: rest.radius, work, shift: own }
-            : { x: input.home.x, y: input.home.y, work, shift: own }
+            ? { x: rest.x, y: rest.y, homeRadius: rest.radius, work, shift: own, ...carry }
+            : { x: input.home.x, y: input.home.y, work, shift: own, ...carry }
           : { ...input.home },
       );
     }
@@ -127,6 +147,8 @@ export interface PlacesMap {
   ): void;
   unitInfo(unitId: number): object | undefined;
   setHome(unitId: number, home: BotHome | null): boolean;
+  /** 이 2차맵을 보는 연결(구독자) 수 — 보이는 운반꾼은 보는 사람이 있을 때만(D-570 1886). 없으면 보지 않는 2차맵 */
+  readonly stream?: { readonly subscriberCount: number } | undefined;
 }
 
 export interface HumanPlacesInput {
@@ -196,11 +218,16 @@ export function createHumanPlaces(): { sync(input: HumanPlacesInput): number } {
         const map = place ? input.maps.get(place.mapKey) : undefined;
         if (!place || !map) continue;
         const here = humans.filter((id) => map.unitInfo(id) !== undefined);
+        // 보는 사람이 없는 2차맵은 운반 모습 없이(시간 셈만 — D-570 1886)
+        const watched = (map.stream?.subscriberCount ?? 0) > 0;
+        const facilities = (input.facilitiesOf?.(cityId) ?? []).map((facility) =>
+          watched || !facility.haul ? facility : { ...facility, haul: undefined },
+        );
         const homes = assignHumanPlaces({
           humans: here.filter((id) => !guards.has(id)),
           guards: here.filter((id) => guards.has(id)),
           home: { x: place.cellX, y: place.cellY },
-          facilities: input.facilitiesOf?.(cityId) ?? [],
+          facilities,
           areas: areasOf(place.mapKey, map),
           shift: shiftOf(place.mapKey),
           lodgings: (input.lodgingsOf?.(cityId) ?? []).flatMap((id) => {

@@ -11,17 +11,25 @@
 //   길(storage_move out의 값 받기)은 없앴다(건물 서비스가 sale_only로 거절).
 //   바뀜 (D-569 1784 "거래소 반입은 실제 운반만"): 산 물건은 운반꾼(그 건물 일꾼 또는 산 사람의 유닛)이 그 도시의 산 사람 도시 창고로 걸어 나른다
 //   (carry 고리 — gather/station.ts haulOut). 운반꾼이 없으면 no_carrier(돈·물건 그대로). 옮김 셈을 끄거나 거리 0이면 예전처럼 바로 도시 창고로.
-// - 값 정하기: 주인·대주주. 원장 물자만.
-// - 지급준비율(D-564 1623): 주인·대주주. 정산이 이 비율로 금고에 돈을 남긴다(core.ts·reserve.ts).
+// - 값 정하기: 주인·대주주. 원장 물자, 그리고 외주 수리 시간당 요금(REPAIR_SERVICE_ITEM — 수리 줄이 있는 공방만, 기획 D-570 1785 "요금은 주인이
+//   정한다"). 수리 요금을 정하지 않았으면 적정가(fairPrice.ts — 그 공방 일꾼 시간당 인건비·수수료·세금)로 받고, 0이면 외주를 받지 않는다.
+// - 지급준비율(D-564 1623): 주인 또는 대주주(D-570 1790 — D-555 1502). 정산이 이 비율로 금고에 돈을 남긴다(core.ts·reserve.ts).
 // - 선물(1508): 내 유닛의 유닛 지갑(@terra/shared/businessBooks unitPurseLocation)에 내 지갑 돈을 준다.
 // - 화폐는 서버 시험 화폐가 기본 [임시](요금·임금과 같다). 넣기·정산은 고른 화폐.
 import type { BusinessResultCode } from "@terra/protocol";
-import { businessLocation, isReservePm, unitPurseLocation } from "@terra/shared/businessBooks";
+import {
+  REPAIR_SERVICE_ITEM,
+  businessLocation,
+  isReservePm,
+  unitPurseLocation,
+} from "@terra/shared/businessBooks";
+import { type FairPrice, serviceFeeOf } from "@terra/shared/fairPrice";
 import { cityLocation } from "@terra/shared/goodsPlaces";
 import type { BusinessCoefficients } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { FacilityCatalog } from "../facilities/catalog.ts";
 import type { BusinessCore } from "./core.ts";
+import { hourlyFair } from "./fairPrice.ts";
 import type { ShareMarkets } from "./shares.ts";
 
 export type BusinessCommand =
@@ -83,6 +91,10 @@ export interface BusinessCommandDeps {
   durable(): Promise<void>;
   /** 생산시설 지분 시장(shares.ts). 없으면 지분 주문은 busy */
   readonly shares?: (() => ShareMarkets | undefined) | undefined;
+  /** 그 건물이 장비 수리 줄이 있는 공방인가(외주 수리 요금을 정할 수 있다). 없으면 늘 false */
+  readonly repairShop?: ((buildingId: number) => boolean) | undefined;
+  /** 그 공방 일꾼 시간당 인건비(labor/service.ts hourlyLabor — 적정가). 없으면 0 */
+  readonly laborHourly?: ((buildingId: number) => bigint) | undefined;
 }
 
 export interface BusinessCommands {
@@ -101,10 +113,16 @@ export interface BusinessCommands {
    */
   sellTo(buyer: number, buildingId: number, asset: string, qty: bigint, atMs: number): bigint;
   /**
-   * 외주 요금(기획 D-564 1682 — 남의 공방 장비 수리 등): 쓰는 재료 기준 값 합 × 설정 칸 business_service_fee_pm ‰, 올림. 재료가 없으면 0 [임시]
-   * (주인이 정하는 요금은 질문 1785)
+   * 외주 수리 시간당 적정가(기획 D-570 1822 — 재료는 맡기는 사람이 내므로 인건비·수수료·세금). 화면이 요금을 정할 때 곁에 보이고, 요금을
+   * 정하지 않은 공방은 이 값으로 받는다
    */
-  serviceFee(materials: readonly { readonly item: string; readonly qty: number }[]): bigint;
+  repairFair(buildingId: number): FairPrice;
+  /** 지금 받는 외주 수리 시간당 요금(정한 값, 없으면 적정가). 정했는지도 */
+  repairRate(buildingId: number): { readonly perHour: bigint; readonly set: boolean };
+  /**
+   * 외주 수리 요금(기획 D-570 1785 "그 공방 일꾼이 고치고 요금은 주인이 정한다"): 시간당 요금 × 걸리는 시간, 올림. 받지 않으면(요금 0) null
+   */
+  repairFee(buildingId: number, ms: number): bigint | null;
   /** 그 사람 지갑(기본 화폐)에 fee가 있나 */
   canPay(ownerId: number, fee: bigint): boolean;
   /** 외주 요금을 낸다: 지갑 → 그 사업장 금고(소득세). 모자라면 "insufficient_funds" */
@@ -130,6 +148,20 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
     const set = core.price(buildingId, asset);
     if (set !== undefined) return set > 0n ? set : null;
     return basePrice(asset);
+  };
+
+  const repairFair = (buildingId: number): FairPrice => {
+    const ownerId = deps.place(buildingId)?.ownerId ?? null;
+    return hourlyFair(deps.laborHourly?.(buildingId) ?? 0n, {
+      feePm: deps.rules().serviceFeePm,
+      taxBp: ownerId === null ? 0 : core.taxRateOf(buildingId, ownerId),
+    });
+  };
+  const repairRate = (buildingId: number): { perHour: bigint; set: boolean } => {
+    const set = core.price(buildingId, REPAIR_SERVICE_ITEM);
+    return set === undefined
+      ? { perHour: repairFair(buildingId).price, set: false }
+      : { perHour: set, set: true };
   };
 
   const lotOf = (buildingId: number): { minLot: number; retail: boolean } => {
@@ -276,8 +308,9 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
         return { ok: true, paid: command.amount };
       }
       case "reserve": {
-        // 지급준비율(D-564 1623): 주인·대주주(운영자 모드도)가 고른다. null = 설정 칸 기본값
-        const found = managed(me, command.buildingId, operator);
+        // 지급준비율(D-564 1623): 주인 또는 대주주(D-570 1790 — D-555 1502 "주인 또는 대주주", 운영자 모드도)가 고른다. null = 설정 칸 기본값
+        const owner = deps.place(command.buildingId)?.ownerId === me && deps.isBusiness(command.buildingId);
+        const found = managed(me, command.buildingId, operator || owner);
         if (!found.ok) return fail(found.code);
         if (command.reservePm !== null && !isReservePm(command.reservePm)) return fail("invalid_amount");
         core.setReserve(command.buildingId, command.reservePm);
@@ -286,7 +319,14 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
       case "price": {
         const found = managed(me, command.buildingId, operator);
         if (!found.ok) return fail(found.code);
-        if (!deps.catalog().isGoods(command.item.slice(5))) return fail("not_goods");
+        // 외주 수리 시간당 요금(D-570 1785)은 수리 줄이 있는 공방만
+        const service = command.item === REPAIR_SERVICE_ITEM;
+        if (
+          service
+            ? deps.repairShop?.(command.buildingId) !== true
+            : !deps.catalog().isGoods(command.item.slice(5))
+        )
+          return fail("not_goods");
         if (command.price < 0n) return fail("invalid_amount");
         core.setPrice(command.buildingId, command.item, command.price);
         return { ok: true };
@@ -332,11 +372,12 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
       });
       return n;
     },
-    serviceFee(materials) {
-      const pm = BigInt(Math.max(0, Math.trunc(deps.rules().serviceFeePm)));
-      let base = 0n;
-      for (const stack of materials) base += basePrice(`item:${stack.item}`) * BigInt(Math.max(0, stack.qty));
-      return base > 0n && pm > 0n ? (base * pm + 999n) / 1000n : 0n;
+    repairFair,
+    repairRate,
+    repairFee(buildingId, ms) {
+      const rate = repairRate(buildingId);
+      if (rate.perHour <= 0n) return null;
+      return serviceFeeOf(rate.perHour, ms);
     },
     canPay: (ownerId, fee) => ledger.balance(ledger.ownerAccount(ownerId, deps.fallbackAsset)) >= fee,
     chargeService(ownerId, buildingId, fee, kind, atMs) {

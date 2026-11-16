@@ -22,6 +22,7 @@ function fakeService(calls: string[]): LaborService {
     unitAway: () => false,
     wageNeeds: () => [],
     fundDeposit: () => 0n,
+    hourlyLabor: () => 0n,
     buildingInUse: () => false,
     assignedTo: () => undefined,
     building: notUsed,

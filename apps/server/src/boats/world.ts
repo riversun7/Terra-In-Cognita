@@ -6,6 +6,8 @@
 // - 요금 화폐(D-559 1524 "요금은 그 나라 화폐"): 시설이 선 도시 → 그 도시 주인 세력의 나라 화폐(도시 경제 런타임, 거래소와 같은 읽기). 도시·경제가 없으면 서버 시험 화폐.
 // B3("바뀜 (2026-11-14, B3)", 기획 D-542 1329 나): 이동 서비스에 "행성 값이 바다인 2차맵"을 붙인다(배가 띄우지 않은 바다 2차맵을 건너뛴다).
 import { WATER_OCEAN } from "@terra/planet";
+import { fairPrice, fairPriceView, laborCostOf } from "@terra/shared/fairPrice";
+import { buildingPlace } from "../facilities/places.ts";
 import { TEST_PLANET_ID, type World } from "../world/world.ts";
 import { nationOfOwner } from "../world/nationVision.ts";
 import { ASSET_CREDIT } from "../world/settlement.ts";
@@ -98,6 +100,18 @@ export function startWorldBoats(
         },
         feeAsset: ASSET_CREDIT,
         business: facilities.business,
+        // 배 주문 적정가(D-570 1822): 재료 기준 값 + 조선소 일꾼 인건비 × 만드는 시간 + 수수료 + 세금
+        fairOf: (buildingId, materials, ms) => {
+          const owner = buildingPlace(facilities.service.places, buildingId)?.ownerId ?? null;
+          return fairPriceView(
+            fairPrice({
+              materials,
+              labor: laborCostOf(parts.labor.hourlyLabor(buildingId), ms),
+              feePm: facilities.rules().business.serviceFeePm,
+              taxBp: owner === null ? 0 : facilities.business.taxRateOf(buildingId, owner),
+            }),
+          );
+        },
         writer: parts.writer,
         planetId: TEST_PLANET_ID,
         jobs,

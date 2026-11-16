@@ -30,7 +30,9 @@ function fakeWriter() {
   return { writer, ops };
 }
 
-function setup(options: { taxBp?: number; owner?: number | null; cityOwner?: number } = {}) {
+function setup(
+  options: { taxBp?: number; owner?: number | null; cityOwner?: number; now?: () => number } = {},
+) {
   let ids = 1;
   const ledger = createLedgerBook({ nextAccountId: () => ids++, nextTxId: () => ids++ });
   const { writer, ops } = fakeWriter();
@@ -45,6 +47,7 @@ function setup(options: { taxBp?: number; owner?: number | null; cityOwner?: num
     tax: (cityId) =>
       cityId === CITY ? { treasuryOwner: options.cityOwner ?? NATION, bp: options.taxBp ?? 1000 } : undefined,
     rules: () => START_BUSINESS,
+    now: options.now,
   });
   const grant = (ownerId: number, amount: bigint) =>
     ledger.post({
@@ -193,5 +196,62 @@ describe("사업장 장부 코어", () => {
     core.forget(SHOP);
     expect(core.price(SHOP, "item:wood")).toBeUndefined();
     expect(ops.some((op) => op.op === "remove" && op.table === "businessPrices")).toBe(true);
+  });
+
+  it("D-570 1789: 마지막 적자 주기 뒤에 멈추고(정한 시각까지는 돈다), 적자를 갚고 금고가 다음 임금을 덮으면 다시 돈다", () => {
+    let clock = T0;
+    const { core, grant } = setup({ taxBp: 0, now: () => clock });
+    // 다음 정산까지 임금 50 필요(노동 고리)
+    core.attachLabor({
+      wageNeeds: () => [{ contractId: 1, asset: ASSET, nextWage: 50n, shortfall: 0n }],
+      fund: () => 0n,
+    });
+    core.advance(SHOP, OWNER, ASSET, 40n, clock);
+    core.stopAfter(SHOP, T0 + 1000);
+    expect(core.suspended(SHOP)).toBe(false);
+    clock = T0 + 1000;
+    expect(core.suspended(SHOP)).toBe(true);
+    // 멈춘 사업장은 새 고용을 막는다
+    expect(core.fundDeposit(SHOP, OWNER, ASSET, 10n, 300n, clock)).toBeUndefined();
+    // 40 넣으면 적자는 갚지만 금고 0 < 다음 임금 50 → 아직 멈춤
+    grant(OWNER, 1000n);
+    core.invest(SHOP, OWNER, ASSET, 40n, clock);
+    expect(core.debts(SHOP).size).toBe(0);
+    expect(core.suspended(SHOP)).toBe(true);
+    // 다음 임금만큼 들면 다시 돈다
+    core.invest(SHOP, OWNER, ASSET, 60n, clock);
+    expect(core.suspended(SHOP)).toBe(false);
+    expect(core.state(SHOP)?.suspendedAtMs).toBeNull();
+  });
+
+  it("D-570 1789: 새 고용 보증금은 금고에 한 주기 임금이 없으면 막는다(적자로 미리 넣지 않는다)", () => {
+    const { core, grant, ledger } = setup({ taxBp: 0 });
+    expect(core.fundDeposit(SHOP, OWNER, ASSET, 10n, 300n, T0)).toBeUndefined();
+    expect(core.debts(SHOP).size).toBe(0);
+    grant(OWNER, 100n);
+    core.invest(SHOP, OWNER, ASSET, 100n, T0);
+    expect(core.fundDeposit(SHOP, OWNER, ASSET, 10n, 300n, T0)).toBe(100n);
+    expect(ledger.balance(core.vault(OWNER, ASSET, SHOP))).toBe(100n);
+  });
+
+  it("D-570 1783: 지급준비율 0%여도 다음 임금만큼은 남긴다", () => {
+    const { core, ledger, grant, vault } = setup({ taxBp: 0 });
+    core.attachLabor({
+      wageNeeds: () => [{ contractId: 1, asset: ASSET, nextWage: 30n, shortfall: 0n }],
+      fund: () => 0n,
+    });
+    core.setReserve(SHOP, 0);
+    expect(core.reserve(SHOP).assets.get(ASSET)).toMatchObject({ keep: 30n, floor: 30n });
+    grant(CUSTOMER, 100n);
+    core.receive({
+      from: ledger.ownerAccount(CUSTOMER, ASSET),
+      buildingId: SHOP,
+      asset: ASSET,
+      amount: 100n,
+      kind: "lodging_fee",
+      atMs: T0,
+    });
+    expect(core.settle(SHOP, T0 + 1).get(ASSET)).toBe(70n);
+    expect(vault()).toBe(30n);
   });
 });

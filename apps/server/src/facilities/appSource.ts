@@ -44,8 +44,8 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
       catalog: facilities.catalog,
       unitBusy: (unitId) => labor.unitBusy(unitId),
       workersOf: (buildingId) => labor.workersAt(buildingId),
-      // 외주(남의 공방 장비 수리, D-564 1682): 요금·멈춘 사업장
-      serviceFee: (materials) => facilities.businessCommands.serviceFee(materials),
+      // 외주(남의 공방 장비 수리, D-564 1682 — 그 공방 일꾼·주인이 정한 요금, D-570 1785)·멈춘 사업장
+      outsource: true,
       suspended: (buildingId) => facilities.business.suspended(buildingId),
       // 채집소 반경 고리(건축 모드 — docs/adr/2026-11-15-building-screen.md): 원자재 오브젝트를 맡는 시설
       objectFacilities: () =>
@@ -74,6 +74,14 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
           isNpc,
           shares: facilities.shares,
           names,
+          // 적정가(D-570 1822)·외주 수리 일꾼(D-570 1785)
+          fairFeePm: () => facilities.rules().business.serviceFeePm,
+          repairWorkers: (id) => {
+            const def = facilities
+              .catalog()
+              .facility(facilities.service.facilities.get(id)?.facilityId ?? "");
+            return (def?.repair?.length ?? 0) > 0 ? facilities.service.shopWorkers(id).length : undefined;
+          },
         },
         settlement.findOwnerOfUser(userId),
         buildingId,

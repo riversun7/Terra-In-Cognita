@@ -644,17 +644,27 @@ export function createBoatService(deps: BoatDeps): BoatService {
         readyAt: job.doneAtMs,
         ownerId: job.ownerId,
       })),
-      types: (fac.def.boats ?? []).map((type) => ({
-        id: type.id,
-        name: type.name,
-        materials: boatCost(type, rules.costPm).map((stack) => {
-          const name = deps.places()?.catalog().itemName(stack.item);
-          return name ? { ...stack, name } : stack;
-        }),
-        buildMs: boatBuildMs(type, rules, row.modules, false),
-        speedPm: type.speedPm,
-        capacity: type.capacity,
-      })),
+      types: (fac.def.boats ?? []).map((type) => {
+        const cost = boatCost(type, rules.costPm);
+        const buildMs = boatBuildMs(type, rules, row.modules, false);
+        // 배 주문 적정가(D-570 1822): 재료 기준 값 합 + 조선소 일꾼 인건비 × 만드는 시간 + 수수료 + 세금
+        const catalog = deps.places()?.catalog();
+        let worth = 0n;
+        for (const stack of cost) worth += BigInt(stack.qty) * (catalog?.unitPriceOf?.(stack.item) ?? 1n);
+        const fair = deps.fairOf?.(buildingId, worth, buildMs);
+        return {
+          id: type.id,
+          name: type.name,
+          materials: cost.map((stack) => {
+            const name = catalog?.itemName(stack.item);
+            return name ? { ...stack, name } : stack;
+          }),
+          buildMs,
+          speedPm: type.speedPm,
+          capacity: type.capacity,
+          ...(fair ? { fair } : {}),
+        };
+      }),
       boats: homed.map((state) => boatView(state.boatId)),
       visits: visits.map((state) => ({
         boatId: state.boatId,

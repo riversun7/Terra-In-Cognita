@@ -70,6 +70,8 @@ export interface FacilityRest {
   readonly dutyPm: number;
   /** 채집소 → 창고 칸(채집소가 아니면 0) */
   readonly haulCells: number;
+  /** 산출을 내려놓는 곳(가장 가까운 창고 가운데, 없으면 시청 칸). 옮김이 없으면 없다 — 보이는 운반꾼의 갈 곳(D-570 1886) */
+  readonly haulTo?: { readonly x: number; readonly y: number } | undefined;
 }
 
 export interface CityRestPlan {
@@ -93,6 +95,19 @@ export interface CityRestPlan {
 
 const cheb = (a: { x: number; y: number }, b: { x: number; y: number }): number =>
   Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+
+/** 가장 가까운 점(같으면 앞의 것, 없으면 undefined) */
+function nearestPoint(
+  from: { x: number; y: number },
+  points: readonly { x: number; y: number }[],
+): { x: number; y: number } | undefined {
+  let best: { point: { x: number; y: number }; d: number } | undefined;
+  for (const point of points) {
+    const d = cheb(from, point);
+    if (!best || d < best.d) best = { point, d };
+  }
+  return best?.point;
+}
 
 /** 가장 가까운 점까지 체비셰프 칸(없으면 undefined) */
 export function nearestCells(
@@ -168,11 +183,12 @@ export function planCityRest(input: CityRestInput): CityRestPlan {
   for (const facility of input.facilities) {
     const entry = duty.get(facility.id);
     const area = facility.buildingId === null ? undefined : input.areas.get(facility.buildingId);
-    const haulCells =
-      facility.hauls === true && area ? (nearestCells(area, input.stores) ?? cheb(area, home)) : 0;
+    const haulTo = facility.hauls === true && area ? (nearestPoint(area, input.stores) ?? home) : undefined;
+    const haulCells = haulTo && area ? cheb(area, haulTo) : 0;
     facilities.set(facility.id, {
       dutyPm: entry && entry.n > 0 ? Math.floor(entry.sum / entry.n) : 1000,
       haulCells,
+      ...(haulTo && haulCells > 0 ? { haulTo: { x: haulTo.x, y: haulTo.y } } : {}),
     });
   }
   return {

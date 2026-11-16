@@ -22,7 +22,12 @@ describe("planCityRest", () => {
     const plan = planCityRest(base);
     expect(plan.workers.map((w) => w.place.kind)).toEqual(["home", "home", "home"]);
     expect(plan.workers[0]?.commuteCells).toBe(30);
-    expect(plan.facilities.get(7)).toEqual({ dutyPm: restDutyPm({ kind: "home" }, 30, rules), haulCells: 8 });
+    // 내려놓는 곳(보이는 운반꾼의 갈 곳, D-570 1886) = 가장 가까운 창고 가운데
+    expect(plan.facilities.get(7)).toEqual({
+      dutyPm: restDutyPm({ kind: "home" }, 30, rules),
+      haulCells: 8,
+      haulTo: { x: 122, y: 100 },
+    });
   });
 
   it("창고가 없으면 시청 칸까지 나른다", () => {

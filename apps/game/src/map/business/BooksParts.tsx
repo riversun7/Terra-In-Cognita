@@ -8,11 +8,11 @@ import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
 import { type BooksOk, signedAmount, timeText } from "./booksData.ts";
 import { type BusinessCommand, sendBusinessCommand } from "./businessCommands.ts";
-import { COLUMN_TEXT, RESULT_TEXT, moneyName } from "./businessText.ts";
+import { COLUMN_TEXT, RESULT_TEXT, fairText, moneyName } from "./businessText.ts";
 
-/** 손익계산서 줄: 매출(수입·판매) → 비용(세금·임금·유지·숙박·그 밖) */
+/** 손익계산서 줄: 매출(수입·판매) → 비용(세금·임금·유지·숙박·재료비·그 밖) */
 const REVENUE: readonly BookColumn[] = ["income", "sales"];
-const COSTS: readonly BookColumn[] = ["tax", "wages", "upkeep", "lodging", "other"];
+const COSTS: readonly BookColumn[] = ["tax", "wages", "upkeep", "lodging", "materials", "other"];
 /** 현금 흐름(이익 밖 — 정산·넣기·적자) */
 const FLOWS: readonly BookColumn[] = ["settlement", "invest", "debt"];
 
@@ -41,8 +41,15 @@ export function useBooksCommand(reload: () => void): {
   };
 }
 
-/** 사업장 상태 줄(멈춤·적자) */
+/** 사업장 상태 줄(멈춤·마지막 적자 주기 — D-570 1789·적자) */
 export function BooksAlert({ books }: { readonly books: BooksOk }) {
+  // 멈춤 시각이 응답 시각보다 뒤면 마지막 주기를 돌리는 중(그 시각에 멈춤)
+  if (books.suspendedAtMs !== null && books.suspendedAtMs > books.toMs)
+    return (
+      <p className="bp-warn" role="status" data-part="books-stop-scheduled">
+        {m.books_stop_scheduled({ at: timeText(books.suspendedAtMs, getLocale()) })}
+      </p>
+    );
   if (books.suspendedAtMs !== null)
     return (
       <p className="bp-alert" role="alert" data-part="books-suspended">
@@ -315,6 +322,9 @@ export function GoodsSale({
           {m.books_sale_note()}
         </p>
       ) : null}
+      {manage && books.goods.some((line) => line.fair !== undefined) ? (
+        <p className="bp-muted">{m.fair_price_hint()}</p>
+      ) : null}
       <ul className="bp-list">
         {books.goods.map((line) => {
           const name = line.name ? (locale === "ko" ? line.name.ko : line.name.en) : line.asset.slice(5);
@@ -361,6 +371,11 @@ export function GoodsSale({
                     {m.books_buy()}
                   </button>
                 </div>
+              ) : null}
+              {manage && line.fair ? (
+                <p className="bp-muted" data-part="books-fair">
+                  {fairText(line.fair, (value) => formatAmount(value, locale))}
+                </p>
               ) : null}
               {manage ? (
                 <div className="bp-form-row">

@@ -9,7 +9,7 @@ import { TEST_HOLDING_CONTENT } from "../holdings/testContent.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { cargoLocation } from "./battleResults.ts";
 import { ASSET_CREDIT, ASSET_ORE } from "./settlement.ts";
-import { addTestUnits } from "./testSupport.ts";
+import { addTestUnits, fundTestVault } from "./testSupport.ts";
 import { UNIT_KIND_HUMAN, UNIT_KIND_OLD_WORKER } from "./unitKinds.ts";
 import { type World, startWorld } from "./world.ts";
 
@@ -114,6 +114,7 @@ describe.skipIf(!TEST_DATABASE_URL)("없앤 시험 일꾼 옛 행 정리(부팅)
       ?.placeBuilding({ x: 40, y: 40, width: 2, height: 2, rotation: 0 }, ownerId);
     if (!placed?.ok || placed.buildingId === undefined) throw new Error("no building");
     p.settlement.grantCredit(ownerId, 10_000n, clock);
+    fundTestVault(p.ledger, ownerId, placed.buildingId, 1_000n, clock);
     const hired = await p.labor.create(user, { kind: "wage", buildingId: placed.buildingId, unitId: w2 });
     if (!hired.ok || hired.contractId === undefined) throw new Error(`no contract: ${JSON.stringify(hired)}`);
     const contractId = hired.contractId;

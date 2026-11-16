@@ -27,7 +27,14 @@ function sampleBooks(data: unknown): void {
   Reflect.set(data, "debt", [{ asset: "s3_test_credit", amount: "600" }]);
   Reflect.set(data, "debtSinceMs", now - 3_600_000);
   Reflect.set(data, "goods", [
-    { asset: "item:pine_log", qty: "340", price: "4", name: { ko: "소나무 통나무", en: "Pine log" } },
+    {
+      asset: "item:pine_log",
+      qty: "340",
+      price: "4",
+      name: { ko: "소나무 통나무", en: "Pine log" },
+      // 적정가(D-570 1822)
+      fair: { materials: "0", labor: "3", fee: "1", tax: "1", price: "5" },
+    },
     { asset: "item:stone", qty: "1250", price: null, name: { ko: "돌", en: "Stone" } },
   ]);
   Reflect.set(data, "totals", [
@@ -89,7 +96,15 @@ function sampleBooks(data: unknown): void {
     ratioPm: 1500,
     chosen: true,
     marginPm: 200,
-    lines: [{ asset: "s3_test_credit", needed: "6200", keep: "11160" }],
+    lines: [{ asset: "s3_test_credit", needed: "6200", keep: "11160", floor: "200" }],
+  });
+  // 마지막 적자 주기 뒤 멈춤 예정(D-570 1789)·외주 수리 칸(D-570 1785)
+  Reflect.set(data, "suspendedAtMs", now + 3_600_000);
+  Reflect.set(data, "repairService", {
+    perHour: null,
+    charged: "126",
+    fair: { materials: "0", labor: "100", fee: "20", tax: "6", price: "126" },
+    workers: 2,
   });
 }
 
@@ -257,7 +272,8 @@ for (const look of LOOKS) {
       await expect(sheet.locator('[data-part="building-owner"]')).toBeVisible({ timeout: 20_000 });
       await shot(page, `building-panel-390-${look.theme}-${look.language}`);
       await sheet.locator('.bp-tab[data-tab="books"]').click();
-      await expect(sheet.locator('[data-part="books-debt"]')).toBeVisible({ timeout: 20_000 });
+      // 견본은 마지막 적자 주기를 돌리는 중(D-570 1789 — 멈춤 예정 알림이 적자 알림보다 앞선다)
+      await expect(sheet.locator('[data-part="books-stop-scheduled"]')).toBeVisible({ timeout: 20_000 });
       await expect(sheet.locator('[data-part="books-bars"] li')).toHaveCount(3);
       expect(await horizontalOverflow(page)).toEqual([]);
       await elementShot(sheet, `building-books-390-${look.theme}-${look.language}`);
@@ -299,9 +315,16 @@ for (const look of LOOKS) {
       const reserve = sheet.locator('[data-part="books-reserve"]');
       await expect(reserve.locator('[data-part="reserve-line"]')).toHaveCount(1, { timeout: 20_000 });
       await expect(reserve.locator('[data-reserve="1500"]')).toHaveAttribute("aria-pressed", "true");
+      // 0%여도 남기는 다음 임금(D-570 1783)
+      await expect(reserve.locator('[data-part="reserve-floor"]')).toBeVisible();
       expect(await horizontalOverflow(page)).toEqual([]);
       await reserve.scrollIntoViewIfNeeded();
       await elementShot(reserve, `building-reserve-390-${look.theme}-${look.language}`);
+      // 외주 수리 요금·적정가(D-570 1785·1822)
+      const repair = sheet.locator('[data-part="books-repair-service"]');
+      await expect(repair.locator('[data-part="repair-service-fair"]')).toBeVisible();
+      await repair.scrollIntoViewIfNeeded();
+      await elementShot(repair, `building-repair-service-390-${look.theme}-${look.language}`);
       expect(deviceErrors).toEqual([]);
     });
   });

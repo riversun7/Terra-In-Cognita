@@ -9,6 +9,7 @@
 // - 바뀜 (2026-11-15, 건물 화면 개편 — docs/adr/2026-11-15-building-screen.md): 지분은 원장 자산 share:biz_<건물>이다(D-130 기술 전달
 //   "주식·지분은 원장의 자산 종류"). 처음 사고팔 때 주인에게 설정 칸 business_share_count만큼 발행하고(시스템 계정 issue:share:biz_<건물>),
 //   발행 전에는 주인이 모두 가진 것으로 본다. 주주 = 그 자산 잔고(+ 동시호가에 걸어 둔 팔 주문)를 가진 주체다.
+import type { FairPriceView } from "./fairPrice.ts";
 import { buildingLocation, cargoLocation } from "./goodsPlaces.ts";
 import type { LocalizedName } from "./roster.ts";
 
@@ -51,6 +52,12 @@ export const businessLocation = buildingLocation;
  */
 export const unitPurseLocation = cargoLocation;
 
+/**
+ * 외주 장비 수리 요금 줄의 값 칸 이름(사업장 값 표 business_prices의 item 칸 — 물건 item:<ID>와 겹치지 않는다). 값 = 시간당 요금(기획 D-570 1785
+ * "요금은 주인이 정한다"), 0 = 받지 않음, 줄이 없으면 적정가
+ */
+export const REPAIR_SERVICE_ITEM = "service:equipment_repair";
+
 /** 사업장 적자 시스템 계정 코드(잔고 음수 = 갚을 돈) */
 export function businessDebtCode(buildingId: number, asset: string): string {
   return `debt:business:${buildingId}:${asset}`;
@@ -71,6 +78,7 @@ export const BOOK_COLUMNS = [
   "wages",
   "upkeep",
   "lodging",
+  "materials",
   "debt",
   "settlement",
   "invest",
@@ -95,8 +103,10 @@ const COLUMN_OF: Readonly<Record<string, BookColumn>> = {
   dock_time_fee: "income",
   dock_overstay_fee: "income",
   tuition: "income",
-  // 판매(사업장 창고에서 판 것 — 주인이 꺼낼 때도 값을 낸다, D-555 1507)
+  // 판매(사업장 창고에서 판 것 — 주인이 꺼낼 때도 값을 낸다, D-555 1507). NPC 시설 산출을 그 도시(나라)가 사들인 것도(D-570 1887)
   business_sale: "sales",
+  // 재료비: NPC 시설이 레시피 재료를 그 도시(나라) 창고에서 사들인 값(D-570 1887 — 플레이어처럼 손익)
+  business_input: "materials",
   // 소득세(들어올 때, D-555 1503)
   business_tax: "tax",
   // 임금 보증금·채우기·돌려받기(D-555 1504)
@@ -145,6 +155,7 @@ export function countsForProfit(column: BookColumn): boolean {
     column === "wages" ||
     column === "upkeep" ||
     column === "lodging" ||
+    column === "materials" ||
     column === "other"
   );
 }
@@ -275,6 +286,8 @@ export interface BookGoods {
   readonly price: string | null;
   /** 이름(팩 아이템 이름, 모르면 null) */
   readonly name: { readonly ko: string; readonly en: string } | null;
+  /** 적정가(1개 — 재료비·인건비·수수료·세금, 기획 D-570 1822). 값을 정하는 사람에게 보인다. 옛 응답에는 없다 */
+  readonly fair?: FairPriceView | undefined;
 }
 
 export type BookOwnerKind = "me" | "player" | "npc";
@@ -297,7 +310,28 @@ export interface ReserveView {
   readonly ratioPm: number;
   readonly chosen: boolean;
   readonly marginPm: number;
-  readonly lines: readonly { readonly asset: string; readonly needed: string; readonly keep: string }[];
+  readonly lines: readonly {
+    readonly asset: string;
+    readonly needed: string;
+    readonly keep: string;
+    /**
+     * 비율과 상관없이 늘 남기는 돈 = 다음 정산까지 낼 임금(기획 D-570 1783 "다음 임금만큼 남김" — 0%여도 끊기지 않게). 옛 응답에는 없다
+     */
+    readonly floor?: string | undefined;
+  }[];
+}
+
+/**
+ * 외주 수리(기획 D-570 1785 — 그 공방 일꾼이 고치고 요금은 주인이 정한다): 주인이 정한 시간당 요금(없으면 적정가를 쓴다, 0 = 받지 않음)·적정가
+ * (시간당 — 재료는 맡기는 사람이 내므로 인건비·수수료·세금, D-570 1822)·지금 고칠 수 있는 그 공방 일꾼 수
+ */
+export interface RepairServiceView {
+  /** 주인이 정한 시간당 요금(최소 단위 글자). 정하지 않았으면 null(적정가로 받는다) */
+  readonly perHour: string | null;
+  /** 지금 받는 시간당 요금(정한 값, 없으면 적정가). 0이면 받지 않는다 */
+  readonly charged: string;
+  readonly fair: FairPriceView;
+  readonly workers: number;
 }
 
 /** 지분 동시호가 회차 하나 */
@@ -364,10 +398,15 @@ export type BusinessBooksResponse =
       readonly market?: ShareMarketView | undefined;
       /** 지급준비금(D-564 1623, 옛 응답에는 없다) */
       readonly reserve?: ReserveView | undefined;
+      /** 외주 수리(수리 줄이 있는 공방만, D-570 1785). 옛 응답에는 없다 */
+      readonly repairService?: RepairServiceView | undefined;
       readonly vault: readonly BookBalance[];
       /** 갚을 돈(적자, 화폐별 양수) */
       readonly debt: readonly BookBalance[];
-      /** 적자가 생긴 시각(없으면 null)·멈춘 시각(멈추지 않았으면 null) */
+      /**
+       * 적자가 생긴 시각(없으면 null)·멈춘 시각(멈추지 않았으면 null). 바뀜 (D-570 1789): 멈춘 시각이 지금보다 뒤면 "마지막 주기를 돌린 뒤 그
+       * 시각에 멈춤"이다(적자로 마지막 임금을 넣었다 — 재정이 안정될 때까지 운영 중단)
+       */
       readonly debtSinceMs: number | null;
       readonly suspendedAtMs: number | null;
       readonly goods: readonly BookGoods[];

@@ -5,6 +5,7 @@
 // - D-559: 조선소 모듈 자리(레벨마다 하나 더)·도크에 든 배([출고], 남의 배는 장기 보관료)·남의 조선소 [수리](받기 범위·수리 요금)·교역 부두 [연료 채우기]·
 //   요금 화폐(그 항구 나라 화폐).
 // - 금고(사업장 장부, D-548)는 주인에게만 보인다. 서버가 소유·거리·자리·받기 범위·돈을 다시 본다. 결과는 판 아래 한 줄에 알리고 판을 다시 읽는다.
+import { fairText } from "../business/businessText.ts";
 import type {
   HarborAccess,
   HarborBoatView,
@@ -160,6 +161,12 @@ export function HarborPanel({
                     .map((stack) => `${nameOf(stack.name, stack.item)} ${String(stack.qty)}`)
                     .join(", ")}
                 </span>
+                {/* 주인에게 배 한 척 적정가(D-570 1822 — 주문 요금을 정할 때 곁에) */}
+                {mine && type.fair ? (
+                  <span className="gather-muted" data-part="harbor-type-fair">
+                    {fairText(type.fair, (value) => value, m.harbor_type_fair)}
+                  </span>
+                ) : null}
                 <button
                   type="button"
                   className="button-small button-primary boat-build"

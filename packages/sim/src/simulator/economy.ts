@@ -166,7 +166,10 @@ export interface Economy {
   readonly gather: GatherSettings;
   /** 기준 통화 자산 코드 */
   readonly base: string;
-  /** 도시 → 물건 → 거래소 */
+  /**
+   * 도시 → 물건 → 거래소. 서버는 이 표의 get이 없으면 거래소를 만든다(apps/server/src/market/books.ts cityMap) — 값을 읽기만 하는 곳은
+   * peekMarket을 쓴다
+   */
   readonly markets: Map<number, Map<string, GoodsMarket>>;
   /** 화폐 → (화폐, 기준 통화) 환전 시장. 짝 ID 차례 = 화폐 차례 */
   readonly fx: Map<string, FxMarket>;
@@ -778,6 +781,18 @@ export function onCargo(economy: Economy, world: SimWorld, cargoId: number, nowM
 }
 
 /**
+ * 있는 거래소만 읽는다(만들지 않는다). 서버 도시 표(apps/server/src/market/books.ts cityMap)는 get이 없으면 거래소를 만들어 메모리에 두고
+ * market_books 줄을 쓰므로, 시세·호가를 읽기만 하는 곳은 has로 먼저 본다. 갓 만든 거래소는 체결·호가가 없어 읽은 값이 "없음"과 같다.
+ * 시뮬은 도시마다 모든 물건 거래소를 미리 만들어(createEconomy) 결과가 같다.
+ */
+export function peekMarket(
+  perItem: ReadonlyMap<string, GoodsMarket> | undefined,
+  asset: string,
+): GoodsMarket | undefined {
+  return perItem?.has(asset) === true ? perItem.get(asset) : undefined;
+}
+
+/**
  * 화폐로 매긴 생필품 시세 ÷ 시작 시세(천분율). 시작 시세 = 그 세계에서 그 물건 시장의 첫 가격(295)이라, 지수는 "세계가 처음 열릴 때 값의
  * 몇 ‰인가"다(1000 = 첫 가격 그대로). 시세(체결)가 없으면 undefined
  */
@@ -787,7 +802,7 @@ export function priceIndexMilli(economy: Economy, currency: string): number | un
   for (const spec of economy.catalog.necessities) {
     const startPrice = economy.catalog.startPrice.get(spec.asset) ?? 1n;
     for (const perItem of economy.markets.values()) {
-      const market = perItem.get(spec.asset);
+      const market = peekMarket(perItem, spec.asset);
       if (!market || market.config.currency !== currency || market.lastPrice === undefined) continue;
       sum += (market.lastPrice * 1000n) / startPrice;
       count += 1n;

@@ -2,10 +2,11 @@
 // 시뮬·서버가 같은 함수(placeCityBids)를 쓴다. docs/adr/2026-11-07-play-flow.md "WP5 나라 성격"
 import { describe, expect, it } from "vitest";
 import { TEST_NPC_COEFFICIENTS } from "../npc/coefficients.ts";
-import { createEconomy } from "./economy.ts";
+import type { GoodsMarket } from "../economy/goodsMarket.ts";
+import { type Economy, createEconomy, priceIndexMilli } from "./economy.ts";
 import { createSimLoop } from "./loop.ts";
 import type { SimEvent } from "./npcRun.ts";
-import { cityTargets, onTrade } from "./npcTrade.ts";
+import { cityTargets, marketRefPrice, onTrade } from "./npcTrade.ts";
 import { TEST_CATALOG, TEST_ECONOMY_SCENARIO } from "./testEconomy.ts";
 import { createWorld } from "./world.ts";
 
@@ -88,5 +89,62 @@ describe("도시 매입 호가(530 가)", () => {
     // 첫 도시 매입 호가는 그만큼 적고, 둘째 도시는 그대로
     expect(economy.markets.get(first)?.get("item:ration")?.best("buy")?.remaining).toBe(gapFirst - 100n);
     expect(economy.markets.get(second)?.get("item:ration")?.best("buy")?.remaining).toBe(gapSecond);
+  });
+});
+
+/**
+ * 서버 도시 표 흉내(apps/server/src/market/books.ts cityMap): get은 없으면 거래소를 "만든다"(미리 만든 시뮬 거래소를 꺼내 보이게 한다),
+ * has·values·순회는 만든 것만 본다. 만든 거래소에 주문을 건 적이 있는지 센다.
+ */
+function lazyCities(economy: Economy) {
+  const created = new Set<string>();
+  const placed = new Set<string>();
+  for (const [cityId, all] of economy.markets) {
+    const shown = new Map<string, GoodsMarket>();
+    const plainGet = shown.get.bind(shown);
+    shown.get = (asset: string): GoodsMarket | undefined => {
+      const found = plainGet(asset);
+      if (found) return found;
+      const market = all.get(asset);
+      if (!market) return undefined;
+      const key = `${cityId}|${asset}`;
+      created.add(key);
+      const watched = new Proxy(market, {
+        get(target, prop) {
+          if (prop === "place")
+            return (...args: Parameters<GoodsMarket["place"]>) => {
+              placed.add(key);
+              return target.place(...args);
+            };
+          const value: unknown = Reflect.get(target, prop, target);
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+      });
+      shown.set(asset, watched);
+      return watched;
+    };
+    economy.markets.set(cityId, shown);
+  }
+  return { created, placed };
+}
+
+describe("읽기만 하는 길은 거래소를 만들지 않는다(서버 도시 표는 get이 없으면 만든다 — 1116 메모리 증가)", () => {
+  it("거래 판단·시세 읽기를 여러 번 돌려도 주문을 건 적 없는 거래소는 생기지 않고, 수가 늘지 않는다", () => {
+    const { world, economy, loop } = setup();
+    const { created, placed } = lazyCities(economy);
+    const round = (atMs: number): void => {
+      for (const faction of [...world.factions.values()].toSorted((a, b) => a.id - b.id))
+        onTrade(economy, world, loop, faction.id, atMs, TEST_NPC_COEFFICIENTS);
+      for (const currency of new Set(economy.currencyOf.values())) priceIndexMilli(economy, currency);
+      for (const cityId of economy.markets.keys())
+        for (const asset of economy.catalog.items) marketRefPrice(economy, cityId, asset);
+    };
+    round(1);
+    const afterFirst = created.size;
+    for (let i = 2; i <= 6; i++) round(i);
+    expect([...created].filter((key) => !placed.has(key))).toEqual([]);
+    expect(created.size).toBe(afterFirst);
+    // 모든 도시 × 물건(시뮬이 미리 만든 수)보다 적다 — 주문을 건 거래소만
+    expect(created.size).toBeLessThan(economy.markets.size * economy.catalog.items.length);
   });
 });

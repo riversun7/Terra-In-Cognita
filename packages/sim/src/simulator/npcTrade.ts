@@ -18,7 +18,7 @@ import { BASE_EFFICIENCY } from "../economy/production.ts";
 import type { NpcCoefficients } from "../npc/coefficients.ts";
 import { type TradePolicy, tradePolicy } from "../npc/policy.ts";
 import { lotSizeOf } from "./catalog.ts";
-import { type Economy, EVENT_TRADE, fxRate, ship } from "./economy.ts";
+import { type Economy, EVENT_TRADE, fxRate, peekMarket, ship } from "./economy.ts";
 import type { SimLoop } from "./loop.ts";
 import type { SimEvent } from "./npcRun.ts";
 import type { SimFaction, SimWorld } from "./world.ts";
@@ -63,7 +63,9 @@ export function cityTargets(economy: Economy, cityId: number): Map<string, bigin
 
 /** 거래소 기준값: 시장 시세(마지막 체결가). 체결이 아직 없으면 시작 시세(그 시장의 첫 가격, 295) */
 export function marketRefPrice(economy: Economy, cityId: number, asset: string): bigint {
-  return economy.markets.get(cityId)?.get(asset)?.lastPrice ?? economy.catalog.startPrice.get(asset) ?? 1n;
+  return (
+    peekMarket(economy.markets.get(cityId), asset)?.lastPrice ?? economy.catalog.startPrice.get(asset) ?? 1n
+  );
 }
 
 /** 화폐 from의 금액을 to로(기준 통화 환율로) */
@@ -142,9 +144,11 @@ export function onTrade(
     // 4. 남는 것 팔기
     for (const cityId of cities) {
       const spare = -deficit(cityId, asset);
-      const market = economy.markets.get(cityId)?.get(asset);
       const lots = spare / lotSizeOf(economy.catalog, asset);
-      if (lots <= 0n || !market) continue;
+      // 팔 것이 있을 때만 거래소를 찾는다(서버 도시 표는 get이 거래소를 만든다 — peekMarket)
+      if (lots <= 0n) continue;
+      const market = economy.markets.get(cityId)?.get(asset);
+      if (!market) continue;
       const target = need.get(cityId)?.get(asset) ?? 0n;
       const glut = stock(cityId, asset) > target * GLUT_MULTIPLE;
       const price = pct(marketRefPrice(economy, cityId, asset), glut ? policy.glutPct : policy.sellPct);
@@ -201,12 +205,13 @@ export function placeCityBids(
         gap -= used;
         if (gap <= 0n) continue;
       }
-      const market = perItem.get(asset);
-      if (!market) continue;
       const price = pct(marketRefPrice(economy, cityId, asset), policy.bidPct);
       let lots = ceilDiv(gap, lotSizeOf(economy.catalog, asset));
       if (price * lots > budget) lots = budget / price;
       if (lots <= 0n) continue;
+      // 걸 주문이 있을 때만 거래소를 찾는다(서버 도시 표는 get이 거래소를 만든다 — peekMarket)
+      const market = perItem.get(asset);
+      if (!market) continue;
       const result = market.place(
         faction.id,
         "buy",
@@ -240,7 +245,8 @@ function importGoods(
   const offers: { cityId: number; price: bigint; cost: bigint; qty: bigint; currency: string }[] = [];
   for (const [cityId, perItem] of economy.markets) {
     if (faction.cities.has(cityId)) continue;
-    const market = perItem.get(asset);
+    // 남의 호가를 읽기만 한다(없는 거래소는 호가도 없다 — peekMarket)
+    const market = peekMarket(perItem, asset);
     const ask = market?.best("sell");
     if (!market || !ask || ask.owner === faction.id) continue;
     const cost = convert(economy, ask.price, market.config.currency, currency);

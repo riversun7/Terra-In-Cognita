@@ -27,11 +27,11 @@ import { testEncounter } from "./testSupport.ts";
 const { tickMs } = TEST_COMBAT_COEFFICIENTS;
 
 describe("판 번호·목록(D-571 줄기)", () => {
-  it("SIM 59·프로토콜 49(최소 48)·대형·전개 방식 목록이 판정·보고서와 같다", () => {
+  it("SIM 59·실시간 전투 명령 프로토콜 49(지금 판 이하, 최소 = 지금 판 − 1)·대형·전개 방식 목록이 판정·보고서와 같다", () => {
     expect(SIM_VERSION).toBe(59);
-    expect(PROTOCOL_VERSION).toBe(49);
-    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(48);
     expect(BATTLE_ORDER_PROTOCOL_VERSION).toBe(49);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(BATTLE_ORDER_PROTOCOL_VERSION);
+    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(PROTOCOL_VERSION - 1);
     expect([...BATTLE_FORMATIONS]).toEqual([...FORMATION_SHAPES]);
     expect([...REPORT_FORMATIONS]).toEqual([...FORMATION_SHAPES]);
     expect([...BATTLE_TACTICS]).toEqual([...TACTICS]);

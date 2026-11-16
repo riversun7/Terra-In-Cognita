@@ -43,6 +43,9 @@ function fakeService(map: SecondMap): GatherService {
     runDue: () => {},
     active: 0,
     acting: () => false,
+    suspend: () => false,
+    resume: () => Promise.resolve("ended"),
+    drop: () => {},
     stop: () => {},
   };
 }

@@ -94,6 +94,7 @@ export function realUnit(
     satisfaction: null,
     ...(condition ? { condition } : {}),
     party: null,
+    ...(row.tactics === undefined ? {} : { tactics: row.tactics }),
     ...effectiveView(catalog, BASELINE_BASE, gear),
     preview: false,
   };

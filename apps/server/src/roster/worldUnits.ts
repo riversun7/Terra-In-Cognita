@@ -13,6 +13,8 @@ import {
   countsAsOwnedUnit,
 } from "../world/unitKinds.ts";
 import type { World } from "../world/world.ts";
+import type { AiTactics } from "@terra/shared/aiTactics";
+import { TACTICS_KINDS, tacticsOfRow } from "../tactics/store.ts";
 
 /** 실제 유닛 한 줄(화면 모양으로 바꾸기 전) */
 export interface WorldRosterRow {
@@ -28,6 +30,8 @@ export interface WorldRosterRow {
   readonly captive: boolean;
   readonly moving: boolean;
   readonly cargo: readonly RosterCargo[];
+  /** AI 작전(판단하는 유닛만 칸 — 저장한 적이 없으면 null, D-5039·D-5040) */
+  readonly tactics?: AiTactics | null | undefined;
 }
 
 export interface WorldRoster {
@@ -120,9 +124,11 @@ export function createWorldRosterSource(world: World): WorldRosterSource {
       const { ownerId, pool } = found;
       const [unitRows, cargoRows] = await Promise.all([
         pool.query(
-          `select id, owner_id, kind, map_key, planet_id, domain, job, job_phase, fatigue, injury, injury_until_ms,
-                  injury_heal_pm, held_by
-             from world_units where owner_id = $1 or held_by = $1 order by id`,
+          `select u.id, u.owner_id, u.kind, u.map_key, u.planet_id, u.domain, u.job, u.job_phase, u.fatigue, u.injury,
+                  u.injury_until_ms, u.injury_heal_pm, u.held_by, t.preset, t.engage, t.pursue, t.cover, t.escort,
+                  t.save_skill, t.spread, t.retreat_pct, t.target
+             from world_units u left join unit_tactics t on t.unit_id = u.id
+            where u.owner_id = $1 or u.held_by = $1 order by u.id`,
           [ownerId],
         ),
         pool.query(
@@ -165,6 +171,12 @@ export function createWorldRosterSource(world: World): WorldRosterSource {
           moving: moving(mapKey, id, now),
           // 화물은 주인 계정이다: 내가 잡은 포로의 화물은 보이지 않는다
           cargo: mine ? (cargo.get(id) ?? []) : [],
+          // AI 작전(D-5039·D-5040): 판단하는 내 유닛만
+          ...(mine && TACTICS_KINDS.has(num(row.kind))
+            ? {
+                tactics: row.preset === null || row.preset === undefined ? null : (tacticsOfRow(row) ?? null),
+              }
+            : {}),
         };
         if (mine) units.push(entry);
         else prisoners.push(entry);

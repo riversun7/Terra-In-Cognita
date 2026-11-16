@@ -1,18 +1,42 @@
 // 조우 전투맵 = 만난 자리 둘레의 실제 2차맵 지형 — 기획 D-172(조우 지점 주변 일정 범위의 타일을 지형으로 쓰는 별도 전투맵)·D-570(질문 1902 가),
 // docs/adr/2026-11-15-unloaded-second-maps.md "바뀜 (D-570, 좌표 이동 3)".
 // - 창: 두 편 가운데 점을 가운데로 한 변 size칸, 2차맵 밖으로 나가면 안쪽으로 민다(공성 전투맵 siegeOrigin과 같은 꼴). 지형 = sim arenaFromSecondMap
-//   (배치 칸 지형 비용·엄폐·꼭짓점 높이 — 다시보기·공성과 같은 셈). 창 안의 2차맵 건물 칸은 지나갈 수 없고 시선을 막는다(조우 전투는 건물을 목표로
-//   삼지 않는다 — 넥서스·피해 없음).
+//   (배치 칸 지형 비용·엄폐·꼭짓점 높이 — 다시보기·공성과 같은 셈).
+// - 바뀜 (encounter-4, 질문 2030 답 — D-570 1803 "모든유닛이 피해받을수도 건물포함"): 창 안(일부라도)의 2차맵 건물은 부서지지 않는 막힘이 아니라
+//   기존 전투 건물 체계의 건물이다(공성 전투맵 siegeArena와 같은 꼴 — 넥서스는 없다). 내구도 = 시설이면 지금 내구도 점, 아니면 [임시] 1,000.
+//   보통 건물은 부술 수 있고(breakable — 부서지면 지나간다, 시선은 계속 막는다), 성벽은 wall. 받은 피해는 세계 시설 상태로 돌아간다(부르는 쪽이
+//   targets를 단다 — world/battleTargets.ts siegeFacilityTargets, 전투 결과 적용이 같은 동기 처리로 줄인다).
 // - 자리: 유닛마다 2차맵의 지금 칸을 창 틀로 옮긴 칸(가장자리 퇴각 띠 START_BAND칸 안쪽으로 자름). 그 칸이 막혔거나 찼으면 가까운 고리부터 빈 칸.
 //   설 칸이 없으면 그 유닛은 뺀다. 들어오는 변(퇴각 쪽) = 편 무게중심이 창 가운데에서 가장 먼 쪽 변(두 편이 같으면 뒤 편은 맞은편).
 // 정수만 쓴다(같은 입력이면 같은 결과).
-import { type BattleMapInput, type Edge, type SecondMapLayers, arenaFromSecondMap } from "@terra/sim";
+import {
+  type BattleBuildingInput,
+  type BattleMapInput,
+  type Edge,
+  type SecondMapLayers,
+  arenaFromSecondMap,
+} from "@terra/sim";
 
 export interface ArenaRect {
   readonly x: number;
   readonly y: number;
   readonly width: number;
   readonly height: number;
+}
+
+/** 창에 들어갈 2차맵 건물(siegeLayout.ts siegeLayoutOn과 같은 값) */
+export interface ArenaBuilding extends ArenaRect {
+  /** 2차맵 건물 ID */
+  readonly sourceId: number;
+  readonly durability: number;
+  /** 성벽 시설(부수면 뚫린다) */
+  readonly wall?: boolean | undefined;
+}
+
+/** 조우 전투맵과 전투 건물 ID → 2차맵 건물 ID */
+export interface EncounterArenaMap {
+  readonly map: BattleMapInput;
+  readonly sources: ReadonlyMap<number, number>;
 }
 
 export interface ArenaUnit {
@@ -24,8 +48,6 @@ export interface ArenaUnit {
 
 /** 시작 자리가 피하는 가장자리 폭(퇴각 띠 2칸 — 공성 전투맵과 같다) */
 const START_BAND = 2;
-/** 엄폐 층 막힘 값(ADR 46: 0 없음·1 수풀·2 막힘) */
-const COVER_BLOCKING = 2;
 
 const clamp = (value: number, low: number, high: number): number => Math.min(Math.max(value, low), high);
 
@@ -45,17 +67,17 @@ export function arenaOrigin(
   return { x: clamp(center.x - (size >> 1), 0, high), y: clamp(center.y - (size >> 1), 0, high) };
 }
 
-/** 지형 층(없으면 평지)과 건물 칸으로 창 하나의 전투맵 */
+/** 지형 층(없으면 평지)과 건물(전투 건물 — 부술 수 있다)로 창 하나의 전투맵. 2차맵 건물 ID 차례로 전투 건물 ID 1… */
 export function encounterMap(
   layers: SecondMapLayers | null,
   mapCells: number,
-  buildings: readonly ArenaRect[],
+  buildings: readonly ArenaBuilding[],
   origin: { x: number; y: number },
   size: number,
-): BattleMapInput {
+): EncounterArenaMap {
   if (mapCells < size) throw new RangeError("arena larger than the second map");
   const cells = size * size;
-  const map: BattleMapInput = layers
+  const ground: BattleMapInput = layers
     ? arenaFromSecondMap(layers, origin, size)
     : {
         size,
@@ -64,19 +86,41 @@ export function encounterMap(
         height: new Int32Array(cells),
         buildings: [],
       };
-  for (const rect of buildings) {
+  const taken = new Uint8Array(cells);
+  const out: BattleBuildingInput[] = [];
+  const sources = new Map<number, number>();
+  for (const rect of buildings.toSorted((a, b) => a.sourceId - b.sourceId)) {
     const x0 = Math.max(rect.x - origin.x, 0);
     const y0 = Math.max(rect.y - origin.y, 0);
     const x1 = Math.min(rect.x + rect.width - origin.x, size);
     const y1 = Math.min(rect.y + rect.height - origin.y, size);
-    for (let y = y0; y < y1; y++) {
+    const own: number[] = [];
+    for (let y = y0; y < y1; y++)
       for (let x = x0; x < x1; x++) {
-        map.passable[y * size + x] = 0;
-        map.cover[y * size + x] = COVER_BLOCKING;
+        const cell = y * size + x;
+        if (taken[cell] === 1) continue;
+        taken[cell] = 1;
+        own.push(cell);
       }
-    }
+    if (own.length === 0) continue;
+    const id = out.length + 1;
+    out.push({
+      id,
+      cells: own,
+      durability: Math.max(1, rect.durability),
+      nexus: false,
+      ...(rect.wall === true ? { wall: true } : { breakable: true }),
+    });
+    sources.set(id, rect.sourceId);
   }
-  return map;
+  return { map: { ...ground, buildings: out }, sources };
+}
+
+/** 전투 건물이 차지한 칸(시작 자리를 두지 않는다) */
+function buildingCells(map: BattleMapInput): Set<number> {
+  const out = new Set<number>();
+  for (const building of map.buildings) for (const cell of building.cells) out.add(cell);
+  return out;
 }
 
 /** 가까운 고리부터 지나갈 수 있고 빈 칸(없으면 null) */
@@ -112,7 +156,7 @@ export function placeEncounterUnits(
   sides: readonly (readonly ArenaUnit[])[],
 ): Map<number, { x: number; y: number }> {
   const out = new Map<number, { x: number; y: number }>();
-  const taken = new Set<number>();
+  const taken = buildingCells(map);
   const high = map.size - 1 - START_BAND;
   for (const side of sides) {
     for (const unit of side) {

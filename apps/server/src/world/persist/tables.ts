@@ -265,6 +265,24 @@ export const WORLD_TABLES = {
     columns: ["unit_id", "faith", "faith_points"],
     key: ["unit_id"],
   },
+  /** 유닛 AI 작전(D-5039·D-5040, src/tactics/store.ts — 유닛에 외래 키 없음, 유닛 다음에 쓴다) */
+  unitTactics: {
+    name: "unit_tactics",
+    columns: [
+      "unit_id",
+      "preset",
+      "engage",
+      "pursue",
+      "cover",
+      "escort",
+      "save_skill",
+      "spread",
+      "retreat_pct",
+      "target",
+      "updated_at_ms",
+    ],
+    key: ["unit_id"],
+  },
   /** 기도 쿨다운(소유 주체마다 마지막 기도 시각, 소유 주체 다음에 쓴다) */
   templeDevotions: {
     name: "temple_devotions",
@@ -874,6 +892,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "cyborgUnits",
   "unitSkills",
   "unitFaith",
+  "unitTactics",
   "templeDevotions",
   "templeGuardians",
   "recruitDraws",

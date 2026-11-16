@@ -7,7 +7,9 @@ import { type ServerLink, serverLink } from "../net/serverLink.ts";
 
 export type TravelCommand =
   | Omit<ClientMessageOf<"travel_start">, "id">
-  | Omit<ClientMessageOf<"travel_cancel">, "id">;
+  | Omit<ClientMessageOf<"travel_cancel">, "id">
+  // 유닛 AI 작전 저장(프로토콜 50, 유닛 화면 units/TacticsPanel.tsx — 답도 travel_result)
+  | Omit<ClientMessageOf<"unit_tactics">, "id">;
 
 export type TravelOutcome =
   | { readonly ok: true; readonly maps?: number | undefined; readonly arriveAt?: number | undefined }

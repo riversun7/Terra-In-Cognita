@@ -1,6 +1,7 @@
 // 유닛 상세 — 상태(직무·피로/배터리·부상·포로·이동·만족도), 스탯(서버 계산), 장비 칸, 스킬, 화물, 동작(곧 열림).
 // 부상(D-521): 상태 칸에 단계 색 표(InjuryBadge), 세계 유닛은 [부상·병원] 칸(HospitalCare.tsx — 견적·치료, docs/adr/2026-11-08-injury.md).
 // 좁은 폭은 목록 대신 보이고 [목록으로]가 닫는다. 넓은 폭은 목록 옆 판이다(UnitList.tsx).
+// AI 작전(D-5039·D-5040, TacticsPanel.tsx): 판단하는 세계 유닛만 — 조우 판단·조우 전투 퇴각 기준.
 // 세계 유닛(w…)의 장비 칸은 보유 물건(holdings/UnitHoldings.tsx: 칸 고르기·장착·해제·사용, docs/adr/2026-11-03-item-holdings.md
 // "바뀜 (화면)"), 시안 유닛은 시안 칸 목록.
 import type { RosterUnit, UnitsListResponse } from "@terra/shared/roster";
@@ -23,6 +24,7 @@ import {
   unitLabel,
 } from "../roster/rosterText.ts";
 import { HospitalCare } from "./HospitalCare.tsx";
+import { TacticsPanel } from "./TacticsPanel.tsx";
 import { UnitGift } from "../map/business/UnitGift.tsx";
 
 /** [임시] 피로 경고 몫(한도 120의 80%), 배터리 경고 몫(20%). 기획 피로 구간(D-430)이 정해지면 그 값 */
@@ -207,6 +209,10 @@ export function UnitDetail({
           now={now}
           onChanged={onVitalsStale}
         />
+      ) : null}
+      {/* AI 작전(D-5039·D-5040 — 조우 판단·조우 전투 퇴각 기준, 판단하는 세계 유닛만 칸이 온다) */}
+      {worldUnit !== null && unit.tactics !== undefined ? (
+        <TacticsPanel key={`tactics-${unit.id}`} id={`${id}-tactics`} unit={worldUnit} saved={unit.tactics} />
       ) : null}
       {/* 용돈 주기(유닛 사유재산 — D-555 1508, docs/adr/2026-11-15-business-ledger.md) */}
       {worldUnit !== null ? <UnitGift key={`gift-${unit.id}`} unitId={worldUnit} /> : null}

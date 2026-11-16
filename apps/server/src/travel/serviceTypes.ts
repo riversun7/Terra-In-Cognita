@@ -68,6 +68,8 @@ export interface CoordinateUnit {
   readonly aboard: number | null;
   /** 배(물 길 영역)인가 — 좌표 조우에서 뺀다(해상 조우 없음, D-559 3차·질문 1648) */
   readonly sea: boolean;
+  /** 유닛 행의 걷기 빠르기(단위/초 — 마지막으로 걸을 때 잰 실효 AGI·버프 값, D-540). 조우 회피 빠르기 비교(D-573)가 읽는다 */
+  readonly speed: number;
 }
 
 /**

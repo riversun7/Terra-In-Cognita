@@ -7,6 +7,9 @@ import {
   TRAVEL_KINDS,
   TRAVEL_PROTOCOL_VERSION,
   TRAVEL_RESULT_CODES,
+  UNIT_TACTICS_PRESETS,
+  UNIT_TACTICS_PROTOCOL_VERSION,
+  UNIT_TACTICS_TARGETS,
   decodeClientMessage,
   decodeServerMessage,
   encodeMessage,
@@ -57,5 +60,32 @@ describe("2차맵 사이 이동 메시지(프로토콜 16)", () => {
       expect(decodeServerMessage(encodeMessage(failed))).toEqual(failed);
     }
     expect(decodes(decodeServerMessage, { t: "travel_result", id: 3, ok: false, code: "nope" })).toBe(false);
+  });
+
+  it("유닛 AI 작전 저장(프로토콜 50): 슬라이더 0~10·퇴각 0~100·목록 안의 프리셋·목표", () => {
+    expect(UNIT_TACTICS_PROTOCOL_VERSION).toBe(50);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(50);
+    const message = {
+      t: "unit_tactics",
+      id: 4,
+      unitId: 7,
+      preset: "balanced",
+      engage: 6,
+      pursue: 5,
+      cover: 6,
+      escort: 5,
+      saveSkill: 5,
+      spread: 5,
+      retreatPct: 30,
+      target: "nearest",
+    } as const;
+    expect(decodeClientMessage(encodeMessage(message))).toEqual(message);
+    expect(decodes(decodeClientMessage, { ...message, engage: 11 })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...message, cover: 2.5 })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...message, retreatPct: 101 })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...message, preset: "custom" })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...message, target: "random" })).toBe(false);
+    expect(UNIT_TACTICS_PRESETS).toEqual(["aggressive", "balanced", "defensive", "hold"]);
+    expect(UNIT_TACTICS_TARGETS).toEqual(["nearest", "weakest", "threat"]);
   });
 });

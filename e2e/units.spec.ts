@@ -2,12 +2,14 @@
 // - 플레이어: 실제 자료만(유닛이 없으면 빈 안내, 시안 칸은 빈 안내, 사이보그는 전역 준비가 첫 접속으로 만든 본체, 시안 스위치 없음).
 // - dev + 시안 자료: 시안 유닛 10·포로·파티·프리셋·관리인·경매소, 사이보그 본체. 걸러 보기·다중 선택·상세(서버 계산 스탯).
 // - admin + 실제 자료: 구인 카드로 휴먼을 고용하면(모자란 시험 화폐는 운영자 지급) 유닛 목록에 그 휴먼("휴먼 #ID", 카드 스탯).
+//   그 휴먼 상세의 [AI 작전] 판(D-5039·D-5040, encounter-4): 기본 균형 → 공격적 고르기 → 세부 조정 → 저장(프로토콜 50 unit_tactics) → 다시 열면
+//   저장한 값(사진: 파스텔 한국어·다크 영어 390).
 //   시험 일꾼은 없앴다(사용자 지적 2026-11-09 "시험일꾼 다 없애라고").
 // - 사진: 390·1440 × 파스텔·다크 × 한국어·영어(유닛 목록·유닛 상세·사이보그, 시안 자료). 폴더는 E2E_SHOTS_DIR.
 // 복귀 요약은 시안 자료면 켤 때마다 뜨므로 이 시험들에서는 띄우지 않는다(hideSummary).
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
-import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
+import { elementShot, horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type Language, type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
 import { ensureHuman } from "./helpers/wsCommands.ts";
@@ -200,6 +202,70 @@ test.describe("admin + 실제 자료", () => {
     await expect(page.locator(".units-detail")).toContainText(name);
     expect(deviceErrors).toEqual([]);
   });
+
+  // 같은 휴먼을 차례로 쓰므로 판마다 다른 프리셋을 고른다(앞 판이 저장한 값과 달라야 [저장]이 켜진다)
+  for (const [theme, language, pick] of [
+    ["pastel", "ko", "tactics_preset_aggressive"],
+    ["dark", "en", "tactics_preset_defensive"],
+  ] as const) {
+    test.describe(`AI 작전 ${theme} ${language}`, () => {
+      test.use({ ...VIEWPORTS.phone, theme, language });
+
+      test(`[AI 작전] 판: 프리셋·세부 조정 → 저장 → 다시 열면 저장한 값 (${theme}·${language})`, async ({
+        page,
+        deviceErrors,
+      }) => {
+        test.setTimeout(90_000);
+        const unitId = await ensureHuman(page, "e2e_admin");
+        await page.goto("/units");
+        await unitsReady(page);
+        const name = message(language, "roster_unnamed", {
+          type: message(language, "roster_type_human"),
+          number: unitId,
+        });
+        const open = async () => {
+          await page
+            .locator(".units-row")
+            .filter({ hasText: name })
+            .first()
+            .locator(".units-row-main")
+            .click();
+          await expect(page.locator(".units-detail")).toContainText(name);
+        };
+        await open();
+        const panel = page.locator('[data-part="unit-tactics"]');
+        await expect(panel).toBeVisible();
+        const preset = (key: string) =>
+          panel.getByRole("button", { name: message(language, key), exact: true });
+        // 저장한 적이 없으면 균형, 앞 판이 저장했으면 그 프리셋 — 하나는 눌려 있다
+        await expect(panel.locator('.tactics-preset[aria-pressed="true"]')).toHaveCount(1);
+        await preset(pick).click();
+        await expect(preset(pick)).toHaveAttribute("aria-pressed", "true");
+        await panel.locator("summary").click();
+        const engage = panel.getByLabel(message(language, "tactics_slider_engage"));
+        await engage.focus();
+        await engage.press("End");
+        await expect(engage).toHaveValue("10");
+        await expect(panel).toContainText(
+          message(language, "tactics_edited", { preset: message(language, pick) }),
+        );
+        expect(await horizontalOverflow(page)).toEqual([]);
+        await elementShot(panel, `unit-tactics-390-${theme}-${language}`);
+        await panel.getByRole("button", { name: message(language, "tactics_save"), exact: true }).click();
+        await expect(panel.getByRole("status")).toHaveText(message(language, "tactics_saved"), {
+          timeout: 15_000,
+        });
+        // 다시 받아 열면 저장한 값(고른 프리셋에서 고친 교전 10)
+        await page.reload();
+        await unitsReady(page);
+        await open();
+        await expect(preset(pick)).toHaveAttribute("aria-pressed", "true");
+        await panel.locator("summary").click();
+        await expect(panel.getByLabel(message(language, "tactics_slider_engage"))).toHaveValue("10");
+        expect(deviceErrors).toEqual([]);
+      });
+    });
+  }
 });
 
 // 사진: 390·1440 × 파스텔·다크 × 한국어·영어(시안 자료)

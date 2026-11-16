@@ -155,6 +155,9 @@ export {
   TRAVEL_RESULT_CODES,
   type TravelKind,
   type TravelResultCode,
+  UNIT_TACTICS_PRESETS,
+  UNIT_TACTICS_PROTOCOL_VERSION,
+  UNIT_TACTICS_TARGETS,
 } from "./travel.ts";
 export { GATHER_PROTOCOL_VERSION, GATHER_RESULT_CODES, type GatherResultCode } from "./gather.ts";
 export {

@@ -189,4 +189,53 @@ describe("2차맵 사이 이동 연결 처리", () => {
     expect(devLink.sent).toEqual([{ t: "travel_result", id: 1, ok: true, maps: 1, arriveAt: 0 }]);
     expect(playerLink.sent).toEqual([{ t: "travel_result", id: 7, ok: false, code: "forbidden" }]);
   });
+
+  it("유닛 AI 작전 저장(unit_tactics, 프로토콜 50)은 저장소로 넘기고 travel_result로 답한다. 저장소가 없으면 busy", async () => {
+    const saved: unknown[] = [];
+    const tactics = {
+      unitId: 5,
+      preset: "hold",
+      engage: 1,
+      pursue: 0,
+      cover: 10,
+      escort: 8,
+      saveSkill: 8,
+      spread: 7,
+      retreatPct: 0,
+      target: "nearest",
+    } as const;
+    const gateway = createTravelGateway({
+      service: () => fakeService([]),
+      tactics: () => ({
+        get: () => undefined,
+        set: (userId, unitId, value) => {
+          saved.push([userId, unitId, value]);
+          return unitId === 5 ? { ok: true } : { ok: false, code: "forbidden" };
+        },
+        loaded: Promise.resolve(),
+      }),
+      now: () => 0,
+      log: { error: () => {} },
+    });
+    const sent: unknown[] = [];
+    const socket = gateway.open({
+      send: (text) => sent.push(decodeServerMessage(text)),
+      viewer: () => Promise.resolve(player),
+    });
+    socket.handle({ t: "unit_tactics", id: 3, ...tactics });
+    socket.handle({ t: "unit_tactics", id: 4, ...tactics, unitId: 6 });
+    const none = connect(fakeService([]), player);
+    none.socket.handle({ t: "unit_tactics", id: 5, ...tactics });
+    for (let i = 0; i < 8; i++) await settle();
+    const { unitId: _unit, ...value } = tactics;
+    expect(saved).toEqual([
+      ["user-1", 5, value],
+      ["user-1", 6, value],
+    ]);
+    expect(sent).toEqual([
+      { t: "travel_result", id: 3, ok: true },
+      { t: "travel_result", id: 4, ok: false, code: "forbidden" },
+    ]);
+    expect(none.sent).toEqual([{ t: "travel_result", id: 5, ok: false, code: "busy" }]);
+  });
 });

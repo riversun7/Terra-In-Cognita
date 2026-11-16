@@ -12863,8 +12863,8 @@
       "id": "encounter_aggression_pm",
       "code": "",
       "name": {
-        "ko": "[임시] NPC 공격 성향이 문턱을 옮기는 세기(‰)",
-        "en": "[temp] How far NPC aggression moves the thresholds (‰)"
+        "ko": "[임시] AI 작전 ① 교전이 문턱을 옮기는 세기(‰)",
+        "en": "[temp] How far AI tactics engage moves the thresholds (‰)"
       },
       "value": 1000,
       "structural": false,
@@ -12872,8 +12872,8 @@
       "min": 0,
       "max": 2000,
       "desc": {
-        "ko": "문턱 × (1 + (500 − 공격 성향) ÷ 1000 × 이 값 ÷ 1000). 성향 500이면 그대로, 높을수록 쉽게 건다.",
-        "en": "Threshold × (1 + (500 − aggression) / 1000 × this / 1000). Aggression 500 keeps it; higher attacks more readily."
+        "ko": "문턱 × (1 + (500 − 교전 × 100) ÷ 1000 × 이 값 ÷ 1000). 교전 5면 그대로, 높을수록 쉽게 건다. NPC는 성격(공격 성향)으로 고른 프리셋의 교전 값.",
+        "en": "Threshold × (1 + (500 − engage × 100) / 1000 × this / 1000). Engage 5 keeps it; higher attacks more readily. NPCs use the engage value of the preset picked by their aggression."
       },
       "source": "기획 D-564 1641·D-570 · 질문 1905 · ADR 2026-11-15-unloaded-second-maps \"바뀜 (D-570, 좌표 이동 3)\" [임시]"
     },
@@ -12881,19 +12881,19 @@
       "id": "encounter_player_policy",
       "code": "",
       "name": {
-        "ko": "[임시] 플레이어 유닛 자동 판단(0 = 회피, 1 = NPC와 같은 판단)",
-        "en": "[temp] Player unit auto decision (0 = avoid, 1 = same as NPC)"
+        "ko": "[임시] 플레이어 유닛 자동 판단(0 = 회피, 1 = 성향 500 NPC처럼, 2 = AI 작전대로)",
+        "en": "[temp] Player unit auto decision (0 = avoid, 1 = like an aggression-500 NPC, 2 = by AI tactics)"
       },
-      "value": 0,
+      "value": 2,
       "structural": false,
       "unit": "count",
       "min": 0,
-      "max": 1,
+      "max": 2,
       "desc": {
-        "ko": "플레이어 행동 설정이 아직 없어 플레이어 유닛은 기본으로 먼저 걸지 않는다(회피). 1이면 성향 500인 NPC처럼 판단한다.",
-        "en": "Players have no behaviour setting yet, so their units do not start fights by default (avoid). 1 makes them judge like an aggression-500 NPC."
+        "ko": "2(기본)면 플레이어 유닛은 유닛 화면에서 정한 AI 작전(없으면 균형 프리셋)으로 조우를 판단한다. 오프라인 주인의 유닛은 먼저 걸지 않는다. 0은 늘 회피, 1은 옛 판단(성향 500 NPC처럼).",
+        "en": "With 2 (default) player units judge encounters by the AI tactics set on the unit screen (balanced preset if none). Units of offline owners never start fights. 0 always avoids, 1 is the old rule (like an aggression-500 NPC)."
       },
-      "source": "기획 D-564 1641·D-570 · 질문 1905 · ADR 2026-11-15-unloaded-second-maps \"바뀜 (D-570, 좌표 이동 3)\" [임시]"
+      "source": "기획 D-564 1641·D-570·D-5039·D-5040 · 질문 1905·2021·2023 · ADR 2026-11-15-unloaded-second-maps \"바뀜 (encounter-4)\" [임시]"
     },
     {
       "id": "encounter_full_pm",
@@ -12908,8 +12908,8 @@
       "min": 0,
       "max": 1000,
       "desc": {
-        "ko": "조우로 멈춘 유닛은 전투 뒤 다시 판단한다. 짐이 운반 상한의 이 몫 이상이면 출발한 자리로 전리품을 정리하러 간다.",
-        "en": "After an encounter battle a halted unit decides again: with cargo at or above this share of its carry limit it heads back to unload."
+        "ko": "조우로 멈춘 유닛은 전투 뒤 다시 판단한다. 짐이 운반 상한의 이 몫 이상이면 가장 가까운 내 창고로 전리품을 정리하러 간다(채집 줄은 넣는 곳에 넣고 다시 캔다).",
+        "en": "After an encounter battle a halted unit decides again: with cargo at or above this share of its carry limit it heads to the nearest own warehouse to unload (a gathering loop unloads and keeps gathering)."
       },
       "source": "기획 D-564 1641·D-570 · 질문 1905 · ADR 2026-11-15-unloaded-second-maps \"바뀜 (D-570, 좌표 이동 3)\" [임시]"
     },
@@ -12926,8 +12926,8 @@
       "min": 0,
       "max": 1000,
       "desc": {
-        "ko": "조우 전투 뒤 남은 HP가 최대의 이 몫 아래이거나 부상이면 출발한 자리로 돌아가 재정비한다. 아니면 하던 길을 다시 간다.",
-        "en": "After an encounter battle, a unit below this share of max HP (or injured) returns to regroup; otherwise it resumes its trip."
+        "ko": "조우 전투 뒤 남은 HP가 최대의 이 몫 아래이거나 부상이면 가장 가까운 거점(내 나라 도시·시작 도시)으로 가서 재정비한다. 아니면 하던 길·채집을 다시 한다.",
+        "en": "After an encounter battle, a unit below this share of max HP (or injured) heads to the nearest base (own nation city or start city) to regroup; otherwise it resumes its trip or gathering."
       },
       "source": "기획 D-564 1641·D-570 · 질문 1905 · ADR 2026-11-15-unloaded-second-maps \"바뀜 (D-570, 좌표 이동 3)\" [임시]"
     }

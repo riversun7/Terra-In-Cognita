@@ -4,15 +4,19 @@
 // - 소유·길 판정과 걷기는 서비스(service.ts)가 한다. 기기는 목적 2차맵·칸·명령 종류만 보낸다(서버 권위).
 // - 운영자 텔레포트(teleport 칸, 프로토콜 36, 기획 D-560 1239): 모든 유닛 명령 권한(dev·admin, canCommandAnyUnit)일 때만 — 아니면 forbidden. 서버가
 //   권한을 본다(기기의 운영자 모드 단추는 화면 편의일 뿐).
+// - 유닛 AI 작전 저장(unit_tactics, 프로토콜 50 — 기획 D-5039·D-5040, 질문 2021·2023 답): 조우 판단 입력이라 이동 메시지와 같은 줄로 받는다.
+//   저장소(tactics/store.ts)가 소유·종류를 본다. 답은 travel_result.
 // - 걷는 빠르기 = 이 연결의 운영자 배율(기본 1, D-560 1246). 운영자 모드를 끄면 그 연결이 보낸 길의 빠르기를 1로 돌린다(releasePace, 1248).
 import { type ClientMessageOf, type TravelResultCode, encodeMessage } from "@terra/protocol";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
 import { type OperatorPaceLink, type PaceMap, operatorFactor, withPace } from "../world/operatorPace.ts";
 import { canCommandAnyUnit } from "../world/unitControl.ts";
+import type { UnitTacticsStore } from "../tactics/store.ts";
 import type { TravelCommandResult, TravelService } from "./service.ts";
 
-export type TravelClientMessage = ClientMessageOf<"travel_start" | "travel_cancel">;
+export type TravelClientMessage = ClientMessageOf<"travel_start" | "travel_cancel" | "unit_tactics">;
+type TravelMoveMessage = ClientMessageOf<"travel_start" | "travel_cancel">;
 
 const MAX_PENDING = 8;
 const LIMIT = { capacity: 10, refillPerMinute: 30 };
@@ -51,7 +55,7 @@ function resultText(id: number, result: TravelCommandResult): string {
 
 const fail = (code: TravelResultCode): TravelCommandResult => ({ ok: false, code });
 
-function run(service: TravelService, viewer: Viewer, message: TravelClientMessage, speedFactor: number) {
+function run(service: TravelService, viewer: Viewer, message: TravelMoveMessage, speedFactor: number) {
   switch (message.t) {
     case "travel_start": {
       const target = {
@@ -80,6 +84,8 @@ function run(service: TravelService, viewer: Viewer, message: TravelClientMessag
 export function createTravelGateway(options: {
   /** 세계가 준비되면 서비스(없으면 busy) */
   service: () => TravelService | undefined;
+  /** 유닛 AI 작전 저장소(세계가 준비되면, tactics/store.ts). 없으면 unit_tactics는 busy */
+  tactics?: (() => UnitTacticsStore | undefined) | undefined;
   /** 띄운 2차맵(운영자 빠르기 표시를 단다 — world/operatorPace.ts). 없으면 표시하지 않는다(길의 빠르기는 그대로 정한다) */
   maps?: (() => Iterable<PaceMap>) | undefined;
   now: () => number;
@@ -106,6 +112,12 @@ export function createTravelGateway(options: {
         const service = options.service();
         if (!service) return reply(message.id, fail("busy"));
         if (!limiter.take(viewer.id)) return reply(message.id, fail("rate_limited"));
+        if (message.t === "unit_tactics") {
+          const tactics = options.tactics?.();
+          if (!tactics) return reply(message.id, fail("busy"));
+          const { t: _t, id: _id, unitId, ...value } = message;
+          return reply(message.id, tactics.set(viewer.id, unitId, value));
+        }
         const factor = operatorFactor(link, viewer.roles);
         // 길의 빠르기는 길이 든다(service.ts). 표시는 다른 유닛 명령과 같은 규칙으로 단다·지운다(world/operatorPace.ts)
         const result = await withPace(

@@ -38,6 +38,7 @@ import {
   OPERATOR_PACE_PROTOCOL_VERSION,
   TELEPORT_PROTOCOL_VERSION,
   TRAVEL_PROTOCOL_VERSION,
+  UNIT_TACTICS_PROTOCOL_VERSION,
   UNIT_CONTROL_PROTOCOL_VERSION,
   GATHER_PROTOCOL_VERSION,
   HOSPITAL_PROTOCOL_VERSION,
@@ -597,10 +598,17 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         return;
       }
       case "travel_start":
-      case "travel_cancel": {
-        // 2차맵 사이 이동은 프로토콜 16, 운영자 텔레포트 칸(teleport)은 36이다. 더 낮게 인사한 연결은 모르는 메시지로 본다
+      case "travel_cancel":
+      case "unit_tactics": {
+        // 2차맵 사이 이동은 프로토콜 16, 운영자 텔레포트 칸(teleport)은 36, 유닛 AI 작전 저장은 50이다. 더 낮게 인사한 연결은 모르는 메시지로 본다
         const teleport = message.t === "travel_start" && message.teleport === true;
-        if (protocolVersion < (teleport ? TELEPORT_PROTOCOL_VERSION : TRAVEL_PROTOCOL_VERSION)) {
+        const needs =
+          message.t === "unit_tactics"
+            ? UNIT_TACTICS_PROTOCOL_VERSION
+            : teleport
+              ? TELEPORT_PROTOCOL_VERSION
+              : TRAVEL_PROTOCOL_VERSION;
+        if (protocolVersion < needs) {
           reject("invalid_message");
           return;
         }

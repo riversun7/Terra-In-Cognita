@@ -6,6 +6,7 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
+    "./aiTactics": "./src/aiTactics.ts",
     "./balance": "./src/balance.ts",
     "./balanceAnalysis": "./src/balanceAnalysis.ts",
     "./battleLab": "./src/battleLab.ts",

@@ -7,7 +7,7 @@
 // origin_* = 출발 자리(정찰이 돌아올 곳, 질문 591 나), scouted_map_key = 정찰한 2차맵(값이 있으면 돌아오는 중 — route·target은 돌아오는 길),
 // hidden_until_ms = 띄우지 않은 2차맵을 건너뛰는 중이면 나타나는 시각(질문 593 나 — 그동안 유닛 행은 사라진 2차맵의 변 끝에 그대로 있다).
 import { sql } from "drizzle-orm";
-import { bigint, check, index, integer, pgTable, text } from "drizzle-orm/pg-core";
+import { bigint, check, index, integer, pgTable, smallint, text } from "drizzle-orm/pg-core";
 import { planetIdColumn } from "./planetColumns.ts";
 
 /**
@@ -49,5 +49,37 @@ export const worldTravels = pgTable(
       "world_travels_origin",
       sql`(${table.originX} is null or ${table.originX} between 0 and 255) and (${table.originY} is null or ${table.originY} between 0 and 255)`,
     ),
+  ],
+);
+
+/**
+ * 유닛 AI 작전(기획 D-5039·D-5040, encounter-4 — 질문 2021·2023 답: 플레이어 유닛의 조우 판단 입력, @terra/shared/aiTactics). 유닛당 한 줄,
+ * 없으면 기본 프리셋(균형 — 질문 2132). preset = 마지막으로 고른 프리셋, 슬라이더 ①~⑥ 0~10, ⑦ 퇴각 기준 = 파티 HP %(0~100), target = 목표 우선순위.
+ * world_travels와 같은 까닭으로 유닛에 외래 키를 두지 않는다(유닛이 사라진 줄은 읽을 때 무시 — 유닛 화면은 유닛 행과 잇고, 조우는 있는 유닛만 묻는다).
+ * 쓰기는 월드 쓰기 대기열 하나(src/tactics/store.ts). 직전 판 앱은 이 표를 모른 채 그대로 돈다(더하기만)
+ */
+export const unitTactics = pgTable(
+  "unit_tactics",
+  {
+    unitId: bigint("unit_id", { mode: "number" }).primaryKey(),
+    preset: text("preset").notNull(),
+    engage: smallint("engage").notNull(),
+    pursue: smallint("pursue").notNull(),
+    cover: smallint("cover").notNull(),
+    escort: smallint("escort").notNull(),
+    saveSkill: smallint("save_skill").notNull(),
+    spread: smallint("spread").notNull(),
+    retreatPct: smallint("retreat_pct").notNull(),
+    target: text("target").notNull(),
+    updatedAtMs: bigint("updated_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    check("unit_tactics_preset", sql`${table.preset} in ('aggressive', 'balanced', 'defensive', 'hold')`),
+    check("unit_tactics_target", sql`${table.target} in ('nearest', 'weakest', 'threat')`),
+    check(
+      "unit_tactics_sliders",
+      sql`${table.engage} between 0 and 10 and ${table.pursue} between 0 and 10 and ${table.cover} between 0 and 10 and ${table.escort} between 0 and 10 and ${table.saveSkill} between 0 and 10 and ${table.spread} between 0 and 10`,
+    ),
+    check("unit_tactics_retreat", sql`${table.retreatPct} between 0 and 100`),
   ],
 );

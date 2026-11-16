@@ -71,6 +71,7 @@ export function coordinateOf(row: UnitRow, mapKey: number, cell: CellPoint, movi
     moving,
     aboard: row.aboardId ?? null,
     sea: row.domain === "sea",
+    speed: row.speed,
   };
 }
 

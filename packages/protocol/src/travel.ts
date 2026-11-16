@@ -14,6 +14,14 @@ export const TRAVEL_PROTOCOL_VERSION = 16;
  * 서버가 invalid_message로 거절한다
  */
 export const TELEPORT_PROTOCOL_VERSION = 36;
+/**
+ * 유닛 AI 작전 저장(unit_tactics, 기획 D-5039·D-5040 — 질문 2021·2023 답: 플레이어 유닛의 조우 판단 입력)이 생긴 판. 더 낮은 연결이 보내면
+ * 서버가 invalid_message로 거절한다. 답은 travel_result(새 코드 없음)
+ */
+export const UNIT_TACTICS_PROTOCOL_VERSION = 50;
+/** AI 작전 프리셋·목표 우선순위(@terra/shared/aiTactics와 같은 목록 — 이 꾸러미는 다른 내부 꾸러미를 가져오지 않는다) */
+export const UNIT_TACTICS_PRESETS = ["aggressive", "balanced", "defensive", "hold"] as const;
+export const UNIT_TACTICS_TARGETS = ["nearest", "weakest", "threat"] as const;
 /** 명령 종류(D-6021의 이동·공격·운송·정찰 가운데 지금 받는 둘 — 둘 다 걸어서 간다, 정찰의 다른 점은 확인 대기) */
 export const TRAVEL_KINDS = ["move", "scout"] as const;
 export type TravelKind = (typeof TRAVEL_KINDS)[number];
@@ -48,6 +56,27 @@ export const travelCancelMessage = z.object({
   t: z.literal("travel_cancel"),
   id: requestId,
   unitId,
+});
+
+const slider = z.number().int().min(0).max(10);
+
+/**
+ * 내 유닛의 AI 작전을 저장한다(프로토콜 50): 프리셋(마지막으로 고른 것) + 슬라이더 ①~⑥(0~10) + ⑦ 퇴각 기준(파티 HP %) + 목표 우선순위.
+ * 소유·유닛 종류는 서버가 본다. 저장한 값은 다음 조우 판단·조우 전투(퇴각 기준)부터 쓴다
+ */
+export const unitTacticsMessage = z.object({
+  t: z.literal("unit_tactics"),
+  id: requestId,
+  unitId,
+  preset: z.enum(UNIT_TACTICS_PRESETS),
+  engage: slider,
+  pursue: slider,
+  cover: slider,
+  escort: slider,
+  saveSkill: slider,
+  spread: slider,
+  retreatPct: z.number().int().min(0).max(100),
+  target: z.enum(UNIT_TACTICS_TARGETS),
 });
 
 // ---------- 서버 → 기기 ----------
@@ -99,5 +128,5 @@ const travelResultMessage = z.discriminatedUnion("ok", [
   }),
 ]);
 
-export const travelClientMessages = [travelStartMessage, travelCancelMessage] as const;
+export const travelClientMessages = [travelStartMessage, travelCancelMessage, unitTacticsMessage] as const;
 export const travelServerMessages = [travelResultMessage] as const;

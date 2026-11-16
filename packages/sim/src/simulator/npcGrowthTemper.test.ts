@@ -35,7 +35,7 @@ describe("도시 성장 성향 몫", () => {
 
   it("지도자 기질(채집 티어와 같은 값)을 더하고, 같은 시드·세력이면 같은 값", () => {
     const c = TEST_NPC_COEFFICIENTS;
-    const leader = leaderTemperOf(42, 5, c);
+    const leader = leaderTemperOf(42, { id: 5 }, c);
     const temper = growthTemperOf(42, { id: 5, traits: MID }, c);
     expect(temper.capDelta).toBe(Math.trunc((leader * 4) / 1000) + 0);
     expect(growthTemperOf(42, { id: 5, traits: MID }, c)).toEqual(temper);

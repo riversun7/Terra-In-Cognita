@@ -13052,10 +13052,28 @@
       "min": 0,
       "max": 1,
       "desc": {
-        "ko": "1이면 NPC 세력 시설의 산출을 그 도시(나라)가 시세에 사들인 매출로, 레시피 재료를 시설이 사들인 재료비로 시설 금고 장부에 적고 바로 국고로 정산한다(손익만 — 물건 흐름은 그대로). 0이면 적지 않는다.",
-        "en": "1 = an NPC faction facility's output is booked as a sale to its city (nation) at market price and its recipe inputs as a materials purchase, in the facility vault's books, then settled straight back to the treasury (profit and loss only — goods flow is unchanged). 0 = not booked."
+        "ko": "1이면 NPC 세력 시설의 산출을 플레이어 사업장처럼 시설 창고에 쌓고 실제로 나른다(보는 2차맵은 화물을 진 운반꾼, 아니면 시간 셈). 그 도시 창고에 닿은 만큼 나라가 시세에 사들인 매출, 레시피 재료는 시설이 사들인 재료비로 시설 금고 장부에 적고, 금고 돈은 하루 끝 자동 정산으로 국고에 든다. 0이면 예전처럼 도시 창고로 바로(장부 없음).",
+        "en": "1 = an NPC faction facility's output piles up in the facility storage like a player business and is actually carried (a carrier with real cargo on watched second maps, a timed haul elsewhere). What reaches the city warehouse is booked as a sale to the nation at market price, recipe inputs as a materials purchase, in the facility vault's books; the vault is settled to the treasury at the day-end auto settlement. 0 = straight to the city warehouse as before (no books)."
       },
-      "source": "D-570 1887 (D-212 \"NPC도 같은 시스템\" · D-569 1781 \"무조건 판매\") [임시]"
+      "source": "D-570 1887 · 기획 대조 2053·2054(D-555 1509·1510 \"요금은 하루 끝 국고로\" \"물건도 플레이어처럼\" · D-564 1627 · D-571 1945) [임시]"
+    },
+    {
+      "id": "business_npc_wait_days",
+      "code": "",
+      "name": {
+        "ko": "NPC 일꾼 소유자가 멈춘 계약을 기다리는 날",
+        "en": "Days an NPC worker owner waits on a paused contract"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 60,
+      "desc": {
+        "ko": "고용한 사업장 보증금이 바닥나 일시 중지된 임금형 계약을, NPC 세력 일꾼 소유자가 해지하기 전에 기다리는 날. 실제 날 = 이 값 × (1500 − 상업 성향 치우침‰) ÷ 1000(상업 성향이 높을수록 빨리 떠난다). 0이면 바로 해지. 플레이어 소유자는 처리할 일을 보고 손으로 정한다(자동 해지 없음).",
+        "en": "Days an NPC faction worker owner waits on a wage contract paused because the employer's deposit ran out before ending it. Actual days = this × (1500 − commerce tilt ‰) ÷ 1000 (higher commerce leaves sooner). 0 = end at once. Player owners decide by hand from the inbox (no automatic ending)."
+      },
+      "source": "D-573 2045 (\"기다릴지 해지하고 다른곳으로 갈지 정함\") · NPC 소유자 성향 규칙 D-212·D-323(기획 해석) [임시]"
     },
     {
       "id": "exchange_fee_bp",

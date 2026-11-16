@@ -1,11 +1,12 @@
 // 거래소 건물 2(기획 D-571, docs/adr/2026-11-16-exchange-buildings.md "바뀜 (D-571)") 시험 — 이용료(1948), NPC 거래소 건물·운반 시간(1945),
 // 개인 창고 쓰는 무게(1943). 원장은 시뮬 장부(메모리), 쓰기 대기열은 가짜.
-import { buildingLocation } from "@terra/shared/goodsPlaces";
+import { buildingLocation, cargoLocation } from "@terra/shared/goodsPlaces";
 import { type LedgerBook, createLedgerBook } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import { EMPTY_MARKETS, type MarketRegistryOptions, createMarketRegistry } from "./books.ts";
 import { createLockers, lockerUsedG } from "./lockers.ts";
+import { createCarryBoard } from "../npc/npcCarry.ts";
 
 const T0 = 1_800_000_000_000;
 const CITY = 3;
@@ -107,6 +108,37 @@ describe("거래소 건물 2", () => {
         .map((order) => order.remaining)
         .toSorted((a, b) => Number(a - b)),
     ).toEqual([3n, 5n]);
+    expect(markets.check()).toEqual([]);
+  });
+
+  it("보이는 NPC 운반꾼(기획 대조 2088): 보는 2차맵은 일 없는 휴먼이 화물을 지고 가고, 닿은 만큼만 건다(빼앗긴 것은 오르지 않는다)", () => {
+    const book = ledger();
+    const board = createCarryBoard(book);
+    const markets = registry(book, {
+      exchangeOf: () => EXCHANGE,
+      npcHaul: { haulMs: () => HAUL_MS, carry: { board, centerOf: () => ({ x: 40, y: 50 }) } },
+    });
+    endow(book, NPC, "item:grain", 10n, CITY);
+    const grain = markets.book(CITY, "item:grain");
+    expect(grain?.market.place(NPC, "sell", 5n, 6n, T0, T0 + 3_600_000).ok).toBe(true);
+    const trip = board.idle(CITY, T0)[0];
+    expect(trip).toMatchObject({ key: "x:1", x: 40, y: 50, untilMs: T0 + HAUL_MS });
+    // 운반꾼 501이 진다(humanPlaces.ts가 알린다) → 도시 창고에서 화물로
+    expect(board.load("x:1", 501, T0 + 1)).toBe(true);
+    expect(book.balanceOf(NPC, "item:grain", cargoLocation(501))).toBe(6n);
+    expect(book.balanceOf(NPC, "item:grain", CITY)).toBe(4n);
+    // 약탈로 2를 잃음
+    book.post({
+      kind: "loot",
+      atMs: T0 + 2,
+      entries: [
+        { account: book.ownerAccount(NPC, "item:grain", cargoLocation(501)), amount: -2n },
+        { account: book.ownerAccount(USER, "item:grain", cargoLocation(900)), amount: 2n },
+      ],
+    });
+    markets.expire(T0 + HAUL_MS);
+    expect(grain?.market.orders().map((order) => order.remaining)).toEqual([4n]);
+    expect(book.balanceOf(NPC, "item:grain", cargoLocation(501))).toBe(0n);
     expect(markets.check()).toEqual([]);
   });
 

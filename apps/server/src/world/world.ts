@@ -36,6 +36,7 @@ import { type LoadedHoldings, loadHoldings } from "../holdings/state.ts";
 import { type VitalsRecord, loadVitals } from "../vitals/state.ts";
 import { type VitalsConfig, type WorldVitals, createWorldVitals } from "../vitals/world.ts";
 import { type LaborService, createLaborService } from "../labor/service.ts";
+import { laborWorldHooks } from "../labor/worldHooks.ts";
 import { EMPTY_LABOR, type LoadedLabor, loadLabor } from "../labor/store.ts";
 import { upkeepWeightOf } from "./upkeepWeights.ts";
 import { createWorkInjury } from "./unitCondition.ts";
@@ -644,8 +645,7 @@ export function startWorld(
       ready: () => status.state === "ready",
       buildingWorks: (buildingId) => facilities.service.works(buildingId),
       unitInJob: (unitId) => facilities.service.unitInJob(unitId),
-      unitAway: (unitId) => persistence?.fusion.temple.isAway(unitId) ?? false,
-      outputBonusPm: (buildingId) => persistence?.fusion.temple.buildingProductionPm(buildingId) ?? 0,
+      ...laborWorldHooks(() => ({ temple: persistence?.fusion.temple, npc })), // 신전·NPC 성향(D-573 2045)
     });
     facilities.attachLabor(labor);
     settlement.routeOutputs((ownerId, fromMs, toMs) => labor.outputsFor(ownerId, fromMs, toMs));

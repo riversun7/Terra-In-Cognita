@@ -27,7 +27,11 @@ describe("처리할 일 시안 자료", () => {
     expect(new Set(list.items.map((item) => item.kind))).toEqual(
       new Set(
         Object.keys(INBOX_KINDS).filter(
-          (kind) => kind !== "scout_returned" && !kind.startsWith("house_") && !kind.startsWith("boat_"),
+          (kind) =>
+            kind !== "scout_returned" &&
+            kind !== "labor_paused" &&
+            !kind.startsWith("house_") &&
+            !kind.startsWith("boat_"),
         ),
       ),
     );

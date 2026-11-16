@@ -124,6 +124,13 @@ export interface HarborBoatTypeView {
   readonly capacity: number;
   /** 배 한 척 적정가(재료비·조선소 인건비·수수료·세금 — 기획 D-570 1822, 요금을 정하는 주인에게 보인다). 옛 서버면 없음 */
   readonly fair?: FairPriceView | undefined;
+  /**
+   * 지금 배 한 척 판매가(화폐 최소 단위 글자 — 주인이 정한 값, 없으면 적정가. "0" = 그 종류는 만들지 않음, 기획 대조 2057·2072). 주문자·주인 모두 이 값을
+   * 조선소 금고에 낸다. 주인 없는 조선소·옛 서버면 없음
+   */
+  readonly price?: string | undefined;
+  /** 주인이 판매가를 정했나(아니면 적정가로 판다) */
+  readonly priceSet?: boolean | undefined;
 }
 
 /** 조선소 도크에 든 배(D-559 1523 — 다 만들거나 고친 배는 꺼낼 때까지 도크에 있다) */
@@ -155,7 +162,7 @@ export interface HarborPanel {
   readonly access: HarborAccess;
   /** 정박장 = 하루 정박료, 교역 부두 = 한 시간 요금, 조선소 = 외주 요금(남의 배 수리 한 번 — 화폐 최소 단위) */
   readonly fee: number;
-  /** 조선소: 남이 배 짓기를 주문할 때 한 척 요금(외주 요금 × 설정 칸 — D-564 1682, 화폐 최소 단위 글자). 옛 서버면 없음 */
+  /** 조선소: 첫 배 종류의 판매가(옛 판 기기용 — 종류마다 값은 types[].price, 기획 대조 2057). 옛 서버면 없음 */
   readonly orderFee?: string | undefined;
   /** 조선소 첫 모듈(없으면 null — 옛 판 기기용, 모듈 묶음은 modules) */
   readonly module: ShipyardModule | null;
@@ -190,4 +197,14 @@ export interface HarborPanel {
   readonly maxHours: number;
   /** 항구 옆 물자 거래소 건물(내리기·싣기가 그 창고를 쓴다 — D-570 1823). 없으면 null, 옛 서버면 없음 */
   readonly exchangeId?: number | null | undefined;
+}
+
+/** 조선소 배 판매가의 사업장 값 표 열쇠(business_prices item — 기획 대조 2057·2072, 프로토콜 51 business_price) */
+export function boatPriceItem(typeId: string): string {
+  return `boat:${typeId}`;
+}
+
+/** 값 표 열쇠가 배 판매가면 배 종류 ID, 아니면 undefined */
+export function boatTypeOfPriceItem(item: string): string | undefined {
+  return item.startsWith("boat:") ? item.slice(5) : undefined;
 }

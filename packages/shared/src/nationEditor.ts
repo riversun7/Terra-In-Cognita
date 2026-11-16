@@ -72,6 +72,16 @@ export interface NationPersonalityJson {
 }
 
 /** 팩 국가 프리셋 한 줄(JSON 모양 — 참조는 ID 글) */
+/** 국가 편집기 성향 칸(기획 D-573 1991 — 팩 nation_presets temper). 빈 칸은 서버가 시드로 굴린다 */
+export interface NationTemperJson {
+  readonly aggression?: number | undefined;
+  readonly commerce?: number | undefined;
+  readonly faith?: number | undefined;
+  readonly station?: number | undefined;
+  /** 지도자 기질(−1000~1000‰ — 설정 칸 폭 안 위치) */
+  readonly leader?: number | undefined;
+}
+
 export interface NationPresetJson {
   readonly id: string;
   readonly name: LocalizedName;
@@ -88,6 +98,8 @@ export interface NationPresetJson {
     readonly ticker?: string | undefined;
   };
   readonly tradeTaxBp: number;
+  /** 성향 칸(D-573 1991). 없으면 모두 무작위 */
+  readonly temper?: NationTemperJson | undefined;
   readonly personality?: NationPersonalityJson | undefined;
   readonly cityNames?: readonly string[] | undefined;
   readonly leaderName?: LocalizedName | undefined;

@@ -53,6 +53,8 @@ export function npcEconomyInputOf(
       return haulMs(grams, cells, 1, facilities.rules());
     },
     weightOf: (asset) => assetWeightG(facilities.catalog(), asset),
+    // 보이는 NPC 거래소 운반꾼이 내려놓는 곳(기획 대조 2088)
+    exchangeCenter: (buildingId) => buildingCenterOf(maps, buildingId),
     // NPC 증축(질문 1101 나): 건물 서비스로 짓고 전략 배치로 자리를 고른다
     build: {
       service: facilities.service,

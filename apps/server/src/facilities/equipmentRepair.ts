@@ -3,9 +3,13 @@
 // - 내 공방: 내 장인(unitIds)·내 재료로 고친다. 요금 없음.
 // - 남의 공방(외주 — 바뀜 (기획 D-570 1785 "그 공방(사업장) 일꾼이 고치고 요금은 주인이 정한다"), 예전: 시설만 빌려 내 장인이, 요금 = 재료 기준
 //   값 × 20%): 그 공방 일꾼(직무 배치·임금형 계약 — 임대형 임차인은 빼고, 다른 작업에 묶이지 않았고 일하는 상태)이 모두 고친다(보낸 unitIds는
-//   보지 않는다). 재료는 맡기는 사람이 그 공방 자리(그 도시 창고·그 2차맵 내 유닛 화물)에서 낸다(예전과 같다). 요금 = 주인이 정한 시간당 요금 ×
+//   보지 않는다). 요금 = 주인이 정한 시간당 요금 ×
 //   걸리는 시간(business/commands.ts repairFee — 정하지 않았으면 적정가, 0이면 받지 않음 = service_closed). 일꾼이 없으면 no_shop_worker. 요금은
 //   그 공방 금고로(소득세). 작업 동안 그 일꾼들의 원래 직무 산출은 쉰다(service.ts pausesFor — 유닛 주인 기준).
+// - 바뀜 (기획 D-573 2048 원문 "맡기는 사람은 서비스 비용만 지불하는거고 모든 재료나 인건비는 사업장이 부담하는거지"): 외주 재료는 맡기는 사람이 아니라
+//   그 공방이 낸다 — 공방 주인의 사업장 창고(건물 위치, D-555 1505 "운영 자금·재료는 건물마다의 창고")에서 빼고(장부 "물건" 칸, 종류
+//   outsource_repair — D-555 1505 "수리는 사업장 창고 먼저": 모자라면 공방 주인의 그 자리), 인건비는 그 공방 일꾼 임금(이미 사업장 금고에서 나간다). 공방
+//   쪽에 재료가 없으면 insufficient_materials(맡기는 사람의 재료는 보지 않는다). 예전(business-4 [임시]): 맡기는 사람이 그 공방 자리에서 냈다.
 import type { FacilityResultCode } from "@terra/protocol";
 import { type FacilityRuntimeRules, conditionWorks, equipmentRepairMs } from "@terra/shared/facilityRuntime";
 import { repairMaterials, repairRuleFor } from "@terra/sim";
@@ -14,6 +18,7 @@ import type { BusinessCommands } from "../business/commands.ts";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldHoldings } from "../holdings/world.ts";
 import type { FacilityDef } from "./catalog.ts";
+import { buildingLocation } from "@terra/shared/goodsPlaces";
 import { type GoodsScope, hasGoods, spendGoods } from "./materials.ts";
 import type { FacilityCommandResult } from "./serviceTypes.ts";
 import type { FacilityRecord, JobMaterial, JobRecord } from "./state.ts";
@@ -145,12 +150,21 @@ export function startEquipmentRepair(
     ms = repairMs(deps, item, unitIds);
   }
   const materials: JobMaterial[] = repairMaterials(rule, itemDef.tier, lost, held.maxDurability);
-  const scope = deps.scopeOf(me, buildingId);
-  if (!hasGoods(deps.ledger, me, materials, scope)) return fail("insufficient_materials");
+  // 재료를 내는 쪽: 내 공방 = 나(내 자리), 외주 = 그 공방 주인의 사업장 창고(D-573 2048)
+  const payer = outsource ? (deps.owner(buildingId) ?? null) : me;
+  if (payer === null) return fail("unknown_building");
+  // 사업장 창고 먼저(D-555 1505 "수리는 사업장 창고 먼저"), 모자라면 공방 주인의 그 자리(그 도시 창고·내 창고 시설·유닛 화물)
+  const shopScope = deps.scopeOf(payer, buildingId);
+  const scope: GoodsScope = outsource
+    ? [buildingLocation(buildingId), ...(shopScope === "anywhere" ? [] : shopScope)]
+    : deps.scopeOf(me, buildingId);
+  if (!hasGoods(deps.ledger, payer, materials, scope)) return fail("insufficient_materials");
   // 외주 요금: 낼 수 있는지 먼저 보고(재료를 빼기 전), 재료를 뺀 뒤 그 사업장 금고로(소득세)
   const business = deps.business();
   if (fee > 0n && !business?.canPay(me, fee)) return fail("insufficient_funds");
-  if (!spendGoods(deps.ledger, me, materials, at, "equipment_repair", scope))
+  if (
+    !spendGoods(deps.ledger, payer, materials, at, outsource ? "outsource_repair" : "equipment_repair", scope)
+  )
     return fail("insufficient_materials");
   if (fee > 0n) business?.chargeService(me, buildingId, fee, "equipment_repair_fee", at);
   deps.startJob({

@@ -168,8 +168,19 @@ export function startCreditOf(
 }
 
 /** 팩 국가 프리셋(D-086) 하나: 시험 국가의 코드·이름(질문 203 가: 시험 세력 + 프리셋 차례)·성격·도시 이름 */
+/** 국가 편집기 성향 칸(팩 국가 프리셋 temper, 기획 D-573 1991). 축 0~1000, 지도자 기질 −1000~1000‰. 빈 칸은 시드 무작위 */
+export interface NationTemper {
+  readonly aggression?: number | undefined;
+  readonly commerce?: number | undefined;
+  readonly faith?: number | undefined;
+  readonly station?: number | undefined;
+  readonly leader?: number | undefined;
+}
+
 export interface NationPreset {
   readonly code: string;
+  /** 성향 칸(presetTemper.ts). 없으면 성향은 모두 시드 무작위 */
+  readonly temper?: NationTemper | undefined;
   readonly name: { readonly ko: string; readonly en: string };
   readonly personality?: NationPersonality | undefined;
   /** NPC 도시 이름(번역하지 않는다, D-476) */

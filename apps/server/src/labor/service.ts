@@ -72,6 +72,8 @@ import type { SecondMap } from "../world/secondMap.ts";
 import { ASSET_CREDIT, ASSET_ORE, type Settlement } from "../world/settlement.ts";
 import { type JobBoardFilter, type LaborPostInput, createJobBoard } from "./jobBoard.ts";
 import { wageRulesOf } from "./rules.ts";
+import { npcQuits } from "./npcWait.ts";
+import { fundDueWages } from "./wageFunding.ts";
 import { wageWalletOf } from "./wagePurse.ts";
 import { KEEP_ENDED_MS, type LoadedLabor, type RentRow, contractRow, rentRow } from "./store.ts";
 
@@ -222,6 +224,8 @@ export function createLaborService(options: {
   unitAway?: ((unitId: number) => boolean) | undefined;
   /** 그 건물 산출 더하기 ‰(그 도시 수호신 생산 버프, 기획 답 470 가). 일한 구간에만 든다. 없으면 0 */
   outputBonusPm?: ((buildingId: number) => number) | undefined;
+  /** NPC 세력 주체의 성향(일시 중지 계약을 기다릴지 — D-573 2045, npcWait.ts). 플레이어·모르면 undefined(처리할 일로 손으로) */
+  npcTraits?: ((ownerId: number) => { readonly commerce: number } | undefined) | undefined;
 }): LaborService {
   const { maps, settlement, ledger, writer, now } = options;
   const contracts = new Map<number, LaborContract>(options.loaded.contracts.map((c) => [c.id, c]));
@@ -360,35 +364,30 @@ export function createLaborService(options: {
     return true;
   };
 
-  /**
-   * 정산 구간에 낼 임금을 보증금이 덮지 못하면 모자란 만큼 사업장 금고에서 채운다(D-564 1624 "끊기지 않게"). 바뀜 (기획 D-570 1788·1789 원문 "적자는
-   * 기본적으로 멈춰야한다. 중단이 어려울때 마지막을 적자처리하고 마지막 사이클을 돌리고 재정안정될때까지 운영중단 원칙."): 금고에도 없으면 마지막
-   * 한 주기 임금까지만 적자로 넣고(advance), 그 주기가 끝나는 시각에 사업장을 멈춘다(stopAfter — 재정이 안정되면 풀린다). 그 뒤 보증금이 모자라면
-   * 계약은 일시 중지된다(자동 해고 없음 — @terra/sim payDue). 멈춘 사업장(1504)은 채우지 않는다. 사업장 고리가 없으면 아무것도 하지 않는다(시험·옛 길)
-   */
-  const fundDueWages = (c: LaborContract, toMs: number, rules: LaborRules): void => {
-    if (c.kind !== "wage" || !isOpen(c) || c.rate <= 0n || !business?.fundDeposit) return;
-    if (business.suspended?.(c.buildingId) === true) return;
-    // 같은 시각이면 만료가 먼저다(laborContract.ts) → 기간 끝 시각의 지급은 없다
-    const limit = c.endsAtMs === null ? toMs : Math.min(toMs, c.endsAtMs - 1);
-    if (c.nextDueMs > limit) return;
-    const cycle = Math.max(1, rules.wageCycleMs);
-    const pays = Math.floor((limit - c.nextDueMs) / cycle) + 1;
-    const short = BigInt(pays) * c.rate - c.deposit;
-    if (short <= 0n) return;
-    const have = business.vaultBalance?.(c.buildingId, c.ownerId, c.asset) ?? short;
-    let want = short;
-    if (have < short) {
-      // 금고가 모자람: 금고에 있는 만큼 + 마지막 한 주기만 적자(D-570) — 덮는 지급 수만큼 돌고 그 주기 끝에 멈춘다
-      const covered = (c.deposit + (have > 0n ? have : 0n)) / c.rate;
-      const last = covered < BigInt(pays) ? covered + 1n : BigInt(pays);
-      want = last * c.rate - c.deposit;
-      business.stopAfter?.(c.buildingId, c.nextDueMs + Number(last) * cycle);
-    }
-    if (want <= 0n) return;
-    business.advance(c.buildingId, c.ownerId, c.asset, want, toMs);
-    fundLaborDeposit(c, want, toMs, ledger, accounts);
+  /** NPC 일꾼 소유자의 일시 중지 계약 판단(D-573 2045, npcWait.ts): 기다리는 날이 지나면 해지(worker)하고 다른 곳으로 */
+  const npcDecide = (c: LaborContract, toMs: number): void => {
+    const traits = c.state === "paused" ? options.npcTraits?.(c.workerOwnerId) : undefined;
+    const society = options.rules();
+    const range = { traitMin: society.npc.traitMin, traitMax: society.npc.traitMax };
+    const waitDays = society.business.npcWaitDays;
+    if (
+      traits &&
+      npcQuits({ commerce: traits.commerce, waitDays, range, pausedSinceMs: c.nextDueMs, nowMs: toMs })
+    )
+      terminateLabor(c, toMs, "worker", ledger, accounts, wageRulesOf(society).labor);
   };
+
+  /** 정산 구간 임금 채우기(wageFunding.ts — D-573 2042 진행 중인 생산 주기만 마지막 적자) */
+  const fundDue = (c: LaborContract, toMs: number, rules: LaborRules): void =>
+    fundDueWages({
+      contract: c,
+      toMs,
+      rules,
+      business,
+      ledger,
+      accounts,
+      inProgress: (unitId, buildingId) => work.inProgress(unitId, buildingId),
+    });
 
   const outputsFor = (
     ownerId: number,
@@ -415,8 +414,9 @@ export function createLaborService(options: {
       const start = c.settledAtMs;
       const movedBefore = c.leftoversMovedAtMs;
       const paidBefore = c.paidTotal;
-      fundDueWages(c, toMs, rules);
+      fundDue(c, toMs, rules);
       const segments = settleLabor(c, toMs, ledger, accounts, rules);
+      npcDecide(c, toMs);
       taxRent(c, paidBefore, toMs);
       save(c);
       // 이번 정산에서 유예가 끝났으면(한 번에 일함 → 유예 → 끝이어도) 정산 뒤에 남은 물건을 옮긴다

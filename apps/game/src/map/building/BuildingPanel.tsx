@@ -104,6 +104,8 @@ export function BuildingPanel({
   const ownerOk = owner?.status === "ok" ? owner : null;
   const business = ownerOk?.business === true;
   const manage = ownerOk !== null && ownerOk.ownerKind !== null && (ownerOk.canManage || operator);
+  // 정산·지급준비율·넣기(D-555 1502 "주인 또는 대주주" — 기획 대조 2047): 지분을 팔아 대주주가 아닌 건물 주인도 [관리] 칸을 본다(값 정하기는 manage만)
+  const ownerTools = manage || (business && ownerOk !== null && ownerOk.mine);
   const booksOn = business && (tab === "books" || tab === "shares" || tab === "storage" || tab === "manage");
   const { books, failed, reload: reloadBooks } = useBooks(buildingId, days, booksOn);
   const laborOn = business && (tab === "work" || tab === "manage");
@@ -125,7 +127,7 @@ export function BuildingPanel({
   if (business) tabs.push("work");
   if (business || stationOk) tabs.push("storage");
   if (business) tabs.push("books", "shares");
-  if (manage) tabs.push("manage");
+  if (ownerTools) tabs.push("manage");
   const current = tabs.includes(tab) ? tab : "overview";
 
   /** 명령 뒤 모두 다시 읽는다(이름표·장부·노동·채집소·건물) */

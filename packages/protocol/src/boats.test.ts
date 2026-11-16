@@ -18,6 +18,7 @@ import {
   HOLD_PROTOCOL_VERSION,
   legacyBoatCode,
   legacyGearCode,
+  legacyOrderCode,
   legacyHoldCode,
   legacyVoyageCode,
 } from "./index.ts";
@@ -146,6 +147,12 @@ describe("배 메시지(프로토콜 27)", () => {
       readyAtMs: 1_800_000_000_000,
     } as const;
     expect(decodeServerMessage(encodeMessage(cooling))).toEqual(cooling);
+  });
+
+  it("51: 배 판매가 0(order_closed)은 50판 이하 연결에 forbidden으로(기획 대조 2057)", () => {
+    expect(legacyOrderCode("order_closed")).toBe("forbidden");
+    expect(legacyOrderCode("busy")).toBe("busy");
+    expect(legacyGearCode("order_closed")).toBe("forbidden");
   });
 
   it("37판 새 결과 코드는 36판 연결에 옛 코드로", () => {

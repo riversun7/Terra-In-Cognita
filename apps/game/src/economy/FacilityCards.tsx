@@ -382,10 +382,10 @@ export function HoldingRepairRow({
         </span>
         {chosen ? (
           <span className="eco-row-meta">
-            {m.facility_repair_cost({ materials: stacksText(data, stock, chosen.materials) })}
+            {/* 외주(D-573 2048): 재료·인건비는 공방이 낸다 — 맡기는 사람은 요금만 */}
             {chosen.fee === undefined
-              ? ""
-              : ` · ${m.facility_outsource_fee({ fee: formatAmount(chosen.fee, getLocale()) })}`}
+              ? m.facility_repair_cost({ materials: stacksText(data, stock, chosen.materials) })
+              : m.facility_outsource_fee({ fee: formatAmount(chosen.fee, getLocale()) })}
             {chosen.workers === undefined
               ? ""
               : ` · ${m.facility_outsource_workers({ count: chosen.workers })}`}
@@ -417,7 +417,9 @@ export function HoldingRepairRow({
         type="button"
         className="button-small"
         aria-describedby={titleId}
-        disabled={busy || blocked || (chosen !== undefined && !canAfford(stock, chosen.materials))}
+        disabled={
+          busy || blocked || (chosen !== undefined && !outsource && !canAfford(stock, chosen.materials))
+        }
         onClick={() => {
           if (chosen)
             void run({

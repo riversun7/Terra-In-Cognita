@@ -21,6 +21,7 @@ import { durationText } from "../travelData.ts";
 import { type BoatCommand, sendBoatCommand } from "./boatCommands.ts";
 import { type BoatOutcomeKind, boatOutcomeText } from "./boatText.ts";
 import { BoatPortRow } from "./BoatPortRow.tsx";
+import { BoatPriceRow } from "./BoatPriceRow.tsx";
 import "./boats.css";
 
 /** 서버 시각(기기 시계 + 인사 때 잰 차이) */
@@ -163,22 +164,37 @@ export function HarborPanel({
                     .map((stack) => `${nameOf(stack.name, stack.item)} ${String(stack.qty)}`)
                     .join(", ")}
                 </span>
-                {/* 주인에게 배 한 척 적정가(D-570 1822 — 주문 요금을 정할 때 곁에) */}
+                {/* 주인에게 배 한 척 적정가(D-570 1822 — 판매가를 정할 때 곁에) */}
                 {mine && type.fair ? (
                   <span className="gather-muted" data-part="harbor-type-fair">
                     {fairText(type.fair, (value) => value, m.harbor_type_fair)}
                   </span>
                 ) : null}
+                {/* 배 판매가(기획 대조 2057·2072 — 주인이 정하고 주문자·주인 모두 이 값을 금고에 낸다) */}
+                <BoatPriceRow
+                  buildingId={buildingId}
+                  typeId={type.id}
+                  price={type.price}
+                  priceSet={type.priceSet === true}
+                  fairPrice={type.fair?.price}
+                  currency={harbor.currency}
+                  manage={mine}
+                  reload={reload}
+                />
                 <button
                   type="button"
                   className="button-small button-primary boat-build"
-                  disabled={sending || level < 1}
+                  disabled={sending || level < 1 || type.price === "0"}
                   onClick={() => run("build", { t: "boat_build", buildingId, boatType: type.id })}
                 >
-                  {/* 남의 조선소는 외주 주문(D-564 1682 — 받기 범위·요금은 서버가 본다) */}
-                  {mine
-                    ? m.boat_build()
-                    : m.harbor_order_build({ fee: harbor.orderFee ?? "0", currency: harbor.currency })}
+                  {/* 남의 조선소는 주문(D-564 1682), 주인도 판매가를 제 금고에 낸다(2072). 재료는 조선소 창고(D-573 2048) */}
+                  {type.price === undefined
+                    ? mine
+                      ? m.boat_build()
+                      : m.harbor_order_build({ fee: harbor.orderFee ?? "0", currency: harbor.currency })
+                    : mine
+                      ? m.harbor_own_build({ fee: type.price, currency: harbor.currency })
+                      : m.harbor_order_build({ fee: type.price, currency: harbor.currency })}
                 </button>
               </li>
             ))}

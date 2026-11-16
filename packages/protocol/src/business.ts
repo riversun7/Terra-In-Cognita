@@ -6,7 +6,7 @@
 //   바뀜 (프로토콜 46, 기획 D-569 1781·1784): 주인도 누구나와 같은 판매(같은 판매가·최소 묶음, 0 = 아무에게도 안 팖)이고 돈은 사업장 매출로 잡힌다.
 //   산 물건은 운반꾼(그 건물 일꾼 또는 산 사람의 유닛)이 도시 창고로 걸어 나른다 — 운반꾼이 없으면 no_carrier(옮김 셈을 끄거나 거리 0이면 바로).
 // - 값 정하기(business_price): 주인·대주주가 아이템 1개 값을 정한다(0 = 남에게 팔지 않음). 48부터 외주 수리 시간당 요금도(item =
-//   service:equipment_repair, D-570 1785).
+//   service:equipment_repair, D-570 1785). 51부터 조선소 배 판매가도(item = boat:<배 종류>, 0 = 그 종류는 만들지 않음 — 기획 대조 2057).
 // - 선물(unit_gift, 1508): 내 유닛의 사유재산(유닛 지갑)에 돈을 준다. 유닛은 그 돈으로 숙박비를 낸다.
 // - 지분 주문(business_share_order·business_share_cancel, 프로토콜 38 — docs/adr/2026-11-15-building-screen.md): 생산시설 지분(기획 44 §6
 //   "100% 매각 가능, 배당은 지분만큼")을 동시호가(D-125)로 사고판다. 사기 = 1주 상한 × 주 수를 지갑(사업장 금고 화폐)에서 묶고, 팔기 = 그 지분을
@@ -49,7 +49,12 @@ const item = z
  * 값 정하기 대상: 물건 자산, 또는 48부터 외주 수리 시간당 요금(service:equipment_repair — 기획 D-570 1785 "요금은 주인이 정한다", 수리 줄이 있는
  * 공방만, 0 = 받지 않음)
  */
-const priced = z.union([item, z.literal("service:equipment_repair")]);
+const priced = z.union([
+  item,
+  z.literal("service:equipment_repair"),
+  // 51부터 배 판매가(boat:<배 종류> — 조선소만, 기획 대조 2057·2072·2074)
+  z.string().regex(/^boat:[a-z][a-z0-9_]{1,47}$/),
+]);
 
 // ---------- 기기 → 서버 ----------
 

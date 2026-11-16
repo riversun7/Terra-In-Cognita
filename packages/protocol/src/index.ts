@@ -177,8 +177,10 @@ export {
   VOYAGE_PROTOCOL_VERSION,
   HOLD_PROTOCOL_VERSION,
   GEAR_PROTOCOL_VERSION,
+  BOAT_PRICE_PROTOCOL_VERSION,
   legacyBoatCode,
   legacyGearCode,
+  legacyOrderCode,
   legacyHoldCode,
   legacyVoyageCode,
 } from "./boats.ts";

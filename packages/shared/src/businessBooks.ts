@@ -108,6 +108,8 @@ const COLUMN_OF: Readonly<Record<string, BookColumn>> = {
   exchange_locker: "income",
   // 판매(사업장 창고에서 판 것 — 주인이 꺼낼 때도 값을 낸다, D-555 1507). NPC 시설 산출을 그 도시(나라)가 사들인 것도(D-570 1887)
   business_sale: "sales",
+  // 조선소 배 판매가(기획 대조 2057·2072 — 주문자·주인 모두 판매가를 낸다, D-569 1781)
+  boat_sale: "sales",
   // 재료비: NPC 시설이 레시피 재료를 그 도시(나라) 창고에서 사들인 값(D-570 1887 — 플레이어처럼 손익)
   business_input: "materials",
   // 소득세(들어올 때, D-555 1503)

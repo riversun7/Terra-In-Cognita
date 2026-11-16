@@ -13,7 +13,10 @@
 // 피로 바퀴(질문 1095 가, 설정 칸 worker_rest_cycle_mode 1): 일꾼은 낮·밤 대신 생산 셈과 같은 일·쉼 바퀴로 일터 ↔ 쉼터를 오간다(지치면 스스로 쉼터로).
 // 보이는 운반꾼(기획 D-564 1626·D-570 1886 "보이는 운반꾼이 원칙(NPC 포함), 부하가 크면 보이지 않는 곳만 시간 계산"): 건물 시설의 산출을 창고로
 // 나르는 시간(도시 경제 haul)이 있으면 그 시설 첫 일꾼이 그 시간 동안 창고 둘레로 걸어가 내려놓는다(BotHome.haul). 보는 사람이 있는 2차맵
-// (구독자가 있는 2차맵)에만 붙인다 — 보지 않는 2차맵은 시간 셈만(같은 결과). 판정은 도시 경제의 시간 셈 그대로다(보이는 모습만).
+// (구독자가 있는 2차맵)에만 붙인다 — 보지 않는 2차맵은 시간 셈만(같은 결과).
+// 바뀜 (기획 대조 2052·2088 — D-555 1505 "어떤 유닛이든 실제로 옮겨야한다", D-564 1626 "보이는게 원칙"): 보는 2차맵의 운반꾼은 실제 화물을 진다 — 운반꾼을
+// 정하면 운반 일(npcCarry.ts)에 알려 그 휴먼 화물로 싣는다(약탈 대상). 시설 산출 운반은 그 시설 첫 일꾼이, 거래소 운반(빈 일꾼 운반)은 일 없는 휴먼이 열쇠
+// 차례로 하나씩 맡는다(일 없는 휴먼이 모자라면 남은 운반은 시간 셈). 판정(닿는 시각)은 운반 일의 시간 그대로다.
 import { isCellKey } from "@terra/planet";
 import { cellCenter } from "@terra/planet/projection";
 import { type BuildingPlacement, footprintRect } from "@terra/sim";
@@ -26,6 +29,7 @@ import {
   type WorkShift,
 } from "../world/bots.ts";
 import type { CityRestPlan, WorkerRest } from "./cityRest.ts";
+import type { CarryBoard } from "./npcCarry.ts";
 
 /** [임시] 일터 네모 = 건물 가운데 칸 둘레, 건물 반 폭 + 이 칸(건물 칸은 설 수 없어 그 둘레에서 고른다) */
 export const WORK_MARGIN_CELLS = 3;
@@ -39,9 +43,18 @@ export interface WorkFacility {
   /** 건물 ID(도시 직무면 null) */
   readonly buildingId: number | null;
   readonly workers: number;
-  /** 보이는 운반(D-570 1886): 이번 산출을 이 칸(창고 가운데)으로 [fromMs, untilMs)에 나른다. 없으면 운반 모습 없음 */
+  /**
+   * 보이는 운반(D-570 1886): 이번 산출을 이 칸(창고 가운데)으로 [fromMs, untilMs)에 나른다. key = 운반 일 열쇠(npcCarry.ts — 운반꾼을 정하면 화물을 싣는다).
+   * 없으면 운반 모습 없음
+   */
   readonly haul?:
-    | { readonly x: number; readonly y: number; readonly fromMs: number; readonly untilMs: number }
+    | {
+        readonly x: number;
+        readonly y: number;
+        readonly fromMs: number;
+        readonly untilMs: number;
+        readonly key?: string | undefined;
+      }
     | undefined;
 }
 
@@ -97,6 +110,10 @@ export function assignHumanPlaces(input: {
   readonly rests?: readonly (TripArea | undefined)[] | undefined;
   /** 일꾼마다 피로 바퀴(rests와 같은 차례, 질문 1095 가). 있으면 그 일꾼은 낮·밤 대신 이 바퀴로 일터 ↔ 쉼터를 오간다 */
   readonly cycles?: readonly (RestCycle | undefined)[] | undefined;
+  /** 빈 일꾼 운반(거래소 운반 — 기획 대조 2088, 열쇠 차례): 일 없는 휴먼에게 하나씩 */
+  readonly trips?: readonly CityTrip[] | undefined;
+  /** 운반꾼을 정했다(열쇠, 유닛) — 화물 싣기(npcCarry.ts load) */
+  readonly onCarrier?: ((key: string, unitId: number) => void) | undefined;
 }): Map<number, BotHome> {
   const shift = input.shift ?? DEFAULT_WORK_SHIFT;
   const out = new Map<number, BotHome>();
@@ -125,6 +142,8 @@ export function assignHumanPlaces(input: {
       const cycle = input.cycles?.[order];
       const own = cycle ? { ...shift, cycle } : shift;
       const carry = taken === 0 && haul ? { haul } : {};
+      if (taken === 0 && haul && facility.haul?.key !== undefined)
+        input.onCarrier?.(facility.haul.key, unitId);
       out.set(
         unitId,
         work
@@ -135,9 +154,37 @@ export function assignHumanPlaces(input: {
       );
     }
   }
-  for (; next < humans.length; next++) out.set(humans[next] ?? 0, { x: input.home.x, y: input.home.y });
+  // 일 없는 휴먼: 빈 일꾼 운반을 하나씩(기획 대조 2088), 나머지는 집 둘레
+  const trips = input.trips ?? [];
+  for (let k = 0; next < humans.length; next++, k++) {
+    const unitId = humans[next] ?? 0;
+    const trip = trips[k];
+    if (!trip) {
+      out.set(unitId, { x: input.home.x, y: input.home.y });
+      continue;
+    }
+    out.set(unitId, {
+      x: input.home.x,
+      y: input.home.y,
+      haul: {
+        area: { x: trip.x, y: trip.y, radius: HAUL_DROP_RADIUS_CELLS },
+        fromMs: trip.fromMs,
+        untilMs: trip.untilMs,
+      },
+    });
+    input.onCarrier?.(trip.key, unitId);
+  }
   for (const unitId of input.guards ?? []) out.set(unitId, { x: input.home.x, y: input.home.y });
   return out;
+}
+
+/** 빈 일꾼 운반 하나(npcCarry.ts CarryJob의 보이는 몫) */
+export interface CityTrip {
+  readonly key: string;
+  readonly x: number;
+  readonly y: number;
+  readonly fromMs: number;
+  readonly untilMs: number;
 }
 
 /** 휴먼 자리를 맞출 때 읽는 2차맵 몫 */
@@ -173,7 +220,16 @@ export interface HumanPlacesInput {
   readonly workHours?: { readonly startPm: number; readonly endPm: number } | undefined;
   /** 쉼터 계획 일꾼 하나의 피로 바퀴(질문 1095 가, npc/cityRest.ts restCycleOf). 없거나 undefined면 낮·밤 */
   readonly restCycle?: ((worker: WorkerRest) => RestCycle | undefined) | undefined;
+  /** NPC 운반꾼 화물(기획 대조 2052·2088, npcCarry.ts)과 지금 시각. 없으면 운반꾼을 알리지 않는다(모습만) */
+  readonly carry?: { readonly board: Pick<CarryBoard, "load" | "idle">; readonly nowMs: number } | undefined;
 }
+
+/** 운반꾼을 정하면 화물을 싣는다(이미 실었거나 끝난 일은 운반 일이 무시한다) */
+const loadOf =
+  (carry: NonNullable<HumanPlacesInput["carry"]>) =>
+  (key: string, unitId: number): void => {
+    carry.board.load(key, unitId, carry.nowMs);
+  };
 
 /** 지난번에 넣은 자리(유닛 ID → 모양 글자)와 견줘 바뀐 휴먼만 2차맵에 넣는다. 넣은 수를 돌려준다 */
 export function createHumanPlaces(): { sync(input: HumanPlacesInput): number } {
@@ -203,6 +259,7 @@ export function createHumanPlaces(): { sync(input: HumanPlacesInput): number } {
         return areas;
       };
       const hours = input.workHours ?? DEFAULT_WORK_SHIFT;
+      const carry = input.carry;
       const shiftOf = (mapKey: number): WorkShift => {
         let lonDeg = longitudes.get(mapKey);
         if (lonDeg === undefined) {
@@ -242,6 +299,10 @@ export function createHumanPlaces(): { sync(input: HumanPlacesInput): number } {
           cycles: input.restCycle
             ? input.restOf?.(cityId)?.workers.map((worker) => input.restCycle?.(worker))
             : undefined,
+          // 보는 2차맵만 운반꾼이 화물을 진다(기획 대조 2052·2088). 보지 않으면 시간 셈(운반꾼 없음)
+          ...(watched && carry
+            ? { trips: carry.board.idle(cityId, carry.nowMs), onCarrier: loadOf(carry) }
+            : {}),
         });
         for (const [unitId, home] of homes) {
           seen.add(unitId);

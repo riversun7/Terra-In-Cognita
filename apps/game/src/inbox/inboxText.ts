@@ -28,6 +28,7 @@ const KIND_TITLES = {
   house_notice: (_count, locale) => m.inbox_house_notice_title({}, { locale }),
   boat_in_dock: (count, locale) => m.inbox_boat_in_dock_title({ count }, { locale }),
   boat_homeless: (count, locale) => m.inbox_boat_homeless_title({ count }, { locale }),
+  labor_paused: (count, locale) => m.inbox_labor_paused_title({ count }, { locale }),
 } satisfies Record<InboxKindId, (count: string, locale: Locale) => string>;
 
 /**

@@ -67,6 +67,7 @@ export function nationJsonOf(entry: NationPresetEntry): NationPresetJson {
       ...(entry.currency.ticker === undefined ? {} : { ticker: entry.currency.ticker }),
     },
     tradeTaxBp: entry.tradeTaxBp,
+    ...(entry.temper ? { temper: { ...entry.temper } } : {}),
     ...(entry.personality ? { personality: personalityJsonOf(entry.personality) } : {}),
     ...(entry.cityNames ? { cityNames: [...entry.cityNames] } : {}),
     ...(entry.leaderName ? { leaderName: { ko: entry.leaderName.ko, en: entry.leaderName.en } } : {}),

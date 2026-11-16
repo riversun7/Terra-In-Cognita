@@ -31,6 +31,11 @@ export const VOYAGE_PROTOCOL_VERSION = 37;
 export const HOLD_PROTOCOL_VERSION = 43;
 /** D-570(포획 장비 달기·배 창고 싣기·낚시 선원). 새 메시지·결과 코드는 이 판부터 */
 export const GEAR_PROTOCOL_VERSION = 49;
+/**
+ * 배 판매가(기획 대조 2057·2074 — D-570 1822 "당연히 판매자가 정하지", 2072 — D-569 1781): 조선소 주인이 배 종류마다 판매가를 정한다(business_price
+ * item = boat:<배 종류>, 0 = 그 종류는 만들지 않음). 결과 코드 order_closed는 이 판 연결에만, 그 아래는 legacyOrderCode로 낮춘다
+ */
+export const BOAT_PRICE_PROTOCOL_VERSION = 51;
 
 /** 받기 범위(@terra/shared/harbor HARBOR_ACCESS와 같다 — 이 꾸러미는 shared를 가져오지 않는다) */
 export const HARBOR_ACCESS_VALUES = ["owner", "nation", "peace"] as const;
@@ -286,6 +291,9 @@ export const BOAT_RESULT_CODES = [
   "bad_slot",
   /** 배 창고가 모자라다(싣기·떼기) */
   "hold_full",
+  // ---------- 51판부터(기획 대조 2057·2072·2074) ----------
+  /** 그 조선소가 그 배 종류의 판매가를 0으로 정했다(만들지 않음) */
+  "order_closed",
 ] as const;
 export type BoatResultCode = (typeof BOAT_RESULT_CODES)[number];
 
@@ -329,6 +337,11 @@ export const boatClientMessages = [
   boatLoadMessage,
 ] as const;
 
+/** 51판 결과 코드 → 50판 이하 연결이 아는 코드(판매가 0 = 만들지 않음은 forbidden으로) */
+export function legacyOrderCode(code: BoatResultCode): BoatResultCode {
+  return code === "order_closed" ? "forbidden" : code;
+}
+
 /** 49판 결과 코드 → 48판 이하 연결이 아는 코드(boat_gear·boat_load는 그 연결이 보내지 않는다 — 옛 메시지에서 나올 수 있는 것만 중요하다) */
 export function legacyGearCode(code: BoatResultCode): BoatResultCode {
   switch (code) {
@@ -338,7 +351,8 @@ export function legacyGearCode(code: BoatResultCode): BoatResultCode {
     case "hold_full":
       return "busy";
     default:
-      return code;
+      // 51판 코드도 먼저 낮춘다(게이트웨이는 51 → 49 → 43 → 37 → 30 차례로 낮춘다)
+      return legacyOrderCode(code);
   }
 }
 

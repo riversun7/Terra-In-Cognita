@@ -1,6 +1,6 @@
 // 사업장 장부 명령(서버 권위, 프로토콜 34 — packages/protocol/src/business.ts) — 기획 D-548·D-555, docs/adr/2026-11-15-business-ledger.md
 // 건물 게이트웨이(facilities/gateway.ts)가 받아 건물 서비스의 고리로 여기에 넘긴다(app.ts 1,000줄 상한 — 새 게이트웨이를 잇지 않는다).
-// - 정산(1501·1502): 주인·대주주만. 적자를 먼저 갚고 남은 돈(금액이 있으면 그만큼)을 지분 수대로.
+// - 정산(1501·1502): 주인 또는 대주주(바뀜 2047 — D-573: 지분을 팔아 대주주가 아닌 건물 주인도). 적자를 먼저 갚고 남은 돈(금액이 있으면 그만큼)을 지분 수대로.
 // - 넣기: 주인·대주주가 자기 지갑에서. 적자를 바로 갚는다(멈춘 사업장이 다시 돈다).
 // - 사기(1507): 그 건물 주인의 사업장 창고 물건(임대형 임차인 몫은 아니다). 값 = 주인이 정한 1단위 값(없으면 팩 기준 값 [임시]), 0이면
 //   팔지 않는다(D-564 1627 "판매가를 정하고 모두가 그 가격에 구매" — 너무 낮으면 남이 다 사 가고, 너무 높으면 안 팔린다). 최소 묶음
@@ -13,6 +13,7 @@
 //   (carry 고리 — gather/station.ts haulOut). 운반꾼이 없으면 no_carrier(돈·물건 그대로). 옮김 셈을 끄거나 거리 0이면 예전처럼 바로 도시 창고로.
 // - 값 정하기: 주인·대주주. 원장 물자, 그리고 외주 수리 시간당 요금(REPAIR_SERVICE_ITEM — 수리 줄이 있는 공방만, 기획 D-570 1785 "요금은 주인이
 //   정한다"). 수리 요금을 정하지 않았으면 적정가(fairPrice.ts — 그 공방 일꾼 시간당 인건비·수수료·세금)로 받고, 0이면 외주를 받지 않는다.
+//   배 판매가(boat:<종류> — 기획 대조 2057·2072: 그 종류를 만드는 조선소만, 0 = 만들지 않음, 정하지 않으면 적정가 — boats/shipyard.ts).
 // - 지급준비율(D-564 1623): 주인 또는 대주주(D-570 1790 — D-555 1502). 정산이 이 비율로 금고에 돈을 남긴다(core.ts·reserve.ts).
 // - 선물(1508): 내 유닛의 유닛 지갑(@terra/shared/businessBooks unitPurseLocation)에 내 지갑 돈을 준다.
 // - 화폐는 서버 시험 화폐가 기본 [임시](요금·임금과 같다). 넣기·정산은 고른 화폐.
@@ -25,6 +26,7 @@ import {
 } from "@terra/shared/businessBooks";
 import { type FairPrice, serviceFeeOf } from "@terra/shared/fairPrice";
 import { cityLocation } from "@terra/shared/goodsPlaces";
+import { boatTypeOfPriceItem } from "@terra/shared/harbor";
 import type { BusinessCoefficients } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { FacilityCatalog } from "../facilities/catalog.ts";
@@ -95,6 +97,8 @@ export interface BusinessCommandDeps {
   readonly repairShop?: ((buildingId: number) => boolean) | undefined;
   /** 그 공방 일꾼 시간당 인건비(labor/service.ts hourlyLabor — 적정가). 없으면 0 */
   readonly laborHourly?: ((buildingId: number) => bigint) | undefined;
+  /** 그 건물(조선소)이 만드는 배 종류 ID(배 판매가 boat:<종류>를 정할 수 있다 — 기획 대조 2057). 없으면 빈 목록 */
+  readonly boatTypes?: ((buildingId: number) => readonly string[]) | undefined;
 }
 
 export interface BusinessCommands {
@@ -288,7 +292,9 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
       case "buy":
         return buy(me, command.buildingId, command.item, command.qty, atMs);
       case "settle": {
-        const found = managed(me, command.buildingId, operator);
+        // 정산(D-555 1502 "주인 또는 대주주", 기획 대조 2047 — D-573): 건물 주인은 지분을 팔아 대주주가 아니어도 정산한다
+        const owner = deps.place(command.buildingId)?.ownerId === me;
+        const found = managed(me, command.buildingId, operator || owner);
         if (!found.ok) return fail(found.code);
         if (command.asset !== undefined && !isMoney(command.asset)) return fail("not_money");
         const only =
@@ -299,7 +305,9 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
         return { ok: true, paid: [...paid.values()].reduce((sum, value) => sum + value, 0n) };
       }
       case "invest": {
-        const found = managed(me, command.buildingId, operator);
+        // 넣기도 주인 또는 대주주(정산과 같다 — 2047)
+        const owner = deps.place(command.buildingId)?.ownerId === me;
+        const found = managed(me, command.buildingId, operator || owner);
         if (!found.ok) return fail(found.code);
         if (!isMoney(command.asset)) return fail("not_money");
         if (command.amount <= 0n) return fail("invalid_amount");
@@ -319,12 +327,15 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
       case "price": {
         const found = managed(me, command.buildingId, operator);
         if (!found.ok) return fail(found.code);
-        // 외주 수리 시간당 요금(D-570 1785)은 수리 줄이 있는 공방만
+        // 외주 수리 시간당 요금(D-570 1785)은 수리 줄이 있는 공방만, 배 판매가(2057·2072)는 그 배 종류를 만드는 조선소만
         const service = command.item === REPAIR_SERVICE_ITEM;
+        const boat = boatTypeOfPriceItem(command.item);
         if (
           service
             ? deps.repairShop?.(command.buildingId) !== true
-            : !deps.catalog().isGoods(command.item.slice(5))
+            : boat !== undefined
+              ? !(deps.boatTypes?.(command.buildingId) ?? []).includes(boat)
+              : !deps.catalog().isGoods(command.item.slice(5))
         )
           return fail("not_goods");
         if (command.price < 0n) return fail("invalid_amount");

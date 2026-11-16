@@ -42,7 +42,10 @@ const BIAS_LIMIT = 900;
 export interface TemperWorld {
   readonly seed: number;
   readonly cities: ReadonlyMap<number, { readonly owner: number }>;
-  readonly factions: ReadonlyMap<number, { readonly id: number; readonly traits: Traits }>;
+  readonly factions: ReadonlyMap<
+    number,
+    { readonly id: number; readonly traits: Traits; readonly leaderPm?: number | undefined }
+  >;
 }
 
 /** 성향 가중 고르기 몫(tierTemperOf) */
@@ -56,13 +59,22 @@ export interface TierTemper {
 }
 
 /**
- * 지도자 기질(기획 D-554 "지도자 성향" — 세력 데이터에 지도자 성향 칸이 없어 (세계 시드, 세력)으로 굴린 값 하나, 질문 1991 [임시]):
- * −폭 ~ +폭(‰, 설정 칸 npc_gather_tier_leader). 폭 0이면 0
+ * 지도자 기질(기획 D-554 "지도자 성향"): −폭 ~ +폭(‰, 설정 칸 npc_gather_tier_leader). 폭 0이면 0. 바뀜 (기획 D-573 1991 "국가 편집기에 성향 칸,
+ * 비어 있으면 무작위"): 세력에 지도자 기질 칸(leaderPm — 폭 안 위치 ‰, 팩 국가 프리셋 temper.leader)이 있으면 폭 × 그 값 ÷ 1000(0 쪽으로 버림),
+ * 없으면 예전처럼 (세계 시드, 세력)으로 굴린 값(D-327)
  */
-export function leaderTemperOf(seed: number, factionId: number, c: NpcCoefficients): number {
+export function leaderTemperOf(
+  seed: number,
+  faction: { readonly id: number; readonly leaderPm?: number | undefined },
+  c: NpcCoefficients,
+): number {
   const spread = Math.max(0, Math.trunc(c.gatherTierLeaderPm ?? 0));
   if (spread === 0) return 0;
-  return streamRng(seed, STREAM_LEADER, factionId, 0).nextInt(spread * 2 + 1) - spread;
+  if (faction.leaderPm !== undefined) {
+    const pm = Math.max(-1000, Math.min(1000, Math.trunc(faction.leaderPm)));
+    return Math.trunc((spread * pm) / 1000) + 0;
+  }
+  return streamRng(seed, STREAM_LEADER, faction.id, 0).nextInt(spread * 2 + 1) - spread;
 }
 
 /** 성향 축 하나가 가운데에서 벗어난 몫 × 칸 값(‰). 끝에서 칸 값 그대로(도시 성장 성향 npcGrowthTemper.ts도 쓴다) */
@@ -90,7 +102,7 @@ export function tierTemperOf(
     axisTilt(traits.commerce, c.gatherTierCommercePm, c) +
     axisTilt(traits.aggression, c.gatherTierAggressionPm, c) -
     axisTilt(traits.faith, c.gatherTierFaithPm, c) +
-    leaderTemperOf(world.seed, faction.id, c);
+    leaderTemperOf(world.seed, faction, c);
   return {
     bias: Math.max(-BIAS_LIMIT, Math.min(BIAS_LIMIT, raw)),
     floorPm: Math.max(0, Math.min(1000, Math.trunc(c.gatherTierFloorPm ?? 1000))),

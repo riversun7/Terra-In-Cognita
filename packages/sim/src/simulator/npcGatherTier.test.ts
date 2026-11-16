@@ -260,11 +260,16 @@ describe("기르는 티어 성향 가중 고르기(기획 답 1862 — D-554·D-
     expect(tierTemperOf(oneCity(traits(500, 500, 500)), 2, 42, c)).toBeUndefined();
     // 지도자 기질: 폭 안, 같은 (시드, 세력)이면 같은 값, 세력마다 퍼진다
     const spread = { ...TEST_NPC_COEFFICIENTS, gatherTierLeaderPm: 300 };
-    const tempers = Array.from({ length: 40 }, (_, id) => leaderTemperOf(11, id, spread));
+    const tempers = Array.from({ length: 40 }, (_, id) => leaderTemperOf(11, { id }, spread));
     expect(tempers.every((v) => v >= -300 && v <= 300)).toBe(true);
     expect(new Set(tempers).size).toBeGreaterThan(20);
-    expect(leaderTemperOf(11, 3, spread)).toBe(tempers[3]);
-    expect(leaderTemperOf(11, 3, c)).toBe(0);
+    expect(leaderTemperOf(11, { id: 3 }, spread)).toBe(tempers[3]);
+    expect(leaderTemperOf(11, { id: 3 }, c)).toBe(0);
+    // 국가 편집기 성향 칸(D-573 1991): 지도자 기질 칸이 있으면 폭 × 값 ÷ 1000(굴리지 않는다), 폭 0이면 0
+    expect(leaderTemperOf(11, { id: 3, leaderPm: 500 }, spread)).toBe(150);
+    expect(leaderTemperOf(11, { id: 3, leaderPm: -1000 }, spread)).toBe(-300);
+    expect(leaderTemperOf(11, { id: 3, leaderPm: 5000 }, spread)).toBe(300);
+    expect(leaderTemperOf(11, { id: 3, leaderPm: 500 }, c)).toBe(0);
     // 굴림은 (시드, 시설)마다 고정
     const a = tierTemperOf(oneCity(traits(500, 500, 500)), 1, 42, spread);
     expect(tierTemperOf(oneCity(traits(500, 500, 500)), 1, 42, spread)).toEqual(a);

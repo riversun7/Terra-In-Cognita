@@ -38,7 +38,14 @@ type Carry = (
   atMs: number,
 ) => string | null | undefined;
 
-function setup(admin = 4, carry?: Carry) {
+function setup(
+  admin = 4,
+  carry?: Carry,
+  opts: {
+    holders?: () => { ownerId: number; shares: bigint }[];
+    boatTypes?: (buildingId: number) => readonly string[];
+  } = {},
+) {
   let ids = 1;
   const kinds: string[] = [];
   const ledger = createLedgerBook({
@@ -55,6 +62,7 @@ function setup(admin = 4, carry?: Carry) {
     businesses: () => [FARM, STORE],
     tax: () => undefined,
     rules: () => START_BUSINESS,
+    holders: opts.holders,
   });
   const commands = createBusinessCommands({
     core,
@@ -70,6 +78,7 @@ function setup(admin = 4, carry?: Carry) {
     fallbackAsset: ASSET,
     now: () => 1000,
     durable: () => Promise.resolve(),
+    boatTypes: opts.boatTypes,
   });
   const grant = (ownerId: number, asset: string, amount: bigint, location: number | null = null) =>
     ledger.post({
@@ -225,5 +234,44 @@ describe("사업장 장부 명령", () => {
       ok: false,
       code: "forbidden",
     });
+  });
+
+  it("정산·넣기·지급준비율은 주인 또는 대주주(2047): 지분을 팔아 대주주가 아닌 건물 주인도, 값 정하기는 대주주", async () => {
+    const { commands, grant } = setup(4, undefined, {
+      holders: () => [
+        { ownerId: BUYER, shares: 900n },
+        { ownerId: OWNER, shares: 100n },
+      ],
+    });
+    grant(OWNER, ASSET, 100n);
+    expect(
+      await commands.run("owner", { kind: "invest", buildingId: FARM, asset: ASSET, amount: 40n }),
+    ).toEqual({ ok: true, paid: 40n });
+    expect(await commands.run("owner", { kind: "reserve", buildingId: FARM, reservePm: 0 })).toEqual({
+      ok: true,
+    });
+    expect(await commands.run("owner", { kind: "settle", buildingId: FARM })).toMatchObject({ ok: true });
+    expect(
+      await commands.run("owner", { kind: "price", buildingId: FARM, item: "item:wood", price: 5n }),
+    ).toEqual({ ok: false, code: "forbidden" });
+    expect(
+      await commands.run("buyer", { kind: "price", buildingId: FARM, item: "item:wood", price: 5n }),
+    ).toEqual({ ok: true });
+  });
+
+  it("배 판매가(2057·2072): 그 배 종류를 만드는 조선소만 boat:<종류> 값을 정한다", async () => {
+    const { core, commands } = setup(4, undefined, {
+      boatTypes: (buildingId) => (buildingId === STORE ? ["rowboat"] : []),
+    });
+    expect(
+      await commands.run("owner", { kind: "price", buildingId: FARM, item: "boat:rowboat", price: 500n }),
+    ).toEqual({ ok: false, code: "not_goods" });
+    expect(
+      await commands.run("owner", { kind: "price", buildingId: STORE, item: "boat:cargo_boat", price: 500n }),
+    ).toEqual({ ok: false, code: "not_goods" });
+    expect(
+      await commands.run("owner", { kind: "price", buildingId: STORE, item: "boat:rowboat", price: 500n }),
+    ).toEqual({ ok: true });
+    expect(core.price(STORE, "boat:rowboat")).toBe(500n);
   });
 });

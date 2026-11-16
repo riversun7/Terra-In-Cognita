@@ -263,6 +263,53 @@ describe("보이는 운반꾼(D-570 1886)", () => {
     expect(people.sync(input)).toBe(1);
     expect(set.get(1)?.haul?.untilMs).toBe(61_000);
   });
+
+  it("보는 2차맵의 운반꾼은 운반 일에 알려 화물을 싣고, 빈 일꾼 운반은 일 없는 휴먼이 맡는다(기획 대조 2052·2088)", () => {
+    const set = new Map<number, BotHome | null>();
+    const loads: [string, number][] = [];
+    const map = {
+      forEachBuilding: (visit: (building: { id: number; placement: BuildingPlacement }) => void) =>
+        visit({ id: 10, placement }),
+      unitInfo: () => ({}),
+      setHome: (unitId: number, value: BotHome | null) => {
+        set.set(unitId, value);
+        return true;
+      },
+      stream: { subscriberCount: 1 },
+    };
+    const trip = { key: "x:1", x: 150, y: 90, fromMs: 1_000, untilMs: 31_000 };
+    const people = createHumanPlaces();
+    people.sync({
+      units: new Map([
+        [1, { id: 1, city: 7 }],
+        [2, { id: 2, city: 7 }],
+        [3, { id: 3, city: 7 }],
+      ]),
+      places: new Map([[7, { mapKey: 99, cellX: 128, cellY: 128 }]]),
+      maps: new Map([[99, map]]),
+      facilitiesOf: () => [{ id: 10, buildingId: 10, workers: 1, haul: { ...haul, key: "f:1" } }],
+      carry: {
+        board: {
+          load: (key, unitId) => {
+            loads.push([key, unitId]);
+            return true;
+          },
+          idle: () => [{ ...trip, cityId: 7, owner: 5, stacks: [], from: 7, to: 8 }],
+        },
+        nowMs: 2_000,
+      },
+    });
+    expect(loads).toEqual([
+      ["f:1", 1],
+      ["x:1", 2],
+    ]);
+    expect(set.get(2)?.haul).toEqual({
+      area: { x: 150, y: 90, radius: HAUL_DROP_RADIUS_CELLS },
+      fromMs: 1_000,
+      untilMs: 31_000,
+    });
+    expect(set.get(3)?.haul).toBeUndefined();
+  });
 });
 
 describe("mapLongitudeDeg", () => {

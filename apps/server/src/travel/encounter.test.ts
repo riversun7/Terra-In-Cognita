@@ -14,6 +14,7 @@ const unit = (unitId: number, ownerId: number, mapKey: number, patch: Partial<Co
     moving: false,
     aboard: null,
     sea: false,
+    speed: 1000,
     ...patch,
   }) satisfies CoordinateUnit;
 

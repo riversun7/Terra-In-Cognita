@@ -60,14 +60,14 @@ export const ENCOUNTER_TUNING_KEYS: readonly TuningKey[] = [
   k(
     "encounter_aggression_pm",
     "aggressionPm",
-    "[임시] NPC 공격 성향이 문턱을 옮기는 세기(‰)",
-    "[temp] How far NPC aggression moves the thresholds (‰)",
+    "[임시] AI 작전 ① 교전이 문턱을 옮기는 세기(‰)",
+    "[temp] How far AI tactics engage moves the thresholds (‰)",
   ),
   k(
     "encounter_player_policy",
     "playerPolicy",
-    "[임시] 플레이어 유닛 자동 판단(0 = 회피, 1 = NPC와 같은 판단)",
-    "[temp] Player unit auto decision (0 = avoid, 1 = same as NPC)",
+    "[임시] 플레이어 유닛 자동 판단(0 = 회피, 1 = 성향 500 NPC처럼, 2 = AI 작전대로)",
+    "[temp] Player unit auto decision (0 = avoid, 1 = like an aggression-500 NPC, 2 = by AI tactics)",
   ),
   k(
     "encounter_full_pm",

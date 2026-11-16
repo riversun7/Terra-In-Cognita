@@ -1,0 +1,52 @@
+/*
+ * 유닛 AI 작전 판(TacticsPanel.tsx, 기획 D-5039·D-5040) — 프리셋 단추 넷 + 접어 둔 7항목 슬라이더·목표 우선순위.
+ * 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast).
+ */
+.tactics {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.tactics-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.tactics-preset[aria-pressed="true"] {
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+  font-weight: var(--font-weight-strong);
+}
+.tactics-details > summary {
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+}
+.tactics-sliders {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.tactics-slider {
+  display: grid;
+  grid-template-columns: minmax(6em, 1fr) minmax(0, 2fr) minmax(3em, auto);
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.tactics-slider input[type="range"] {
+  inline-size: 100%;
+  accent-color: var(--color-primary);
+}
+.tactics-slider select {
+  grid-column: 2 / -1;
+  min-block-size: var(--control-h-sm);
+  font: inherit;
+}
+.tactics-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}

@@ -7,6 +7,7 @@
 // - 2차 스탯은 서버가 계산해 보낸다(게임 앱은 판정 코드 packages/sim을 가져오지 않는다, AGENTS 4장).
 // - 금액·양은 최소 단위 정수 문자열이다(PLAN 4.7).
 
+import type { AiTactics } from "./aiTactics.ts";
 import type { CharacterLook } from "./characterLook.ts";
 import type { FishWater } from "./fishWater.ts";
 
@@ -244,6 +245,11 @@ export interface RosterUnit {
   readonly condition?: RosterCondition | undefined;
   /** 파티 ID(시안만) */
   readonly party: string | null;
+  /**
+   * AI 작전(D-5039·D-5040, 유닛 화면 [AI 작전] 판). 판단하는 세계 유닛(휴먼·사이보그 유닛)만 칸이 있고, 저장한 적이 없으면 null(기본 프리셋 —
+   * aiTactics.ts DEFAULT_PLAYER_PRESET). 시안·옛 서버는 칸이 없다
+   */
+  readonly tactics?: AiTactics | null | undefined;
   readonly stats: RosterStats;
   readonly slots: readonly RosterSlot[];
   readonly skills: RosterSkills;

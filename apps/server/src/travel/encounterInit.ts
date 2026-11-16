@@ -2,7 +2,8 @@
 // "바뀜 (D-570, 좌표 이동 3)". 전투맵·자리는 encounterArena.ts, 몸은 부르는 쪽(place — 세계 전투와 같은 battleBodies.build).
 // - 편 1 = 공격 편(먼저 건 편, defender false), 편 2 = 수비 편(습격당한 쪽 — 시간이 다 되면 이긴다, D-210). 편의 faction = 그 편 첫 유닛의 소유 주체
 //   (세계 전투 결과 적용이 이긴 편 주체를 탈취·포로를 잡는 쪽으로 쓴다).
-// - 파티 = 편마다 6명씩(시뮬·웨이브·건물 공격과 같은 [임시] 크기), 퇴각 HP 0.
+// - 파티 = 편마다 6명씩(시뮬·웨이브·건물 공격과 같은 [임시] 크기). 퇴각 HP = 그 편 AI 작전 ⑦ 퇴각 기준(encounter-4 — D-5039·D-5040, 편 판단 유닛
+//   평균, 판단 유닛이 없는 편은 0).
 import {
   type BattleInit,
   type BattleMapInput,
@@ -28,6 +29,14 @@ export interface EncounterInitInput {
     spot: { side: number; party: number; x: number; y: number },
   ) => CombatUnitSpec | undefined;
   readonly seed: number;
+  /** [공격 편, 수비 편] 파티 퇴각 기준(파티 HP %, AI 작전 ⑦). 없으면 0 */
+  readonly retreatPct?: readonly [number, number] | undefined;
+}
+
+/** 편(1·2)의 파티 퇴각 기준(0~100) */
+function retreatOf(retreat: readonly [number, number] | undefined, side: number): number {
+  const value = retreat?.[side === 1 ? 0 : 1] ?? 0;
+  return Math.min(100, Math.max(0, Math.floor(value)));
 }
 
 /** 조우 전투 시작 자료. 한 편이라도 비면 null */
@@ -59,7 +68,7 @@ export function buildEncounterInit(input: EncounterInitInput): BattleInit | null
   const parties: BattlePartySpec[] = [...new Set(units.map((unit) => unit.party))].map((id) => ({
     id,
     side: units.find((unit) => unit.party === id)?.side ?? 1,
-    retreatHpPct: 0,
+    retreatHpPct: retreatOf(input.retreatPct, units.find((unit) => unit.party === id)?.side ?? 1),
   }));
   return {
     id: 0,

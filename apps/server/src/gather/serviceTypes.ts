@@ -103,6 +103,18 @@ export interface GatherService {
   ): readonly { readonly unitId: number; readonly buildingId: number; readonly ownerId: number }[];
   runDue(): void;
   readonly active: number;
+  /**
+   * 조우로 멈춘다(기획 D-570 1908·질문 2035 답 "채집 줄이 조우로 끝나면 안 된다"): 걷는 채집 줄이 있으면 줄을 두고 확인을 멈춘다(true).
+   * 배 줄·들어가기는 false(그대로 — 배는 조우에 들지 않는다)
+   */
+  suspend(unitId: number): boolean;
+  /**
+   * 조우 전투 뒤 다시 잇는다: unload면 그 유닛 화물을 모두 가장 가까운 넣는 곳(창고·맡는 시설·도시)에 넣고 오브젝트로 돌아오고, 아니면 오브젝트로
+   * 바로 간다. 유닛이 없거나 움직일 수 없으면 끝(interrupted). 멈춘 줄이 없으면 "ended"
+   */
+  resume(unitId: number, unload: boolean): Promise<"object" | "deposit" | "ended">;
+  /** 멈춘 줄을 끝낸다(전투에서 진 유닛 등 — interrupted) */
+  drop(unitId: number): void;
   /** 그 유닛에 채집 줄이 있나(채집소 운반꾼 고르기가 뺀다, 질문 1090 가) */
   acting(unitId: number): boolean;
   stop(): void;

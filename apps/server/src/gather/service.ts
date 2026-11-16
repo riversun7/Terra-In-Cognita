@@ -32,7 +32,6 @@ import { unavailable } from "../world/unitCondition.ts";
 import { UNIT_KIND_BOT, UNIT_KIND_GUARDIAN } from "../world/unitKinds.ts";
 import { statOf } from "../labor/gatherWork.ts";
 import {
-  type Deposit,
   campDeposit,
   campFor,
   carriedGrams,
@@ -46,6 +45,7 @@ import type { GatherKind } from "./kinds.ts";
 import { catchable } from "./objectYield.ts";
 import { crewHaul } from "./crewYield.ts";
 import { schoolCell } from "@terra/shared/fishSchool";
+import { cargoLocation } from "@terra/shared/goodsPlaces";
 import { type GatherObject, placeGatherObjects } from "./objects.ts";
 import {
   cellDistance2,
@@ -58,6 +58,7 @@ import {
 } from "./rules.ts";
 import { mapLayers } from "./terrainLayers.ts";
 import type { GatherCommandResult, GatherDeps, GatherService } from "./serviceTypes.ts";
+import { type Action, freshAction } from "./action.ts";
 
 export type { GatherCommandResult, GatherDeps, GatherService } from "./serviceTypes.ts";
 import { BOAT_BODY_SIZE, boatReach, commandCode, onLand, onWater, seaObject, standNear } from "./stand.ts";
@@ -82,46 +83,13 @@ const BUILDING_STAND_CELLS = 14;
 /** setTimeout 지연 상한 */
 const MAX_TIMER_MS = 0x7fff_ffff;
 
-interface Action {
-  readonly unitId: number;
-  readonly ownerId: number;
-  /** 배에서 캐는 줄이면 그 배(시작할 때 탄 배), 아니면 null */
-  readonly boatId: number | null;
-  readonly userId: string;
-  readonly mapKey: number;
-  readonly kind: "gather" | "enter";
-  objectId: number | null;
-  kindIndex: number;
-  buildingId: number | null;
-  phase: GatherPhase;
-  motion: Motion | null;
-  checkAtMs: number | null;
-  /** 지금 단계를 시작한 시각(캐는 중 진행바 — 보기 값) */
-  phaseAtMs: number | null;
-  seq: number;
-  deposit: Deposit | null;
-  /** 넣을 때 건너뛸 넣는 곳(가득 찬 창고) */
-  readonly skip: Set<string>;
-  /** 이 오브젝트를 맡는 내 시설 레벨(반경 안이면), 아니면 null */
-  campLevel: number | null;
-  /** 캐기 차례(굴림표·사다리 굴림 시드, objectYield.ts) */
-  yieldSeq: number;
-  /** 일꾼마다 수확 나머지(‰, crewYield.ts) */
-  readonly yieldCarry: Map<number, number>;
-  fatigueCarryPm: number;
-  /** 채집 중 부상을 마지막으로 굴린 시각(이 뒤의 작업 주기 경계를 굴린다) */
-  injuryCheckedMs: number;
-  readonly assets: Set<string>;
-  gatheredLots: number;
-  depositedUnits: number;
-  /** 넣은 뒤 끝낼 까닭(피로·떨어짐) */
-  endAfterDeposit: GatherStop | null;
-  stop: GatherStop | null;
-  enterResult: GatherLoopView["enterResult"];
-  updatedAt: number;
-}
-
 const fail = (code: GatherResultCode): GatherCommandResult => ({ ok: false, code });
+
+/** 캔 것이 드는 곳: 배 줄은 배 창고(배 ID 화물 위치 — D-568), 아니면 그 유닛 화물 */
+const holder = (action: Action): number => action.boatId ?? action.unitId;
+/** 움직이는 몸 크기: 배에서 캐는 줄이면 배(승객 움직임 = 배 움직임), 아니면 그 유닛 */
+const bodySize = (action: Action, size: SizeClass): SizeClass =>
+  action.boatId === null ? size : BOAT_BODY_SIZE;
 
 export function createGatherService(deps: GatherDeps): GatherService {
   const { maps, now, log } = deps;
@@ -206,8 +174,6 @@ export function createGatherService(deps: GatherDeps): GatherService {
 
   const kindOf = (action: Action): GatherKind | undefined => deps.kinds()[action.kindIndex];
 
-  /** 캔 것이 드는 곳: 배 줄은 배 창고(배 ID 화물 위치 — D-568), 아니면 그 유닛 화물 */
-  const holder = (action: Action): number => action.boatId ?? action.unitId;
   /** 화물 상한(g): 배 줄은 배 창고(배 고리, 없으면 설정 칸 boat_hold_kg), 아니면 걷는 화물 */
   const capacity = (action: Action): number =>
     action.boatId === null
@@ -261,9 +227,6 @@ export function createGatherService(deps: GatherDeps): GatherService {
     const info = map?.unitInfo(action.unitId);
     return map && info ? { map, info } : undefined;
   };
-  /** 움직이는 몸 크기: 배에서 캐는 줄이면 배(승객 움직임 = 배 움직임), 아니면 그 유닛 */
-  const bodySize = (action: Action, size: SizeClass): SizeClass =>
-    action.boatId === null ? size : BOAT_BODY_SIZE;
   /** 같은 배의 채집 줄이 마지막으로 배에 준 움직임(배 ID → 움직임) — 그 움직임으로 바뀐 것은 벗어남이 아니다 */
   const steer = new Map<number, Motion>();
 
@@ -723,36 +686,7 @@ export function createGatherService(deps: GatherDeps): GatherService {
     mapKey: number,
     kind: Action["kind"],
     boatId: number | null = null,
-  ): Action => ({
-    unitId,
-    ownerId,
-    boatId,
-    userId,
-    mapKey,
-    kind,
-    objectId: null,
-    kindIndex: -1,
-    buildingId: null,
-    phase: kind === "gather" ? "to_object" : "entering",
-    motion: null,
-    checkAtMs: null,
-    phaseAtMs: null,
-    seq: 0,
-    deposit: null,
-    skip: new Set(),
-    campLevel: null,
-    yieldCarry: new Map(),
-    fatigueCarryPm: 0,
-    injuryCheckedMs: now(),
-    assets: new Set(),
-    yieldSeq: 0,
-    gatheredLots: 0,
-    depositedUnits: 0,
-    endAfterDeposit: null,
-    stop: null,
-    enterResult: null,
-    updatedAt: now(),
-  });
+  ): Action => freshAction({ userId, ownerId, unitId, mapKey, kind, boatId }, now());
 
   /** 아직 안에 머무는 유닛(움직였거나 사라진 유닛은 지운다 — 움직이면 나간다), 유닛 번호 차례 */
   const stillInside = (
@@ -918,6 +852,44 @@ export function createGatherService(deps: GatherDeps): GatherService {
       maps.get(action.mapKey)?.halt(unitId);
       finish(action, "stopped");
       return { ok: true };
+    },
+    suspend(unitId) {
+      const action = actions.get(unitId);
+      if (!action || action.kind !== "gather" || action.boatId !== null) return false;
+      // 걷던 길 찾기 답·확인 타이머를 버린다(멈춘 동안 움직임이 바뀌어도 벗어남으로 보지 않는다)
+      action.seq += 1;
+      action.checkAtMs = null;
+      action.motion = null;
+      action.suspended = true;
+      action.updatedAt = now();
+      return true;
+    },
+    async resume(unitId, unload) {
+      const action = actions.get(unitId);
+      if (!action?.suspended) return "ended";
+      action.suspended = false;
+      const where = unitAt(action);
+      if (!where || unavailable(where.info.condition, now())) {
+        finish(action, "interrupted");
+        return "ended";
+      }
+      if (unload) {
+        // 전리품 정리(D-570 1908·질문 2035 답): 그 유닛 화물을 모두 넣는 곳으로(이 줄로 캔 것만이 아니라)
+        for (const account of deps.ledger.accounts())
+          if (
+            account.ownerId === action.ownerId &&
+            account.location === cargoLocation(action.unitId) &&
+            account.balance > 0n
+          )
+            action.assets.add(account.asset);
+        await goToDeposit(action);
+      } else await goToObject(action);
+      if (actions.get(unitId) !== action) return "ended";
+      return unload ? "deposit" : "object";
+    },
+    drop(unitId) {
+      const action = actions.get(unitId);
+      if (action?.suspended) finish(action, "interrupted");
     },
     async enter(userId, input) {
       if (!deps.ready()) return fail("busy");

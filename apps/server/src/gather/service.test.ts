@@ -278,6 +278,42 @@ describe("원자재 오브젝트 채집", () => {
   });
 });
 
+describe("조우로 멈춘 채집 줄(질문 2035 답, encounter-4)", () => {
+  it("suspend면 멈춰도 줄이 끝나지 않고, resume이 오브젝트로 다시 가거나(가방이 찼으면) 모든 화물을 넣고 다시 캔다", async () => {
+    const r = rig();
+    placeMine(r, 20, 30);
+    expect((await r.gather.start(USER, { unitId: 1, mapKey: K[0] ?? 0, objectId: FIRST })).ok).toBe(true);
+    await until(() => loopOf(r)?.phase === "gathering");
+    expect(r.gather.suspend(1)).toBe(true);
+    expect(r.gather.suspend(99)).toBe(false);
+    // 조우가 유닛을 세운다(다른 움직임) — 줄은 끝나지 않는다
+    r.maps.get(K[0] ?? 0)?.halt(1);
+    await r.maps.get(K[0] ?? 0)?.moveUnit(1, { x: 40 * 1024, y: 40 * 1024 });
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(loopOf(r)?.phase).not.toBe("done");
+    expect(await r.gather.resume(1, false)).toBe("object");
+    await until(() => loopOf(r)?.phase === "gathering");
+    // 전리품(다른 물건)을 든 채 가방이 찼다 → 모두 도시(넣는 곳)에 넣고 다시 캔다
+    r.ledger.post({
+      kind: "issue",
+      atMs: Date.now(),
+      entries: [
+        { account: r.ledger.systemAccount("issue:item:loot", "item:loot"), amount: -3n },
+        { account: r.ledger.ownerAccount(OWNER, "item:loot", cargoLocation(1)), amount: 3n },
+      ],
+    });
+    expect(r.gather.suspend(1)).toBe(true);
+    expect(await r.gather.resume(1, true)).toBe("deposit");
+    await until(() => r.ledger.balanceOf(OWNER, "item:loot", cityLocation(CITY)) === 3n);
+    // 멈춘 줄 끝내기(진 유닛)
+    expect(r.gather.suspend(1)).toBe(true);
+    r.gather.drop(1);
+    expect(loopOf(r)).toMatchObject({ phase: "done", stop: "interrupted" });
+    expect(await r.gather.resume(1, false)).toBe("ended");
+    r.gather.stop();
+  });
+});
+
 describe("운영자 빠르기 표시(world/operatorPace.ts, 사용자 지적 2026-11-12)", () => {
   it("표시가 달린 유닛은 채집 줄 걸음(오브젝트·넣는 곳)과 들어가기 걸음이 모두 100배, 없는 유닛은 보통", async () => {
     const r = rig();

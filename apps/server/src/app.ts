@@ -51,6 +51,7 @@ import { type CoordinateRules, startCoordinateRules } from "./travel/encounterWo
 import { createTravelRaids } from "./travel/raid.ts";
 import { createMarketGateway } from "./market/gateway.ts";
 import { createTravelGateway } from "./travel/gateway.ts";
+import { unitTacticsOf } from "./tactics/store.ts";
 import { createGatherGateway } from "./gather/gateway.ts";
 import { gatherReadsOf } from "./gather/reads.ts";
 import { startWorldGather } from "./gather/world.ts";
@@ -853,6 +854,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const travelGateway = world
     ? createTravelGateway({
         service: () => (world.status().state === "ready" ? world.persistence?.travel : undefined),
+        tactics: () => unitTacticsOf(world.persistence),
         maps: paceMaps,
         now,
         log: app.log,

@@ -12,6 +12,7 @@ import { createGatherInjury } from "../world/unitCondition.ts";
 import { UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
 import { TEST_PLANET_ID, type World } from "../world/world.ts";
 import type { GatherKind } from "./kinds.ts";
+import { registerGather } from "./registry.ts";
 import { type GatherService, createGatherService } from "./service.ts";
 import { type ObjectStore, createObjectStore, loadObjectStates } from "./state.ts";
 import { type StationRuntime, createStationRuntime } from "./station.ts";
@@ -217,6 +218,7 @@ export function startWorldGather(
         works,
         workersAt,
       };
+      registerGather(parts, service);
       options.log.info({ objectStates: rows.length }, "gather objects ready");
     })
     .catch((error: unknown) => {

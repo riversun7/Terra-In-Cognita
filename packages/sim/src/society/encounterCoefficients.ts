@@ -19,9 +19,15 @@ export interface EncounterCoefficients {
   readonly warRatioPm: number;
   /** [임시] 전쟁이 아닌 다른 나라 짐을 약탈하러 거는 전력 비(‰) */
   readonly lootRatioPm: number;
-  /** [임시] NPC 공격 성향이 문턱을 옮기는 세기(‰): 성향 500 = 그대로, 0 = 문턱 × (1 + 0.5 × 이 값), 1000 = 문턱 × (1 − 0.5 × 이 값) */
+  /**
+   * [임시] 편 AI 작전 ① 교전이 문턱을 옮기는 세기(‰, encounter-4 — 옛 이름 "NPC 공격 성향이 문턱을 옮기는 세기"): 교전 5 = 그대로,
+   * 0 = 문턱 × (1 + 0.5 × 이 값), 10 = 문턱 × (1 − 0.5 × 이 값). NPC는 성격(공격 성향) → 프리셋의 교전 값
+   */
   readonly aggressionPm: number;
-  /** [임시] 플레이어 유닛의 자동 판단(행동 설정이 아직 없다): 0 = 늘 회피(먼저 걸지 않음), 1 = NPC와 같은 판단(성향 500) */
+  /**
+   * [임시] 플레이어 유닛의 자동 판단: 0 = 늘 회피(먼저 걸지 않음, 옛 기본), 1 = 성향 500 NPC처럼(옛), 2 = 유닛 AI 작전대로(기본 — 질문 2021·2023
+   * 답, D-5039·D-5040)
+   */
   readonly playerPolicy: number;
   /** [임시] 조우 뒤 다시 판단: 짐이 운반 상한의 이 몫(‰) 이상이면 전리품을 정리하러 출발한 자리로 */
   readonly fullPm: number;
@@ -39,7 +45,7 @@ export const START_ENCOUNTER: EncounterCoefficients = {
   warRatioPm: 800,
   lootRatioPm: 1500,
   aggressionPm: 1000,
-  playerPolicy: 0,
+  playerPolicy: 2,
   fullPm: 850,
   regroupHpPm: 500,
 };

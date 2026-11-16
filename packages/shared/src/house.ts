@@ -67,6 +67,8 @@ export interface HouseOfferRow {
  * - leader_changed: 가문장이 바뀌었다(other = 새 가문장)
  * - city_gained: 가문이 도시를 얻었다(reason = vassal | independent, 1005 가)
  * - home_changed: 가문장이 가문 소속 도시를 바꿨다(other = 가문장, reason = 새 소속 도시 이름 — 없으면 null, D-565)
+ * - claim_halted: 빈 2차맵에 짓던 정부 건물이 멈췄다 — 다른 편 도시가 먼저 섰다(D-572 "자원과 시간만 날릴수있음", 질문 2194). 가문 없는
+ *   사람이면 house_name은 빈 글자
  */
 export const HOUSE_NOTICE_KINDS = [
   "invite_accepted",
@@ -85,6 +87,8 @@ export const HOUSE_NOTICE_KINDS = [
   // D-570: 가문장이 새 소속 도시를 공고함(reason = 새 도시 이름)·공고를 거둠(reason = has_city·unknown_city면 서버가 거둠, 없으면 가문장)
   "home_announced",
   "home_cancelled",
+  // 알박기(D-572·D-574): 짓던 정부 건물이 멈춤(ruins/landClaim.ts)
+  "claim_halted",
 ] as const;
 export type HouseNoticeKind = (typeof HOUSE_NOTICE_KINDS)[number];
 
@@ -150,6 +154,11 @@ export interface HouseCityView {
   readonly ready: boolean;
   /** 가문 도시 구인(질문 1041 다 — 가문을 거울 세계에 들인 뒤에만, 옛 서버는 보내지 않는다) */
   readonly recruit?: HouseRecruitView | null | undefined;
+  /**
+   * 봉신 가문의 독립 선언(D-575, house_independence): open = 가문장이 선언할 수 있다(가문 도시가 모두 알박기로 선 도시), blocked = 알박기가 아닌
+   * 도시가 있어 막힘(46 §3.2 독립 규칙 몫), 봉신이 아니면 null. 옛 서버는 보내지 않는다
+   */
+  readonly independence?: "open" | "blocked" | null | undefined;
 }
 
 /** 가문 도시 하나의 구인(인구·주거·가문장이 보는 지금 창 카드) */

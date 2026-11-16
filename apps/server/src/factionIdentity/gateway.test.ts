@@ -117,6 +117,10 @@ describe("가문 연결 처리(넘기기·해산·가문 도시, 프로토콜 24
           calls.push(`ruin:${userId}:${input.ruinId}:${input.mode}`);
           return Promise.resolve({ ok: false, code: "not_owner" });
         },
+        independence: (userId, input) => {
+          calls.push(`independence:${userId}:${input.regime}`);
+          return Promise.resolve({ ok: false, code: "not_vassal" });
+        },
         view: () => Promise.reject(new Error("not used")),
       }),
       afterMembership: () => {
@@ -144,12 +148,15 @@ describe("가문 연결 처리(넘기기·해산·가문 도시, 프로토콜 24
       regime: "democracy",
     });
     socket.handle({ t: "house_ruin", id: 4, ruinId: 12, mode: "vassal" });
-    for (let i = 0; i < 10; i++) await settle();
+    // 봉신 가문 독립 선언(D-575, 프로토콜 53)도 가문 도시 서비스로 간다
+    socket.handle({ t: "house_independence", id: 7, regime: "capitalism" });
+    for (let i = 0; i < 12; i++) await settle();
     expect(calls).toEqual([
       `handover:user-1:${KICKED}`,
       "dissolve:user-1",
       "village:user-1:9:40:50:independent:democracy",
       "ruin:user-1:12:vassal",
+      "independence:user-1:capitalism",
     ]);
     expect(sent).toEqual([
       { t: "house_member_result", id: 1, ok: true, action: "handed_over", factionId: 40 },
@@ -164,6 +171,7 @@ describe("가문 연결 처리(넘기기·해산·가문 도시, 프로토콜 24
         paid: "5000",
       },
       { t: "house_city_result", id: 4, ok: false, code: "not_owner" },
+      { t: "house_city_result", id: 7, ok: false, code: "not_vassal" },
     ]);
     expect(reloads).toBe(1);
   });

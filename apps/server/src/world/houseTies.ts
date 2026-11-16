@@ -31,6 +31,8 @@ export interface HouseTies {
   assignUnit(unitId: number, userId: string, nowMs: number): void;
   /** DB에서 다시 읽고 가문원 시민권·내 도시를 맞추고 떠난 사람의 유닛 줄을 지운다 */
   reload(): Promise<void>;
+  /** 표가 읽는 DB(빈 2차맵 알박기의 1인 가문 만들기·소식 — ruins/claimHouse.ts) */
+  readonly pool: QueryPool;
 }
 
 /** 표가 맞추는 세계 저장 층(시험은 빈 객체 — 맞추기·유닛 줄 쓰기를 건너뛴다) */
@@ -91,6 +93,7 @@ export function attachHouseTies(store: HouseTiesStore, pool: QueryPool): HouseTi
   };
 
   const ties: HouseTies = {
+    pool,
     nationOfHouse: (rowId) => nations.get(rowId),
     ledHouseOf: (userId) => leaders.get(userId),
     memberNationOf: (userId) => memberNations.get(userId),

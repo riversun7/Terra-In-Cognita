@@ -23,6 +23,7 @@
 import type { FacilityResultCode } from "@terra/protocol";
 import { buildingLocation, cityLocation, cityOfCell } from "@terra/shared/goodsPlaces";
 import { buildCostAt, buildTimeAt } from "@terra/shared/facilityBuild";
+import { DEFAULT_LAND_CLAIM_MODE } from "@terra/shared/facilities";
 import {
   CONDITION_FULL,
   type FacilityRuntimeRules,
@@ -215,6 +216,11 @@ export interface FacilityService extends PlotCommands {
    * 재료·작업 없이 쓰기 대기열에만 쓴다(건물 칸과 같은 묶음)
    */
   seedBuilt(record: FacilityRecord): void;
+  /**
+   * 처음 짓기 작업을 멈춘다(재료는 돌려주지 않는다 — 빈 2차맵 알박기에서 남의 도시가 서면, D-572 "자원과 시간만 날릴수있음", ruins/landClaim.ts).
+   * 건물은 레벨 0(짓는 중 모습)인 채 남는다. 짓던 작업이 없으면 false
+   */
+  haltBuild(buildingId: number, atMs: number): boolean;
   readonly facilities: ReadonlyMap<number, FacilityRecord>;
   readonly jobs: ReadonlyMap<number, JobRecord>;
   stop(): void;
@@ -563,6 +569,12 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       facilities.set(record.buildingId, record);
       saveFacility(record);
     },
+    haltBuild(buildingId, atMs) {
+      const job = jobOn((entry) => entry.kind === "build" && entry.buildingId === buildingId);
+      if (!job) return false;
+      dropJob(job, atMs);
+      return true;
+    },
     pausesFor(ownerId) {
       // 작업에 묶인 유닛의 주인 기준(외주 수리는 맡긴 사람의 작업에 공방 일꾼이 묶인다 — D-570 1785)
       const out = new Map<number, { fromMs: number; untilMs: number }[]>();
@@ -642,6 +654,8 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
         builtBy: userId,
         // 행정 건물은 그 폐허(되살아날 도시)의 시설이다(489 다). 알박기 행정 건물은 도시가 설 때까지 비운다
         cityId: landClaim ? null : (ruinId ?? cityId),
+        // 알박기 고르기(D-574 — 독립 | 소속 국가 귀속). 고르기 없이 온 명령(51판 이하 기기)은 기본 선택
+        ...(landClaim ? { claim: input.claim ?? { mode: DEFAULT_LAND_CLAIM_MODE, regime: null } } : {}),
       };
       facilities.set(record.buildingId, record);
       saveFacility(record);

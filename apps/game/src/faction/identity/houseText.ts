@@ -78,6 +78,8 @@ export const HOUSE_CITY_ERROR_TEXT: Readonly<Record<HouseCityResultCode | "offli
   insufficient_funds: m.fid_city_error_insufficient_funds,
   unknown_ruin: m.fid_city_error_unknown_ruin,
   not_owner: m.fid_city_error_not_owner,
+  not_vassal: m.fid_city_error_not_vassal,
+  independence_blocked: m.fid_city_error_independence_blocked,
   offline: m.fid_found_offline,
   timeout: m.fid_found_offline,
 };
@@ -128,6 +130,7 @@ const NOTICE_TEXT: Readonly<Record<HouseNoticeKind, NoticeText>> = {
         : v.reason === "entry_fee"
           ? m.fid_house_notice_home_cancelled_fee({ house: v.house })
           : m.fid_house_notice_home_cancelled({ house: v.house, other: v.other }),
+  claim_halted: () => m.fid_house_notice_claim_halted(),
 };
 
 /** 가문 소식 한 줄의 문장(모르는 종류는 "가문 소식이 있습니다") */

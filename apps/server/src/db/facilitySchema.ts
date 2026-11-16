@@ -40,11 +40,18 @@ export const worldFacilities = pgTable(
     plots: smallint("plots").notNull().default(0),
     // 기르는 티어(건물 채집소, 기획 D-569 1761). null = 기본(최고 티어). 열 더하기만(직전 판 앱은 이 열을 모른 채 넣고 null을 받는다)
     gatherTier: smallint("gather_tier"),
+    // 빈 2차맵 알박기 정부 건물의 고르기(D-574 — "nation" | "independent:<체제>", ruins/landClaim.ts). null = 알박기 아님·기본 선택. 열 더하기만
+    // (직전 판 앱은 이 열을 모른 채 넣고 null을 받는다 — 그 판에서 지은 알박기는 기본 선택)
+    claimChoice: text("claim_choice"),
   },
   (table) => [
     check("world_facilities_level", sql`${table.level} between 0 and 5`),
     check("world_facilities_plots", sql`${table.plots} between 0 and 100`),
     check("world_facilities_gather_tier", sql`${table.gatherTier} between 0 and 9`),
+    check(
+      "world_facilities_claim_choice",
+      sql`${table.claimChoice} ~ '^(nation|independent)(:(dictatorship|democracy|capitalism))?$'`,
+    ),
     check("world_facilities_condition", sql`${table.conditionPpm} between 0 and 1000000`),
     check("world_facilities_id_format", sql`${table.facilityId} ~ '^[a-z][a-z0-9_]{1,47}$'`),
   ],
@@ -81,3 +88,17 @@ export const facilityJobs = pgTable(
     check("facility_jobs_done", sql`${table.doneAtMs} >= ${table.startedAtMs}`),
   ],
 );
+
+/**
+ * 빈 2차맵 알박기로 선 도시(기획 D-572·D-574·D-575, ruins/landClaim.ts). 정부 건물을 다 지어 세운 도시 하나에 한 줄: founder_owner_id = 최초
+ * 설립자(새 도시 주인 세력의 소유 주체 — 가문·1인 독재 도시·NPC 세력). 표지는 D-575 보충("가")에 쓴다: 알박기로 선 도시는 독재 나라에
+ * 귀속해도 설립자가 지분을 갖고 독립을 선언할 수 있다(D-302 "독재 = 반란으로만"의 예외 — factionIdentity/houseIndependence.ts). 세계 표라
+ * 세계 새로 시작 때 비워진다. 직전 판 앱은 이 표를 모른다(읽지도 쓰지도 않음)
+ */
+export const claimCities = pgTable("claim_cities", {
+  cityId: bigint("city_id", { mode: "number" }).primaryKey(),
+  founderOwnerId: bigint("founder_owner_id", { mode: "number" }).notNull(),
+  /** 고른 것("nation" | "independent:<체제>" — world_facilities.claim_choice와 같은 글자) */
+  choice: text("choice").notNull(),
+  foundedAtMs: bigint("founded_at_ms", { mode: "number" }).notNull(),
+});

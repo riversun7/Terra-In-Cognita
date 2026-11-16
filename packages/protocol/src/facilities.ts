@@ -45,6 +45,11 @@ export const EXCHANGE_PROTOCOL_VERSION = 47;
  * 연결은 unit_busy·cannot_repair를 받는다
  */
 export const OUTSOURCE_PROTOCOL_VERSION = 48;
+/**
+ * 빈 2차맵 알박기 고르기(기획 D-574 "정부건설시 독립할지 소속된 국가로 귀속할지 결정가능"): facility_build의 선택 칸 claim이 생긴 판. 더 낮은 판
+ * 기기는 보내지 않는다(서버는 기본 선택으로 본다)
+ */
+export const LAND_CLAIM_PROTOCOL_VERSION = 53;
 
 const u32 = z.number().int().nonnegative().max(0xffff_ffff);
 const requestId = u32;
@@ -75,6 +80,16 @@ export const facilityBuildMessage = z.object({
   y: cell,
   rotation: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]),
   unitIds: units.optional(),
+  /**
+   * 빈 2차맵 알박기 정부(행정) 건물의 고르기(53부터, D-574): nation = 소속 국가로 귀속(봉신), independent = 독립(regime = 체제 — 가문 독립만 본다,
+   * 1인 독재 도시는 늘 독재). 다른 건물·도시·폐허 2차맵에서는 서버가 보지 않는다. 없으면 기본 선택. 가문이 이미 골라 둔 상태면 그 상태를 따른다
+   */
+  claim: z
+    .object({
+      mode: z.enum(["nation", "independent"]),
+      regime: z.enum(["dictatorship", "democracy", "capitalism"]).optional(),
+    })
+    .optional(),
 });
 
 /** 레벨업: 다음 레벨의 옛 비용 식(M14) 재료·시간. 올리는 동안 지금 레벨로 일한다 */

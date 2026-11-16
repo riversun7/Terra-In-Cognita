@@ -1,29 +1,37 @@
 // 빈 2차맵 알박기 완성(서버 권위) — 기획 D-572 "세력범위에는 포함되나 정부건물이 없는 땅에는 다른세력이 건설가능하고 건설되면 해당 정부가
-// 영토소유 알박기처럼 가능. 물론 군사력이 약하여 뺐기고 자원과 시간만 날릴수있음", 알박기 시점 "정부 건물을 다 지으면"(ADR
-// docs/adr/2026-11-14-second-map-build.md 3단계, 질문 2122 가, docs/questions/2026-11-16-alpak-2122.md).
+// 영토소유 알박기처럼 가능. 물론 군사력이 약하여 뺐기고 자원과 시간만 날릴수있음", 알박기 시점 "정부 건물을 다 지으면", D-574 "가문이 있으면
+// 가문소유, 무소속이면 유닛 독재 도시. 정부건설시 독립할지 소속된 국가로 귀속할지 결정가능", D-575 "소속된 국가로 귀속을 하여도, 그 도시의
+// 지분은 최초설립자가 가지며 독립을 선언할수도 있음"(ADR docs/adr/2026-11-14-second-map-build.md, 질문 2122 가·2191~2200·2241~).
 // - 자리: 도시(world_cities·거울 세계 도시)도 폐허도 없는 2차맵. 행정 건물(시설 단계 government)은 그런 2차맵 어디에나 짓는다(1차맵 세력
-//   범위 안이어도 — 알박기는 정부 건물이 없는 땅의 규칙이라 새 마을 자리 규칙 foundingClaimConflict "남의 지도 영토 안이면 막음"을 거치지
-//   않는다, 질문 2191). 폐허가 있는 2차맵은 폐허 복원 길(ruins/service.ts), 도시가 있는 2차맵은 정부를 더 짓지 못한다(not_ruin 그대로).
-// - 편(새 도시가 드는 세력): 폐허 복원과 같은 joinOf — 도시 가진 가문의 가문장 = 그 가문, 그 밖의 유저 = 사이보그의 나라(가문원은 가문 소속
-//   도시의 나라로 맞춰져 있다), 세력 주체 = 그 세력(질문 2193). **가문 없는 플레이어(무소속)는 사용자에게 묻는 중이라 막는다**(짓기 forbidden,
-//   미리 묻기 claim = no_house — 질문 2192). 편은 다 지었을 때 다시 센다(짓는 동안 가문을 바꾸면 바뀐 편으로).
-// - 다 지음 = 행정 건물 레벨 1 이상·상태 0% 초과·2차맵에 서 있음. NPC 사회 런타임 틱(5초)마다 훑어(foundPendingClaims) 그 2차맵에 아직 도시·
-//   폐허가 없으면 그 편의 새 도시를 세운다 — 가문 마을 세우기와 같은 길(npc/houseRuntime.ts foundVillage: 행정 Lv1·연구 0·휴먼 없음·지분
-//   1,000주를 그 세력 국고에, 주거 = 설정 칸 house_village_housing). 도시 자리 = 행정 건물 가운데 칸. 그 행정 건물은 새 도시의 시설이 된다
-//   (시설 줄 도시 = 새 도시 → 행정 레벨 = 그 건물 레벨, 489 다). 시설 줄·세력 행·도시 행을 같은 동기 처리에서 쓰기 대기열에 넣는다.
-// - 경쟁: 같은 2차맵에 여러 세력이 짓고 있으면 먼저 다 지은 쪽이 도시가 된다. 늦은 쪽 행정 건물은 남의 도시 2차맵의 알박기 건물로 남는다
-//   (도시가 서면 땅 규칙 foreign_city가 새 짓기를 막는다 — 이미 지은 건물은 그대로, 질문 2194).
-// - 저장할 새 값은 없다: "알박기 중" = 시설 줄 도시가 비어 있는(null) 행정 건물이다. 그래서 다시 켜도 틱이 그대로 잇는다(리셋·마이그레이션 없음).
-//   옛 판에서 시설 줄 도시가 비어 있는 행정 건물은 없다(행정 건물은 폐허에만 지어 폐허 ID를 적었다, NPC 씨앗은 도시 ID).
+//   범위 안이어도 — 알박기는 정부 건물이 없는 땅의 규칙이라 새 마을 자리 규칙 foundingClaimConflict를 거치지 않는다, 질문 2191). 폐허가 있는
+//   2차맵은 폐허 복원 길(ruins/service.ts), 도시가 있는 2차맵은 정부를 더 짓지 못한다(not_ruin 그대로).
+// - 새 도시 주인(D-574): 가문이 있으면(가문장·가문원 모두) 그 가문, 가문 없는 플레이어는 그 플레이어의 1인 가문("유닛 독재 도시" — 다 지었을 때
+//   ruins/claimHouse.ts가 만든다, 질문 2242), 세력 주체(NPC)는 그 세력. 가문이 아직 도시가 없으면(거울 세계에 없음) 짓기 때 고른 것으로 들인다
+//   (houses.adopt — 가문 마을 세우기·폐허 고르기와 같은 함수, D-340): nation = 가문 나라(born_of)의 봉신(귀속), independent = 독립 도시국가 +
+//   고른 체제(1인 가문은 늘 독재). 이미 도시가 있는 가문은 그 상태 그대로(mode_locked와 같다). 고르기는 시설 줄 claim(짓기 명령, 기본 선택 =
+//   @terra/shared/facilities DEFAULT_LAND_CLAIM_MODE — 확인 대기 질문 2241).
+// - 지분(D-575): 새 도시 지분 1,000주는 새 도시 주인 = 최초 설립자(그 가문·1인 가문·세력)의 국고로 간다(귀속해도 나라가 아니라 설립자). 귀속한
+//   봉신은 나중에 독립을 선언할 수 있다(factionIdentity/houseIndependence.ts). 알박기로 선 도시는 표 claim_cities에 적는다(D-575 보충 "가" —
+//   독재 나라에 귀속해도 독립 선언이 되는 표지).
+// - 다 지음 = 행정 건물 레벨 1 이상·상태 0% 초과·2차맵에 서 있음. NPC 사회 런타임 틱(5초)마다 훑어(foundPending) 그 2차맵에 아직 도시·폐허가
+//   없으면 새 도시를 세운다 — 가문 마을 세우기와 같은 길(npc/houseRuntime.ts foundVillage: 행정 Lv1·연구 0·휴먼 없음·지분 1,000주를 주인 국고에,
+//   주거 = 설정 칸 house_village_housing). 도시 자리 = 행정 건물 가운데 칸. 그 행정 건물은 새 도시의 시설이 된다(489 다).
+// - 경쟁: 먼저 다 지은 쪽이 도시가 된다(D-510 결). 도시가 서면 그 2차맵의 다른 편 짓는 중 정부 건물은 짓기가 멈춘다(질문 2194 → D-572
+//   "적대세력은 아예 건설불가" — 재료는 돌려주지 않는다, "자원과 시간만 날릴수있음"). 멈춘 건물은 레벨 0(짓는 중 모습)인 채 남는다(기술
+//   기본값, 질문 2241 — 공격·점령 규칙을 따른다). 이미 다 지은 늦은 쪽 건물(같은 틱)은 그대로 남는다.
+// - 소식: 도시가 서면 그 가문 가문원 모두에게 city_gained(2197 나), 멈춘 건물을 지은 사람에게 claim_halted.
+// - 저장할 새 값: 시설 줄 claim_choice(고른 것), 알박기 도시 표 claim_cities. "알박기 중" = 시설 줄 도시가 비어 있는(null) 행정 건물이다.
 import type { SocietyCoefficients } from "@terra/sim";
+import { DEFAULT_LAND_CLAIM_MODE, type LandClaimChoice } from "@terra/shared/facilities";
 import type { PlaceWorld } from "../facilities/places.ts";
-import type { FacilityRecord } from "../facilities/state.ts";
+import { type FacilityRecord, claimChoiceText } from "../facilities/state.ts";
 import { TEST_HOUSE_RULES, houseRulesFrom } from "../factionIdentity/rules.ts";
 import type { NpcRuntime } from "../npc/runtime.ts";
 import type { OwnerRow } from "../world/persist/load.ts";
+import type { ClaimNotice } from "./claimHouse.ts";
 
-/** 빈 2차맵에 정부를 다 지으면 새 도시가 드는 편 | 가문 없는 플레이어라 아직 못 짓는다(질문 2192) */
-export type LandClaimKind = "house" | "nation" | "faction" | "no_house";
+/** 빈 2차맵에 정부를 다 지으면 새 도시의 주인: 내 가문 | 1인 독재 도시(가문 없음) | 내 세력 */
+export type LandClaimKind = "house" | "personal" | "faction";
 
 export interface LandClaimDeps {
   readonly places: PlaceWorld;
@@ -31,23 +39,36 @@ export interface LandClaimDeps {
   readonly facilities: {
     readonly facilities: ReadonlyMap<number, FacilityRecord>;
     seedBuilt(record: FacilityRecord): void;
+    haltBuild(buildingId: number, atMs: number): boolean;
   };
-  /** 소유 주체가 정부를 지으면 도시가 드는 세력(폐허 복원과 같은 함수) */
+  /** 세력 주체가 정부를 지으면 도시가 드는 세력(폐허 복원과 같은 함수) */
   readonly joinOf: (runtime: NpcRuntime, ownerId: number) => number | undefined;
   /** 사용자가 든 가문 행(world/houseTies.ts houseOfUser). 없으면(무소속) undefined */
   readonly houseOfUser?: ((userId: string) => number | undefined) | undefined;
+  /** 도시 없는 가문의 나라(세력 행, born_of — houseTies memberNationOf). 봉신으로 들일 때 */
+  readonly houseNationOf?: ((userId: string) => number | undefined) | undefined;
   /** 설정 칸(새 도시 주거 = house_village_housing). 없으면 시험 계수표 */
   readonly rules?: (() => SocietyCoefficients) | undefined;
+  /** 알박기 도시 줄(claim_cities)을 쓰기 대기열에 — 새 도시 행과 같은 동기 처리 */
+  readonly saveClaimCity?: ((row: Record<string, unknown>) => void) | undefined;
+  /** 가문 없는 플레이어의 1인 가문을 만든다(비동기 — 다음 틱에 그 가문으로 세운다). 없으면 그런 건물은 기다린다 */
+  readonly foundPersonal?: ((userId: string) => void) | undefined;
+  /** 소식(비동기로 쓴다) */
+  readonly notify?: ((notices: readonly ClaimNotice[]) => void) | undefined;
 }
 
 export interface LandClaims {
-  /** 그 2차맵이 알박기 자리(도시·폐허 없음)면 정부를 지었을 때의 편, 아니면 null(런타임이 없어도 null) */
+  /** 그 2차맵이 알박기 자리(도시·폐허 없음)면 정부를 지었을 때 새 도시의 주인, 아니면 null(런타임이 없어도 null) */
   kindOf(runtime: NpcRuntime, ownerId: number, mapKey: number): LandClaimKind | null;
+  /** 그 주체의 가문이 이미 도시를 가져 봉신·독립이 정해졌으면 그 상태, 아니면 null(짓기 때 고른다) */
+  lockedOf(runtime: NpcRuntime, ownerId: number): "vassal" | "independent" | null;
   /** 그 2차맵에 도시나 폐허가 있나 */
   settled(runtime: NpcRuntime, mapKey: number): boolean;
   /** 다 지은 알박기 행정 건물마다 그 2차맵에 새 도시를 세운다. 세운 수 */
   foundPending(runtime: NpcRuntime, nowMs: number): number;
 }
+
+const DEFAULT_CHOICE: LandClaimChoice = { mode: DEFAULT_LAND_CLAIM_MODE, regime: null };
 
 export function createLandClaims(d: LandClaimDeps): LandClaims {
   const { places } = d;
@@ -58,23 +79,112 @@ export function createLandClaims(d: LandClaimDeps): LandClaims {
         return true;
     return false;
   };
-  /** 편(위 머리 주석). 무소속 유저 = no_house, 편이 없으면(나라가 사라짐 등) undefined */
-  const sideOf = (runtime: NpcRuntime, ownerId: number): LandClaimKind | undefined => {
-    const owner = d.owners.get(ownerId);
-    if (owner?.userId && d.houseOfUser?.(owner.userId) === undefined) return "no_house";
-    const join = d.joinOf(runtime, ownerId);
-    if (join === undefined) return undefined;
-    if (owner?.userId === null || owner?.userId === undefined) return "faction";
-    return runtime.world.factions.get(join)?.player === true ? "house" : "nation";
+  const userOf = (ownerId: number): string | null => d.owners.get(ownerId)?.userId ?? null;
+  const houseOf = (ownerId: number): number | undefined => {
+    const userId = userOf(ownerId);
+    return userId ? d.houseOfUser?.(userId) : undefined;
+  };
+  const kindOf = (runtime: NpcRuntime, ownerId: number): LandClaimKind | undefined => {
+    if (userOf(ownerId) === null) return d.joinOf(runtime, ownerId) === undefined ? undefined : "faction";
+    return houseOf(ownerId) === undefined ? "personal" : "house";
+  };
+  /** 그 주체의 가문이 거울 세계에 든 세력(도시를 가진 가문)이면 그 세력 */
+  const mirrorOf = (runtime: NpcRuntime, ownerId: number) => {
+    const house = houseOf(ownerId);
+    return house === undefined ? undefined : runtime.houses.mirrorOf(house);
   };
   const isGovernment = (record: FacilityRecord): boolean =>
     places.catalog().facility(record.facilityId)?.stage === "government";
+
+  /**
+   * 새 도시 주인 세력(소유 주체). 가문이 아직 거울 세계에 없으면 고른 것으로 들인다. 1인 가문을 만드는 중이거나 들일 수 없으면 undefined(다음
+   * 틱에 다시)
+   */
+  const ownerFor = (
+    runtime: NpcRuntime,
+    record: FacilityRecord,
+    ownerId: number,
+    nowMs: number,
+  ): { owner: number; house: number | null; mode: "vassal" | "independent" } | undefined => {
+    const userId = userOf(ownerId);
+    if (userId === null) {
+      const join = d.joinOf(runtime, ownerId);
+      return join === undefined ? undefined : { owner: join, house: null, mode: "independent" };
+    }
+    const house = d.houseOfUser?.(userId);
+    if (house === undefined) {
+      // 가문 없는 플레이어: 1인 가문(유닛 독재 도시)을 만든다. 독립이면 체제는 늘 독재(D-574 "유닛 독재 도시")
+      const choice = record.claim ?? DEFAULT_CHOICE;
+      if (choice.mode === "independent" && choice.regime !== "dictatorship")
+        d.facilities.seedBuilt({ ...record, claim: { mode: "independent", regime: "dictatorship" } });
+      d.foundPersonal?.(userId);
+      return undefined;
+    }
+    const mirror = runtime.houses.mirrorOf(house);
+    if (mirror)
+      return runtime.world.factions.get(mirror.ownerId)?.alive
+        ? { owner: mirror.ownerId, house, mode: mirror.vassal ? "vassal" : "independent" }
+        : undefined;
+    const choice = record.claim ?? DEFAULT_CHOICE;
+    const vassal = choice.mode === "nation";
+    const owner = runtime.houses.adopt({
+      rowId: house,
+      nationRowId: d.houseNationOf?.(userId) ?? null,
+      vassal,
+      regime: choice.regime ?? "democracy",
+      nowMs,
+    });
+    return owner === undefined ? undefined : { owner, house, mode: vassal ? "vassal" : "independent" };
+  };
+
+  /** 그 주체(멈출지 볼 건물 주인)가 새 도시 주인과 같은 편인가 */
+  const sameSide = (
+    runtime: NpcRuntime,
+    ownerId: number,
+    founded: { owner: number; house: number | null },
+  ) => {
+    if (userOf(ownerId) === null) return d.joinOf(runtime, ownerId) === founded.owner;
+    const house = houseOf(ownerId);
+    if (house === undefined) return false;
+    return house === founded.house || runtime.houses.ownerOfRow(house) === founded.owner;
+  };
+
+  /** 도시가 선 2차맵의 다른 편 짓는 중 정부 건물을 멈춘다(2194). 멈춘 건물 주인 목록 */
+  const haltRivals = (
+    runtime: NpcRuntime,
+    mapKey: number,
+    founded: { owner: number; house: number | null },
+    nowMs: number,
+  ): ClaimNotice[] => {
+    const notices: ClaimNotice[] = [];
+    for (const record of d.facilities.facilities.values()) {
+      if (record.level >= 1 || !isGovernment(record)) continue;
+      const cell = cellOf(places, record);
+      if (!cell || cell.mapKey !== mapKey || cell.ownerId === null) continue;
+      if (sameSide(runtime, cell.ownerId, founded)) continue;
+      if (!d.facilities.haltBuild(record.buildingId, nowMs)) continue;
+      const userId = userOf(cell.ownerId);
+      if (userId)
+        notices.push({
+          userId,
+          house: houseOf(cell.ownerId) ?? null,
+          kind: "claim_halted",
+          reason: null,
+          nowMs,
+        });
+    }
+    return notices;
+  };
 
   return {
     settled,
     kindOf(runtime, ownerId, mapKey) {
       if (settled(runtime, mapKey)) return null;
-      return sideOf(runtime, ownerId) ?? null;
+      return kindOf(runtime, ownerId) ?? null;
+    },
+    lockedOf(runtime, ownerId) {
+      const mirror = mirrorOf(runtime, ownerId);
+      return mirror ? (mirror.vassal ? "vassal" : "independent") : null;
     },
     foundPending(runtime, nowMs) {
       let founded = 0;
@@ -85,22 +195,32 @@ export function createLandClaims(d: LandClaimDeps): LandClaims {
           continue;
         const found = cellOf(places, record);
         if (!found || found.ownerId === null || settled(runtime, found.mapKey)) continue;
-        const side = sideOf(runtime, found.ownerId);
-        const join = side === undefined || side === "no_house" ? undefined : d.joinOf(runtime, found.ownerId);
-        if (join === undefined) continue;
         const map = places.maps.get(found.mapKey);
         if (!map) continue;
+        const side = ownerFor(runtime, record, found.ownerId, nowMs);
+        if (!side) continue;
         const housing = (d.rules ? houseRulesFrom(d.rules()) : TEST_HOUSE_RULES).villageHousing;
         const planetId = [...runtime.places.values()].find((p) => p.mapKey === found.mapKey)?.planetId;
         const cityId = runtime.houses.foundVillage(
-          join,
+          side.owner,
           { planetId: planetId ?? map.planetId, mapKey: found.mapKey, cellX: found.x, cellY: found.y },
           housing,
           nowMs,
         );
-        // 행정 건물은 새 도시의 시설(489 다 — 행정 레벨 = 건물 레벨). 시설 줄·세력 행·도시 행을 같은 동기 처리에서 쓰기 대기열로
-        d.facilities.seedBuilt({ ...record, cityId });
-        runtime.houses.flush(join, cityId);
+        // 행정 건물은 새 도시의 시설(489 다 — 행정 레벨 = 건물 레벨). 시설 줄·세력 행·도시 행·알박기 도시 줄을 같은 동기 처리에서 쓰기 대기열로
+        const latest = d.facilities.facilities.get(record.buildingId) ?? record;
+        d.facilities.seedBuilt({ ...latest, cityId });
+        runtime.houses.flush(side.owner, cityId);
+        d.saveClaimCity?.({
+          city_id: cityId,
+          founder_owner_id: side.owner,
+          choice: claimChoiceText(latest.claim ?? DEFAULT_CHOICE),
+          founded_at_ms: nowMs,
+        });
+        const notices = haltRivals(runtime, found.mapKey, side, nowMs);
+        if (side.house !== null)
+          notices.unshift({ userId: null, house: side.house, kind: "city_gained", reason: side.mode, nowMs });
+        d.notify?.(notices);
         founded += 1;
       }
       return founded;

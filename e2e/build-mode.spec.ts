@@ -2,7 +2,8 @@
 // (docs/adr/2026-11-14-second-map-build.md 1단계).
 // - [도시] → [건설] → 건물 목록 → 고르기 → 땅 누르기 = 반투명 미리보기 자리(판 data-valid) → [회전] → [다른 건물] → [닫기].
 // - 땅 규칙: 서버 조회 facilities.landRule이 막힘(다른 세력 도시)이면 경고를 보이고 [짓기]가 꺼진다(응답을 바꿔 본다 — 서버 규칙은 DB 시험).
-// - 빈 2차맵 알박기(D-572, 질문 2122 가): 정부 건물을 고르면 다 지었을 때의 편 안내, 가문 없으면(claim = no_house, 질문 2192) [짓기] 꺼짐.
+// - 빈 2차맵 알박기(D-572·D-574): 정부 건물을 고르면 다 지었을 때 새 도시 주인 안내와 "소속 국가로 귀속 | 독립" 고르기(가문·1인 도시,
+//   기본 = 귀속, 가문 독립이면 체제), 가문이 이미 정했으면(claimLocked) 고르지 않고 그 상태 안내.
 // - 사진: 390 × 파스텔·다크(놓기 단계).
 import type { Page } from "@playwright/test";
 import { groundOffsets } from "./helpers/mapGround.ts";
@@ -31,8 +32,8 @@ function claimLand(data: unknown): void {
   Reflect.set(data, "territoryFaction", 1);
 }
 
-/** 서버 땅 규칙 응답을 "도시·폐허 없는 빈 2차맵 — 정부를 다 지으면 claim 편의 새 도시"로 바꾼다 */
-function emptyLand(claim: "nation" | "no_house"): (data: unknown) => void {
+/** 서버 땅 규칙 응답을 "도시·폐허 없는 빈 2차맵 — 정부를 다 지으면 claim 주인의 새 도시"로 바꾼다(locked = 가문이 이미 정한 상태) */
+function emptyLand(claim: "house" | "personal", locked: "vassal" | null = null): (data: unknown) => void {
   return (data) => {
     if (typeof data !== "object" || data === null)
       throw new Error("facilities.landRule 응답 모양이 다릅니다");
@@ -42,6 +43,7 @@ function emptyLand(claim: "nation" | "no_house"): (data: unknown) => void {
     Reflect.set(data, "cityFaction", null);
     Reflect.set(data, "territoryFaction", null);
     Reflect.set(data, "claim", claim);
+    Reflect.set(data, "claimLocked", locked);
   };
 }
 
@@ -178,25 +180,39 @@ test.describe("건축 모드: 플레이어", () => {
     expect(deviceErrors).toEqual([]);
   });
 
-  for (const claim of ["nation", "no_house"] as const)
-    test(`빈 2차맵 정부 건물(알박기 완성, 질문 2122): ${claim}`, async ({ page, deviceErrors }) => {
+  for (const [claim, locked] of [
+    ["personal", null],
+    ["house", null],
+    ["house", "vassal"],
+  ] as const)
+    test(`빈 2차맵 정부 건물(알박기, D-574): ${claim}${locked ? `-${locked}` : ""}`, async ({
+      page,
+      deviceErrors,
+    }) => {
       test.setTimeout(150_000);
-      await openMap(page, { "facilities.landRule": emptyLand(claim) });
+      await openMap(page, { "facilities.landRule": emptyLand(claim, locked) });
       const sheet = await openBuild(page);
       await expect(sheet).toHaveAttribute("data-land", "allowed", { timeout: 20_000 });
       await pickAndPlace(page, "government_hall");
-      const status = sheet.locator(".map-build-status");
-      if (claim === "nation") {
-        await expect(sheet.locator('[data-part="build-claim"]')).toHaveText(
-          message("ko", "build_claim_nation"),
+      await expect(sheet.locator('[data-part="build-claim"]')).toHaveText(
+        message("ko", `build_claim_${claim}`),
+      );
+      const choice = sheet.locator('[data-part="build-claim-choice"]');
+      if (locked) {
+        await expect(choice).toHaveCount(0);
+        await expect(sheet.locator('[data-part="build-claim-locked"]')).toHaveText(
+          message("ko", "build_claim_locked_vassal"),
         );
-        await expect(status).not.toHaveAttribute("data-problem", /\bclaim_no_house\b/);
       } else {
-        await expect(sheet.locator('[data-part="build-claim"]')).toHaveCount(0);
-        await expect(status).toHaveAttribute("data-problem", /\bclaim_no_house\b/);
-        await expect(sheet.locator(".map-build-confirm")).toBeDisabled();
+        // 기본 선택 = 소속 국가로 귀속(DEFAULT_LAND_CLAIM_MODE) → 독립을 고르면 가문은 체제, 1인 도시는 독재 안내
+        await expect(choice).toHaveAttribute("data-mode", "nation");
+        await choice.getByLabel(message("ko", "build_claim_mode_independent")).check();
+        await expect(choice).toHaveAttribute("data-mode", "independent");
+        if (claim === "house") await expect(choice.locator("select")).toBeVisible();
+        else await expect(choice).toContainText(message("ko", "build_claim_personal_regime"));
       }
-      await shot(page, `build-gov-${claim}-390`);
+      expect(await horizontalOverflow(page)).toEqual([]);
+      await shot(page, `build-gov-${claim}${locked ? `-${locked}` : ""}-390`);
       expect(deviceErrors).toEqual([]);
     });
 });

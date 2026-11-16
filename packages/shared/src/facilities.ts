@@ -336,12 +336,40 @@ export interface FacilityLandRuleResponse {
    */
   readonly territoryFaction?: number | null | undefined;
   /**
-   * 빈 2차맵 알박기(기획 D-572, 질문 2122 가): 그 2차맵에 도시도 폐허도 없으면 정부(행정) 건물을 다 지었을 때 새 도시가 드는 편 — house = 내 가문,
-   * nation = 내 나라, faction = 내 세력. no_house = 가문 없는 플레이어라 아직 정부를 지을 수 없다(사용자 결정 대기, 질문 2192). 도시·폐허가 있는
-   * 2차맵·모르면 null. 옛 서버는 이 칸이 없다
+   * 빈 2차맵 알박기(기획 D-572, 질문 2122 가, D-574): 그 2차맵에 도시도 폐허도 없으면 정부(행정) 건물을 다 지었을 때 새 도시의 주인 — house =
+   * 내 가문(가문장·가문원 모두, D-574 "가문이 있으면 가문소유"), personal = 가문 없는 플레이어의 1인 독재 도시(D-574 "무소속이면 유닛 독재 도시"),
+   * faction = 내 세력(세력 주체). 도시·폐허가 있는 2차맵·모르면 null. 옛 서버는 이 칸이 없다(옛 서버는 nation·no_house도 보냈다)
    */
   readonly claim?: FacilityLandClaim | null | undefined;
+  /**
+   * 가문이 이미 도시를 가져 봉신·독립을 골라 둔 상태(바꾸지 못함 — houseCity mode_locked와 같다). house일 때만 값, 아직 안 골랐으면 null(짓기 때
+   * 고른다, D-574). 옛 서버는 이 칸이 없다
+   */
+  readonly claimLocked?: "vassal" | "independent" | null | undefined;
 }
 
-/** 빈 2차맵 정부 건물의 편(FacilityLandRuleResponse.claim) */
-export type FacilityLandClaim = "house" | "nation" | "faction" | "no_house";
+/** 빈 2차맵 정부 건물이 다 지어지면 새 도시의 주인(FacilityLandRuleResponse.claim) */
+export type FacilityLandClaim = "house" | "personal" | "faction";
+
+/**
+ * 알박기 정부를 지을 때 고르는 것(D-574 "정부건설시 독립할지 소속된 국가로 귀속할지 결정가능"): nation = 소속 국가로 귀속(가문·1인 도시가 그 나라의
+ * 봉신), independent = 독립 도시국가. 귀속해도 도시 지분은 최초 설립자(새 도시 주인)가 갖고 나중에 독립을 선언할 수 있다(D-575)
+ */
+export const LAND_CLAIM_MODES = ["nation", "independent"] as const;
+export type LandClaimMode = (typeof LAND_CLAIM_MODES)[number];
+
+/**
+ * 기본 선택 — D-574 원문 "소속된 국가로". 기본값이 맞는지 기획이 사용자에게 다시 확인 중이다(질문 2241). 바꾸려면 이 한 줄만 바꾼다(서버가 고르기
+ * 없이 온 짓기 명령에도, 건축 모드 처음 선택에도 이 값을 쓴다)
+ */
+export const DEFAULT_LAND_CLAIM_MODE: LandClaimMode = "nation";
+
+/** 독립을 고를 때의 체제(D-340 "독립 도시국가로 세우면 체제도 그때 정한다" — 프로토콜 HOUSE_REGIMES와 같은 값) */
+export const LAND_CLAIM_REGIMES = ["dictatorship", "democracy", "capitalism"] as const;
+export type LandClaimRegime = (typeof LAND_CLAIM_REGIMES)[number];
+
+/** 알박기 고르기 한 벌(짓기 명령 claim 칸). regime = 독립일 때 체제(1인 독재 도시는 늘 dictatorship) */
+export interface LandClaimChoice {
+  readonly mode: LandClaimMode;
+  readonly regime: LandClaimRegime | null;
+}

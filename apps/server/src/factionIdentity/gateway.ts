@@ -35,7 +35,7 @@ export type HouseMemberClientMessage = ClientMessageOf<
   | "house_home"
   | "house_entry_policy"
 >;
-export type HouseCityClientMessage = ClientMessageOf<"house_village" | "house_ruin">;
+export type HouseCityClientMessage = ClientMessageOf<"house_village" | "house_ruin" | "house_independence">;
 export type HouseRecruitClientMessage = ClientMessageOf<"house_recruit_auto" | "house_recruit_hire">;
 export type HouseClientMessage =
   | ClientMessageOf<"house_found">
@@ -206,7 +206,11 @@ export function createHouseGateway(options: {
         if (message.t === "house_found") reply(message.id, fail(code));
         else if (message.t === "house_recruit_auto" || message.t === "house_recruit_hire")
           replyRecruit(message.id, recruitFail(code));
-        else if (message.t === "house_village" || message.t === "house_ruin")
+        else if (
+          message.t === "house_village" ||
+          message.t === "house_ruin" ||
+          message.t === "house_independence"
+        )
           replyCity(message.id, cityFail(code));
         else replyMember(message.id, memberFail(code));
       };
@@ -217,6 +221,9 @@ export function createHouseGateway(options: {
         const city = options.city?.();
         if (!city) return replyCity(message.id, cityFail("busy"));
         if (!cityLimiter.take(viewer.id)) return replyCity(message.id, cityFail("rate_limited"));
+        // 봉신 가문 독립 선언(D-575 — houseIndependence.ts)
+        if (message.t === "house_independence")
+          return replyCity(message.id, await city.independence(viewer.id, { regime: message.regime }));
         const choice = {
           mode: message.mode,
           ...(message.regime === undefined ? {} : { regime: message.regime }),
@@ -294,7 +301,8 @@ export function createHouseGateway(options: {
         replyRecruit(message.id, result);
       };
       const process = async (message: HouseClientMessage): Promise<void> => {
-        if (message.t === "house_village" || message.t === "house_ruin") return processCity(message);
+        if (message.t === "house_village" || message.t === "house_ruin" || message.t === "house_independence")
+          return processCity(message);
         if (message.t === "house_recruit_auto" || message.t === "house_recruit_hire")
           return processRecruit(message);
         if (message.t !== "house_found") return processMember(message);

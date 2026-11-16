@@ -1,0 +1,185 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "95bd9580-a1e4-44d4-b2d6-d050b07e09e3",
+  "prevIds": [
+    "bd0d640e-af77-4350-8296-46f7f58b1d82",
+    "7f14a324-d889-4f32-92c6-43ed1b68babd",
+    "98fc86ba-aeba-47e8-9f68-63b83b556b90",
+    "8315ae4c-6d61-4e83-8d17-d427b00675d3",
+    "43d61ca8-b8e2-4c08-ac26-45b6ee5feaf5"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "claim_cities"
+      ],
+      "writes": [
+        "s|tbl|public.claim_cities",
+        "n|tbl|public.claim_cities",
+        "e|tbl|public.claim_cities",
+        "n|rel|public.claim_cities",
+        "n|type|public.claim_cities",
+        "n|rel|public.claim_cities_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_facilities",
+        "claim_choice"
+      ],
+      "writes": [
+        "s|col|public.world_facilities.claim_choice",
+        "n|col|public.world_facilities.claim_choice",
+        "e|col|public.world_facilities.claim_choice"
+      ],
+      "reads": [
+        "n|tbl|public.world_facilities",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_facilities"
+      ],
+      "writes": [
+        "s|ck|public.world_facilities.world_facilities_claim_choice",
+        "n|ck|public.world_facilities.world_facilities_claim_choice",
+        "e|ck|public.world_facilities.world_facilities_claim_choice",
+        "n|con|public.world_facilities.world_facilities_claim_choice"
+      ],
+      "reads": [
+        "n|tbl|public.world_facilities",
+        "n|sch|public",
+        "n|col|public.world_facilities.claim_choice"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "claim_cities",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "claim_cities",
+        "name": "city_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "claim_cities",
+        "name": "founder_owner_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "claim_cities",
+        "name": "choice",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "claim_cities",
+        "name": "founded_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_facilities",
+        "name": "claim_choice",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "claim_cities",
+        "name": "claim_cities_pkey",
+        "columns": [
+          "city_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_facilities",
+        "name": "world_facilities_claim_choice",
+        "value": "\"claim_choice\" ~ '^(nation|independent)(:(dictatorship|democracy|capitalism))?$'",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

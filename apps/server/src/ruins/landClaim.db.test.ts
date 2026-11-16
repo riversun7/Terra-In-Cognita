@@ -1,14 +1,16 @@
-// 빈 2차맵 알박기 완성 DB 통합 시험(기획 D-572, 질문 2122 가 — ruins/landClaim.ts) — TEST_DATABASE_URL이 있을 때만. 계정은 가짜 값이다.
-// 도시·폐허 없는 2차맵: 가문 없는 플레이어는 행정 건물을 못 짓고(질문 2192 — 묻는 중) → 가문원이 되면 짓는다 → 다른 세력도 같은 2차맵에
-// 짓는다(알박기 경쟁) → 다 지은 뒤 런타임 틱에 먼저 다 지은 쪽 편(사이보그 나라)의 새 도시가 서고 그 건물이 새 도시 시설 → 늦은 쪽 건물은
-// 남지만 도시가 되지 않는다 → 땅 규칙: 다른 나라는 foreign_city, 지은 쪽은 내 도시 → 다시 켜도 그대로.
+// 빈 2차맵 알박기 완성 DB 통합 시험(기획 D-572·D-574·D-575, 질문 2122 가·2194 — ruins/landClaim.ts) — TEST_DATABASE_URL이 있을 때만. 계정은
+// 가짜 값이다. 도시·폐허 없는 2차맵: 가문 없는 플레이어도 짓는다(D-574 — 1인 독재 도시) → 다른 가문이 같은 2차맵에 짓는 중 → 먼저 다 지은
+// 쪽(무소속)의 1인 가문이 생기고(소속 국가로 귀속 = 기본 선택) 그 가문 도시가 서며 지분은 그 가문 국고(D-575) → 늦은 쪽 짓는 중 정부 건물은
+// 멈추고(재료 돌려주지 않음) 소식이 간다 → 땅 규칙 → 귀속한 1인 가문의 독립 선언(알박기 도시라 열림) → 다른 가문은 독립을 골라 세움 → 다시 켬.
 import { loadContentPack } from "@terra/content/node";
-import { DAY_MS } from "@terra/sim";
+import { DAY_MS, holdingsOf } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { createContentEditState } from "../contentEdit/state.ts";
 import { facilityScreenSourceOf } from "../facilities/appSource.ts";
 import { createFacilityScreenServices } from "../facilities/screen.ts";
+import { createHouseCity } from "../factionIdentity/houseCity.ts";
+import { TEST_HOUSE_RULES } from "../factionIdentity/rules.ts";
 import { giveTestHouse } from "../factionIdentity/testHouses.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import type { Viewer } from "../trpc/context.ts";
@@ -96,26 +98,47 @@ async function citizen(world: World, name: string, nation: number) {
   return { userId, ownerId, factionRow: faction.id, viewer };
 }
 
-describe.skipIf(!TEST_DATABASE_URL)("빈 2차맵 알박기 완성(D-572, 질문 2122)", () => {
-  it("무소속은 막고, 먼저 다 지은 쪽 편의 새 도시가 서며 늦은 쪽 건물은 남는다 — 땅 규칙도 따라가고 다시 켜도 그대로", async () => {
+/** 조건이 맞을 때까지 런타임 틱을 돌린다(1인 가문 만들기·소식은 비동기) */
+async function tickUntil(world: World, done: () => boolean | Promise<boolean>): Promise<void> {
+  const npc = world.npc;
+  if (!npc) throw new Error("npc runtime");
+  for (let i = 0; i < 60; i++) {
+    await npc.tick(true);
+    await persistenceOf(world).writer.durable();
+    if (await done()) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error("tickUntil: timed out");
+}
+
+describe.skipIf(!TEST_DATABASE_URL)("빈 2차맵 알박기 완성(D-572·D-574·D-575, 질문 2122·2194)", () => {
+  it("무소속은 1인 가문 도시로 귀속해 세우고, 늦은 쪽 짓는 중 정부는 멈추며, 알박기 도시는 독립을 선언할 수 있다", async () => {
     const first = await boot();
     const npc = first.npc;
     if (!npc) throw new Error("npc runtime");
     const persistence = persistenceOf(first);
     const { facilities } = persistence;
     const screen = createFacilityScreenServices(() => facilityScreenSourceOf(first));
+    const houseCity = createHouseCity({
+      pool: test.db.$client,
+      db: test.db,
+      rules: () => TEST_HOUSE_RULES,
+      now: () => clock,
+      world: () => first,
+    });
     const one = await citizen(first, "ClaimOne", 0);
     const two = await citizen(first, "ClaimTwo", 1);
     expect(one.factionRow).not.toBe(two.factionRow);
 
-    // 도시도 폐허도 없는 띄운 2차맵
+    // 도시도 폐허도 없는 띄운 2차맵 둘
     const settledMaps = new Set([...npc.places.values()].map((place) => place.mapKey));
     for (const city of facilities.service.places.cities()) settledMaps.add(city.mapKey);
-    const empty = [...first.maps.keys()].toSorted((a, b) => a - b).find((key) => !settledMaps.has(key));
-    if (empty === undefined) throw new Error("no empty map");
-    const hall = (x: number) =>
+    const empties = [...first.maps.keys()].toSorted((a, b) => a - b).filter((key) => !settledMaps.has(key));
+    const [empty, other] = empties;
+    if (empty === undefined || other === undefined) throw new Error("no empty maps");
+    const hall = (x: number, mapKey = empty) =>
       ({
-        mapKey: empty,
+        mapKey,
         facility: "government_hall",
         x,
         y: 100,
@@ -123,65 +146,172 @@ describe.skipIf(!TEST_DATABASE_URL)("빈 2차맵 알박기 완성(D-572, 질문 
         operator: { pace: 10 },
       }) as const;
 
-    // 가문 없는 플레이어는 묻는 중이라 막는다(질문 2192) — 미리 묻기도 no_house
-    expect(await screen.landRule(one.viewer, empty)).toMatchObject({ allowed: true, claim: "no_house" });
-    expect(await facilities.service.build(one.userId, hall(80))).toEqual({ ok: false, code: "forbidden" });
-
-    // 가문원(도시 없는 가문)이 되면 짓는다 — 편 = 사이보그 나라(폐허 복원과 같은 joinOf, 질문 2193)
-    await giveTestHouse(test.db.$client, one.userId, persistence);
-    await giveTestHouse(test.db.$client, two.userId, persistence);
-    expect(await screen.landRule(one.viewer, empty)).toMatchObject({ allowed: true, claim: "nation" });
+    // 무소속도 짓는다(D-574 "무소속이면 유닛 독재 도시") — 미리 묻기 personal, 고르기 없이 보내면 기본 선택(소속 국가로 귀속)
+    expect(await screen.landRule(one.viewer, empty)).toMatchObject({
+      allowed: true,
+      claim: "personal",
+      claimLocked: null,
+    });
     const builtOne = await facilities.service.build(one.userId, hall(80));
     expect(builtOne).toMatchObject({ ok: true });
     const hallOne = builtOne.ok ? (builtOne.buildingId ?? -1) : -1;
-    // 짓는 중에는 땅 주인이 바뀌지 않는다 → 다른 나라도 같은 2차맵에 짓는다(알박기 경쟁)
+    expect(facilities.service.facilities.get(hallOne)).toMatchObject({
+      level: 1,
+      cityId: null,
+      claim: { mode: "nation", regime: null },
+    });
+
+    // 다른 가문(도시 없음)도 같은 2차맵에 짓는다 — 짓는 중으로 돌려 둔다(운영자 모드는 바로 다 지어서)
+    await giveTestHouse(test.db.$client, two.userId, persistence);
+    expect(await screen.landRule(two.viewer, empty)).toMatchObject({ allowed: true, claim: "house" });
     const builtTwo = await facilities.service.build(two.userId, hall(140));
     expect(builtTwo).toMatchObject({ ok: true });
     const hallTwo = builtTwo.ok ? (builtTwo.buildingId ?? -1) : -1;
-    // 알박기 행정 건물은 도시가 설 때까지 시설 줄 도시가 비어 있다(운영자 모드라 바로 레벨 1)
-    expect(facilities.service.facilities.get(hallOne)).toMatchObject({ level: 1, cityId: null });
-    expect(facilities.service.facilities.get(hallTwo)).toMatchObject({ level: 1, cityId: null });
+    const recordTwo = facilities.service.facilities.get(hallTwo);
+    if (!recordTwo) throw new Error("hall two");
+    recordTwo.level = 0;
+    const jobs = facilities.service.jobs;
+    if (!(jobs instanceof Map)) throw new Error("jobs map");
+    jobs.set(9_999_001, {
+      id: 9_999_001,
+      kind: "build",
+      ownerId: two.ownerId,
+      buildingId: hallTwo,
+      beaconId: null,
+      holdingId: null,
+      targetLevel: 1,
+      restorePpm: null,
+      unitIds: [],
+      materials: [],
+      startedAtMs: clock,
+      doneAtMs: clock + DAY_MS,
+    });
 
-    // 런타임 틱: 먼저 지은(작은 건물 ID) 쪽 편의 새 도시
+    // 런타임 틱: 무소속의 1인 가문을 만든 뒤(비동기) 그 가문 도시 — 소속 국가의 봉신(기본 선택)
     const before = new Set(npc.world.cities.keys());
-    await npc.tick(true);
-    await persistence.writer.durable();
+    await tickUntil(first, () => [...npc.world.cities.keys()].some((id) => !before.has(id)));
     const fresh = [...npc.world.cities.keys()].filter((id) => !before.has(id));
     expect(fresh).toHaveLength(1);
     const cityId = fresh[0] ?? -1;
     expect(npc.places.get(cityId)?.mapKey).toBe(empty);
     expect(facilities.service.facilities.get(hallOne)?.cityId).toBe(cityId);
-    expect(facilities.service.facilities.get(hallTwo)?.cityId).toBeNull();
-    const cityRows = await rows<{ faction_id: string; map_key: string; admin_level: number }>(
+    const houseRows = await rows<{ faction_id: string; role: string }>(
       test.db,
-      "select faction_id, map_key, admin_level from world_cities where id = $1",
+      "select faction_id, role from house_members where user_id = $1",
+      [one.userId],
+    );
+    expect(houseRows).toHaveLength(1);
+    expect(houseRows[0]?.role).toBe("leader");
+    const house = Number(houseRows[0]?.faction_id);
+    const factionRows = await rows<{ kind: string; parent_id: string | null; born_of: string | null }>(
+      test.db,
+      "select kind, parent_id, born_of from factions where id = $1",
+      [house],
+    );
+    expect(factionRows).toEqual([
+      { kind: "player", parent_id: String(one.factionRow), born_of: String(one.factionRow) },
+    ]);
+    const cityRows = await rows<{ faction_id: string; map_key: string }>(
+      test.db,
+      "select faction_id, map_key from world_cities where id = $1",
       [cityId],
     );
-    expect(cityRows).toEqual([
-      { faction_id: String(one.factionRow), map_key: String(empty), admin_level: 1 },
-    ]);
-    // 늦은 쪽 건물은 남지만 도시가 되지 않는다(다음 틱도)
-    await npc.tick(true);
-    expect([...npc.world.cities.keys()].filter((id) => !before.has(id))).toHaveLength(1);
-    expect(first.maps.get(empty)?.buildingOwner(hallTwo)).toBe(two.ownerId);
+    expect(cityRows).toEqual([{ faction_id: String(house), map_key: String(empty) }]);
+    // 지분은 최초 설립자(1인 가문 국고)가 갖는다 — 귀속해도 나라가 아니라(D-575). 알박기 도시 표지
+    const houseOwner = npc.houses.ownerOfRow(house);
+    expect(houseOwner).toBeDefined();
+    expect(holdingsOf(npc.world.book, cityId).map((h) => h.owner)).toEqual([houseOwner]);
+    expect(
+      await rows(test.db, "select founder_owner_id, choice from claim_cities where city_id = $1", [cityId]),
+    ).toEqual([{ founder_owner_id: String(houseOwner), choice: "nation" }]);
 
-    // 땅 규칙: 다른 나라는 남의 도시 2차맵, 지은 쪽은 내 도시. 알박기 자리가 아니게 됐다
+    // 늦은 쪽 짓는 중 정부 건물은 멈춘다(작업 없음·레벨 0인 채 남음, 2194) — 소식이 간다
+    expect([...jobs.values()].some((job) => job.buildingId === hallTwo)).toBe(false);
+    expect(facilities.service.facilities.get(hallTwo)?.level).toBe(0);
+    expect(first.maps.get(empty)?.buildingOwner(hallTwo)).toBe(two.ownerId);
+    await tickUntil(first, async () => {
+      const notices = await rows<{ user_id: string; kind: string }>(
+        test.db,
+        "select user_id, kind from house_notices where kind in ('claim_halted', 'city_gained')",
+      );
+      return notices.length >= 2;
+    });
+    const notices = await rows<{ user_id: string; kind: string; reason: string | null }>(
+      test.db,
+      "select user_id, kind, reason from house_notices where kind in ('claim_halted', 'city_gained') order by kind",
+    );
+    expect(notices).toEqual([
+      { user_id: one.userId, kind: "city_gained", reason: "vassal" },
+      { user_id: two.userId, kind: "claim_halted", reason: null },
+    ]);
+
+    // 땅 규칙: 다른 가문은 남의 도시 2차맵. 지은 쪽은 내 도시(가문 도시라 이미 정한 봉신)
     expect(await screen.landRule(two.viewer, empty)).toMatchObject({
       allowed: false,
       reason: "foreign_city",
-      cityFaction: one.factionRow,
       claim: null,
     });
-    expect(await screen.landRule(one.viewer, empty)).toMatchObject({ allowed: true, claim: null });
-    expect(await facilities.service.build(one.userId, hall(200))).toEqual({ ok: false, code: "not_ruin" });
+    expect(await screen.landRule(one.viewer, other)).toMatchObject({
+      allowed: true,
+      claim: "house",
+      claimLocked: "vassal",
+    });
 
-    // 다시 켜도 그대로(시설 줄 도시·도시 행)
+    // 귀속한 1인 가문의 독립 선언(D-575): 가문 도시가 모두 알박기 도시라 열림 → 독립 + 고른 체제. 다시 하면 not_vassal
+    expect(await houseCity.view(one.userId, { factionId: house, leader: true })).toMatchObject({
+      status: "vassal",
+      independence: "open",
+    });
+    expect(await houseCity.independence(one.userId, { regime: "democracy" })).toMatchObject({
+      ok: true,
+      mode: "independent",
+      cityId,
+    });
+    expect(npc.houses.mirrorOf(house)).toMatchObject({ vassal: false, regime: "democracy" });
+    expect(await rows(test.db, "select parent_id, regime from factions where id = $1", [house])).toEqual([
+      { parent_id: null, regime: "democracy" },
+    ]);
+    expect(await houseCity.independence(one.userId, { regime: "democracy" })).toEqual({
+      ok: false,
+      code: "not_vassal",
+    });
+
+    // 다른 가문은 독립(자본주의)을 골라 다른 빈 2차맵에 세운다(D-574·D-340)
+    const builtThree = await facilities.service.build(two.userId, {
+      ...hall(60, other),
+      claim: { mode: "independent", regime: "capitalism" },
+    });
+    expect(builtThree).toMatchObject({ ok: true });
+    const hallThree = builtThree.ok ? (builtThree.buildingId ?? -1) : -1;
+    const seen = new Set(npc.world.cities.keys());
+    await tickUntil(first, () => [...npc.world.cities.keys()].some((id) => !seen.has(id)));
+    const houseTwo = Number(
+      (
+        await rows<{ faction_id: string }>(
+          test.db,
+          "select faction_id from house_members where user_id = $1",
+          [two.userId],
+        )
+      )[0]?.faction_id,
+    );
+    expect(npc.houses.mirrorOf(houseTwo)).toMatchObject({ vassal: false, regime: "capitalism" });
+
+    // 다시 켜도 그대로(시설 줄 도시·고르기·도시 행)
     await first.stop();
     worlds.splice(worlds.indexOf(first), 1);
     const second = await boot();
     const again = persistenceOf(second);
-    expect(again.facilities.service.facilities.get(hallOne)?.cityId).toBe(cityId);
+    expect(again.facilities.service.facilities.get(hallOne)).toMatchObject({
+      cityId,
+      claim: { mode: "nation", regime: null },
+    });
+    // 멈춘 건물(시험은 메모리에서만 짓는 중으로 돌렸다 — 레벨은 저장하지 않음): 작업이 없고 도시가 되지 않는다
     expect(again.facilities.service.facilities.get(hallTwo)?.cityId).toBeNull();
+    expect([...again.facilities.service.jobs.values()].some((job) => job.buildingId === hallTwo)).toBe(false);
+    expect(again.facilities.service.facilities.get(hallThree)?.claim).toEqual({
+      mode: "independent",
+      regime: "capitalism",
+    });
     expect(second.npc?.places.get(cityId)?.mapKey).toBe(empty);
   });
 });

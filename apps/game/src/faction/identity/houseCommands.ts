@@ -73,7 +73,9 @@ export type HouseCityRequest =
       readonly ruinId: number;
       readonly mode: HouseCityMode;
       readonly regime?: HouseRegime;
-    };
+    }
+  /** 봉신 가문 독립 선언(프로토콜 53, D-575) */
+  | { readonly t: "house_independence"; readonly regime: HouseRegime };
 
 export type HouseRecruitOutcome =
   | { readonly ok: true; readonly auto: boolean; readonly payer?: HouseRecruitPayer | undefined }

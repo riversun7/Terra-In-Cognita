@@ -965,7 +965,7 @@ export { battleLabPresets, battleReports, formulaOverrides } from "./devToolsSch
 /** 노동 계약 표(docs/adr/2026-11-03-labor-contracts.md) */
 export { laborContracts, laborPostings, laborRents, unitWork } from "./laborSchema.ts";
 /** 건물(시설) 상태·작업 표(docs/adr/2026-11-07-buildings-runtime.md) */
-export { facilityJobs, worldFacilities } from "./facilitySchema.ts";
+export { claimCities, facilityJobs, worldFacilities } from "./facilitySchema.ts";
 /** 랭킹 집계 표(docs/adr/2026-11-07-ranking.md) */
 export { rankingFactionScores, rankingPathScores, rankingState, rankingUnitScores } from "./rankingSchema.ts";
 /** 신전·종교 표(docs/adr/2026-11-07-temple-religion.md) */

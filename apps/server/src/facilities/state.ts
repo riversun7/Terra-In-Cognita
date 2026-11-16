@@ -1,5 +1,6 @@
 // 건물(시설) 상태·작업 — 메모리 모양, 부팅 때 읽기, 쓰기 대기열 줄(docs/adr/2026-11-07-buildings-runtime.md)
 // 원본은 world_facilities·facility_jobs(db/facilitySchema.ts). 쓰는 프로세스가 하나라 메모리가 캐시이고 바뀜은 쓰기 대기열로 간다.
+import { LAND_CLAIM_MODES, LAND_CLAIM_REGIMES, type LandClaimChoice } from "@terra/shared/facilities";
 import { type LoadedBusiness, loadBusiness } from "../business/store.ts";
 import type { QueryPool } from "../world/persist/load.ts";
 
@@ -30,7 +31,25 @@ export interface FacilityRecord {
    * 자른다). 없으면(null·undefined) 기본 = 최고 티어
    */
   gatherTier?: number | null | undefined;
+  /**
+   * 빈 2차맵 알박기 정부 건물을 지을 때 고른 것(D-574 — 독립 | 소속 국가 귀속, ruins/landClaim.ts). 알박기 행정 건물만 값, 그 밖은 없음.
+   * 저장은 world_facilities.claim_choice 글자("nation" | "independent:<체제>")
+   */
+  claim?: LandClaimChoice | undefined;
 }
+
+/** 저장 글자 → 알박기 고르기(모양이 틀리면 undefined — 서버가 기본 선택으로 본다) */
+export function claimChoiceOf(text: unknown): LandClaimChoice | undefined {
+  if (typeof text !== "string") return undefined;
+  const [mode, regime] = text.split(":");
+  const pickedMode = LAND_CLAIM_MODES.find((entry) => entry === mode);
+  if (!pickedMode) return undefined;
+  return { mode: pickedMode, regime: LAND_CLAIM_REGIMES.find((entry) => entry === regime) ?? null };
+}
+
+/** 알박기 고르기 → 저장 글자(없으면 null) */
+export const claimChoiceText = (choice: LandClaimChoice | undefined): string | null =>
+  choice ? (choice.regime === null ? choice.mode : `${choice.mode}:${choice.regime}`) : null;
 
 /** 작업 종류. plot = 면적 모듈 붙이기(기획 D-569 1765 — 끝나면 모듈 + 1) */
 export const JOB_KINDS = ["build", "upgrade", "repair", "beacon_repair", "equipment", "plot"] as const;
@@ -95,7 +114,7 @@ const numOrNull = (value: unknown): number | null => (value === null ? null : Nu
 export async function loadFacilities(pool: QueryPool): Promise<LoadedFacilities> {
   const facilities = await pool.query(
     `select building_id, facility_id, level, condition_ppm, condition_at_ms, built_at_ms, built_by, city_id, seeded, plots,
-            gather_tier
+            gather_tier, claim_choice
      from world_facilities order by building_id`,
   );
   const jobs = await pool.query(
@@ -121,6 +140,7 @@ export async function loadFacilities(pool: QueryPool): Promise<LoadedFacilities>
       ...(row.gather_tier === null || row.gather_tier === undefined
         ? {}
         : { gatherTier: Number(row.gather_tier) }),
+      ...(claimChoiceOf(row.claim_choice) ? { claim: claimChoiceOf(row.claim_choice) } : {}),
     })),
     jobs: jobs.rows.flatMap((row) => {
       const kind: unknown = row.kind;
@@ -160,6 +180,7 @@ export const facilityRow = (record: FacilityRecord) => ({
   plots: Math.max(0, Math.trunc(record.plots ?? 0)),
   gather_tier:
     record.gatherTier === null || record.gatherTier === undefined ? null : Math.trunc(record.gatherTier),
+  claim_choice: claimChoiceText(record.claim),
 });
 
 export const jobRow = (job: JobRecord) => ({

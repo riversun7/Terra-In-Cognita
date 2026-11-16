@@ -52,6 +52,8 @@ export interface FacilityScreenSource {
   land: LandCheck;
   /** 빈 2차맵 알박기의 편(폐허 서비스 claimOf — 짓기 명령의 행정 건물 판정과 같은 함수). 없으면 알리지 않는다 */
   claim?: ((ownerId: number, mapKey: number) => FacilityLandClaim | null) | undefined;
+  /** 그 주체의 가문이 봉신·독립을 이미 정했으면 그 상태(폐허 서비스 claimLockedOf). 없으면 null로 본다 */
+  claimLocked?: ((ownerId: number) => "vassal" | "independent" | null) | undefined;
   /** 사업장 장부(보는 사람의 소유 주체 기준) */
   books(userId: string, buildingId: number, days: number, nowMs: number): Promise<BusinessBooksResponse>;
   /** 건물 판 머리 이름표 */
@@ -119,6 +121,7 @@ export function createFacilityScreenServices(
         cityFaction: null,
         territoryFaction: null,
         claim: null,
+        claimLocked: null,
       } as const;
       if (!found) return { status: "not_ready", ...shut };
       if (!found.map(mapKey)) return { status: "unknown_map", ...shut };
@@ -127,6 +130,8 @@ export function createFacilityScreenServices(
       const verdict = await found.land(ownerId, mapKey, at);
       // 빈 2차맵이면 정부를 다 지었을 때의 편(알박기 완성, 질문 2122 가). 땅 규칙이 막으면(남의 도시) 도시가 있으니 늘 null
       const claim = verdict.allowed ? (found.claim?.(ownerId, mapKey) ?? null) : null;
+      // 가문이 이미 정한 봉신·독립(D-574 고르기를 건너뛴다 — 가문일 때만)
+      const claimLocked = claim === "house" ? (found.claimLocked?.(ownerId) ?? null) : null;
       return verdict.allowed
         ? {
             status: "ready",
@@ -137,6 +142,7 @@ export function createFacilityScreenServices(
             // 알박기 땅(D-572): 다른 세력 영토 안이지만 정부 건물이 없는 2차맵 — 막지 않고 알린다
             territoryFaction: verdict.territoryFaction ?? null,
             claim,
+            claimLocked,
           }
         : {
             status: "ready",
@@ -146,6 +152,7 @@ export function createFacilityScreenServices(
             cityFaction: verdict.cityFaction,
             territoryFaction: null,
             claim,
+            claimLocked,
           };
     },
     waterMask(mapKey) {

@@ -7667,7 +7667,7 @@
   "harbor_release": "출고",
   "harbor_storage_note": "다 된 배는 출고할 때까지 도크를 씁니다. 남의 배는 다 된 뒤 {hours}시간이 지나면 하루 {fee} {currency}의 보관료가 쌓이고, 정산해야 출고합니다. 오래 밀리면 압류하고, 밀린 돈이 배값을 넘으면 조선소 주인 것이 됩니다.",
   "harbor_repair_fee": "남의 조선소 수리 요금 {fee} {currency}",
-  "harbor_fee_repair": "외주 요금(남의 배 수리 한 번 — 배 짓기 주문은 이 값의 배수)",
+  "harbor_fee_repair": "외주 요금(남의 배 수리 한 번 — 재료·인건비는 조선소가 냅니다)",
   "harbor_refuel": "연료 채우기",
   "harbor_currency": "요금 화폐: {currency}",
   "boat_fuel": "연료 {percent}%",
@@ -8181,5 +8181,12 @@
   "dev_nations_temper_leader_desc": "설정 칸 지도자 기질 폭 안의 위치(+ = 모험적, − = 신중). 1000이면 폭 끝.",
   "dev_nations_temper_random": "비우면 무작위",
   "fid_house_vault": "가문 금고 {amount}",
-  "fid_house_vault_hint": "국고와 따로인 가문 돈입니다. 옮길 때 가입비를 먼저 내고 지원금을 받습니다. 독재 가문 나라는 도시 남은 이익의 국고 몫이 여기로 옵니다."
+  "fid_house_vault_hint": "국고와 따로인 가문 돈입니다. 옮길 때 가입비를 먼저 내고 지원금을 받습니다. 독재 가문 나라는 도시 남은 이익의 국고 몫이 여기로 옵니다.",
+  "harbor_repair_fair": "수리 요금을 정하지 않으면 수리마다 그 수리의 적정가를 받습니다. 참고: 첫 배 종류를 가득 고칠 때 {price} {currency}",
+  "harbor_repair_fee_fair": "남의 조선소 수리 요금: 수리마다 적정가 {currency}(재료·인건비는 조선소가 냅니다)",
+  "inbox_action_wait": "기다림",
+  "inbox_action_terminate": "해지",
+  "inbox_action_waited": "경고를 접었습니다. 계약은 멈춘 채로 두고, 사업장에 수익이 나면 다시 일합니다.",
+  "inbox_action_terminated": "계약을 해지했습니다.",
+  "inbox_action_failed": "처리하지 못했습니다. 경제 화면에서 다시 해 보세요."
 }

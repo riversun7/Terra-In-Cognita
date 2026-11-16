@@ -448,6 +448,12 @@ export function HarborPanel({
               onChange={(event) => setFee(event.target.value)}
             />
           </label>
+          {/* 수리 요금을 정하지 않은 조선소는 수리마다 적정가(기획 대조 2161·2167 — 재료·인건비는 조선소) */}
+          {harbor.role === "shipyard" && harbor.feeSet === false && harbor.repairFair ? (
+            <p className="gather-muted harbor-repair-fair">
+              {m.harbor_repair_fair({ price: harbor.repairFair.price, currency: harbor.currency })}
+            </p>
+          ) : null}
           <button
             type="button"
             className="button-small harbor-save"
@@ -466,7 +472,10 @@ export function HarborPanel({
         </div>
       ) : harbor.role === "shipyard" ? (
         <p className="gather-muted harbor-terms">
-          {m.harbor_repair_fee({ fee: harbor.fee, currency: harbor.currency })} · {accessLabel(harbor.access)}
+          {harbor.feeSet === false
+            ? m.harbor_repair_fee_fair({ currency: harbor.currency })
+            : m.harbor_repair_fee({ fee: harbor.fee, currency: harbor.currency })}{" "}
+          · {accessLabel(harbor.access)}
         </p>
       ) : (
         <p className="gather-muted">

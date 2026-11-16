@@ -68,8 +68,9 @@ import { planetCatchmentGeometry } from "./catchmentGeometry.ts";
 import { type CatchmentSaved, restoreCatchment } from "./catchmentStore.ts";
 import type { CityRestPlan, RestFacility } from "./cityRest.ts";
 import type { WorkFacility } from "./humanPlaces.ts";
-import { type CarryBoard, createCarryBoard } from "./npcCarry.ts";
-import { EVENT_NPC_DELIVER, createNpcDeliveries } from "./npcDelivery.ts";
+import { type CarryBoard, createCarryBoard, peopleCounter } from "./npcCarry.ts";
+import { EVENT_NPC_DELIVER, type NpcBusiness, createNpcDeliveries } from "./npcDelivery.ts";
+import { shopPriceSource } from "./npcShopPrice.ts";
 import type { NpcBuildWorld } from "./cityBuild.ts";
 import type { ServerEconomyCatalog } from "../market/catalog.ts";
 import { rulingVaultOf } from "../factionIdentity/houseVault.ts";
@@ -135,7 +136,9 @@ export interface NpcEconomyInput {
    * 사업장 장부(D-548·D-555, docs/adr/2026-11-15-business-ledger.md): 남의 숙소 요금은 그 숙소 금고로 든다(소득세 포함). 없으면 숙소 주인
    * 지갑(옛 길, 시험)
    */
-  readonly business?: Pick<BusinessCore, "receive" | "settle" | "vaultBalance" | "invest"> | undefined;
+  readonly business?: (NpcBusiness & Pick<BusinessCore, "settle">) | undefined;
+  /** 팩 기준 값(1단위 — 사업장 판매 기본 값, NPC 시설 판매가의 기준, 2153). 없으면 NPC는 값을 정하지 않는다 */
+  readonly unitPriceOf?: ((asset: string) => bigint | undefined) | undefined;
   /** 시뮬 경제 목록(없으면 경제 끔) */
   readonly catalog: () => ServerEconomyCatalog | undefined;
   /** 팩 국가 프리셋(나라 성격: 도시 직무·처음 창고). 없으면 모든 국가가 기본 */
@@ -185,6 +188,10 @@ export interface NpcEconomyInput {
   /** 일하는 외환 거래소(도시 → 건물 ID)·그 건물의 환전 이용료 요율(만분율) — 질문 2086 환전 이용료. 둘 다 있어야 이용료를 받는다 */
   readonly fxExchanges?: (() => ReadonlyMap<number, number>) | undefined;
   readonly fxFeeBp?: ((buildingId: number) => number) | undefined;
+  /** 도시 칸(시청 — 거래소 → 도시 창고 돌려보내기 운반꾼이 내려놓는 곳, 2157). 없으면 거래소 건물 가운데 */
+  readonly cityCell?:
+    | ((cityId: number) => { readonly x: number; readonly y: number } | undefined)
+    | undefined;
 }
 
 /** 시설 하나의 지금 생산(화면용) */
@@ -305,8 +312,8 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   // 나라 화폐(npc/currency.ts): 세력마다 화폐·세율, 화폐마다 찍는 나라
   const { currencyOf, taxOf, issuer } = nationCurrencies(world, catalog, ASSET_CREDIT);
   const isUser = (ownerId: number): boolean => (o.owners.get(ownerId)?.userId ?? null) !== null;
-  // NPC 운반꾼 화물(기획 대조 2052·2088): 시설 산출 운반과 거래소 운반이 같이 쓴다
-  const carry = createCarryBoard(book);
+  // NPC 운반꾼 화물(2052·2088): 시설 산출·거래소 운반이 같이 쓴다. 빈 일꾼 운반꾼 = 그 도시 휴먼 중 운반하지 않는 사람(2155)
+  const carry = createCarryBoard(book, { peopleOf: peopleCounter(o.now, () => world.units.values()) });
   // 거래소 모음: 호가창 물건 + 있는 도시에만. 화폐·세율·국고 = 그 도시 주인
   const registry = createMarketRegistry({
     ledger: book,
@@ -353,7 +360,9 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
           haulMs: o.input.exchangeHaulMs,
           weightOf: o.input.weightOf,
           // 보이는 운반꾼이 기본(기획 대조 2088 — D-564 1626): 보는 2차맵은 일 없는 휴먼이 화물을 지고 거래소 건물로
-          carry: o.input.exchangeCenter ? { board: carry, centerOf: o.input.exchangeCenter } : undefined,
+          carry: o.input.exchangeCenter
+            ? { board: carry, centerOf: o.input.exchangeCenter, dropOf: o.input.cityCell }
+            : undefined,
         }
       : undefined,
     now: o.now,
@@ -726,7 +735,16 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         priceOf: (cityId, asset) =>
           registry.existing(cityId, asset)?.market.lastPrice ?? catalog.startPrice.get(asset) ?? 0n,
         lotOf: (asset) => lotSizeOf(catalog, asset),
-        schedule: (atMs, id) => loop.schedule(atMs, { kind: EVENT_NPC_DELIVER, subject: id }),
+        schedule: (atMs, id) =>
+          loop.schedule(Math.max(atMs, loop.nowMs), { kind: EVENT_NPC_DELIVER, subject: id }),
+        // NPC 시설 판매가(2153, npcShopPrice.ts): 팩 기준 값 × 시세 움직임 ± 상업 성향·재고
+        shopPriceOf: shopPriceSource({
+          unitPriceOf: o.input.unitPriceOf,
+          last: (cityId, asset) => registry.existing(cityId, asset)?.market.lastPrice,
+          start: (asset) => catalog.startPrice.get(asset),
+          traits: (owner) => world.factions.get(owner)?.traits,
+          rules: o.rules,
+        }),
       })
     : undefined;
 
@@ -802,8 +820,24 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       const c = o.rules();
       if (kind === EVENT_PRODUCE) {
         const facility = economy.facilities.get(subject);
-        if (c.switches.productionEnabled === 0 && facility) {
-          // 생산 끔(49 N53): 이번 차례를 건너뛰고 다음 차례만 잡는다
+        // 적자로 멈춘 NPC 시설(2152 — D-570 1789): 국고에서 갚아 보고, 아직 멈췄으면 이번 차례를 건너뛴다
+        const shopId = runs.get(subject)?.buildingId ?? null;
+        const shopCity = facility ? world.cities.get(facility.city) : undefined;
+        const paused =
+          shopId !== null &&
+          shopCity !== undefined &&
+          c.business.npcBooks === 1 &&
+          facility !== undefined &&
+          deliveries?.resume({
+            buildingId: shopId,
+            owner: shopCity.owner,
+            currency: currencyOf.get(shopCity.owner) ?? ASSET_CREDIT,
+            cityId: shopCity.id,
+            inputs: facility.recipe.inputs,
+            atMs: nowMs,
+          }) === true;
+        if ((c.switches.productionEnabled === 0 || paused) && facility) {
+          // 생산 끔(49 N53)·적자 멈춤: 이번 차례를 건너뛰고 다음 차례만 잡는다
           scheduleProduce(economy, world, loop, facility, nowMs);
           noteRun(facility, nowMs, runs.get(subject)?.buildingId ?? null);
           return true;

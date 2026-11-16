@@ -13112,6 +13112,60 @@
       "source": "D-573 2045 (\"기다릴지 해지하고 다른곳으로 갈지 정함\") · NPC 소유자 성향 규칙 D-212·D-323(기획 해석) [임시]"
     },
     {
+      "id": "business_npc_price_temper_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 시설 판매가 상업 성향 폭(‰)",
+        "en": "NPC shop price commerce-temper range (‰)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "NPC 세력 시설이 정하는 시설 창고 판매가(1단위 = 팩 기준 값 × 그 도시 거래소 시세 움직임)에서 상업 성향이 바꾸는 폭. 상업 성향 치우침이 축 끝이면 +이 값, 0이면 −이 값(가운데면 0). 0이면 성향을 보지 않는다.",
+        "en": "How far commerce temper moves the shop price an NPC faction facility sets (per unit = pack base value × the city exchange's price movement). A commerce tilt at the top of the axis adds this, at the bottom subtracts it (0 at the middle). 0 = ignore temper."
+      },
+      "source": "기획 대조 2153(D-564 1627 \"판매가를 정하고 모두가 그가격에 구매가능\" · D-570 1822 \"판매자가 정하지\" · D-555 1510) [임시]"
+    },
+    {
+      "id": "business_npc_price_stock_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 시설 판매가 재고 폭(‰)",
+        "en": "NPC shop price stock range (‰)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "NPC 세력 시설 판매가에서 시설 창고 재고가 바꾸는 폭. 창고가 비면 +이 값(다 사 간다 — 올림), 목표 재고면 0, 목표의 두 배 넘게 쌓이면 −이 값(안 팔린다 — 내림), 그 사이는 곧은 선. 0이면 재고를 보지 않는다.",
+        "en": "How far facility storage stock moves an NPC faction facility's shop price: +this when empty (everything sells — raise), 0 at the target stock, −this at twice the target or more (nothing sells — lower), linear in between. 0 = ignore stock."
+      },
+      "source": "기획 대조 2153(D-564 1627 \"판매가를 정하고 모두가 그가격에 구매가능\" · D-570 1822 \"판매자가 정하지\" · D-555 1510) [임시]"
+    },
+    {
+      "id": "business_npc_price_stock_lots",
+      "code": "",
+      "name": {
+        "ko": "NPC 시설 판매가 목표 재고(묶음)",
+        "en": "NPC shop price target stock (lots)"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 1000,
+      "desc": {
+        "ko": "NPC 세력 시설 판매가의 재고 기준. 시설 창고에 판매 최소 묶음 × 이 값만큼 있으면 재고 폭이 0이다.",
+        "en": "Stock reference for an NPC faction facility's shop price: with minimum sale lot × this in facility storage the stock range is 0."
+      },
+      "source": "기획 대조 2153(D-564 1627 \"판매가를 정하고 모두가 그가격에 구매가능\" · D-570 1822 \"판매자가 정하지\" · D-555 1510) [임시]"
+    },
+    {
       "id": "exchange_fee_bp",
       "code": "",
       "name": {

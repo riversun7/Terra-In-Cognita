@@ -61,6 +61,13 @@ export function npcEconomyInputOf(
     fxFeeBp: (buildingId) =>
       fxFeeOf((id, item) => facilities.business.price(id, item), facilities.rules().business, buildingId)
         .charged,
+    // 거래소 → 도시 창고 돌려보내기 운반꾼이 내려놓는 도시 칸(기획 대조 2157)
+    cityCell(cityId) {
+      const city = facilities.service.places.cities().find((entry) => entry.id === cityId);
+      return city ? { x: city.x, y: city.y } : undefined;
+    },
+    // NPC 시설 판매가의 기준(기획 대조 2153): 사업장 판매 기본 값과 같은 팩 기준 값
+    unitPriceOf: (asset) => facilities.catalog().unitPriceOf?.(asset.slice(5)),
     // NPC 증축(질문 1101 나): 건물 서비스로 짓고 전략 배치로 자리를 고른다
     build: {
       service: facilities.service,

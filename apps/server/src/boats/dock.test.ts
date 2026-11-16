@@ -13,12 +13,35 @@ const wreck = async (service: ReturnType<typeof setup>["service"], boats: readon
   vi.setSystemTime(Date.now() + 40 * DAY_MS);
   await service.tick();
 };
+/** 적정가 = 재료 기준 값 그대로(인건비·수수료·세금 0인 시험 셈) */
+const materialsOnlyFair = (_building: number, materials: bigint) => ({
+  materials: String(materials),
+  labor: "0",
+  fee: "0",
+  tax: "0",
+  price: String(materials),
+});
 describe("D-559 배", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(START);
   });
   afterEach(() => vi.useRealTimers());
+
+  it("수리 요금을 정하지 않은 조선소는 그 수리의 적정가(재료비 포함)를 받고 재료는 조선소가 낸다(2161)", async () => {
+    const { map, service, place, grant, ledger } = setup({ fairOf: materialsOnlyFair });
+    const yard = place(SHIPYARD, 40);
+    map.addBoat({ id: 1, ownerId: 8, speed: START_BOATS.speed, cellX: 130, cellY: 41 });
+    await wreck(service, [1]);
+    expect(service.dockJob(yard)).toMatchObject({ feeSet: false, repairFair: { price: expect.any(String) } });
+    grant(7, "item:pine_log", 100n, buildingLocation(yard));
+    grant(8, CREDIT, 1000n);
+    expect(await service.repair("other", 1, yard, false)).toMatchObject({ ok: true });
+    const used = 100n - ledger.balanceOf(7, "item:pine_log", buildingLocation(yard));
+    // 재료 기준 값(시험 카탈로그 5) × 쓴 양 = 요금(설정 처음 값 50이 아니다)
+    expect(ledger.balanceOf(7, CREDIT, buildingLocation(yard))).toBe(used * 5n);
+    expect(ledger.balanceOf(8, CREDIT)).toBe(1000n - used * 5n);
+  });
 
   it("남의 조선소: 받기 범위 안이면 고치고 수리 요금은 그 조선소 금고, 다 된 배는 보관료를 내야 꺼낸다(1522·1523)", async () => {
     const { map, service, place, grant, ledger } = setup();
@@ -28,11 +51,19 @@ describe("D-559 배", () => {
     await wreck(service, [1, 2]);
     // 다른 나라(9)는 처음 값 nation에서 막힌다
     expect(await service.repair("p9", 2, yard, false)).toEqual({ ok: false, code: "berth_denied" });
+    // 재료는 조선소가 낸다(기획 대조 2161 — D-573 2048): 배 주인의 재료는 보지 않는다
     grant(8, "item:pine_log", 100n, cargoLocation(1));
+    expect(await service.repair("other", 1, yard, false)).toEqual({
+      ok: false,
+      code: "insufficient_materials",
+    });
+    grant(7, "item:pine_log", 100n, buildingLocation(yard));
     expect(await service.repair("other", 1, yard, false)).toEqual({ ok: false, code: "insufficient_funds" });
     grant(8, CREDIT, 200n);
     const started = await service.repair("other", 1, yard, false);
     expect(started).toMatchObject({ ok: true });
+    expect(ledger.balanceOf(8, "item:pine_log", cargoLocation(1))).toBe(100n);
+    expect(ledger.balanceOf(7, "item:pine_log", buildingLocation(yard))).toBeLessThan(100n);
     // 배는 도크에 들고(2차맵에서 빠짐) 수리 요금은 조선소 금고(주인 7 · 건물 위치)로
     expect(map.unitInfo(1)).toBeUndefined();
     expect(ledger.balanceOf(7, CREDIT, buildingLocation(yard))).toBe(BigInt(START_BOATS.shipyardRepairFee));

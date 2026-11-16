@@ -11,6 +11,11 @@
 //   정한 값 = 사업장 값 표 boat:<종류>, 정하지 않았으면 적정가, 0이면 만들지 않음 = order_closed)를 그 조선소 금고에 낸다(매출, 종류 boat_sale). 재료는 그
 //   조선소 사업장 창고(건물 위치)에서 먼저, 모자라면 조선소 주인의 그 자리에서 뺀다(D-555 1505 "사업장 창고 먼저" — 맡기는 사람의 재료는 보지 않는다). 외주 요금 × 배수 고정 셈은 없앴다(적정가 셈이 없는 시험 세계만 옛 셈).
 //   주인 없는 조선소(폐허)·운영자는 판매가 없이 옛 길(재료는 부르는 사람 자리).
+// - 바뀜 (기획 대조 2161 — D-573 2048 "모든 재료나 인건비는 사업장이 부담", D-564 1682 "조선소나 상업시설은 모두 외주를 받아장사한다"): 남의 배·제 배
+//   수리도 재료는 조선소가 낸다 — 조선소 사업장 창고 먼저, 모자라면 조선소 주인의 그 자리(배 만들기·공방 외주 수리 2048과 같다). 배 주인은 요금만 낸다.
+//   요금 = 주인이 정한 수리 한 번 요금(배 시설 설정 fee), 정하지 않았으면 그 수리의 적정가(재료 기준 값 + 조선소 일꾼 인건비 × 수리 시간 + 수수료 + 세금 —
+//   D-570 1822, 공방 외주 2167과 같은 셈, 그 나라 화폐로 2158). 예전: 재료는 배 주인이 그 자리에서 냈고 요금은 설정 fee(처음 값 shipyard_repair_fee).
+//   주인 없는 조선소·운영자는 옛 길(재료는 배 주인, 요금 없음).
 // - 조선소가 없어지면 만들던 작업을 버린다 — 재료는 돌려주지 않는다(D-545 1405). 도크에 든 배는 dock.ts가 조선소 자리 옆 물에 띄운다.
 // - 옛 수리 작업(배가 2차맵에 있는 채로 고치던 것 — 이 판 전에 시작)은 예전처럼 끝 때 그 배가 둘레에 있으면 가득으로 고친다.
 import type { BoatTypeDef } from "../facilities/catalog.ts";
@@ -298,16 +303,53 @@ export function createShipyard(
       ? repairPlan(type, harbor.hullOf(state, now()), yard.rules, yard.modules, operator)
       : null;
     if (!plan) return fail("hull_full");
-    if (!hasGoods(ledger, yard.owner, plan.materials, yard.scope)) return fail("insufficient_materials");
+    const payer = repairPayer(yard, buildingId, operator);
+    if (!hasGoods(ledger, payer.owner, plan.materials, payer.scope)) return fail("insufficient_materials");
     // 수리 요금(그 나라 화폐)을 낼 돈이 있어야 한다(D-559 1522·D-555 1514)
-    const fee = foreignFee(yard.found.ownerId, buildingId, operator);
+    const fee = repairFee(yard.found.ownerId, buildingId, operator, plan);
     if (fee > 0n && harbor.balanceOf(boat.ownerId, buildingId) < fee) return fail("insufficient_funds");
     return null;
   };
 
-  /** 조선소 수리 요금(운영자·주인 없는 조선소는 0). 제 조선소도 낸다(D-555 1514 — 그 사업장 금고로) */
-  const foreignFee = (yardOwner: number | null, buildingId: number, operator: boolean) =>
-    yardOwner === null || operator ? 0n : BigInt(Math.max(0, harborOf().facility(buildingId, yardOwner).fee));
+  /** 수리 재료를 내는 쪽(2161): 주인 있는 조선소 = 조선소 사업장 창고 먼저, 모자라면 조선소 주인의 그 자리. 주인 없는 조선소·운영자 = 배 주인 */
+  const repairPayer = (
+    yard: Exclude<ReturnType<typeof yardProblem>, { readonly problem: unknown }>,
+    buildingId: number,
+    operator: boolean,
+  ): { owner: number; scope: GoodsScope } => {
+    const yardOwner = yard.found.ownerId;
+    if (yardOwner === null || operator) return { owner: yard.owner, scope: yard.scope };
+    const own = materialScope(yard.places, yardOwner, yard.found.map.mapKey, yard.yardCity);
+    return { owner: yardOwner, scope: [buildingLocation(buildingId), ...own] };
+  };
+
+  /**
+   * 조선소 수리 요금(2161): 주인이 정한 수리 한 번 요금, 정하지 않았으면 그 수리의 적정가(재료 기준 값·인건비·수수료·세금 — 2167과 같은 셈). 운영자·주인
+   * 없는 조선소는 0. 제 조선소도 낸다(D-555 1514 — 그 사업장 금고로). 적정가 셈이 없는 시험 세계는 설정 fee(처음 값)
+   */
+  const repairFee = (
+    yardOwner: number | null,
+    buildingId: number,
+    operator: boolean,
+    plan: {
+      readonly materials: readonly { readonly item: string; readonly qty: number }[];
+      readonly ms: number;
+    },
+  ): bigint => {
+    if (yardOwner === null || operator) return 0n;
+    const harbor = harborOf();
+    const set = BigInt(Math.max(0, harbor.facility(buildingId, yardOwner).fee));
+    if (harbor.facilitySet(buildingId) || !deps.fairOf) return set;
+    return BigInt(deps.fairOf(buildingId, materialsWorth(plan.materials), plan.ms).price);
+  };
+
+  /** 재료 기준 값 합(팩 기준 값 — 적정가 재료비) */
+  const materialsWorth = (materials: readonly { readonly item: string; readonly qty: number }[]): bigint => {
+    const catalog = deps.places()?.catalog();
+    let worth = 0n;
+    for (const stack of materials) worth += BigInt(stack.qty) * (catalog?.unitPriceOf?.(stack.item) ?? 1n);
+    return worth;
+  };
 
   /**
    * 배 판매가(위 머리 주석 "바뀜 (2057·2072)"): 주인이 정한 값 → 적정가 → (적정가 셈이 없는 시험 세계) 옛 셈 외주 요금 × shipyardBuildFeePm ÷ 1000.
@@ -325,12 +367,7 @@ export function createShipyard(
     if (yardOwner === null || operator || harborOf().assetAt(buildingId) === undefined) return 0n;
     const set = deps.business?.price?.(buildingId, boatPriceItem(type.id));
     if (set !== undefined) return set > 0n ? set : null;
-    if (deps.fairOf) {
-      const catalog = deps.places()?.catalog();
-      let worth = 0n;
-      for (const stack of materials) worth += BigInt(stack.qty) * (catalog?.unitPriceOf?.(stack.item) ?? 1n);
-      return BigInt(deps.fairOf(buildingId, worth, ms).price);
-    }
+    if (deps.fairOf) return BigInt(deps.fairOf(buildingId, materialsWorth(materials), ms).price);
     const base = BigInt(Math.max(0, harborOf().facility(buildingId, yardOwner).fee));
     return (base * BigInt(Math.max(0, deps.rules().shipyardBuildFeePm))) / 1000n;
   };
@@ -400,12 +437,15 @@ export function createShipyard(
       if (!plan) return fail("hull_full");
       // 수리 전 처지로 닳음을 들인 뒤 배를 도크에 넣는다(작업 동안·도크에서는 닳지 않는다)
       harbor.settle(state, at, true);
-      if (!hasGoods(ledger, yard.owner, plan.materials, yard.scope)) return fail("insufficient_materials");
+      // 재료는 조선소가(2161 — 사업장 창고 먼저)
+      const payer = repairPayer(yard, buildingId, operator);
+      if (!hasGoods(ledger, payer.owner, plan.materials, payer.scope)) return fail("insufficient_materials");
+      const fee = repairFee(yard.found.ownerId, buildingId, operator, plan);
+      if (fee > 0n && harbor.balanceOf(boatOwner, buildingId) < fee) return fail("insufficient_funds");
       const admitted = hooks().admit(boatId, buildingId);
       if (admitted) return admitted;
-      if (!spendGoods(ledger, yard.owner, plan.materials, at, "boat_repair", yard.scope))
+      if (!spendGoods(ledger, payer.owner, plan.materials, at, "boat_repair", payer.scope))
         return fail("insufficient_materials");
-      const fee = foreignFee(yard.found.ownerId, buildingId, operator);
       if (fee > 0n) harbor.charge(boatOwner, yard.found.ownerId, buildingId, fee, "shipyard_repair_fee", at);
       const job = addJob({
         ownerId: boatOwner,

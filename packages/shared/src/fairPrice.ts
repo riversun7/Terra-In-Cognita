@@ -74,3 +74,18 @@ export function laborCostOf(hourly: bigint, ms: number): bigint {
 export function serviceFeeOf(perHour: bigint, ms: number): bigint {
   return laborCostOf(perHour, ms);
 }
+
+/**
+ * 다른 화폐로 옮긴 적정가(기획 대조 2158 — 셈은 서버 기준 통화 눈금, 보이는 값과 받는 값은 그 나라 화폐): 값 × num ÷ den. 재료비·인건비·수수료는 내림,
+ * 적정가는 올림(본전 밑으로 내려가지 않게), 세금 = 나머지. den이 0 이하면 그대로
+ */
+export function convertFair(value: FairPrice, num: bigint, den: bigint): FairPrice {
+  if (den <= 0n || num <= 0n) return value;
+  const down = (amount: bigint): bigint => (amount * num) / den;
+  const materials = down(value.materials);
+  const labor = down(value.labor);
+  const fee = down(value.fee);
+  const price = (value.price * num + den - 1n) / den;
+  const rest = price - materials - labor - fee;
+  return { materials, labor, fee, tax: rest > 0n ? rest : 0n, price };
+}

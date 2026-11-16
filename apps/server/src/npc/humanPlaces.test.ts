@@ -294,7 +294,7 @@ describe("보이는 운반꾼(D-570 1886)", () => {
             loads.push([key, unitId]);
             return true;
           },
-          idle: () => [{ ...trip, cityId: 7, owner: 5, stacks: [], from: 7, to: 8 }],
+          idle: () => [{ ...trip, cityId: 7, owner: 5, stacks: [], from: 7, to: 8, atMs: 0, durMs: 0 }],
         },
         nowMs: 2_000,
       },
@@ -322,5 +322,28 @@ describe("mapLongitudeDeg", () => {
     // 면 0 가운데 = 경도 0 근처(+x)
     expect(Math.abs(mapLongitudeDeg(cellKey(0, 9, 255, 255)))).toBeLessThan(1);
     expect(mapLongitudeDeg(-1)).toBe(0);
+  });
+});
+
+const spareTrip = (key: string) => ({ key, x: 5, y: 6, fromMs: 1000, untilMs: 9000 });
+
+describe("빈 일꾼 운반이 일 없는 휴먼보다 많으면(2155)", () => {
+  it("시설 일꾼이 뒤에서부터 짬을 내 화물을 진다(시설 첫 운반꾼은 빼고)", () => {
+    const loads: [string, number][] = [];
+    const homes = assignHumanPlaces({
+      humans: [1, 2, 3],
+      home: { x: 100, y: 100 },
+      facilities: [{ id: 10, buildingId: 10, workers: 3 }],
+      areas: new Map([[10, { x: 50, y: 50, radius: 4 }]]),
+      trips: [spareTrip("x:1"), spareTrip("x:2")],
+      onCarrier: (key, unitId) => loads.push([key, unitId]),
+    });
+    expect(loads).toEqual([
+      ["x:1", 3],
+      ["x:2", 2],
+    ]);
+    expect(homes.get(3)?.haul?.untilMs).toBe(9000);
+    expect(homes.get(3)?.work).toBeDefined();
+    expect(homes.get(1)?.haul).toBeUndefined();
   });
 });

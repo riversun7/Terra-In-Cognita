@@ -6,9 +6,15 @@
 // 경제 규칙에 시설 창고·운반을 넣는 것은 일정, 질문 2151):
 // 1) 산출 → 시설 창고: 이번 산출을 도시 창고에서 그 시설 건물 창고(사업장 창고)로 옮긴다. 그 동안 누구나 사업장 판매(business_buy)로 산다(시설에서 판다).
 // 2) 재료비: 레시피 재료를 시설이 그 도시(나라) 창고에서 시세에 사들인다 — 시설 금고 → 국고(business_input). 금고가 모자라면 NPC 주인(나라)이 모자란 만큼 국고에서
-//    운영 자금을 넣는다(business_invest — 주인이 넣기, 질문 2152). 국고도 모자라면 있는 만큼만.
+//    운영 자금을 넣는다(business_invest — 주인이 넣기, 질문 2152). 바뀜 (기획 대조 2152 — D-570 1789 "적자는 기본적으로 멈춰야 한다 … 마지막 사이클을 돌린 뒤
+//    재정이 안정될 때까지 운영 중단"): 국고도 모자라면 "있는 만큼"이 아니라 모자란 만큼을 적자(business_debt — debt:business:<건물>:<화폐>, 플레이어 사업장과
+//    같은 계정)로 넣어 재료비를 다 내고, 이 산출이 마지막 사이클 — 그 시설은 멈춘다(stopAfter). 멈춘 시설은 산출 차례를 건너뛰고(npc/economy.ts), 차례마다
+//    국고가 적자 + 다음 한 주기 재료비를 덮는지 본다 — 덮으면 NPC 주인이 적자를 갚고 다시 돈다(resume — 넣기가 곧 갚기, 재정 안정 [임시]: 재료비는 국고로
+//    돌아오므로 갚을 수 있는지만 보면 늘 바로 풀린다). 시설 창고 판매·닿는 운반 매출도 사업장 장부가 적자부터 갚는다.
+// 2') 판매가(기획 대조 2153 — D-564 1627·D-570 1822): 산출 뒤 NPC가 판매자로서 시설 창고 물건의 값을 정한다(npcShopPrice.ts — 사업장 값 표 줄, 바뀔 때만 쓴다).
 // 3) 운반: 그 시설 일꾼이 시설 창고 → 그 도시 창고(가장 가까운 창고 건물)로 실제로 나른다(npcCarry.ts — 보는 2차맵은 화물을 진 휴먼, 아니면 시간 셈). 시간 =
-//    시뮬과 같은 옮김 셈(haulTimeMs)을 한 사람이 한 번 오가는 시간 + 내려놓는 잠깐보다 짧지 않게. 옮김 칸이 없으면(거리 0·옮김 셈 끔) 바로.
+//    시뮬과 같은 옮김 셈(haulTimeMs)을 한 사람이 한 번 오가는 시간 + 내려놓는 잠깐보다 짧지 않게. 옮김 칸이 없으면(거리 0·옮김 셈 끔) 바로(나를 길이 없다).
+//    바뀜 (2155): 그 시설의 앞 운반이 아직 닿지 않았으면 기다렸다 그 닿는 시각에 떠난다(운반꾼 없이 시간 셈으로 떠나지 않는다 — 보는지와 상관없이 같다).
 // 4) 매출: 도시 창고에 닿은 만큼 나라가 시세(그 도시 거래소 마지막 체결가, 없으면 팩 시작 시세)에 사들인다 — 국고 → 시설 금고(business_sale, 같은 주머니라 소득세
 //    없음). 국고가 모자라면 있는 만큼만(물건은 그대로 닿는다).
 // 5) 정산: 시설 금고는 바로 나누지 않는다. 사업장 자동 정산(business/core.ts tick — 설정 칸 business_settle_period_ms, 기본 하루)이 적자를 갚고 남은 돈을 주주(그
@@ -21,12 +27,26 @@ import type { LedgerBook } from "@terra/sim";
 import type { BusinessCore } from "../business/core.ts";
 import type { CarryBoard, CarryStack } from "./npcCarry.ts";
 
+/** NPC 사업장이 쓰는 사업장 장부 몫 */
+export type NpcBusiness = Pick<
+  BusinessCore,
+  | "receive"
+  | "vaultBalance"
+  | "invest"
+  | "advance"
+  | "stopAfter"
+  | "suspended"
+  | "debts"
+  | "price"
+  | "setPrice"
+>;
+
 /** 운반이 닿을 때 부르는 예약 종류(npc/economy.ts가 받는다, 대상 = 운반 번호) */
 export const EVENT_NPC_DELIVER = "npc_deliver";
 
 export interface NpcDeliveryDeps {
   readonly book: LedgerBook;
-  readonly business: Pick<BusinessCore, "receive" | "vaultBalance" | "invest">;
+  readonly business: NpcBusiness;
   readonly board: CarryBoard;
   /** 그 도시 묶음 하나의 시세(그 나라 화폐). 모르면 0 */
   priceOf(cityId: number, asset: string): bigint;
@@ -34,6 +54,10 @@ export interface NpcDeliveryDeps {
   lotOf(asset: string): bigint;
   /** 운반이 닿을 시각에 예약을 건다 */
   schedule(atMs: number, deliveryId: number): void;
+  /** NPC 시설 1단위 판매가(npcShopPrice.ts, 2153). 없거나 undefined면 값을 정하지 않는다(팩 기준 값) */
+  readonly shopPriceOf?:
+    | ((input: { cityId: number; owner: number; asset: string; stock: bigint }) => bigint | undefined)
+    | undefined;
 }
 
 /** 산출 한 번(시설) */
@@ -70,9 +94,21 @@ export function stacksValue(
 
 export interface NpcDeliveries {
   /** 산출 한 번(위 1~3). 옮긴 시설 창고 물건·재료비 */
-  produced(input: NpcProduced): { moved: CarryStack[]; materials: bigint };
+  produced(input: NpcProduced): { moved: CarryStack[]; materials: bigint; stopped: boolean };
   /** 운반이 닿았다(위 4). 매출 */
   arrive(deliveryId: number, nowMs: number): bigint;
+  /**
+   * 멈춘 NPC 시설(2152): 국고가 적자 + 다음 한 주기 재료비를 덮으면 NPC 주인이 적자를 갚는다(넣기 = 곧 갚기, 재정이 안정되면 풀린다). 아직 멈췄으면
+   * true(이번 산출 차례를 건너뛴다). 재료비는 국고로 돌아오므로 "갚을 수 있음"만 보면 늘 바로 풀린다 — 다음 주기 재료비까지 있어야 안정으로 본다
+   */
+  resume(input: {
+    readonly buildingId: number;
+    readonly owner: number;
+    readonly currency: string;
+    readonly cityId: number;
+    readonly inputs: readonly CarryStack[];
+    readonly atMs: number;
+  }): boolean;
   /**
    * 켤 때 한 번: NPC 시설 창고(그 도시 주인 것)에 남은 물건을 그 도시 창고로 보낸다(운반 일은 메모리 — 끈 동안 잊었다). buildings = 시설 건물 → 도시·주인·화폐
    */
@@ -168,6 +204,13 @@ export function createNpcDeliveries(deps: NpcDeliveryDeps): NpcDeliveries {
         const put = want < have ? want : have;
         if (put > 0n) business.invest(input.buildingId, input.owner, input.currency, put, input.atMs);
       }
+      // 국고도 모자람(2152 — D-570 1789): 모자란 만큼 적자로 넣고 이 산출을 마지막 사이클로 멈춘다
+      let stopped = false;
+      if (cost > business.vaultBalance(input.buildingId, input.owner, input.currency)) {
+        business.advance(input.buildingId, input.owner, input.currency, cost, input.atMs);
+        business.stopAfter(input.buildingId, input.atMs);
+        stopped = true;
+      }
       const after = business.vaultBalance(input.buildingId, input.owner, input.currency);
       const materials = cost < after ? cost : after > 0n ? after : 0n;
       if (materials > 0n)
@@ -182,15 +225,38 @@ export function createNpcDeliveries(deps: NpcDeliveryDeps): NpcDeliveries {
             { account: treasury, amount: materials },
           ],
         });
-      // 3) 운반(옮김 칸이 없으면 바로 닿는다)
+      // 2') 판매가(2153): 시설 창고 재고를 보고 NPC가 정한다(바뀔 때만 쓴다)
+      if (deps.shopPriceOf)
+        for (const stack of input.outputs) {
+          const price = deps.shopPriceOf({
+            cityId: input.cityId,
+            owner: input.owner,
+            asset: stack.asset,
+            stock: book.balanceOf(input.owner, stack.asset, shop),
+          });
+          if (price !== undefined && business.price(input.buildingId, stack.asset) !== price)
+            business.setPrice(input.buildingId, stack.asset, price);
+        }
+      // 3) 운반(옮김 칸이 없으면 나를 길이 없어 바로 닿는다)
       lastId += 1;
       const id = lastId;
-      pending.set(id, {
+      const entry = {
         cityId: input.cityId,
         owner: input.owner,
         currency: input.currency,
         buildingId: input.buildingId,
-      });
+      };
+      if (!input.to || input.haulMs <= 0 || moved.length === 0) {
+        const landed: CarryStack[] = [];
+        for (const stack of moved) {
+          const qty = move(input.owner, stack.asset, shop, city, stack.qty, input.atMs);
+          if (qty > 0n) landed.push({ asset: stack.asset, qty });
+        }
+        buy(entry, landed, input.atMs);
+        return { moved, materials, stopped };
+      }
+      pending.set(id, entry);
+      // 그 시설의 앞 운반이 닿지 않았으면 기다렸다 떠난다(2155) — 떠날 때 닿는 시각을 예약한다
       board.post({
         key: `f:${String(id)}`,
         cityId: input.cityId,
@@ -198,17 +264,29 @@ export function createNpcDeliveries(deps: NpcDeliveryDeps): NpcDeliveries {
         stacks: moved,
         from: shop,
         to: city,
-        x: input.to?.x ?? 0,
-        y: input.to?.y ?? 0,
-        fromMs: input.atMs,
-        untilMs: input.atMs + Math.max(0, input.haulMs),
+        x: input.to.x,
+        y: input.to.y,
+        atMs: input.atMs,
+        durMs: input.haulMs,
         worker: input.facilityId,
+        onStart: (job) => deps.schedule(job.untilMs, id),
       });
-      if (!input.to || input.haulMs <= 0 || moved.length === 0) arrive(id, input.atMs);
-      else deps.schedule(input.atMs + input.haulMs, id);
-      return { moved, materials };
+      return { moved, materials, stopped };
     },
     arrive,
+    resume({ buildingId, owner, currency, cityId, inputs, atMs }) {
+      if (!business.suspended(buildingId)) return false;
+      const owed = business.debts(buildingId).get(currency) ?? 0n;
+      const next = stacksValue(
+        inputs,
+        (asset) => deps.priceOf(cityId, asset),
+        (asset) => deps.lotOf(asset),
+      );
+      const have = book.balance(book.ownerAccount(owner, currency));
+      if (have < owed + next) return true;
+      if (owed > 0n) business.invest(buildingId, owner, currency, owed, atMs);
+      return business.suspended(buildingId);
+    },
     sweep(buildings, nowMs) {
       let count = 0;
       const at = new Map<number, number>();

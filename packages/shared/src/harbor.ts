@@ -164,6 +164,12 @@ export interface HarborPanel {
   readonly fee: number;
   /** 조선소: 첫 배 종류의 판매가(옛 판 기기용 — 종류마다 값은 types[].price, 기획 대조 2057). 옛 서버면 없음 */
   readonly orderFee?: string | undefined;
+  /**
+   * 조선소: 주인이 수리 요금(fee)을 정했나(기획 대조 2161 — 정하지 않았으면 수리마다 그 수리의 적정가를 받는다)와 참고 적정가(첫 배 종류를 선체 0에서 가득
+   * 고칠 때 — 재료비·조선소 인건비·수수료·세금, 그 나라 화폐). 주인 없는 조선소·옛 서버면 없음
+   */
+  readonly feeSet?: boolean | undefined;
+  readonly repairFair?: FairPriceView | undefined;
   /** 조선소 첫 모듈(없으면 null — 옛 판 기기용, 모듈 묶음은 modules) */
   readonly module: ShipyardModule | null;
   /** 조선소 모듈 묶음(자리 차례, D-559 1521) */

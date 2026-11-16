@@ -433,6 +433,11 @@ for (const theme of ["pastel", "dark"] as const) {
       expect(fits, "조선소 판이 시트보다 넓다").toBe(true);
       await yard.locator('[data-part="harbor-type-price"]').first().scrollIntoViewIfNeeded();
       await shot(page, `boats-price-390-${theme}`);
+      // 수리 요금을 정하지 않은 조선소: 수리마다 적정가 안내와 참고 적정가(기획 대조 2161·2167)
+      const repairFair = yard.locator(".harbor-repair-fair");
+      await expect(repairFair).toBeVisible();
+      await repairFair.scrollIntoViewIfNeeded();
+      await shot(page, `boats-repair-fair-390-${theme}`);
       await yard.locator(".harbor-release").first().click();
       await expect(yard.locator(".boat-notice")).toBeVisible({ timeout: 15_000 });
       await expect(yard.locator(".harbor-release")).toHaveCount(0, { timeout: 15_000 });

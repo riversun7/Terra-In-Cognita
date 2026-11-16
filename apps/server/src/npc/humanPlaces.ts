@@ -16,7 +16,9 @@
 // (구독자가 있는 2차맵)에만 붙인다 — 보지 않는 2차맵은 시간 셈만(같은 결과).
 // 바뀜 (기획 대조 2052·2088 — D-555 1505 "어떤 유닛이든 실제로 옮겨야한다", D-564 1626 "보이는게 원칙"): 보는 2차맵의 운반꾼은 실제 화물을 진다 — 운반꾼을
 // 정하면 운반 일(npcCarry.ts)에 알려 그 휴먼 화물로 싣는다(약탈 대상). 시설 산출 운반은 그 시설 첫 일꾼이, 거래소 운반(빈 일꾼 운반)은 일 없는 휴먼이 열쇠
-// 차례로 하나씩 맡는다(일 없는 휴먼이 모자라면 남은 운반은 시간 셈). 판정(닿는 시각)은 운반 일의 시간 그대로다.
+// 차례로 하나씩 맡는다. 판정(닿는 시각)은 운반 일의 시간 그대로다. 바뀜 (2155): 운반 일은 운반꾼 수(일꾼 운반은 시설마다 하나, 빈 일꾼 운반은 그 도시 일
+// 없는 휴먼 수 — npcCarry.ts)만큼만 떠나고 나머지는 기다린다. 그래서 떠난 빈 일꾼 운반은 늘 일 없는 휴먼 수 이하다(보는 2차맵에 서 있지 않은 휴먼이 있으면
+// 남는 일은 운반꾼 모습 없이 같은 시각에 닿는다).
 import { isCellKey } from "@terra/planet";
 import { cellCenter } from "@terra/planet/projection";
 import { type BuildingPlacement, footprintRect } from "@terra/sim";
@@ -119,6 +121,8 @@ export function assignHumanPlaces(input: {
   const out = new Map<number, BotHome>();
   const humans = input.humans.toSorted((a, b) => a - b);
   let next = 0;
+  /** 시설 일꾼(받은 차례, 운반꾼이 아닌 사람) — 빈 일꾼 운반이 일 없는 휴먼보다 많으면 뒤에서부터 짬을 내 나른다(2155) */
+  const spare: number[] = [];
   for (const facility of input.facilities.toSorted((a, b) => a.id - b.id)) {
     const work = facility.buildingId === null ? undefined : input.areas.get(facility.buildingId);
     // 그 시설 첫 일꾼이 운반꾼(D-570 1886)
@@ -144,6 +148,7 @@ export function assignHumanPlaces(input: {
       const carry = taken === 0 && haul ? { haul } : {};
       if (taken === 0 && haul && facility.haul?.key !== undefined)
         input.onCarrier?.(facility.haul.key, unitId);
+      else spare.push(unitId);
       out.set(
         unitId,
         work
@@ -156,6 +161,7 @@ export function assignHumanPlaces(input: {
   }
   // 일 없는 휴먼: 빈 일꾼 운반을 하나씩(기획 대조 2088), 나머지는 집 둘레
   const trips = input.trips ?? [];
+  const idleCount = Math.max(0, humans.length - next);
   for (let k = 0; next < humans.length; next++, k++) {
     const unitId = humans[next] ?? 0;
     const trip = trips[k];
@@ -166,6 +172,22 @@ export function assignHumanPlaces(input: {
     out.set(unitId, {
       x: input.home.x,
       y: input.home.y,
+      haul: {
+        area: { x: trip.x, y: trip.y, radius: HAUL_DROP_RADIUS_CELLS },
+        fromMs: trip.fromMs,
+        untilMs: trip.untilMs,
+      },
+    });
+    input.onCarrier?.(trip.key, unitId);
+  }
+  // 일 없는 휴먼보다 운반이 많으면 시설 일꾼이 짬을 내 나른다(뒤 일꾼부터 — 운반 일 판이 도시 휴먼 수로 띄운 일, 2155)
+  for (let k = idleCount; k < trips.length && spare.length > 0; k++) {
+    const trip = trips[k];
+    const unitId = spare.pop();
+    const home = unitId === undefined ? undefined : out.get(unitId);
+    if (!trip || unitId === undefined || !home) continue;
+    out.set(unitId, {
+      ...home,
       haul: {
         area: { x: trip.x, y: trip.y, radius: HAUL_DROP_RADIUS_CELLS },
         fromMs: trip.fromMs,

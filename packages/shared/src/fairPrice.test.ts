@@ -1,7 +1,7 @@
 // 적정가 셈(기획 D-570 1822) 시험
 import { describe, expect, it } from "vitest";
 import { incomeTaxOf } from "./businessBooks.ts";
-import { fairPrice, fairPriceView, laborCostOf, serviceFeeOf } from "./fairPrice.ts";
+import { convertFair, fairPrice, fairPriceView, laborCostOf, serviceFeeOf } from "./fairPrice.ts";
 
 describe("적정가(D-570 1822)", () => {
   it("재료비 + 인건비에 수수료를 붙이고, 소득세를 낸 뒤 원가 + 수수료가 남는 가장 작은 값", () => {
@@ -33,5 +33,17 @@ describe("적정가(D-570 1822)", () => {
     expect(laborCostOf(1n, 1)).toBe(1n);
     expect(laborCostOf(0n, 360_000)).toBe(0n);
     expect(serviceFeeOf(600n, 0)).toBe(0n);
+  });
+});
+
+describe("다른 화폐로 옮긴 적정가(2158)", () => {
+  it("값 × num ÷ den: 재료·인건비·수수료는 내림, 적정가는 올림, 세금은 나머지", () => {
+    const base = fairPrice({ materials: 100n, labor: 50n, feePm: 200, taxBp: 1000 });
+    const half = convertFair(base, 1n, 2n);
+    expect(half.materials).toBe(50n);
+    expect(half.labor).toBe(25n);
+    expect(half.price).toBe((base.price + 1n) / 2n);
+    expect(half.materials + half.labor + half.fee + half.tax).toBe(half.price);
+    expect(convertFair(base, 1n, 0n)).toBe(base);
   });
 });

@@ -161,3 +161,10 @@
 - 설정 칸(팩 core@120 — 줄기 core@126): `exchange_desk_haul_pm`·`exchange_fx_fee_bp`·`exchange_fx_fee_max_bp`를 더하고 `exchange_locker_*`·`exchange_trade_slots` 설명을 유닛마다·
   레벨마다로 고쳤다(값 그대로).
 - 프로토콜 52(받는 가장 낮은 판 51 — 묶음 1116n 합친 판, 줄기 56·55): `market_locker_expand` unitId·결과 코드 `unknown_unit`(51판은 `locker_max`), `business_price` item `service:fx_fee`.
+
+## 바뀜 (2155·2157 — 기획 대조, 2026-11-16, 줄기 npc-econ-6)
+
+- **2157 돌려보내기도 보이는 운반꾼**(D-564 1626): 거래소 건물 창고에 남은 NPC 물건을 도시 창고로 돌려보내는 운반도 빈 일꾼 운반 일(열쇠 `r:<번호>`, 내려놓는 곳 =
+  도시 칸 — 질문 2234)이다(`market/npcHaul.ts`). 보는 2차맵은 휴먼이 화물을 지고 걷는다(약탈 대상).
+- **2155 운반꾼이 없으면 기다림**(D-555 1505): 팔기·돌려보내기 운반은 그 도시 운반꾼 수만큼만 떠나고 나머지는 기다린다(물건은 출발 자리에 그대로). 닿는 시각은 운반 일이
+  정한다(`stateOf`). 떠난 운반은 판 주문을 거두어도 끝까지 간다(보는지와 상관없이 같은 판정 — 질문 2240). business-ledger ADR "바뀜 (npc-econ-6)".

@@ -10,6 +10,10 @@
 //   그 공방이 낸다 — 공방 주인의 사업장 창고(건물 위치, D-555 1505 "운영 자금·재료는 건물마다의 창고")에서 빼고(장부 "물건" 칸, 종류
 //   outsource_repair — D-555 1505 "수리는 사업장 창고 먼저": 모자라면 공방 주인의 그 자리), 인건비는 그 공방 일꾼 임금(이미 사업장 금고에서 나간다). 공방
 //   쪽에 재료가 없으면 insufficient_materials(맡기는 사람의 재료는 보지 않는다). 예전(business-4 [임시]): 맡기는 사람이 그 공방 자리에서 냈다.
+// - 바뀜 (기획 대조 2167 — D-570 1822 "적정가격 계산은 필요 재료비 인건비, 수수료 세금 등", D-573 2048): 외주 시간당 적정가에 공방이 내는 재료비를 넣는다
+//   (요금에 들어 있다 — 재료를 따로 받지 않는다). 시간당 재료비(repairMaterialsHourly) = 그 공방 수리 줄마다 (기본 재료 기준 값 × 한 시간 ÷ 티어 1 장비를
+//   0에서 가득 고치는 시간 — 지금 그 공방 일꾼 실력·수로 잰다)의 가장 큰 값. 재료 양(기본 × 티어 × 잃은 몫)과 시간(기본 × 티어 × 잃은 몫)이 같은 꼴로
+//   늘어 장비마다 비율이 거의 같다(올림·최소 1 재료만 다르다). 요금을 정하지 않은 공방은 이 적정가 × 걸리는 시간으로 받는다.
 import type { FacilityResultCode } from "@terra/protocol";
 import { type FacilityRuntimeRules, conditionWorks, equipmentRepairMs } from "@terra/shared/facilityRuntime";
 import { repairMaterials, repairRuleFor } from "@terra/sim";
@@ -69,6 +73,40 @@ export function shopWorkers(deps: EquipmentRepairDeps, buildingId: number): numb
     .filter((entry) => entry.via !== "lease" && !deps.unitTaken(entry.unitId))
     .map((entry) => entry.unitId)
     .toSorted((a, b) => a - b);
+}
+
+const HOUR_MS = 3_600_000n;
+
+/**
+ * 외주 시간당 재료비(위 머리 주석 "바뀜 (2167)", 화폐 최소 단위 — 재료 기준 값 unitPrice). 수리 줄이 없거나 공방이 아니면 0. 일꾼이 없으면 기본 실력
+ * 일꾼 하나로 잰다
+ */
+export function repairMaterialsHourly(
+  deps: EquipmentRepairDeps,
+  buildingId: number,
+  unitPrice: (item: string) => bigint,
+): bigint {
+  const found = deps.shopFacility(buildingId);
+  if (typeof found === "string") return 0n;
+  const workers = shopWorkers(deps, buildingId);
+  const reference = { tier: 1, lost: 1000, maxDurability: 1000 };
+  const ms = BigInt(
+    Math.max(1, workers.length > 0 ? repairMs(deps, reference, workers) : refMs(deps, reference)),
+  );
+  let best = 0n;
+  for (const rule of found.def.repair ?? []) {
+    let worth = 0n;
+    for (const stack of repairMaterials(rule, reference.tier, reference.lost, reference.maxDurability))
+      worth += BigInt(stack.qty) * unitPrice(stack.item);
+    const hourly = (worth * HOUR_MS + ms - 1n) / ms;
+    if (hourly > best) best = hourly;
+  }
+  return best;
+}
+
+/** 일꾼 없이 잰 시간(기본 실력 0·한 사람) */
+function refMs(deps: EquipmentRepairDeps, item: RepairItem): number {
+  return equipmentRepairMs({ ...item, avgScore: 0, units: 1 }, deps.runtime());
 }
 
 /** 걸리는 시간(장인 평균 실력 — 공방 일꾼 또는 내 장인) */

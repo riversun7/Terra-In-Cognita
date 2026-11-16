@@ -11,7 +11,7 @@
 // - 목록 CSS(inbox.css)는 이 파일이 가져온다. 홈이 이 부품만 써도 모양이 같다.
 import type { RouteTarget } from "@terra/shared";
 import type { InboxCategory, InboxItem } from "@terra/shared/inbox";
-import type { MouseEvent } from "react";
+import { type MouseEvent, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import { Icon } from "../ui/icons.tsx";
@@ -24,7 +24,8 @@ import {
   isInboxItemTarget,
   isKnownCategory,
 } from "./inboxText.ts";
-import { type QuickActionId, quickActionLabel, quickActionsFor } from "./quickActions.ts";
+import { runLiveAction } from "./liveActions.ts";
+import { type QuickActionId, isLiveItem, quickActionLabel, quickActionsFor } from "./quickActions.ts";
 import "./inbox.css";
 
 /** 앱 안 이동 — 화면 틀(W1) 라우터의 navigate(target, { focusId })와 같은 모양. focusId: 옮긴 뒤 초점을 둘 요소 id */
@@ -97,11 +98,23 @@ function scrollIntoViewOnce(element: HTMLLIElement | null): void {
 }
 
 /**
- * 바로 처리 버튼과 그 결과 알림 영역(버튼 바로 아래, 늘 그려 둔다). 지금 버튼은 시안 자료 항목에만 있고(quickActions.ts)
- * 누르면 명령을 보내지 않고 그렇다고 알린다. inbox_action(WebSocket)을 만들면 여기서 보내고 결과를 같은 영역에 보인다
+ * 바로 처리 버튼과 그 결과 알림 영역(버튼 바로 아래, 늘 그려 둔다). 시안 자료 항목은 누르면 명령을 보내지 않고 그렇다고 알린다.
+ * 실제 항목(그 시스템의 기존 명령으로 처리하는 종류 — 기획 대조 2163 labor_paused)은 liveActions.ts가 처리하고 결과를 같은 영역에 보인다
  */
-function QuickActions({ actions }: { actions: readonly QuickActionId[] }) {
+function QuickActions({ item, actions }: { item: InboxItem; actions: readonly QuickActionId[] }) {
   const notice = useLiveLines();
+  const [sending, setSending] = useState(false);
+  const press = (action: QuickActionId): void => {
+    if (!isLiveItem(item)) {
+      notice.show([m.inbox_action_preview_done()]);
+      return;
+    }
+    setSending(true);
+    void runLiveAction(item, action).then((line) => {
+      setSending(false);
+      notice.show([line]);
+    });
+  };
   return (
     <div className="inbox-item-actions">
       <div className="inbox-item-buttons">
@@ -110,7 +123,8 @@ function QuickActions({ actions }: { actions: readonly QuickActionId[] }) {
             key={action}
             type="button"
             className="button-small"
-            onClick={() => notice.show([m.inbox_action_preview_done()])}
+            disabled={sending}
+            onClick={() => press(action)}
           >
             {quickActionLabel(action)}
           </button>
@@ -183,7 +197,7 @@ function InboxRow({ item, now, highlighted, onInboxScreen, onNavigate }: RowProp
         </div>
         {href === null ? null : <ChevronIcon />}
       </div>
-      {actions.length > 0 ? <QuickActions actions={actions} /> : null}
+      {actions.length > 0 ? <QuickActions item={item} actions={actions} /> : null}
     </li>
   );
 }

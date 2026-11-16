@@ -1,6 +1,6 @@
 // 외주 수리 칸(건물 판 [관리] — 수리 줄이 있는 공방, 주인·대주주·운영자) — 기획 D-570 1785(사용자 원문 "그 공방(사업장) 일꾼이 고치고 요금은
 // 주인이 정한다")·1822("적정가격 계산은 필요 재료비 인건비, 수수료 세금 등을 대략계산하여 가격설정시 보여줌"). 주인이 시간당 요금을 정하고(0 = 받지
-// 않음), 곁에 적정가(이 공방 일꾼 인건비·수수료·세금)를 보인다. 재료·인건비는 공방이 낸다(D-573 2048). 명령은 business_price(item = service:equipment_repair,
+// 않음), 곁에 적정가(이 공방이 내는 시간당 재료비 — 기획 대조 2167 — ·일꾼 인건비·수수료·세금)를 보인다. 재료·인건비는 공방이 낸다(D-573 2048). 명령은 business_price(item = service:equipment_repair,
 // 프로토콜 48). 판정·요금 셈은 서버.
 import { REPAIR_SERVICE_ITEM } from "@terra/shared/businessBooks";
 import { useState } from "react";

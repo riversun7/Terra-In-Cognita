@@ -146,3 +146,90 @@ describe("NPC 사업장 — 시설 창고·운반·하루 끝 정산(2053·2054)
     expect(core.vaultBalance(FARM, NATION, CUR)).toBe(250n);
   });
 });
+
+describe("NPC 사업장 — 적자 멈춤(2152)·판매가(2153)·운반꾼 기다림(2155)", () => {
+  it("국고도 모자라면 모자란 만큼 적자로 넣고 멈춘다. 국고가 차면 갚고 다시 돈다", () => {
+    const { book, core, deliveries, grant } = setup(5n);
+    grant(GRAIN, 30n, cityLocation(CITY));
+    const result = deliveries.produced(produced(60_000));
+    // 재료비 20: 국고 5를 넣고 모자란 15는 적자
+    expect(result.materials).toBe(20n);
+    expect(result.stopped).toBe(true);
+    expect(core.debts(FARM).get(CUR)).toBe(15n);
+    expect(core.suspended(FARM)).toBe(true);
+    const again = {
+      buildingId: FARM,
+      owner: NATION,
+      currency: CUR,
+      cityId: CITY,
+      inputs: produced(0).inputs,
+    };
+    // 재료비 20은 국고로 돌아왔지만 적자 15 + 다음 주기 재료비 20을 덮지 못한다 → 그대로 멈춤
+    expect(book.balanceOf(NATION, CUR, null)).toBe(20n);
+    expect(deliveries.resume({ ...again, atMs: 2000 })).toBe(true);
+    // 국고가 차면 갚고 다시 돈다(넣기 = 곧 갚기)
+    grant(CUR, 15n);
+    expect(deliveries.resume({ ...again, atMs: 3000 })).toBe(false);
+    expect(core.debts(FARM).get(CUR) ?? 0n).toBe(0n);
+    expect(core.suspended(FARM)).toBe(false);
+  });
+
+  it("산출 뒤 NPC가 시설 창고 판매가를 정한다(바뀔 때만)", () => {
+    let ids = 1;
+    const book = createLedgerBook({ nextAccountId: () => ids++, nextTxId: () => ids++ });
+    const prices: [number, string, bigint][] = [];
+    const core = createBusinessCore({
+      ledger: book,
+      writer: {
+        ...writer,
+        upsert: (_table, row) => {
+          if ("price" in row)
+            prices.push([Number(row.building_id), String(row.item), BigInt(String(row.price))]);
+        },
+      },
+      planetId: "p",
+      loaded: EMPTY_BUSINESS,
+      place: () => ({ ownerId: NATION, cityId: CITY }),
+      businesses: () => [FARM],
+      tax: () => ({ treasuryOwner: NATION, bp: 0 }),
+      rules: () => START_BUSINESS,
+    });
+    book.post({
+      kind: "grant",
+      atMs: 0,
+      entries: [
+        { account: book.systemAccount(`source:${GRAIN}`, GRAIN), amount: -60n },
+        { account: book.ownerAccount(NATION, GRAIN, cityLocation(CITY)), amount: 60n },
+      ],
+    });
+    const deliveries = createNpcDeliveries({
+      book,
+      business: core,
+      board: createCarryBoard(book),
+      priceOf: () => 0n,
+      lotOf: () => 10n,
+      schedule: () => {},
+      shopPriceOf: ({ stock }) => (stock >= 60n ? 7n : 9n),
+    });
+    deliveries.produced({ ...produced(0), to: undefined, inputs: [] });
+    // 바로 닿아 창고가 비었다 → 9
+    expect(core.price(FARM, GRAIN)).toBe(9n);
+    deliveries.produced({ ...produced(0), to: undefined, inputs: [] });
+    expect(prices).toEqual([[FARM, GRAIN, 9n]]);
+  });
+
+  it("같은 시설의 앞 운반이 닿지 않았으면 다음 운반은 기다렸다 그 닿는 시각에 떠난다(시간 셈으로 먼저 떠나지 않는다)", () => {
+    const { book, deliveries, scheduled, grant } = setup();
+    grant(GRAIN, 60n, cityLocation(CITY));
+    deliveries.produced(produced(60_000));
+    deliveries.produced({ ...produced(60_000), atMs: 30_000 });
+    expect(scheduled).toEqual([[61_000, 1]]);
+    expect(book.balanceOf(NATION, GRAIN, businessLocation(FARM))).toBe(60n);
+    deliveries.arrive(1, 61_000);
+    expect(scheduled).toEqual([
+      [61_000, 1],
+      [121_000, 2],
+    ]);
+    expect(book.balanceOf(NATION, GRAIN, businessLocation(FARM))).toBe(30n);
+  });
+});

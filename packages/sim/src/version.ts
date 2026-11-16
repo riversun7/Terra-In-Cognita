@@ -254,8 +254,10 @@
  *      군단은 파티로 나누지 않고 통째로 건너뛴다(뒤 편성이 남은 자리에 든다). 아무 편성도 못 들면 첫 편성을 통째로 넣는다(상한을 넘을 수 있다 —
  *      옛 꼴은 앞에서부터 상한만큼 잘랐다, waveDefenderPick). 같은 줄기의 사회 계수표 renown에 납품·의뢰 몫 칸 둘(deliveryValue·questRenown —
  *      서버 명성만 읽는다). 세계 휴먼·시뮬 수비는 묶음이 없어(모두 혼자인 유닛) 지금 결과가 그대로다.
+ * 70: (줄기 npc-econ-6 — 묶음에서 다음 판으로 묶는다) 사업장 계수표에 NPC 시설 판매가 칸 셋(npcPriceTemperPm·npcPriceStockPm·npcPriceStockLots — 기획 대조
+ *    2153, 서버 npc/npcShopPrice.ts만 읽는다). 시뮬 판정·출력은 그대로다(시뮬은 사업장 금고를 돌리지 않는다)
  */
-export const SIM_VERSION = 60;
+export const SIM_VERSION = 70;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

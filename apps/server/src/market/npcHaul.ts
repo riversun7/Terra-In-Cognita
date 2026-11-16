@@ -12,7 +12,12 @@
 // - 바뀜 (기획 대조 2088 — D-564 1626 "보이는게 원칙", D-555 1505 "어떤 유닛이든 실제로 옮겨야한다"): 팔 물건 운반은 보이는 운반꾼이 기본이다 — carry 고리가
 //   있으면 운반을 빈 일꾼 운반 일(npc/npcCarry.ts)로 건다. 보는 2차맵은 일 없는 휴먼이 화물을 지고 거래소 건물로 걸어가고(약탈 대상), 닿으면 화물에 남은 만큼
 //   거래소 건물 창고에 내려놓는다(빼앗긴 만큼 덜 건다). 보지 않는 2차맵은 시간 셈(예전과 같다). 판 주문을 거두면 이미 나선 운반은 끝까지 가서 내려놓고
-//   돌려보내기가 데려온다. 돌려보내기(거래소 → 도시 창고)는 아직 시간 셈만(질문 2157).
+//   돌려보내기가 데려온다.
+// - 바뀜 (기획 대조 2157 — D-564 1626 "보이는게 원칙"): 돌려보내기(거래소 건물 창고 → 도시 창고)도 같은 빈 일꾼 운반 일이다(열쇠 r:<번호>, 내려놓는 곳 = 도시
+//   칸 dropOf). 보는 2차맵은 일 없는 휴먼이 화물을 지고 도시로 걸어가고, 닿으면 화물에 남은 만큼 도시 창고로 내려놓는다.
+// - 바뀜 (기획 대조 2155 — D-555 1505 "어떤 유닛이든 실제로 옮겨야한다" → 보기 나): 운반꾼(그 도시 일 없는 휴먼)이 모자라면 운반 일은 기다린다(npcCarry.ts —
+//   물건은 출발 자리에 그대로). 닿는 시각은 운반 일이 정한다(stateOf). 떠난 운반은 판 주문을 거두어도 끝까지 가고(보는지와 상관없이 같은 판정), 기다리던
+//   운반만 지운다.
 // 정수 연산만 쓴다.
 import { buildingLocation, cityLocation } from "@terra/shared/goodsPlaces";
 import type { LedgerBook } from "@terra/sim";
@@ -31,8 +36,12 @@ export interface NpcHaulOptions {
   /** 보이는 운반꾼(기획 대조 2088): 운반 일 판과 거래소 건물 가운데 칸. 없으면 시간 셈만 */
   readonly carry?:
     | {
-        readonly board: Pick<CarryBoard, "post" | "finish" | "drop">;
+        readonly board: Pick<CarryBoard, "post" | "finish" | "drop" | "stateOf" | "pump">;
         readonly centerOf: (buildingId: number) => { readonly x: number; readonly y: number } | undefined;
+        /** 돌려보내기가 내려놓는 도시 칸(2157). 없으면 거래소 건물 가운데 */
+        readonly dropOf?:
+          | ((cityId: number) => { readonly x: number; readonly y: number } | undefined)
+          | undefined;
       }
     | undefined;
 }
@@ -73,12 +82,21 @@ export function createNpcHauler(o: NpcHaulOptions): NpcHauler {
   let carrySeq = 0;
   /** 돌려보내기 후보(owner|city|asset) */
   const dirty = new Set<string>();
-  /** 돌려보내는 중: 열쇠 → 닿는 시각 */
-  const returning = new Map<string, { owner: number; cityId: number; asset: string; atMs: number }>();
+  /** 돌려보내는 중: 열쇠 → 닿는 시각(보이는 운반꾼이면 운반 일 열쇠 — 닿는 시각은 운반 일이 정한다) */
+  const returning = new Map<
+    string,
+    { owner: number; cityId: number; asset: string; atMs: number; carryKey?: string }
+  >();
   let swept = false;
   const weight = (asset: string): bigint => o.weightOf?.(asset) ?? 1n;
   const timeOf = (cityId: number, buildingId: number, asset: string, qty: bigint): number =>
     o.haulMs ? o.haulMs(cityId, buildingId, qty * weight(asset)) : 0;
+  /** 운반 일이 닿았나(기다림이면 false). 없는 일이면 "gone" */
+  const arrived = (key: string, nowMs: number): boolean | "gone" => {
+    const state = o.carry?.board.stateOf(key);
+    if (state === undefined) return "gone";
+    return state !== "waiting" && state <= nowMs;
+  };
 
   /** from → to 원장 옮기기(있는 만큼, unit 단위로 버림). 옮긴 양 */
   const move = (
@@ -122,7 +140,8 @@ export function createNpcHauler(o: NpcHaulOptions): NpcHauler {
       if (o.carry && center) {
         carrySeq += 1;
         carryKey = `x:${String(carrySeq)}`;
-        o.carry.board.post({
+        // 운반꾼이 없으면 기다린다(2155): 닿는 시각은 운반 일이 정한다
+        const until = o.carry.board.post({
           key: carryKey,
           cityId: p.cityId,
           owner: p.owner,
@@ -131,19 +150,20 @@ export function createNpcHauler(o: NpcHaulOptions): NpcHauler {
           to: at,
           x: center.x,
           y: center.y,
-          fromMs: nowMs,
-          untilMs: nowMs + ms,
+          atMs: nowMs,
+          durMs: ms,
         });
+        sells.push({ ...p, lots: rest, arriveAtMs: until ?? Number.MAX_SAFE_INTEGER, carryKey });
+        return ready;
       }
-      sells.push({ ...p, lots: rest, arriveAtMs: nowMs + ms, ...(carryKey ? { carryKey } : {}) });
+      sells.push({ ...p, lots: rest, arriveAtMs: nowMs + ms });
       return ready;
     },
     cancel(owner, cityId, asset) {
       for (let i = sells.length - 1; i >= 0; i -= 1) {
         const p = sells[i];
         if (p && p.owner === owner && p.cityId === cityId && p.asset === asset) {
-          // 이미 나선 운반꾼은 끝까지 가서 내려놓는다(돌려보내기가 데려온다)
-          // (아직 싣지 않았으면 — 보지 않는 2차맵 — 옮기지 않고 지운다)
+          // 떠난 운반은 끝까지 가서 내려놓는다(돌려보내기가 데려온다). 기다리던 운반만 지운다(2155)
           if (p.carryKey && o.carry?.board.drop(p.carryKey) === false)
             orphans.set(p.carryKey, { owner, cityId, asset, atMs: p.arriveAtMs });
           sells.splice(i, 1);
@@ -154,6 +174,8 @@ export function createNpcHauler(o: NpcHaulOptions): NpcHauler {
       if (!o.isUser(owner)) dirty.add(keyOf(owner, cityId, asset));
     },
     tick(nowMs, cities) {
+      // 일 없는 휴먼이 늘었을 수 있다: 기다리던 운반을 띄운다(2155)
+      o.carry?.board.pump(nowMs);
       // 켠 뒤 처음: 거래소 건물 창고에 남은 NPC 물건을 훑는다(한 번만 원장 전체)
       if (!swept) {
         swept = true;
@@ -171,13 +193,20 @@ export function createNpcHauler(o: NpcHaulOptions): NpcHauler {
       }
       // 주문을 거둔 뒤 닿은 운반: 내려놓고 돌려보내기 후보로
       for (const [key, entry] of orphans) {
-        if (entry.atMs > nowMs) continue;
+        if (arrived(key, nowMs) === false) continue;
         orphans.delete(key);
         o.carry?.board.finish(key, nowMs);
         dirty.add(keyOf(entry.owner, entry.cityId, entry.asset));
       }
       // 닿은 돌려보내기: 거래소 건물 창고에 남은 만큼 도시 창고로
       for (const [key, entry] of returning) {
+        if (entry.carryKey !== undefined) {
+          // 보이는 운반꾼(2157): 화물(실었으면)·거래소 건물 창고(아니면)에 남은 만큼 도시 창고로
+          if (arrived(entry.carryKey, nowMs) === false) continue;
+          returning.delete(key);
+          o.carry?.board.finish(entry.carryKey, nowMs);
+          continue;
+        }
         if (entry.atMs > nowMs) continue;
         returning.delete(key);
         const exchange = o.exchangeOf(entry.cityId);
@@ -206,13 +235,39 @@ export function createNpcHauler(o: NpcHaulOptions): NpcHauler {
         if (held <= 0n) continue;
         const ms = timeOf(cityId, exchange, asset, held);
         if (ms <= 0) move(owner, asset, buildingLocation(exchange), cityLocation(cityId), held, 1n, nowMs);
-        else returning.set(key, { owner, cityId, asset, atMs: nowMs + ms });
+        else if (o.carry) {
+          // 돌려보내기도 보이는 운반꾼(2157): 빈 일꾼 운반 일 — 운반꾼이 없으면 기다린다(물건은 거래소 건물 창고에)
+          carrySeq += 1;
+          const carryKey = `r:${String(carrySeq)}`;
+          const drop = o.carry.dropOf?.(cityId) ?? o.carry.centerOf(exchange) ?? { x: 0, y: 0 };
+          o.carry.board.post({
+            key: carryKey,
+            cityId,
+            owner,
+            stacks: [{ asset, qty: held }],
+            from: buildingLocation(exchange),
+            to: cityLocation(cityId),
+            x: drop.x,
+            y: drop.y,
+            atMs: nowMs,
+            durMs: ms,
+          });
+          returning.set(key, { owner, cityId, asset, atMs: nowMs + ms, carryKey });
+        } else returning.set(key, { owner, cityId, asset, atMs: nowMs + ms });
       }
       // 닿은 팔기: 도시 창고 → 거래소 건물 창고(남은 만큼, 묶음 단위). 거는 것은 부르는 쪽
       const due: PendingSell[] = [];
       for (let i = sells.length - 1; i >= 0; i -= 1) {
         const p = sells[i];
-        if (!p || p.arriveAtMs > nowMs) continue;
+        if (!p) continue;
+        if (p.carryKey && o.carry) {
+          const state = arrived(p.carryKey, nowMs);
+          if (state === false) continue;
+          if (state === "gone") {
+            sells.splice(i, 1);
+            continue;
+          }
+        } else if (p.arriveAtMs > nowMs) continue;
         sells.splice(i, 1);
         const exchange = o.exchangeOf(p.cityId);
         if (p.carryKey && o.carry) {

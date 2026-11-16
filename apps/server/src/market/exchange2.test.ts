@@ -157,6 +157,39 @@ describe("거래소 건물 2", () => {
     expect(book.balanceOf(NPC, "item:grain", CITY)).toBe(4n);
   });
 
+  it("돌려보내기도 보이는 운반꾼(2157), 일 없는 휴먼이 없으면 운반은 기다리고 짐은 남는다(2155)", () => {
+    const book = ledger();
+    let idle = 0;
+    const board = createCarryBoard(book, { peopleOf: () => idle });
+    const markets = registry(book, {
+      exchangeOf: () => EXCHANGE,
+      npcHaul: {
+        haulMs: () => HAUL_MS,
+        carry: { board, centerOf: () => ({ x: 40, y: 50 }), dropOf: () => ({ x: 7, y: 8 }) },
+      },
+    });
+    endow(book, NPC, "item:grain", 4n, buildingLocation(EXCHANGE));
+    const grain = markets.book(CITY, "item:grain");
+    grain?.market.place(NPC, "sell", 5n, 4n, T0, T0 + 3_600_000);
+    grain?.market.cancelOwner(NPC, T0);
+    // 운반꾼이 될 휴먼이 없다: 돌려보내기는 기다린다(시간 셈으로 떠나지 않는다)
+    markets.expire(T0 + 1);
+    expect(board.stateOf("r:1")).toBe("waiting");
+    markets.expire(T0 + 10 * HAUL_MS);
+    expect(book.balanceOf(NPC, "item:grain", buildingLocation(EXCHANGE))).toBe(4n);
+    // 휴먼이 생기면 그때 떠나 운반 시간 뒤에 도시 칸으로 내려놓는다
+    idle = 1;
+    const leave = T0 + 10 * HAUL_MS + 1;
+    markets.expire(leave);
+    expect(board.idle(CITY, leave)[0]).toMatchObject({ key: "r:1", x: 7, y: 8, untilMs: leave + HAUL_MS });
+    expect(board.load("r:1", 601, leave)).toBe(true);
+    expect(book.balanceOf(NPC, "item:grain", cargoLocation(601))).toBe(4n);
+    markets.expire(leave + HAUL_MS);
+    expect(book.balanceOf(NPC, "item:grain", CITY)).toBe(4n);
+    expect(book.balanceOf(NPC, "item:grain", cargoLocation(601))).toBe(0n);
+    expect(markets.npcHaulPending()).toBe(0);
+  });
+
   it("개인 창고 쓰는 무게 = 거래소 건물 창고 물건 + 그 도시 걸린 내 주문 남은 양(1943)", () => {
     const book = ledger();
     const markets = registry(book, { exchangeOf: () => EXCHANGE });

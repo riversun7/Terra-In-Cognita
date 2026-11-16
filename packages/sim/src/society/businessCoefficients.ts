@@ -49,6 +49,15 @@ export interface BusinessCoefficients {
    */
   readonly npcWaitDays: number;
   /**
+   * [임시] NPC 시설 판매가의 상업 성향 폭(‰, 기획 대조 2153 — D-564 1627·D-570 1822 "판매자가 정한다", apps/server/src/npc/npcShopPrice.ts). 상업 성향
+   * 치우침이 축 끝이면 기준 값의 +이 값, 0이면 −이 값. 0이면 성향을 보지 않는다
+   */
+  readonly npcPriceTemperPm: number;
+  /** [임시] NPC 시설 판매가의 재고 폭(‰, 2153): 시설 창고가 비면 +이 값, 목표의 두 배 넘게 쌓이면 −이 값(그 사이는 곧은 선). 0이면 재고를 보지 않는다 */
+  readonly npcPriceStockPm: number;
+  /** [임시] NPC 시설 판매가의 목표 재고(판매 최소 묶음 수, 2153). 이만큼 쌓였으면 재고 폭 0 */
+  readonly npcPriceStockLots: number;
+  /**
    * [임시] 거래소 이용료(만분율, 기획 D-564 1682·D-548·D-160 — 질문 1948 답, docs/adr/2026-11-16-exchange-buildings.md "바뀜 (D-571)"). 물자 거래소
    * 체결마다 판 쪽이 총액 × 이 값 ÷ 10000(버림)을 그 도시 물자 거래소 건물 금고(사업장 장부)에 낸다. 거래세(국고, D-128)와 따로. 0이면 이용료 없음
    */
@@ -80,6 +89,9 @@ export const START_BUSINESS: BusinessCoefficients = {
   serviceFeePm: 200,
   npcBooks: 1,
   npcWaitDays: 3,
+  npcPriceTemperPm: 100,
+  npcPriceStockPm: 200,
+  npcPriceStockLots: 10,
   exchangeFeeBp: 50,
   exchangeLockerG: 200_000,
   exchangeLockerStepG: 200_000,

@@ -1,4 +1,4 @@
-# Git 훅 — 커밋 단계는 가볍게, 무거운 검사는 푸시 전과 CI에서 (docs/adr/2026-10-28-dev-workflow.md)
+# Git 훅 — 커밋 단계는 가볍게, 무거운 검사는 푸시 전에 작업 PC에서 (docs/adr/2026-10-28-dev-workflow.md, docs/adr/2026-11-18-ci-local-and-nas.md)
 pre-commit:
   parallel: true
   commands:
@@ -16,5 +16,6 @@ commit-msg:
 pre-push:
   commands:
     check:
-      # pnpm check는 콘텐츠 1·2·4a단계만 본다. check:content(인자 없음)는 4b단계(upstream 팩과 비교)까지 본다
-      run: pnpm check && pnpm check:docs && pnpm check:content && pnpm docs:index --check && pnpm check:wiki && pnpm wiki:index --check
+      # pnpm check는 콘텐츠 1·2·4a단계만 본다. check:content(인자 없음)는 4b단계(upstream 팩과 비교)까지 본다.
+      # db:generate는 schema.ts를 바꾸고 마이그레이션을 빠뜨렸는지 확인한다(DB 접속 없음).
+      run: pnpm check && pnpm --filter @terra/server db:generate && test -z "$(git status --porcelain -- apps/server/drizzle)" && pnpm check:docs && pnpm check:content && pnpm docs:index --check && pnpm check:wiki && pnpm wiki:index --check

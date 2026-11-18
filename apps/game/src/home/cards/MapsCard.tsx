@@ -11,12 +11,24 @@ const WORLD_MAP: RouteTarget = { route: "map_planet" };
 export function MapsCardBody() {
   return (
     <div className="home-maps">
-      <HomeLink to={LOCAL_MAP} className="home-link-button home-link-primary">
-        {m.home_maps_local()}
-      </HomeLink>
-      <HomeLink to={WORLD_MAP} className="home-link-button">
-        {m.home_maps_world()}
-      </HomeLink>
+      <div className="home-stat-grid">
+        <div className="home-stat-tile">
+          <span className="home-stat-label">{m.home_maps_local()}</span>
+          <span className="home-stat-value">{m.nav_map_desc()}</span>
+        </div>
+        <div className="home-stat-tile">
+          <span className="home-stat-label">{m.home_maps_world()}</span>
+          <span className="home-stat-value">{m.planet_title()}</span>
+        </div>
+      </div>
+      <div className="home-maps-actions">
+        <HomeLink to={LOCAL_MAP} className="home-link-button home-link-primary">
+          {m.home_maps_local()}
+        </HomeLink>
+        <HomeLink to={WORLD_MAP} className="home-link-button">
+          {m.home_maps_world()}
+        </HomeLink>
+      </div>
     </div>
   );
 }

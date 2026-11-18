@@ -35,18 +35,20 @@ export function AssetsCardBody() {
   );
   return (
     <>
-      <p className="home-card-hint" data-metric="value">
-        {value === null ? (
-          m.inventory_value_none()
-        ) : (
-          <>
-            {m.inventory_fact_value()} <MoneyList items={value} />
-          </>
-        )}
-      </p>
-      <p className="home-card-hint" data-metric="kinds">
-        {m.economy_overview_warehouse({ places: summary.places, kinds: summary.kinds })}
-      </p>
+      <div className="home-stat-grid">
+        <div className="home-stat-tile" data-metric="value">
+          <span className="home-stat-label">{m.inventory_fact_value()}</span>
+          <span className="home-stat-value">
+            {value === null ? m.inventory_value_none() : <MoneyList items={value} />}
+          </span>
+        </div>
+        <div className="home-stat-tile" data-metric="kinds">
+          <span className="home-stat-label">{m.nav_inventory()}</span>
+          <span className="home-stat-value">
+            {m.economy_overview_warehouse({ places: summary.places, kinds: summary.kinds })}
+          </span>
+        </div>
+      </div>
       <AppLink className="home-link-button" to={{ route: "inventory" }}>
         {m.card_assets_open()}
       </AppLink>

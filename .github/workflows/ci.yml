@@ -1,11 +1,27 @@
-# CI — main 푸시마다 전체 검사 → 이미지 → (NAS 실행기가 있으면) 배포. 문서·스킬만 바뀐 푸시는 문서 검사만(2026-11-15)
+# CI — main 푸시마다 전체 검사 → 이미지 → (NAS 실행기가 있으면) 배포.
+# 문서·스킬만 바뀐 푸시·PR은 이 워크플로가 아예 시작하지 않는다(GitHub Actions 사용량 0, 2026-11-18).
+# 문서 검사(작업 기록 목차·문서 규칙·위키)는 푸시 전 훅(lefthook.yml pre-push)이 로컬에서 돌린다.
 # docs/adr/2026-10-28-dev-workflow.md, docs/adr/2026-10-28-deploy-and-ops.md
 name: ci
 
+# 사용자 지시(2026-11-18): "문서 업로드만으로는 깃허브 사용량과 무관하게 하라". 2026-11-15의 changes 단계는 문서만 바뀐 푸시도
+# check(설치·문서 검사)·secrets 작업을 GitHub 서버에서 띄워 푸시마다 몇 분씩 썼다 → 트리거 단계에서 거른다.
+# 푸시 하나에 바뀐 파일이 모두 아래 목록이면 실행이 생기지 않는다. 하나라도 밖이면 전체가 돈다.
+# 목록은 아래 changes 단계의 문서 판단(^(docs/|\.claude/|\.agent/)|\.md$)과 같게 둔다.
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - ".claude/**"
+      - ".agent/**"
+      - "**/*.md"
   pull_request:
+    paths-ignore:
+      - "docs/**"
+      - ".claude/**"
+      - ".agent/**"
+      - "**/*.md"
   workflow_dispatch:
 
 permissions:
@@ -100,6 +116,8 @@ jobs:
         run: node scripts/check-docs.mjs "${{ github.event.pull_request.base.sha || github.event.before }}"
       # 문서·스킬만 바뀐 main 푸시는 무거운 검사(pnpm check·빌드, 11~17분)를 건너뛰고 문서 검사만 한다(사용자 지적 2026-11-15:
       # "문서만 바꾼걸 왜 계속 쳐올려서 빌드를 돌리냐"). 코드가 바뀐 푸시·PR은 위 if가 그대로 다 돌린다.
+      # 2026-11-18부터 문서만 바뀐 푸시는 위 paths-ignore로 실행 자체가 생기지 않아, 이 갈래는 남은 예외(기준 커밋 대비 문서만
+      # 바뀐 경우)에만 탄다.
       - name: 위키 검사 (문서만 바뀐 푸시)
         if: steps.changes.outputs.deploy != 'true'
         run: pnpm check:wiki

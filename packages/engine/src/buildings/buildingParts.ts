@@ -40,6 +40,19 @@ export interface BuildingPart {
   readonly ground: boolean;
 }
 
+/** 건물 위 국가 문양 부착 자리(깃발·수직 배너·정면 문장판) */
+export interface EmblemMount {
+  /** 부착 중심(로컬 m, 바닥 가운데 y 기준이 아닌 세로 중심) */
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+  readonly width: number;
+  readonly height: number;
+  /** 세로축 돌림(라디안) */
+  readonly turn: number;
+  readonly kind: "flag" | "banner";
+}
+
 /** 바닥 판 두께(m) — 다른 조각은 이 위(FLOOR_M)에 선다 */
 export const FLOOR_M = 0.3;
 /** 판 가장자리에서 건물까지 띄우는 기본 거리(m) */
@@ -120,8 +133,11 @@ export interface HouseSpec {
 /** 조각 목록 — 도우미가 조각을 더한다 */
 export class PartList {
   readonly parts: BuildingPart[] = [];
+  readonly emblems: EmblemMount[] = [];
   /** 창문 밝기(켜짐·꺼짐) — 상태가 정한다 */
   windowColor: Rgb = [1, 1, 1];
+  /** 국가 문양 텍스처가 있을 때 true — 깃발·배너에 실제 문양을 올린다 */
+  hasEmblem = false;
 
   add(
     shape: PartShape,
@@ -228,10 +244,126 @@ export class PartList {
     }
   }
 
-  /** 깃대 + 국가 색 깃발 */
-  flag(x: number, z: number, poleH: number, color: Rgb): void {
-    this.add("cylinder", x, FLOOR_M, z, 0.16, poleH, 0.16, C.metal);
-    this.add("box", x + 0.85, FLOOR_M + poleH - 1.15, z, 1.6, 1, 0.08, color);
+  /** 깃대 + 국가 색·문양 깃발 */
+  flag(
+    x: number,
+    z: number,
+    poleH: number,
+    color: Rgb,
+    options: { readonly width?: number; readonly height?: number } = {},
+  ): void {
+    const fw = options.width ?? 1.75;
+    const fh = options.height ?? 1.1;
+    this.add("cylinder", x, FLOOR_M, z, 0.18, poleH, 0.18, C.metal);
+    this.add("cone", x, FLOOR_M + poleH, z, 0.28, 0.3, 0.28, C.gold);
+    const cy = FLOOR_M + poleH - fh * 0.55;
+    if (this.hasEmblem) {
+      // 문양이 있을 때는 깃발 천에 국가 문양을 양면으로 그리고, 깃대 고리만 시그니처 색으로 남긴다
+      this.add("cylinder", x, FLOOR_M + poleH - 0.12, z, 0.26, 0.18, 0.26, color);
+      this.emblems.push({
+        x: x + fw / 2 + 0.08,
+        y: cy,
+        z,
+        width: fw,
+        height: fh,
+        turn: 0,
+        kind: "flag",
+      });
+    } else {
+      this.add("box", x + fw / 2 + 0.08, FLOOR_M + poleH - fh - 0.1, z, fw, fh, 0.08, color);
+    }
+  }
+
+  /** 벽걸이 국가 배너·문장판(앞쪽 법선 방향 turn에 시그니처 컬러 + 문양을 붙인다) */
+  banner(
+    x: number,
+    y: number,
+    z: number,
+    width: number,
+    height: number,
+    turn: number,
+    color: Rgb,
+    options: { readonly rod?: boolean } = {},
+  ): void {
+    const nx = Math.sin(turn);
+    const nz = Math.cos(turn);
+    if (options.rod !== false) {
+      this.add("box", x, y + height - 0.06, z, width + 0.24, 0.12, 0.14, C.metalDark, { turn });
+    }
+    // 뒷판(시그니처 색 천)
+    this.add("box", x, y, z, width, height, 0.06, color, { turn });
+    if (this.hasEmblem) {
+      // 앞면에 살짝 띄워 z-fighting 없이 문양을 올린다
+      this.emblems.push({
+        x: x + nx * 0.05,
+        y: y + height / 2,
+        z: z + nz * 0.05,
+        width: width * 0.92,
+        height: height * 0.92,
+        turn,
+        kind: "banner",
+      });
+    }
+  }
+
+  /** 다단 계단(dir: 1 = +z 쪽이 낮아짐, -1 = -z 쪽이 낮아짐) */
+  steps(
+    x: number,
+    z: number,
+    width: number,
+    depth: number,
+    count: number,
+    totalH: number,
+    color: Rgb,
+    dir: 1 | -1 = 1,
+    baseY = FLOOR_M,
+  ): void {
+    const n = Math.max(1, count);
+    const stepD = depth / n;
+    const stepH = totalH / n;
+    for (let i = 0; i < n; i++) {
+      const h = stepH * (n - i);
+      const sz = stepD * (n - i);
+      // 높은 쪽을 뒷단에 맞춰 겹쳐 놓는다
+      const cz = z - dir * ((depth - sz) / 2);
+      this.add("box", x, baseY, cz, width, h, sz, color);
+    }
+  }
+
+  /** 로우폴리 조경 나무(기둥 + 2단 잎) */
+  tree(x: number, z: number, scale = 1, baseY = FLOOR_M): void {
+    this.add("cylinder", x, baseY, z, 0.28 * scale, 1.1 * scale, 0.28 * scale, C.log);
+    this.add("cone", x, baseY + 0.95 * scale, z, 1.55 * scale, 1.5 * scale, 1.55 * scale, C.foliage);
+    this.add("cone", x, baseY + 1.85 * scale, z, 1.15 * scale, 1.25 * scale, 1.15 * scale, C.crop);
+  }
+
+  /** 야외 가로등·신호등(기둥 + 갓 + 불빛) */
+  lantern(x: number, y: number, z: number, height = 2.6): void {
+    this.add("cylinder", x, y, z, 0.16, height, 0.16, C.metalDark);
+    this.add("glow", x, y + height, z, 0.34, 0.38, 0.34, this.windowColor);
+    this.add("pyramid", x, y + height + 0.38, z, 0.54, 0.28, 0.54, C.metalDark);
+  }
+
+  /** 산업용 회전 지브 크레인(기둥 + 붐 + 평형추 + 도르래 줄) */
+  crane(x: number, y: number, z: number, height: number, reach: number, turn: number, color: Rgb): void {
+    const c = Math.cos(turn);
+    const s = Math.sin(turn);
+    this.add("cylinder", x, y, z, 0.55, height, 0.55, color);
+    // 붐(로컬 +x 방향)
+    const boomMid = reach * 0.35;
+    this.add("box", x + c * boomMid, y + height - 0.25, z - s * boomMid, reach, 0.34, 0.34, color, {
+      turn,
+    });
+    // 평형추(-x 쪽)
+    const back = reach * 0.24;
+    this.add("box", x - c * back, y + height - 0.45, z + s * back, 0.85, 0.65, 0.65, C.metalDark, {
+      turn,
+    });
+    // 끝 줄·후크
+    const tip = reach * 0.78;
+    const cableH = Math.max(1.2, height * 0.35);
+    this.add("cylinder", x + c * tip, y + height - 0.25 - cableH, z - s * tip, 0.08, cableH, 0.08, C.metal);
+    this.add("box", x + c * tip, y + height - 0.55 - cableH, z - s * tip, 0.42, 0.34, 0.42, C.metalDark);
   }
 
   /** 상자 더미(1 ~ count개를 쌓고 흔든다) */

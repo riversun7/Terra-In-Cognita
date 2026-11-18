@@ -5,6 +5,10 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-19 01:00 | 전체 건물 3D 모델 재제작 및 국가 시그니처 컬러·깃발 문양 반영 | Antigravity | [19-0100-all-buildings-and-emblems](worklog/2026/11/19-0100-all-buildings-and-emblems.md) |
+| 2026-11-19 00:45 | 홈 대시보드 카드·쉘·테마 토큰 디자인 정돈 | Antigravity | [19-0045-theme-and-home-cards](worklog/2026/11/19-0045-theme-and-home-cards.md) |
+| 2026-11-18 23:45 | 로컬 개발 서버·교차 PC 테스트 DB 시드 구성 | Antigravity | [18-2345-local-dev-db](worklog/2026/11/18-2345-local-dev-db.md) |
+| 2026-11-18 23:20 | 영토 비콘(`territory_beacon`) 전용 3D 모델 추가 | Antigravity | [18-2320-beacon-3d-model](worklog/2026/11/18-2320-beacon-3d-model.md) |
 | 2026-11-18 17:25 | CI 경량화: 검증은 작업 PC 훅으로, 실행 점검·되돌림 훈련은 NAS로 | Antigravity | [18-1725-ci-local-and-nas](worklog/2026/11/18-1725-ci-local-and-nas.md) |
 | 2026-11-18 16:25 | 문서만 바뀐 푸시는 CI를 시작하지 않음 (GitHub Actions 사용량 0) | Antigravity | [18-1625-ci-docs-zero-usage](worklog/2026/11/18-1625-ci-docs-zero-usage.md) |
 | 2026-11-16 22:10 | 2026-11-16 fixes-1116o — [기다림] 계정 저장(2237)·1인 가문 이름 붙이기(2242)·짓는 중 귀속 고르기 바꾸기·가문 단위 독립(D-577)·빈틈 일정(2236·2243) | Claude Code | [16-2210-fixes-1116o](worklog/2026/11/16-2210-fixes-1116o.md) |

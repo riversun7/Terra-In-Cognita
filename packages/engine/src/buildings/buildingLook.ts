@@ -10,7 +10,8 @@ import {
   type FacilityLookModel,
   isFacilityLookModel,
 } from "@terra/shared/facilityLook";
-import { type Rgb, lookColor } from "./buildingPalette.ts";
+import type { NationEmblemView } from "@terra/shared/nationEditor";
+import { type Rgb, lookColor, nationAccent, parseHexColor } from "./buildingPalette.ts";
 
 /** 상태: 짓는 중(처음 짓기, 레벨 0)·정상·손상(70% 아래)·멈춤(30% 아래)·폐허(0) — @terra/shared ConditionState + 짓는 중 */
 export type BuildingCondition = "building" | "ok" | "damaged" | "disabled" | "ruin";
@@ -34,6 +35,10 @@ export interface BuildingLook {
   readonly upgrading?: boolean | undefined;
   /** 국가 색 번호(지도 국가 색 0~5와 같은 차례). null·없음 = 깃발 없음 */
   readonly accent?: number | null | undefined;
+  /** 국가 시그니처 컬러(#rrggbb, 있으면 accent 번호보다 먼저 쓴다) */
+  readonly accentColor?: string | null | undefined;
+  /** 국가 문양(시그니처 컬러·마크 사양·올린 그림 해시 — 비콘·행정 건물 깃발·배너에 그린다) */
+  readonly emblem?: NationEmblemView | null | undefined;
   /** 겉모습 자료(실효 팩 facilities.look). 없으면 시설 ID로 모델을 고르고 모델 기본 색·높이 */
   readonly art?: FacilityLookJson | null | undefined;
 }
@@ -43,7 +48,7 @@ export type BuildingArtKind = FacilityLookModel;
 
 export const BUILDING_ART_KINDS: readonly BuildingArtKind[] = FACILITY_LOOK_MODELS;
 
-/** 시설 ID → 모델 종류(겉모습 자료가 없을 때 — 팩 core@58까지·옛 덮어쓰기 줄. 팩 core 51의 시설 16개, 영토 비콘은 2차맵에 서지 않는다) */
+/** 시설 ID → 모델 종류(겉모습 자료가 없을 때 — 팩 core@58까지·옛 덮어쓰기 줄. 영토 비콘은 1차맵에 서지만 편집기 미리 보기·모델 표에 전용 모델을 둔다) */
 const FACILITY_ART: Readonly<Record<string, BuildingArtKind>> = {
   farm: "farm",
   lumber_camp: "lumber",
@@ -60,13 +65,25 @@ const FACILITY_ART: Readonly<Record<string, BuildingArtKind>> = {
   stockpile: "stockpile",
   storehouse: "storehouse",
   warehouse: "warehouse",
-  grand_warehouse: "warehouse",
+  grand_warehouse: "grand_warehouse",
+  logistics_center: "logistics",
   temple: "temple",
   biotech_lab: "lab",
   government_hall: "government",
   hospital: "hospital",
+  lodging: "lodging",
+  city_wall: "wall",
   // 부두(docs/adr/2026-11-13-boats.md 3절)
   dock: "dock",
+  shipyard: "shipyard",
+  trade_dock: "trade_dock",
+  // 거래소(docs/adr/2026-11-16-exchange-buildings.md)
+  goods_exchange: "goods_exchange",
+  fx_exchange: "fx_exchange",
+  unit_exchange: "unit_exchange",
+  stock_exchange: "stock_exchange",
+  // 영토 비콘(docs/adr/2026-11-03-territory-layer.md)
+  territory_beacon: "beacon",
 };
 
 /** 시설 ID → 모델 종류. 모르는 ID·없음이면 일반 집 */
@@ -84,6 +101,10 @@ export interface ResolvedLook {
   readonly state: BuildingCondition;
   readonly upgrading: boolean;
   readonly accent: number | null;
+  /** 국가 시그니처 컬러(#rrggbb 또는 emblem.color → 없으면 accent 번호 표 색) */
+  readonly accentColor: Rgb | null;
+  /** 국가 문양(시그니처 컬러가 포함된 마크) */
+  readonly emblem: NationEmblemView | null;
   /** 벽·지붕 색(null = 모델 기본 색) */
   readonly wall: Rgb | null;
   readonly roof: Rgb | null;
@@ -109,13 +130,19 @@ export function resolveLook(look: BuildingLook | undefined): ResolvedLook {
         ? "building"
         : "ok";
   const accent = look?.accent;
+  const accentIndex = typeof accent === "number" && Number.isInteger(accent) && accent >= 0 ? accent : null;
+  const emblem = look?.emblem ?? null;
+  const accentColor =
+    parseHexColor(look?.accentColor) ?? parseHexColor(emblem?.color) ?? nationAccent(accentIndex);
   const art = look?.art ?? undefined;
   return {
     kind: isFacilityLookModel(art?.model) ? art.model : artKindOf(look?.facility),
     level: Math.min(MAX_ART_LEVEL, Math.max(1, level)),
     state,
     upgrading: look?.upgrading === true && state !== "building" && state !== "ruin",
-    accent: typeof accent === "number" && Number.isInteger(accent) && accent >= 0 ? accent : null,
+    accent: accentIndex,
+    accentColor,
+    emblem,
     wall: lookColor(art?.wall),
     roof: lookColor(art?.roof),
     heightPm: heightPmOf(art?.heightPm),

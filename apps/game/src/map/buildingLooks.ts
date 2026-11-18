@@ -32,12 +32,15 @@ export function accentOf(factions: readonly WorldMapFaction[], factionId: number
 
 /** 응답 한 줄 → 엔진 겉모습 */
 export function lookOf(look: MapBuildingLook, factions: readonly WorldMapFaction[]): BuildingLook {
+  const faction = look.factionId === null ? undefined : factions.find((item) => item.id === look.factionId);
   return {
     facility: look.facilityId,
     level: look.level,
     state: look.state,
     upgrading: look.upgrading,
     accent: accentOf(factions, look.factionId),
+    ...(faction?.color ? { accentColor: faction.color } : {}),
+    ...(faction?.emblem ? { emblem: faction.emblem } : {}),
     // 실효 팩 겉모습(건물 편집기가 바꾼 모델·색·높이). 없으면 엔진이 시설 ID로 고른다
     ...(look.art ? { art: look.art } : {}),
   };

@@ -672,6 +672,9 @@
             ]
           }
         ]
+      },
+      "look": {
+        "model": "beacon"
       }
     },
     {
@@ -841,7 +844,7 @@
       "durability": 600,
       "storageKg": 500000,
       "look": {
-        "model": "warehouse"
+        "model": "grand_warehouse"
       }
     },
     {
@@ -889,8 +892,8 @@
         ]
       },
       "footprint": {
-        "width": 3,
-        "height": 3
+        "width": 4,
+        "height": 4
       },
       "durability": 300,
       "look": {
@@ -938,8 +941,8 @@
         ]
       },
       "footprint": {
-        "width": 2,
-        "height": 2
+        "width": 3,
+        "height": 3
       },
       "durability": 200,
       "look": {
@@ -1009,8 +1012,8 @@
         ]
       },
       "footprint": {
-        "width": 3,
-        "height": 3
+        "width": 4,
+        "height": 4
       },
       "durability": 500,
       "look": {
@@ -1113,8 +1116,7 @@
       },
       "durability": 200,
       "look": {
-        "model": "house",
-        "roof": "thatch"
+        "model": "lodging"
       }
     },
     {
@@ -1145,7 +1147,10 @@
         "width": 4,
         "height": 1
       },
-      "durability": 20000
+      "durability": 20000,
+      "look": {
+        "model": "wall"
+      }
     },
     {
       "id": "dock",
@@ -1241,8 +1246,8 @@
         ]
       },
       "footprint": {
-        "width": 3,
-        "height": 3
+        "width": 4,
+        "height": 4
       },
       "needsWaterWithin": 1,
       "durability": 220,
@@ -1416,8 +1421,7 @@
         }
       ],
       "look": {
-        "model": "dock",
-        "heightPm": 1300
+        "model": "shipyard"
       }
     },
     {
@@ -1469,8 +1473,7 @@
       "durability": 200,
       "harbor": "trade_dock",
       "look": {
-        "model": "dock",
-        "heightPm": 800
+        "model": "trade_dock"
       }
     },
     {
@@ -1521,8 +1524,7 @@
       "durability": 250,
       "logistics": true,
       "look": {
-        "model": "storehouse",
-        "heightPm": 900
+        "model": "logistics"
       }
     },
     {
@@ -1567,15 +1569,13 @@
         ]
       },
       "footprint": {
-        "width": 3,
-        "height": 3
+        "width": 4,
+        "height": 4
       },
       "durability": 300,
       "exchange": "goods",
       "look": {
-        "model": "warehouse",
-        "wall": "cream",
-        "roof": "wood"
+        "model": "goods_exchange"
       }
     },
     {
@@ -1626,9 +1626,7 @@
       "durability": 300,
       "exchange": "fx",
       "look": {
-        "model": "government",
-        "wall": "white",
-        "roof": "stone"
+        "model": "fx_exchange"
       }
     },
     {
@@ -1679,9 +1677,7 @@
       "durability": 300,
       "exchange": "units",
       "look": {
-        "model": "government",
-        "wall": "wood",
-        "roof": "stone"
+        "model": "unit_exchange"
       }
     },
     {
@@ -1732,9 +1728,7 @@
       "durability": 300,
       "exchange": "securities",
       "look": {
-        "model": "government",
-        "wall": "stone",
-        "roof": "white"
+        "model": "stock_exchange"
       }
     }
   ]

@@ -22,6 +22,7 @@ import {
 } from "@terra/sim";
 import type { MapUnitGlance } from "@terra/shared/mapUnits";
 import type { NationEmblemView } from "@terra/shared/nationEditor";
+import { EMBLEM_CHARGES, EMBLEM_DIVISIONS, EMBLEM_SHAPES, normalizeEmblem } from "@terra/shared/nationEmblem";
 import type { LocalizedName } from "@terra/shared/roster";
 import { catchmentRadiusMilli } from "@terra/shared/catchment";
 import { cityGrade } from "@terra/shared/territory";
@@ -90,6 +91,8 @@ export interface WorldMapReadDeps {
   readonly factionName?: ((code: string) => LocalizedName | undefined) | undefined;
   /** 세력 코드 → 국가 프리셋 시그니처 색(`#rrggbb`). 세력 정체성 색이 있으면 그것이 이긴다 */
   readonly factionColor?: ((code: string) => string | undefined) | undefined;
+  /** 세력 코드 → 국가 마크(만든 마크 + 올린 그림 해시). 건물 깃발·배너 문양에 쓴다 */
+  readonly factionEmblem?: ((code: string) => Promise<NationEmblemView | null>) | undefined;
   /**
    * 배후지 지금 반경 규칙(1차맵 영토 원, ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"). 없거나 undefined면 도시 catchmentMilli = null
    * (화면은 영향권 반경으로 그린다)
@@ -178,21 +181,47 @@ async function loadCityRecords(pool: QueryPool, planetId: string): Promise<CityR
   }));
 }
 
-/** 세력 정체성 색(faction_identities.faction_id — 하우스를 세운 세력만). 모양이 틀린 값은 뺀다. 표가 없으면(옛 DB) 빈 표 */
-async function identityColors(pool: QueryPool, factionIds: readonly number[]): Promise<Map<number, string>> {
+interface IdentityVisual {
+  readonly color: string;
+  readonly emblem: NationEmblemView;
+}
+
+/** 세력 정체성 색·마크(faction_identities.faction_id — 하우스를 세운 세력만). 모양이 틀린 값은 뺀다. 표가 없으면(옛 DB) 빈 표 */
+async function identityVisuals(
+  pool: QueryPool,
+  factionIds: readonly number[],
+): Promise<Map<number, IdentityVisual>> {
   if (factionIds.length === 0) return new Map();
   const result = await pool
-    .query(`select faction_id, color from faction_identities where faction_id = any($1::bigint[])`, [
-      factionIds,
-    ])
+    .query(
+      `select faction_id, color, emblem_shape, emblem_division, emblem_charge, emblem_scheme, emblem_sha256
+       from faction_identities where faction_id = any($1::bigint[])`,
+      [factionIds],
+    )
     .catch(() => ({ rows: [] as Record<string, unknown>[] }));
-  const colors = new Map<number, string>();
+  const visuals = new Map<number, IdentityVisual>();
   for (const row of result.rows) {
     const color = typeof row.color === "string" ? row.color.toLowerCase() : "";
-    if (row.faction_id !== null && NATION_COLOR_PATTERN.test(color))
-      colors.set(Number(row.faction_id), color);
+    if (row.faction_id === null || !NATION_COLOR_PATTERN.test(color)) continue;
+    const shape = EMBLEM_SHAPES.find((item) => item === row.emblem_shape);
+    const division = EMBLEM_DIVISIONS.find((item) => item === row.emblem_division);
+    const charge = EMBLEM_CHARGES.find((item) => item === row.emblem_charge);
+    const spec = normalizeEmblem({
+      ...(shape ? { shape } : {}),
+      ...(division ? { division } : {}),
+      ...(charge ? { charge } : {}),
+      scheme: typeof row.emblem_scheme === "number" ? row.emblem_scheme : Number(row.emblem_scheme),
+    });
+    visuals.set(Number(row.faction_id), {
+      color,
+      emblem: {
+        spec,
+        color,
+        uploaded: typeof row.emblem_sha256 === "string" ? row.emblem_sha256 : null,
+      },
+    });
   }
-  return colors;
+  return visuals;
 }
 
 /** 내 탐사 기록(그 행성의 2차맵마다 시야 칸 비트, world_exploration) */
@@ -402,14 +431,22 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
         myFactionId,
         observer,
       });
-      // 국가 색(바뀜 2026-11-14): 세력 정체성 색 > 팩 국가 프리셋 시그니처 색. 아는 국가(안개를 지난 도시의 국가)만
-      const identity = await identityColors(pool, [...factions.keys()]);
-      const colored = [...factions.values()].map((faction): WorldMapFaction => {
-        const preset = faction.code === null ? undefined : deps.factionColor?.(faction.code)?.toLowerCase();
-        const color =
-          identity.get(faction.id) ?? (preset && NATION_COLOR_PATTERN.test(preset) ? preset : null);
-        return { ...faction, color };
-      });
+      // 국가 색·마크(바뀜 2026-11-14, 2026-11-19): 세력 정체성 > 팩 국가 프리셋 시그니처 색·마크. 아는 국가만
+      const identity = await identityVisuals(pool, [...factions.keys()]);
+      const colored = await Promise.all(
+        [...factions.values()].map(async (faction): Promise<WorldMapFaction> => {
+          const own = identity.get(faction.id);
+          const preset = faction.code === null ? undefined : deps.factionColor?.(faction.code)?.toLowerCase();
+          const color = own?.color ?? (preset && NATION_COLOR_PATTERN.test(preset) ? preset : null);
+          const presetEmblem =
+            !own && faction.code !== null && deps.factionEmblem
+              ? await deps.factionEmblem(faction.code).catch(() => null)
+              : null;
+          const baseEmblem = own?.emblem ?? presetEmblem;
+          const emblem = baseEmblem ? { ...baseEmblem, color: color ?? baseEmblem.color } : undefined;
+          return { ...faction, color, ...(emblem ? { emblem } : {}) };
+        }),
+      );
       return {
         status: "ready",
         planetId,
@@ -622,6 +659,7 @@ export function worldMapReadsOf(options: {
     biomeName: (id) => planets?.manifest(planetId)?.biomes.find((biome) => biome.id === id)?.name,
     factionName: nameOfCode,
     factionColor: (code) => nationEmblemOf(code, options.presets)?.color,
+    factionEmblem: emblemOfCode,
     catchment: options.catchment ?? (society ? () => catchmentRadiusRulesOf(society()) : undefined),
     territoryDisplay: options.territoryDisplay ?? (society ? () => society().territoryDisplay : undefined),
   });

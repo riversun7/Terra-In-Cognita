@@ -27,6 +27,17 @@ export const MODEL_TEXT: Readonly<Record<FacilityLookModel, Text>> = {
   ranch: m.dev_buildings_look_model_ranch,
   fishing: m.dev_buildings_look_model_fishing,
   dock: m.dev_buildings_look_model_dock,
+  beacon: m.dev_buildings_look_model_beacon,
+  grand_warehouse: m.dev_buildings_look_model_grand_warehouse,
+  logistics: m.dev_buildings_look_model_logistics,
+  lodging: m.dev_buildings_look_model_lodging,
+  wall: m.dev_buildings_look_model_wall,
+  shipyard: m.dev_buildings_look_model_shipyard,
+  trade_dock: m.dev_buildings_look_model_trade_dock,
+  goods_exchange: m.dev_buildings_look_model_goods_exchange,
+  fx_exchange: m.dev_buildings_look_model_fx_exchange,
+  unit_exchange: m.dev_buildings_look_model_unit_exchange,
+  stock_exchange: m.dev_buildings_look_model_stock_exchange,
 };
 
 export const COLOR_TEXT: Readonly<Record<FacilityLookColor, Text>> = {

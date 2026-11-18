@@ -1,10 +1,11 @@
 // 지도 흐름 조회 모양(tRPC world.cities·world.myPosition) — 기획 60 §4.1(D-6017·D-6018)·§7.1(D-6041), docs/adr/2026-11-07-play-flow.md
 // "WP2 지도 흐름". 1차맵의 도시·국가 표시, 시작 도시 고르기(주변 땅·기후), 2차맵 들어가기(내 사이보그 자리)가 같은 자료를 쓴다.
 // 읽기만 한다. 2차맵 키(mapKey)는 1차맵 칸의 셀 키(면 레벨 F, 안전 정수)다. 위도·경도는 표시용 실수(판정에 쓰지 않는다).
+import type { NationEmblemView } from "./nationEditor.ts";
 import type { LocalizedName } from "./roster.ts";
 import { TERRITORY_MAP_START, type TerritoryMapValues } from "./territoryMap.ts";
 
-/** 국가(세력) 한 줄 — 1차맵 색·이름 */
+/** 국가(세력) 한 줄 — 1차맵 색·이름·마크 */
 export interface WorldMapFaction {
   readonly id: number;
   readonly code: string | null;
@@ -13,9 +14,11 @@ export interface WorldMapFaction {
   readonly name: LocalizedName | null;
   /**
    * 국가 색(`#rrggbb` 소문자) — 세력 정체성(faction_identities.color)이 있으면 그것, 없으면 팩 국가 프리셋 시그니처 색. 1차맵 영토·도시 점·
-   * 범례가 쓴다(ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"). 둘 다 없거나 옛 서버면 null·없음 → 화면은 여섯 색 돌려 쓰기
+   * 범례·건물 시그니처 컬러가 쓴다(ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"). 둘 다 없거나 옛 서버면 null·없음 → 화면은 여섯 색 돌려 쓰기
    */
   readonly color?: string | null | undefined;
+  /** 국가 마크(만든 마크 사양·시그니처 컬러 + 올린 그림 해시 — 정부 건물·비콘 깃발 문양). 옛 서버는 없다 */
+  readonly emblem?: NationEmblemView | null | undefined;
 }
 
 /** 국가 색 모양(`#rrggbb`) — 서버가 보내기 전에, 화면이 style에 넣기 전에 본다 */

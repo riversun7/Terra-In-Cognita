@@ -4,6 +4,7 @@
 // - 레벨: 2부터 종류마다 덧붙이는 것(사일로·통나무 더미·굴뚝 등), 3부터 본채가 한 층씩 높아진다(5까지).
 // - 상태: 짓는 중 = 뼈대·낮은 벽·재료 더미, 손상·멈춤 = 어둡게 + 돌 조각(멈춤은 창 불 꺼짐·깃발 없음), 폐허 = 낮은 벽 조각과 돌 더미.
 // - 좌우 뒤집기·지붕 색 고르기는 씨앗으로 정한다(같은 종류가 모인 도시에서 똑같이 찍어 낸 것처럼 보이지 않게).
+import type { NationEmblemView } from "@terra/shared/nationEditor";
 import { type BuildingArtKind, type BuildingCondition, MAX_ART_LEVEL } from "./buildingLook.ts";
 import { KIND_MODELS, type KindContext, mainRectOf } from "./buildingKinds.ts";
 import {
@@ -13,8 +14,17 @@ import {
   WINDOW_DARK,
   WINDOW_LIT,
   nationAccent,
+  parseHexColor,
 } from "./buildingPalette.ts";
-import { type BuildingPart, FLOOR_M, MARGIN_M, PartList, partBounds, seededRandom } from "./buildingParts.ts";
+import {
+  type BuildingPart,
+  type EmblemMount,
+  FLOOR_M,
+  MARGIN_M,
+  PartList,
+  partBounds,
+  seededRandom,
+} from "./buildingParts.ts";
 
 export interface ModelInput {
   readonly kind: BuildingArtKind;
@@ -27,6 +37,10 @@ export interface ModelInput {
   readonly upgrading?: boolean;
   /** 국가 색 번호(null = 깃발 없음) */
   readonly accent: number | null;
+  /** 국가 시그니처 컬러(#rrggbb, 있으면 accent 번호보다 먼저 쓴다) */
+  readonly accentColor?: string | Rgb | null | undefined;
+  /** 국가 문양(시그니처 컬러·마크 사양·올린 그림 해시) */
+  readonly emblem?: NationEmblemView | null | undefined;
   /** 씨앗(건물 ID) */
   readonly seed: number;
   /** 벽·지붕 색(겉모습 자료, null·없음 = 모델 기본 색) */
@@ -36,15 +50,32 @@ export interface ModelInput {
   readonly heightPm?: number | undefined;
 }
 
+export interface ModelBundle {
+  readonly parts: BuildingPart[];
+  readonly emblems: EmblemMount[];
+  readonly shade: number;
+  readonly emblem: NationEmblemView | null;
+}
+
 export function buildingModel(input: ModelInput): BuildingPart[] {
+  return buildingModelBundle(input).parts;
+}
+
+export function buildingModelBundle(input: ModelInput): ModelBundle {
   const W = Math.max(2, input.widthM);
   const D = Math.max(2, input.depthM);
   const level = Math.min(MAX_ART_LEVEL, Math.max(1, Math.floor(input.level)));
   const random = seededRandom(input.seed);
   const list = new PartList();
-  const accent = nationAccent(input.accent);
+  const explicitAccent =
+    typeof input.accentColor === "string" ? parseHexColor(input.accentColor) : (input.accentColor ?? null);
+  const emblem = input.emblem ?? null;
+  const accent = explicitAccent ?? parseHexColor(emblem?.color) ?? nationAccent(input.accent);
+  const active = input.state === "ok" || input.state === "damaged";
+  const activeEmblem = active ? emblem : null;
+  list.hasEmblem = activeEmblem !== null;
   const shade = STATE_SHADE[input.state];
-  list.windowColor = input.state === "ok" || input.state === "damaged" ? WINDOW_LIT : WINDOW_DARK;
+  list.windowColor = active ? WINDOW_LIT : WINDOW_DARK;
   const ctx: KindContext = {
     list,
     W,
@@ -52,12 +83,23 @@ export function buildingModel(input: ModelInput): BuildingPart[] {
     level,
     extraH: Math.max(0, level - 2) * 3,
     random,
-    ridge: input.state === "ok" || input.state === "damaged" ? accent : null,
+    ridge: active ? accent : null,
     main: mainRectOf(input.kind, W, D),
     wall: (fallback) => input.wall ?? fallback,
     roof: (fallback) => input.roof ?? fallback,
   };
-  list.pad(W, D, input.kind === "government" || input.kind === "temple" ? C.padStone : C.pad);
+  list.pad(
+    W,
+    D,
+    input.kind === "government" ||
+      input.kind === "temple" ||
+      input.kind === "goods_exchange" ||
+      input.kind === "fx_exchange" ||
+      input.kind === "stock_exchange" ||
+      input.kind === "unit_exchange"
+      ? C.padStone
+      : C.pad,
+  );
   if (input.state === "building") underConstruction(ctx);
   else if (input.state === "ruin") ruin(ctx);
   else {
@@ -71,18 +113,26 @@ export function buildingModel(input: ModelInput): BuildingPart[] {
       const count = input.state === "damaged" ? 3 : 6;
       list.rubble(m.x + m.w * 0.45, m.z + m.d * 0.55, count, Math.min(m.w, m.d) * 0.35, random);
     }
-    // 깃발(국가 색): 다 지었고 멈추지 않은 건물만, 판 앞 왼쪽 모서리
-    if (accent && (input.state === "ok" || input.state === "damaged") && input.kind !== "government")
-      list.flag(-W / 2 + MARGIN_M + 0.2, D / 2 - MARGIN_M - 0.2, 5 + level * 0.6, accent);
+    // 깃발(국가 색·문양): 다 지었고 멈추지 않은 건물만, 판 앞 왼쪽 모서리(행정·비콘은 자체 게양대를 둔다)
+    if (accent && active && input.kind !== "government" && input.kind !== "beacon")
+      list.flag(-W / 2 + MARGIN_M + 0.25, D / 2 - MARGIN_M - 0.25, 5 + level * 0.6, accent);
   }
   // 좌우 뒤집기(씨앗) → 상태 색 → 높이 배율 → 판 안으로 맞추기
   const mirror = random() < 0.5 ? -1 : 1;
   const tall = (input.heightPm ?? 1000) / 1000;
-  return list.parts.map((part) => {
+  const parts = list.parts.map((part) => {
     const shaded = shade === 1 || part.shape === "glow" ? part.color : scaleRgb(part.color, shade);
     const lifted = tall === 1 || part.ground ? part : stretchUp(part, tall);
     return fitInside({ ...lifted, x: part.x * mirror, turn: part.turn * mirror, color: shaded }, W, D);
   });
+  const emblems = list.emblems.map((mount) => {
+    const y = tall === 1 ? mount.y : FLOOR_M + (mount.y - FLOOR_M) * tall;
+    const height = tall === 1 ? mount.height : mount.height * tall;
+    // 좌우 뒤집기(x -> -x): 깃발(turn = 0)은 x축을 뒤집으므로 그대로 앞/뒤를 보되, 비스듬히 붙은 배너 법선(turn)은 x반전(-turn)
+    const turn = mount.turn * mirror;
+    return { ...mount, x: mount.x * mirror, y, height, turn };
+  });
+  return { parts, emblems, shade, emblem: activeEmblem };
 }
 
 /** 판(가로 W × 세로 D) 밖으로 나간 조각을 안으로 옮기고, 판보다 크면 줄인다 */

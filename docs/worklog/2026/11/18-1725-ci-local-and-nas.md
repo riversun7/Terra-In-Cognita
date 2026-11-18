@@ -18,18 +18,20 @@
 - `package.json`·`lefthook.yml`:
   - `pnpm check` 순서를 `format:check → typecheck → lint → …`로 바꿔, 다른 작업 PC에서 `git pull` 받은 뒤 바로 돌려도 `paraglide` 컴파일과 서버 선언 파일이 `lint` 전에 먼저 만들어지게 했다.
   - `pre-push` 훅에 `pnpm --filter @terra/server db:generate && test -z "$(git status --porcelain -- apps/server/drizzle)"`를 더했다.
-- `AGENTS.md` 3장, `docs/adr/2026-10-28-dev-workflow.md`(일부 대체 표시), 새 ADR `docs/adr/2026-11-18-ci-local-and-nas.md` 작성.
+- `AGENTS.md` 3장, `docs/PLAN.md` 2·9.6·10.1·10.2절, `ops/nas-setup.md` 3·5·9장, `docs/adr/2026-10-28-dev-workflow.md`(일부 대체 표시), 새 ADR `docs/adr/2026-11-18-ci-local-and-nas.md` 작성.
+- `.github/workflows/nas-metrics.yml`: NAS에 직접 들어가지 않고 서버 컨테이너(`tic-app`)의 경고·오류 로그(`level` 40·50·60, `warn`·`error`·`fatal`, `✗`, `Error:`)를 Summary로 함께 가져오도록 구역 추가.
 
 ## 바꾼 파일과 이유
 | 파일 | 이유 |
 |---|---|
 | `.github/workflows/ci.yml` | `check`·`secrets`·PR 트리거·이미지 안 `smoke` 컨테이너 제거, `image` → `deploy`만 유지 |
 | `.github/workflows/rollback-drill.yml` | `broken-image`를 NAS 실행기(`[self-hosted, nas]`) 작업으로 합침 |
+| `.github/workflows/nas-metrics.yml` | `tic-app` 서버 경고·오류 로그 수집 구역 추가 |
 | `Dockerfile` | 빌드 단계에서 `check-pwa`·`check-bundle`·`check-content --no-compat` 실행 |
 | `ops/smoke.mjs` | 정적 파일·PWA 응답 점검(`/`, `manifest.webmanifest`, `sw.js`, 없는 파일 404) 추가 |
 | `package.json` | `pnpm check`에서 `typecheck`를 `lint` 앞으로 이동 |
 | `lefthook.yml` | `pre-push`에 `db:generate` 마이그레이션 누락 검사 추가 |
-| `AGENTS.md` | 3장 검사 모아서 하기·CI/NAS 역할 분담 규칙 갱신 |
+| `AGENTS.md`, `docs/PLAN.md`, `ops/nas-setup.md` | 검사 모아서 하기·CI/NAS 역할 분담·지표 수집 안내 갱신 |
 | `docs/adr/2026-10-28-dev-workflow.md`, `docs/adr/2026-11-18-ci-local-and-nas.md` | CI 경량화 결정 기록 |
 | `docs/worklog/2026/11/18-1725-ci-local-and-nas.md` | 이 기록 |
 
@@ -40,8 +42,8 @@
 - `ops/deploy.sh`의 자동 되돌림 순서와 `changes` 단계(마지막 성공한 main 실행 기준 비교).
 
 ## 미검증·TODO·알려진 문제
-- `ci.yml`·`rollback-drill.yml`·`lefthook.yml` YAML 구문과 로컬 `pre-push` 훅 전체는 확인했다(Verified). 바뀐 `ci.yml`(`image` → `deploy`)과 `ops/smoke.mjs` 정적 파일 점검이 실제 GitHub·NAS에서 도는 것은 푸시 뒤 처음 확인된다(미실행).
-- `rollback-drill.yml`은 수동 실행 워크플로라 실제로 돌리지 않았다(미실행).
+- `0bf5b1ec` 푸시 뒤 `CI #364` 실행 확인(Verified, GitHub API): `image` 72초(과금 2분, `CI #363`의 `check` 404초·`secrets` 26초·`image` 84초 대비 대폭 단축)·`deploy` 108초(`ops/smoke.mjs` 정적·PWA 점검 포함) 성공.
+- `rollback-drill.yml`과 `nas-metrics.yml`의 새 서버 경고·오류 로그 구역은 수동 실행 워크플로라 실제로 돌리지 않았다(미실행).
 
 ## 사용자 결정 대기
 - 없음.

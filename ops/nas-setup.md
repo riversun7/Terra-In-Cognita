@@ -24,7 +24,7 @@ File Station → `docker` 공유 폴더 안에 폴더를 만든다.
 GitHub 저장소 → **Settings → Secrets and variables → Actions → Variables 탭 → New repository variable**
 - 이름: `NAS_DEPLOY_ENABLED`, 값: `true`
 
-이후 main에 푸시할 때마다 검사 → 이미지 → NAS 배포가 이어진다. 바로 배포하려면 **Actions → ci → Run workflow**(main). 끄려면 값을 `false`로 바꾼다.
+이후 main에 코드·설정을 푸시할 때마다 이미지 빌드(`image`) → NAS 배포(`deploy`)가 이어진다(문서·스킬만 바뀐 푸시는 CI가 시작하지 않고, 코드·문서·콘텐츠·마이그레이션 검사는 작업 PC의 `pre-push` 훅에서 한다). 바로 배포하려면 **Actions → ci → Run workflow**(main). 끄려면 값을 `false`로 바꾼다.
 
 ## 4. NAS 사양 수집 (1회)
 **Actions → nas-facts → Run workflow**. 끝나면 실행 화면의 Summary에 커널·CPU·메모리·디스크·Docker 버전·디스크 동기화 속도가 나온다. 다음 작업 세션이 이 내용을 `ops/nas-facts.md`로 옮긴다.
@@ -35,7 +35,7 @@ GitHub 저장소 → **Settings → Secrets and variables → Actions → Variab
 - DB 비밀번호와 로그인 쿠키 비밀값(`BETTER_AUTH_SECRET`)은 첫 배포 때 자동으로 만들어져 `docker/terra-in-cognita/.env`에만 저장된다(git에는 없음). 이미 있는 `.env`에 빠진 키만 덧붙이고, 있는 값은 바꾸지 않는다.
 - 배포 중 헬스체크가 실패하면 직전 버전으로 자동으로 되돌린다. 배포 전 DB 백업은 `docker/terra-in-cognita/backups`에 14일 보관한다.
 - DB 구조 변경(마이그레이션)은 배포 로그에 `마이그레이션 적용: …` 또는 `적용할 마이그레이션 없음`으로 나온다. 실패하면 앱을 바꾸지 않고 멈춘다.
-- healthy가 된 뒤 자동 점검을 한다(`ops/smoke.mjs`): `/health`의 DB 상태·콘텐츠 버전·해시가 CI가 검사한 값과 같은지, WebSocket 접속이 되는지. 배포 로그에 `✓ 배포 점검 통과 — core@1 (…)`이 나오면 성공이다. 실패하면(`✗ 배포 점검 실패: …`) 직전 버전으로 되돌린다.
+- healthy가 된 뒤 자동 점검을 한다(`ops/smoke.mjs`): `/health`의 DB 상태·콘텐츠 버전·해시, 정적 파일·PWA 응답(`/`, `/manifest.webmanifest`, `/sw.js`, 없는 파일 404), WebSocket 접속이 되는지. 배포 로그에 `✓ 배포 점검 통과 — core@1 (…)`이 나오면 성공이다. 실패하면(`✗ 배포 점검 실패: …`) 직전 버전으로 되돌린다.
 - 콘텐츠 팩은 이미지 안에 있다(`/app/content/core`). 팩이 틀리면 앱이 뜨지 않고(로그에 `✗ [스키마] …`, `콘텐츠 팩 검증 실패`) 직전 버전으로 되돌린다. 지금 실행 중인 팩은 `/health`의 `contentVersion`·`contentHash`로 본다: `docker exec tic-app node -e "fetch('http://127.0.0.1:4100/health').then(r=>r.text()).then(console.log)"`
 
 ## 6. 외부 접속 (주소를 정할 때 같이 설정)
@@ -64,7 +64,7 @@ GitHub 저장소 → **Settings → Secrets and variables → Actions → Variab
 - **NAS 밖 보관(해 주실 일)**: 백업이 NAS 안에만 있으면 NAS가 고장 날 때 같이 잃는다. DSM → Hyper Backup → 백업 작업 생성 → 대상(USB·다른 NAS·클라우드) → 폴더 `docker/terra-in-cognita/backups` → 매일.
 
 ## 9. 관측 (보는 법)
-- 한 번에 보기: Actions → **nas-metrics** → Run workflow(최근 몇 분). 서버 1분 지표, 컨테이너 CPU·메모리, 행성 준비 줄(컨테이너 시작 뒤 전체), 기기 성능·오류를 Summary에 모아 보여 준다(읽기만 한다). 앱 컨테이너를 다시 만들면(배포) 그 전의 서버 지표 줄은 없어진다. 기기 표는 DB에 남는다.
+- 한 번에 보기: Actions → **nas-metrics** → Run workflow(최근 몇 분). 서버 1분 지표, 컨테이너 CPU·메모리, 행성 준비 줄(컨테이너 시작 뒤 전체), 서버 경고·오류 로그, 기기 성능·오류를 Summary에 모아 보여 준다(읽기만 한다). 앱 컨테이너를 다시 만들면(배포) 그 전의 서버 지표·로그 줄은 없어진다. 기기 표는 DB에 남는다.
 - 서버 지표(1분마다 로그 한 줄: 이벤트 루프 지연, 메모리, 접속 수, CPU %(코어 하나 기준, 워커 스레드 포함)): `docker logs tic-app 2>&1 | grep '"metric":"server"' | tail -5`
 - 행성 굽기·캐시(시작할 때 한 줄: 굽기 시간·단계별 시간·최대 메모리·타일 수·크기 또는 캐시 읽기 시간, 1분 지표의 `planet*` 값): `docker logs tic-app 2>&1 | grep '"msg":"planet ready"'`
 - 기기 오류: `docker exec tic-db psql -U terra -d terra -c "select received_at, kind, message, page from client_errors order by id desc limit 20"`

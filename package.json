@@ -10,6 +10,9 @@
   "scripts": {
     "dev:server": "pnpm --filter @terra/server dev",
     "dev:game": "pnpm --filter @terra/game dev",
+    "dev:db": "node scripts/dev-db.mjs",
+    "dev:reset": "node scripts/dev-db.mjs --reset",
+    "dev:local": "node scripts/dev-local.mjs",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck && tsc -p e2e/tsconfig.json",
     "lint": "oxlint --type-aware --deny-warnings apps packages scripts e2e",

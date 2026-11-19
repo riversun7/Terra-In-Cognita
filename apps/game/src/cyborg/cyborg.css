@@ -293,6 +293,7 @@
   grid-area: value;
   font-variant-numeric: tabular-nums;
   font-weight: var(--font-weight-strong);
+  white-space: nowrap;
 }
 .cyborg-element[data-empty="true"] .cyborg-element-icon {
   color: var(--color-text-muted);
@@ -412,6 +413,16 @@
 }
 .cyborg-footer p {
   overflow-wrap: anywhere;
+}
+
+@media (max-width: 37.5em) {
+  .cyborg-profile {
+    padding: var(--space-3);
+  }
+  .cyborg-element {
+    padding: var(--space-2);
+    gap: var(--space-1);
+  }
 }
 
 @media (min-width: 64em) {

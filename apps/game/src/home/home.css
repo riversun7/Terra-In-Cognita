@@ -354,8 +354,25 @@
 .home-card-name {
   min-width: 0;
 }
-/* 1칸처럼 좁은 카드: 첫 줄에 아이콘과 화살표, 둘째 줄에 제목(제목이 두 줄로 쪼개지지 않게) */
-@container (max-width: 13em) {
+/* 1칸처럼 아주 좁은 카드: 첫 줄에 아이콘과 화살표, 둘째 줄에 제목(제목이 두 줄로 쪼개지지 않게) */
+@container (max-width: 14.5em) {
+  .home-card-head {
+    gap: var(--space-1);
+    padding: var(--space-2) var(--space-3);
+  }
+  .home-card-icon {
+    width: var(--mark-sm);
+    height: var(--mark-sm);
+  }
+  .home-card-title {
+    font-size: var(--font-size-sm);
+  }
+  .home-cyborg-head {
+    padding: var(--space-1) var(--space-2);
+    gap: var(--space-1);
+  }
+}
+@container (max-width: 8.5em) {
   .home-card-heading {
     flex-wrap: wrap;
     row-gap: var(--space-1);
@@ -440,11 +457,21 @@
   background-color: var(--color-surface-2);
   min-width: 0;
 }
+@container (max-width: 14.5em) {
+  .home-stat-tile {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: var(--space-1) var(--space-2);
+  }
+}
 .home-stat-label {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   font-weight: var(--font-weight-strong);
   line-height: var(--line-height-tight);
+  white-space: nowrap;
 }
 .home-stat-value {
   font-size: var(--font-size-md);
@@ -471,6 +498,7 @@
   overflow-wrap: anywhere;
 }
 .home-cyborg-lv {
+  flex: none;
   padding: calc(var(--space-1) / 2) var(--space-2);
   border: var(--hairline) solid var(--color-border-strong);
   border-radius: var(--radius-pill);
@@ -479,17 +507,24 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-strong);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .home-primaries {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-1);
+}
+@container (min-width: 15.5em) {
+  .home-primaries {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 .home-primary-chip {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-1);
+  min-width: 0;
   padding: var(--space-1) var(--space-2);
   border: var(--hairline) solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -497,6 +532,12 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-strong);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.home-primary-code {
+  flex: none;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 .home-primary-chip[data-stat="str"] .home-primary-code {
   color: var(--color-stat-str);
@@ -562,6 +603,17 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+
+/* 좁은 모바일 화면: 카드 안쪽 여백을 조금 줄여 2열 카드 안의 스탯·제목이 한 줄에 여유 있게 들게 한다 */
+@media (max-width: 37.5em) {
+  .home-card {
+    padding: var(--space-3);
+  }
+  .home-card-head {
+    margin: calc(var(--space-3) * -1) calc(var(--space-3) * -1) 0;
+    padding: var(--space-2) var(--space-3);
+  }
 }
 
 /* 넓은 화면: 머리 판과 격자 사이를 조금 더 띄우고, 1칸 카드를 조금 넓게 */

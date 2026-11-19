@@ -193,6 +193,8 @@ export interface WorldPosition {
   readonly lonDeg: number;
   /** 사이보그 본체 세계 유닛 ID(2차맵 화면이 카메라를 맞춘다) */
   readonly unitId: number;
+  /** 내 사이보그 이름(1차맵 본캐릭 표시에 쓴다). 옛 서버는 없다 */
+  readonly name?: string | null | undefined;
   /** 시작 도시 ID */
   readonly startCityId: number;
   /**
@@ -326,6 +328,32 @@ export interface WorldTravel {
   readonly scoutedMapKey: number | null;
   /** 띄우지 않은 2차맵을 건너뛰는 중(mapKey·칸은 곧은 선을 따라 지금 있을 자리, 질문 593 나) */
   readonly hidden: boolean;
+  /** 1차맵 이동 경로 점(위도·경도, 현재 위치 → 남은 경유지 → 목적지). 옛 서버는 없다 */
+  readonly routePoints?: readonly (readonly [latDeg: number, lonDeg: number])[] | undefined;
+}
+
+/** 1차맵 내 유닛 종류 */
+export type WorldMyUnitKind = "cyborg" | "human" | "cyborg_unit" | "guardian" | "boat" | "other";
+
+/** 1차맵에 띄우는 내 유닛 한 기(사이보그 본체 + 띄운/안 띄운 2차맵·이동 중인 모든 내 유닛) */
+export interface WorldMyUnit {
+  readonly unitId: number;
+  readonly kind: WorldMyUnitKind;
+  /** 본체 이름 등(없으면 종류 + #ID로 표시) */
+  readonly name?: string | null | undefined;
+  readonly mapKey: number;
+  readonly cellX: number;
+  readonly cellY: number;
+  readonly latDeg: number;
+  readonly lonDeg: number;
+  /** 서버가 띄워 둔 2차맵에 있는가(바로 2차맵 들어가기 가능) */
+  readonly loaded: boolean;
+  /** 2차맵 사이를 이동·정찰 중인가 */
+  readonly moving: boolean;
+  /** 직무(채집·작업) 수행 중인가 */
+  readonly working?: boolean | undefined;
+  /** 배에 타고 있으면 그 배 유닛 ID(지도에선 배 자리에 묶어 표시) */
+  readonly aboardId?: number | null | undefined;
 }
 
 /**
@@ -351,5 +379,7 @@ export interface WorldTravelsResponse {
   readonly travels: readonly WorldTravel[];
   /** 내 좌표 유닛(서 있음, 승객 빼고), 유닛 ID 차례. 옛 서버는 없음 */
   readonly parked?: readonly WorldParkedUnit[] | undefined;
+  /** 행성 전역의 내 모든 유닛(사이보그 본체 + 띄운/안 띄운 2차맵·이동 중 내 유닛 전부). 옛 서버는 없음 */
+  readonly units?: readonly WorldMyUnit[] | undefined;
   readonly generatedAt: number;
 }

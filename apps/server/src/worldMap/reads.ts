@@ -68,8 +68,14 @@ export interface WorldMapSource {
   readonly maps: ReadonlyMap<number, SecondMap>;
   /** 시야 규칙(구독과 같은 canViewSecondMap)이 읽는 세계 — 사용자의 소유 주체 */
   readonly directory: WorldDirectory;
-  /** 사이보그 본체 유닛 ID·시작 도시(없으면 undefined) */
-  cyborgOf(userId: string): { readonly unitId: number | null; readonly startCityId: number } | undefined;
+  /** 사이보그 본체 유닛 ID·이름·시작 도시(없으면 undefined) */
+  cyborgOf(userId: string):
+    | {
+        readonly unitId: number | null;
+        readonly startCityId: number;
+        readonly name?: string | undefined;
+      }
+    | undefined;
   /** 띄운 2차맵에서 내가 아는 시야 칸(탐사 기록 ∪ 지금 시야, MapVision.sighted). 없으면 DB 탐사 기록만 본다 */
   sighted?: ((mapKey: number, viewer: Viewer) => Promise<Uint8Array | undefined>) | undefined;
   /** 영토 셈(조회 캐시). 없으면(영토 서비스 없음) undefined */
@@ -528,6 +534,7 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
             cellY,
             ...placeLatLon(mapKey, cellX, cellY),
             unitId,
+            ...(cyborg.name ? { name: cyborg.name } : {}),
             startCityId: cyborg.startCityId,
             hidden: false,
           };
@@ -549,6 +556,7 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
             cellY: spot.cellY,
             ...placeLatLon(spot.mapKey, spot.cellX, spot.cellY),
             unitId,
+            ...(cyborg.name ? { name: cyborg.name } : {}),
             startCityId: cyborg.startCityId,
             hidden: standing === undefined,
           };
@@ -725,6 +733,10 @@ export function worldMapReadsOf(options: {
     (mapKey, x, y) => (isCellKey(mapKey) ? placeLatLon(mapKey, x, y) : { latDeg: 0, lonDeg: 0 }),
     danger,
     (userId) => world.ownerOfUser?.(userId),
+    {
+      maps: () => world.maps.values(),
+      cyborgName: (userId) => world.persistence?.cyborgs.record(userId)?.name,
+    },
   );
   // 2차맵 화면의 내 유닛 목록(docs/adr/2026-11-07-unit-control.md): 메모리 유닛만 읽는다. 남의 유닛 한눈 정보(636 나)만 세력 행을 DB에서 읽는다
   const units = createMapUnitReads({

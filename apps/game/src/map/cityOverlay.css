@@ -458,49 +458,307 @@
   text-align: center;
 }
 
-/* 내 사이보그: 테두리 고리(누르지 않는다) */
-.city-me {
+/* 내 사이보그·내 유닛 실시간 이동 경로 & 목적지 표적 */
+.city-my-route-cyborg {
+  fill: none;
+  stroke: var(--color-space-focus);
+  stroke-width: calc(var(--border-w) * 3.2);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 10 6;
+  animation: planet-war-march 1.2s linear infinite;
+}
+.city-my-route-unit {
+  fill: none;
+  stroke: var(--color-space-habitable);
+  stroke-width: calc(var(--border-w) * 2.6);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 8 6;
+  animation: planet-war-march 1.4s linear infinite;
+}
+.city-my-route-target {
   position: absolute;
   top: 0;
   left: 0;
   z-index: 3;
-  width: calc(var(--status-dot) * 2.4);
-  height: calc(var(--status-dot) * 2.4);
-  border: var(--focus-w) solid var(--color-space-focus);
+  width: calc(var(--status-dot) * 1.8);
+  height: calc(var(--status-dot) * 1.8);
+  border: var(--border-strong-w) solid var(--color-space-habitable);
   border-radius: var(--radius-pill);
-  background-color: var(--color-space-panel);
-  box-shadow: 0 0 var(--space-3) color-mix(in srgb, var(--color-space-focus) 70%, transparent);
+  background-color: color-mix(in srgb, var(--color-space-panel) 80%, transparent);
+  box-shadow: 0 0 var(--space-2) var(--color-space-habitable);
+  pointer-events: none;
+}
+.city-my-route-target[data-cyborg="true"] {
+  border-color: var(--color-space-focus);
+  box-shadow: 0 0 var(--space-3) var(--color-space-focus);
+}
+.city-my-route-target[hidden] {
+  display: none;
+}
+
+/* 내 본캐릭 사이보그 비콘: 정확한 위치 레이더 펄스 + 위로 뜬 본캐 이름·바이저 핀(도시 별을 가리지 않는다) */
+@keyframes planet-me-radar {
+  0% {
+    transform: translate(-50%, -50%) scale(0.75);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.15);
+    opacity: 0;
+  }
+}
+.city-me {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  min-width: var(--tap-size);
+  min-height: var(--tap-size);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  box-shadow: none;
+  transition: none;
+  pointer-events: auto;
+  cursor: pointer;
 }
 .city-me[hidden] {
   display: none;
 }
+.city-me:focus-visible {
+  outline: var(--focus-w) solid var(--color-space-focus);
+  outline-offset: var(--focus-offset);
+}
+.city-me-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: calc(var(--status-dot) * 2.6);
+  height: calc(var(--status-dot) * 2.6);
+  border: var(--border-strong-w) solid var(--color-space-focus);
+  border-radius: var(--radius-pill);
+  pointer-events: none;
+  animation: planet-me-radar 2.2s ease-out infinite;
+}
+.city-me-anchor {
+  position: relative;
+  width: calc(var(--status-dot) * 1.3);
+  height: calc(var(--status-dot) * 1.3);
+  border: var(--border-strong-w) solid var(--color-space-text);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-space-focus);
+  box-shadow: 0 0 var(--space-3) var(--color-space-focus);
+  pointer-events: none;
+}
+.city-me-pin {
+  position: absolute;
+  bottom: calc(50% + var(--space-3));
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: max-content;
+  max-width: calc(var(--tap-size) * 4.5);
+  padding: calc(var(--space-1) * 0.75) var(--space-2) calc(var(--space-1) * 0.75) var(--space-1);
+  border: var(--border-strong-w) solid var(--color-space-focus);
+  border-radius: var(--radius-pill);
+  background-color: color-mix(in srgb, var(--color-space-panel) 94%, transparent);
+  box-shadow:
+    0 var(--space-1) var(--space-3) color-mix(in srgb, var(--color-space) 70%, transparent),
+    0 0 var(--space-3) color-mix(in srgb, var(--color-space-focus) 55%, transparent);
+  color: var(--color-space-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-tight);
+  pointer-events: none;
+}
+.city-me-pin::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-inline: var(--space-1) solid transparent;
+  border-top: var(--space-2) solid var(--color-space-focus);
+}
+.city-me[data-focused="true"] .city-me-pin {
+  border-color: var(--color-space-current);
+  box-shadow:
+    0 var(--space-1) var(--space-3) color-mix(in srgb, var(--color-space) 75%, transparent),
+    0 0 var(--space-4) color-mix(in srgb, var(--color-space-current) 75%, transparent);
+}
+.city-me[data-focused="true"] .city-me-pin::after {
+  border-top-color: var(--color-space-current);
+}
+.city-me-icon-wrap {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: calc(var(--status-dot) * 2.1);
+  height: calc(var(--status-dot) * 2.1);
+  border-radius: var(--radius-pill);
+  background-color: color-mix(in srgb, var(--color-space-focus) 22%, var(--color-space-panel));
+  color: var(--color-space-focus);
+}
+.city-me-icon {
+  width: calc(var(--status-dot) * 1.5);
+  height: calc(var(--status-dot) * 1.5);
+}
+.city-me-badge {
+  flex: none;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-space-focus);
+  color: var(--color-space-panel);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.city-me-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
-/* 내 좌표 유닛(띄우지 않은 2차맵 위에 섬 — ADR 2026-11-15) */
+/* 내 보유 유닛(휴먼·사이보그 유닛·수호신·배·이동 중) 위치 핀 */
 .city-away {
   position: absolute;
   top: 0;
   left: 0;
-  z-index: 2;
-  width: calc(var(--status-dot) * 1.6);
-  height: calc(var(--status-dot) * 1.6);
-  border: var(--border-strong-w) solid var(--color-space-text);
+  z-index: 3;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  min-width: var(--tap-size);
+  min-height: var(--tap-size);
+  margin: 0;
+  padding: 0;
+  border: 0;
   border-radius: var(--radius-pill);
-  background-color: var(--color-primary);
-  box-shadow: var(--shadow-control);
-  pointer-events: none;
-}
-.city-away[data-boat="true"] {
-  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  transition: none;
+  pointer-events: auto;
+  cursor: pointer;
 }
 .city-away[hidden] {
   display: none;
+}
+.city-away:focus-visible {
+  outline: var(--focus-w) solid var(--color-space-habitable);
+  outline-offset: var(--focus-offset);
+}
+.city-away-dot {
+  display: inline-grid;
+  place-items: center;
+  width: calc(var(--status-dot) * 2.3);
+  height: calc(var(--status-dot) * 2.3);
+  border: var(--border-strong-w) solid var(--color-space-habitable);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-space-panel);
+  color: var(--color-space-habitable);
+  box-shadow:
+    0 0 0 var(--hairline) var(--color-space-panel),
+    0 0 var(--space-2) color-mix(in srgb, var(--color-space-habitable) 65%, transparent);
+}
+.city-away[data-boat="true"] .city-away-dot {
+  border-color: var(--color-space-cold);
+  border-radius: var(--radius-sm);
+  color: var(--color-space-cold);
+  box-shadow:
+    0 0 0 var(--hairline) var(--color-space-panel),
+    0 0 var(--space-2) color-mix(in srgb, var(--color-space-cold) 65%, transparent);
+}
+.city-away[data-moving="true"] .city-away-dot {
+  border-color: var(--color-space-focus);
+  color: var(--color-space-focus);
+  box-shadow: 0 0 var(--space-3) color-mix(in srgb, var(--color-space-focus) 75%, transparent);
+}
+.city-away[data-focused="true"] .city-away-dot {
+  border-color: var(--color-space-current);
+  color: var(--color-space-current);
+  box-shadow: 0 0 var(--space-4) var(--color-space-current);
+}
+.city-away-icon {
+  width: calc(var(--status-dot) * 1.4);
+  height: calc(var(--status-dot) * 1.4);
+}
+/* 여러 유닛이 같은 자리에 묶였을 때 수 배지 */
+.city-away:not([data-cluster="1"])::after {
+  content: attr(data-cluster);
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  min-width: var(--badge-size);
+  padding: 0 var(--space-1);
+  border: var(--hairline) solid var(--color-space-panel);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-space-habitable);
+  color: var(--color-space-panel);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--badge-size);
+  text-align: center;
+}
+.city-away-label {
+  position: absolute;
+  top: calc(100% - var(--space-1));
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  width: max-content;
+  max-width: calc(var(--tap-size) * 3.6);
+  padding: 0 var(--space-2);
+  overflow: hidden;
+  border: var(--hairline) solid var(--color-space-habitable);
+  border-radius: var(--radius-pill);
+  background-color: color-mix(in srgb, var(--color-space-panel) 92%, transparent);
+  color: var(--color-space-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.city-away[data-boat="true"] .city-away-label {
+  border-color: var(--color-space-cold);
+}
+/* 내 부대 강조 레이아웃이거나 이동·묶음·선택 유닛이면 이름표를 항상 띄운다 */
+.city-overlay[data-unit-spotlight="true"] .city-away-label,
+.city-away[data-moving="true"] .city-away-label,
+.city-away[data-focused="true"] .city-away-label,
+.city-away:not([data-cluster="1"]) .city-away-label {
+  display: block;
+}
+
+/* 내 부대 위치 강조 레이아웃: 배경 영토·도시를 살짝 가라앉혀 본캐·내 유닛·이동 경로를 맨 위에 띄운다 */
+.city-overlay[data-unit-spotlight="true"] .city-area-fill {
+  fill-opacity: 0.1;
+}
+.city-overlay[data-unit-spotlight="true"] .city-area-edge,
+.city-overlay[data-unit-spotlight="true"] .city-area-edge-shadow,
+.city-overlay[data-unit-spotlight="true"] .city-area-label,
+.city-overlay[data-unit-spotlight="true"] .city-marker {
+  opacity: 0.52;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .city-war-divider,
   .city-diplomacy-war,
   .city-diplomacy-war-focus,
-  .city-war-clash {
+  .city-war-clash,
+  .city-my-route-cyborg,
+  .city-my-route-unit,
+  .city-me-pulse {
     animation: none;
   }
 }

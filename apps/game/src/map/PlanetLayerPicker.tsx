@@ -68,6 +68,9 @@ interface PlanetLayerPickerProps {
   readonly onFocusNation?: ((factionId: number) => void) | undefined;
   /** 지금 강조해서 보는 국가 ID */
   readonly focusedFactionId?: number | null | undefined;
+  /** 내 본캐·유닛 위치 강조 레이아웃 켜짐 여부 */
+  readonly unitSpotlight?: boolean | undefined;
+  readonly onToggleUnitSpotlight?: (() => void) | undefined;
 }
 
 const LAYER_NAMES: Readonly<Record<PlanetLayer, () => string>> = {
@@ -367,6 +370,23 @@ export function PlanetLayerPicker(
           </button>
         ))}
       </div>
+      {props.onToggleUnitSpotlight ? (
+        <div className="planet-layer-spotlight">
+          <div className="planet-layer-spotlight-text">
+            <span className="planet-layer-spotlight-title">{m.planet_units_spotlight()}</span>
+            <span className="planet-layer-spotlight-note">{m.planet_units_spotlight_hint()}</span>
+          </div>
+          <button
+            type="button"
+            className="button-small planet-units-spotlight-btn"
+            aria-pressed={props.unitSpotlight === true}
+            onClick={props.onToggleUnitSpotlight}
+          >
+            <MapIcon name="squad" className="planet-units-btn-icon" />
+            <span>{m.planet_units_spotlight()}</span>
+          </button>
+        </div>
+      ) : null}
       {layer === "resource" ? (
         <div className="planet-resource-picker">
           <div className="planet-row planet-material">

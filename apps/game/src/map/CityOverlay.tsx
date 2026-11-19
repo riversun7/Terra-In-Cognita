@@ -9,7 +9,9 @@ import type {
   WorldMapCity,
   WorldMapFaction,
   WorldMapRelation,
+  WorldMyUnit,
   WorldParkedUnit,
+  WorldTravel,
 } from "@terra/shared/worldMap";
 import { useEffect, useId, useMemo, useRef } from "react";
 import { m } from "../paraglide/messages.js";
@@ -18,6 +20,7 @@ import { MapIcon } from "./mapIcons.tsx";
 import { nationHex, nationStyle } from "./nationColor.ts";
 import { type LabelSize, placeLabels, projectTerritory } from "./territoryDraw.ts";
 import { type TerritoryView, territoryViewOf } from "./territoryView.ts";
+import { placeMyUnits, projectMyRoutes } from "./unitOverlay.ts";
 import {
   buildDiplomacyArcs,
   factionFallbackAnchors,
@@ -55,9 +58,31 @@ interface CityOverlayProps {
   /** 지금 레이어(지형·기후·고도·자원·영토). 없으면 terrain */
   readonly layer?: PlanetLayer | undefined;
   /** 내 사이보그 자리(없으면 그리지 않는다) */
-  readonly me?: { readonly latDeg: number; readonly lonDeg: number } | null | undefined;
-  /** 내 좌표 유닛(띄우지 않은 2차맵 위에 섬, 사이보그 본체 빼고). 없으면 그리지 않는다 */
+  readonly me?:
+    | {
+        readonly latDeg: number;
+        readonly lonDeg: number;
+        readonly unitId?: number | undefined;
+        readonly name?: string | null | undefined;
+      }
+    | null
+    | undefined;
+  /** 내 사이보그가 2차맵 사이를 이동 중인가 */
+  readonly meMoving?: boolean | undefined;
+  /** 내 좌표 유닛(옛 호출 호환용). myUnits가 있으면 myUnits를 우선 쓴다 */
   readonly away?: readonly WorldParkedUnit[] | undefined;
+  /** 행성 전역의 내 모든 유닛(본캐 + 띄운/안 띄운 2차맵 + 이동 중). 없으면 away로 대체 */
+  readonly myUnits?: readonly WorldMyUnit[] | undefined;
+  /** 내 유닛의 이동 경로(1차맵 점선 경로·목적지 표적 표시) */
+  readonly myTravels?: readonly WorldTravel[] | undefined;
+  /** 내 부대 위치 강조 레이아웃(본캐·유닛 핀과 이동 경로를 지도 맨 위에 뚜렷하게) */
+  readonly unitSpotlight?: boolean | undefined;
+  /** 지금 강조해서 보는 내 유닛 ID */
+  readonly focusedUnitId?: number | null | undefined;
+  /** 본캐 사이보그 핀을 눌렀을 때 */
+  readonly onSelectMe?: (() => void) | undefined;
+  /** 내 유닛 핀을 눌렀을 때 */
+  readonly onSelectUnit?: ((unitId: number) => void) | undefined;
   readonly selected: number | null;
   readonly onSelect: (city: WorldMapCity) => void;
   /** 묶음 표시를 누르면 그곳으로 다가간다 */
@@ -120,9 +145,11 @@ export function CityOverlay(props: CityOverlayProps) {
   // 이름표 크기(px) — 국가·외교가 바뀌거나 글꼴이 다 열리면 다시 잰다
   const labelSizes = useRef(new Map<number, LabelSize>());
   const measureRetryRef = useRef(0);
-  const meRef = useRef<HTMLSpanElement>(null);
-  /** 내 좌표 유닛 점(유닛 ID → 요소) */
-  const awayRefs = useRef(new Map<number, HTMLSpanElement>());
+  const meRef = useRef<HTMLButtonElement>(null);
+  /** 내 비본체 유닛 핀(유닛 ID → 버튼 요소) */
+  const awayRefs = useRef(new Map<number, HTMLButtonElement>());
+  /** 내 이동 목적지 표적(유닛 ID → 요소) */
+  const routeTargetRefs = useRef(new Map<number, HTMLSpanElement>());
   const territoryRef = useRef<HTMLDivElement>(null);
   const dividerRef = useRef<SVGPathElement>(null);
   const warDividerRef = useRef<SVGPathElement>(null);
@@ -131,6 +158,8 @@ export function CityOverlay(props: CityOverlayProps) {
   const warArcFocusRef = useRef<SVGPathElement>(null);
   const truceArcRef = useRef<SVGPathElement>(null);
   const vassalArcRef = useRef<SVGPathElement>(null);
+  const myRouteCyborgRef = useRef<SVGPathElement>(null);
+  const myRouteUnitRef = useRef<SVGPathElement>(null);
   const latest = useRef(props);
 
   // SVG 무늬 ID 앞머리(useId 글자에서 영문·숫자만 — url(#…)에 그대로 넣는다)
@@ -150,7 +179,26 @@ export function CityOverlay(props: CityOverlayProps) {
     [cities, factions, relations],
   );
   const fallbacks = useMemo(() => factionFallbackAnchors(cities), [cities]);
-  const derivedRef = useRef({ warPairs: warInfo.pairs, diplomacyArcs, fallbacks });
+  // 비본체 내 유닛 목록(myUnits 우선, 없으면 옛 away fallback)
+  const ownedOtherUnits = useMemo((): WorldMyUnit[] => {
+    if (props.myUnits) {
+      return props.myUnits.filter((unit) => unit.kind !== "cyborg" && unit.aboardId == null);
+    }
+    return (props.away ?? []).map((unit) => ({
+      unitId: unit.unitId,
+      kind: unit.boat ? "boat" : "other",
+      mapKey: unit.mapKey,
+      cellX: unit.cellX,
+      cellY: unit.cellY,
+      latDeg: unit.latDeg,
+      lonDeg: unit.lonDeg,
+      loaded: false,
+      moving: false,
+      working: false,
+      aboardId: null,
+    }));
+  }, [props.myUnits, props.away]);
+  const derivedRef = useRef({ warPairs: warInfo.pairs, diplomacyArcs, fallbacks, ownedOtherUnits });
 
   const factionById = useMemo(() => new Map(factions.map((entry) => [entry.id, entry])), [factions]);
   const cityCounts = useMemo(() => {
@@ -180,7 +228,7 @@ export function CityOverlay(props: CityOverlayProps) {
     latest.current = props;
     const changedShapes = model.current !== territory;
     model.current = territory;
-    derivedRef.current = { warPairs: warInfo.pairs, diplomacyArcs, fallbacks };
+    derivedRef.current = { warPairs: warInfo.pairs, diplomacyArcs, fallbacks, ownedOtherUnits };
     if (before.factions !== props.factions || before.relations !== props.relations) {
       labelSizes.current.clear();
       measureRetryRef.current = 0;
@@ -191,7 +239,12 @@ export function CityOverlay(props: CityOverlayProps) {
       before.selected !== props.selected ||
       before.focusedFactionId !== props.focusedFactionId ||
       before.me !== props.me ||
+      before.meMoving !== props.meMoving ||
       before.away !== props.away ||
+      before.myUnits !== props.myUnits ||
+      before.myTravels !== props.myTravels ||
+      before.unitSpotlight !== props.unitSpotlight ||
+      before.focusedUnitId !== props.focusedUnitId ||
       before.emphasis !== props.emphasis ||
       before.layer !== props.layer ||
       before.factions !== props.factions ||
@@ -203,8 +256,21 @@ export function CityOverlay(props: CityOverlayProps) {
   // 투영기를 받으면 위치·보임·묶음·영토·전선·이름표를 바꾼다(엔진 프레임 안). 붙이면 한 번 그린다
   useEffect(() => {
     register((projector) => {
-      const { cities: list, me, selected: chosen, emphasis, focusedFactionId: focusFaction } = latest.current;
-      const { warPairs, diplomacyArcs: arcs, fallbacks: labelFallbacks } = derivedRef.current;
+      const {
+        cities: list,
+        me,
+        selected: chosen,
+        emphasis,
+        focusedFactionId: focusFaction,
+        myTravels,
+        focusedUnitId,
+      } = latest.current;
+      const {
+        warPairs,
+        diplomacyArcs: arcs,
+        fallbacks: labelFallbacks,
+        ownedOtherUnits: otherUnits,
+      } = derivedRef.current;
       const { width, height } = projector.viewport;
       const shown: { readonly city: WorldMapCity; readonly point: ProjectedPoint; count: number }[] = [];
       for (const city of drawOrder(list, chosen)) {
@@ -270,6 +336,21 @@ export function CityOverlay(props: CityOverlayProps) {
         }
       }
 
+      // 내 본캐릭 사이보그 위치 핀(좌표 먼저 계산해 국가 이름표가 본캐 배너와 겹치지 않게 피한다)
+      const mePoint = me ? projector.project(me.latDeg, me.lonDeg) : null;
+      const meOnScreen =
+        mePoint !== null &&
+        mePoint.visible &&
+        mePoint.x >= -64 &&
+        mePoint.x <= width + 64 &&
+        mePoint.y >= -64 &&
+        mePoint.y <= height + 64;
+      const mine = meRef.current;
+      if (mine) {
+        mine.hidden = !meOnScreen;
+        if (meOnScreen && mePoint) place(mine, mePoint);
+      }
+
       // 국가 이름표(모든 레이어에 항상 표시 — 크기는 처음 잰 값을 두고 0이면 다음 프레임에 한 번 다시 잰다)
       const labels = [...areas.current].flatMap(([nation, parts]) =>
         parts.label ? [[nation, parts.label] as const] : [],
@@ -288,11 +369,20 @@ export function CityOverlay(props: CityOverlayProps) {
         measureRetryRef.current += 1;
         requestAnimationFrame(() => latest.current.requestFrame());
       }
+      const meAvoid =
+        meOnScreen && mePoint
+          ? [
+              mePoint,
+              { x: mePoint.x, y: mePoint.y - 34 },
+              { x: mePoint.x - 32, y: mePoint.y - 34 },
+              { x: mePoint.x + 32, y: mePoint.y - 34 },
+            ]
+          : [];
       const spots = placeLabels(
         projector,
         shapes.labels,
         labelSizes.current,
-        [...shown.map((entry) => entry.point), ...diplomacy.clashes],
+        [...shown.map((entry) => entry.point), ...diplomacy.clashes, ...meAvoid],
         labelFallbacks,
       );
       for (const [nation, label] of labels) {
@@ -310,18 +400,46 @@ export function CityOverlay(props: CityOverlayProps) {
         element.dataset.label = labeledCities.has(entry.city.id) ? "on" : "off";
       }
 
-      const mine = meRef.current;
-      if (mine && me) {
-        const point = projector.project(me.latDeg, me.lonDeg);
-        mine.hidden = !point?.visible;
-        if (point?.visible) place(mine, point);
+      // 내 이동 경로(본캐·유닛)와 목적지 표적
+      const myRoutes = projectMyRoutes(projector, myTravels, me?.unitId ?? null);
+      myRouteCyborgRef.current?.setAttribute("d", myRoutes.cyborgRoute);
+      myRouteUnitRef.current?.setAttribute("d", myRoutes.unitRoute);
+      const targetByUnit = new Map(myRoutes.targets.map((entry) => [entry.unitId, entry]));
+      for (const [unitId, el] of routeTargetRefs.current) {
+        const hit = targetByUnit.get(unitId);
+        if (hit) {
+          el.hidden = false;
+          place(el, hit);
+        } else {
+          el.hidden = true;
+        }
       }
-      for (const unit of latest.current.away ?? []) {
-        const element = awayRefs.current.get(unit.unitId);
-        if (!element) continue;
-        const point = projector.project(unit.latDeg, unit.lonDeg);
-        element.hidden = !point?.visible;
-        if (point?.visible) place(element, point);
+
+      // 내 비본체 유닛(띄운/안 띄운 2차맵·이동 중): 같은 자리 묶음 + 본캐 옆 살짝 비켜 놓기
+      const placedUnits = placeMyUnits(
+        projector,
+        otherUnits,
+        meOnScreen ? mePoint : null,
+        focusedUnitId ?? null,
+      );
+      const placedByUnit = new Map(placedUnits.map((entry) => [entry.unit.unitId, entry]));
+      for (const [unitId, element] of awayRefs.current) {
+        const placed = placedByUnit.get(unitId);
+        if (!placed) {
+          element.hidden = true;
+          continue;
+        }
+        element.hidden = false;
+        element.dataset.cluster = String(placed.count);
+        element.dataset.moving = placed.anyMoving ? "true" : undefined;
+        const badgeText = element.querySelector<HTMLElement>(".city-away-label");
+        if (badgeText) {
+          badgeText.textContent =
+            placed.count > 1
+              ? m.planet_units_cluster_label({ count: placed.count })
+              : (element.dataset.shortLabel ?? "");
+        }
+        place(element, placed);
       }
     });
     requestFrame();
@@ -346,6 +464,7 @@ export function CityOverlay(props: CityOverlayProps) {
 
   const nations = areaNations(cities);
   const warArcs = diplomacyArcs.filter((arc) => arc.kind === "war");
+  const goingTravels = (props.myTravels ?? []).filter((entry) => entry.state === "going");
   /** 비슷한 색 이웃 무늬(D-546 1435) 정의 ID */
   const patternId = (nation: number): string => `${patternBase}-hatch-${String(nation)}`;
   const activeLayer = props.layer ?? (props.emphasis ? "territory" : "terrain");
@@ -357,6 +476,7 @@ export function CityOverlay(props: CityOverlayProps) {
       data-emphasis={props.emphasis ? "territory" : undefined}
       data-layer={activeLayer}
       data-has-focus={focusedFactionId !== null ? "true" : undefined}
+      data-unit-spotlight={props.unitSpotlight ? "true" : undefined}
       data-territories={territory.labels.length}
       data-wars={warArcs.length}
     >
@@ -433,7 +553,28 @@ export function CityOverlay(props: CityOverlayProps) {
         <path ref={warArcGlowRef} className="city-diplomacy-war-glow" />
         <path ref={warArcRef} className="city-diplomacy-war" />
         <path ref={warArcFocusRef} className="city-diplomacy-war-focus" />
+        {/* 내 사이보그·내 유닛 실시간 이동 경로 */}
+        <path ref={myRouteUnitRef} className="city-my-route-unit" />
+        <path ref={myRouteCyborgRef} className="city-my-route-cyborg" />
       </svg>
+
+      {/* 이동 목적지 표적 */}
+      {goingTravels.map((travel) => {
+        const isCyborg = props.me?.unitId !== undefined && travel.unitId === props.me.unitId;
+        return (
+          <span
+            key={`target-${String(travel.unitId)}`}
+            ref={(element) => {
+              if (element) routeTargetRefs.current.set(travel.unitId, element);
+              else routeTargetRefs.current.delete(travel.unitId);
+            }}
+            className="city-my-route-target"
+            data-cyborg={isCyborg ? "true" : undefined}
+            aria-hidden="true"
+            hidden
+          />
+        );
+      })}
 
       {/* 전쟁 전선 중앙 교전 배지(⚔) */}
       {warArcs.map((arc) => (
@@ -542,26 +683,88 @@ export function CityOverlay(props: CityOverlayProps) {
           </button>
         );
       })}
+      {/* 내 본캐릭 사이보그 위치 비콘 — 도시 점을 가리지 않고 위로 떠서 본캐 이름과 레이더 고리를 표시 */}
       {props.me ? (
-        <span ref={meRef} className="city-me" role="img" aria-label={m.world_my_cyborg()} hidden />
-      ) : null}
-      {(props.away ?? []).map((unit) => (
-        <span
-          key={unit.unitId}
-          ref={(element) => {
-            if (element) awayRefs.current.set(unit.unitId, element);
-            else awayRefs.current.delete(unit.unitId);
-          }}
-          className="city-away"
-          data-away-unit={unit.unitId}
-          data-boat={unit.boat ? "true" : undefined}
-          role="img"
-          aria-label={
-            unit.boat ? m.world_parked_boat({ id: unit.unitId }) : m.world_parked_unit({ id: unit.unitId })
+        <button
+          ref={meRef}
+          type="button"
+          className="city-me"
+          data-moving={props.meMoving ? "true" : undefined}
+          data-focused={
+            props.focusedUnitId !== undefined &&
+            props.focusedUnitId !== null &&
+            props.me.unitId === props.focusedUnitId
+              ? "true"
+              : undefined
           }
+          aria-label={m.world_my_cyborg()}
+          onClick={() => props.onSelectMe?.()}
           hidden
-        />
-      ))}
+        >
+          <span className="city-me-pulse" aria-hidden="true" />
+          <span className="city-me-anchor" aria-hidden="true" />
+          <span className="city-me-pin" aria-hidden="true">
+            <span className="city-me-icon-wrap">
+              <MapIcon name="cyborg" className="city-me-icon" />
+            </span>
+            <span className="city-me-badge">{m.planet_units_me_badge()}</span>
+            <span className="city-me-name">{props.me.name || m.world_my_cyborg()}</span>
+          </span>
+        </button>
+      ) : null}
+
+      {/* 내 보유 유닛(휴먼·사이보그 유닛·수호신·배·이동 중) 위치 핀 */}
+      {ownedOtherUnits.map((unit) => {
+        const isBoat = unit.kind === "boat";
+        const iconName = isBoat
+          ? "transport"
+          : unit.kind === "cyborg_unit"
+            ? "cyborg"
+            : unit.kind === "guardian"
+              ? "military"
+              : "unit";
+        const ariaLabel =
+          unit.name ??
+          (isBoat ? m.world_parked_boat({ id: unit.unitId }) : m.world_parked_unit({ id: unit.unitId }));
+        const shortKind = isBoat
+          ? m.planet_units_kind_boat()
+          : unit.kind === "cyborg_unit"
+            ? m.planet_units_kind_cyborg_unit()
+            : unit.kind === "guardian"
+              ? m.planet_units_kind_guardian()
+              : unit.kind === "human"
+                ? m.planet_units_kind_human()
+                : m.planet_units_kind_other();
+        const shortLabel = unit.name ?? `${shortKind} #${unit.unitId}`;
+        return (
+          <button
+            key={unit.unitId}
+            type="button"
+            ref={(element) => {
+              if (element) awayRefs.current.set(unit.unitId, element);
+              else awayRefs.current.delete(unit.unitId);
+            }}
+            className="city-away"
+            data-away-unit={unit.unitId}
+            data-boat={isBoat ? "true" : undefined}
+            data-kind={unit.kind}
+            data-moving={unit.moving ? "true" : undefined}
+            data-focused={props.focusedUnitId === unit.unitId ? "true" : undefined}
+            data-cluster="1"
+            data-short-label={shortLabel}
+            aria-label={ariaLabel}
+            onClick={() => props.onSelectUnit?.(unit.unitId)}
+            hidden
+          >
+            <span className="city-away-dot" aria-hidden="true">
+              <MapIcon name={iconName} className="city-away-icon" />
+            </span>
+            <span className="city-away-label" aria-hidden="true">
+              {shortLabel}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }

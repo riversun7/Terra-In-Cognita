@@ -78,7 +78,9 @@ import { sendTravelCommand } from "./travelCommands.ts";
 import { travelProblemText } from "./travelData.ts";
 import { PlanetLayerPicker, PlanetLayerToggle } from "./PlanetLayerPicker.tsx";
 import { PlanetPerfPanel } from "./PlanetPerfPanel.tsx";
+import { PlanetUnitsPanel, PlanetUnitsToggle } from "./PlanetUnitsPanel.tsx";
 import { PlanetWarPanel, PlanetWarToggle } from "./PlanetWarPanel.tsx";
+import { mergeMyUnits } from "./unitOverlay.ts";
 import { capitalCityOf, warSetsOf } from "./warOverlay.ts";
 import {
   OperatorMenuButton,
@@ -196,6 +198,12 @@ function PlanetMapView({
   const closeWarMenu = useCallback(() => setWarMenu(false), []);
   const warSheetId = useId();
   const [focusedFaction, setFocusedFaction] = useState<number | null>(null);
+  // 내 본캐·유닛 위치 판과 강조 레이아웃(본캐 사이보그·전역 보유 유닛·이동 경로 강조)
+  const [unitsMenu, setUnitsMenu] = useState(false);
+  const closeUnitsMenu = useCallback(() => setUnitsMenu(false), []);
+  const unitsSheetId = useId();
+  const [unitSpotlight, setUnitSpotlight] = useState(false);
+  const [focusedUnitId, setFocusedUnitId] = useState<number | null>(null);
   // 레이어 판(기획 D-546 1436 "모바일에선 닫고 넓은 화면에선 열어라"): 좁은 단계(37.5em 미만 — 하단 탭 휴대폰, shell/layout.ts)는 고르면 닫고,
   // 중간·넓은 단계는 열어 둔다(범례·원자재를 보며 바꾸게)
   const narrow = useLayout().stage === "narrow";
@@ -228,11 +236,28 @@ function PlanetMapView({
     const reached = reachedMap(event);
     if (reached !== null && reached === commandMapRef.current) setCommand(null);
   }, []);
-  const { travel, parked, refresh: refreshTravel } = useMyTravel(me?.unitId ?? null, onTravelEvent);
-  // 내 좌표 유닛(띄우지 않은 2차맵 위에 섬 — ADR 2026-11-15) 가운데 사이보그 본체는 내 자리 표시가 그린다
-  const away = useMemo(() => parked.filter((unit) => !unit.cyborg), [parked]);
+  const {
+    travel,
+    travels: myTravels,
+    parked,
+    units: serverMyUnits,
+    atMs: travelsAtMs,
+    refresh: refreshTravel,
+  } = useMyTravel(me?.unitId ?? null, onTravelEvent);
   // 같은 값이면 같은 객체(덧그림이 바뀐 때만 다시 그린다)
   const shownMe = useMemo(() => liveMe(me, travel), [me, travel]);
+  // 행성 전역의 내 모든 유닛(본캐 + 띄운/안 띄운 2차맵 + 이동 중) — 옛 서버면 parked + me로 합친다
+  const allMyUnits = useMemo(
+    () => mergeMyUnits(serverMyUnits, parked, shownMe, myTravels),
+    [serverMyUnits, parked, shownMe, myTravels],
+  );
+  // 비본체 내 유닛 수(data-away-units·E2E 호환)
+  const away = useMemo(() => parked.filter((unit) => !unit.cyborg), [parked]);
+  const otherUnitsCount = useMemo(
+    () => allMyUnits.filter((unit) => unit.kind !== "cyborg" && unit.aboardId == null).length,
+    [allMyUnits],
+  );
+  const movingUnitsCount = useMemo(() => allMyUnits.filter((unit) => unit.moving).length, [allMyUnits]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -301,12 +326,14 @@ function PlanetMapView({
             ...(skyParams.benchRepeat === null ? {} : { gpuBenchRepeat: skyParams.benchRepeat }),
             onStatus: setStatus,
             onPick: (cell) => {
-              // 땅을 누르면 도시 판·명령 판·레이어 판·전황 판을 닫고 그 칸을 본다
+              // 땅을 누르면 도시 판·명령 판·레이어 판·전황 판·내 부대 판을 닫고 그 칸을 본다
               setCityId(null);
               setCommand(null);
               setLayerMenu(false);
               setWarMenu(false);
+              setUnitsMenu(false);
               setFocusedFaction(null);
+              setFocusedUnitId(null);
               const lines = cell ? cellLines(cell, (id) => names.get(id) ?? null) : [m.planet_cell_none()];
               const nation =
                 cell && (layerRef.current === "territory" || layerRef.current === "terrain")
@@ -379,7 +406,29 @@ function PlanetMapView({
   };
   const goToMe = (): void => {
     if (!shownMe) return;
+    setFocusedUnitId(shownMe.unitId);
     engineRef.current?.lookAt({ latDeg: shownMe.latDeg, lonDeg: shownMe.lonDeg });
+  };
+  const focusUnit = (unit: {
+    readonly unitId: number;
+    readonly latDeg: number;
+    readonly lonDeg: number;
+  }): void => {
+    setCityId(null);
+    setCommand(null);
+    setFocusedFaction(null);
+    setFocusedUnitId(unit.unitId);
+    engineRef.current?.lookAt({ latDeg: unit.latDeg, lonDeg: unit.lonDeg });
+    if (narrow) setUnitsMenu(false);
+  };
+  const openUnitsFor = (unitId: number): void => {
+    setCityId(null);
+    setCommand(null);
+    setLayerMenu(false);
+    setWarMenu(false);
+    setFocusedFaction(null);
+    setFocusedUnitId(unitId);
+    setUnitsMenu(true);
   };
   const cities = world?.status === "ready" ? world.cities : [];
   const city = cities.find((entry) => entry.id === cityId) ?? null;
@@ -567,7 +616,7 @@ function PlanetMapView({
       data-me={shownMe ? shownMe.mapKey : undefined}
       data-me-at={shownMe ? `${fixed(shownMe.latDeg, 5)},${fixed(shownMe.lonDeg, 5)}` : undefined}
       data-me-travel={travel?.state === "going" ? (travel.hidden ? "hidden" : "going") : undefined}
-      data-away-units={away.length > 0 ? away.length : undefined}
+      data-away-units={otherUnitsCount > 0 ? otherUnitsCount : away.length > 0 ? away.length : undefined}
       data-center-key={centerKey ?? undefined}
       data-zoom-stage={zoomStage > 0 ? zoomStage : undefined}
       data-system-view={systemView ? "true" : undefined}
@@ -584,12 +633,22 @@ function PlanetMapView({
           focusedFactionId={activeFocusFaction}
           layer={layer}
           me={shownMe}
+          meMoving={travel?.state === "going"}
           away={away}
+          myUnits={allMyUnits}
+          myTravels={myTravels}
+          unitSpotlight={unitSpotlight || unitsMenu}
+          focusedUnitId={focusedUnitId}
+          onSelectMe={() => {
+            if (shownMe) openUnitsFor(shownMe.unitId);
+          }}
+          onSelectUnit={openUnitsFor}
           selected={cityId}
           onSelect={(next) => {
             setCityId(next.id);
             setCommand(null);
             setWarMenu(false);
+            setUnitsMenu(false);
           }}
           onZoomTo={zoomTo}
           register={registerOverlay}
@@ -682,7 +741,9 @@ function PlanetMapView({
         ) : null}
         <PlanetReadout
           lines={picked?.lines ?? null}
-          hidden={city !== null || command !== null || ((layerMenu || warMenu) && picked === null)}
+          hidden={
+            city !== null || command !== null || ((layerMenu || warMenu || unitsMenu) && picked === null)
+          }
           climate={layer === "climate"}
           // 지금 실패한 타일만(다시 받아 오면 사라진다). 판이 바뀐 안내가 떠 있으면 그 안내가 대신한다
           tilesFailed={stats && tileProblem !== "not_found" ? stats.tilesFailed : 0}
@@ -693,6 +754,24 @@ function PlanetMapView({
           teleporting={teleporting}
         />
         <div className="planet-controls">
+          {world?.status === "ready" && shownMe ? (
+            <PlanetUnitsPanel
+              id={unitsSheetId}
+              open={unitsMenu}
+              onClose={closeUnitsMenu}
+              spotlight={unitSpotlight}
+              onToggleSpotlight={() => setUnitSpotlight((on) => !on)}
+              me={shownMe}
+              units={allMyUnits}
+              travels={myTravels}
+              nowMs={travelsAtMs}
+              cities={cities}
+              factions={world.factions}
+              focusedUnitId={focusedUnitId}
+              onFocusUnit={focusUnit}
+              onEnterUnit={(unit) => enterMap(unit.mapKey, { x: unit.cellX, y: unit.cellY })}
+            />
+          ) : null}
           {world?.status === "ready" ? (
             <PlanetWarPanel
               id={warSheetId}
@@ -722,8 +801,10 @@ function PlanetMapView({
             nations={layers.nations}
             onFocusNation={focusNation}
             focusedFactionId={activeFocusFaction}
+            unitSpotlight={unitSpotlight}
+            onToggleUnitSpotlight={shownMe ? () => setUnitSpotlight((on) => !on) : undefined}
           />
-          {/* 늘 보이는 줄: 레이어 접는 단추 · 세력·전황 · [이 2차맵으로 들어가기] · [내 위치] */}
+          {/* 늘 보이는 줄: 레이어 접는 단추 · 내 부대 · 세력·전황 · [이 2차맵으로 들어가기] · [내 위치] */}
           <div className="planet-jump">
             <PlanetLayerToggle
               layer={layer}
@@ -731,9 +812,24 @@ function PlanetMapView({
               controls={layerSheetId}
               onToggle={() => {
                 setWarMenu(false);
+                setUnitsMenu(false);
                 setLayerMenu((open) => !open);
               }}
             />
+            {world?.status === "ready" && shownMe ? (
+              <PlanetUnitsToggle
+                count={allMyUnits.length}
+                movingCount={movingUnitsCount}
+                open={unitsMenu}
+                spotlight={unitSpotlight}
+                controls={unitsSheetId}
+                onToggle={() => {
+                  setLayerMenu(false);
+                  setWarMenu(false);
+                  setUnitsMenu((open) => !open);
+                }}
+              />
+            ) : null}
             {world?.status === "ready" ? (
               <PlanetWarToggle
                 warCount={activeWarCount}
@@ -741,6 +837,7 @@ function PlanetMapView({
                 controls={warSheetId}
                 onToggle={() => {
                   setLayerMenu(false);
+                  setUnitsMenu(false);
                   setWarMenu((open) => !open);
                 }}
               />

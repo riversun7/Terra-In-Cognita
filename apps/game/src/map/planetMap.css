@@ -308,14 +308,15 @@
 .planet-area {
   margin-top: var(--space-2);
 }
-/* 늘 보이는 줄: 레이어 접는 단추·세력·전황·2차맵 들어가기·내 위치 */
+/* 늘 보이는 줄: 레이어 접는 단추·내 부대·세력·전황·2차맵 들어가기·내 위치 */
 .planet-jump {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--space-1) var(--space-2);
 }
 .planet-jump > button {
   min-block-size: var(--tap-size);
+  padding-inline: var(--space-2);
 }
 
 /* 항성계 보기(PlanetSystemView) 동안 감추는 판: 아래 판·성능 줄(둘 다 display를 정해서 hidden 속성만으로는 안 숨는다) */

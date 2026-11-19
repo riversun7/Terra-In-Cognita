@@ -26,57 +26,19 @@ import {
   Vector3,
   Vector4,
 } from "three";
-// 물 비트는 @terra/planet 정의 하나를 셰이더 문자열에 넣는다(값을 따로 적지 않는다)
-import {
-  DEPTH_COASTAL,
-  DEPTH_DEEP,
-  WATER_DEPTH_MASK,
-  WATER_DEPTH_SHIFT,
-  WATER_LAKE,
-  WATER_OCEAN,
-  WATER_RIVER,
-} from "@terra/planet";
-import {
-  ELEVATION_LAKE_COLOR,
-  ELEVATION_LAND_RAMP,
-  ELEVATION_SEA_RAMP,
-  ELEVATION_SEA_SCALE,
-  MUTED_LAND_COLOR,
-  MUTED_WATER_COLOR,
-  RESOURCE_HIGH_COLOR,
-  RESOURCE_MIX_MAX,
-  RESOURCE_MIX_MIN,
-  glslRamp,
-  glslVec3,
-} from "./layerColors.ts";
+// 물 비트는 planetTileShader.ts가 @terra/planet 정의를 셰이더 문자열에 넣는다
 import type { PlanetLayer } from "./planetTypes.ts";
+import { TILE_COLORS, buildTileFragmentShader } from "./planetTileShader.ts";
 import { DAY_NIGHT_BAND } from "./sky.ts";
 import { DAY_NIGHT_SHADE } from "./skyShade.ts";
 
-/** 바다 수심 색(연안·대륙붕·심해), 호수·강 색 — 파스텔 장난감 톤 */
-const COLORS = {
-  coastal: 0x9fdcef,
-  shelf: 0x7cc6e6,
-  deep: 0x4f97cf,
-  lake: 0x86cbe8,
-  river: 0x5aa8d8,
-  unknownBiome: 0xc8c8c8,
-  dry: 0xd9cbb0,
-  seaTint: 0x6fb3df,
-  pick: 0xffd66e,
-} as const;
 /** 바탕 구(아직 타일이 없는 곳) 색 = 심해 */
-export const BASE_GLOBE_COLOR = COLORS.deep;
+export const BASE_GLOBE_COLOR = TILE_COLORS.deep;
 /** 틈 찾기(시험) 색 */
 export const DEBUG_CRACK_COLOR = 0xff00ff;
 
 /** 빛 방향(보기 공간): 화면 왼쪽 위 앞에서 */
 const LIGHT_DIRECTION = new Vector3(-0.45, 0.62, 0.64).normalize();
-
-const glslColor = (hex: number): string => {
-  const c = new Color(hex);
-  return `vec3(${c.r.toFixed(4)}, ${c.g.toFixed(4)}, ${c.b.toFixed(4)})`;
-};
 
 /** 하늘 빛 uniform — 타일·바탕 구·달·구름이 같은 객체를 나눠 쓰고 엔진이 프레임마다 한 번 고친다 */
 export interface SkyLightUniforms {
@@ -232,7 +194,7 @@ function createPaletteTexture(biomeColors: readonly number[]): DataTexture {
   const data = new Uint8Array(256 * 4);
   const color = new Color();
   for (let i = 0; i < 256; i++) {
-    color.setHex(biomeColors[i] ?? COLORS.unknownBiome);
+    color.setHex(biomeColors[i] ?? TILE_COLORS.unknownBiome);
     data[i * 4] = Math.round(color.r * 255);
     data[i * 4 + 1] = Math.round(color.g * 255);
     data[i * 4 + 2] = Math.round(color.b * 255);
@@ -298,160 +260,8 @@ void main() {
 }
 `;
 
-// 조각 셰이더 순서: 지형색 → (끔) 고른 칸 → 카메라 빛 / (켬) 항성 낮밤 → 고른 칸(빛 뒤, 밤에도 밝다). ADR 4절 합성 순서 표.
-// cameraLight는 하늘 전의 식 그대로다(끔 모드 사진이 지금과 같아야 한다). skyLight의 기복 = 카메라 빛 경사(평지 0),
-// 물 반짝임은 항성 방향이고 낮 쪽에만 있다. 켜지는 중(0 < uSkyBlend < 1)에는 두 빛을 섞는다.
-const TILE_FRAGMENT = /* glsl */ `
-uniform sampler2D uCellData;
-uniform sampler2D uCellExtra;
-uniform sampler2D uPalette;
-uniform sampler2DArray uResource;
-uniform sampler2DArray uResourceHigh;
-uniform vec3 uResourceColor;
-uniform float uResourceReady;
-uniform float uElevationMax;
-uniform float uCells;
-uniform float uLayer;
-uniform vec3 uLightDir;
-uniform vec3 uSunDirView;
-uniform vec4 uTile;
-uniform vec4 uPick;
-varying vec2 vUv;
-varying vec3 vNormal;
-varying vec3 vViewPosition;
-varying vec3 vUpView;
-varying float vSunCos;
-varying float vHeight;
-${DAY_NIGHT_GLSL}
-${glslRamp("elevationLand", ELEVATION_LAND_RAMP)}
-${glslRamp("elevationSea", ELEVATION_SEA_RAMP)}
-// 자원·영토 레이어 바탕: 흐린 땅(바이옴 밝기를 조금 남긴다)·흐린 물 — 덧칠한 색과 국가 색이 잘 보이게
-vec3 mutedBase(bool wet, int biome) {
-  if (wet) return ${glslVec3(MUTED_WATER_COLOR)};
-  vec3 b = texelFetch(uPalette, ivec2(biome, 0), 0).rgb;
-  float lum = dot(b, vec3(0.299, 0.587, 0.114));
-  return mix(${glslVec3(MUTED_LAND_COLOR)}, vec3(lum), 0.3);
-}
-// 고른 칸: 노란 빛을 섞고 칸 가장자리에 테두리
-vec3 applyPick(vec3 color) {
-  if (uPick.w >= 0.0 && abs(uPick.w - uTile.w) < 0.5) {
-    vec2 st = uTile.xy + vUv * uTile.z;
-    vec2 local = (st - uPick.xy) / uPick.z;
-    if (all(greaterThanEqual(local, vec2(0.0))) && all(lessThan(local, vec2(1.0)))) {
-      vec2 edge = min(local, 1.0 - local) / max(fwidth(local), vec2(1e-6));
-      float border = 1.0 - smoothstep(1.5, 3.0, min(edge.x, edge.y));
-      color = mix(mix(color, ${glslColor(COLORS.pick)}, 0.35), vec3(1.0, 0.84, 0.43), border);
-    }
-  }
-  return color;
-}
-
-vec3 cameraLight(vec3 base, vec3 n, bool wet) {
-  float diffuse = max(dot(n, uLightDir), 0.0);
-  vec3 color = base * (0.5 + 0.62 * diffuse);
-  if (wet) {
-    vec3 view = normalize(-vViewPosition);
-    vec3 halfway = normalize(uLightDir + view);
-    color += vec3(0.1) * pow(max(dot(n, halfway), 0.0), 48.0);
-  }
-  return color;
-}
-
-vec3 skyLight(vec3 base, vec3 n, bool wet) {
-  float relief = dot(n, uLightDir) - dot(normalize(vUpView), uLightDir);
-  float day;
-  vec3 light = dayNightLight(vSunCos, day);
-  vec3 color = nightFinish(base * light * (1.0 + uShade.z * relief / uShade.w), day);
-  if (wet) {
-    vec3 view = normalize(-vViewPosition);
-    vec3 halfway = normalize(uSunDirView + view);
-    color += vec3(0.1) * pow(max(dot(n, halfway), 0.0), 48.0) * day;
-  }
-  return color;
-}
-
-// 기온 색: 추움(파랑) → 더움(빨강)
-vec3 temperatureColor(float t) {
-  vec3 c = vec3(0.357, 0.431, 0.882);
-  c = mix(c, vec3(0.498, 0.698, 0.941), smoothstep(-30.0, -10.0, t));
-  c = mix(c, vec3(0.718, 0.894, 0.961), smoothstep(-10.0, 0.0, t));
-  c = mix(c, vec3(0.659, 0.902, 0.631), smoothstep(0.0, 10.0, t));
-  c = mix(c, vec3(0.965, 0.898, 0.553), smoothstep(10.0, 20.0, t));
-  c = mix(c, vec3(0.973, 0.698, 0.416), smoothstep(20.0, 28.0, t));
-  c = mix(c, vec3(0.910, 0.380, 0.353), smoothstep(28.0, 38.0, t));
-  return c;
-}
-
-void main() {
-  vec2 cell = clamp(floor(vUv * uCells), vec2(0.0), vec2(uCells - 1.0));
-  ivec2 texel = ivec2(cell);
-  vec4 data = texelFetch(uCellData, texel, 0);
-  vec4 extra = texelFetch(uCellExtra, texel, 0);
-  int biome = int(data.r * 255.0 + 0.5);
-  int water = int(data.g * 255.0 + 0.5);
-  float temperature = floor(data.b * 255.0 + 0.5) - 128.0;
-  float humidity = data.a;
-  float forest = extra.r;
-  float river = floor(extra.g * 255.0 + 0.5);
-  bool ocean = (water & ${WATER_OCEAN}) != 0;
-  bool lake = (water & ${WATER_LAKE}) != 0;
-  bool riverBit = (water & ${WATER_RIVER}) != 0;
-  int depthClass = (water & ${WATER_DEPTH_MASK}) >> ${WATER_DEPTH_SHIFT};
-
-  vec3 base;
-  if (uLayer < 0.5) {
-    if (ocean) {
-      base = depthClass == ${DEPTH_COASTAL} ? ${glslColor(COLORS.coastal)} : depthClass == ${DEPTH_DEEP} ? ${glslColor(COLORS.deep)} : ${glslColor(COLORS.shelf)};
-    } else if (lake) {
-      base = ${glslColor(COLORS.lake)};
-    } else {
-      base = texelFetch(uPalette, ivec2(biome, 0), 0).rgb;
-      base *= 1.0 - 0.16 * forest;
-      if (river > 0.5 || riverBit) base = mix(base, ${glslColor(COLORS.river)}, 0.4 + 0.12 * min(river, 3.0));
-    }
-  } else if (uLayer < 1.5) {
-    vec3 t = temperatureColor(temperature);
-    if (ocean) {
-      base = mix(t, ${glslColor(COLORS.seaTint)}, 0.45);
-    } else {
-      // 마를수록 옅게(모래빛), 습할수록 진하게
-      base = mix(mix(t, ${glslColor(COLORS.dry)}, 0.55), t * 0.86, humidity);
-    }
-  } else if (uLayer < 2.5) {
-    // 고도: 바다 = 수심 띠(꼭짓점 높이가 해수면 아래인 만큼), 호수 = 한 색, 땅 = 가장 높은 땅에 대한 몫의 띠(layerColors.ts)
-    float top = max(uElevationMax, 1.0);
-    if (ocean) {
-      base = elevationSea(clamp(-vHeight / (top * ${ELEVATION_SEA_SCALE.toFixed(4)}), 0.0, 1.0));
-    } else if (lake) {
-      base = ${glslVec3(ELEVATION_LAKE_COLOR)};
-    } else {
-      base = elevationLand(clamp(vHeight / top, 0.0, 1.0));
-    }
-  } else {
-    base = mutedBase(ocean || lake, biome);
-    if (uLayer < 3.5 && uResourceReady > 0.5) {
-      // 자원 분포: 면 레벨 격자의 몫을 (s, t, 면)으로 읽는다(가까이선 칸 그대로, 멀리선 밉맵 평균)
-      vec3 coord = vec3(uTile.xy + vUv * uTile.z, uTile.w);
-      float share = texture(uResource, coord).r;
-      float high = texture(uResourceHigh, coord).r;
-      if (share > 0.002) base = mix(base, uResourceColor, ${RESOURCE_MIX_MIN.toFixed(3)} + ${(RESOURCE_MIX_MAX - RESOURCE_MIX_MIN).toFixed(3)} * share);
-      base = mix(base, ${glslVec3(RESOURCE_HIGH_COLOR)}, 0.85 * high);
-    }
-  }
-
-  vec3 n = normalize(vNormal);
-  bool wet = ocean || lake;
-  vec3 color;
-  if (uSkyBlend <= 0.0) {
-    color = cameraLight(applyPick(base), n, wet);
-  } else {
-    color = skyLight(base, n, wet);
-    if (uSkyBlend < 1.0) color = mix(cameraLight(base, n, wet), color, uSkyBlend);
-    color = applyPick(color);
-  }
-  gl_FragColor = vec4(color, 1.0);
-}
-`;
+// 조각 셰이더 순서: 지형색(planetTileShader.ts) → (끔) 고른 칸 → 카메라 빛 / (켬) 항성 낮밤 → 고른 칸(빛 뒤, 밤에도 밝다). ADR 4절 합성 순서 표.
+const TILE_FRAGMENT = buildTileFragmentShader(DAY_NIGHT_GLSL);
 
 /** 타일 하나의 재질. origin32 = 타일 원점(32비트, 위쪽 방향 계산용), tileST = (s0, t0, 한 변, 면) */
 export function createTileMaterial(

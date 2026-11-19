@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-19 22:40 | 1차맵 4X 전략 지도 개편 — 국가 이름·세력 전쟁 전선·지형 셰이더·레이어 레이아웃 | Antigravity | [19-2240-planet-map-4x-overhaul](worklog/2026/11/19-2240-planet-map-4x-overhaul.md) |
 | 2026-11-19 13:15 | 모바일 UI 최적화 및 2차맵 이동 경로·인디케이터·3D 모델 개선 | Antigravity | [19-1315-mobile-ui-and-2nd-map-polish](worklog/2026/11/19-1315-mobile-ui-and-2nd-map-polish.md) |
 | 2026-11-19 01:00 | 전체 건물 3D 모델 재제작 및 국가 시그니처 컬러·깃발 문양 반영 | Antigravity | [19-0100-all-buildings-and-emblems](worklog/2026/11/19-0100-all-buildings-and-emblems.md) |
 | 2026-11-19 00:45 | 홈 대시보드 카드·쉘·테마 토큰 디자인 정돈 | Antigravity | [19-0045-theme-and-home-cards](worklog/2026/11/19-0045-theme-and-home-cards.md) |

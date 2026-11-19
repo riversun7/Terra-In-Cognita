@@ -34,6 +34,7 @@ import type {
   WorldMapFaction,
   WorldMapHull,
   WorldMapLand,
+  WorldMapRegime,
   WorldPosition,
   WorldPositionResponse,
   WorldTerritoryDisplay,
@@ -57,6 +58,7 @@ import { beaconKnown, hullKnown, isCityKnown, knownWithoutSight } from "./knownC
 import { createTravelDanger } from "./travelDanger.ts";
 import { cyborgLookOf } from "../cyborg/state.ts";
 import { ownerFactionsOf } from "../facilities/targets.ts";
+import { loadCityOccupations, loadFactionRelations } from "./diplomacyReads.ts";
 import { type MapUnitReads, createMapUnitReads } from "./mapUnits.ts";
 import { type TravelReads, createTravelReads } from "./travelReads.ts";
 
@@ -144,11 +146,16 @@ interface CityRecord {
   readonly name: string | null;
   readonly code: string | null;
   readonly kind: "npc" | "player";
+  readonly regime: WorldMapRegime;
+  readonly parentId: number | null;
   /** 사는 휴먼 수·발전도·주인 세력 기술 단계(배후지 지금 반경 — 세계 배치 화면 배후지 덮개와 같은 값) */
   readonly population: number;
   readonly development: number;
   readonly tech: number;
 }
+
+const asRegime = (value: unknown): WorldMapRegime =>
+  value === "dictatorship" || value === "capitalism" ? value : "democracy";
 
 // 배후지 지금 반경 규칙은 영토 판정(territory/service.ts)과 같이 쓴다(D-568) — territory/catchmentRules.ts
 export { type CatchmentRadiusRules, catchmentRadiusRulesOf } from "../territory/catchmentRules.ts";
@@ -156,7 +163,7 @@ export { type CatchmentRadiusRules, catchmentRadiusRulesOf } from "../territory/
 async function loadCityRecords(pool: QueryPool, planetId: string): Promise<CityRecord[]> {
   const result = await pool.query(
     `select c.id, c.faction_id, c.map_key, c.cell_x, c.cell_y, c.start, c.name, f.code, f.kind, c.development,
-            f.tech_level as tech,
+            f.tech_level as tech, f.regime, f.parent_id,
             (f.capital_city_id is not null and f.capital_city_id = c.id) as capital,
             (select count(*) from world_humans h where h.city_id = c.id) as population
      from world_cities c join factions f on f.id = c.faction_id
@@ -175,6 +182,8 @@ async function loadCityRecords(pool: QueryPool, planetId: string): Promise<CityR
     name: typeof row.name === "string" ? row.name : null,
     code: typeof row.code === "string" ? row.code : null,
     kind: row.kind === "player" ? "player" : "npc",
+    regime: asRegime(row.regime),
+    parentId: row.parent_id === null || row.parent_id === undefined ? null : Number(row.parent_id),
     population: Number(row.population ?? 0),
     development: Number(row.development ?? 0),
     tech: Number(row.tech ?? 1),
@@ -361,6 +370,7 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
         ),
       );
       const cities: WorldMapCity[] = [];
+      const factionStats = new Map<number, { cityCount: number; population: number }>();
       const catchmentRules = deps.catchment?.();
       for (const record of records) {
         if (!isCellKey(record.mapKey)) continue;
@@ -370,12 +380,19 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
         const number = (numbers.get(record.factionId) ?? 0) + 1;
         numbers.set(record.factionId, number);
         if (!knownIds.has(record.id)) continue;
+        const stat = factionStats.get(record.factionId) ?? { cityCount: 0, population: 0 };
+        stat.cityCount += 1;
+        stat.population += record.population;
+        factionStats.set(record.factionId, stat);
         if (!factions.has(record.factionId))
           factions.set(record.factionId, {
             id: record.factionId,
             code: record.code,
             kind: record.kind,
             name: nameOf(record.code),
+            regime: record.regime,
+            parentId: record.parentId,
+            techLevel: record.tech,
           });
         const map = source.maps.get(record.mapKey);
         const area = territoryCities.get(record.id);
@@ -410,6 +427,8 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
           point: territoryPoint(placementCellKey(record.mapKey, record.cellX, record.cellY)),
           loaded: map !== undefined,
           viewable: viewable.get(record.mapKey) ?? false,
+          population: record.population,
+          development: record.development,
           land: landOf(record.mapKey, bytes),
         });
       }
@@ -431,8 +450,24 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
         myFactionId,
         observer,
       });
-      // 국가 색·마크(바뀜 2026-11-14, 2026-11-19): 세력 정체성 > 팩 국가 프리셋 시그니처 색·마크. 아는 국가만
-      const identity = await identityVisuals(pool, [...factions.keys()]);
+      // 국가 색·마크 + 세력 외교(전쟁·불가침) + 도시 점령·최근 교전 — 아는 국가·도시만
+      const factionIds = [...factions.keys()];
+      const [identity, relations, occupations] = await Promise.all([
+        identityVisuals(pool, factionIds),
+        loadFactionRelations(pool, factionIds, nowMs),
+        loadCityOccupations(
+          pool,
+          cities.map((city) => city.id),
+          nowMs,
+        ),
+      ]);
+      const enrichedCities =
+        occupations.size === 0
+          ? cities
+          : cities.map((city) => {
+              const occupation = occupations.get(city.id);
+              return occupation ? { ...city, occupation } : city;
+            });
       const colored = await Promise.all(
         [...factions.values()].map(async (faction): Promise<WorldMapFaction> => {
           const own = identity.get(faction.id);
@@ -444,7 +479,13 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
               : null;
           const baseEmblem = own?.emblem ?? presetEmblem;
           const emblem = baseEmblem ? { ...baseEmblem, color: color ?? baseEmblem.color } : undefined;
-          return { ...faction, color, ...(emblem ? { emblem } : {}) };
+          const stat = factionStats.get(faction.id);
+          return {
+            ...faction,
+            color,
+            ...(emblem ? { emblem } : {}),
+            ...(stat ? { cityCount: stat.cityCount, population: stat.population } : {}),
+          };
         }),
       );
       return {
@@ -452,12 +493,13 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
         planetId,
         faceLevel,
         factions: colored,
-        cities,
+        cities: enrichedCities,
         hulls,
         // 영토 서비스가 없어도 배후지 원을 그릴 수 있게 행성 평균 칸 환산(같은 값 — @terra/planet/territory)
         milliPerRadian: territory?.milliPerRadian ?? territoryMetric(faceLevel).milliPerRadian,
         beacons,
         territoryDisplay: { ...(deps.territoryDisplay?.() ?? TERRITORY_DISPLAY_START) },
+        relations,
         myFactionId,
         generatedAt: nowMs,
       };

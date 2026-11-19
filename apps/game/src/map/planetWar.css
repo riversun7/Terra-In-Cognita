@@ -1,0 +1,227 @@
+/*
+ * 1차맵 천하 정세·세력 판도 판(PlanetWarPanel.tsx) — 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast).
+ * 삼국지·4X 전략 지도처럼 진행 중인 전쟁 전선과 세력 순위를 깔끔하게 보여 준다.
+ */
+.planet-war-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-block-size: var(--tap-size);
+  white-space: nowrap;
+}
+.planet-war-toggle .icon {
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.planet-war-toggle[data-has-wars="true"] {
+  border-color: var(--color-danger);
+  background-color: var(--color-danger-surface);
+  color: var(--color-danger);
+}
+.planet-war-toggle[aria-expanded="true"] {
+  --button-lip: var(--color-primary-lip);
+  border-color: transparent;
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.planet-war-toggle[data-has-wars="true"][aria-expanded="true"] {
+  background-color: var(--color-danger);
+  color: var(--color-on-primary);
+}
+
+.planet-war-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-self: stretch;
+  max-height: 52vh;
+  overflow-y: auto;
+}
+@media (min-width: 48em) {
+  .planet-war-sheet {
+    inline-size: min(32rem, 100%);
+  }
+}
+.planet-war-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.planet-war-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-tight);
+}
+.planet-war-title-icon,
+.planet-war-sub-icon {
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.planet-war-sub-icon {
+  color: var(--color-danger);
+}
+.planet-war-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.planet-war-head-actions > button {
+  min-block-size: var(--tap-size);
+}
+
+.planet-war-section {
+  display: grid;
+  gap: var(--space-2);
+}
+.planet-war-subtitle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+
+.planet-war-list,
+.planet-truce-list,
+.planet-standings-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.planet-war-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: var(--hairline) solid color-mix(in srgb, var(--color-danger) 45%, var(--color-border));
+  border-radius: var(--radius-control);
+  background-color: var(--color-danger-surface);
+}
+.planet-war-pair {
+  display: flex;
+  flex: 1 1 12rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.planet-war-side {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text);
+}
+.planet-war-side-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.planet-war-vs {
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  color: var(--color-danger);
+}
+.planet-war-jump {
+  flex: none;
+  min-block-size: var(--tap-size);
+  white-space: nowrap;
+}
+
+.planet-truce-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+  font-size: var(--font-size-xs);
+}
+
+.planet-standing-row {
+  min-width: 0;
+}
+.planet-standing-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  inline-size: 100%;
+  min-block-size: var(--tap-size);
+  padding: var(--space-1) var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-left: calc(var(--border-strong-w) * 1.5) solid var(--nation, var(--color-primary));
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+  box-shadow: none;
+  color: var(--color-text);
+  text-align: start;
+  cursor: pointer;
+}
+.planet-standing-btn[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  border-left-color: var(--nation, var(--color-primary));
+  background-color: var(--color-nav-active);
+}
+.planet-standing-rank {
+  flex: none;
+  min-inline-size: var(--space-5);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.planet-standing-main {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.planet-standing-name {
+  overflow: hidden;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.planet-standing-meta {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+  font-variant-numeric: tabular-nums;
+}
+.planet-standing-war {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+  padding: calc(var(--space-1) * 0.5) var(--space-2);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-danger-surface);
+  color: var(--color-danger);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+}

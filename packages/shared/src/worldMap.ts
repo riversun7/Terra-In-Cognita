@@ -5,7 +5,10 @@ import type { NationEmblemView } from "./nationEditor.ts";
 import type { LocalizedName } from "./roster.ts";
 import { TERRITORY_MAP_START, type TerritoryMapValues } from "./territoryMap.ts";
 
-/** 국가(세력) 한 줄 — 1차맵 색·이름·마크 */
+/** 1차맵 정권 체제 */
+export type WorldMapRegime = "dictatorship" | "democracy" | "capitalism";
+
+/** 국가(세력) 한 줄 — 1차맵 색·이름·마크·세력 현황 */
 export interface WorldMapFaction {
   readonly id: number;
   readonly code: string | null;
@@ -17,8 +20,37 @@ export interface WorldMapFaction {
    * 범례·건물 시그니처 컬러가 쓴다(ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"). 둘 다 없거나 옛 서버면 null·없음 → 화면은 여섯 색 돌려 쓰기
    */
   readonly color?: string | null | undefined;
-  /** 국가 마크(만든 마크 사양·시그니처 컬러 + 올린 그림 해시 — 정부 건물·비콘 깃발 문양). 옛 서버는 없다 */
+  /** 국가 마크(만든 마크 사양·시그니처 컬러 + 올린 그림 해시 — 정부 건물·비콘 깃발·1차맵 이름표 문양). 옛 서버는 없다 */
   readonly emblem?: NationEmblemView | null | undefined;
+  /** 정권 체제(민주·자본·독재). 옛 서버는 없다 */
+  readonly regime?: WorldMapRegime | undefined;
+  /** 종주국 세력 ID(봉신일 때). 없으면 null·undefined */
+  readonly parentId?: number | null | undefined;
+  /** 기술 단계(1 이상). 옛 서버는 없다 */
+  readonly techLevel?: number | undefined;
+  /** 아는 도시 수(1차맵 세력 현황 정렬용). 옛 서버는 없다 */
+  readonly cityCount?: number | undefined;
+  /** 아는 도시 총인구. 옛 서버는 없다 */
+  readonly population?: number | undefined;
+}
+
+/** 1차맵 세력 외교 관계(전쟁·불가침, faction_wars) */
+export interface WorldMapRelation {
+  readonly factionA: number;
+  readonly factionB: number;
+  readonly state: "war" | "truce";
+  /** 전쟁 = 마지막 교전 시각, 불가침 = 끝 시각 */
+  readonly atMs: number;
+}
+
+/** 1차맵 도시의 진행 중이거나 최근 공성·점령 상태(war_outcomes) */
+export interface WorldMapCityOccupation {
+  readonly attackerFactionId: number;
+  readonly outcome: "loot" | "integrate" | "occupy";
+  /** 약탈·점령 끝 시각(진행 중일 때, 없으면 null) */
+  readonly untilAt: number | null;
+  /** 끝난 결과면 true(최근 교전지 표시용) */
+  readonly recent: boolean;
 }
 
 /** 국가 색 모양(`#rrggbb`) — 서버가 보내기 전에, 화면이 style에 넣기 전에 본다 */
@@ -83,6 +115,11 @@ export interface WorldMapCity {
   readonly loaded: boolean;
   /** 지금 내가 이 2차맵을 볼 수 있다(내 유닛·건물·탐사 칸, 또는 전체 보기 권한 — 서버 시야 규칙) */
   readonly viewable: boolean;
+  /** 도시 거주 인구·발전도(0~100). 옛 서버는 없다 */
+  readonly population?: number | undefined;
+  readonly development?: number | undefined;
+  /** 진행 중 약탈·점령이나 최근 교전 기록(war_outcomes). 없으면 null·undefined */
+  readonly occupation?: WorldMapCityOccupation | null | undefined;
   readonly land: WorldMapLand | null;
 }
 
@@ -135,6 +172,8 @@ export interface WorldCitiesResponse {
   readonly beacons?: readonly WorldMapBeacon[] | undefined;
   /** 영토 표시 값(설정 칸 실효 값). 옛 서버는 없다 → 화면은 TERRITORY_DISPLAY_START */
   readonly territoryDisplay?: WorldTerritoryDisplay | undefined;
+  /** 아는 세력 사이의 전쟁·불가침 관계(faction_wars). 옛 서버는 없다 */
+  readonly relations?: readonly WorldMapRelation[] | undefined;
   /** 내가 가입한 국가(없으면 null) */
   readonly myFactionId: number | null;
   readonly generatedAt: number;

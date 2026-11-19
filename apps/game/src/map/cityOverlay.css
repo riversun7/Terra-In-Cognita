@@ -1,15 +1,15 @@
 /*
- * 1차맵 도시 덧그림(CityOverlay.tsx) — 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast).
+ * 1차맵 도시·국가·세력 전선 덧그림(CityOverlay.tsx) — 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast).
  * 국가 색 = 서버가 보낸 국가 고유 색(style의 --nation·--nation-ink·--nation-halo, nationColor.ts — 자료 색이라 CSS에 쓰지 않는다).
- * 색이 없으면 --color-stat-* 여섯을 국가 차례대로(data-nation 0 ~ 5 → --nation, 개발 영토 화면과 같은 돌려 쓰기). 인라인 style이 이긴다. 위치는 엔진 프레임이 transform으로 놓는다.
- * 덧그림 판은 지도 위를 덮지만 누르기는 지나보낸다(표시 단추만 받는다).
+ * 색이 없으면 --color-stat-* 여섯을 국가 차례대로(data-nation 0 ~ 5 → --nation). 세계 색 위 지도 이름표·전선은 테마와 상관없이
+ * 읽히도록 --color-space-panel·--color-space-text 등 세계 고정 토큰을 쓴다(D-070).
  */
 .city-overlay {
   position: absolute;
   inset: 0;
-  overflow: hidden;
+  overflow: clip;
   pointer-events: none;
-  /* 쌓임 맥락을 따로 둔다: 고른 도시 표시(z-index 1)가 아래 판(도시 판·명령 판) 위로 올라오지 않게(WP7) */
+  /* 쌓임 맥락을 따로 둔다: 고른 도시 표시(z-index 2)가 아래 판(도시 판·명령 판) 위로 올라오지 않게(WP7) */
   isolation: isolate;
 }
 [data-nation="0"] {
@@ -31,8 +31,7 @@
   --nation: var(--color-stat-vit);
 }
 
-/* 영토(ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"): 국가마다 도시 원 + 도시 사이 땅. 국가끼리 겹치지 않는 고리라 칠은 각자 반투명,
-   테두리는 같은 고리, 두 국가가 맞닿은 선은 판색 받침 위에 */
+/* 영토: 국가마다 도시 원 + 도시 사이 땅. 어두운 바깥 그림자 선 + 국가 색 안쪽 국경선으로 지형·기후 위에서도 또렷하게 */
 .city-territory {
   position: absolute;
   inset: 0;
@@ -42,12 +41,12 @@
 }
 .city-area-fill {
   fill: var(--nation);
-  fill-opacity: 0.18;
+  fill-opacity: 0.22;
   fill-rule: evenodd;
   stroke: none;
+  transition: fill-opacity var(--duration-fast) var(--easing-out);
 }
-/* 비슷한 색 이웃 무늬(기획 D-546 1435, CityOverlay <pattern>): 국가 색 바탕 + 그 색 위 글자 색(--nation-ink, 검정·흰색 가운데 대비가 큰 것) 빗금.
-   칠(.city-area-fill)의 투명도를 그대로 받는다 */
+/* 비슷한 색 이웃 무늬(기획 D-546 1435, CityOverlay <pattern>): 국가 색 바탕 + 그 색 위 글자 색 빗금 */
 .city-area-hatch-base {
   fill: var(--nation);
 }
@@ -55,51 +54,273 @@
   fill: var(--nation-ink, var(--color-text));
   opacity: 0.6;
 }
-.city-area-divider {
+.city-area-edge-shadow {
   fill: none;
-  stroke: var(--color-surface);
-  stroke-width: calc(var(--border-w) * 3);
+  stroke: var(--color-space-panel);
+  stroke-width: calc(var(--border-w) * 3.8);
   stroke-linejoin: round;
   stroke-linecap: round;
-  opacity: 0.85;
+  opacity: 0.52;
+}
+.city-area-divider {
+  fill: none;
+  stroke: var(--color-space-text);
+  stroke-width: calc(var(--border-w) * 3.2);
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  opacity: 0.82;
 }
 .city-area-edge {
   fill: none;
   stroke: var(--nation);
-  stroke-width: var(--border-w);
+  stroke-width: calc(var(--border-w) * 1.8);
   stroke-linejoin: round;
   stroke-linecap: round;
 }
-/* 국가 이름표(영토 레이어만): 영토 가운데, 지도 위에서 읽히게 판색 테두리 글자. 누르기는 지나보낸다 */
+.city-area-edge[data-war="true"] {
+  stroke-width: calc(var(--border-w) * 2.2);
+}
+
+/* 고도·기후·자원 분포 레이어에서는 자료 지도가 주역이 되도록 영토 칠을 은은하게 */
+.city-overlay[data-layer="elevation"] .city-area-fill,
+.city-overlay[data-layer="climate"] .city-area-fill,
+.city-overlay[data-layer="resource"] .city-area-fill {
+  fill-opacity: 0.08;
+}
+.city-overlay[data-layer="elevation"] .city-area-edge-shadow,
+.city-overlay[data-layer="climate"] .city-area-edge-shadow,
+.city-overlay[data-layer="resource"] .city-area-edge-shadow {
+  opacity: 0.34;
+}
+.city-overlay[data-layer="elevation"] .city-area-edge,
+.city-overlay[data-layer="climate"] .city-area-edge,
+.city-overlay[data-layer="resource"] .city-area-edge {
+  stroke-width: calc(var(--border-w) * 1.3);
+  opacity: 0.72;
+}
+
+/* 영토 레이어(정치 지도): 흐린 아틀라스 바탕 위에 영토 칠과 국경선을 선명하게 */
+.city-overlay[data-emphasis="territory"] .city-area-fill {
+  fill-opacity: 0.46;
+}
+.city-overlay[data-emphasis="territory"] .city-area-edge-shadow {
+  stroke-width: calc(var(--border-w) * 4.6);
+  opacity: 0.65;
+}
+.city-overlay[data-emphasis="territory"] .city-area-edge {
+  stroke-width: calc(var(--border-w) * 2.4);
+}
+.city-overlay[data-emphasis="territory"] .city-area-divider {
+  stroke-width: calc(var(--border-w) * 4);
+}
+
+/* 특정 국가를 골라 보는 중: 고른 국가는 강조, 나머지 영토는 살짝 가라앉힌다 */
+.city-overlay[data-has-focus="true"] .city-area-fill:not([data-focused="true"]) {
+  fill-opacity: 0.14;
+}
+.city-overlay[data-emphasis="territory"][data-has-focus="true"] .city-area-fill:not([data-focused="true"]) {
+  fill-opacity: 0.28;
+}
+.city-overlay[data-has-focus="true"] .city-area-fill[data-focused="true"] {
+  fill-opacity: 0.44;
+}
+.city-overlay[data-emphasis="territory"][data-has-focus="true"] .city-area-fill[data-focused="true"] {
+  fill-opacity: 0.62;
+}
+.city-area-edge-shadow[data-focused="true"] {
+  stroke: var(--color-space-current);
+  stroke-width: calc(var(--border-w) * 5.6);
+  opacity: 0.85;
+}
+.city-area-edge[data-focused="true"] {
+  stroke-width: calc(var(--border-w) * 2.8);
+}
+
+/* 전쟁 중인 국경선(맞닿은 교전 국경) & 세력 외교·전선 호 */
+@keyframes planet-war-march {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -36;
+  }
+}
+@keyframes planet-war-pulse {
+  0%,
+  100% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.city-war-divider {
+  fill: none;
+  stroke: var(--color-danger);
+  stroke-width: calc(var(--border-w) * 4.2);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 10 8;
+  animation: planet-war-march 1.6s linear infinite;
+}
+.city-diplomacy-war-glow {
+  fill: none;
+  stroke: var(--color-danger);
+  stroke-width: calc(var(--border-w) * 7);
+  stroke-linecap: round;
+  opacity: 0.28;
+}
+.city-diplomacy-war {
+  fill: none;
+  stroke: var(--color-space-hot);
+  stroke-width: calc(var(--border-w) * 2.6);
+  stroke-linecap: round;
+  stroke-dasharray: 11 7;
+  animation: planet-war-march 1.4s linear infinite;
+}
+.city-diplomacy-war-focus {
+  fill: none;
+  stroke: var(--color-space-current);
+  stroke-width: calc(var(--border-w) * 3.4);
+  stroke-linecap: round;
+  stroke-dasharray: 12 6;
+  animation: planet-war-march 1.1s linear infinite;
+}
+.city-diplomacy-truce {
+  fill: none;
+  stroke: var(--color-space-cold);
+  stroke-width: calc(var(--border-w) * 2);
+  stroke-linecap: round;
+  stroke-dasharray: 4 7;
+  opacity: 0.82;
+}
+.city-diplomacy-vassal {
+  fill: none;
+  stroke: var(--color-space-current);
+  stroke-width: calc(var(--border-w) * 2);
+  stroke-linecap: round;
+  stroke-dasharray: 7 5;
+  opacity: 0.78;
+}
+
+/* 전선 중앙 교전 배지(⚔ 메달) — 다크 테마에서도 옅은 분홍이 아닌 선명한 진홍·황금 대비 */
+.city-war-clash {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  display: inline-grid;
+  place-items: center;
+  width: calc(var(--status-dot) * 2.9);
+  height: calc(var(--status-dot) * 2.9);
+  border: var(--border-strong-w) solid var(--color-space-current);
+  border-radius: var(--radius-pill);
+  background-color: color-mix(in srgb, var(--color-danger) 76%, var(--color-space));
+  color: var(--color-space-text);
+  box-shadow: 0 0 var(--space-3) color-mix(in srgb, var(--color-danger) 85%, transparent);
+  pointer-events: none;
+  animation: planet-war-pulse 1.8s ease-in-out infinite;
+}
+.city-war-clash[data-focused="true"] {
+  width: calc(var(--status-dot) * 3.2);
+  height: calc(var(--status-dot) * 3.2);
+  box-shadow: 0 0 var(--space-4) color-mix(in srgb, var(--color-space-current) 80%, transparent);
+}
+.city-war-clash[hidden] {
+  display: none;
+}
+.city-war-clash-icon {
+  width: calc(var(--status-dot) * 1.6);
+  height: calc(var(--status-dot) * 1.6);
+}
+
+/* 국가 이름표(4X·삼국지 전략 배너): 모든 레이어에 표시, 문양 + 굵은 이름 + 전쟁 배지. 누르기는 지나보낸다 */
 .city-area-label {
   position: absolute;
   top: 0;
   left: 0;
-  max-width: calc(var(--tap-size) * 4);
-  overflow: hidden;
-  color: var(--nation);
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: calc(var(--tap-size) * 4.8);
+  padding: calc(var(--space-1) * 0.65) var(--space-2);
+  border: var(--hairline) solid color-mix(in srgb, var(--nation) 78%, var(--color-space-text));
+  border-left: calc(var(--border-strong-w) * 1.5) solid var(--nation);
+  border-radius: var(--radius-sm);
+  background-color: color-mix(in srgb, var(--color-space-panel) 84%, transparent);
+  box-shadow:
+    0 var(--hairline) var(--space-2) color-mix(in srgb, var(--color-space) 55%, transparent),
+    0 0 var(--space-2) color-mix(in srgb, var(--nation) 28%, transparent);
+  color: var(--color-space-text);
   font-family: var(--font-display);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-display);
   line-height: var(--line-height-tight);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  /* 번짐 = 국가 색과 대비가 큰 글자 색(--nation-halo: 밝은 국가 색이면 어둡게) — 어느 국가 색·어느 땅 위에서도 읽힌다 */
-  text-shadow:
-    0 0 var(--hairline) var(--nation-halo, var(--color-surface)),
-    0 0 var(--space-1) var(--nation-halo, var(--color-surface)),
-    0 0 var(--space-1) var(--nation-halo, var(--color-surface));
+  letter-spacing: 0.02em;
   pointer-events: none;
+}
+.city-area-label[data-scale="major"] {
+  padding: var(--space-1) calc(var(--space-2) + var(--space-1) * 0.5);
+  border-color: color-mix(in srgb, var(--nation) 68%, var(--color-space-current));
+  font-size: var(--font-size-md);
+}
+.city-area-label[data-scale="minor"] {
+  font-size: var(--font-size-xs);
+}
+.city-area-label[data-war="true"] {
+  border-color: color-mix(in srgb, var(--color-danger) 80%, var(--color-space-current));
+  box-shadow:
+    0 var(--hairline) var(--space-2) color-mix(in srgb, var(--color-space) 65%, transparent),
+    0 0 var(--space-3) color-mix(in srgb, var(--color-danger) 55%, transparent);
+}
+.city-area-label[data-focused="true"] {
+  z-index: 2;
+  border-color: var(--color-space-current);
+  background-color: color-mix(in srgb, var(--color-space-panel) 94%, transparent);
+}
+.city-overlay[data-layer="elevation"] .city-area-label,
+.city-overlay[data-layer="climate"] .city-area-label,
+.city-overlay[data-layer="resource"] .city-area-label {
+  opacity: 0.8;
+}
+.city-overlay[data-has-focus="true"] .city-area-label:not([data-focused="true"]) {
+  opacity: 0.72;
 }
 .city-area-label[data-shown="false"] {
   visibility: hidden;
 }
+.city-area-label-emblem {
+  flex: none;
+}
+.city-area-label-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.city-area-label-war {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: calc(var(--status-dot) * 1.9);
+  height: calc(var(--status-dot) * 1.9);
+  border: var(--hairline) solid var(--color-space-current);
+  border-radius: var(--radius-pill);
+  background-color: color-mix(in srgb, var(--color-danger) 76%, var(--color-space));
+  color: var(--color-space-text);
+}
+.city-area-label-war-icon {
+  width: calc(var(--status-dot) * 1.2);
+  height: calc(var(--status-dot) * 1.2);
+}
 
-/* 도시 표시: 누르는 곳은 --tap-size, 안에 국가 색 점과 이름표 */
+/* 도시 표시: 누르는 곳은 --tap-size, 안에 국가 색 성채·도시 점과 이름표 */
 .city-marker {
   position: absolute;
   top: 0;
   left: 0;
+  z-index: 1;
   display: grid;
   justify-items: center;
   align-content: center;
@@ -110,34 +331,80 @@
   border: 0;
   border-radius: var(--radius-pill);
   background: none;
-  /* 앱 단추의 입술 그림자·눌림 움직임을 끈다(위치는 엔진 프레임이 transform으로 놓는다 — 옮겨 갈 때 움직임이 끼면 늦게 따라온다) */
+  /* 앱 단추의 입술 그림자·눌림 움직임을 끈다(위치는 엔진 프레임이 transform으로 놓는다) */
   box-shadow: none;
   transition: none;
   color: var(--color-text);
   pointer-events: auto;
   cursor: pointer;
 }
-/* 고른 도시는 이웃 표시 위에 */
+/* 수도·고른 도시는 이웃 표시 위에 */
+.city-marker[data-capital="true"] {
+  z-index: 2;
+}
 .city-marker[aria-pressed="true"] {
-  z-index: 1;
+  z-index: 3;
 }
 .city-marker[hidden] {
   display: none;
 }
 .city-marker-dot {
-  width: calc(var(--status-dot) * 2);
-  height: calc(var(--status-dot) * 2);
-  border: var(--border-w) solid var(--color-surface);
+  display: grid;
+  place-items: center;
+  width: calc(var(--status-dot) * 1.9);
+  height: calc(var(--status-dot) * 1.9);
+  border: var(--border-strong-w) solid var(--color-space-text);
   border-radius: var(--radius-pill);
   background-color: var(--nation);
-  box-shadow: var(--shadow-control);
+  box-shadow:
+    0 0 0 var(--hairline) color-mix(in srgb, var(--color-space-panel) 85%, transparent),
+    0 var(--hairline) var(--space-2) color-mix(in srgb, var(--color-space) 55%, transparent);
 }
-/* 시작 도시: 네모 점(색에만 기대지 않는다) */
+/* 시작 도시: 둥근 네모(색에만 기대지 않는다) */
 .city-marker[data-start="true"] .city-marker-dot {
   border-radius: var(--radius-sm);
 }
+/* 수도(D-528): 황금 이중 테두리 성채 + 별 */
+.city-marker[data-capital="true"] .city-marker-dot {
+  width: calc(var(--status-dot) * 2.7);
+  height: calc(var(--status-dot) * 2.7);
+  border: var(--border-strong-w) solid var(--color-space-current);
+  box-shadow:
+    0 0 0 var(--border-w) var(--color-space-panel),
+    0 0 var(--space-3) color-mix(in srgb, var(--color-space-current) 55%, transparent);
+}
+.city-marker-capital {
+  color: var(--color-space-current);
+  font-size: var(--font-size-xs);
+  line-height: 1;
+  text-shadow: 0 0 var(--space-1) var(--color-space-panel);
+}
+/* 교전·약탈 중인 도시: 진홍 전투 고리 + 검 배지 */
+.city-marker[data-battle="active"] .city-marker-dot {
+  box-shadow:
+    0 0 0 var(--border-strong-w) var(--color-danger),
+    0 0 var(--space-3) var(--color-danger);
+}
+.city-marker-siege {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  display: inline-grid;
+  place-items: center;
+  width: calc(var(--status-dot) * 1.6);
+  height: calc(var(--status-dot) * 1.6);
+  border: var(--hairline) solid var(--color-space-current);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-danger);
+  color: var(--color-space-text);
+  pointer-events: none;
+}
+.city-marker-siege-icon {
+  width: var(--status-dot);
+  height: var(--status-dot);
+}
 .city-marker[aria-pressed="true"] .city-marker-dot {
-  outline: var(--focus-w) solid var(--color-focus);
+  outline: var(--focus-w) solid var(--color-space-focus);
   outline-offset: var(--focus-offset);
 }
 .city-marker:focus-visible {
@@ -145,26 +412,30 @@
   outline-offset: var(--focus-offset);
   border-radius: var(--radius-control);
 }
-/* 이름표: 점 아래 가운데(단추 폭 44px에 묶이지 않게 글자 폭 그대로, 상한 넘으면 말줄임) */
+
+/* 도시 이름표: 점 아래 가운데, 어두운 반투명 명판 + 국가 색 테두리 */
 .city-marker-name {
   position: absolute;
-  top: 100%;
+  top: calc(100% - var(--space-1));
   left: 50%;
   width: max-content;
   transform: translateX(-50%);
-  /* 이름표는 누르지 않는다(이웃 표시를 가리지 않게 누르기를 지나보낸다) */
   pointer-events: none;
-  max-width: calc(var(--tap-size) * 4);
+  max-width: calc(var(--tap-size) * 3.8);
   padding: 0 var(--space-2);
   overflow: hidden;
-  border: var(--hairline) solid var(--nation);
+  border: var(--hairline) solid color-mix(in srgb, var(--nation) 80%, var(--color-space-text));
   border-radius: var(--radius-pill);
-  background-color: var(--color-surface);
+  background-color: color-mix(in srgb, var(--color-space-panel) 88%, transparent);
+  color: var(--color-space-text);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-strong);
   line-height: var(--line-height-snug);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.city-marker[data-capital="true"] .city-marker-name {
+  border-color: var(--color-space-current);
 }
 .city-marker[data-label="off"] .city-marker-name {
   display: none;
@@ -177,9 +448,10 @@
   right: 0;
   min-width: var(--badge-size);
   padding: 0 var(--space-1);
+  border: var(--hairline) solid var(--color-space-text);
   border-radius: var(--radius-pill);
-  background-color: var(--color-text);
-  color: var(--color-surface);
+  background-color: var(--color-space-panel);
+  color: var(--color-space-text);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-strong);
   line-height: var(--badge-size);
@@ -191,25 +463,27 @@
   position: absolute;
   top: 0;
   left: 0;
+  z-index: 3;
   width: calc(var(--status-dot) * 2.4);
   height: calc(var(--status-dot) * 2.4);
-  border: var(--focus-w) solid var(--color-primary);
+  border: var(--focus-w) solid var(--color-space-focus);
   border-radius: var(--radius-pill);
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-control);
+  background-color: var(--color-space-panel);
+  box-shadow: 0 0 var(--space-3) color-mix(in srgb, var(--color-space-focus) 70%, transparent);
 }
 .city-me[hidden] {
   display: none;
 }
 
-/* 내 좌표 유닛(띄우지 않은 2차맵 위에 섬 — ADR 2026-11-15): 내 사이보그보다 작은 속 찬 점, 배는 네모 */
+/* 내 좌표 유닛(띄우지 않은 2차맵 위에 섬 — ADR 2026-11-15) */
 .city-away {
   position: absolute;
   top: 0;
   left: 0;
+  z-index: 2;
   width: calc(var(--status-dot) * 1.6);
   height: calc(var(--status-dot) * 1.6);
-  border: var(--focus-w) solid var(--color-surface);
+  border: var(--border-strong-w) solid var(--color-space-text);
   border-radius: var(--radius-pill);
   background-color: var(--color-primary);
   box-shadow: var(--shadow-control);
@@ -222,29 +496,11 @@
   display: none;
 }
 
-/* 수도(D-528): 점 안 별(색에만 기대지 않는다). 어느 레이어에서나 보인다 */
-.city-marker-dot {
-  display: grid;
-  place-items: center;
-}
-.city-marker[data-capital="true"] .city-marker-dot {
-  width: calc(var(--status-dot) * 2.6);
-  height: calc(var(--status-dot) * 2.6);
-}
-.city-marker-capital {
-  /* 국가 색 점 위 별: 국가 색과 대비가 큰 색(--nation-ink) */
-  color: var(--nation-ink, var(--color-surface));
-  font-size: var(--font-size-xs);
-  line-height: 1;
-}
-
-/* 영토 레이어(사용자 요청 2026-11-12): 흐린 바탕 위에 영토 칠을 진하게, 테두리를 굵게 */
-.city-overlay[data-emphasis="territory"] .city-area-fill {
-  fill-opacity: 0.42;
-}
-.city-overlay[data-emphasis="territory"] .city-area-edge {
-  stroke-width: calc(var(--border-w) * 1.5);
-}
-.city-overlay[data-emphasis="territory"] .city-area-divider {
-  stroke-width: calc(var(--border-w) * 4);
+@media (prefers-reduced-motion: reduce) {
+  .city-war-divider,
+  .city-diplomacy-war,
+  .city-diplomacy-war-focus,
+  .city-war-clash {
+    animation: none;
+  }
 }

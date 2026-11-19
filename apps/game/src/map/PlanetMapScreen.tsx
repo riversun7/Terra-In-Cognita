@@ -78,6 +78,8 @@ import { sendTravelCommand } from "./travelCommands.ts";
 import { travelProblemText } from "./travelData.ts";
 import { PlanetLayerPicker, PlanetLayerToggle } from "./PlanetLayerPicker.tsx";
 import { PlanetPerfPanel } from "./PlanetPerfPanel.tsx";
+import { PlanetWarPanel, PlanetWarToggle } from "./PlanetWarPanel.tsx";
+import { capitalCityOf, warSetsOf } from "./warOverlay.ts";
 import {
   OperatorMenuButton,
   OperatorMenuPanel,
@@ -189,6 +191,11 @@ function PlanetMapView({
   const [layerMenu, setLayerMenu] = useState(false);
   const closeLayerMenu = useCallback(() => setLayerMenu(false), []);
   const layerSheetId = useId();
+  // 천하 정세·세력 판도 판 여닫기와 강조 국가(삼국지·4X 세력 전쟁 보기)
+  const [warMenu, setWarMenu] = useState(false);
+  const closeWarMenu = useCallback(() => setWarMenu(false), []);
+  const warSheetId = useId();
+  const [focusedFaction, setFocusedFaction] = useState<number | null>(null);
   // 레이어 판(기획 D-546 1436 "모바일에선 닫고 넓은 화면에선 열어라"): 좁은 단계(37.5em 미만 — 하단 탭 휴대폰, shell/layout.ts)는 고르면 닫고,
   // 중간·넓은 단계는 열어 둔다(범례·원자재를 보며 바꾸게)
   const narrow = useLayout().stage === "narrow";
@@ -294,13 +301,17 @@ function PlanetMapView({
             ...(skyParams.benchRepeat === null ? {} : { gpuBenchRepeat: skyParams.benchRepeat }),
             onStatus: setStatus,
             onPick: (cell) => {
-              // 땅을 누르면 도시 판·명령 판·레이어 판을 닫고 그 칸을 본다
+              // 땅을 누르면 도시 판·명령 판·레이어 판·전황 판을 닫고 그 칸을 본다
               setCityId(null);
               setCommand(null);
               setLayerMenu(false);
+              setWarMenu(false);
+              setFocusedFaction(null);
               const lines = cell ? cellLines(cell, (id) => names.get(id) ?? null) : [m.planet_cell_none()];
               const nation =
-                cell && layerRef.current === "territory" ? territoryLineOf(worldRef.current, cell) : null;
+                cell && (layerRef.current === "territory" || layerRef.current === "terrain")
+                  ? territoryLineOf(worldRef.current, cell)
+                  : null;
               setPicked({
                 cell,
                 lines: nation ? [...lines, nation] : lines,
@@ -372,6 +383,29 @@ function PlanetMapView({
   };
   const cities = world?.status === "ready" ? world.cities : [];
   const city = cities.find((entry) => entry.id === cityId) ?? null;
+  const activeFocusFaction = city ? city.factionId : focusedFaction;
+  const activeWarCount = useMemo(
+    () => (world?.status === "ready" ? warSetsOf(world.relations).wars.length : 0),
+    [world],
+  );
+  const focusNation = (factionId: number): void => {
+    setCityId(null);
+    setCommand(null);
+    setFocusedFaction(factionId);
+    const capital = capitalCityOf(cities, factionId);
+    if (capital) engineRef.current?.lookAt({ latDeg: capital.latDeg, lonDeg: capital.lonDeg });
+    if (narrow) {
+      setLayerMenu(false);
+      setWarMenu(false);
+    }
+  };
+  const focusFront = (latDeg: number, lonDeg: number, factionId: number): void => {
+    setCityId(null);
+    setCommand(null);
+    setFocusedFaction(factionId);
+    engineRef.current?.lookAt({ latDeg, lonDeg });
+    if (narrow) setWarMenu(false);
+  };
   const commandMapKey = command?.mapKey ?? null;
   useEffect(() => {
     commandMapRef.current = commandMapKey;
@@ -546,12 +580,16 @@ function PlanetMapView({
           factions={world.factions}
           milliPerRadian={world.milliPerRadian}
           territory={layers.territory}
+          relations={world.relations}
+          focusedFactionId={activeFocusFaction}
+          layer={layer}
           me={shownMe}
           away={away}
           selected={cityId}
           onSelect={(next) => {
             setCityId(next.id);
             setCommand(null);
+            setWarMenu(false);
           }}
           onZoomTo={zoomTo}
           register={registerOverlay}
@@ -634,6 +672,7 @@ function PlanetMapView({
           <PlanetCityPanel
             city={city}
             factions={world.factions}
+            relations={world.relations}
             mine={world.myFactionId === city.factionId}
             onEnter={(target) => enterMap(target.mapKey, { x: target.cellX, y: target.cellY })}
             onScout={() => setCommand(cityTarget(city, world.factions))}
@@ -643,7 +682,7 @@ function PlanetMapView({
         ) : null}
         <PlanetReadout
           lines={picked?.lines ?? null}
-          hidden={city !== null || command !== null}
+          hidden={city !== null || command !== null || ((layerMenu || warMenu) && picked === null)}
           climate={layer === "climate"}
           // 지금 실패한 타일만(다시 받아 오면 사라진다). 판이 바뀐 안내가 떠 있으면 그 안내가 대신한다
           tilesFailed={stats && tileProblem !== "not_found" ? stats.tilesFailed : 0}
@@ -654,6 +693,21 @@ function PlanetMapView({
           teleporting={teleporting}
         />
         <div className="planet-controls">
+          {world?.status === "ready" ? (
+            <PlanetWarPanel
+              id={warSheetId}
+              open={warMenu}
+              onClose={closeWarMenu}
+              factions={world.factions}
+              cities={cities}
+              relations={world.relations}
+              myFactionId={world.myFactionId}
+              focusedFactionId={activeFocusFaction}
+              onFocusNation={focusNation}
+              onClearFocus={() => setFocusedFaction(null)}
+              onFocusFront={focusFront}
+            />
+          ) : null}
           <PlanetLayerPicker
             id={layerSheetId}
             open={layerMenu}
@@ -666,15 +720,31 @@ function PlanetMapView({
             onRetryResource={layers.retryResource}
             maxElevationM={stats ? stats.maxElevationM : null}
             nations={layers.nations}
+            onFocusNation={focusNation}
+            focusedFactionId={activeFocusFaction}
           />
-          {/* 늘 보이는 줄: 레이어 접는 단추 · [이 2차맵으로 들어가기] · [내 위치] */}
+          {/* 늘 보이는 줄: 레이어 접는 단추 · 세력·전황 · [이 2차맵으로 들어가기] · [내 위치] */}
           <div className="planet-jump">
             <PlanetLayerToggle
               layer={layer}
               open={layerMenu}
               controls={layerSheetId}
-              onToggle={() => setLayerMenu((open) => !open)}
+              onToggle={() => {
+                setWarMenu(false);
+                setLayerMenu((open) => !open);
+              }}
             />
+            {world?.status === "ready" ? (
+              <PlanetWarToggle
+                warCount={activeWarCount}
+                open={warMenu}
+                controls={warSheetId}
+                onToggle={() => {
+                  setLayerMenu(false);
+                  setWarMenu((open) => !open);
+                }}
+              />
+            ) : null}
             {here ? (
               <button
                 type="button"

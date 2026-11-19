@@ -4,17 +4,28 @@
  * 판은 불투명하다: 세계(행성) 색은 테마와 상관없으므로 다크 테마에서도 판 위 글자가 읽혀야 한다(D-070).
  */
 
-/* 아래 판: 누른 칸 안내 위에 조작 판 */
+/* 아래 판: 누른 칸 안내 위에 조작 판. 넓은 화면은 왼쪽 아래 떠 있는 4X 전략 카드로 */
 .planet-bottom {
   flex-direction: column;
   flex-wrap: nowrap;
   align-items: stretch;
+}
+@media (min-width: 48em) {
+  .planet-bottom {
+    align-items: flex-start;
+  }
 }
 
 .planet-readout {
   font-size: var(--font-size-sm);
   line-height: var(--line-height-snug);
   font-variant-numeric: tabular-nums;
+}
+@media (min-width: 48em) {
+  .planet-readout {
+    inline-size: fit-content;
+    max-inline-size: min(32rem, 100%);
+  }
 }
 .planet-readout p {
   margin: 0;
@@ -36,20 +47,52 @@
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-2);
+  inline-size: 100%;
 }
 .planet-layer-sheet {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
   align-self: stretch;
-  max-height: 45vh;
+  max-height: 50vh;
   overflow-y: auto;
+}
+@media (min-width: 48em) {
+  .planet-layer-sheet {
+    inline-size: min(34rem, 100%);
+  }
+}
+/* 레이어 5종 카드 격자(아이콘 위·이름 아래 5열 대칭 — 모바일 390px과 데스크톱 모두 한 줄로 꽉 채움, 누르기 44px 이상) */
+.planet-segment.planet-layer-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  inline-size: 100%;
+  gap: var(--space-1);
+}
+.planet-layer-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--space-1) * 0.5);
+  min-inline-size: 0;
+  min-block-size: calc(var(--tap-size) + var(--space-2));
+  padding: var(--space-1);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-tight);
+  white-space: nowrap;
+}
+.planet-layer-card-icon {
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
 }
 /* 접는 단추: 아이콘 + 지금 레이어 이름 + 펼침 표시(닫힘 ▾ · 열림 ▴) */
 .planet-layer-toggle {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  min-block-size: var(--tap-size);
   white-space: nowrap;
 }
 .planet-layer-toggle .icon {
@@ -186,6 +229,24 @@
   font-weight: var(--font-weight-strong);
   line-height: var(--line-height-snug);
 }
+.planet-city-badge-capital {
+  border-color: var(--color-warning);
+  background-color: var(--color-warning-surface);
+  color: var(--color-warning);
+}
+.planet-city-war-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  border: var(--hairline) solid color-mix(in srgb, var(--color-danger) 45%, var(--color-border));
+  border-radius: var(--radius-sm);
+  background-color: var(--color-danger-surface);
+  color: var(--color-danger);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
 .planet-city-nation,
 .planet-city-note {
   margin: 0;
@@ -247,11 +308,14 @@
 .planet-area {
   margin-top: var(--space-2);
 }
-/* 늘 보이는 줄: 레이어 접는 단추·가까이 본 곳의 2차맵 들어가기·내 위치 */
+/* 늘 보이는 줄: 레이어 접는 단추·세력·전황·2차맵 들어가기·내 위치 */
 .planet-jump {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+}
+.planet-jump > button {
+  min-block-size: var(--tap-size);
 }
 
 /* 항성계 보기(PlanetSystemView) 동안 감추는 판: 아래 판·성능 줄(둘 다 display를 정해서 hidden 속성만으로는 안 숨는다) */
@@ -260,9 +324,38 @@
   display: none;
 }
 
-/* 레이어 범례(PlanetLayerPicker.tsx — 고도·자원·영토, 사용자 요청 2026-11-12). 띠·칸 색은 세계 색(자료)이라 style로 넣는다 */
+/* 레이어 범례(PlanetLayerPicker.tsx — 고도·기후·자원·영토). 띠·칸 색은 세계 색(자료)이라 style로 넣는다 */
 .planet-segment {
   flex-wrap: wrap;
+}
+.planet-resource-picker {
+  display: grid;
+  gap: var(--space-2);
+}
+.planet-material-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.planet-material-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-block-size: var(--tap-size);
+  white-space: nowrap;
+}
+.planet-material-chip[aria-pressed="true"] {
+  --button-lip: var(--color-primary-lip);
+  border-color: transparent;
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.planet-material-dot {
+  flex: none;
+  width: var(--status-dot);
+  height: var(--status-dot);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
 }
 .planet-material label {
   font-size: var(--font-size-sm);
@@ -274,10 +367,29 @@
 }
 .planet-legend-block {
   display: grid;
-  gap: var(--space-1);
+  gap: var(--space-2);
   font-size: var(--font-size-xs);
   line-height: var(--line-height-snug);
   font-variant-numeric: tabular-nums;
+}
+.planet-legend-card {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+}
+.planet-legend-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+}
+.planet-legend-tag {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
 }
 .planet-legend-block p,
 .planet-legend-block ul {
@@ -303,7 +415,7 @@
 .planet-legend-nations {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-1) var(--space-3);
+  gap: var(--space-1) var(--space-2);
   padding: 0;
   list-style: none;
 }
@@ -313,6 +425,48 @@
   gap: var(--space-1);
   min-width: 0;
   overflow-wrap: anywhere;
+}
+.planet-legend-nation-item {
+  max-width: 100%;
+}
+.planet-legend-nation-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-block-size: var(--tap-size);
+  max-width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+  box-shadow: none;
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  cursor: pointer;
+}
+.planet-legend-nation-btn[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  background-color: var(--color-nav-active);
+}
+.planet-legend-nation-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.planet-legend-nation-count {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.planet-legend-war-icon {
+  flex: none;
+  width: calc(var(--status-dot) * 1.4);
+  height: calc(var(--status-dot) * 1.4);
+  color: var(--color-danger);
 }
 .planet-legend-swatch {
   flex: none;
@@ -337,7 +491,7 @@
     transparent var(--border-w) calc(var(--border-w) * 2.5)
   );
 }
-/* 도시 표시 뜻: 수도 별·시작 도시 네모·도시 동그라미(cityOverlay.css와 같은 모양) */
+/* 도시·전선 표시 뜻(cityOverlay.css와 같은 모양) */
 .planet-legend-mark {
   display: inline-grid;
   place-items: center;
@@ -352,11 +506,26 @@
   line-height: 1;
 }
 .planet-legend-mark[data-mark="capital"] {
-  border-color: transparent;
-  background: none;
+  border-color: var(--color-warning);
+  background-color: var(--color-warning-surface);
+  color: var(--color-warning);
 }
 .planet-legend-mark[data-mark="start"] {
   border-radius: calc(var(--hairline) * 3);
+}
+.planet-legend-mark[data-mark="war"] {
+  border-color: var(--color-danger);
+  background-color: var(--color-danger);
+  color: var(--color-on-primary);
+}
+.planet-legend-mark[data-mark="truce"] {
+  border-style: dashed;
+  border-color: var(--color-stat-int);
+  background-color: var(--color-surface-2);
+}
+.planet-legend-mark-icon {
+  width: var(--status-dot);
+  height: var(--status-dot);
 }
 .planet-legend-note {
   color: var(--color-text-muted);

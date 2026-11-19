@@ -263,7 +263,7 @@ void main() {
 // 조각 셰이더 순서: 지형색(planetTileShader.ts) → (끔) 고른 칸 → 카메라 빛 / (켬) 항성 낮밤 → 고른 칸(빛 뒤, 밤에도 밝다). ADR 4절 합성 순서 표.
 const TILE_FRAGMENT = buildTileFragmentShader(DAY_NIGHT_GLSL);
 
-/** 타일 하나의 재질. origin32 = 타일 원점(32비트, 위쪽 방향 계산용), tileST = (s0, t0, 한 변, 면) */
+/** 타일 하나의 재질. origin32 = 타일 원점(32비트, 위쪽 방향 계산용), tileST = (s0, t0, 한 변, 면), pad = 칸 텍스처 앞치마 폭(0 또는 1) */
 export function createTileMaterial(
   shared: SharedTileUniforms,
   cellData: Texture,
@@ -271,6 +271,7 @@ export function createTileMaterial(
   cells: number,
   origin: readonly [number, number, number],
   tileST: readonly [number, number, number, number],
+  pad = 0,
 ): ShaderMaterial {
   return new ShaderMaterial({
     uniforms: {
@@ -279,6 +280,7 @@ export function createTileMaterial(
       uCellData: { value: cellData },
       uCellExtra: { value: cellExtra },
       uCells: { value: cells },
+      uPad: { value: pad },
       uTile: { value: new Vector4(tileST[0], tileST[1], tileST[2], tileST[3]) },
     },
     vertexShader: TILE_VERTEX,

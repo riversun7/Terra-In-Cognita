@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-19 23:37 | 1차맵 타일 경계 앞치마·선명한 유기적 지형·연속 사행 하천 셰이더 | Antigravity | [19-2337-planet-seamless-terrain-and-rivers](worklog/2026/11/19-2337-planet-seamless-terrain-and-rivers.md) |
 | 2026-11-19 23:05 | 1차맵 내 본캐릭 사이보그·전역 보유 유닛 위치 표시 및 내 부대 레이아웃 | Antigravity | [19-2305-planet-cyborg-and-my-units](worklog/2026/11/19-2305-planet-cyborg-and-my-units.md) |
 | 2026-11-19 22:40 | 1차맵 4X 전략 지도 개편 — 국가 이름·세력 전쟁 전선·지형 셰이더·레이어 레이아웃 | Antigravity | [19-2240-planet-map-4x-overhaul](worklog/2026/11/19-2240-planet-map-4x-overhaul.md) |
 | 2026-11-19 13:15 | 모바일 UI 최적화 및 2차맵 이동 경로·인디케이터·3D 모델 개선 | Antigravity | [19-1315-mobile-ui-and-2nd-map-polish](worklog/2026/11/19-1315-mobile-ui-and-2nd-map-polish.md) |

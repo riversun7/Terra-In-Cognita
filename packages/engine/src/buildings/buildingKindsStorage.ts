@@ -129,9 +129,8 @@ export function grand_warehouse(ctx: KindContext): void {
   // 앞 전체 하역 도크 + 크레인 + 화물 더미
   list.add("box", 0, FLOOR_M, m.z + hallD / 2 + 1.2, hallW * 2 + gap, 0.9, 2.4, C.plank);
   list.crane(-W * 0.38, FLOOR_M, D * 0.25, 5.2, 3.2, 0.35, C.ironRed);
-  list.crates(W * 0.3, D * 0.38, 5, random, 1.15);
-  list.crates(-W * 0.28, D * 0.38, 4, random, 1.15);
-  list.crates(0, D * 0.36, 3, random, 1.05);
+  list.crates(W * 0.3, D * 0.38, 2, random, 1.15);
+  list.crates(-W * 0.28, D * 0.38, 2, random, 1.15);
 }
 
 /** 물류센터: 포장 마당 + 대형 분류 캐노피 + 배차 관제실 + 화물 수레 + 상자 팔레트 */

@@ -29,9 +29,9 @@ function tone(target: Color, rgb: readonly [number, number, number], ctx: ShapeC
   return target.setRGB(rgb[0] * ctx.shade * mul, rgb[1] * ctx.shade * mul, rgb[2] * ctx.shade * mul);
 }
 
-/** 납작한 원판(웅덩이·소금밭·연잎 등): 덩이를 아주 낮게 */
+/** 납작한 원판(웅덩이·소금밭·연잎 등): 윗면이 평평한 기둥(stem)을 얇게 깔아 다면체 각짐을 없앤다 */
 function disc(put: PartSink, ctx: ShapeContext, rx: number, rz: number, lift: number, color: Color): void {
-  put("blob", ctx.x, ctx.y + lift, ctx.z, rx, 0.04, rz, ctx.turn, 0, color);
+  put("stem", ctx.x, ctx.y + lift - 0.02, ctx.z, rx, 0.05, rz, ctx.turn, 0, color);
 }
 
 /** 조각 count개를 반지름 spread 안에 흩는다(땅 높이에 붙임, onWater면 ctx.y 그대로) */
@@ -53,7 +53,7 @@ function chips(
   }
 }
 
-/** 풀잎 count개 다발 */
+/** 풀잎 count개 다발(뿌리를 모으고 바깥쪽으로 부채꼴로 눕힌다) */
 function blades(
   put: PartSink,
   ctx: ShapeContext,
@@ -65,13 +65,14 @@ function blades(
   y0?: number,
 ): void {
   for (let k = 0; k < count; k++) {
-    const angle = ctx.turn + (k * Math.PI * 2) / count + ctx.r(salt + k) * 0.7;
-    const d = spread * (0.2 + 0.8 * ctx.r(salt + 10 + k));
+    const angle = ctx.turn + (k * Math.PI * 2) / count + (ctx.r(salt + k) - 0.5) * 0.5;
+    const d = spread * (0.12 + 0.55 * ctx.r(salt + 10 + k));
     const x = ctx.x + Math.cos(angle) * d;
-    const z = ctx.z + Math.sin(angle) * d;
-    const h = height * (0.7 + 0.6 * ctx.r(salt + 20 + k));
+    const z = ctx.z - Math.sin(angle) * d;
+    const h = height * (0.65 + 0.45 * ctx.r(salt + 20 + k));
     const y = y0 ?? ctx.ground(x, z);
-    put("blade", x, y, z, 0.1 * ctx.size, h, 0.07, angle, (ctx.r(salt + 30 + k) - 0.5) * 0.6, color);
+    const lean = -(0.22 + 0.38 * ctx.r(salt + 30 + k));
+    put("blade", x, y, z, 0.1 * ctx.size, h, 0.07, angle, lean, color);
   }
 }
 
@@ -215,24 +216,27 @@ export function buildKit(put: PartSink, look: PropLook, ctx: ShapeContext): void
       put("blob", x, y + h * 0.72, z, h * 0.26, h * 0.16, h * 0.26, turn, 0, body);
       put("cone", x, y + h * 0.82, z, h * 0.2, h * 0.18, h * 0.2, turn + 1, 0, tone(second, accent, ctx));
       return;
-    case "vines":
-      for (let k = 0; k < 4; k++) {
-        const spot = at(ctx, (ctx.r(180 + k) - 0.5) * 1.6, (ctx.r(185 + k) - 0.5) * 1.6);
+    case "vines": {
+      // 덩굴 수풀: 낮게 얽힌 덩굴 덩이 + 사방으로 뻗는 잎 줄기(수직 창처럼 보이지 않게)
+      put("chip", x, y + h * 0.16, z, h * 0.4, h * 0.24, h * 0.36, turn, 0, body);
+      const leaf = tone(second, accent, ctx);
+      for (let k = 0; k < 5; k++) {
+        const yaw = turn + (k * Math.PI * 2) / 5 + ctx.r(180 + k) * 0.4;
         put(
           "blade",
-          spot.x,
-          ctx.ground(spot.x, spot.z),
-          spot.z,
-          0.12,
-          h,
+          x,
+          y + h * 0.12,
+          z,
+          0.18 * size,
+          h * 0.52,
           0.08,
-          turn + k,
-          0.25 * ctx.r(190 + k),
-          body,
+          yaw,
+          -(0.65 + 0.3 * ctx.r(190 + k)),
+          leaf,
         );
       }
-      blades(put, ctx, 4, h * 0.4, 0.8, tone(second, accent, ctx), 195);
       return;
+    }
     case "fruitTree":
       tree(put, ctx, x, z, h, 0.22 * size, h * 0.3, body);
       chips(put, ctx, 4, h * 0.25, 0.18, tone(second, accent, ctx), 200, true);

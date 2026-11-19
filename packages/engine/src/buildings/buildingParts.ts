@@ -171,15 +171,23 @@ export class PartList {
     this.add("box", 0, 0, 0, width, FLOOR_M, depth, color, { ground: true });
   }
 
-  /** 집 한 채. 지붕 꼭대기 높이(m)를 돌려준다 */
+  /** 집 한 채(기단 + 본체 벽 + 처마 띠 + 지붕 + 문·차양 + 창문). 지붕 꼭대기 높이(m)를 돌려준다 */
   house(spec: HouseSpec): number {
     const base = spec.baseY ?? FLOOR_M;
     const { x, z, w, d, wallH } = spec;
+    // 석재 기단(바닥 판과 벽 사이를 안정감 있게 받친다)
+    if (w >= 2.2 && d >= 2.2 && wallH >= 2.4) {
+      this.add("box", x, base, z, w + 0.16, 0.42, d + 0.16, C.padStone);
+    }
     this.add("box", x, base, z, w, wallH, d, spec.wall);
     const top = base + wallH;
     const eave = spec.eave ?? 0.3;
     const rw = w + eave * 2;
     const rd = d + eave * 2;
+    // 처마 밑 띠(박공·모임 지붕과 벽 경계를 또렷하게 마감한다)
+    if (spec.style !== "flat" && w >= 2.2 && d >= 2.2) {
+      this.add("box", x, top - 0.14, z, w + eave * 1.2, 0.18, d + eave * 1.2, C.trim);
+    }
     switch (spec.style) {
       case "gable-x":
         this.add("gable", x, top, z, rw, spec.roofH, rd, spec.roof);
@@ -203,7 +211,11 @@ export class PartList {
     const doorW = spec.doorW ?? Math.min(1.6, w * 0.3);
     const doorH = Math.min(spec.doorH ?? 2.3, wallH * 0.8);
     const doorX = x + (spec.doorX ?? 0);
-    if (doorW > 0) this.add("box", doorX, base, z + d / 2, doorW, doorH, 0.22, C.trim);
+    if (doorW > 0) {
+      this.add("box", doorX, base, z + d / 2, doorW, doorH, 0.22, C.trim);
+      // 출입구 상단 차양(문 위 그림자·입체감)
+      this.add("box", doorX, base + doorH, z + d / 2 + 0.18, doorW + 0.34, 0.16, 0.42, C.trim);
+    }
     if (spec.windows !== false)
       this.windows(x, z, w, d, base, wallH, doorW > 0 ? { x: doorX, w: doorW } : null);
     return top + (spec.style === "flat" ? 0.35 : spec.roofH);

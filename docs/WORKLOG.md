@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-19 13:15 | 모바일 UI 최적화 및 2차맵 이동 경로·인디케이터·3D 모델 개선 | Antigravity | [19-1315-mobile-ui-and-2nd-map-polish](worklog/2026/11/19-1315-mobile-ui-and-2nd-map-polish.md) |
 | 2026-11-19 01:00 | 전체 건물 3D 모델 재제작 및 국가 시그니처 컬러·깃발 문양 반영 | Antigravity | [19-0100-all-buildings-and-emblems](worklog/2026/11/19-0100-all-buildings-and-emblems.md) |
 | 2026-11-19 00:45 | 홈 대시보드 카드·쉘·테마 토큰 디자인 정돈 | Antigravity | [19-0045-theme-and-home-cards](worklog/2026/11/19-0045-theme-and-home-cards.md) |
 | 2026-11-18 23:45 | 로컬 개발 서버·교차 PC 테스트 DB 시드 구성 | Antigravity | [18-2345-local-dev-db](worklog/2026/11/18-2345-local-dev-db.md) |

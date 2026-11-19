@@ -71,7 +71,7 @@ import { type PropSource, PropView } from "./props/propView.ts";
 import type { UnitPath } from "./units/unitMotion.ts";
 import { UnitRoster } from "./units/unitRoster.ts";
 import { RouteView } from "./units/routeView.ts";
-import { createTargetLife } from "./units/routePath.ts";
+import { createTargetLife, snapCellCenter } from "./units/routePath.ts";
 import { NationRings } from "./units/nationRings.ts";
 import { UnitView } from "./units/unitView.ts";
 
@@ -174,20 +174,19 @@ export function createSecondMapEngine(
     const walking = slot >= 0 && motion.moving[slot] === 1;
     const now = serverNow();
     const target = targetLife.update(revision, walking, now);
+    // 새 이동 명령 뒤 서버 경로가 오기 전에는 옛 경로 선을 숨겨 목적지 고리와 어긋나 보이지 않게 한다
+    const waitingNewPath = target !== null && !targetLife.confirmed();
+    const showPath = walking && !waitingNewPath;
+    const destination = showPath ? motion.destination(slot) : null;
     routeView.setPath(
-      walking ? `${routeUnit}:${revision}` : "",
-      walking ? motion.pathPoints(slot) : null,
+      showPath ? `${routeUnit}:${revision}` : "",
+      showPath ? motion.pathPoints(slot) : null,
       cellM,
       unitGroundAt,
     );
-    const travelled = walking ? motion.travelled(slot, now) : 0;
-    routeView.update(
-      travelled,
-      target ?? (walking ? motion.destination(slot) : null),
-      cellM,
-      unitGroundAt,
-      ppm,
-    );
+    const travelled = showPath ? motion.travelled(slot, now) : 0;
+    // 경로가 확정되면 목적지 고리를 경로 끝점(destination)에 정확히 맞춰 선과 고리 사이 끊김을 없앤다
+    routeView.update(travelled, destination ?? target, cellM, unitGroundAt, ppm, now);
     return target !== null;
   };
 
@@ -846,7 +845,7 @@ export function createSecondMapEngine(
 
     setMoveTarget(cell) {
       const slot = routeUnit === null ? -1 : roster.slotOf(routeUnit);
-      targetLife.set(cell, slot >= 0 ? motion.revision(slot) : 0, serverNow());
+      targetLife.set(cell ? snapCellCenter(cell) : null, slot >= 0 ? motion.revision(slot) : 0, serverNow());
       scheduler.request();
     },
 

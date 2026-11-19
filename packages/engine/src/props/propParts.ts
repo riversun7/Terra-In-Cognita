@@ -24,7 +24,8 @@ export const PARTS: readonly Part[] = ["stem", "cone", "blade", "rock", "blob", 
 export function partGeometry(part: Part): BufferGeometry {
   switch (part) {
     case "stem":
-      return new CylinderGeometry(1, 1, 1, 5).translate(0, 0.5, 0);
+      // 위로 갈수록 가늘어지는 줄기(삼각형 20개로 동일, 나무·가지 실루엣 자연스럽게)
+      return new CylinderGeometry(0.68, 1, 1, 5).translate(0, 0.5, 0);
     case "cone":
       return new ConeGeometry(1, 1, 6).translate(0, 0.5, 0);
     case "blade":
@@ -106,7 +107,7 @@ function shaded(look: PropLook, ctx: ShapeContext, mr = 1, mg = 1, mb = 1): Colo
   );
 }
 
-/** 풀잎 count개 다발: 반지름 spread(m) 안에 흩고 조금씩 기울인다 */
+/** 풀잎 count개 다발: 뿌리를 좁게 모으고 바깥으로 부채꼴로 눕혀 자연스러운 포기 모양을 만든다 */
 function bladeTuft(
   put: PartSink,
   ctx: ShapeContext,
@@ -120,23 +121,14 @@ function bladeTuft(
   salt: number,
 ): void {
   for (let k = 0; k < count; k++) {
-    const angle = ctx.turn + (k * Math.PI * 2) / count + ctx.r(salt + k) * 0.8;
-    const d = spread * (0.3 + 0.7 * ctx.r(salt + 10 + k));
+    const angle = ctx.turn + (k * Math.PI * 2) / count + (ctx.r(salt + k) - 0.5) * 0.55;
+    const d = spread * (0.12 + 0.55 * ctx.r(salt + 10 + k));
     const x = cx + Math.cos(angle) * d;
-    const z = cz + Math.sin(angle) * d;
-    const h = height * (0.7 + 0.6 * ctx.r(salt + 20 + k));
-    put(
-      "blade",
-      x,
-      ctx.ground(x, z),
-      z,
-      width,
-      h,
-      width * 0.6,
-      angle,
-      (ctx.r(salt + 30 + k) - 0.5) * 0.5,
-      color,
-    );
+    const z = cz - Math.sin(angle) * d;
+    const h = height * (0.62 + 0.48 * ctx.r(salt + 20 + k));
+    // 음수 tilt는 +y를 로컬 +x(= cos(angle), -sin(angle)) 바깥쪽으로 기울인다
+    const lean = -(0.22 + 0.38 * ctx.r(salt + 30 + k));
+    put("blade", x, ctx.ground(x, z), z, width, h, width * 0.65, angle, lean, color);
   }
 }
 
@@ -147,21 +139,34 @@ export function buildShape(put: PartSink, look: PropLook, ctx: ShapeContext): vo
   const variant = ctx.r(6);
   switch (look.shape) {
     case "broadleaf": {
-      if (variant < 0.55) {
-        // 둥근 갓
-        put("stem", x, y, z, 0.28 * size, h * 0.45, 0.28 * size, turn, 0, TRUNK);
-        put("blob", x, y + h * 0.62, z, h * 0.28, h * 0.3, h * 0.28, turn, 0, shaded(look, ctx));
+      if (variant < 0.5) {
+        // 풍성한 참나무형: 주 수관 + 옆 보조 잎 덩이(줄기 1 + 덩이 1 + 조각 1 = 48삼각형)
+        put("stem", x, y, z, 0.28 * size, h * 0.44, 0.28 * size, turn, 0, TRUNK);
+        put("blob", x, y + h * 0.64, z, h * 0.31, h * 0.29, h * 0.31, turn, 0, shaded(look, ctx));
+        const sideA = offset(ctx, h * 0.16, h * 0.08);
+        put(
+          "chip",
+          sideA.x,
+          y + h * 0.58,
+          sideA.z,
+          h * 0.24,
+          h * 0.21,
+          h * 0.24,
+          turn + 1.1,
+          0,
+          shaded(look, ctx, 0.92, 0.96, 0.92),
+        );
       } else if (variant < 0.8) {
-        // 두 층 갓(키 큰 활엽수)
-        put("stem", x, y, z, 0.3 * size, h * 0.55, 0.3 * size, turn, 0, TRUNK);
+        // 두 층 활엽수(아랫갓 + 햇빛 받은 윗갓)
+        put("stem", x, y, z, 0.28 * size, h * 0.48, 0.28 * size, turn, 0, TRUNK);
         put(
           "blob",
           x,
           y + h * 0.52,
           z,
-          h * 0.3,
+          h * 0.32,
           h * 0.24,
-          h * 0.3,
+          h * 0.32,
           turn,
           0,
           shaded(look, ctx, 0.92, 0.95, 0.92),
@@ -169,127 +174,153 @@ export function buildShape(put: PartSink, look: PropLook, ctx: ShapeContext): vo
         put(
           "blob",
           x,
-          y + h * 0.8,
+          y + h * 0.77,
           z,
-          h * 0.2,
-          h * 0.2,
-          h * 0.2,
+          h * 0.22,
+          h * 0.22,
+          h * 0.22,
           turn + 1,
           0,
-          shaded(look, ctx, 1.05, 1.06, 1),
+          shaded(look, ctx, 1.06, 1.08, 1),
         );
       } else {
-        // 자작나무 같은 흰 줄기·좁은 갓
-        put("stem", x, y, z, 0.2 * size, h * 0.7, 0.2 * size, turn, 0, BIRCH_TRUNK);
+        // 자작나무형: 흰 줄기 + 풍성한 타원 갓(너무 긴 민둥 기둥이 되지 않게 줄기 비율 조정)
+        put("stem", x, y, z, 0.21 * size, h * 0.48, 0.21 * size, turn, 0, BIRCH_TRUNK);
         put(
           "blob",
           x,
-          y + h * 0.72,
+          y + h * 0.64,
           z,
-          h * 0.17,
-          h * 0.28,
-          h * 0.17,
+          h * 0.23,
+          h * 0.32,
+          h * 0.23,
           turn,
           0,
-          shaded(look, ctx, 1.25, 1.12, 0.8),
+          shaded(look, ctx, 1.22, 1.12, 0.84),
         );
       }
       return;
     }
     case "conifer": {
       const cap = ctx.snowy;
-      if (variant < 0.5) {
-        // 두 층 가문비
-        put("stem", x, y, z, 0.25 * size, h * 0.2, 0.25 * size, turn, 0, TRUNK);
-        put("cone", x, y + h * 0.12, z, h * 0.2, h * 0.55, h * 0.2, turn, 0, shaded(look, ctx));
+      if (variant < 0.4) {
+        // 세 층 가문비(줄기 1 + 원뿔 3 = 56삼각형)
+        put("stem", x, y, z, 0.24 * size, h * 0.22, 0.24 * size, turn, 0, TRUNK);
         put(
           "cone",
           x,
-          y + h * 0.45,
+          y + h * 0.14,
           z,
-          h * 0.14,
-          h * 0.55,
-          h * 0.14,
-          turn + 0.5,
-          0,
-          cap ? SNOW : shaded(look, ctx, 1.06, 1.06, 1.04),
-        );
-      } else if (variant < 0.82) {
-        put("stem", x, y, z, 0.25 * size, h * 0.2, 0.25 * size, turn, 0, TRUNK);
-        put("cone", x, y + h * 0.15, z, h * 0.18, h * 0.85, h * 0.18, turn, 0, shaded(look, ctx));
-        if (cap) put("cone", x, y + h * 0.72, z, h * 0.07, h * 0.28, h * 0.07, turn, 0, SNOW);
-      } else {
-        // 가는 소나무: 긴 줄기, 위쪽만 잎
-        put("stem", x, y, z, 0.22 * size, h * 0.6, 0.22 * size, turn, 0, TRUNK);
-        put(
-          "cone",
-          x,
-          y + h * 0.45,
-          z,
-          h * 0.12,
-          h * 0.55,
-          h * 0.12,
+          h * 0.24,
+          h * 0.46,
+          h * 0.24,
           turn,
           0,
-          cap ? SNOW : shaded(look, ctx, 0.9, 1, 0.95),
+          shaded(look, ctx, 0.92, 0.96, 0.94),
+        );
+        put("cone", x, y + h * 0.38, z, h * 0.19, h * 0.42, h * 0.19, turn + 0.5, 0, shaded(look, ctx));
+        put(
+          "cone",
+          x,
+          y + h * 0.62,
+          z,
+          h * 0.13,
+          h * 0.38,
+          h * 0.13,
+          turn + 1.0,
+          0,
+          cap ? SNOW : shaded(look, ctx, 1.08, 1.08, 1.05),
+        );
+      } else if (variant < 0.82) {
+        // 키 큰 삼나무(눈 지표면이면 꼭대기 눈 갓)
+        put("stem", x, y, z, 0.24 * size, h * 0.2, 0.24 * size, turn, 0, TRUNK);
+        put("cone", x, y + h * 0.14, z, h * 0.21, h * 0.84, h * 0.21, turn, 0, shaded(look, ctx));
+        if (cap) put("cone", x, y + h * 0.72, z, h * 0.08, h * 0.28, h * 0.08, turn, 0, SNOW);
+      } else {
+        // 소나무: 곧은 줄기 + 잎 갓
+        put("stem", x, y, z, 0.22 * size, h * 0.44, 0.22 * size, turn, 0, TRUNK);
+        put(
+          "cone",
+          x,
+          y + h * 0.36,
+          z,
+          h * 0.18,
+          h * 0.62,
+          h * 0.18,
+          turn,
+          0,
+          cap ? SNOW : shaded(look, ctx, 0.94, 1.02, 0.96),
         );
       }
       return;
     }
     case "palm": {
-      // 줄기를 조금 기울이고(바닷바람) 갓을 그 끝에
+      // 야자수: 바닷바람에 기운 줄기 + 방사형 야자 잎 네 갈래 + 꼭대기 덩이(삼각형 40개로 동일하면서 진짜 야자수 실루엣)
       const lean = 0.08 + variant * 0.14;
-      const top = offset(ctx, h * 0.85 * Math.sin(lean), 0);
-      put("stem", x, y, z, 0.2 * size, h * 0.85, 0.2 * size, turn, -lean, TRUNK);
+      const top = offset(ctx, h * 0.78 * Math.sin(lean), 0);
+      const topY = y + h * 0.78 * Math.cos(lean);
+      put("stem", x, y, z, 0.2 * size, h * 0.78, 0.2 * size, turn, -lean, TRUNK);
+      const frond = shaded(look, ctx);
+      for (let k = 0; k < 4; k++) {
+        const yaw = turn + (k * Math.PI) / 2 + variant * 0.5;
+        put("blade", top.x, topY, top.z, 0.42 * size, h * 0.34, 0.14 * size, yaw, -1.18, frond);
+      }
       put(
-        "blob",
+        "chip",
         top.x,
-        y + h * 0.85 * Math.cos(lean),
+        topY + 0.05,
         top.z,
-        h * 0.32,
-        h * 0.08,
-        h * 0.32,
+        0.36 * size,
+        0.24 * size,
+        0.36 * size,
         turn,
         0,
-        shaded(look, ctx),
+        shaded(look, ctx, 0.85, 0.9, 0.8),
       );
       return;
     }
-    case "bush":
-      put("blob", x, y + h * 0.35, z, h * 0.75, h * 0.5, h * 0.75, turn, 0, shaded(look, ctx));
-      if (variant < 0.5) {
-        const side = offset(ctx, h * 0.6, 0);
+    case "bush": {
+      put("blob", x, y + h * 0.35, z, h * 0.72, h * 0.48, h * 0.72, turn, 0, shaded(look, ctx));
+      if (variant < 0.65) {
+        const sideA = offset(ctx, h * 0.46, h * 0.14);
         put(
-          "blob",
-          side.x,
-          y + h * 0.25,
-          side.z,
-          h * 0.45,
-          h * 0.35,
-          h * 0.45,
-          turn,
+          "chip",
+          sideA.x,
+          y + h * 0.26,
+          sideA.z,
+          h * 0.5,
+          h * 0.38,
+          h * 0.5,
+          turn + 1.1,
           0,
-          shaded(look, ctx, 1.08, 1.04, 1),
+          shaded(look, ctx, 1.08, 1.05, 1),
         );
       }
       return;
+    }
     case "reeds":
-      bladeTuft(put, ctx, x, z, 5, h, 0.12 * size, 0.8, shaded(look, ctx), 40);
+      bladeTuft(put, ctx, x, z, 6, h * 0.9, 0.11 * size, 0.55, shaded(look, ctx), 40);
       return;
-    case "boulder":
-      put(
-        "rock",
-        x,
-        y + h * 0.25,
-        z,
-        h * 0.55,
-        h * 0.4,
-        h * 0.5,
-        turn,
-        0,
-        ctx.snowy ? extra.copy(SNOW).multiplyScalar(0.92) : shaded(look, ctx),
-      );
+    case "boulder": {
+      const rockColor = ctx.snowy ? extra.copy(SNOW).multiplyScalar(0.92) : shaded(look, ctx);
+      put("rock", x, y + h * 0.26, z, h * 0.58, h * 0.42, h * 0.52, turn, 0.08, rockColor);
+      if (variant < 0.45) {
+        const sub = offset(ctx, h * 0.42, h * 0.18);
+        put(
+          "chip",
+          sub.x,
+          ctx.ground(sub.x, sub.z) + h * 0.14,
+          sub.z,
+          h * 0.34,
+          h * 0.24,
+          h * 0.3,
+          turn + 1.7,
+          0,
+          ctx.snowy ? rockColor : shaded(look, ctx, 0.9, 0.9, 0.92),
+        );
+      }
       return;
+    }
     case "log":
       put("stem", x, y + h * 0.4, z, h * 0.45, 3.5 * size, h * 0.45, turn, Math.PI / 2, shaded(look, ctx));
       return;
@@ -319,7 +350,8 @@ export function buildShape(put: PartSink, look: PropLook, ctx: ShapeContext): vo
       return;
     }
     case "tallGrass":
-      bladeTuft(put, ctx, x, z, 6, h, 0.16 * size, 1.4, shaded(look, ctx), 70);
+      // 뾰족한 못처럼 퍼지지 않도록 좁게 모아 바깥으로 부채꼴 포기 형태를 만든다
+      bladeTuft(put, ctx, x, z, 6, h * 0.72, 0.13 * size, 0.5, shaded(look, ctx), 70);
       return;
     case "flowers": {
       bladeTuft(put, ctx, x, z, 3, h * 0.8, 0.08, 1.1, shaded(look, ctx), 80);

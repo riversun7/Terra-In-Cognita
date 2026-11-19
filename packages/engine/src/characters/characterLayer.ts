@@ -36,8 +36,8 @@ const REFERENCE_HEIGHT_M = 1.8;
 /** 모델로 그리는 가장 작은 화면 키(CSS px)와 캡슐에서 돌아올 때의 키 */
 export const MODEL_MIN_PX = 9;
 export const MODEL_RETURN_PX = 10;
-/** 가까운 단계(LOD0)로 그리는 가장 작은 화면 키(CSS px) */
-export const LOD0_MIN_PX = 28;
+/** 가까운 단계(LOD0)로 그리는 가장 작은 화면 키(CSS px) — 기본 2차맵 확대에서도 자세한 캐릭터 모델이 보이게 한다 */
+export const LOD0_MIN_PX = 12;
 /** 모델로 그린 유닛의 몸 위 누르기 반 너비(m) — 팔까지의 보통 폭(캡슐 반지름 0.3m보다 넓다) */
 export const CHARACTER_PICK_HALF_WIDTH_M = 0.45;
 /** 화면 밖 거르기 경계 구 반지름(m): 키·팔·등 장식을 넉넉히. 사람꼴이 아닌 몸(탈것 — 길다)은 BODY_CULL_FACTOR배 */

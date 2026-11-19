@@ -36,6 +36,9 @@ apps/server/dist-types/
 # 서브에이전트가 쓰는 임시 작업 트리(git worktree) — 커밋하지 않는다
 .claude/worktrees/
 
+# Codex용 로컬 스킬 사본 폴더 — 원본은 .claude/skills/에 있다
+.agents/
+
 # 파이썬 캐시 — ui-ux-pro-max 스킬 스크립트(python3)를 돌리면 생긴다
 __pycache__/
 *.pyc

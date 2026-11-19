@@ -51,7 +51,7 @@ const ROUTE_SCOPES: { readonly [Id in RouteId]?: RouteScope } = {
   dev_world_layout: planet("edit", m.scope_note_world_layout),
   dev_territory: planet("edit", m.scope_note_territory),
   dev_recruit: planet("edit", m.scope_note_recruit),
-  dev_terrain_objects: common(),
+  dev_terrain_objects: planet("lab", m.scope_note_second_map),
   dev_gather_objects: common(),
   dev_second_map: planet("lab", m.scope_note_second_map),
   ops: planet("monitor", m.scope_note_ops),

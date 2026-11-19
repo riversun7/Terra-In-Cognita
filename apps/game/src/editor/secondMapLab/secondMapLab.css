@@ -1,8 +1,6 @@
 /*
- * 2차맵 시험 화면(SecondMapLabScreen) — 틀 숨김, 화면 전체. 값은 styles/tokens.css의 var(--…)만 쓴다.
- * - 휴대폰 세로(48em 미만): 위 지도 + 아래 판(세로 스크롤). 넓은 화면(48em 이상): 지도 옆 판.
- * - 판은 촘촘 변형(data-density="compact", 화면 뿌리). 지도 위 상태 띠는 불투명 판이다: 세계 색은 테마와 상관없어
- *   다크에서도 글자가 읽혀야 한다(D-070).
+ * 2차맵 · 지형 오브젝트 통합 PC 작업 화면(SecondMapLabScreen) — 틀 숨김 전체 화면, PC 기준 2열 분할.
+ * 값은 styles/tokens.css의 var(--…)와 rem/em만 쓴다(pnpm check:contrast: 직접 색·px 금지).
  */
 .sml-screen {
   position: fixed;
@@ -12,43 +10,65 @@
   flex-direction: column;
   overflow: hidden;
   overscroll-behavior: none;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
   background-color: var(--color-bg);
   color: var(--color-text);
 }
 
 .sml-header {
   display: flex;
-  /* 범위 줄(scope/ScopeBar.tsx inline)이 둘째 줄로 내려간다 */
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-2) var(--space-3);
   padding: var(--space-2) var(--space-3);
   border-bottom: var(--border-w) solid var(--color-border);
   background-color: var(--color-surface);
 }
 .sml-title {
-  flex: 1 1 auto;
-  min-width: 0;
+  margin: 0;
   font-family: var(--font-display);
   font-weight: var(--font-weight-display);
   font-size: var(--font-size-lg);
   line-height: var(--line-height-tight);
   letter-spacing: var(--letter-spacing-display);
+  white-space: nowrap;
+}
+.sml-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-inline-end: auto;
+}
+.sml-tab {
+  border-color: var(--color-border);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+}
+.sml-tab[aria-selected="true"] {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
 }
 .sml-center {
   padding: var(--space-4);
 }
 
-/* ── 본문: 지도 + 판 ── */
+/* ── 본문: PC 2열 분할(왼쪽 3D 2차맵 + 오른쪽 지형 오브젝트·3D 모델/맵 설정 워크벤치) ── */
 .sml-body {
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-rows: minmax(12rem, 11fr) minmax(0, 9fr);
+  grid-template-columns: minmax(26rem, 1fr) minmax(38rem, 48rem);
+}
+
+.sml-left {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
 }
 .sml-stage {
   position: relative;
+  flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
   background-color: var(--color-bg);
@@ -63,9 +83,13 @@
   left: var(--space-2);
   right: var(--space-2);
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
   pointer-events: none;
 }
 .sml-chip {
+  margin: 0;
   max-width: 100%;
   padding: var(--space-1) var(--space-3);
   border: var(--border-w) solid var(--color-border);
@@ -77,21 +101,78 @@
   font-variant-numeric: tabular-nums;
   box-shadow: var(--shadow-panel);
 }
-.sml-body[data-status="failed"] .sml-chip {
+.sml-live-chip[data-mode="custom"] {
+  border-color: var(--color-primary);
+  background-color: var(--color-success-surface);
+  color: var(--color-success);
+  font-weight: var(--font-weight-strong);
+}
+.sml-live-chip[data-mode="updating"] {
+  border-color: var(--color-warning);
+  background-color: var(--color-warning-surface);
+  color: var(--color-warning);
+  font-weight: var(--font-weight-strong);
+}
+.sml-body[data-status="failed"] .sml-chip:first-child {
   border-color: var(--color-danger);
   background-color: var(--color-danger-surface);
   color: var(--color-danger);
   font-weight: var(--font-weight-strong);
 }
 
-.sml-panel {
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: var(--space-3) var(--space-3) calc(var(--space-6) + env(safe-area-inset-bottom));
+/* ── 2차맵 하단 PC 퀵 툴바 ── */
+.sml-dock {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border-top: var(--border-w) solid var(--color-border);
   background-color: var(--color-surface);
+  font-size: var(--font-size-xs);
 }
+.sml-dock-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.sml-dock-group button[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.sml-dock-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sml-dock-stats {
+  margin-inline-start: auto;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+/* ── 오른쪽 패널 ── */
+.sml-panel {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-left: var(--border-w) solid var(--color-border);
+  background-color: var(--color-surface);
+}
+.sml-panel[data-active-tab="lab"] {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-3);
+}
+
+/* ── 맵·조명·칸 상세 탭(LabPanel) ── */
 .sml-sections {
   display: flex;
   flex-direction: column;
@@ -119,17 +200,23 @@
 .sml-presets {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--space-1);
+}
+.sml-biome-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.sml-biome-jump[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
 }
 .sml-cell-inputs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
   align-items: end;
   gap: var(--space-2);
-}
-.sml-cell-inputs .sml-open-cell {
-  grid-column: 1 / -1;
-  justify-self: start;
 }
 .sml-key-input {
   display: flex;
@@ -148,22 +235,15 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: var(--tap-size);
+  min-height: var(--control-h);
   font-size: var(--font-size-sm);
   cursor: pointer;
 }
-.sml-check input {
-  width: var(--space-5);
-  height: var(--space-5);
-  margin: 0;
-  accent-color: var(--color-primary);
-}
 .sml-range {
   width: 100%;
-  min-height: var(--tap-size);
+  min-height: var(--control-h);
   margin: 0;
   accent-color: var(--color-primary);
-  touch-action: pan-y;
 }
 .sml-facts {
   display: grid;
@@ -173,7 +253,7 @@
 }
 .sml-facts > div {
   display: grid;
-  grid-template-columns: minmax(5em, 2fr) minmax(0, 5fr);
+  grid-template-columns: minmax(6em, 2fr) minmax(0, 5fr);
   gap: var(--space-2);
 }
 .sml-facts dt {
@@ -185,19 +265,306 @@
   overflow-wrap: anywhere;
 }
 
-/* 넓은 화면: 지도 옆 판 */
-@media (min-width: 48em) {
-  .sml-body {
-    grid-template-rows: none;
-    grid-template-columns: minmax(0, 1fr) minmax(20rem, 26rem);
-  }
-  .sml-panel {
-    border-top: 0;
-    border-left: var(--border-w) solid var(--color-border);
-  }
+/* ── 지형 오브젝트 · 3D 모델 탭(TerrainObjectsPanel) ── */
+.to-screen {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
 }
 
-/* 기기에서 F9 행성을 처음 만들기 전 묻는 카드(지도 위 가운데) */
+.to-biomes-bar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: var(--hairline) solid var(--color-border);
+}
+.to-biomes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.to-biome {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--control-h);
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+.to-biome[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-weight: var(--font-weight-strong);
+}
+.to-biome[aria-pressed="true"] .dev-badge {
+  border-color: var(--color-on-primary);
+  color: var(--color-on-primary);
+}
+.to-biome-dot {
+  display: inline-block;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: var(--radius-pill);
+  border: var(--hairline) solid var(--color-border-strong);
+  flex: 0 0 auto;
+}
+.to-biome-name {
+  white-space: nowrap;
+}
+.to-biome .dev-badge[data-tone="warn"] {
+  border-color: var(--color-warning);
+  background: var(--color-warning-surface);
+  color: var(--color-warning);
+}
+.to-sync-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+}
+.to-sync-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-inline-end: auto;
+  cursor: pointer;
+}
+
+/* ── 선택 오브젝트 3D 로우폴리 모델 카드(PropModelInspector) ── */
+.to-inspector {
+  display: grid;
+  grid-template-columns: 12.5rem minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface-2);
+}
+.to-inspector-stage {
+  position: relative;
+  height: 9rem;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background-color: var(--color-bg);
+}
+.to-inspector-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+.to-inspector-canvas:active {
+  cursor: grabbing;
+}
+.to-inspector-overlay {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-2);
+  text-align: center;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  background-color: var(--color-surface);
+}
+.to-inspector-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.to-inspector-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.to-inspector-name {
+  font-size: var(--font-size-md);
+}
+.to-inspector-codes,
+.to-inspector-stats,
+.to-inspector-keys {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+}
+.to-inspector-codes,
+.to-inspector-keys {
+  color: var(--color-text-muted);
+}
+.to-inspector-stats {
+  font-family: var(--font-mono);
+}
+.to-inspector-actions {
+  margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+.to-inspector-actions button[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.to-locate-btn {
+  margin-inline-start: auto;
+}
+
+/* ── 오브젝트 목록·비율 편집 표 ── */
+.to-table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.to-table th,
+.to-table td {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+}
+.to-table tbody tr[data-selected="true"] > * {
+  background-color: var(--color-nav-active);
+}
+.to-row-pick {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.to-thumb-box {
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: 0 0 auto;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background-color: var(--color-bg);
+  display: grid;
+  place-items: center;
+}
+.to-thumb {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.to-thumb-empty {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.to-row-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.to-name {
+  font-weight: var(--font-weight-strong);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+.to-id {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.to-amount-edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 7.5rem;
+}
+.to-slider {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--color-primary);
+}
+.to-amount {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.to-amount input {
+  inline-size: 4.5em;
+  min-height: var(--control-h);
+}
+.to-amount > span {
+  white-space: nowrap;
+}
+.to-tier {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.to-tier input {
+  inline-size: 2.8em;
+  min-height: var(--control-h);
+}
+.to-count-cell {
+  white-space: nowrap;
+  text-align: end;
+}
+.to-count-btn {
+  font-family: var(--font-mono);
+}
+
+/* ── 하단 고정 바(추가·변경 되돌리기·차이 내보내기) ── */
+.to-footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: var(--hairline) solid var(--color-border);
+  font-size: var(--font-size-xs);
+}
+.to-add,
+.to-pending {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.to-add-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.to-add-pick select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.to-pending > span {
+  margin-inline-end: auto;
+  font-weight: var(--font-weight-strong);
+}
+.to-export-hint {
+  margin: 0;
+}
+
+/* 기기에서 F9 행성을 처음 만들기 전 묻는 카드(지도 위 아래) */
 .sml-ask {
   position: absolute;
   inset: auto var(--space-3) var(--space-3);

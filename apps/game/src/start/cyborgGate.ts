@@ -37,6 +37,7 @@ const DEV_TOOLS: ReadonlySet<RouteId> = new Set([
   "dev_planet_editor",
   "dev_star_system",
   "dev_second_map",
+  "dev_terrain_objects",
   "dev_gpu_bench",
   "map",
   "map_planet",

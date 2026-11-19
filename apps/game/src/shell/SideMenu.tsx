@@ -168,6 +168,7 @@ export function SideMenu({ variant, user, nav, current, badges, onClose }: SideM
                 current === "dev_planet_editor" ||
                 current === "dev_star_system" ||
                 current === "dev_second_map" ||
+                current === "dev_terrain_objects" ||
                 current === "dev_gpu_bench"
               }
             />

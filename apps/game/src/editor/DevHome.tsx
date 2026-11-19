@@ -202,8 +202,8 @@ const DEV_TOOLS = {
     name: m.shell_route_dev_terrain_objects,
     desc: m.dev_tool_terrain_objects_desc,
     mark: <Icon name="map" />,
-    tagKo: "EXPORT · 지형 D-536",
-    tagEn: "EXPORT · Terrain D-536",
+    tagKo: "3D LAB · 지형·오브젝트 D-536",
+    tagEn: "3D LAB · Terrain & Objects",
     ready: true,
   },
   dev_recruit: {
@@ -294,7 +294,6 @@ const DEV_SECTIONS: readonly DevSection[] = [
       "dev_nations",
       "dev_world_layout",
       "dev_territory",
-      "dev_second_map",
       "dev_terrain_objects",
       "dev_gather_objects",
     ],

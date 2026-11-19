@@ -276,8 +276,8 @@ describe("주소 표", () => {
       dev_world_layout: ["/dev/world-layout", "dev", "shown", "dev_admin", []],
       // 구인 카드 시험(D-469)
       dev_recruit: ["/dev/recruit", "dev", "shown", "dev_admin", ["city"]],
-      // 지형 오브젝트 편집기(D-536)
-      dev_terrain_objects: ["/dev/terrain-objects", "dev", "shown", "dev_admin", []],
+      // 2차맵·지형 오브젝트 통합 화면(D-536)
+      dev_terrain_objects: ["/dev/terrain-objects", "dev", "hidden", "dev_admin", []],
       // 채집 오브젝트 편집기(D-552)
       dev_gather_objects: ["/dev/gather-objects", "dev", "shown", "dev_admin", []],
       // 전투 다시보기(docs/adr/2026-11-01-battle-replay.md 7절)

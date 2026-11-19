@@ -414,7 +414,7 @@ export function createSecondMapEngine(
     }
     // 누르고 있지 않을 때 목표점 높이를 땅에 맞춘다(끄는 동안은 잡은 평면을 그대로 둔다)
     if (terrain && !gestureActive) {
-      const desired = groundAt(state.targetX, state.targetZ);
+      const desired = unitGroundAt(state.targetX, state.targetZ);
       const diff = desired - state.targetY;
       if (Math.abs(diff) > 0.01) {
         const step = Math.abs(diff) < 0.05 ? diff : diff * (1 - Math.exp(-deltaMs / TARGET_Y_SMOOTH_MS));
@@ -654,7 +654,7 @@ export function createSecondMapEngine(
       unitView.group.visible = true;
       limits = computeLimits();
       if (!cameraPlaced) {
-        state = initialCamera(mapSize, limits, groundAt(mapSize / 2, mapSize / 2), options.initialZoom);
+        state = initialCamera(mapSize, limits, unitGroundAt(mapSize / 2, mapSize / 2), options.initialZoom);
         cameraPlaced = true;
       } else {
         state = clampCamera(state, limits);

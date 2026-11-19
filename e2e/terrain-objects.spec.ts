@@ -84,11 +84,13 @@ test.describe("지형 오브젝트 편집기", () => {
     await expect(page.locator('.to-biome[data-low=""]')).toHaveCount(0);
     await page.locator('.to-biome[data-biome="ocean_deep"]').click();
     await expect(screen).toHaveAttribute("data-biome", "ocean_deep");
-    const whale = page.locator('tr[data-row="whale_pod"] input');
+    const whale = page.locator('tr[data-row="whale_pod"] input[type="number"]');
     await whale.fill("3");
     await expect(screen).toHaveAttribute("data-changes", "1");
     await page.locator(".to-pending .button-small").first().click();
     await expect(screen).toHaveAttribute("data-changes", "0");
+    // 3D 로우폴리 모델 미리 보기 카드가 렌더링된다
+    await expect(page.locator(".to-inspector")).toHaveAttribute("data-preview", "ready", { timeout: 20_000 });
     // 어군 티어 범위(기획 D-541 질문 1307 나): 큰 어군 T4 ~ T8, 아래를 위보다 크게 넣으면 위가 따라온다. 고래 무리(굴림표)는 칸이 없다
     const deep = page.locator('tr[data-row="school_deep"] .to-tiers');
     await expect(deep).toHaveAttribute("data-tiers", "4-8");

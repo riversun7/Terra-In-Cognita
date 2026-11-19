@@ -372,7 +372,10 @@ function withLab(viewer: Viewer, editor: PlanetEditorServices, lab: TrpcContext[
 describe("planetEditor.secondMap — 개발자 2차맵 시험(보기 전용)", () => {
   const target = { kind: "test" } as const;
   const answer = { kind: "device" } as const;
-  const okLab = { locate: () => Promise.resolve(answer) };
+  const okLab = {
+    locate: () => Promise.resolve(answer),
+    preview: () => Promise.resolve(answer),
+  };
 
   it("편집기 읽기 권한 두 겹·속도 제한(drafts)을 지나야 한다", async () => {
     const player = fakeEditor({ allow: true });
@@ -401,16 +404,30 @@ describe("planetEditor.secondMap — 개발자 2차맵 시험(보기 전용)", (
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
     const badKey = {
       locate: () => Promise.reject(new SecondMapLabInputError("bad")),
+      preview: () => Promise.reject(new SecondMapLabInputError("bad")),
     };
     await expect(
       withLab(DEV, editor, badKey).planetEditor.secondMap({ planetId: PLANET, target }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST", cause: { reason: "bad_map_key" } });
-    const notReady = { locate: () => Promise.reject(new SecondMapLabNotReadyError("wait")) };
+    await expect(
+      withLab(DEV, editor, badKey).planetEditor.secondMapPreview({ planetId: PLANET, target, mapProps: [] }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST", cause: { reason: "bad_map_key" } });
+    const notReady = {
+      locate: () => Promise.reject(new SecondMapLabNotReadyError("wait")),
+      preview: () => Promise.reject(new SecondMapLabNotReadyError("wait")),
+    };
     await expect(
       withLab(DEV, editor, notReady).planetEditor.secondMap({ planetId: PLANET, target }),
     ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
     await expect(
       withLab(DEV, editor, undefined).planetEditor.secondMap({ planetId: PLANET, target }),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(
+      withLab(DEV, editor, okLab).planetEditor.secondMapPreview({
+        planetId: PLANET,
+        target: { kind: "biome", biomeId: "desert", variant: 1 },
+        mapProps: [],
+      }),
+    ).resolves.toEqual(answer);
   });
 });

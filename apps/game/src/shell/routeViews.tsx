@@ -51,7 +51,7 @@ const GpuBenchPage = lazy(() => import("../editor/gpuBench/gpuBenchScreen.ts"));
 const PlanetEditorScreen = lazy(() => import("../editor/planet/PlanetEditorScreen.tsx"));
 // 항성계 편집기(ADR 2026-10-31-star-system-editor, 틀 숨김): 조각 이름 StarSystemScreen-*(미리 캐시 규칙 [Ss]tarSystem)
 const StarSystemScreen = lazy(() => import("../editor/starSystem/StarSystemScreen.tsx"));
-// 2차맵 시험(틀 숨김, 보기 전용): 조각 이름 SecondMapLabScreen-*(미리 캐시 규칙 [Ss]econdMapLab). 엔진은 지도 화면과 같이 쓴다
+// 2차맵·지형 오브젝트 통합 화면(틀 숨김, PC 기준): 조각 이름 SecondMapLabScreen-*(미리 캐시 규칙 [Ss]econdMapLab). /dev/second-map·/dev/terrain-objects 둘 다 이 화면을 연다
 const SecondMapLabScreen = lazy(() => import("../editor/secondMapLab/SecondMapLabScreen.tsx"));
 // 설정 칸 패널(틀 안): 조각 이름 TuningPanelScreen-*(미리 캐시 규칙 [Tt]uningPanel). 49 칸 목록 JSON도 이 조각에만 든다
 const TuningPanelScreen = lazy(() => import("../editor/tuning/TuningPanelScreen.tsx"));
@@ -80,8 +80,6 @@ const NationEditorScreen = lazy(() => import("../editor/nations/NationEditorScre
 const TerritoryLabScreen = lazy(() => import("../editor/territory/TerritoryLabScreen.tsx"));
 // 세계 배치(틀 안, D-528): 조각 이름 WorldLayoutScreen-*(미리 캐시 규칙 [Ww]orldLayout)
 const WorldLayoutScreen = lazy(() => import("../editor/worldLayout/WorldLayoutScreen.tsx"));
-// 지형 오브젝트 편집기(틀 안, 기획 D-536): 조각 이름 TerrainObjectsScreen-*(미리 캐시 규칙 [Tt]errainObjects)
-const TerrainObjectsScreen = lazy(() => import("../editor/terrainObjects/TerrainObjectsScreen.tsx"));
 // 채집 오브젝트 편집기(틀 안, 기획 D-552): 조각 이름 GatherObjectsScreen-*(미리 캐시 규칙 [Gg]atherObjects)
 const GatherObjectsScreen = lazy(() => import("../editor/gatherObjects/GatherObjectsScreen.tsx"));
 // 구인 카드 시험(틀 안, D-469): 조각 이름 RecruitLabScreen-*(미리 캐시 규칙 [Rr]ecruitLab)
@@ -256,7 +254,7 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
     case "dev_star_system":
       return <StarSystemScreen onClose={goBack} onNavigate={navigate} />;
     case "dev_second_map":
-      return <SecondMapLabScreen onClose={goBack} />;
+      return <SecondMapLabScreen onClose={goBack} initialTab="lab" />;
     case "dev_tuning":
       return <TuningPanelScreen />;
     case "dev_balance":
@@ -284,7 +282,7 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
     case "dev_world_layout":
       return <WorldLayoutScreen />;
     case "dev_terrain_objects":
-      return <TerrainObjectsScreen />;
+      return <SecondMapLabScreen onClose={goBack} initialTab="objects" />;
     case "dev_gather_objects":
       return <GatherObjectsScreen />;
     case "dev_recruit":

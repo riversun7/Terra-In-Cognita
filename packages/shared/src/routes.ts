@@ -351,13 +351,12 @@ export const ROUTES = {
     frame: "shown",
     access: "dev_admin",
   },
-  // 지형 오브젝트 편집기(기획 D-536·D-398): 틀 안 촘촘한 화면. 지형마다 2차맵 오브젝트(소품 규칙·지형별 채집 자리·어군) 종류·양을 고치고
-  // 차이를 내보낸다(pnpm tuning:apply)
+  // 2차맵·지형 오브젝트 통합 화면(기획 D-536·D-398, ADR 46): 틀 숨김 전체 화면(PC 기준). /dev/second-map과 같은 통합 화면을 연다
   dev_terrain_objects: {
     path: "/dev/terrain-objects",
     search: [],
     parent: "dev",
-    frame: "shown",
+    frame: "hidden",
     access: "dev_admin",
   },
   // 채집 오브젝트 편집기(기획 D-552, docs/adr/2026-11-15-gather-object-tiers.md 7절): 틀 안 촘촘한 화면. 오브젝트마다 3D 모델·대표 아이템(원자재

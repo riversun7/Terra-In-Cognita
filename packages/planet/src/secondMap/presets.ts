@@ -99,6 +99,131 @@ export function findMapPreset(values: PlanetValues, preset: MapPreset): number |
   return found;
 }
 
+/** 3×3 묶음 안에서 바이옴 대표 2차맵 점수(높을수록 그 바이옴 특징·오브젝트가 잘 드러난다) */
+function biomeBlockScore(
+  values: PlanetValues,
+  biomeIndex: number,
+  biomeId: string,
+  cells: readonly number[],
+): number {
+  let same = 0;
+  let ocean = 0;
+  let lake = 0;
+  let river = 0;
+  let land = 0;
+  let forest = 0;
+  for (const c of cells) {
+    if ((values.biome[c] ?? -1) === biomeIndex) same += 1;
+    const w = values.water[c] ?? 0;
+    if (w & WATER_OCEAN) ocean += 1;
+    if (w & WATER_LAKE) lake += 1;
+    if (w & WATER_RIVER) river += 1;
+    if ((w & (WATER_OCEAN | WATER_LAKE)) === 0) land += 1;
+    forest += values.forest[c] ?? 0;
+  }
+  let score = same * 100;
+  if (biomeId === "ocean_coastal") {
+    // 연안은 물·모래사장·갯바위가 함께 드러나는 해안 경계 묶음을 우선한다
+    if (ocean > 0 && land > 0) score += 250 + Math.min(ocean, land) * 20;
+  } else if (biomeId === "lake") {
+    // 호수도 호숫가·물 위 오브젝트가 함께 보이게 땅이 닿은 묶음을 우선한다
+    if (lake > 0 && land > 0) score += 250 + Math.min(lake, land) * 20;
+  } else if (biomeId === "wetland") {
+    score += river * 25 + Math.floor(forest / 32);
+  } else if (biomeId === "temperate_forest" || biomeId === "tropical_rainforest" || biomeId === "taiga") {
+    score += Math.floor(forest / 24) + (river > 0 ? 20 : 0);
+  } else if (biomeId === "savanna" || biomeId === "grassland") {
+    score += (river > 0 ? 25 : 0) + Math.floor(forest / 48);
+  }
+  return score;
+}
+
+/**
+ * 바이옴마다 대표 2차맵 키 목록(최대 maxPerBiome개, 행성 24구역 가운데 점수가 높은 서로 떨어진 자리).
+ * 개발자 지형 오브젝트·2차맵 통합 화면이 14개 바이옴 어디로든 바로 건너뛸 때 쓴다.
+ */
+export function findBiomeMapKeys(values: PlanetValues, maxPerBiome = 8): Map<string, number[]> {
+  const level = values.faceLevel;
+  const n = cellsPerSide(level);
+  const half = Math.max(1, Math.floor(n / 2));
+  const biomeCount = values.biomeIds.length;
+  const bucketsPerBiome = FACES.length * 4;
+  // 바이옴 × 구역마다 최고 점수 후보 하나만 남긴다(메모리 일정, 서로 떨어진 자리 보장)
+  const bestScore = new Int32Array(biomeCount * bucketsPerBiome).fill(-1);
+  const bestKey = new Float64Array(biomeCount * bucketsPerBiome);
+  const cells: number[] = Array.from({ length: 9 }, () => 0);
+
+  const scan = (step: number, onlyMissing: boolean): void => {
+    for (const face of FACES) {
+      const offset = face * n * n;
+      for (let j = 1; j + 1 < n; j += step) {
+        const bj = j >= half ? 2 : 0;
+        for (let i = 1; i + 1 < n; i += step) {
+          const centre = offset + j * n + i;
+          const biomeIndex = values.biome[centre] ?? -1;
+          if (biomeIndex < 0 || biomeIndex >= biomeCount) continue;
+          const biomeId = values.biomeIds[biomeIndex] ?? "";
+          const bucket = biomeIndex * bucketsPerBiome + face * 4 + bj + (i >= half ? 1 : 0);
+          if (onlyMissing && (bestScore[bucket] ?? -1) >= 0) continue;
+          let k = 0;
+          for (let dj = -1; dj <= 1; dj++) {
+            for (let di = -1; di <= 1; di++) cells[k++] = offset + (j + dj) * n + (i + di);
+          }
+          const score = biomeBlockScore(values, biomeIndex, biomeId, cells);
+          if (score > (bestScore[bucket] ?? -1)) {
+            bestScore[bucket] = score;
+            bestKey[bucket] = cellKey(face, level, i, j);
+          }
+        }
+      }
+    }
+  };
+
+  scan(3, false);
+  // 3칸 띄워 훑어서 한 칸도 못 찾은 드문 바이옴이 있으면 1칸 간격으로 채운다
+  let hasMissing = false;
+  for (let b = 0; b < biomeCount; b++) {
+    let any = false;
+    for (let slot = 0; slot < bucketsPerBiome; slot++) {
+      if ((bestScore[b * bucketsPerBiome + slot] ?? -1) >= 0) {
+        any = true;
+        break;
+      }
+    }
+    if (!any) {
+      hasMissing = true;
+      break;
+    }
+  }
+  if (hasMissing) scan(1, true);
+
+  const out = new Map<string, number[]>();
+  const cap = Math.max(1, Math.floor(maxPerBiome));
+  for (let b = 0; b < biomeCount; b++) {
+    const id = values.biomeIds[b];
+    if (!id) continue;
+    const picked: { score: number; key: number }[] = [];
+    for (let slot = 0; slot < bucketsPerBiome; slot++) {
+      const score = bestScore[b * bucketsPerBiome + slot] ?? -1;
+      if (score >= 0) picked.push({ score, key: bestKey[b * bucketsPerBiome + slot] ?? 0 });
+    }
+    picked.sort((a, bItem) => bItem.score - a.score || a.key - bItem.key);
+    out.set(
+      id,
+      picked.slice(0, cap).map((item) => item.key),
+    );
+  }
+  return out;
+}
+
+/** 바이옴 하나의 대표 2차맵 키(variant로 서로 다른 후보를 돈다). 행성에 그 바이옴이 없으면 null */
+export function findBiomeMapKey(values: PlanetValues, biomeId: string, variant = 0): number | null {
+  const list = findBiomeMapKeys(values).get(biomeId);
+  if (!list || list.length === 0) return null;
+  const index = Math.abs(Math.floor(variant)) % list.length;
+  return list[index] ?? null;
+}
+
 /** 2차맵 하나(면 레벨 F 칸)의 행성 값 */
 export interface PlanetCellValues {
   readonly mapKey: number;

@@ -3,7 +3,14 @@ import { describe, expect, it } from "vitest";
 import { cellKey, decodeCellKey, isCellKey } from "../cellKey.ts";
 import { cellsPerSide } from "../levels.ts";
 import { encodePlanetValues } from "./planetValues.ts";
-import { MAP_PRESETS, findMapPreset, planetCellValues, planetCellValuesFromFile } from "./presets.ts";
+import {
+  MAP_PRESETS,
+  findBiomeMapKey,
+  findBiomeMapKeys,
+  findMapPreset,
+  planetCellValues,
+  planetCellValuesFromFile,
+} from "./presets.ts";
 import { testPlanetValues } from "./testPlanetValues.ts";
 
 const values = testPlanetValues(6);
@@ -52,6 +59,25 @@ describe("시험 자리 찾기", () => {
       return Math.max(...heights) - Math.min(...heights);
     };
     expect(relief(findMapPreset(values, "mountain") ?? 0)).toBeGreaterThan(relief(grass));
+  });
+
+  it("바이옴별 대표 2차맵 찾기: 찾은 칸의 바이옴이 맞고 variant로 서로 다른 자리를 돈다", () => {
+    const all = findBiomeMapKeys(values, 6);
+    let checked = 0;
+    for (const biomeId of values.biomeIds) {
+      const list = all.get(biomeId) ?? [];
+      if (list.length === 0) continue;
+      checked += 1;
+      for (const key of list) {
+        expect(decode(key).level).toBe(6);
+        expect(planetCellValues(values, key).biomeId, biomeId).toBe(biomeId);
+      }
+      expect(new Set(list).size).toBe(list.length);
+      expect(findBiomeMapKey(values, biomeId, 0)).toBe(list[0]);
+      if (list.length > 1) expect(findBiomeMapKey(values, biomeId, 1)).toBe(list[1]);
+    }
+    expect(checked).toBeGreaterThanOrEqual(8);
+    expect(findBiomeMapKey(values, "no_such_biome", 0)).toBeNull();
   });
 });
 

@@ -71,6 +71,7 @@ import type {
   PlanetLibraryVersion,
   PlanetLibraryVersionInfo,
   SecondMapLabAnswer,
+  SecondMapLabPreviewAnswer,
   SecondMapLabTarget,
   StarSystemRecord,
   StarSystemSaved,
@@ -343,6 +344,11 @@ export interface RecruitReadServices {
  */
 export interface SecondMapLabServices {
   locate(planetId: string, target: SecondMapLabTarget): Promise<SecondMapLabAnswer>;
+  preview(
+    planetId: string,
+    target: SecondMapLabTarget,
+    mapProps: readonly unknown[],
+  ): Promise<SecondMapLabPreviewAnswer>;
 }
 
 /** 경제 화면 조회의 조건. preview는 프로시저가 권한(home: preview, dev·admin)을 본 뒤에만 true다 */

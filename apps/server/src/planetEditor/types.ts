@@ -196,11 +196,12 @@ export interface StarSystemSaved {
 
 // ── 개발자 2차맵 시험(planetEditor.secondMap, ADR 2026-10-31-second-map-from-planet "구현하며 정한 것 (개발자 2차맵 시험)") ──
 
-/** 보고 싶은 2차맵: 월드 시험 2차맵, 2차맵 키, 시험 자리 종류(@terra/planet/secondMap MAP_PRESETS) */
+/** 보고 싶은 2차맵: 월드 시험 2차맵, 2차맵 키, 시험 자리 종류(MAP_PRESETS), 바이옴 대표 칸 */
 export type SecondMapLabTarget =
   | { kind: "test" }
   | { kind: "key"; mapKey: number }
-  | { kind: "preset"; preset: MapPreset };
+  | { kind: "preset"; preset: MapPreset }
+  | { kind: "biome"; biomeId: string; variant?: number | undefined };
 
 /**
  * 답: server = 월드 행성이라 서버 지형 서비스가 지형 파일을 준다(주소는 지형 경로, 전체 보기 권한으로 받는다).
@@ -218,6 +219,24 @@ export type SecondMapLabAnswer =
       cell: PlanetCellValues;
       /** 월드 시험 2차맵 키(유닛이 있는 곳) */
       testMapKey: number;
+    }
+  | { kind: "device" }
+  | { kind: "none" };
+
+/**
+ * 편집 중인 소품 규칙(map_props)으로 즉석 생성한 2차맵 미리 보기 답(보기 전용, 캐시·세계에 쓰지 않는다).
+ * terrainGzipBase64 = gzip 압축한 TCTR 2판 지형 파일(base64)
+ */
+export type SecondMapLabPreviewAnswer =
+  | {
+      kind: "server";
+      planetId: string;
+      faceLevel: number;
+      mapKey: number;
+      cell: PlanetCellValues;
+      terrainGzipBase64: string;
+      hash: string;
+      mapMs: number;
     }
   | { kind: "device" }
   | { kind: "none" };

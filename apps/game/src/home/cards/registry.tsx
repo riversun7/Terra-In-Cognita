@@ -13,11 +13,14 @@ import { DiagnosticsCardBody } from "./DiagnosticsCard.tsx";
 import { InboxCardBody, PendingCount } from "./InboxCard.tsx";
 import { MapsCardBody } from "./MapsCard.tsx";
 import { AssetsCardBody } from "./AssetsCard.tsx";
-import { CyborgCardBody, FactionCardBody, UnitsCardBody } from "./ServerCard.tsx";
+import { CyborgCardBody } from "./CyborgCard.tsx";
+import { FactionCardBody, UnitsCardBody } from "./ServerCard.tsx";
 import { TimelineCardBody } from "./TimelineCard.tsx";
 
 export interface CardView {
   readonly title: () => string;
+  /** 카드 머리에 보일 제목(없으면 title과 같다) */
+  readonly displayTitle?: () => string;
   /** 머리를 누르면 갈 화면. null이면 머리는 글자만 */
   readonly to: RouteTarget | null;
   readonly Body: ComponentType<CardBodyProps>;
@@ -27,8 +30,13 @@ export const CARD_VIEWS = {
   inbox: { title: m.card_inbox, to: { route: "inbox" }, Body: InboxCardBody },
   cyborg: { title: m.card_cyborg, to: { route: "cyborg" }, Body: CyborgCardBody },
   units: { title: m.card_units, to: { route: "units" }, Body: UnitsCardBody },
-  // 자산: 경제 원장 잔고 요약 → 인벤토리 화면(docs/adr/2026-11-14-inventory-screen.md)
-  assets: { title: m.card_assets, to: { route: "inventory" }, Body: AssetsCardBody },
+  // 자산·경제 요약: 경제 원장 잔고·추정 가치·일일 급여 → 인벤토리 화면(docs/adr/2026-11-14-inventory-screen.md)
+  assets: {
+    title: m.card_assets,
+    displayTitle: m.home_eco_summary_title,
+    to: { route: "inventory" },
+    Body: AssetsCardBody,
+  },
   faction: { title: m.card_faction, to: { route: "faction" }, Body: FactionCardBody },
   timeline: { title: m.card_timeline, to: null, Body: TimelineCardBody },
   briefing: { title: m.card_briefing, to: null, Body: BriefingCardBody },
@@ -43,11 +51,13 @@ export function cardTitle(id: CardId): string {
 
 /** 카드 한 장 */
 export function HomeCard({ card, ...view }: { card: ShownCard } & HomeViewProps) {
-  const { title, to, Body } = CARD_VIEWS[card.id];
+  const entry = CARD_VIEWS[card.id];
+  const { to, Body } = entry;
+  const heading = "displayTitle" in entry ? entry.displayTitle() : entry.title();
   return (
     <CardFrame
       id={card.id}
-      title={title()}
+      title={heading}
       to={to}
       aside={card.id === "inbox" ? <PendingCount data={view.data} /> : null}
     >

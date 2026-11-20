@@ -1,0 +1,766 @@
+/*
+ * 프로 대시보드 전용 스타일 — 3열 커맨드 데크(내 사이보그 · 경제 요약 · 시장 시세) + 운영 카드.
+ * 모든 색·길이는 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast 준수).
+ */
+
+.dash-deck-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--card-gap);
+  min-width: 0;
+}
+
+/* ── 상단 3열 프로 히어로 커맨드 데크 ─────────── */
+.dash-hero-deck {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--card-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (min-width: 48em) {
+  .dash-hero-deck {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 68em) {
+  .dash-hero-deck {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.dash-hero-cell {
+  display: flex;
+  min-width: 0;
+}
+
+/* ── 좌측 카드: 내 사이보그 텔레메트리 ─────────── */
+.dash-cyborg {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.dash-cyborg-id {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.dash-cyborg-name {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: var(--letter-spacing-display);
+  line-height: var(--line-height-tight);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+.dash-rebirth-chip {
+  flex: none;
+  padding: calc(var(--space-1) / 2) var(--space-2);
+  border: var(--hairline) solid var(--dash-violet-border);
+  border-radius: var(--radius-pill);
+  background: var(--dash-violet-bg);
+  color: var(--dash-violet-fg);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+
+/* 레벨 + 경험치 진행 바 + 상세 팝오버 */
+.dash-exp-wrap {
+  position: relative;
+}
+.dash-exp-trigger {
+  --button-lip: transparent;
+  --button-press: 0px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--control-h-sm);
+  padding: var(--space-1) var(--space-2);
+  margin-inline: calc(var(--space-2) * -1);
+  border: var(--hairline) solid transparent;
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  box-shadow: none;
+  color: var(--color-text);
+  text-align: start;
+  transition:
+    background-color var(--duration-fast) var(--easing-out),
+    border-color var(--duration-fast) var(--easing-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .dash-exp-trigger:hover {
+    filter: none;
+    background-color: var(--color-surface-2);
+    border-color: var(--color-border);
+  }
+}
+.dash-lv-pill {
+  flex: none;
+  padding: calc(var(--space-1) / 2) var(--space-2);
+  border: var(--hairline) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-success-surface);
+  color: var(--dash-emerald);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--line-height-tight);
+}
+.dash-exp-nums {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.dash-exp-track {
+  flex: 1 1 var(--space-8);
+  min-width: var(--space-6);
+  height: var(--dash-bar-exp);
+  border-radius: var(--radius-pill);
+  background-color: var(--dash-track);
+  overflow: hidden;
+}
+.dash-exp-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background-color: var(--dash-cyan);
+  transition: width var(--duration-slow) var(--easing-out);
+}
+.dash-exp-pct {
+  flex: none;
+  color: var(--dash-cobalt-fg);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 경험치 상세 플로팅 팝오버(참조 스크린샷 스타일) */
+.dash-exp-popover {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  z-index: 12;
+  width: min(var(--dash-popover-w), 100%);
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--dash-popover-border);
+  border-radius: var(--radius-control);
+  background-color: var(--dash-popover-bg);
+  box-shadow: var(--dash-popover-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.dash-exp-pop-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
+}
+.dash-exp-pop-lv {
+  color: var(--dash-cyan);
+  font-variant-numeric: tabular-nums;
+}
+.dash-exp-pop-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-2) 0;
+  border-top: var(--hairline) solid var(--color-border);
+  border-bottom: var(--hairline) solid var(--color-border);
+}
+.dash-exp-pop-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+}
+.dash-exp-pop-row dt {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+}
+.dash-exp-pop-row dd {
+  margin: 0;
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+.dash-pop-sq {
+  width: var(--dash-dot);
+  height: var(--dash-dot);
+  border-radius: var(--hairline);
+  background-color: var(--dash-cyan);
+}
+.dash-pop-sq[data-tone="cobalt"] {
+  background-color: var(--dash-cobalt-fg);
+}
+.dash-pop-sq[data-tone="violet"] {
+  background-color: var(--dash-violet-fg);
+}
+.dash-exp-pop-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.dash-exp-pop-left {
+  color: var(--dash-amber-fg);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 스킬 · 상태 태그 줄 */
+.dash-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.dash-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: calc(var(--space-1) / 2) var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.dash-tag-chip[data-kind="innate"],
+.dash-tag-chip[data-kind="equipment"] {
+  border-color: var(--dash-cobalt-border);
+  background: var(--dash-cobalt-bg);
+  color: var(--dash-cobalt-fg);
+}
+.dash-tag-chip[data-kind="ok"] {
+  border-color: var(--color-border);
+  color: var(--dash-emerald);
+}
+.dash-tag-chip[data-kind="warn"] {
+  border-color: var(--color-danger);
+  background-color: var(--color-danger-surface);
+  color: var(--color-danger);
+}
+
+/* HP · MP 풀폭 게이지 + 1차 스탯 6종 수평 2단 막대 */
+.dash-vitals,
+.dash-stat-bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.dash-vitals {
+  padding-bottom: var(--space-2);
+  border-bottom: var(--hairline) solid var(--color-border);
+}
+.dash-bar-row {
+  display: grid;
+  grid-template-columns: var(--dash-code-w) minmax(0, 1fr) var(--dash-val-w);
+  align-items: center;
+  gap: var(--space-3);
+}
+.dash-bar-code {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+.dash-bar-track {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  height: var(--dash-bar-h);
+  border-radius: var(--radius-pill);
+  background-color: var(--dash-track);
+  overflow: hidden;
+}
+.dash-bar-row[data-vital] .dash-bar-track {
+  height: var(--dash-bar-vital);
+}
+.dash-bar-fill,
+.dash-bar-seg {
+  display: block;
+  height: 100%;
+  transition: width var(--duration-slow) var(--easing-out);
+}
+.dash-bar-fill {
+  border-radius: var(--radius-pill);
+}
+.dash-bar-base {
+  border-radius: var(--radius-pill) 0 0 var(--radius-pill);
+}
+.dash-bar-base:last-child {
+  border-radius: var(--radius-pill);
+}
+.dash-bar-bonus {
+  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+  opacity: 0.95;
+}
+.dash-bar-val {
+  text-align: right;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--line-height-tight);
+}
+
+/* 전투 자원(HP · MP) 색상 */
+.dash-bar-row[data-vital="hp"] .dash-bar-code,
+.dash-bar-row[data-vital="hp"] .dash-bar-val {
+  color: var(--dash-crimson);
+}
+.dash-bar-row[data-vital="hp"] .dash-bar-fill {
+  background-color: var(--dash-crimson);
+}
+.dash-bar-row[data-vital="mp"] .dash-bar-code,
+.dash-bar-row[data-vital="mp"] .dash-bar-val {
+  color: var(--dash-sky);
+}
+.dash-bar-row[data-vital="mp"] .dash-bar-fill {
+  background-color: var(--dash-sky);
+}
+
+/* 1차 스탯 6종 막대·수치 색상 */
+.dash-bar-row[data-stat="str"] .dash-bar-val {
+  color: var(--color-stat-str);
+}
+.dash-bar-row[data-stat="str"] .dash-bar-base {
+  background-color: var(--dash-stat-str-base);
+}
+.dash-bar-row[data-stat="str"] .dash-bar-bonus {
+  background-color: var(--color-stat-str);
+}
+.dash-bar-row[data-stat="vit"] .dash-bar-val {
+  color: var(--color-stat-vit);
+}
+.dash-bar-row[data-stat="vit"] .dash-bar-base {
+  background-color: var(--dash-stat-vit-base);
+}
+.dash-bar-row[data-stat="vit"] .dash-bar-bonus {
+  background-color: var(--color-stat-vit);
+}
+.dash-bar-row[data-stat="int"] .dash-bar-val {
+  color: var(--color-stat-int);
+}
+.dash-bar-row[data-stat="int"] .dash-bar-base {
+  background-color: var(--dash-stat-int-base);
+}
+.dash-bar-row[data-stat="int"] .dash-bar-bonus {
+  background-color: var(--color-stat-int);
+}
+.dash-bar-row[data-stat="wis"] .dash-bar-val {
+  color: var(--color-stat-wis);
+}
+.dash-bar-row[data-stat="wis"] .dash-bar-base {
+  background-color: var(--dash-stat-wis-base);
+}
+.dash-bar-row[data-stat="wis"] .dash-bar-bonus {
+  background-color: var(--color-stat-wis);
+}
+.dash-bar-row[data-stat="dex"] .dash-bar-val {
+  color: var(--color-stat-dex);
+}
+.dash-bar-row[data-stat="dex"] .dash-bar-base {
+  background-color: var(--dash-stat-dex-base);
+}
+.dash-bar-row[data-stat="dex"] .dash-bar-bonus {
+  background-color: var(--color-stat-dex);
+}
+.dash-bar-row[data-stat="agi"] .dash-bar-val {
+  color: var(--color-stat-agi);
+}
+.dash-bar-row[data-stat="agi"] .dash-bar-base {
+  background-color: var(--dash-stat-agi-base);
+}
+.dash-bar-row[data-stat="agi"] .dash-bar-bonus {
+  background-color: var(--color-stat-agi);
+}
+
+/* ── 중앙 카드: 경제 요약 3단 틴트 KPI 블록 ─────────── */
+.dash-eco-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1 1 auto;
+}
+.dash-kpi-block {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-2);
+  min-width: 0;
+}
+.dash-kpi-block[data-tone="amber"] {
+  background: var(--dash-amber-bg);
+  border-color: var(--dash-amber-border);
+}
+.dash-kpi-block[data-tone="cobalt"] {
+  background: var(--dash-cobalt-bg);
+  border-color: var(--dash-cobalt-border);
+}
+.dash-kpi-block[data-tone="violet"] {
+  background: var(--dash-violet-bg);
+  border-color: var(--dash-violet-border);
+}
+.dash-kpi-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.dash-kpi-block[data-tone="amber"] .dash-kpi-label,
+.dash-kpi-block[data-tone="amber"] .dash-kpi-hero {
+  color: var(--dash-amber-fg);
+}
+.dash-kpi-block[data-tone="cobalt"] .dash-kpi-label,
+.dash-kpi-block[data-tone="cobalt"] .dash-kpi-hero {
+  color: var(--dash-cobalt-fg);
+}
+.dash-kpi-block[data-tone="violet"] .dash-kpi-label,
+.dash-kpi-block[data-tone="violet"] .dash-kpi-hero {
+  color: var(--dash-violet-fg);
+}
+.dash-kpi-hero {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--letter-spacing-display);
+  line-height: var(--line-height-tight);
+  overflow-wrap: anywhere;
+}
+.dash-kpi-money {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.dash-kpi-part {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+.dash-kpi-sep {
+  opacity: 0.45;
+  margin-inline-end: var(--space-1);
+}
+.dash-approx {
+  opacity: 0.65;
+  font-size: var(--font-size-lg);
+}
+.dash-kpi-unit {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  opacity: 0.82;
+}
+.dash-kpi-sub {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: var(--line-height-snug);
+}
+
+/* ── 우측 카드: 실시간 시장 시세 티커 ─────────── */
+.dash-ticker-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  flex: 1 1 auto;
+}
+.dash-ticker-item {
+  display: flex;
+}
+.dash-ticker-link {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap-size);
+  padding: var(--space-1) var(--space-2);
+  margin-inline: calc(var(--space-2) * -1);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  text-decoration: none;
+  transition: background-color var(--duration-fast) var(--easing-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .dash-ticker-link:hover {
+    background-color: var(--color-surface-2);
+  }
+}
+.dash-ticker-icon {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: var(--dash-ticker-icon);
+  height: var(--dash-ticker-icon);
+  border-radius: var(--radius-sm);
+  background: var(--dash-amber-bg);
+  border: var(--hairline) solid var(--dash-amber-border);
+  color: var(--dash-amber-fg);
+}
+.dash-ticker-icon .home-icon {
+  width: var(--font-size-sm);
+  height: var(--font-size-sm);
+}
+.dash-ticker-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.dash-ticker-name {
+  min-width: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dash-ticker-tier {
+  flex: none;
+  padding: 0 var(--space-1);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--line-height-snug);
+}
+.dash-spark {
+  flex: none;
+  width: var(--dash-spark-w);
+  height: var(--dash-spark-h);
+  color: var(--color-text-muted);
+  opacity: 0.55;
+}
+.dash-spark[data-trend="up"] {
+  color: var(--dash-emerald);
+  opacity: 1;
+}
+.dash-spark[data-trend="down"] {
+  color: var(--dash-crimson);
+  opacity: 1;
+}
+.dash-ticker-quote {
+  flex: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-variant-numeric: tabular-nums;
+}
+.dash-ticker-price {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text);
+  white-space: nowrap;
+}
+.dash-ticker-unit {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+}
+.dash-ticker-delta {
+  min-width: 4.4em;
+  text-align: right;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.dash-ticker-delta[data-trend="up"] {
+  color: var(--dash-emerald);
+}
+.dash-ticker-delta[data-trend="down"] {
+  color: var(--dash-crimson);
+}
+
+/* ── 하단 운영 카드(보유 유닛 · 세력 · 지도 런처) ─────────── */
+.dash-ops-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1 1 auto;
+}
+.dash-faction-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.dash-faction-name {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: var(--letter-spacing-display);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+.dash-mini-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(5.2em, 1fr));
+  gap: var(--space-2);
+}
+.dash-mini-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+  min-width: 0;
+}
+.dash-mini-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+}
+.dash-mini-val {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--line-height-tight);
+  color: var(--color-text);
+}
+.dash-mini-val[data-accent="cyan"] {
+  color: var(--dash-cyan);
+}
+.dash-mini-val[data-accent="cobalt"] {
+  color: var(--dash-cobalt-fg);
+}
+.dash-mini-val[data-accent="violet"] {
+  color: var(--dash-violet-fg);
+}
+.dash-mini-val[data-accent="amber"] {
+  color: var(--dash-amber-fg);
+}
+.dash-mini-val[data-accent="emerald"] {
+  color: var(--dash-emerald);
+}
+.dash-ops-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: auto;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-strong);
+}
+.dash-status-dot {
+  width: var(--dash-dot);
+  height: var(--dash-dot);
+  border-radius: var(--radius-pill);
+  background-color: var(--dash-emerald);
+}
+.dash-ops-note {
+  margin-top: auto;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: var(--line-height-snug);
+}
+
+/* 전술 지도 런처 2열 타일 */
+.dash-map-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11em, 1fr));
+  gap: var(--space-3);
+  flex: 1 1 auto;
+}
+.dash-map-tile {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: var(--tap-size);
+  padding: var(--space-4);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+  text-decoration: none;
+  transition:
+    border-color var(--duration-base) var(--easing-out),
+    background-color var(--duration-base) var(--easing-out),
+    transform var(--duration-fast) var(--easing-out);
+}
+.dash-map-tile[data-tone="primary"] {
+  background: var(--dash-cobalt-bg);
+  border-color: var(--dash-cobalt-border);
+}
+.dash-map-tile[data-tone="secondary"] {
+  background: var(--dash-violet-bg);
+  border-color: var(--dash-violet-border);
+}
+.dash-map-tile-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.dash-map-tile-icon {
+  display: inline-grid;
+  place-items: center;
+  color: var(--dash-cyan);
+}
+.dash-map-tile[data-tone="secondary"] .dash-map-tile-icon {
+  color: var(--dash-violet-fg);
+}
+.dash-map-tile-title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: var(--letter-spacing-display);
+}
+.dash-map-tile-arrow {
+  margin-left: auto;
+  color: var(--color-text-muted);
+}
+.dash-map-tile-arrow .home-icon {
+  width: var(--font-size-sm);
+  height: var(--font-size-sm);
+}
+.dash-map-tile-desc {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: var(--line-height-snug);
+}
+@media (hover: hover) and (pointer: fine) {
+  .dash-map-tile:hover {
+    border-color: var(--color-border-strong);
+    transform: translateY(calc(var(--hairline) * -1));
+  }
+}
+
+@media (forced-colors: active) {
+  .dash-kpi-block,
+  .dash-mini-kpi,
+  .dash-map-tile,
+  .dash-exp-popover {
+    border: var(--hairline) solid CanvasText;
+  }
+  .dash-bar-fill,
+  .dash-bar-seg,
+  .dash-exp-fill {
+    forced-color-adjust: none;
+    background-color: Highlight;
+  }
+}

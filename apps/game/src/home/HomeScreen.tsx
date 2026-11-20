@@ -31,6 +31,7 @@ import HybridTemplate from "./templates/HybridTemplate.tsx";
 import { templateName } from "./templateText.ts";
 import { useHomeData } from "./useHomeData.ts";
 import "./home.css";
+import "./dashboardPro.css";
 
 export interface HomeScreenProps {
   /** 지금 주소(matchPath 결과). ?template=은 dev·admin에게만 듣는다 */

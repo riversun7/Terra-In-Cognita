@@ -77,9 +77,8 @@
   top: 0;
   z-index: 3;
   min-width: 0;
-  background-color: var(--color-surface);
-  border-bottom: var(--border-w) solid var(--color-border);
-  box-shadow: var(--shadow-control);
+  background-color: var(--color-nav-bg);
+  border-bottom: var(--hairline) solid var(--color-border);
 }
 .topbar {
   display: flex;
@@ -92,7 +91,7 @@
 .topbar-spacer {
   flex: 1 1 auto;
 }
-/* 아이콘 단추(☰·종·우편) — 입체감 있는 원형 조작 단추. 누르는 곳은 44px */
+/* 아이콘 단추(☰·종·우편) — 정갈한 미니멀 터미널 단추. 누르는 곳은 44px */
 .topbar-button,
 .topbar-face {
   --button-lip: transparent;
@@ -103,27 +102,28 @@
   min-width: var(--tap-size);
   min-height: var(--tap-size);
   padding: 0;
-  border: var(--border-w) solid var(--color-border);
-  border-radius: var(--radius-control);
-  background-color: var(--color-surface-2);
-  box-shadow: var(--shadow-control);
-  color: var(--color-text);
+  border: var(--hairline) solid transparent;
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  box-shadow: none;
+  color: var(--color-text-muted);
   text-decoration: none;
   touch-action: manipulation;
   transition:
     background-color var(--duration-base) var(--easing-out),
     border-color var(--duration-base) var(--easing-out),
-    box-shadow var(--duration-base) var(--easing-out);
+    color var(--duration-base) var(--easing-out);
 }
 .topbar-face {
   border: 0;
   background: none;
   box-shadow: none;
+  color: var(--color-text);
 }
 .topbar-button[aria-current="page"] {
   border-color: var(--color-border-strong);
   background-color: var(--color-nav-active);
-  box-shadow: inset 0 0 0 var(--border-w) var(--color-primary);
+  color: var(--color-primary);
 }
 .topbar-button:active,
 .topbar-face:active {
@@ -133,13 +133,12 @@
 .topbar-face-ring {
   display: grid;
   place-items: center;
-  width: calc(var(--tap-size) - var(--space-1));
-  height: calc(var(--tap-size) - var(--space-1));
+  width: calc(var(--tap-size) - var(--space-2));
+  height: calc(var(--tap-size) - var(--space-2));
   overflow: hidden;
-  border: var(--border-strong-w) solid var(--color-border-strong);
-  border-radius: var(--radius-control);
+  border: var(--hairline) solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
   background-color: var(--color-surface-2);
-  box-shadow: var(--shadow-control);
 }
 .topbar-face-portrait[data-portrait="3d"] {
   width: 100%;
@@ -190,6 +189,8 @@
   padding: var(--space-5) max(var(--space-4), env(safe-area-inset-right))
     calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-8))
     max(var(--space-4), env(safe-area-inset-left));
+  background-image: var(--dash-grid);
+  background-size: var(--dash-grid-size) var(--dash-grid-size);
 }
 /* 본문은 건너뛰기 링크·초점 옮기기의 도착점일 뿐이라 테두리를 그리지 않는다(안의 단추는 그대로 보인다) */
 .frame-main:focus {
@@ -223,25 +224,27 @@
 .side {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
   min-height: 100%;
-  padding: var(--space-3);
+  padding: var(--space-4) var(--space-3);
 }
 .side-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-w) solid var(--color-border);
-  border-radius: var(--radius-control);
-  background-color: var(--color-card-head);
-  box-shadow: var(--shadow-control);
+  padding: 0 var(--space-2) var(--space-3);
+  border: 0;
+  border-bottom: var(--hairline) solid var(--color-border);
+  border-radius: 0;
+  background-color: transparent;
+  box-shadow: none;
 }
 /* 메뉴 머리의 이름표는 본문 크기(좁은 서랍에서 영어 이름이 두 줄로 꺾이지 않게).
    styles.css의 .brand-small .brand-title보다 뒤에 오지 않으므로(묶음 순서) 선택자를 하나 더 붙인다 */
 .side .side-head .brand-title {
   font-size: var(--font-size-md);
+  letter-spacing: var(--letter-spacing-display);
 }
 .side-account {
   grid-column: 1 / -1;
@@ -249,19 +252,19 @@
   align-items: center;
   gap: var(--space-2);
   justify-self: start;
-  padding: var(--space-1) var(--space-3);
+  padding: calc(var(--space-1) / 2) var(--space-2);
   border: var(--hairline) solid var(--color-border);
   border-radius: var(--radius-pill);
-  background-color: var(--color-surface-2);
+  background-color: var(--color-surface);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-strong);
-  color: var(--color-text);
+  color: var(--color-text-muted);
   line-height: var(--line-height-snug);
 }
 .side-account::before {
   content: "";
-  width: var(--preview-dot);
-  height: var(--preview-dot);
+  width: var(--dash-dot);
+  height: var(--dash-dot);
   border-radius: var(--radius-pill);
   background-color: var(--color-success);
 }
@@ -272,14 +275,14 @@
   min-height: var(--tap-size);
   padding: 0;
   border: var(--hairline) solid var(--color-border);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-sm);
   background-color: var(--color-surface);
   box-shadow: none;
 }
 .side-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: calc(var(--space-1) / 2);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -287,7 +290,7 @@
 .side-list > li {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: calc(var(--space-1) / 2);
 }
 .side-item {
   --button-lip: transparent;
@@ -300,12 +303,12 @@
   width: 100%;
   min-height: var(--tap-size);
   padding: var(--space-1) var(--space-3);
-  border: var(--border-w) solid var(--color-border);
-  border-radius: var(--radius-control);
-  background-color: var(--color-nav-item);
-  box-shadow: var(--shadow-control);
+  border: var(--hairline) solid transparent;
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  box-shadow: none;
   color: var(--color-text);
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-regular);
   text-align: start;
   text-decoration: none;
@@ -313,17 +316,15 @@
   transition:
     background-color var(--duration-base) var(--easing-out),
     border-color var(--duration-base) var(--easing-out),
-    box-shadow var(--duration-base) var(--easing-out);
+    color var(--duration-base) var(--easing-out);
 }
 .side-item:active {
   background-color: var(--color-surface-2);
 }
 .side-item[aria-current="page"] {
-  border-color: var(--color-border-strong);
+  border-color: var(--color-border);
   background-color: var(--color-nav-active);
-  box-shadow:
-    inset var(--accent-bar) 0 0 var(--color-primary),
-    var(--shadow-control);
+  box-shadow: inset var(--accent-bar) 0 0 var(--color-primary);
 }
 .side-icon {
   position: relative;
@@ -332,19 +333,21 @@
   flex: none;
   width: var(--nav-icon-box);
   height: var(--nav-icon-box);
-  border: var(--hairline) solid var(--color-border);
+  border: 0;
   border-radius: var(--radius-sm);
-  background-color: var(--color-surface-2);
-  color: var(--color-text);
+  background-color: transparent;
+  color: var(--color-text-muted);
   transition:
     background-color var(--duration-base) var(--easing-out),
-    border-color var(--duration-base) var(--easing-out),
     color var(--duration-base) var(--easing-out);
 }
+.side-icon .icon {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
 .side-item[aria-current="page"] .side-icon {
-  border-color: transparent;
-  background-color: var(--color-primary);
-  color: var(--color-on-primary);
+  background-color: transparent;
+  color: var(--color-primary);
 }
 /* 펼친 메뉴의 배지는 줄 끝에 둔다(아이콘을 덮지 않게). 접은 레일은 아래에서 항목 오른쪽 위 */
 .side-item .count-badge {
@@ -355,16 +358,17 @@
 .side-text {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--space-1) / 2);
+  gap: 0;
   min-width: 0;
 }
 .side-name {
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-strong);
   line-height: var(--line-height-snug);
 }
 .side-desc {
   font-size: var(--font-size-xs);
-  line-height: var(--line-height-snug);
+  line-height: var(--line-height-tight);
   color: var(--color-text-muted);
 }
 /* 지도 밑 작은 링크(1차맵) — 트리 가지처럼 들여쓰기 + 연결선 */
@@ -373,15 +377,15 @@
   width: calc(100% - var(--space-5));
   margin-inline-start: var(--space-5);
   padding: var(--space-1) var(--space-3);
-  border-inline-start: var(--border-strong-w) solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  background-color: var(--color-surface-2);
+  border-inline-start: var(--border-strong-w) solid var(--color-border);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background-color: transparent;
   box-shadow: none;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
 }
 .side-sub .side-icon {
-  width: calc(var(--icon-sm) + var(--space-2));
-  height: calc(var(--icon-sm) + var(--space-2));
+  width: var(--icon-sm);
+  height: var(--icon-sm);
   border: 0;
   background: none;
 }
@@ -391,8 +395,12 @@
 }
 .side-sub .side-name {
   font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
 }
-/* [메뉴 편집] — 조작 칩 단추 모양 */
+.side-sub[aria-current="page"] .side-name {
+  color: var(--color-text);
+}
+/* [메뉴 편집] — 미니멀 고스트 링크 */
 .side-edit {
   align-self: stretch;
   display: inline-flex;
@@ -400,37 +408,40 @@
   justify-content: center;
   min-height: var(--control-h-sm);
   padding: 0 var(--space-3);
-  border: var(--border-w) dashed var(--color-border-strong);
-  border-radius: var(--radius-control);
-  background-color: var(--color-surface-2);
-  color: var(--color-text);
-  font-size: var(--font-size-sm);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-strong);
   text-decoration: none;
   transition:
     background-color var(--duration-base) var(--easing-out),
-    border-color var(--duration-base) var(--easing-out);
+    border-color var(--duration-base) var(--easing-out),
+    color var(--duration-base) var(--easing-out);
 }
 /* 시스템 묶음(설정·개발자·관리자·로그아웃)은 맨 아래 */
 .side-system {
   margin-top: auto;
   padding-top: var(--space-3);
-  border-top: var(--border-w) solid var(--color-border);
-  gap: var(--space-1);
+  border-top: var(--hairline) solid var(--color-border);
+  gap: calc(var(--space-1) / 2);
 }
 .side-system .side-item {
-  min-height: var(--tap-size);
+  min-height: var(--control-h-sm);
   padding: var(--space-1) var(--space-3);
   background-color: transparent;
   box-shadow: none;
+  color: var(--color-text-muted);
 }
 .side-system .side-item[aria-current="page"] {
   background-color: var(--color-nav-active);
+  color: var(--color-text);
   box-shadow: inset var(--accent-bar) 0 0 var(--color-primary);
 }
 .side-system .side-icon {
-  width: calc(var(--icon-sm) + var(--space-3));
-  height: calc(var(--icon-sm) + var(--space-3));
+  width: var(--nav-icon-box);
+  height: var(--nav-icon-box);
 }
 .side-button {
   cursor: pointer;
@@ -581,11 +592,18 @@
   .side-item:hover,
   .side-close:hover,
   .side-edit:hover {
-    border-color: var(--color-border-strong);
+    border-color: var(--color-border);
     background-color: var(--color-surface-2);
+    color: var(--color-text);
+  }
+  .side-item:hover .side-icon {
+    color: var(--color-text);
   }
   .side-item[aria-current="page"]:hover {
     background-color: var(--color-nav-active);
+  }
+  .side-item[aria-current="page"]:hover .side-icon {
+    color: var(--color-primary);
   }
 }
 

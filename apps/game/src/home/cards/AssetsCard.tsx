@@ -1,7 +1,7 @@
-// 홈 [자산 · 경제 요약] 프로 카드 — 참조 대시보드 중앙 카드 구성:
-// 1) 보유 자금(앰버 틴트 블록): 기준 통화·주요 지갑 잔고 + 주문 묶임·화폐 종수
-// 2) 자산·화폐 환산(코발트 틴트 블록, data-metric="value"): 창고·유닛 물건 추정가 + 타 도시 화폐 환산
-// 3) 일일 급여·거래 현황(바이올렛 틴트 블록): 일일 급여 합계(BigInt) + 가동 시설·진행 주문 수
+// 홈 [경제 요약] 가로 3분할 재무 데스크 — 절제된 기관 금융 스타일(중립 표면 + 상단 2px 포인트 라인):
+// 1) 보유 자금(골드 라인): 기준 통화·주요 지갑 잔고 + 주문 묶임·화폐 종수
+// 2) 자산·화폐 환산(시안 라인, data-metric="value"): 창고·유닛 물건 추정가 + 타 도시 화폐 환산
+// 3) 일일 급여·거래 현황(바이올렛 라인): 일일 급여 합계(BigInt) + 가동 시설·진행 주문 수
 // 금액 계산은 BigInt 정수만 쓴다(AGENTS 4장).
 import type { EconomyExchangeResponse, HoldingLine, WageLine } from "@terra/shared/economy";
 import { toBig } from "../../economy/amount.ts";
@@ -132,15 +132,13 @@ export function AssetsCardBody() {
   const openOrders = orders.data?.open.length ?? 0;
 
   return (
-    <div className="dash-eco-stack">
-      {/* 블록 1: 보유 자금 (앰버 골드 틴트) */}
-      <div className="dash-kpi-block" data-tone="amber">
-        <span className="dash-kpi-label">
-          {m.home_eco_cash_label()}
-          {cashUnit === "" ? null : ` (${cashUnit})`}
-        </span>
+    <div className="dash-eco-grid">
+      {/* 지표 1: 보유 자금 */}
+      <div className="dash-kpi-cell" data-tone="amber">
+        <span className="dash-kpi-label">{m.home_eco_cash_label()}</span>
         <div className="dash-kpi-hero" translate="no">
-          {fmt(cashQty)}
+          <span>{fmt(cashQty)}</span>
+          {cashUnit === "" ? null : <span className="dash-kpi-unit">{cashUnit}</span>}
         </div>
         <span className="dash-kpi-sub">
           {cashLocked > 0n
@@ -149,8 +147,8 @@ export function AssetsCardBody() {
         </span>
       </div>
 
-      {/* 블록 2: 자산·화폐 환산 (코발트 블루 틴트, e2e/inventory.spec.ts [data-metric="value"] 호환) */}
-      <div className="dash-kpi-block" data-tone="cobalt" data-metric="value">
+      {/* 지표 2: 자산·화폐 환산 (e2e/inventory.spec.ts [data-metric="value"] 호환) */}
+      <div className="dash-kpi-cell" data-tone="cyan" data-metric="value">
         <span className="dash-kpi-label">{m.home_eco_converted_label()}</span>
         <div className="dash-kpi-hero" translate="no">
           {combinedParts === null ? (
@@ -175,13 +173,13 @@ export function AssetsCardBody() {
         </span>
       </div>
 
-      {/* 블록 3: 일일 급여 · 거래 현황 (바이올렛 틴트) */}
-      <div className="dash-kpi-block" data-tone="violet">
+      {/* 지표 3: 일일 급여 · 거래 현황 */}
+      <div className="dash-kpi-cell" data-tone="violet">
         <span className="dash-kpi-label">{m.home_eco_daily_label()}</span>
         <div className="dash-kpi-hero" translate="no">
-          {fmt(wages.total)}
+          <span>{fmt(wages.total)}</span>
           {wages.currency !== null && wages.total > 0n ? (
-            <span className="dash-kpi-unit"> {currencyName(index, wages.currency)}</span>
+            <span className="dash-kpi-unit">{currencyName(index, wages.currency)}</span>
           ) : null}
         </div>
         <span className="dash-kpi-sub">

@@ -78,16 +78,6 @@ export function MarketIcon() {
   );
 }
 
-/** 시세 종목 상자 아이콘 */
-export function ParcelIcon() {
-  return (
-    <Icon>
-      <path d="M12 3.5 19.5 7.5v9L12 20.5 4.5 16.5v-9z" />
-      <path d="M12 12 19.5 7.5M12 12 4.5 7.5M12 12v8.5" />
-    </Icon>
-  );
-}
-
 /** 카드 오른쪽 위 바로가기 화살표(↗) */
 export function ExternalArrowIcon() {
   return (

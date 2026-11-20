@@ -1,15 +1,14 @@
-// 홈 [시장 시세] 프로 티커 카드 — 참조 대시보드 오른쪽 카드 구성:
-// economy.marketItems + economy.catalog 실시간 자료로 주요 거래 품목 6종의
-// 아이콘·이름·티어·미니 스파크라인·체결가(없으면 시작 기준가)·24시간 등락률을 표시한다.
+// 홈 [시장 시세] 2×3 거래소 시세 매트릭스 — economy.marketItems + economy.catalog 실시간 자료로
+// 주요 품목 6종을 정돈된 2열 견적 타일(티어·품목명·등락 뱃지·체결가/기준가·초소형 스파크라인)로 표시한다.
 import { type DecimalString, marketKindOf } from "@terra/shared/economy";
 import { useId } from "react";
 import { formatBp, toBig, trendOf } from "../../economy/amount.ts";
 import { currencyName, fmt, indexCatalog, itemName } from "../../economy/economyText.ts";
 import { NO_ARGS, useCatalog, useMarketItems } from "../../economy/queries.ts";
 import { m } from "../../paraglide/messages.js";
-import { HomeLink } from "../shellParts.tsx";
 import { HomeLoading } from "../InboxBody.tsx";
-import { ExternalArrowIcon, MarketIcon, ParcelIcon } from "./icons.tsx";
+import { HomeLink } from "../shellParts.tsx";
+import { ExternalArrowIcon, MarketIcon } from "./icons.tsx";
 
 const MAX_TICKER_ROWS = 6;
 
@@ -31,8 +30,8 @@ function MiniSpark({ points, trend }: { points: readonly DecimalString[]; trend:
   const min = Math.min(...nums);
   const max = Math.max(...nums);
   const span = max - min || 1;
-  const w = 44;
-  const h = 16;
+  const w = 52;
+  const h = 18;
   const coords = nums
     .map((v, i) => {
       const x = (i / (nums.length - 1)) * w;
@@ -94,7 +93,7 @@ export function MarketTickerCard() {
     });
   }
 
-  // 2) 체결 이력이 적은 초기 월드면 거래 가능 카탈로그 주요 품목의 기준가로 빈 줄을 채운다
+  // 2) 체결 이력이 적은 초기 월드면 거래 가능 카탈로그 주요 품목의 기준가로 빈 자리를 채운다
   if (rows.length < MAX_TICKER_ROWS && catalog.data !== null) {
     const fallback = catalog.data.items
       .filter((item) => !seen.has(item.id) && marketKindOf(item) !== "none" && toBig(item.startPrice) > 0n)
@@ -142,35 +141,26 @@ export function MarketTickerCard() {
         ) : rows.length === 0 ? (
           <p className="home-card-hint">{m.home_market_empty()}</p>
         ) : (
-          <ul className="dash-ticker-list">
+          <ul className="dash-quote-grid">
             {rows.map((row) => {
               const trend = trendOf(row.changeBp);
               const arrow = trend === "up" ? "↗" : trend === "down" ? "↘" : "—";
               return (
-                <li key={row.id} className="dash-ticker-item">
+                <li key={row.id} className="dash-quote-item">
                   <HomeLink
                     to={{ route: "economy_market_item", params: { itemId: row.id } }}
-                    className="dash-ticker-link"
+                    className="dash-quote-tile"
+                    data-trend={row.live ? trend : "base"}
                   >
-                    <span className="dash-ticker-icon" aria-hidden="true">
-                      <ParcelIcon />
-                    </span>
-                    <span className="dash-ticker-meta">
-                      <span className="dash-ticker-name">{row.name}</span>
-                      <span className="dash-ticker-tier" translate="no">
-                        T{row.tier}
-                      </span>
-                    </span>
-                    <MiniSpark points={row.spark} trend={trend} />
-                    <span className="dash-ticker-quote">
-                      <span className="dash-ticker-price" translate="no">
-                        {fmt(row.price)}
-                        {row.currencyUnit === "" ? null : (
-                          <span className="dash-ticker-unit"> {row.currencyUnit}</span>
-                        )}
+                    <div className="dash-quote-top">
+                      <span className="dash-quote-id">
+                        <span className="dash-quote-tier" translate="no">
+                          T{row.tier}
+                        </span>
+                        <span className="dash-quote-name">{row.name}</span>
                       </span>
                       <span
-                        className="dash-ticker-delta"
+                        className="dash-quote-delta"
                         data-trend={row.live ? trend : "base"}
                         translate="no"
                       >
@@ -178,7 +168,16 @@ export function MarketTickerCard() {
                           ? `${arrow} ${formatBp(row.changeBp)}`
                           : m.home_market_base_price()}
                       </span>
-                    </span>
+                    </div>
+                    <div className="dash-quote-bottom">
+                      <span className="dash-quote-price" translate="no">
+                        {fmt(row.price)}
+                        {row.currencyUnit === "" ? null : (
+                          <span className="dash-quote-unit"> {row.currencyUnit}</span>
+                        )}
+                      </span>
+                      <MiniSpark points={row.spark} trend={trend} />
+                    </div>
                   </HomeLink>
                 </li>
               );

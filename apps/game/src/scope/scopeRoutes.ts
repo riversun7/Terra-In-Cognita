@@ -38,6 +38,7 @@ const ROUTE_SCOPES: { readonly [Id in RouteId]?: RouteScope } = {
   dev_tuning: common(m.scope_note_tuning),
   dev_balance: common(m.scope_note_balance),
   dev_secondary_stats: common(m.scope_note_balance),
+  dev_exp_table: common(m.scope_note_balance),
   dev_skills: common(),
   dev_items: common(),
   dev_effects: common(),

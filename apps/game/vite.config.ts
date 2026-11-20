@@ -167,6 +167,7 @@ export default defineConfig({
           "assets/[Tt]uningPanel*.{js,css}",
           "assets/[Bb]alancePanel*.{js,css}",
           "assets/[Ss]econdaryStats*.{js,css}",
+          "assets/[Ee]xpTable*.{js,css}",
           "assets/[Ss]killEditor*.{js,css}",
           "assets/[Ii]temEditor*.{js,css}",
           "assets/[Bb]uildingEditor*.{js,css}",

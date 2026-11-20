@@ -27,6 +27,7 @@
     "./dashboard": "./src/dashboard.ts",
     "./economy": "./src/economy.ts",
     "./exchange": "./src/exchange.ts",
+    "./expTable": "./src/expTable.ts",
     "./facilities": "./src/facilities.ts",
     "./facilityBuild": "./src/facilityBuild.ts",
     "./facilityCategory": "./src/facilityCategory.ts",

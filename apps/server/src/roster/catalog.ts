@@ -8,12 +8,14 @@
 // 두지 않는다"). 새로 생기는 것(보유 물건 받기)과 고르는 목록(전투 실험실·밸런스 무기, combat.equipment)은 그대로 켜진 것만이다.
 import {
   type EffectEntry,
+  type ExpTableEntry,
   type FacilityEntry,
   type ItemEntry,
   type PackSource,
   type SkillEntry,
   type UnitKindEntry,
   effectEntrySchema,
+  expTableEntrySchema,
   facilityEntrySchema,
   itemEntrySchema,
   parseJson,
@@ -22,6 +24,7 @@ import {
   statRowEntrySchema,
   unitKindEntrySchema,
 } from "@terra/content";
+import { DEFAULT_EXP_TABLE, type ExpTableEntryJson } from "@terra/shared/expTable";
 import type { LocalizedName, RosterNames } from "@terra/shared/roster";
 import {
   type CombatCatalog,
@@ -62,6 +65,8 @@ export interface RosterCatalog {
    * 셈한다(docs/adr/2026-11-03-item-holdings.md "바뀜 (2026-11-07, 입은 장비·버프 → 스탯·전투)")
    */
   readonly coefficients: CombatCoefficients;
+  /** 유닛 공통 경험치 테이블(팩 exp_table + 덮어쓰기, 읽을 때마다 지금 값). 없으면 DEFAULT_EXP_TABLE */
+  readonly expTable: readonly ExpTableEntryJson[];
 }
 
 function entriesOf<T>(source: PackSource, file: string, parse: (raw: unknown) => T): T[] {
@@ -89,6 +94,8 @@ export interface RosterContentEntries {
   readonly effects?: readonly EffectEntry[] | undefined;
   /** 시설(건물 편집기 덮어쓰기, 이름 표). 없으면 팩 시설 */
   readonly facilities?: readonly FacilityEntry[] | undefined;
+  /** 유닛 공통 경험치 테이블(경험치 테이블 편집기 덮어쓰기). 없으면 팩 표 */
+  readonly expTable?: readonly ExpTableEntry[] | undefined;
 }
 
 /**
@@ -113,6 +120,7 @@ export function rosterCatalogOf(
   const effects = entriesOf(source, "effects.json", (raw) => effectEntrySchema.parse(raw));
   const facilities = entriesOf(source, "facilities.json", (raw) => facilityEntrySchema.parse(raw));
   const planets = entriesOf(source, "planets.json", (raw) => planetEntrySchema.parse(raw));
+  const packExpTable = entriesOf(source, "exp_table.json", (raw) => expTableEntrySchema.parse(raw));
   const packSociety = societyCoefficientsFrom(tuningOf(source));
   const current = society ?? (() => packSociety);
   // 계수표 접근자가 없으면(시험) 팩 설정 칸 값을 얹은 계수표(계산식은 기본 식)
@@ -173,6 +181,11 @@ export function rosterCatalogOf(
     get coefficients() {
       return coefficientsNow();
     },
+    get expTable() {
+      const live = entriesNow().expTable;
+      if (live && live.length > 0) return live;
+      return packExpTable.length > 0 ? packExpTable : DEFAULT_EXP_TABLE;
+    },
   };
 }
 
@@ -203,6 +216,7 @@ export function testRosterCatalog(): RosterCatalog {
     },
     society: TEST_SOCIETY_COEFFICIENTS,
     coefficients: TEST_COMBAT_COEFFICIENTS,
+    expTable: DEFAULT_EXP_TABLE,
   };
 }
 

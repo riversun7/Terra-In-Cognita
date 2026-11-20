@@ -57,9 +57,9 @@ test.describe("관리자", () => {
     await expect(page).toHaveURL((url) => url.pathname === "/dev");
     await framed(page);
     await expect(drawer).not.toHaveAttribute("open", "");
-    // 도구 열아홉 줄(2차맵 시험·지형 오브젝트는 /dev/terrain-objects 하나로 통합, /dev/second-map 주소도 같은 화면을 연다).
+    // 도구 스무 줄(2차맵 시험·지형 오브젝트는 /dev/terrain-objects 하나로 통합, /dev/second-map 주소도 같은 화면을 연다).
     // 운영 권한 부여(/dev/ops-grants)는 개발자만이라 관리자에게는 숨는다
-    await expect(page.locator("#main a.dev-tool")).toHaveCount(19);
+    await expect(page.locator("#main a.dev-tool")).toHaveCount(20);
     await expect(page.locator("#main a.dev-tool .dev-tool-badge")).toHaveCount(0);
     for (const path of [
       "/dev/planet-editor",
@@ -69,6 +69,7 @@ test.describe("관리자", () => {
       "/dev/tuning",
       "/dev/balance",
       "/dev/secondary-stats",
+      "/dev/exp-table",
       "/dev/skills",
       "/dev/items",
       "/dev/effects",
@@ -248,6 +249,7 @@ const TOOL_SCOPES = [
   ["/dev/tuning", "common"],
   ["/dev/balance", "common"],
   ["/dev/secondary-stats", "common"],
+  ["/dev/exp-table", "common"],
   ["/dev/skills", "common"],
   ["/dev/items", "common"],
   ["/dev/effects", "common"],

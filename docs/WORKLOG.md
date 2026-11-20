@@ -6,6 +6,7 @@
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
 | 2026-11-20 15:20 | 홈 대시보드 테라 인코그니타 독자 비대칭 커맨드 벤토 개편 및 VIT·DEX 스탯 색상 분리 | Antigravity | [20-1520-dashboard-original-bento-and-stat-colors](worklog/2026/11/20-1520-dashboard-original-bento-and-stat-colors.md) |
+| 2026-11-20 13:55 | 건물 티어별 재료 2의 제곱수 밸런스 · 유닛 공통 경험치 테이블 및 시각화 에디터 | Antigravity | [20-1355-balance-buildings-exp-table](worklog/2026/11/20-1355-balance-buildings-exp-table.md) |
 | 2026-11-20 13:00 | 홈 대시보드 프로 터미널 개편 및 전역 타이포그래피·사이드바 정돈 | Antigravity | [20-1300-pro-dashboard-and-shell-overhaul](worklog/2026/11/20-1300-pro-dashboard-and-shell-overhaul.md) |
 | 2026-11-20 00:30 | 지형 오브젝트 3D 로우폴리 모델 표시 및 2차맵 시험 화면 PC 통합 | Antigravity | [20-0030-terrain-objects-3d-and-lab-merge](worklog/2026/11/20-0030-terrain-objects-3d-and-lab-merge.md) |
 | 2026-11-19 23:37 | 1차맵 타일 경계 앞치마·선명한 유기적 지형·연속 사행 하천 셰이더 | Antigravity | [19-2337-planet-seamless-terrain-and-rivers](worklog/2026/11/19-2337-planet-seamless-terrain-and-rivers.md) |

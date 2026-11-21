@@ -431,6 +431,10 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "governance.tributeMaxPm",
   "governance.warRequestMs",
   "governance.npcTreatyCalmPm",
+  // 조약 위반 나라·세력 신뢰·제재 명분(줄기 fixes-1117c): 외교 1분 틱·NPC 판단마다 읽는다
+  "governance.breachTrustPenalty",
+  "governance.sanctionWindowMs",
+  "governance.sanctionCauseBonus",
   // NPC 자율행동·7축 성향·조직 합성·충성도 개입(docs/adr/2026-11-20-npc-autonomous-ai.md): 조회·판단마다 읽는다
   "npcAi.unitTraitMin",
   "npcAi.unitTraitMax",

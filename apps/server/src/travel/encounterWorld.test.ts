@@ -122,6 +122,8 @@ function fakeWorld(options: {
   gathering?: number[];
   /** 나라 200의 공격 성향(기본 500) */
   aggression?: number;
+  /** 사용자 → 소유 주체(일부러 치기) */
+  users?: Record<string, number>;
 }) {
   const calls: string[] = [];
   const holds: [number, number][] = [];
@@ -198,7 +200,7 @@ function fakeWorld(options: {
       },
       settlement: {
         offlineSince: (userId: string) => ((options.online ?? []).includes(userId) ? null : 1),
-        findOwnerOfUser: () => undefined,
+        findOwnerOfUser: (userId: string) => options.users?.[userId],
       },
       pool: { query: () => Promise.resolve({ rows: options.tactics ?? [] }) },
       writer: { upsert: () => {} },
@@ -359,6 +361,69 @@ describe("startCoordinateRules — 띄운 2차맵(1901)", () => {
     expect(await b?.scan()).toBe(0);
     expect(urban.battles).toEqual([]);
     expect(b?.takeMetrics()).toMatchObject({ encounterSafe: 1 });
+    b?.stop();
+  });
+});
+
+describe("startCoordinateRules — 일부러 치기(unit_attack — fixes-1117c, D-588 2496 가·2543)", () => {
+  /** 띄운 2차맵: 주인 1·2 = 같은 나라 100, 주인 3 = 나라 200 */
+  const units: FakeUnit[] = [
+    { id: 1, ownerId: 1, kind: KIND_CYBORG, x: 100, y: 100 },
+    { id: 2, ownerId: 2, kind: KIND_CYBORG, x: 103, y: 100 },
+    { id: 4, ownerId: 2, kind: KIND_HUMAN, x: 105, y: 102 },
+    { id: 5, ownerId: 2, kind: KIND_HUMAN, x: 140, y: 140 },
+    { id: 6, ownerId: 1, kind: KIND_CYBORG, x: 160, y: 160 },
+    { id: 7, ownerId: 1, kind: KIND_BOT, x: 101, y: 100 },
+  ];
+
+  it("같은 나라 유저 유닛은 조우 틱이 저절로 싸우게 하지 않고, 일부러 치면 약탈 전투가 열린다(내 편 = 공격 편, 수비 = 대상 + 둘레의 같은 주인 유닛)", async () => {
+    const rig = fakeWorld({ war: false, loaded: units, cargo: [2], users: { u1: 1 } });
+    const rules = startCoordinateRules(rig.world, { now: () => START, log, timer: false, roll: () => 0 });
+    if (!rules) throw new Error("no rules");
+    expect(await rules.scan()).toBe(0);
+    expect(rig.battles).toEqual([]);
+    expect(await rules.strike({ userId: "u1", unitIds: [1], targetUnitId: 2 })).toBe("ok");
+    expect(rig.battles).toMatchObject([
+      {
+        war: false,
+        sides: [
+          { id: 1, faction: 1, defender: false },
+          { id: 2, faction: 2, defender: true },
+        ],
+        units: [1, 2, 4],
+      },
+    ]);
+    expect(rig.halted.toSorted((a, b) => a - b)).toEqual([1, 2, 4]);
+    rules.stop();
+  });
+
+  it("다른 나라 전쟁 상대면 전쟁 전투, 결과 코드: 내 것·남의 유닛으로 치기·거리 밖·모르는 대상·사용자 없음·시가지", async () => {
+    const war = fakeWorld({
+      war: true,
+      loaded: [...units, { id: 3, ownerId: 3, kind: KIND_CYBORG, x: 98, y: 100 }],
+      users: { u1: 1 },
+    });
+    const a = startCoordinateRules(war.world, { now: () => START, log, timer: false, roll: () => 0 });
+    if (!a) throw new Error("no rules");
+    const hit = (unitIds: number[], targetUnitId: number, userId = "u1") =>
+      a.strike({ userId, unitIds, targetUnitId });
+    expect(await hit([1], 6)).toBe("own_target");
+    expect(await hit([2], 3)).toBe("forbidden");
+    expect(await hit([7], 3)).toBe("forbidden");
+    expect(await hit([1], 5)).toBe("out_of_reach");
+    expect(await hit([6], 3)).toBe("out_of_reach");
+    expect(await hit([999], 3)).toBe("out_of_reach");
+    expect(await hit([1], 404)).toBe("unknown_unit");
+    expect(await hit([1], 3, "nobody")).toBe("forbidden");
+    expect(war.battles).toEqual([]);
+    expect(await hit([1], 3)).toBe("ok");
+    expect(war.battles).toMatchObject([{ war: true, units: [1, 3] }]);
+    a.stop();
+    expect(await a.strike({ userId: "u1", unitIds: [1], targetUnitId: 3 })).toBe("busy");
+    const urban = fakeWorld({ war: false, urban: true, loaded: units, users: { u1: 1 } });
+    const b = startCoordinateRules(urban.world, { now: () => START, log, timer: false, roll: () => 0 });
+    expect(await b?.strike({ userId: "u1", unitIds: [1], targetUnitId: 2 })).toBe("safe_zone");
+    expect(urban.battles).toEqual([]);
     b?.stop();
   });
 });

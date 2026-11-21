@@ -100,6 +100,13 @@ export interface GovernanceCoefficients {
   readonly tributeMaxPm: number;
   readonly warRequestMs: number;
   readonly npcTreatyCalmPm: number;
+  /**
+   * 조약 위반(줄기 fixes-1117c — 기획 D-255 "조약을 어기면 모두가 보는 신뢰가 떨어진다"·D-290 명분 "제재"): 위반 한 번마다 그 나라 세력 신뢰(−100~100, 시작 0)에서 빼는 몫,
+   * 위반 기록이 제재 명분이 되는 기간(ms), 제재 명분이 NPC 치기 점수의 무명분 선포 몫에서 덜어 내는 몫(무명분 몫까지만) — 모두 [임시]
+   */
+  readonly breachTrustPenalty: number;
+  readonly sanctionWindowMs: number;
+  readonly sanctionCauseBonus: number;
 }
 
 export const START_GOVERNANCE: GovernanceCoefficients = {
@@ -158,4 +165,7 @@ export const START_GOVERNANCE: GovernanceCoefficients = {
   tributeMaxPm: 50,
   warRequestMs: 86_400_000,
   npcTreatyCalmPm: 500,
+  breachTrustPenalty: 30,
+  sanctionWindowMs: 30 * 86_400_000,
+  sanctionCauseBonus: 150,
 };

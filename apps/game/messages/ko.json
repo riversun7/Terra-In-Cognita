@@ -8895,5 +8895,17 @@
   "dip_err_already_at_war": "이미 그 상대와 전쟁 중입니다.",
   "dip_err_already_requested": "같은 참전 요청이 이미 있습니다.",
   "dip_err_offline": "서버와 연결되어 있지 않습니다.",
-  "dip_err_timeout": "서버가 제때 답하지 않았습니다."
+  "dip_err_timeout": "서버가 제때 답하지 않았습니다.",
+  "dip_trust_ours": "우리 나라 세력 신뢰 {trust} · 조약 위반 {breaches}번",
+  "dip_trust_short": "신뢰 {trust}",
+  "dip_breach_hint": "맺은 조약의 상대에게 선전포고하면 조약 위반입니다. 어긴 나라는 모두가 보는 세력 신뢰가 내려가고, 다른 나라가 제재 명분으로 선포할 수 있습니다.",
+  "dip_broken_by_us": "우리 나라가 어겼습니다(맺은 동안 상대에게 선포).",
+  "dip_broken_by_them": "상대 나라가 어겼습니다(맺은 동안 우리에게 선포).",
+  "unit_attack_button": "공격",
+  "unit_attack_hint": "고른 내 유닛으로 이 유닛을 일부러 칩니다(가까이 있어야 합니다). 전쟁 상대가 아니면 약탈 전투이고, 같은 나라 유저를 치면 신용이 내려갑니다.",
+  "unit_attack_pick_first": "먼저 내 유닛을 고르세요.",
+  "unit_attack_started": "전투가 열렸습니다.",
+  "unit_attack_out_of_reach": "대상이 너무 멉니다. 더 가까이 가서 다시 해 보세요.",
+  "unit_attack_own_target": "내 유닛은 칠 수 없습니다.",
+  "unit_attack_safe_zone": "시가지(안전지대) 안에서는 싸울 수 없습니다."
 }

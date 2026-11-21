@@ -8895,5 +8895,17 @@
   "dip_err_already_at_war": "Already at war with that nation.",
   "dip_err_already_requested": "The same war join request already exists.",
   "dip_err_offline": "Not connected to the server.",
-  "dip_err_timeout": "The server didn't answer in time."
+  "dip_err_timeout": "The server didn't answer in time.",
+  "dip_trust_ours": "Our faction trust {trust} · {breaches} treaty breaches",
+  "dip_trust_short": "trust {trust}",
+  "dip_breach_hint": "Declaring war on a treaty partner breaks the treaty. The breaker loses faction trust that everyone sees, and others may declare war on it with a sanction cause.",
+  "dip_broken_by_us": "We broke it (declared war while it was in force).",
+  "dip_broken_by_them": "They broke it (declared war on us while it was in force).",
+  "unit_attack_button": "Attack",
+  "unit_attack_hint": "Attack this unit on purpose with your selected unit (it must be close). Outside a war this is a raid, and attacking a user of your own nation lowers your credit.",
+  "unit_attack_pick_first": "Select one of your units first.",
+  "unit_attack_started": "A battle has started.",
+  "unit_attack_out_of_reach": "The target is too far. Move closer and try again.",
+  "unit_attack_own_target": "You cannot attack your own unit.",
+  "unit_attack_safe_zone": "You cannot fight inside a town's safe zone."
 }

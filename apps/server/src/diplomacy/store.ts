@@ -28,6 +28,8 @@ export interface TreatyRow {
   readonly expiresAtMs: number | null;
   readonly endedAtMs: number | null;
   readonly nextTributeMs: number | null;
+  /** 위반(broken)으로 끝났을 때 어긴 나라(맺은 동안 선포한 나라 — 줄기 fixes-1117c). 모르면·위반이 아니면 null */
+  readonly brokenBy: number | null;
 }
 
 export interface WarJoinRow {
@@ -50,7 +52,7 @@ const oneOf = <T extends string>(list: readonly T[], value: unknown, fallback: T
   list.find((entry) => entry === value) ?? fallback;
 
 const TREATY_COLUMNS = `id, nation_a, nation_b, author_nation, revision, clauses, days, state, author_ready, agenda_id, agenda_nation,
-  respond_by_ms, created_at_ms, updated_at_ms, activated_at_ms, expires_at_ms, ended_at_ms, next_tribute_ms`;
+  respond_by_ms, created_at_ms, updated_at_ms, activated_at_ms, expires_at_ms, ended_at_ms, next_tribute_ms, broken_by`;
 
 function treatyOf(row: Record<string, unknown>): TreatyRow {
   return {
@@ -72,6 +74,7 @@ function treatyOf(row: Record<string, unknown>): TreatyRow {
     expiresAtMs: numOrNull(row.expires_at_ms),
     endedAtMs: numOrNull(row.ended_at_ms),
     nextTributeMs: numOrNull(row.next_tribute_ms),
+    brokenBy: numOrNull(row.broken_by),
   };
 }
 
@@ -115,7 +118,7 @@ export function createDiplomacyStore(pool: GovernanceQueryable) {
       await pool.query(
         `update diplomacy_treaties set author_nation = $2, revision = $3, clauses = $4::jsonb, days = $5, state = $6, author_ready = $7,
            agenda_id = $8, agenda_nation = $9, respond_by_ms = $10, updated_at_ms = $11, activated_at_ms = $12, expires_at_ms = $13,
-           ended_at_ms = $14, next_tribute_ms = $15
+           ended_at_ms = $14, next_tribute_ms = $15, broken_by = $16
          where id = $1`,
         [
           row.id,
@@ -133,6 +136,7 @@ export function createDiplomacyStore(pool: GovernanceQueryable) {
           row.expiresAtMs,
           row.endedAtMs,
           row.nextTributeMs,
+          row.brokenBy,
         ],
       );
     },
@@ -149,6 +153,13 @@ export function createDiplomacyStore(pool: GovernanceQueryable) {
         [nationId, limit],
       );
       return rows.map(treatyOf);
+    },
+    /** 위반 기록(어긴 나라를 아는 위반 조약 — 어긴 나라·끝난 시각, 차례대로). 위반 장부를 켤 때 읽는다(줄기 fixes-1117c) */
+    async breaches(): Promise<{ readonly nationId: number; readonly atMs: number }[]> {
+      const { rows } = await pool.query(
+        `select broken_by, ended_at_ms from diplomacy_treaties where state = 'broken' and broken_by is not null order by id`,
+      );
+      return rows.map((row) => ({ nationId: num(row.broken_by), atMs: num(row.ended_at_ms) }));
     },
     /** 열린 조약과 맺은 조약(틱 — 차례대로) */
     async liveTreaties(): Promise<TreatyRow[]> {

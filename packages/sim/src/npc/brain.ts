@@ -80,6 +80,10 @@ export interface RivalView {
   readonly related: boolean;
   /** 나에게서 반란으로 떨어져 나간 세력(정부는 소탕한다, 46 §2.4 — 강화하지 않고 친다) */
   readonly rebel: boolean;
+  /**
+   * 선포 명분 몫(D-290 — 제재 등, 서버 고리 SimHooks.causeBonus가 준다). 새로 선포할 때 무명분 선포 몫에서 덜어 낸다(무명분 몫까지만). 없으면 0(시뮬 — 판정 그대로)
+   */
+  readonly causeBonus?: number | undefined;
 }
 
 export type NpcAction =
@@ -111,13 +115,18 @@ const dominates = (strength: number, other: number, c: NpcCoefficients): boolean
   strength * 1000 >= other * c.attackRatioPm;
 
 /** 치기 점수(상대 하나). 칠 수 없으면 undefined */
+/** 새 선포의 명분 몫(무명분 선포 몫까지만, 음수는 0) */
+export function causeOffset(r: RivalView, c: NpcCoefficients): number {
+  return Math.min(c.attackDeclarePenalty, Math.max(0, Math.trunc(r.causeBonus ?? 0)));
+}
+
 function attackScore(me: FactionView, r: RivalView, c: NpcCoefficients): number | undefined {
   if (r.related || r.truce || r.takeable <= 0 || !dominates(me.strength, r.strength, c)) return undefined;
   const advantagePm = Math.floor(((me.strength - r.strength) * 1000) / Math.max(1, me.strength));
   let score = Math.floor((me.traits.aggression * advantagePm) / 1000);
   // 반란 세력 소탕(46 §2.4)은 바깥 전쟁이 아니다: 선포 몫·넓은 나라 몫·지친 백성 몫을 빼지 않는다
   if (r.rebel) return score + c.suppressBonus + (r.atWar ? c.attackWarBonus : 0);
-  score += r.atWar ? c.attackWarBonus : -c.attackDeclarePenalty;
+  score += r.atWar ? c.attackWarBonus : -c.attackDeclarePenalty + causeOffset(r, c);
   score -= Math.max(0, me.cities - c.attackComfortCities) * c.attackCityPenalty;
   // 새 전쟁은 백성이 지쳤거나 굶으면 벌이지 않는다. 이미 하는 전쟁은 그대로 잇는다
   if (!r.atWar && me.satisfaction < c.attackMinSatisfaction) score -= 1000;

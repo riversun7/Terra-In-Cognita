@@ -40,6 +40,8 @@ export const diplomacyTreaties = pgTable(
     expiresAtMs: bigint("expires_at_ms", { mode: "number" }),
     endedAtMs: bigint("ended_at_ms", { mode: "number" }),
     nextTributeMs: bigint("next_tribute_ms", { mode: "number" }),
+    /** 위반(broken)으로 끝난 조약의 어긴 나라(맺은 동안 상대에게 선포한 나라, 세력 행 — 줄기 fixes-1117c, 기획 D-255·D-329 86). 모르면 null */
+    brokenBy: bigint("broken_by", { mode: "number" }),
   },
   (table) => [
     index("diplomacy_treaties_a_idx").on(table.nationA, table.state),

@@ -15,6 +15,7 @@ import type { GovernanceRules } from "../governance/rules.ts";
 import type { GovernanceService } from "../governance/service.ts";
 import type { GovernanceStore } from "../governance/store.ts";
 import { type NationPreset, nationName } from "../npc/nations.ts";
+import { trustOf } from "./breaches.ts";
 import { kindsOf, protectionOf } from "./clauses.ts";
 import type { DiplomacyPort } from "./port.ts";
 import { type DiplomacyService, awaitingReceiver, isParty, otherOf } from "./service.ts";
@@ -79,6 +80,14 @@ export function createDiplomacyView(o: {
     const ended = all.filter((row) => !isOpenTreaty(row.state) && row.state !== "active").slice(0, RECENT);
     const treaties = [...live, ...ended].toSorted((a, b) => b.id - a.id);
     const joins = await o.store.joinsOf(us, 30);
+    // 세력 신뢰(위반 기록에서 셈 — breaches.ts, 모두가 같은 값을 본다)
+    const breachCount = new Map<number, number>();
+    for (const row of await o.store.breaches())
+      breachCount.set(row.nationId, (breachCount.get(row.nationId) ?? 0) + 1);
+    const trustRow = (id: number) => {
+      const breaches = breachCount.get(id) ?? 0;
+      return { trust: trustOf(breaches, rules.breachTrustPenalty), breaches };
+    };
     const others = o.port.nations().filter((row) => row.rowId !== us);
     const nameOf = await names([
       us,
@@ -111,6 +120,7 @@ export function createDiplomacyView(o: {
           playerLed: !(await o.service.npcLed(other)),
           requestTreatyId: ally?.id ?? null,
           requestable,
+          ...trustRow(other.rowId),
         };
       }),
     );
@@ -142,6 +152,7 @@ export function createDiplomacyView(o: {
         activatedAtMs: row.activatedAtMs,
         expiresAtMs: row.expiresAtMs,
         endedAtMs: row.endedAtMs,
+        brokenBy: row.brokenBy === null ? null : row.brokenBy === us ? "us" : "them",
         can: {
           accept: s.leader && waiting === "us",
           counter: s.leader && waiting === "us",
@@ -163,7 +174,7 @@ export function createDiplomacyView(o: {
     });
     return {
       status: "ready",
-      nation: { ...ref(us), regime: nation.regime },
+      nation: { ...ref(us), ...trustRow(us), regime: nation.regime },
       leader: s.leader,
       maxDays: rules.treatyMaxDays,
       tributeMaxPm: rules.tributeMaxPm,

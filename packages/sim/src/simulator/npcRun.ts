@@ -149,6 +149,16 @@ export interface SimHooks {
    * 국고). true면 맡은 것이라 직접 양도하지 않는다. 시뮬은 붙이지 않는다(시장이 없다 — 직접 양도 그대로, 판정 그대로)
    */
   marketShareSale?(seller: SimFaction, house: string | undefined, cityId: number, nowMs: number): boolean;
+  /**
+   * NPC 판단이 새 전쟁을 선포했다(줄기 fixes-1117c — 조약 위반 나라 기록, 기획 D-255 "조약을 어기면 모두가 보는 신뢰가 떨어진다"·D-329 86 "먼저 싸운 쪽에 위반").
+   * 서버 diplomacy/가 듣는다. 시뮬은 붙이지 않는다(판정 그대로)
+   */
+  warDeclared?(attacker: SimFaction, target: SimFaction, nowMs: number): void;
+  /**
+   * 선포 명분 몫(기획 D-290 명분 "제재 — 상대가 조약을 어겼다", 판정 재료 "조약 위반 기록"): 0 이상이면 NPC 치기 점수의 무명분 선포 몫에서 덜어 낸다(무명분 몫까지만).
+   * 서버가 위반 기록·설정 칸으로 준다. 시뮬은 붙이지 않는다(판정 그대로)
+   */
+  causeBonus?(attacker: SimFaction, target: SimFaction, nowMs: number): number;
 }
 
 /** 판단 실행 횟수(요약 npc 칸) */
@@ -409,6 +419,7 @@ export function rivalView(
     truce: inTruce(faction, other.id, nowMs),
     related: top === (blocs.topOf.get(faction.id) ?? faction.id),
     rebel: other.rebelOf === faction.id,
+    ...(ctx.hooks?.causeBonus ? { causeBonus: ctx.hooks.causeBonus(faction, other, nowMs) } : {}),
   };
 }
 
@@ -565,7 +576,10 @@ export function decide(ctx: NpcContext, factionId: number, nowMs: number): void 
   switch (action.kind) {
     case "attack": {
       const target = ctx.world.factions.get(action.target);
-      if (action.declare && target) society?.declareWar(faction, target, nowMs);
+      if (action.declare && target) {
+        society?.declareWar(faction, target, nowMs);
+        if (faction.wars.has(target.id)) ctx.hooks?.warDeclared?.(faction, target, nowMs);
+      }
       attack(ctx, faction, action.target, rolls[1] ?? 0, rolls[2] ?? 0, nowMs);
       break;
     }

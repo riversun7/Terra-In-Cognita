@@ -158,6 +158,13 @@ export function travelProblemText(
       return m.world_travel_problem_map_full();
     case "not_traveling":
       return m.world_travel_problem_not_traveling();
+    // 유닛 공격(unit_attack, 프로토콜 64 — 묶음 1117d, 줄기 fixes-1117c 판 123)
+    case "out_of_reach":
+      return m.unit_attack_out_of_reach();
+    case "own_target":
+      return m.unit_attack_own_target();
+    case "safe_zone":
+      return m.unit_attack_safe_zone();
     case "offline":
       return m.map_command_offline();
     case "sign_in_required":

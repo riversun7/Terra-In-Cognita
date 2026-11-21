@@ -21,6 +21,11 @@
 //    - 전투 파티 퇴각 기준 = 그 편 작전 ⑦. 전투맵 건물은 부술 수 있는 전투 건물이고 받은 피해는 세계 시설로 돌아간다(2030 답, encounterArena.ts).
 //    - 채집 줄 유닛은 멈출 때 줄을 끝내지 않고(gather suspend) 전투 뒤 다시 잇는다(2035 답). 돌아갈 곳 = 창고·거점(2033 답, encounterPlaces.ts).
 // 부하(NAS 유닛 3,297·2차맵 55): 좌표 유닛은 2차맵 키로 묶기만, 띄운 2차맵은 봇 아닌 전투 유닛이 있는 2차맵만 칸 격자(clash.ts). 잰 값은 작업 기록.
+// 바뀜 (fixes-1117c — 사용자 결정 D-588 2496 가 "같은 나라 유저의 건물이나 유닛을 공격하면(약탈 행위) 신용이 내린다", 기획 대조 2543 "같은 나라 유저끼리도 싸우고 약탈할 수
+//    있어야"): 일부러 치기(strike — WebSocket unit_attack). 조우는 그대로 다른 나라끼리만 저절로 만난다(같은 나라 유닛이 저절로 싸우지 않게 — NPC도). 플레이어가
+//    내 유닛으로 같은 띄운 2차맵 조우 거리(encounter_radius_cells) 안의 남의 유닛을 고르면 판단 없이 내 편이 공격 편으로 같은 조우 전투를 연다(전쟁 상대면 전쟁 전투,
+//    아니면 약탈 전투 — 진 유닛 짐 몫을 이긴 편이 가져간다). 수비 편 = 그 유닛 + 같은 주인의 유닛 가운데 대상 둘레 조우 거리 안. 수비 편은 빠져나가지 않는다(D-573
+//    회피 판단 없음). 시가지 안이면 싸우지 않는다. 신용 고리(creditUnitAttack)는 open 안이라 그대로 공격 편만 깎는다 [임시 2581].
 import { randomInt } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import {
@@ -94,6 +99,8 @@ export interface CoordinateRules {
   scan(): Promise<number>;
   /** 지난 호출 뒤 구간 지표(틱 수·ms·만남·회피·전투) */
   takeMetrics(): Record<string, number>;
+  /** 일부러 치기(unit_attack — 같은 나라 유저끼리 싸움·약탈은 이 길로만) */
+  strike(input: StrikeInput): Promise<StrikeCode>;
   stop(): void;
 }
 
@@ -159,6 +166,30 @@ interface Engagement {
   /** 판단 유닛마다 퇴각 기준(유닛 개별 파티 — D-558 1547) */
   readonly unitRetreat: ReadonlyMap<number, number>;
 }
+
+/** 일부러 치기 입력(unit_attack) — 사용자·내 유닛·대상 유닛 */
+export interface StrikeInput {
+  readonly userId: string;
+  readonly unitIds: readonly number[];
+  readonly targetUnitId: number;
+}
+
+/** 일부러 치기 결과(travel_result 코드와 같은 낱말 — ok면 전투가 열렸다) */
+export type StrikeCode =
+  | "ok"
+  | "busy"
+  | "unknown_unit"
+  | "forbidden"
+  | "unavailable"
+  | "out_of_reach"
+  | "own_target"
+  | "safe_zone";
+
+/** 이동 서비스 → 일부러 치기(조우 규칙이 켜질 때 붙는다 — 게이트웨이가 찾는다, app.ts를 키우지 않으려고) */
+const strikes = new WeakMap<object, (input: StrikeInput) => Promise<StrikeCode>>();
+export const encounterStrikeOf = (
+  travel: object,
+): ((input: StrikeInput) => Promise<StrikeCode>) | undefined => strikes.get(travel);
 
 /** 쉬는 시간 열쇠(2차맵·나라 짝) */
 const pairKey = (mapKey: number, a: number, b: number): string =>
@@ -530,7 +561,8 @@ export function startCoordinateRules(
     return out;
   };
 
-  const open = async (engagement: Engagement, at: number): Promise<boolean> => {
+  /** 전투를 연다: ok = 열림, safe = 시가지(안전지대), failed = 열지 못함(2차맵·싸울 유닛 없음) */
+  const open = async (engagement: Engagement, at: number): Promise<"ok" | "safe" | "failed"> => {
     const { mapKey, resolution } = engagement;
     const key = pairKey(mapKey, engagement.nations[0], engagement.nations[1]);
     rest(key, at);
@@ -547,7 +579,7 @@ export function startCoordinateRules(
       .catch(() => null);
     if (urban !== undefined && urban !== null) {
       counts.safe += 1;
-      return false;
+      return "safe";
     }
     const ids = new Set(engagement.sides.flatMap((side) => side.map((unit) => unit.unitId)));
     // 채집 줄은 끝내지 않고 멈춘다(질문 2035 답 — 전투 뒤 다시 잇는다). 멈추기 전에 걸어야 벗어남으로 끝나지 않는다
@@ -569,11 +601,11 @@ export function startCoordinateRules(
       if (opened !== "ok") {
         log.info({ mapKey, opened }, "travel: encounter map could not be opened");
         for (const halted of gathers) gather?.drop(halted.unitId);
-        return false;
+        return "failed";
       }
     }
     const map = world.maps.get(mapKey);
-    if (!map) return false;
+    if (!map) return "failed";
     // 공격 편이 편 1
     const ordered = resolution.attacker === 0 ? engagement.sides : [engagement.sides[1], engagement.sides[0]];
     const arenaSides: [ArenaUnit[], ArenaUnit[]] = [
@@ -613,7 +645,7 @@ export function startCoordinateRules(
     if (!init) {
       log.info({ mapKey }, "travel: encounter had no fighters");
       for (const halted of gathers) gather?.drop(halted.unitId);
-      return false;
+      return "failed";
     }
     // 전투맵 건물 피해 → 세계 시설 상태(질문 2030 답, world/battleTargets.ts)
     const records = persistence.facilities?.service?.places.facilities;
@@ -660,8 +692,84 @@ export function startCoordinateRules(
       },
       "travel: encounter battle",
     );
-    return true;
+    return "ok";
   };
+
+  /** 일부러 치기(unit_attack — 위 머리 주석 "바뀜 (fixes-1117c)") */
+  const strike = async (input: StrikeInput): Promise<StrikeCode> => {
+    if (stopped || world.status().state !== "ready") return "busy";
+    const ownerId = persistence.settlement?.findOwnerOfUser(input.userId);
+    if (ownerId === undefined) return "forbidden";
+    const at = now();
+    let map: SecondMap | undefined;
+    for (const candidate of world.maps.values())
+      if (candidate.unitInfo(input.targetUnitId)) {
+        map = candidate;
+        break;
+      }
+    const target = map?.unitInfo(input.targetUnitId);
+    const targetCell = map ? cellOf(map, input.targetUnitId, at) : undefined;
+    if (!map || !target || !targetCell || !PARTICIPANT_KINDS.has(target.kind) || isAfloat(target))
+      return "unknown_unit";
+    if (target.ownerId === ownerId) return "own_target";
+    if (unavailable(target.condition, at)) return "unavailable";
+    const r = rules();
+    const reach = Math.max(1, r.radiusCells);
+    const near = (cell: ArenaUnit): boolean =>
+      Math.max(Math.abs(cell.x - targetCell.x), Math.abs(cell.y - targetCell.y)) <= reach;
+    const mine: SideUnit[] = [];
+    for (const unitId of new Set(input.unitIds)) {
+      const info = map.unitInfo(unitId);
+      const cell = cellOf(map, unitId, at);
+      if (!info || !cell) return "out_of_reach";
+      if (info.ownerId !== ownerId || !DECIDER_KINDS.has(info.kind)) return "forbidden";
+      if (unavailable(info.condition, at) || isAfloat(info)) return "unavailable";
+      if (!near(cell)) return "out_of_reach";
+      mine.push({ unitId, ownerId, kind: info.kind, decider: true, speed: info.speed });
+    }
+    if (mine.length === 0) return "unknown_unit";
+    // 수비 편: 대상 + 같은 주인의 유닛 가운데 대상 둘레 조우 거리 안(움직일 수 없는 유닛·물 위 유닛 빼고)
+    const theirs: SideUnit[] = [];
+    map.forEachUnit((view) => {
+      if (view.ownerId !== target.ownerId || !PARTICIPANT_KINDS.has(view.kind)) return;
+      const info = map.unitInfo(view.id);
+      const cell = cellOf(map, view.id, at);
+      if (!info || !cell || unavailable(info.condition, at) || isAfloat(info)) return;
+      if (view.id !== input.targetUnitId && !near(cell)) return;
+      const decider = DECIDER_KINDS.has(view.kind) && view.job.job === JOB_NONE;
+      theirs.push({ unitId: view.id, ownerId: view.ownerId, kind: view.kind, decider, speed: info.speed });
+    });
+    const max = Math.max(1, r.maxSideUnits);
+    const target0 = theirs.filter((unit) => unit.unitId === input.targetUnitId);
+    const sides: [SideUnit[], SideUnit[]] = [
+      mine.slice(0, max),
+      [...target0, ...theirs.filter((unit) => unit.unitId !== input.targetUnitId)].slice(0, max),
+    ];
+    const nations = [nationOfOwner(world, ownerId) ?? 0, nationOfOwner(world, target.ownerId) ?? 0] as const;
+    const war = nations[0] !== nations[1] && atWar(nations[0], nations[1]);
+    const bodies = bodiesOf([...sides[0], ...sides[1]], at);
+    const views = [
+      sideView(sides[0], nations[0], sources, bodies, new Set()),
+      sideView(sides[1], nations[1], sources, bodies, new Set()),
+    ] as const;
+    const choice = war ? "fight" : "loot";
+    const opened = await open(
+      {
+        mapKey: map.mapKey,
+        loaded: true,
+        nations,
+        sides,
+        resolution: { attacker: 0, choice, choices: [choice, "avoid"], flee: false, escaped: false },
+        atWar: war,
+        retreatPct: [views[0].retreatPct, views[1].retreatPct],
+        unitRetreat: unitRetreats(sides, nations, sources),
+      },
+      at,
+    );
+    if (opened === "safe") return "safe_zone";
+    return opened === "ok" ? "ok" : "busy";
+  };
+  strikes.set(travel, strike);
 
   const scan = async (): Promise<number> => {
     if (busy || stopped || world.status().state !== "ready") return 0;
@@ -684,7 +792,7 @@ export function startCoordinateRules(
       for (const engagement of found.slice(0, Math.max(1, rules().maxPerScan))) {
         if (stopped) break;
         try {
-          if (await open(engagement, at)) opened += 1;
+          if ((await open(engagement, at)) === "ok") opened += 1;
         } catch (error) {
           log.error({ err: error, mapKey: engagement.mapKey }, "travel: encounter failed");
         }
@@ -709,6 +817,7 @@ export function startCoordinateRules(
   arm();
   return {
     scan,
+    strike,
     takeMetrics() {
       const out = {
         encounterScans: counts.scans,
@@ -730,6 +839,7 @@ export function startCoordinateRules(
     },
     stop() {
       stopped = true;
+      strikes.delete(travel);
       if (loop) clearTimeout(loop);
       for (const timer of timers) clearTimeout(timer);
       timers.clear();

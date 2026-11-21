@@ -361,6 +361,11 @@ test.describe("유닛 조종: 플레이어", () => {
     expect(otherId).toMatch(/^\d+$/);
     expect(otherId).not.toBe(cyborg);
     await expect(peek.locator(".map-peek-note")).toHaveText(message("ko", "map_peek_note"));
+    // 고른 내 유닛으로 일부러 치기(unit_attack — 줄기 fixes-1117c, D-588 2496 가·2543): [공격] 단추와 안내, "할 수 있는 일이 없다" 줄은 없다
+    await expect(peek.locator('[data-part="unit-attack"] button')).toHaveText(
+      message("ko", "unit_attack_button"),
+    );
+    await expect(peek.locator(".map-peek-empty")).toHaveCount(0);
     // 명령 유닛은 그대로(옛: 남의 유닛이 고른 유닛이 되어 땅을 눌러도 "내 유닛만 움직일 수 있습니다")
     await expect(screen).toHaveAttribute("data-selected", cyborg);
     await expect(screen).toHaveAttribute("data-control", "own");
@@ -514,8 +519,10 @@ test.describe("유닛 조종: 플레이어", () => {
       await expect(peek).toHaveAttribute("data-ground", "own");
       await expect(peek.locator(".map-peek-control")).toHaveCount(0);
       await expect(peek.locator(".map-peek-note")).toHaveText(message("ko", "map_peek_note"));
-      // 할 수 있는 일: 지도자면 지도자 몫, 아니면 "아직 없다" 한 줄
-      await expect(peek.locator('.map-peek-empty, [data-part="leader-sheet"]').first()).toBeVisible({
+      // 할 수 있는 일: 지도자면 지도자 몫, 고른 내 유닛이 있으면 [공격](fixes-1117c), 아니면 "아직 없다" 한 줄
+      await expect(
+        peek.locator('.map-peek-empty, [data-part="leader-sheet"], [data-part="unit-attack"]').first(),
+      ).toBeVisible({
         timeout: 15_000,
       });
       await expect(screen).toHaveAttribute("data-selected", cyborg);

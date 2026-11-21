@@ -90,6 +90,17 @@ describe("판단 틀(D-323): 지표 → 후보 점수 → 가장 높은 행동",
     expect(action).toEqual({ kind: "attack", target: 2, declare: true });
   });
 
+  it("선포 명분 몫(D-290 제재 — 서버 고리 causeBonus)은 무명분 선포 몫까지만 치기 점수를 올리고, 이미 하는 전쟁에는 쓰지 않는다", () => {
+    const me = view({ traits: warlike });
+    const attackOf = (r: RivalView): number =>
+      scoreActions(me, [r], c).find((entry) => entry.action.kind === "attack")?.score ?? Number.NaN;
+    const plain = attackOf(rival());
+    expect(attackOf(rival({ causeBonus: 40 }))).toBe(plain + 40);
+    expect(attackOf(rival({ causeBonus: 99_999 }))).toBe(plain + c.attackDeclarePenalty);
+    expect(attackOf(rival({ causeBonus: -50 }))).toBe(plain);
+    expect(attackOf(rival({ atWar: true, causeBonus: 40 }))).toBe(attackOf(rival({ atWar: true })));
+  });
+
   it("나라 단위 판단을 멈춘 나라(선출된 플레이어 지도자·빈자리 — 질문 2440 나·2434 나)는 새 선포·강화·봉신 독립을 하지 않는다", () => {
     const locked = view({ traits: warlike, nationLocked: true });
     // 새 선포는 후보에서 빠진다

@@ -101,6 +101,8 @@ export interface TreatyView {
   readonly activatedAtMs: number | null;
   readonly expiresAtMs: number | null;
   readonly endedAtMs: number | null;
+  /** 위반으로 끝났을 때 어긴 쪽(맺은 동안 선포한 나라 — D-255·D-329 86). 모르면·위반이 아니면 null */
+  readonly brokenBy: "us" | "them" | null;
   /** 보는 사람(지도자)이 지금 할 수 있는 것 */
   readonly can: { readonly accept: boolean; readonly counter: boolean; readonly decline: boolean };
 }
@@ -133,13 +135,22 @@ export interface DiplomacyPartner extends DiplomacyNationRef {
   readonly requestTreatyId: number | null;
   /** 그 조약으로 참전을 요청할 수 있는 적(우리가 전쟁 중이고 그 나라는 아닌 상대) */
   readonly requestable: readonly DiplomacyNationRef[];
+  /** 그 나라의 세력 신뢰와 조약 위반 수 */
+  readonly trust: number;
+  readonly breaches: number;
+}
+
+/** 세력 신뢰(D-255 "모두가 보는 신뢰"·D-443 154 — 세력마다 하나, −100~100, 시작 0). 조약을 어길 때마다 설정 칸만큼 내려간다 */
+export interface NationTrust {
+  readonly trust: number;
+  readonly breaches: number;
 }
 
 export type DiplomacyStatus = "ready" | "not_ready" | "no_nation";
 
 export interface DiplomacyResponse {
   readonly status: DiplomacyStatus;
-  readonly nation: (DiplomacyNationRef & { readonly regime: Regime }) | null;
+  readonly nation: (DiplomacyNationRef & NationTrust & { readonly regime: Regime }) | null;
   /** 보는 사람이 지도자(지배 가문의 장)인가 — 제안·답·참전은 지도자만 [임시 2552] */
   readonly leader: boolean;
   /** 조약 기간 상한(날 — 설정 칸 dip_treaty_max_days)·공물 상한(‰ — dip_tribute_max_pm) */

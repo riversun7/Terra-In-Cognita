@@ -19,6 +19,14 @@ export const TELEPORT_PROTOCOL_VERSION = 36;
  * 서버가 invalid_message로 거절한다. 답은 travel_result(새 코드 없음)
  */
 export const UNIT_TACTICS_PROTOCOL_VERSION = 50;
+/**
+ * 유닛 공격(unit_attack, 묶음 1117d 64 — 줄기 fixes-1117c 판 123 — 사용자 결정 D-588 2496 가 "같은 나라 유저의 건물이나 유닛을 공격하면(약탈 행위) 신용이 내린다", 기획 대조 2543):
+ * 내 유닛이 가까이 있는 남의 유닛을 일부러 친다. 조우(D-570 1904)는 다른 나라끼리만 저절로 만나므로 같은 나라 유저끼리 싸움·약탈은 이 명령으로만 난다 [임시 2581].
+ * 더 낮은 연결이 보내면 서버가 invalid_message로 거절한다. 답은 travel_result(새 코드 out_of_reach·own_target·safe_zone은 이 메시지의 답에만 간다)
+ */
+export const UNIT_ATTACK_PROTOCOL_VERSION = 64;
+/** 유닛 공격 한 번에 보낼 수 있는 내 유닛 수 */
+export const UNIT_ATTACK_MAX_UNITS = 30;
 /** AI 작전 프리셋·목표 우선순위(@terra/shared/aiTactics와 같은 목록 — 이 꾸러미는 다른 내부 꾸러미를 가져오지 않는다) */
 export const UNIT_TACTICS_PRESETS = ["aggressive", "balanced", "defensive", "hold"] as const;
 export const UNIT_TACTICS_TARGETS = ["nearest", "weakest", "threat"] as const;
@@ -79,6 +87,17 @@ export const unitTacticsMessage = z.object({
   target: z.enum(UNIT_TACTICS_TARGETS),
 });
 
+/**
+ * 내 유닛(unitIds)으로 남의 유닛(targetUnitId)을 친다(프로토콜 64): 같은 띄운 2차맵에서 조우 거리(설정 칸 encounter_radius_cells) 안이어야 한다.
+ * 조우 전투와 같은 길(그 자리 실제 지형의 전투맵 — 전쟁 상대면 전쟁 전투, 아니면 약탈 전투). 같은 나라 유저를 치면 신용이 내린다(서버가 본다)
+ */
+export const unitAttackMessage = z.object({
+  t: z.literal("unit_attack"),
+  id: requestId,
+  unitIds: z.array(unitId).min(1).max(UNIT_ATTACK_MAX_UNITS),
+  targetUnitId: unitId,
+});
+
 // ---------- 서버 → 기기 ----------
 
 /** 결과 코드. 화면 문구는 기기가 코드로 고른다 */
@@ -108,6 +127,12 @@ export const TRAVEL_RESULT_CODES = [
   "unavailable",
   /** 멈추기: 가는 중이 아니다 */
   "not_traveling",
+  /** 유닛 공격(프로토콜 64): 대상이 같은 2차맵 조우 거리 안에 없다 */
+  "out_of_reach",
+  /** 유닛 공격: 내 유닛은 칠 수 없다 */
+  "own_target",
+  /** 유닛 공격: 시가지(안전지대 D-146) 안이라 싸우지 않는다 */
+  "safe_zone",
 ] as const;
 export type TravelResultCode = (typeof TRAVEL_RESULT_CODES)[number];
 
@@ -128,5 +153,10 @@ const travelResultMessage = z.discriminatedUnion("ok", [
   }),
 ]);
 
-export const travelClientMessages = [travelStartMessage, travelCancelMessage, unitTacticsMessage] as const;
+export const travelClientMessages = [
+  travelStartMessage,
+  travelCancelMessage,
+  unitTacticsMessage,
+  unitAttackMessage,
+] as const;
 export const travelServerMessages = [travelResultMessage] as const;

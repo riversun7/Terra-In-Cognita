@@ -15,6 +15,7 @@ import {
   holdingsOf,
   houseHoldingsOf,
 } from "@terra/sim";
+import { breachBookOf } from "../diplomacy/breaches.ts";
 import { houseTiesOf } from "../world/houseTies.ts";
 import type { World } from "../world/world.ts";
 import { houseKeyOfTail, treasurySharesToHouse } from "./houseShares.ts";
@@ -252,6 +253,8 @@ export function worldGovernancePort(
       if (!l || !a || !b || a.wars.has(b.id)) return false;
       l.npc.society.declareWar(a, b, nowMs);
       if (!a.wars.has(b.id)) return false;
+      // 조약 위반 나라를 가리려고 선포를 알린다(줄기 fixes-1117c — diplomacy/breaches.ts)
+      breachBookOf(l.persistence.ledger)?.declared(a.id, b.id, nowMs);
       await l.npc.tick(true);
       return true;
     },

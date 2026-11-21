@@ -17000,6 +17000,60 @@
       "source": "사용자 결정 D-588 · 질문 2497·2498 · ADR 2026-11-21-diplomacy-treaties · 줄기 diplomacy [임시 출발값]"
     },
     {
+      "id": "dip_breach_trust_penalty",
+      "code": "",
+      "name": {
+        "ko": "조약 위반 한 번의 세력 신뢰 하락",
+        "en": "Faction trust lost per treaty breach"
+      },
+      "value": 30,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 200,
+      "desc": {
+        "ko": "맺은 조약을 어긴 나라(조약 중에 상대에게 선전포고한 나라)의 세력 신뢰(−100~100, 시작 0)를 위반 한 번마다 이만큼 내린다. 모두가 같은 값을 본다.",
+        "en": "Each time a nation breaks a treaty (declares war on its treaty partner), its faction trust (−100 to 100, starting at 0) drops by this much. Everyone sees the same value."
+      },
+      "source": "기획 D-255·D-290 · 질문 2558 · ADR 2026-11-21-diplomacy-treaties \"바뀜 (fixes-1117c)\" · 줄기 fixes-1117c [임시 출발값]"
+    },
+    {
+      "id": "dip_sanction_window_ms",
+      "code": "",
+      "name": {
+        "ko": "조약 위반이 제재 명분이 되는 기간(ms)",
+        "en": "How long a treaty breach gives a sanction cause (ms)"
+      },
+      "value": 2592000000,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 31536000000,
+      "desc": {
+        "ko": "조약을 어긴 나라는 이 기간 동안 제재 명분(D-290)의 대상이다. NPC가 그 나라에 선포할 때 무명분 몫을 덜어 낸다.",
+        "en": "A nation that broke a treaty is a sanction target (D-290) for this long. NPC nations declaring war on it drop the no-cause penalty."
+      },
+      "source": "기획 D-255·D-290 · 질문 2558 · ADR 2026-11-21-diplomacy-treaties \"바뀜 (fixes-1117c)\" · 줄기 fixes-1117c [임시 출발값]"
+    },
+    {
+      "id": "dip_sanction_cause_bonus",
+      "code": "",
+      "name": {
+        "ko": "제재 명분: NPC 선포 점수에서 덜어 내는 무명분 몫",
+        "en": "Sanction cause: no-cause penalty removed from NPC war score"
+      },
+      "value": 150,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "제재 명분이 있는 상대에게 NPC가 새로 선포할 때 치기 점수의 무명분 선포 몫(npc_attack_declare_penalty)에서 이만큼 덜어 낸다. 무명분 몫보다 크게 덜지는 않는다.",
+        "en": "When an NPC nation newly declares war on a target it has a sanction cause against, its attack score drops this much of the no-cause penalty (npc_attack_declare_penalty), never more than the whole penalty."
+      },
+      "source": "기획 D-255·D-290 · 질문 2558 · ADR 2026-11-21-diplomacy-treaties \"바뀜 (fixes-1117c)\" · 줄기 fixes-1117c [임시 출발값]"
+    },
+    {
       "id": "npc_ai_drive_work_mood_floor_pm",
       "code": "",
       "name": {

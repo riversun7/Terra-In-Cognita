@@ -123,6 +123,7 @@ function TreatyForm({ view, busy, run, counter, onCancel }: FormProps) {
               <option key={row.id} value={String(row.id)}>
                 {nationText(row)}
                 {row.atWar ? ` · ${m.dip_at_war()}` : ""}
+                {` · ${m.dip_trust_short({ trust: String(row.trust) })}`}
               </option>
             ))}
           </select>
@@ -260,6 +261,11 @@ function TreatyCard({
         {treaty.state === "active" && treaty.expiresAtMs !== null ? (
           <p className="faction-vote-detail">
             {m.dip_expires()} <When at={treaty.expiresAtMs} now={now} />
+          </p>
+        ) : null}
+        {treaty.brokenBy ? (
+          <p className="faction-vote-detail" data-part="dip-broken-by">
+            {treaty.brokenBy === "us" ? m.dip_broken_by_us() : m.dip_broken_by_them()}
           </p>
         ) : null}
         {treaty.waiting === "our_vote" ? <p className="faction-muted">{m.dip_vote_hint()}</p> : null}
@@ -415,6 +421,16 @@ export function DiplomacyPanel({ now }: { now: number }) {
       {view?.status === "ready" ? (
         <>
           <p className="faction-muted">{view.leader ? m.dip_leader_you() : m.dip_leader_only()}</p>
+          {view.nation ? (
+            // 세력 신뢰(D-255 "모두가 보는 신뢰" — 조약 위반마다 내려간다, 서버 diplomacy/breaches.ts)
+            <p className="faction-vote-detail" data-part="dip-trust">
+              {m.dip_trust_ours({
+                trust: String(view.nation.trust),
+                breaches: String(view.nation.breaches),
+              })}
+            </p>
+          ) : null}
+          <p className="faction-muted">{m.dip_breach_hint()}</p>
           {status ? (
             <p className={status.tone === "ok" ? "gov-status" : "gov-status gov-status-error"} role="status">
               {status.text}

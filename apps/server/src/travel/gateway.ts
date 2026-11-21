@@ -6,6 +6,8 @@
 //   권한을 본다(기기의 운영자 모드 단추는 화면 편의일 뿐).
 // - 유닛 AI 작전 저장(unit_tactics, 프로토콜 50 — 기획 D-5039·D-5040, 질문 2021·2023 답): 조우 판단 입력이라 이동 메시지와 같은 줄로 받는다.
 //   저장소(tactics/store.ts)가 소유·종류를 본다. 답은 travel_result.
+// - 유닛 공격(unit_attack, 프로토콜 64 — 묶음 1117d, 줄기 fixes-1117c 판 123, D-588 2496 가·기획 대조 2543): 조우 규칙의 일부러 치기(encounterWorld.ts strike)로 넘긴다.
+//   조우 규칙이 아직 켜지지 않았으면 busy. 답은 travel_result(ok = 전투가 열렸다).
 // - 걷는 빠르기 = 이 연결의 운영자 배율(기본 1, D-560 1246). 운영자 모드를 끄면 그 연결이 보낸 길의 빠르기를 1로 돌린다(releasePace, 1248).
 import { type ClientMessageOf, type TravelResultCode, encodeMessage } from "@terra/protocol";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
@@ -13,9 +15,12 @@ import type { Viewer } from "../trpc/context.ts";
 import { type OperatorPaceLink, type PaceMap, operatorFactor, withPace } from "../world/operatorPace.ts";
 import { canCommandAnyUnit } from "../world/unitControl.ts";
 import type { UnitTacticsStore } from "../tactics/store.ts";
+import { encounterStrikeOf } from "./encounterWorld.ts";
 import type { TravelCommandResult, TravelService } from "./service.ts";
 
-export type TravelClientMessage = ClientMessageOf<"travel_start" | "travel_cancel" | "unit_tactics">;
+export type TravelClientMessage = ClientMessageOf<
+  "travel_start" | "travel_cancel" | "unit_tactics" | "unit_attack"
+>;
 type TravelMoveMessage = ClientMessageOf<"travel_start" | "travel_cancel">;
 
 const MAX_PENDING = 8;
@@ -117,6 +122,16 @@ export function createTravelGateway(options: {
           if (!tactics) return reply(message.id, fail("busy"));
           const { t: _t, id: _id, unitId, ...value } = message;
           return reply(message.id, tactics.set(viewer.id, unitId, value));
+        }
+        if (message.t === "unit_attack") {
+          const strike = encounterStrikeOf(service);
+          if (!strike) return reply(message.id, fail("busy"));
+          const code = await strike({
+            userId: viewer.id,
+            unitIds: message.unitIds,
+            targetUnitId: message.targetUnitId,
+          });
+          return reply(message.id, code === "ok" ? { ok: true } : fail(code));
         }
         const factor = operatorFactor(link, viewer.roles);
         // 길의 빠르기는 길이 든다(service.ts). 표시는 다른 유닛 명령과 같은 규칙으로 단다·지운다(world/operatorPace.ts)

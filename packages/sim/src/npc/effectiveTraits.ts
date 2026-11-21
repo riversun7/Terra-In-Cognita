@@ -17,7 +17,14 @@ import {
 import type { Regime } from "../society/shares.ts";
 import type { WarCoefficients, WarOutcome } from "../society/warOutcomes.ts";
 import { type NpcAiCoefficients, blendRulesFromAi, loyaltyRulesFromAi } from "./aiCoefficients.ts";
-import type { FactionView, NpcAction, RestoreView, RivalView, ScoredAction } from "./brain.ts";
+import {
+  type FactionView,
+  type NpcAction,
+  type RestoreView,
+  type RivalView,
+  type ScoredAction,
+  causeOffset,
+} from "./brain.ts";
 import type { NpcCoefficients } from "./coefficients.ts";
 import type { FoundingChoice, OccupationChoice, TradePolicy } from "./policy.ts";
 import type { Traits } from "./traits.ts";
@@ -101,7 +108,7 @@ export function explainActions7(
         score += c.attackWarBonus;
       }
     } else {
-      const warDelta = r.atWar ? c.attackWarBonus : -c.attackDeclarePenalty;
+      const warDelta = r.atWar ? c.attackWarBonus : -c.attackDeclarePenalty + causeOffset(r, c);
       factors.push({ key: r.atWar ? "at_war" : "declare_penalty", delta: warDelta });
       score += warDelta;
       const cityPen = Math.max(0, me.cities - c.attackComfortCities) * c.attackCityPenalty;

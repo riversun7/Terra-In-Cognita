@@ -276,6 +276,9 @@
  * 64: (묶음 1117d) 줄기 npc-invest-2(줄기 판 103) — 가문 연맹 명령(기획 D-587 4·5·6, 질문 2502·2503):
  *    - house_league(action found·join·leave·delegate·vote, leagueId, house) → house_league_result(league.ts HOUSE_LEAGUE_PROTOCOL_VERSION, 결과 코드 13개).
  *      새 메시지만 더했다. 63판 기기는 보내지 않는다(낮은 판이 보내면 invalid_message).
+ *    같은 판에 줄기 fixes-1117c(줄기 판 123) — 유닛 공격(travel.ts unit_attack → travel_result, 사용자 결정 D-588 2496 가·기획 대조 2543 — 같은 나라 유저끼리
+ *    싸움·약탈은 일부러 치는 명령으로만). travel_result 새 코드 out_of_reach·own_target·safe_zone은 이 메시지의 답에만 간다. 더하기만 했다. 63판 기기는 보내지 않는다
+ *    (travel.ts UNIT_ATTACK_PROTOCOL_VERSION).
  */
 export const PROTOCOL_VERSION = 64;
 

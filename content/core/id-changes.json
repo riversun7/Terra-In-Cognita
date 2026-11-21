@@ -547,6 +547,30 @@
     },
     {
       "category": "tuning",
+      "id": "credit_business_city",
+      "since": 139,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "credit_resident_city",
+      "since": 139,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "gov_vacancy_split_ms",
+      "since": 139,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
       "id": "npc_ai_league_dues_pm",
       "since": 180,
       "compensation": {

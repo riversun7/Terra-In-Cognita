@@ -2,7 +2,12 @@
 // 가문 게이트웨이(factionIdentity/gateway.ts)와 같은 틀이다: 로그인한 사용자만, 한 연결의 요청은 받은 순서대로 하나씩, 사용자별 속도 제한
 // (순간 10번·분당 30번 — 표 던지기가 잦다), 밀린 요청이 MAX_PENDING을 넘으면 busy, 의결 서비스가 없으면 busy.
 // 가문 게이트웨이와 한 소켓으로 묶는다(withGovernance — app.ts·session.ts의 가문 자리 하나로 받는다).
-import { type ClientMessageOf, type GovernanceResultCode, encodeMessage } from "@terra/protocol";
+import {
+  type ClientMessageOf,
+  GOVERNANCE5_PROTOCOL_VERSION,
+  type GovernanceResultCode,
+  encodeMessage,
+} from "@terra/protocol";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { HouseClientMessage, HouseGateway, HouseLink } from "../factionIdentity/gateway.ts";
 import type { GovernanceResult, GovernanceService } from "./service.ts";
@@ -42,10 +47,19 @@ const isGovernance = (
 
 const failed = (code: GovernanceResultCode): GovernanceResult => ({ ok: false, code });
 
-function resultText(id: number, result: GovernanceResult): string {
-  return result.ok
-    ? encodeMessage({ t: "gov_result", id, ok: true, agendaId: result.agendaId, action: result.action })
-    : encodeMessage({ t: "gov_result", id, ok: false, code: result.code });
+/** 줄기 governance-5에 더한 결과 코드(더 낮은 판 연결에는 not_eligible로 보낸다) */
+const GOVERNANCE5_CODES: ReadonlySet<GovernanceResultCode> = new Set([
+  "not_at_war",
+  "coup_protected",
+  "not_majority_holder",
+]);
+
+function resultText(id: number, result: GovernanceResult, protocolVersion: number | undefined): string {
+  if (result.ok)
+    return encodeMessage({ t: "gov_result", id, ok: true, agendaId: result.agendaId, action: result.action });
+  const old = protocolVersion !== undefined && protocolVersion < GOVERNANCE5_PROTOCOL_VERSION;
+  const code = old && GOVERNANCE5_CODES.has(result.code) ? "not_eligible" : result.code;
+  return encodeMessage({ t: "gov_result", id, ok: false, code });
 }
 
 /** 메시지 하나를 의결 서비스에(쿠데타 gov_coup·gov_coup_join — 줄기 governance-3) */
@@ -64,6 +78,8 @@ function dispatch(
         cityId: message.cityId,
         shares: message.shares,
         minPrice: message.minPrice,
+        monetaryMode: message.monetaryMode,
+        monetaryRateBp: message.monetaryRateBp,
       });
     case "gov_vote":
       return service.vote(userId, message.agendaId, message.choice);
@@ -72,7 +88,7 @@ function dispatch(
     case "gov_coup":
       return service.coup(userId);
     default:
-      return service.coupJoin(userId, message.coupId, message.side);
+      return service.coupJoin(userId, message.coupId, message.side, message.unitIds);
   }
 }
 
@@ -88,7 +104,7 @@ export function createGovernanceGateway(options: {
       let pending = 0;
       let closed = false;
       const reply = (id: number, result: GovernanceResult): void => {
-        if (!closed) link.send(resultText(id, result));
+        if (!closed) link.send(resultText(id, result, link.protocolVersion));
       };
       const process = async (message: GovernanceClientMessage): Promise<void> => {
         const viewer = await link.viewer();

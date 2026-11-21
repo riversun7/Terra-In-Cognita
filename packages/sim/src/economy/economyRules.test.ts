@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createLedgerBook } from "../ledger/ledgerBook.ts";
-import { TEST_CENTRAL_BANK_RULE, centralBankStep, initialMint } from "./centralBank.ts";
+import { TEST_CENTRAL_BANK_RULE, centralBankStep, initialMint, manualBankStep } from "./centralBank.ts";
 import { HOUR_MS, batchDurationMs, maxTierForLevel, runRecipe } from "./production.ts";
 import { dueNecessities, payNecessities } from "./upkeep.ts";
 
@@ -118,5 +118,21 @@ describe("NPC 중앙은행 공식", () => {
 
   it("처음 발행량 = 인구 × 1인당 하루 거래액 × 7(E6)", () => {
     expect(initialMint(40, 100n)).toBe(28_000n);
+  });
+});
+
+describe("지도자 손 조절(서버만 — 줄기 governance-5, 질문 2453)", () => {
+  it("조절량 = 시중 × 만분율(하루 상한 안), 소각은 국고까지, 이자 소각은 공식과 같다", () => {
+    const input = { outstanding: 1_000_000n, indexMilli: 1000, treasury: 100_000n, interestOwed: 0n };
+    // 시중 900,000 × 1% = 9,000 → 상한 3%(27,000) 안
+    expect(manualBankStep(input, TEST_CENTRAL_BANK_RULE, 100)).toMatchObject({ issue: 9000n, burn: 0n });
+    // 상한으로 자름(시중 × 3%)
+    expect(manualBankStep(input, TEST_CENTRAL_BANK_RULE, 9000).issue).toBe(27_000n);
+    // 소각은 국고(이자 소각 뒤)까지만
+    const poor = { ...input, treasury: 5_000n };
+    const step = manualBankStep(poor, TEST_CENTRAL_BANK_RULE, -300);
+    expect(step.burn).toBe(5_000n - step.interestBurn);
+    expect(step.interestBurn).toBe(centralBankStep(poor, TEST_CENTRAL_BANK_RULE).interestBurn);
+    expect(manualBankStep(input, TEST_CENTRAL_BANK_RULE, 0)).toMatchObject({ issue: 0n, burn: 0n });
   });
 });

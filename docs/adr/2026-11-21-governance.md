@@ -149,3 +149,35 @@
 - 판: 마이그레이션 `20261121112634_governance_coups`(prevIds = main 끝 `1efb9fa9`(npc_unit_traits))(새 표 셋 + 안건 종류 검사 넓히기 — 직전 판 앱 그대로. 되돌리면 새 종류 안건을 모르는 종류로 읽는다 — Assumed 해 없음), 프로토콜 59(묶음 1116y, 줄기 판 98 — 받는 가장 낮은
   판 58, `gov_coup`·`gov_coup_join`·결과 코드 5·행동 2·`treasury_share_sale` 칸, 더하기만, `COUP_PROTOCOL_VERSION`), 팩 core@135(묶음 1116y, 줄기 판 173 — 설정 칸 10개 `gov_coup_*`), SIM_VERSION 그대로
   (econ16·war16 시드 1~3 30일 출력이 머리 줄의 팩 판·해시 말고 같다).
+
+## 바뀜 (governance-5, 2026-11-21 — 질문 2451~2460 답·사용자 결정 D-584·D-585, 제안 상태라 이 ADR을 고친다)
+- 근거: 코디네이터 전달(2451~2460 답), 사용자 결정 D-584(신용 한 점수·빈자리는 독립이 아니라 후임·자동 선출·"모르면 물어보라"), D-585(쿠데타 어느 가문이든·쿠데타 성공 = 차지한
+  도시만 새 나라·가문 독립 전력 비교·신임도 = 새 값). 질문 표시 `docs/questions/2026-11-21-governance-4.md`, 새 질문 `docs/questions/2026-11-21-governance-5.md`(2491~2500).
+  위 "바뀜 (governance-3)"의 "빈자리 도시 독립(2434 (가))"·"쿠데타 이기면 그 나라 전체 독재"·"신용 고리 rewardCredit"·"화폐·강화·거래세 지도자 명령 없음"을 아래가 대신한다.
+- **빈자리(D-584 — D-583 3 대신)**: 빈자리는 도시 독립 투표로 이어지지 않는다(`cityVotes.ts` 지움, 열려 있던 `city_independence` 안건은 틱이 취소, 집행도 취소). 빈자리가 되면 누구나
+  나설 수 있는 선출을 바로 연다(기간 `gov_vacancy_election_ms` — 옛 칸 `gov_vacancy_split_ms`는 `id-changes.json`에 지움). 빈 동안 NPC 나라 단위 판단은 멈춘다(원래 `nationLocked`).
+  국가 지도자 가문에서 후임·대행을 고르는 규칙은 정해지지 않아 만들지 않았다(질문 2491).
+- **강화(2452)**: 안건 `peace`(전쟁 묶음 — 짧은 기간·정족수, 독재 = 직권). 집행(`leaderAgendas.ts`): 받는 쪽이 NPC가 이끄는 나라면 NPC 강화 규칙식(`@terra/sim peaceScore` — npcRun
+  proposePeace와 같은 셈, NPC 맥락은 `houseRecruit.context()`), 받으면 세력·사회 `makePeace`(불가침), 안 받으면 failed. 받는 쪽이 플레이어가 이끄는 나라·빈자리면 그쪽도
+  `gov_peace_offer_ms` 안에 같은 강화를 정해야 맺는다 [임시 2497]. 동맹·보호 조약은 세계에 조약 체계가 없어 만들지 않았다(질문 2498).
+- **화폐 단계(2453)**: 표 `nation_monetary`(공식 | 손 조절 + 하루 조절 만분율). 안건 `currency_stage`(문턱 `gov_threshold_currency_pm` 2/3 — D-131, 독재 직권), 손 조절 단계 안의
+  조절량만 바꾸는 것은 지도자 바로(직권 줄). 의결 틱이 플레이어가 이끄는 나라의 손 조절을 경제 `bankOverride`(시뮬 `Economy` 선택 칸 — 시뮬은 붙이지 않음)에 걸고, 하루 끝
+  `bankDay`가 그 나라만 `manualBankStep`(발행 이자 소각 그대로, 조절 = 시중 × 만분율, 상한 E5)으로 돈다 [임시 2499].
+- **거래세(2460)**: `nation_taxes.trade_tax_bp`(더하기, null = 정하지 않음), `nation_tax`·세율 안건 `taxes.tradeTaxBp`(칸이 없으면 앞 값 그대로 — 옛 기기). 세율 안건 폭에 bp ÷ 10으로
+  든다. 의결 틱이 플레이어가 이끄는 나라(플레이어 가문 나라·선출된 플레이어 지배 가문)의 거래소에 경제 고리 `setTax`(NPC 세율 규칙식과 같은 길)로 건다. NPC가 이끄는 나라는 규칙식.
+- **가문 독립 선언(2454 — D-300)**: 안건 종류 `house_independence`(기록 줄 — 투표 없이 바로). 자본주의 나라의 시작 도시가 아닌 도시에서 그 도시 지분 50% 이상을 가진 가문(가문
+  계정 지분 ÷ 그 도시 전체 지분). 플레이어 = `gov_propose house_independence cityId`(가문장, 결과 agendaId = 새 나라 행), NPC = 틱에서 성향 점수(쿠데타와 같은 식) ≥
+  `gov_house_independence_npc_score` + 가문 힘 × 1000 ≥ 옛 나라 세력 유닛 힘 × `gov_house_independence_power_pm`(D-585) [임시 2500]. 집행 = 세력·사회 `cityIndependence`(새 도시국가,
+  체제 = 옛 나라 체제 [임시 2459]) + 새 나라 지배 가문 기록(선출 기록 자리). 감사 기록 `governance.house_independent`.
+- **쿠데타(2455·2456·2457·2458·D-585)**: 어느 가문이든 일으킨다("군사력 1위" 조건은 코드에 없었다 — 확인). 지배 가문이 바뀐 뒤 `gov_coup_protect_ms`(출발값 0) 동안 막는다(`coup_protected`).
+  플레이어 병력 = 수도에 있는 그 사람 유닛(`gov_coup_join unitIds`로 고름), 참가 줄 `governance_coup_sides.units`(더하기), 전투 때 그 가운데 아직 그 사람 것인 유닛만, 병력 없이 편만 든
+  사람은 보상 없음. 이기면 쿠데타 가문의 자리 도시(NPC = 가문 도시, 플레이어 = 소속 도시)만 새 독재 나라로(지배 가문 = 쿠데타 가문, 그 도시 다른 지분 몰수, 그 도시 만족도 벌칙), 자리가
+  시작 도시·모름이면 옛 나라 전체 [임시 2492]. 결과는 부상만·포로 없음(2456 가), 실패 벌칙 그대로(2458 가). 쿠데타 전투 자료 = NPC 런타임 정원사가 쓰는 팩 전투 자료(`gardener.combat()` —
+  app.ts를 키우지 않음, 없으면 시험 자료). 신용: 혁명군 가담 = 벌점, 이긴 편 = 새 나라 신용 시작 가산(credit ADR).
+- **지도자 신임도(D-585)**: 표 `governance_approval`(나라마다 지금 지배 가문 신임도 0~1000). 지배 가문이 바뀌면 시작값(`gov_approval_player_start` 300·`gov_approval_npc_start` 500). 고리:
+  해임 가결 문턱(`approval.ts removalThresholdWithApproval`, 폭 `gov_approval_removal_ease_pm`)·반란 만족도 문턱(`SimHooks.rebellionThresholdShift` — 서버 `npc/governanceHooks.ts`,
+  폭 `gov_approval_rebellion_ease`), 두 폭 출발값 0 = 효과 없음. 오르내림 규칙 없음(질문 2493).
+- 판: 마이그레이션 `20261121130732_governance5_credit_standing`(prevIds = 끝 둘 `ee4d36aa`·`ace6aeb5` — 새 표 넷 `credit_standings`·`nation_monetary`·`governance_approval` + 칸 둘
+  `nation_taxes.trade_tax_bp`·`governance_coup_sides.units` + 검사 넓히기 둘(안건 종류 `peace`·`currency_stage`·`house_independence`, 신용 종류). 직전 판 앱 그대로 — 되돌리면 새 종류
+  안건을 모르는 종류로 읽는다, Assumed 해 없음), 프로토콜 61(묶음 1117a, 줄기 판 99 — 받는 가장 낮은 판 60, `GOVERNANCE5_PROTOCOL_VERSION`, 더하기만, 낮은 판에는 새 결과 코드 대신 not_eligible), 팩 core@139(묶음 1117a, 줄기 판 176 —
+  설정 칸 더하기 19·빼기 3), SIM_VERSION 그대로(시뮬은 새 고리 둘 — `bankOverride`·`rebellionThresholdShift` — 을 붙이지 않는다).

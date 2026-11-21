@@ -9,7 +9,9 @@
 // - 공물 = 봉신 국고 × tributePm ÷ 1000(D-443 설정값, 기획 값 없음).
 // - 주민세(D-579·D-581, society/residentTax.ts): 나라마다 주기 날 끝에 그 도시에 사는 유닛이 집 몫(고리 residentHomes)을, 사는 유닛이 있는 주인이 그 도시
 //   사업장 몫(고리 residentProperty)을 국고에 낸다. 국세 몫을 뺀 나머지는 그 도시 세금 수입으로 다음 도시 세금 정산(기간 세금)에 더한다. 세율 0(설정 칸·
-//   나라 값 모두)이면 아무것도 하지 않는다. 도시가 넘어가거나 폐허가 되면 그 도시의 옛 나라 빚을 지운다(cityMoved — 2375 다·2427 나).
+//   나라 값 모두)이면 아무것도 하지 않는다. 도시가 다른 나라로 넘어가면 그 도시의 옛 나라 빚을 지운다(cityMoved — 2375 다, D-581 E). 폐허가 되어도
+//   빚은 남는다(D-585 — 2427 나를 되돌림: 폐허가 복원되어도 그대로).
+//   [임시] 국세 몫을 뺀 도시 몫을 D-304 도시 세금 정산에 넣는 나눔은 사용자 답이 없다(D-585 3 — 질문 2484). 바뀜 없이 그대로 둔다.
 import { type CityRevenue, payCityProfit, profitRecipient, settleCityTaxes } from "../society/dividends.ts";
 import {
   type ResidentHome,
@@ -35,7 +37,10 @@ export interface PayoutCounts {
 
 export interface SocietyPayouts {
   readonly counts: PayoutCounts;
-  /** 도시 주인이 바뀐 바로 뒤·폐허가 된 바로 뒤(from = 옛 나라 — 그 도시의 옛 나라 주민세 빚을 지운다, D-581 2375 다·질문 2427 나) */
+  /**
+   * 도시 주인이 바뀐 바로 뒤·폐허가 된 바로 뒤(정산 기준점을 다시 잡는다). from = 옛 나라를 주면 그 도시의 옛 나라 주민세 빚을 지운다(나라가 바뀔 때만 —
+   * D-581 2375 다·E). 폐허는 from 없이 부른다(빚이 남는다 — D-585, 2427 나를 되돌림)
+   */
   cityMoved(cityId: number, from?: SimFaction, nowMs?: number): void;
   /** 그 도시에 쓴 운영비(연구 시설 짓기 값) */
   spent(cityId: number, amount: bigint): void;
@@ -160,7 +165,7 @@ export function createSocietyPayouts(
           nationSharePm: own?.nationSharePm ?? b.residentTaxNationPm ?? 0,
           atMs: nowMs,
         });
-        // 도시 몫은 지금 그 나라 도시일 때만 도시 세금 수입으로(넘어간 도시의 옛 빚 갚은 몫은 국고에 남는다 — 질문 2375)
+        // 도시 몫은 지금 그 나라 도시일 때만 도시 세금 수입으로(폐허 도시의 옛 빚 갚은 몫은 국고에 남는다 — 질문 2375). [임시] 도시 몫 → D-304 나눔(질문 2484)
         for (const city of result.cities)
           if (city.cityPart > 0n && faction.cities.has(city.city))
             residentRevenue.set(city.city, (residentRevenue.get(city.city) ?? 0n) + city.cityPart);

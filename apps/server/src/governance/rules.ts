@@ -22,8 +22,8 @@ export interface GovernanceRules {
   /** NPC 후보 출마 점수 문턱·도전자 수 상한(질문 2404 나) */
   readonly npcRunScore: number;
   readonly npcRunMax: number;
-  /** 지도자 빈자리 기간(ms, 2403 답 D-582 — 가르는 절차는 빈틈, 읽기만) */
-  readonly vacancySplitMs: number;
+  /** 지도자 빈자리 자동 선출 기간(ms — D-584: 빈자리는 도시 독립으로 이어지지 않고 누구나 나서는 선출을 바로 연다) */
+  readonly vacancyElectionMs: number;
   /** 군사 쿠데타 만족도 감소(점, 2401 답 D-582 — 쿠데타 길은 아직 없음) */
   readonly coupSatisfactionDrop: number;
   /** 세율 안건이 되는 한 번 바꾸기 폭(‰ — 질문 2407 가) */
@@ -39,8 +39,15 @@ export interface GovernanceRules {
   readonly coupBattleUnits: number;
   readonly coupMeritRenown: number;
   readonly coupCreditReward: number;
-  /** 도시 독립 투표 문턱(‰ — 자본주의 = 세력·사회 independencePassPm, 민주주의 = 과반 D-302) */
-  cityIndependenceThresholdOf(regime: "democracy" | "capitalism" | "dictatorship"): number;
+  /** 줄기 governance-5: 쿠데타 보호 기간(ms)·강화 수락 기다림(ms)·NPC 가문 독립 점수 문턱·힘 비(‰)·지도자 신임도 시작값·해임/반란 보정 폭 */
+  readonly coupProtectMs: number;
+  readonly peaceOfferMs: number;
+  readonly houseIndependenceNpcScore: number;
+  readonly houseIndependencePowerPm: number;
+  readonly approvalPlayerStart: number;
+  readonly approvalNpcStart: number;
+  readonly approvalRemovalEasePm: number;
+  readonly approvalRebellionEase: number;
 }
 
 const whole = (value: number): number => (Number.isSafeInteger(value) && value > 0 ? value : 0);
@@ -61,7 +68,9 @@ export function governanceRulesFrom(c: SocietyCoefficients): GovernanceRules {
             ? g.thresholdRegimePm
             : kind === "leader_removal"
               ? g.thresholdRemovalPm
-              : g.thresholdPm,
+              : kind === "currency_stage"
+                ? g.thresholdCurrencyPm
+                : g.thresholdPm,
         ),
       ),
     termMs: period(g.termMs),
@@ -75,7 +84,7 @@ export function governanceRulesFrom(c: SocietyCoefficients): GovernanceRules {
     npcWarTraitPm: permille(g.npcWarTraitPm),
     npcRunScore: Number.isSafeInteger(g.npcRunScore) ? g.npcRunScore : 20,
     npcRunMax: Math.min(10, whole(g.npcRunMax)),
-    vacancySplitMs: period(g.vacancySplitMs),
+    vacancyElectionMs: period(g.vacancyElectionMs),
     coupSatisfactionDrop: Math.min(100, whole(g.coupSatisfactionDrop)),
     taxAgendaWidthPm: Math.max(1, permille(g.taxAgendaWidthPm)),
     coupEnabled: g.coupEnabled !== 0,
@@ -88,8 +97,16 @@ export function governanceRulesFrom(c: SocietyCoefficients): GovernanceRules {
     coupBattleUnits: Math.max(1, Math.min(200, whole(g.coupBattleUnits))),
     coupMeritRenown: whole(g.coupMeritRenown),
     coupCreditReward: whole(g.coupCreditReward),
-    cityIndependenceThresholdOf: (regime) =>
-      regime === "capitalism" ? Math.min(999, whole(c.independencePassPm)) : 500,
+    coupProtectMs: whole(g.coupProtectMs),
+    peaceOfferMs: period(g.peaceOfferMs),
+    houseIndependenceNpcScore: Number.isSafeInteger(g.houseIndependenceNpcScore)
+      ? g.houseIndependenceNpcScore
+      : 40,
+    houseIndependencePowerPm: whole(g.houseIndependencePowerPm),
+    approvalPlayerStart: permille(g.approvalPlayerStart),
+    approvalNpcStart: permille(g.approvalNpcStart),
+    approvalRemovalEasePm: permille(g.approvalRemovalEasePm),
+    approvalRebellionEase: Math.min(100, whole(g.approvalRebellionEase)),
   };
 }
 

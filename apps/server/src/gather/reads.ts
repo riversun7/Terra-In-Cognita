@@ -3,6 +3,7 @@
 // - loops: 내 유닛의 채집·들어가기(진행 중 + 최근 끝난 것).
 // - building: 2차맵 건물 판(시설 이름·레벨·내 것인가·화물을 넣을 수 있나·직무를 받을 수 있나·안에 있는 유닛).
 // - station: 채집소 판(사용자 지적 2026-11-08 "원자재채집소의 기능도 필요", stationReads.ts).
+// - residence: 내 유닛의 지금 사는 곳·그 건물을 고를 수 있나(D-585 1 — residence/service.ts).
 import type { GatherStationResponse } from "@terra/shared/gatherStation";
 import {
   GATHER_OBJECT_STRIDE,
@@ -15,6 +16,7 @@ import {
   type GatherSchoolView,
 } from "@terra/shared/gather";
 import type { HarborPanel } from "@terra/shared/harbor";
+import type { ResidenceResponse } from "@terra/shared/residence";
 import type { HarborPanelSource } from "../boats/service.ts";
 import type { Viewer } from "../trpc/context.ts";
 import type { GatherKind } from "./kinds.ts";
@@ -29,6 +31,7 @@ export interface GatherReads {
   building(viewer: Viewer, buildingId: number, nowMs: number): GatherBuildingResponse;
   inside(viewer: Viewer, mapKey: number, nowMs: number): GatherInsideResponse;
   station(viewer: Viewer, buildingId: number, nowMs: number): GatherStationResponse;
+  residence(viewer: Viewer, unitId: number, buildingId: number | undefined, nowMs: number): ResidenceResponse;
 }
 
 const emptyBuilding = (
@@ -246,6 +249,12 @@ export function gatherReadsOf(
       return gather
         ? stationView(gather, viewer, buildingId, nowMs)
         : emptyStation("not_ready", buildingId, nowMs);
+    },
+    residence(viewer, unitId, buildingId, nowMs) {
+      const gather = source();
+      return gather
+        ? gather.residence.view(viewer.id, unitId, buildingId, nowMs)
+        : { status: "not_ready", unitId, current: null, building: null, generatedAt: nowMs };
     },
   };
 }

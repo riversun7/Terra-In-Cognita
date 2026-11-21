@@ -27,6 +27,8 @@ export interface HouseRecruit {
   view(ownerId: number, cityId: number, nowMs: number): RecruitView | undefined;
   /** 카드 한 장을 산다(prepaid면 값을 이미 냈다). 산 휴먼, 못 사면 undefined */
   hire(ownerId: number, cityId: number, slot: number, nowMs: number, prepaid: boolean): SimUnit | undefined;
+  /** NPC 판단 맥락(사회 규칙이 붙은 뒤 — 나라 의결 강화가 NPC 강화 규칙식을 부른다, governance/portLeader.ts). 없으면 undefined */
+  context(): NpcContext | undefined;
 }
 
 export function createHouseRecruit(o: {
@@ -41,6 +43,7 @@ export function createHouseRecruit(o: {
     return faction?.player && faction.alive ? faction : undefined;
   };
   return {
+    context: () => o.ctx(),
     decide(faction, nowMs) {
       const ctx = o.ctx();
       if (!ctx || !faction.alive) return;

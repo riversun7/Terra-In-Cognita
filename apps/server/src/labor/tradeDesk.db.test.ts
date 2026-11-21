@@ -107,7 +107,7 @@ describe.skipIf(!TEST_DATABASE_URL)("거래소 거래 직무(질문 2083·2084)"
     const b = await setup(world, "desktrader", 32);
     const service = p.facilities.service;
     const mapKey = firstMap(world).mapKey;
-    for (const [item, qty] of Object.entries({ pine_log: 14, stone: 12 }))
+    for (const [item, qty] of Object.entries({ pine_log: 14, stone: 12_000 }))
       expect(await service.devFacilityGrant(a.userId, item, qty, { mapKey, x: 50, y: 50 })).toEqual({
         ok: true,
       });

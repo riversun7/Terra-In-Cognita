@@ -36,10 +36,10 @@ export interface GovernanceCoefficients {
   /** 한 선출에 스스로 나서는 도전자 NPC 가문 수 상한(점수 높은 차례, 0 = 도전자 없음) */
   readonly npcRunMax: number;
   /**
-   * 지도자 빈자리 기간(ms, 질문 2403 답 D-582): 빈자리가 이만큼 이어지면 도시마다 독립 투표(D-302 모양)로 나라가 갈라질 수 있다. 가르는 절차가 정해지지
-   * 않아 지금은 읽기만 하고 아무것도 하지 않는다(빈틈 — 질문 2434)
+   * 지도자 빈자리 자동 선출 기간(ms, 사용자 결정 D-584 — D-583 3 "빈자리 → 도시 독립 투표"를 대신한다): 빈자리가 되면 누구나 나설 수 있는 선출을 저절로 열고 이 기간
+   * 뒤 닫는다. 후임자(국가 지도자 가문에서 대행·계승)를 고르는 방법은 정해지지 않았다(질문 2491) [임시]
    */
-  readonly vacancySplitMs: number;
+  readonly vacancyElectionMs: number;
   /** 군사 쿠데타 충성도 벌칙(만족도 점, 질문 2401 답 D-582 "충성도 크게 떨어짐"). 쿠데타 길은 아직 없다(도우미만, 질문 2433) */
   readonly coupSatisfactionDrop: number;
   /** 세율 안건 폭(‰, 질문 2407 가): 민주주의·자본주의에서 지도자가 나라 세율 칸 하나라도 이만큼 이상 바꾸면 안건(투표), 아래는 바로. 소득세는 bp ÷ 10 */
@@ -55,6 +55,24 @@ export interface GovernanceCoefficients {
   readonly coupBattleUnits: number;
   readonly coupMeritRenown: number;
   readonly coupCreditReward: number;
+  /**
+   * 줄기 governance-5(질문 2451~2460 답 — 서버만): 지배 가문이 바뀐 뒤 쿠데타를 막는 기간(ms, 2457 — 출발값 0 = 막지 않음)·화폐 단계 전환 가결 문턱(‰, D-131 2/3)·
+   * 강화 제안이 상대 지도자의 수락을 기다리는 기간(ms, 2452)·NPC 가문 독립 선언 성향 점수 문턱(2454 — D-323)
+   */
+  readonly coupProtectMs: number;
+  readonly thresholdCurrencyPm: number;
+  readonly peaceOfferMs: number;
+  readonly houseIndependenceNpcScore: number;
+  /** NPC 가문 독립 선언의 힘 비 문턱(‰ — 가문 힘 × 1000 ≥ 옛 나라 힘 × 이 값, 사용자 답 D-585 "독립하면 옛 나라가 적이 되니 전력 비교") [임시] */
+  readonly houseIndependencePowerPm: number;
+  /**
+   * 지도자 신임도(사용자 답 D-585 — 신용과 다른 새 값, governance/approval.ts): 플레이어 지도자·NPC 지도자 시작값(0~1000), 낮은 신임도가 해임 문턱을 낮추는 폭(‰)·반란 문턱을
+   * 올리는 폭(만족도 점). 오르내림 규칙은 정해지지 않았다(질문 2493). 폭 출발값 0 = 보정 없음
+   */
+  readonly approvalPlayerStart: number;
+  readonly approvalNpcStart: number;
+  readonly approvalRemovalEasePm: number;
+  readonly approvalRebellionEase: number;
 }
 
 export const START_GOVERNANCE: GovernanceCoefficients = {
@@ -76,7 +94,7 @@ export const START_GOVERNANCE: GovernanceCoefficients = {
   npcWarTraitPm: 600,
   npcRunScore: 20,
   npcRunMax: 1,
-  vacancySplitMs: 14 * 86_400_000,
+  vacancyElectionMs: 72 * 3_600_000,
   coupSatisfactionDrop: 30,
   taxAgendaWidthPm: 50,
   coupEnabled: 0,
@@ -89,4 +107,13 @@ export const START_GOVERNANCE: GovernanceCoefficients = {
   coupBattleUnits: 30,
   coupMeritRenown: 50,
   coupCreditReward: 10,
+  coupProtectMs: 0,
+  thresholdCurrencyPm: 666,
+  peaceOfferMs: 3 * 86_400_000,
+  houseIndependenceNpcScore: 40,
+  houseIndependencePowerPm: 1000,
+  approvalPlayerStart: 300,
+  approvalNpcStart: 500,
+  approvalRemovalEasePm: 0,
+  approvalRebellionEase: 0,
 };

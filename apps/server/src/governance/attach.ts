@@ -6,7 +6,11 @@ import type { Database } from "../db/client.ts";
 import type { NationPreset } from "../npc/nations.ts";
 import type { World } from "../world/world.ts";
 import type { CombatCatalog, CombatCoefficients } from "@terra/sim";
+import { creditBookOf } from "../credit/book.ts";
+import { creditOwnerOfUser, sweepCreditStandings } from "../credit/standing.ts";
+import type { CoupCredit } from "./coup.ts";
 import { createCoupStore } from "./coupStore.ts";
+import { createLeaderStore } from "./leaderStore.ts";
 import { type GovernanceGateway, createGovernanceGateway } from "./gateway.ts";
 import { type GovernancePort, worldGovernancePort } from "./port.ts";
 import type { GovernanceRules } from "./rules.ts";
@@ -46,12 +50,29 @@ export function attachGovernance(o: {
     | undefined;
   /** 승인된 국고 지분 팔기(질문 2438 답 D-583 — 정부 지분 시장 줄기가 붙인다) */
   readonly approvedShareSale?: ((sale: ApprovedShareSale, nowMs: number) => Promise<void>) | undefined;
-  /** 쿠데타 이긴 편 신용 보상(D-583 — 신용 체계 줄기가 붙인다) */
-  readonly rewardCredit?: ((userId: string, amount: number, nowMs: number) => void) | undefined;
   /** 틱 타이머를 켜지 않는다(시험이 tick을 직접 부른다) */
   readonly manual?: boolean | undefined;
 }): GovernanceAttached {
-  const port = worldGovernancePort(o.world, o.combat);
+  // 쿠데타 전투 자료: 넘긴 것이 없으면 NPC 런타임 정원사가 쓰는 팩 전투 자료(줄기 governance-5 — app.ts를 키우지 않는다), 그것도 없으면 시험 자료
+  const port = worldGovernancePort(o.world, o.combat ?? (() => o.world()?.npc?.gardener.combat()));
+  // 쿠데타 신용(D-584 — credit/): 혁명군 가담 내림·이긴 편 새 나라 시작 가산
+  const creditOf = () => {
+    const ledger = o.world()?.persistence?.ledger;
+    return ledger ? creditBookOf(ledger) : undefined;
+  };
+  const credit: CoupCredit = {
+    joined(userId, nowMs) {
+      const owner = creditOwnerOfUser(o.world(), userId);
+      if (owner !== undefined) creditOf()?.event(owner, "coup_join", nowMs);
+    },
+    won(userId, nationOwnerId, amount, nowMs) {
+      const owner = creditOwnerOfUser(o.world(), userId);
+      const book = creditOf();
+      if (owner === undefined || !book) return;
+      if (nationOwnerId === undefined) book.bonus(owner, amount, nowMs);
+      else book.restartAt(owner, nationOwnerId, amount, nowMs);
+    },
+  };
   const store = createGovernanceStore(o.db.$client);
   const coups = createCoupStore(o.db.$client);
   const service = createGovernanceService({
@@ -64,17 +85,23 @@ export function attachGovernance(o: {
     applyTaxes: o.applyTaxes,
     coups,
     approvedShareSale: o.approvedShareSale,
-    rewardCredit: o.rewardCredit,
+    leader: createLeaderStore(o.db.$client),
+    credit,
   });
   const view = createGovernanceView({ port, store, service, rules: o.rules, presets: o.presets, now: o.now });
   const gateway = createGovernanceGateway({ service: () => service, now: o.now, log: o.log });
-  const timer = o.manual ? undefined : setInterval(() => void service.tick(), GOVERNANCE_TICK_MS);
+  // 틱마다 신용 소속도 훑는다(credit/standing.ts — 소속 기간·사업장 운영 오름, D-584)
+  const tick = async (): Promise<void> => {
+    await service.tick();
+    sweepCreditStandings(o.world(), o.now());
+  };
+  const timer = o.manual ? undefined : setInterval(() => void tick(), GOVERNANCE_TICK_MS);
   timer?.unref();
   // 켤 때: 세계가 준비되면 바로 한 번 돈다(지배 가문 반영·지분 정리를 첫 1분 틱까지 미루지 않는다 — governance-2)
   let boot: ReturnType<typeof setTimeout> | undefined;
   const first = (): void => {
     if (port.ready()) {
-      void service.tick();
+      void tick();
       return;
     }
     boot = setTimeout(first, GOVERNANCE_BOOT_POLL_MS);

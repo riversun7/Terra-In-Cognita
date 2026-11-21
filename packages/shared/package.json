@@ -49,6 +49,7 @@
     "./statGrowth": "./src/statGrowth.ts",
     "./goodsPlaces": "./src/goodsPlaces.ts",
     "./government": "./src/government.ts",
+    "./residence": "./src/residence.ts",
     "./governance": "./src/governance.ts",
     "./holdings": "./src/holdings.ts",
     "./hospital": "./src/hospital.ts",

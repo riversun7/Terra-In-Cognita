@@ -54,6 +54,7 @@ import {
   HOUSE_MEMBER_PROTOCOL_VERSION,
   HOUSE_POLICY_PROTOCOL_VERSION,
   NATION_TAX_PROTOCOL_VERSION,
+  RESIDENCE_PROTOCOL_VERSION,
   HOUSE_PROTOCOL_VERSION,
   HOUSE_RECRUIT_PROTOCOL_VERSION,
   COUP_PROTOCOL_VERSION,
@@ -688,6 +689,25 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           send: sendText,
           viewer: context.viewer ?? signedOut,
           // 운영자 모드(전체 보기) 연결의 채집·들어가기도 운영자 빠르기(world/operatorPace.ts)
+          observing: () => worldSocket?.observing() === true,
+          operatorPace,
+        });
+        gatherSocket.handle(message);
+        return;
+      }
+      case "residence_set": {
+        // 사는 곳 고르기는 프로토콜 61의 메시지다(D-585 1 — 채집 게이트웨이가 함께 받는다, residence/)
+        if (protocolVersion < RESIDENCE_PROTOCOL_VERSION) {
+          reject("invalid_message");
+          return;
+        }
+        if (!context.gather) {
+          send({ t: "residence_result", id: message.id, ok: false, code: "busy" });
+          return;
+        }
+        gatherSocket ??= context.gather.open({
+          send: sendText,
+          viewer: context.viewer ?? signedOut,
           observing: () => worldSocket?.observing() === true,
           operatorPace,
         });

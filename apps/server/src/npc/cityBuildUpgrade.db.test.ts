@@ -30,7 +30,14 @@ const economy = serverEconomyCatalogAccessor(
   economyCatalogFromPack(loaded.pack, { version: "core@test", placeholder: true }),
   () => pack,
 );
-const MATERIALS = ["pine_log", "stone", "rubble", "plank", "brick"];
+/** 채울 재료와 수량 배율: 석재·잡석은 1g 기본 단위(팩 core@137)라 qty를 kg으로 보고 × 1,000 */
+const MATERIALS: ReadonlyMap<string, bigint> = new Map([
+  ["pine_log", 1n],
+  ["stone", 1000n],
+  ["rubble", 1000n],
+  ["plank", 1n],
+  ["brick", 1n],
+]);
 
 let test: TestDatabase;
 const worlds: World[] = [];
@@ -98,9 +105,9 @@ function parts(world: World) {
 function stock(world: World, qty: bigint): void {
   const { persistence, npc } = parts(world);
   for (const [cityId, city] of npc.world.cities)
-    for (const item of MATERIALS) {
+    for (const [item, scale] of MATERIALS) {
       const asset = `item:${item}`;
-      const gap = qty - persistence.ledger.balanceOf(city.owner, asset, cityId);
+      const gap = qty * scale - persistence.ledger.balanceOf(city.owner, asset, cityId);
       if (gap <= 0n) continue;
       persistence.ledger.post({
         kind: "endow",

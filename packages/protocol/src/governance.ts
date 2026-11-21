@@ -14,6 +14,11 @@ export const GOVERNANCE_PROTOCOL_VERSION = 56;
  * 질문 2433 답·D-583)
  */
 export const COUP_PROTOCOL_VERSION = 59;
+/**
+ * 강화·화폐 단계·가문 독립 선언 안건, 쿠데타 병력(unitIds), 거래세 칸, 새 결과 코드에 필요한 가장 낮은 프로토콜 버전(61, 묶음 1117a — 줄기 governance-5 판 99).
+ * 더 낮은 판 연결에는 새 결과 코드 대신 not_eligible을 보낸다(governance/gateway.ts)
+ */
+export const GOVERNANCE5_PROTOCOL_VERSION = 61;
 
 const requestId = z.number().int().nonnegative().max(0xffff_ffff);
 const rowId = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
@@ -31,7 +36,15 @@ export const GOVERNANCE_AGENDA_KINDS = [
   "city_independence",
   /** 국고 지분 팔기(질문 2438 답 D-583 — cityId·shares·minPrice 칸, 프로토콜 COUP_PROTOCOL_VERSION부터) */
   "treasury_share_sale",
+  /** 강화(질문 2452 — targetNationId 칸, 프로토콜 GOVERNANCE5_PROTOCOL_VERSION부터) */
+  "peace",
+  /** 화폐 단계 전환(질문 2453 — monetaryMode·monetaryRateBp 칸, GOVERNANCE5_PROTOCOL_VERSION부터) */
+  "currency_stage",
+  /** 가문 독립 선언(질문 2454 — cityId 칸, GOVERNANCE5_PROTOCOL_VERSION부터, 투표 없이 바로) */
+  "house_independence",
 ] as const;
+/** 화폐 단계(formula = 중앙은행 공식, manual = 지도자 하루 조절) */
+export const GOVERNANCE_MONETARY_MODES = ["formula", "manual"] as const;
 export const GOVERNANCE_MESSAGE_REGIMES = ["dictatorship", "democracy", "capitalism"] as const;
 
 // ---------- 기기 → 서버 ----------
@@ -51,8 +64,14 @@ export const govProposeMessage = z.object({
       residentTaxPm: taxField(NATION_TAX_LIMITS.residentTaxPm),
       residentEveryDays: taxField(NATION_TAX_LIMITS.residentEveryDays),
       residentNationPm: taxField(NATION_TAX_LIMITS.residentNationPm),
+      /** 거래세(만분율 — 줄기 governance-5, 질문 2460). 없으면 바꾸지 않는다 */
+      tradeTaxBp: taxField(NATION_TAX_LIMITS.tradeTaxBp).optional(),
     })
     .optional(),
+  /** 화폐 단계 전환: 목표 단계(currency_stage만) */
+  monetaryMode: z.enum(GOVERNANCE_MONETARY_MODES).optional(),
+  /** 화폐 단계 전환: 지도자 손 조절의 하루 조절(시중 통화량의 만분율, +발행 −소각 — 서버가 설정 칸 하루 상한으로 자른다) */
+  monetaryRateBp: z.number().int().min(-10_000).max(10_000).optional(),
   /** 국고 지분 팔기: 도시(그 나라 도시) — treasury_share_sale만 */
   cityId: rowId.optional(),
   /** 국고 지분 팔기: 주 수(10진 정수 글자, 1 이상) */
@@ -93,6 +112,11 @@ export const govCoupJoinMessage = z.object({
   id: requestId,
   coupId: rowId,
   side: z.enum(["rebel", "government"]),
+  /**
+   * 데려갈 병력(내 거울 세계 유닛 ID — 줄기 governance-5, 질문 2455 답 D-583 "참전 = 병력을 데려온다"). 없으면 수도에 있는 내 유닛 모두. 수도에 없는 유닛은 빠진다.
+   * 병력이 없으면 편만 들고 보상은 없다. 프로토콜 GOVERNANCE5_PROTOCOL_VERSION부터
+   */
+  unitIds: z.array(rowId).max(200).optional(),
 });
 
 // ---------- 서버 → 기기 ----------
@@ -142,6 +166,12 @@ export const GOVERNANCE_RESULT_CODES = [
   "unknown_coup",
   /** 국고 지분이 모자라다(국고 지분 팔기) */
   "not_enough_shares",
+  /** 그 나라와 전쟁 중이 아니다(강화 — 프로토콜 GOVERNANCE5_PROTOCOL_VERSION부터) */
+  "not_at_war",
+  /** 지배 가문이 바뀐 뒤 보호 기간이라 쿠데타를 일으킬 수 없다(설정 칸 gov_coup_protect_ms) */
+  "coup_protected",
+  /** 그 도시 지분 50% 이상을 가진 가문이 아니다(가문 독립 선언 — D-300) */
+  "not_majority_holder",
 ] as const;
 export type GovernanceResultCode = (typeof GOVERNANCE_RESULT_CODES)[number];
 

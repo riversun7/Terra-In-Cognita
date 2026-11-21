@@ -686,7 +686,7 @@ describe.skipIf(!TEST_DATABASE_URL)("물가 조건(질문 947 나, 팩 낚시터
     // 재료는 물가 자리가 속한 도시 창고(또는 내 유닛 화물)로 — 짓는 자리의 재료 규칙(D-516 361)
     for (const [item, qty] of [
       ["pine_log", 40],
-      ["stone", 20],
+      ["stone", 20_000],
     ] as const)
       expect(await service.devFacilityGrant(a.userId, item, qty, { mapKey: a.map.mapKey, ...wet })).toEqual({
         ok: true,
@@ -703,7 +703,7 @@ describe.skipIf(!TEST_DATABASE_URL)("물가 조건(질문 947 나, 팩 낚시터
       await service.build(a.userId, { mapKey: a.map.mapKey, facility: "fishing_spot", ...dry, rotation: 0 }),
     ).toEqual({ ok: false, code: "needs_water" });
     expect(goodsStock(p.ledger, a.ownerId, "pine_log")).toBe(40n);
-    expect(goodsStock(p.ledger, a.ownerId, "stone")).toBe(20n);
+    expect(goodsStock(p.ledger, a.ownerId, "stone")).toBe(20_000n);
     expect(buildings()).toBe(before);
     const built = await service.build(a.userId, {
       mapKey: a.map.mapKey,

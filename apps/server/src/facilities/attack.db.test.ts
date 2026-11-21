@@ -356,13 +356,13 @@ describe.skipIf(!TEST_DATABASE_URL)("건물·영토 비콘 공격(질문 381)", 
     );
 
     // 수리 재료도 그 도시 창고(+ 그 도시의 창고 시설)에서만: 화물·장부의 돌은 쓰지 않는다
-    grantGoods(p.ledger, memberId, "stone", 50, clock, null);
+    grantGoods(p.ledger, memberId, "stone", 50_000, clock, null);
     expect(await p.facilities.service.repair(member, { beaconId }, 10, [carrier])).toEqual({
       ok: false,
       code: "insufficient_materials",
     });
     grantGoods(p.ledger, memberId, "pine_log", 10, clock, cityLocation(cityId));
-    grantGoods(p.ledger, memberId, "stone", 10, clock, cityLocation(cityId));
+    grantGoods(p.ledger, memberId, "stone", 10_000, clock, cityLocation(cityId));
     const repaired = await p.facilities.service.repair(member, { beaconId }, 10, [carrier]);
     expect(repaired.ok).toBe(true);
     clock = repaired.ok ? (repaired.doneAtMs ?? clock) : clock;

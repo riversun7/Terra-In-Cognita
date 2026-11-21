@@ -2,6 +2,8 @@
 import { describe, expect, it } from "vitest";
 import {
   COUP_PROTOCOL_VERSION,
+  GOVERNANCE5_PROTOCOL_VERSION,
+  MIN_SUPPORTED_PROTOCOL_VERSION,
   GOVERNANCE_PROTOCOL_VERSION,
   GOVERNANCE_RESULT_CODES,
   PROTOCOL_VERSION,
@@ -75,6 +77,52 @@ describe("나라 의결 메시지", () => {
     expect(decodes(decodeClientMessage, { ...sale, minPrice: "-1" })).toBe(false);
     const started = { t: "gov_result", id: 5, ok: true, agendaId: 3, action: "coup_started" } as const;
     expect(decodeServerMessage(encodeMessage(started))).toEqual(started);
+  });
+
+  it("강화·화폐 단계·가문 독립·쿠데타 병력·거래세(61판, 묶음 1117a — 줄기 governance-5 판 99 — 질문 2451~2460 답)", () => {
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(GOVERNANCE5_PROTOCOL_VERSION);
+    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(PROTOCOL_VERSION - 1);
+    const peace = { t: "gov_propose", id: 8, kind: "peace", targetNationId: 12 } as const;
+    expect(decodeClientMessage(encodeMessage(peace))).toEqual(peace);
+    const money = {
+      t: "gov_propose",
+      id: 9,
+      kind: "currency_stage",
+      monetaryMode: "manual",
+      monetaryRateBp: -50,
+    } as const;
+    expect(decodeClientMessage(encodeMessage(money))).toEqual(money);
+    expect(decodes(decodeClientMessage, { ...money, monetaryMode: "gold" })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...money, monetaryRateBp: 10_001 })).toBe(false);
+    const independence = { t: "gov_propose", id: 10, kind: "house_independence", cityId: 3 } as const;
+    expect(decodeClientMessage(encodeMessage(independence))).toEqual(independence);
+    const join = { t: "gov_coup_join" as const, id: 11, coupId: 3, side: "rebel" as const, unitIds: [4, 5] };
+    expect(decodeClientMessage(encodeMessage(join))).toEqual(join);
+    expect(decodes(decodeClientMessage, { ...join, unitIds: [0] })).toBe(false);
+    const taxes = {
+      t: "gov_propose",
+      id: 12,
+      kind: "tax_change",
+      taxes: {
+        incomeTaxBp: null,
+        residentTaxPm: null,
+        residentEveryDays: null,
+        residentNationPm: null,
+        tradeTaxBp: 300,
+      },
+    } as const;
+    expect(decodeClientMessage(encodeMessage(taxes))).toEqual(taxes);
+    const nationTax = {
+      t: "nation_tax",
+      id: 13,
+      incomeTaxBp: null,
+      residentTaxPm: null,
+      residentEveryDays: null,
+      residentNationPm: null,
+      tradeTaxBp: 250,
+    } as const;
+    expect(decodeClientMessage(encodeMessage(nationTax))).toEqual(nationTax);
+    expect(decodes(decodeClientMessage, { ...nationTax, tradeTaxBp: 10_001 })).toBe(false);
   });
 
   it("결과: 성공(한 일)·실패 코드", () => {

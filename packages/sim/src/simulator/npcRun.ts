@@ -122,6 +122,11 @@ export interface SimHooks {
   houseIndependenceYes?(house: string, cityId: number, parent: SimFaction): boolean;
   /** 나라 단위 판단(새 선전포고·강화·봉신 독립·세율)을 NPC가 하지 않는 나라(질문 2440 나·2434 나 — 선출된 플레이어 지도자·빈자리) */
   nationLocked?(faction: SimFaction): boolean;
+  /**
+   * 반란 문턱 보정(만족도 점 — 줄기 governance-5, 사용자 답 D-585 "신임도가 낮으면 반란이 쉽다"): 서버가 그 나라 지도자 신임도로 준다(설정 칸 기본 0 = 보정 없음).
+   * 양수면 문턱이 오른다(반란이 쉬워진다). 시뮬은 붙이지 않는다(판정 그대로)
+   */
+  rebellionThresholdShift?(faction: SimFaction): number;
   /** 독재 나라 지분 팔기를 그 가문 지분 계정에서 한다(질문 2439 나 — D-338·D-344). 없으면 국고에서 판다 */
   shareSellerOf?(faction: SimFaction): string | undefined;
 }

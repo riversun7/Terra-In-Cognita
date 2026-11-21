@@ -75,3 +75,16 @@ D-555 1505는 "자동운반이란 어떤 유닛이든 실제로 옮겨야 한다
     운반꾼이 없다 — 지으면 재료만 쓰는 빈 건물이 된다. NPC 휴먼을 물류센터 운반꾼으로 세우는 길(porter.ts 후보)과 함께 넣는다(질문 2301).
 - **판**: 프로토콜 55(최소 54 — 묶음 1116r, 줄기 판 84·83): `haulViaSchema`에 `"own"`, `storage_move` out·`business_buy`의 `via`(`HAUL_OUT_PROTOCOL_VERSION`).
   새 결과 코드 없음. 팩·SIM 그대로. 마이그레이션 하나(위). 세계 리셋 필요 없음.
+
+## 바뀜 (house-10, 2026-11-21 — 기획 대조 2301, NPC 물류센터)
+- 근거: 기획 대조(1116r, 코디네이터 전달 2026-11-21) — 2301 일정대로(질문 `docs/questions/2026-11-16-haul-2.md` "다음 NPC 경제 줄기에서 둘을 함께"), D-555 1505·1509·D-554. 위 "바뀜 (haul-2 …)"의
+  "NPC가 물류센터를 짓는 것은 이번에 넣지 않았다"를 고친다. 질문 `docs/questions/2026-11-21-house-10.md` 2347·2348.
+- **운반꾼**(`npc/npcLogistics.ts`): NPC 시설 일꾼 배치 규칙을 이어 쓴다 — 그 도시 휴먼(유닛 ID 차례, 경비대 뒤)을 도시 경제 시설에 먼저 나눈 뒤(@terra/sim `cityWorkerUnits` — 임금·보이는
+  일터와 같은 나눔) 남은 일 없는 휴먼을 그 도시 주인 나라의 물류센터(다 지은 것, 건물 ID 차례)에 자리 수(레벨 × 팩 `slotsPerLevel`)만큼 앞에서부터 세운다(1초 동안 같은 표). 채집 세계
+  운반 길(`gather/world.ts` → `station.carry`·`porters.pick`)이 노동 계약 일꾼이 없는 NPC 물류센터에 이 운반꾼을 일꾼으로 쓴다(`withNpcStaff` — 주인 = 그 휴먼 주인). 보이는 일터 = 그
+  물류센터 둘레(`ServerEconomy.workFacilities` 끝 — 시설 차례 `LOGISTICS_WORK_BASE` + 건물 ID). 적정가 인건비 = 운반꾼 수 × NPC 기준 임금 ÷ 24(`npcCenterHourly`). 운반꾼 임금은 없다
+  (요금은 물류센터 금고 → NPC 자동 정산으로 국고 — 질문 2347). 판정(시뮬)에는 쓰지 않는다.
+- **증축**(`npc/cityBuild.ts` 목표): 그 도시에서 운반꾼을 기다리는 NPC 운반 일 수(`CarryBoard.waitingIn`) × 상업 성향 배율(500~1500‰)이 설정 칸 `logistics_npc_build_waits`([임시] 3) 이상이고
+  도시 휴먼이 `logistics_npc_build_humans`([임시] 30) 이상이면 목표에 물류센터 하나(거래소·부두와 같은 서버 목표 — 시뮬 도시는 물류센터가 없어 SIM_VERSION 그대로). 성향 축에 "확장"이 없어
+  상업만 쓴다(질문 2348). 지으면 haul-2의 NPC 맡기기(`logistics/npcOutsource.ts`)가 같은 도시 물류센터로 그 물류센터도 고른다.
+- 판: 팩 **core@170**(줄기 판 — 설정 칸 둘 + 가문 투자 칸 설명 고침), 프로토콜·SIM 그대로(sim은 계수표 칸만 더함 — 시뮬 시험 116파일·995개·골든 그대로). 표 바뀜 없음. 세계 리셋 필요 없음.

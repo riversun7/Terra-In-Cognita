@@ -5,10 +5,10 @@
 //   cityWorkerUnits — 임금·보이는 일터와 같은 나눔), 남은 일 없는 휴먼(경비대 빼고)을 그 도시 주인 나라의 물류센터(다 지은 것, 건물 ID 차례)에 자리 수
 //   (레벨 × 팩 slotsPerLevel)만큼 앞에서부터 세운다. 운반꾼은 물류센터 일꾼과 같다: 채집 세계 운반 길(gather/station.ts carry)이 맡긴 짐을 그 휴먼에게
 //   지운다(gather/world.ts가 노동 계약 일꾼이 없는 물류센터에 이 운반꾼을 넣는다). 보이는 일터도 그 물류센터 둘레(humanPlaces.ts — 시설 차례 맨 뒤).
-//   운반꾼 임금은 없다(요금은 물류센터 금고 → NPC 자동 정산으로 국고) [임시 질문 2343]. 적정가의 인건비는 NPC 기준 임금 시간당(npcBaseDailyWage ÷ 24).
+//   운반꾼 임금은 없다(요금은 물류센터 금고 → NPC 자동 정산으로 국고) [임시 질문 2347]. 적정가의 인건비는 NPC 기준 임금 시간당(npcBaseDailyWage ÷ 24).
 // - 증축(성향 가중): 그 도시에서 운반꾼을 기다리는 NPC 운반 일 수 × 상업 성향 배율(가장 낮음 500‰ ~ 가장 높음 1500‰, rulingSpend.ts traitScalePm)이
 //   설정 칸 logistics_npc_build_waits 이상이고 도시 휴먼이 logistics_npc_build_humans 이상이면 증축 목표에 물류센터 하나(npc/cityBuild.ts — 거래소·부두와
-//   같은 서버 목표). 기획의 "확장" 성향 축은 없어 상업 성향만 쓴다(질문 2344). 지으면 haul-2의 NPC 맡기기(logistics/npcOutsource.ts)가 그 물류센터를 고른다.
+//   같은 서버 목표). 기획의 "확장" 성향 축은 없어 상업 성향만 쓴다(질문 2348). 지으면 haul-2의 NPC 맡기기(logistics/npcOutsource.ts)가 그 물류센터를 고른다.
 // 정수만 쓴다.
 import {
   type SimCity,

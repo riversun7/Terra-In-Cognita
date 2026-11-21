@@ -14,6 +14,10 @@ import { inheritTraits, rollTraits, type Traits } from "./traits.ts";
 const calm: Traits = { aggression: 100, commerce: 500, faith: 500, station: 500 };
 const warlike: Traits = { aggression: 900, commerce: 200, faith: 200, station: 500 };
 
+/** 알박기 후보 점수(없으면 undefined) */
+const claimScoreOf = (me: FactionView, rivals: readonly RivalView[] = []): number | undefined =>
+  scoreActions(me, rivals, c).find((entry) => entry.action.kind === "claim")?.score;
+
 /** 폐허 복원 후보 점수(없으면 undefined) */
 const restoreScoreOf = (me: FactionView): number | undefined =>
   scoreActions(me, [], c).find((entry) => entry.action.kind === "restore")?.score;
@@ -35,6 +39,7 @@ function view(over: Partial<FactionView> = {}): FactionView {
     overlord: null,
     vassals: 0,
     restores: [],
+    claims: [],
     ...over,
   };
 }
@@ -198,6 +203,42 @@ describe("판단 틀(D-323): 지표 → 후보 점수 → 가장 높은 행동",
         c,
       ),
     ).toEqual({ kind: "restore", ruin: 7 });
+  });
+
+  it("알박기(빈틈 2243): 상업 성향 +, 공격 성향·가진 도시·바깥 전쟁 −, 붐빔 +, 남이 짓는 중 −, 예비금·생필품이 없으면 후보 아님", () => {
+    const merchant: Traits = { aggression: 100, commerce: 900, faith: 300, station: 500 };
+    const site = { site: 4105, cost: 2000n, contested: false } as const;
+    // 상인 + 도시 둘 → 350 + 135 − 15 − 80 = 390 > 쉬기 250
+    expect(decideAction(view({ traits: merchant, claims: [site] }), [], 0, c)).toEqual({
+      kind: "claim",
+      site: 4105,
+    });
+    const base = claimScoreOf(view({ traits: merchant, claims: [site] })) ?? 0;
+    expect(base).toBe(c.claimScore + 135 - 15 - 2 * c.claimCityPenalty);
+    // 공격 성향이 높으면 내려간다(싸우려는 나라는 땅보다 전쟁)
+    expect(claimScoreOf(view({ traits: warlike, claims: [site] }))).toBeLessThan(base);
+    expect(claimScoreOf(view({ traits: merchant, cities: 5, claims: [site] }))).toBe(
+      base - 3 * c.claimCityPenalty,
+    );
+    expect(claimScoreOf(view({ traits: merchant, crowded: true, claims: [site] }))).toBe(
+      base + c.claimCrowdedBonus,
+    );
+    expect(claimScoreOf(view({ traits: merchant, claims: [{ ...site, contested: true }] }))).toBe(
+      base - c.claimContestPenalty,
+    );
+    // 바깥 전쟁마다 빼고, 반란 소탕은 세지 않는다
+    expect(claimScoreOf(view({ traits: merchant, claims: [site] }), [rival({ atWar: true })])).toBe(
+      base - c.claimWarPenalty,
+    );
+    expect(
+      claimScoreOf(view({ traits: merchant, claims: [site] }), [rival({ atWar: true, rebel: true })]),
+    ).toBe(base);
+    expect(claimScoreOf(view({ traits: merchant, treasury: 3000n, claims: [site] }))).toBeUndefined();
+    expect(claimScoreOf(view({ traits: merchant, foodPm: 400, claims: [site] }))).toBeUndefined();
+    // 후보가 없으면 그대로(옛 판과 같은 후보 목록)
+    expect(scoreActions(view({ traits: merchant }), [], c).some((e) => e.action.kind === "claim")).toBe(
+      false,
+    );
   });
 
   it("강화 수락: 이기고 있는 공격 성향 세력은 받지 않고, 지는 쪽·순한 쪽은 받는다", () => {

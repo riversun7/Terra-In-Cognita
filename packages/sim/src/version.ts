@@ -279,8 +279,14 @@
  * 65: (묶음 1116r 합친 판, 줄기 house-9의 98) 군단장의 분대별 명령(기획 D-574 "군단소속이면 군단장 명령 가능하나 2순위", 질문 2265 나,
  *    docs/adr/2026-10-31-combat-core.md "바뀜 (house-9)"): 군단 입력(kind "legion")에 선택 칸 party가 있으면 정원 안 그 파티 하나에만 군단 명령을
  *    준다(combat/orders.ts applyOrderInput — 소유주 명령이 서 있거나 정원 밖이면 거절). party 없는 입력·명령 없는 전투는 그대로다
+ * 106: (줄기 npc-claim — 합칠 때 main 다음 판으로 묶는다) NPC 빈 2차맵 알박기(빈틈 2243 — 기획 D-212·D-555 1509·D-554·D-572·D-574, 질문
+ *    docs/questions/2026-11-21-npc-claim.md): 판단 틀 후보에 claim(npc/brain.ts claimScore — 성향 가중 규칙식, 후보 목록 맨 끝이라 다른 행동의
+ *    점수·차례는 그대로), 시뮬 짓는 중 정부(simulator/npcClaim.ts — 합성 격자 칸 = 2차맵, 값 = 국고 소각, 짓는 시간 = 팩 행정 건물 레벨 1,
+ *    끝 예약 claim_done, 다 지으면 가문 마을 모양 새 도시, 같은 칸 다른 편은 멈춤). 도시 자리 함수를 simulator/simGrid.ts로 옮겼다(값 그대로).
+ *    끄면(설정 칸 npc_claim_max_active 0) 판정·출력이 옛 판과 같다(econ16 시드 1 × 30일 머리·요약 밖 줄 바이트까지 같음). 켜면(출발값) 판단
+ *    차례가 바뀌어 모든 시나리오 결과가 바뀐다(작업 기록 docs/worklog/2026/11/21-1400-npc-claim.md 전·후 표). 출력 형식 23
  */
-export const SIM_VERSION = 65;
+export const SIM_VERSION = 106;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

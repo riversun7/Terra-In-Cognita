@@ -5,6 +5,9 @@
 // 폐허 복원(기획 답 484 다, docs/adr/2026-11-07-ruins-restoration.md "바뀜 (기획 답 480~489, 472, 535)"): 부르는 쪽이 고른 정부 짓기 후보마다
 // 점수(상업 성향 + 확장 — 성향 축에 확장이 없어 도시가 적을수록, 옛 내 도시면 더)를 매겨 가장 좋은 하나를 낸다. 복원 사업에 넣기·투자는 판단
 // 칸을 쓰지 않는 하루 끝 규칙식이다(societyRuins.ts endOfDay — 판단마다 되풀이되면 연구 등을 밀어낸다).
+// 빈 2차맵 알박기(빈틈 2243 — 기획 D-212 "NPC도 같은 규칙", D-555 1509, D-554 성향, D-572 알박기, D-574 NPC = 그 세력 도시): 부르는 쪽이 고른
+// 근처 빈 2차맵(도시·폐허 없음) 후보마다 점수(성향 가중 규칙식 — 상업 +, 공격 −, 가진 도시·전쟁 수 −, 붐빔 +, 남이 짓는 중 −)를 매겨 가장 좋은
+// 하나를 낸다. 짓는 중 정부·다 지으면 새 도시는 부르는 쪽(시뮬 simulator/npcClaim.ts, 서버 NPC 런타임)이 한다.
 import type { NpcCoefficients } from "./coefficients.ts";
 import type { Traits } from "./traits.ts";
 
@@ -37,6 +40,18 @@ export interface FactionView {
   readonly vassals: number;
   /** 폐허 복원 후보(부르는 쪽이 규칙으로 고른 것, 폐허 ID 차례). 없으면 빈 목록 */
   readonly restores: readonly RestoreView[];
+  /** 빈 2차맵 알박기 후보(부르는 쪽이 자리 모형·상한으로 고른 것). 없으면 빈 목록 */
+  readonly claims: readonly ClaimView[];
+}
+
+/**
+ * 빈 2차맵 알박기 후보 하나(빈틈 2243): site = 자리 열쇠(시뮬 = 합성 격자 칸, 서버 = 2차맵 키), cost = 정부 짓기 값(국고, 그 세력 화폐 최소 단위),
+ * contested = 다른 편이 이미 그 2차맵에 정부를 짓는 중(먼저 다 지은 쪽이 도시 — 늦은 쪽은 멈춘다, D-572)
+ */
+export interface ClaimView {
+  readonly site: number;
+  readonly cost: bigint;
+  readonly contested: boolean;
 }
 
 /** 폐허 복원 후보 하나(484 다): 주인 없는(또는 정부 건물이 0%인) 폐허에 정부 짓기. cost = 정부 짓기 값, former = 내가 옛 주인인 폐허 */
@@ -69,7 +84,8 @@ export type NpcAction =
   | { readonly kind: "sell_shares" }
   | { readonly kind: "peace"; readonly target: number }
   | { readonly kind: "break_vassal" }
-  | { readonly kind: "restore"; readonly ruin: number };
+  | { readonly kind: "restore"; readonly ruin: number }
+  | { readonly kind: "claim"; readonly site: number };
 
 export interface ScoredAction {
   readonly action: NpcAction;
@@ -124,7 +140,24 @@ function restoreScore(me: FactionView, r: RestoreView, c: NpcCoefficients): numb
   );
 }
 
-/** 모든 후보와 점수(차례: 쉬기, 치기(상대 ID 차례), 마을, 연구, 지분, 강화(상대 ID 차례), 봉신 독립, 폐허 복원) */
+/**
+ * 알박기 점수(후보 하나, 빈틈 2243 — D-554 "세력성향마다 다양한 변수로"). 국고에 예비금이 없거나 백성이 굶으면 undefined(후보 아님).
+ * 기본 + 상업 성향 몫 − 공격 성향 몫(싸우려는 나라는 땅보다 칼) − 가진 도시마다 − 바깥 전쟁마다 + 붐빔(주거가 꽉 참) − 남이 짓는 중
+ */
+function claimScore(me: FactionView, v: ClaimView, wars: number, c: NpcCoefficients): number | undefined {
+  if (!needs(me.treasury, v.cost, c) || me.foodPm < HUNGRY_FOOD_PM) return undefined;
+  return (
+    c.claimScore +
+    Math.floor((me.traits.commerce * c.claimCommerce) / 1000) -
+    Math.floor((me.traits.aggression * c.claimAggression) / 1000) -
+    me.cities * c.claimCityPenalty -
+    wars * c.claimWarPenalty +
+    (me.crowded ? c.claimCrowdedBonus : 0) -
+    (v.contested ? c.claimContestPenalty : 0)
+  );
+}
+
+/** 모든 후보와 점수(차례: 쉬기, 치기(상대 ID 차례), 마을, 연구, 지분, 강화(상대 ID 차례), 봉신 독립, 폐허 복원, 알박기) */
 export function scoreActions(
   me: FactionView,
   rivals: readonly RivalView[],
@@ -179,6 +212,14 @@ export function scoreActions(
       action: { kind: "restore", ruin: restore.r.ruin },
       score: restore.score,
     });
+  // 알박기: 후보 가운데 가장 좋은 하나만(같은 점수면 목록 앞). 바깥 전쟁 = 반란 소탕이 아닌 전쟁
+  const wars = sorted.filter((r) => r.atWar && !r.rebel).length;
+  let claim: { v: ClaimView; score: number } | undefined;
+  for (const v of me.claims) {
+    const score = claimScore(me, v, wars, c);
+    if (score !== undefined && (!claim || score > claim.score)) claim = { v, score };
+  }
+  if (claim) out.push({ action: { kind: "claim", site: claim.v.site }, score: claim.score });
   return out;
 }
 

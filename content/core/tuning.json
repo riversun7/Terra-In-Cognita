@@ -4395,6 +4395,276 @@
       "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
     },
     {
+      "id": "npc_claim_score",
+      "code": "",
+      "name": {
+        "ko": "NPC 알박기 점수(기본)",
+        "en": "NPC land claim base score"
+      },
+      "value": 350,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "근처 빈 2차맵에 정부를 짓는 기본 점수.",
+        "en": "Base score for building a government on a nearby empty second map."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 빈틈 2243 [임시]"
+    },
+    {
+      "id": "npc_claim_commerce",
+      "code": "",
+      "name": {
+        "ko": "NPC 알박기 상업 성향 몫(축 끝 점수)",
+        "en": "NPC land claim: commerce share (points at axis end)"
+      },
+      "value": 150,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "상업 성향이 축 끝(1000)일 때 더하는 점수. 성향에 비례한다.",
+        "en": "Score added at commerce 1000, scaled by the trait."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 빈틈 2243 [임시]"
+    },
+    {
+      "id": "npc_claim_aggression",
+      "code": "",
+      "name": {
+        "ko": "NPC 알박기 공격 성향 빼기(축 끝 점수)",
+        "en": "NPC land claim: aggression penalty (points at axis end)"
+      },
+      "value": 150,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "공격 성향이 축 끝(1000)일 때 빼는 점수. 싸우려는 나라는 땅보다 전쟁을 고른다.",
+        "en": "Score removed at aggression 1000; warlike factions prefer fighting."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 빈틈 2243 [임시]"
+    },
+    {
+      "id": "npc_claim_city_penalty",
+      "code": "",
+      "name": {
+        "ko": "NPC 가진 도시마다 빼는 알박기 점수",
+        "en": "NPC land claim: penalty per city"
+      },
+      "value": 40,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "가진 도시 하나마다 알박기 점수에서 뺀다.",
+        "en": "Claim score removed per city owned."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 빈틈 2243 [임시]"
+    },
+    {
+      "id": "npc_claim_war_penalty",
+      "code": "",
+      "name": {
+        "ko": "NPC 바깥 전쟁마다 빼는 알박기 점수",
+        "en": "NPC land claim: penalty per war"
+      },
+      "value": 150,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "반란 소탕이 아닌 전쟁 하나마다 뺀다.",
+        "en": "Removed per ongoing war (rebel suppression excluded)."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 빈틈 2243 [임시]"
+    },
+    {
+      "id": "npc_claim_crowded_bonus",
+      "code": "",
+      "name": {
+        "ko": "NPC 붐빌 때 더하는 알박기 점수",
+        "en": "NPC land claim: crowded bonus"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "주거가 꽉 찬 도시가 있으면 더한다.",
+        "en": "Added when a city is at its housing cap."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 빈틈 2243 [임시]"
+    },
+    {
+      "id": "npc_claim_contest_penalty",
+      "code": "",
+      "name": {
+        "ko": "NPC 남이 짓는 중인 자리 빼는 점수",
+        "en": "NPC land claim: contested site penalty"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "다른 편이 이미 정부를 짓는 중인 2차맵이면 뺀다(먼저 다 지은 쪽이 도시).",
+        "en": "Removed when another side is already building there (first to finish wins)."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 빈틈 2243 [임시]"
+    },
+    {
+      "id": "npc_claim_max_active",
+      "code": "",
+      "name": {
+        "ko": "NPC 세력마다 동시에 짓는 알박기 수(0 = 끔)",
+        "en": "NPC land claims at once per faction (0 = off)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 64,
+      "desc": {
+        "ko": "한 세력이 동시에 짓는 알박기 정부 수. 0이면 NPC 알박기를 끈다. 지금은 규칙 시뮬레이터만 쓴다(서버 NPC는 아직 짓지 않는다).",
+        "en": "Concurrent claim governments per faction. 0 turns NPC claims off. Only the rules simulator uses this for now (server NPCs do not claim yet)."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 빈틈 2243 [임시]"
+    },
+    {
+      "id": "npc_claim_max_cities",
+      "code": "",
+      "name": {
+        "ko": "NPC 알박기를 멈추는 도시 수",
+        "en": "NPC stops land claims at this many cities"
+      },
+      "value": 6,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 1000,
+      "desc": {
+        "ko": "도시가 이만큼이면 더 알박기하지 않는다.",
+        "en": "No more claims once the faction owns this many cities."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 빈틈 2243 [임시]"
+    },
+    {
+      "id": "npc_claim_world_cities",
+      "code": "",
+      "name": {
+        "ko": "NPC 알박기 세계 도시 상한(0 = 없음)",
+        "en": "NPC land claim world city cap (0 = none)"
+      },
+      "value": 128,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "세계의 도시 + 폐허 + 짓는 중 알박기가 이만큼이면 짓지 않는다.",
+        "en": "No claims when cities + ruins + pending claims reach this."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 빈틈 2243 [임시]"
+    },
+    {
+      "id": "npc_claim_cooldown_days",
+      "code": "",
+      "name": {
+        "ko": "NPC 알박기 시작 뒤 쉬는 날",
+        "en": "NPC land claim cooldown (days)"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 365,
+      "desc": {
+        "ko": "한 곳을 짓기 시작한 뒤 다음 알박기까지 쉬는 날 수.",
+        "en": "Days to wait after starting a claim before the next."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 빈틈 2243 [임시]"
+    },
+    {
+      "id": "npc_claim_humans_per_city",
+      "code": "",
+      "name": {
+        "ko": "NPC 알박기에 도시마다 있어야 할 휴먼",
+        "en": "NPC land claim: humans needed per city"
+      },
+      "value": 12,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "휴먼이 (도시 수 + 1) × 이 값 이상이어야 알박기한다.",
+        "en": "Needs at least (cities + 1) × this many humans."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 빈틈 2243 [임시]"
+    },
+    {
+      "id": "npc_claim_radius",
+      "code": "",
+      "name": {
+        "ko": "NPC 알박기 자리 반경(칸)",
+        "en": "NPC land claim site radius (cells)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "cells",
+      "min": 1,
+      "max": 8,
+      "desc": {
+        "ko": "내 도시 2차맵에서 이 칸 안(체비쇼프)의 빈 2차맵만 고른다.",
+        "en": "Only empty second maps within this many cells (Chebyshev) of an owned city."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 빈틈 2243 [임시]"
+    },
+    {
+      "id": "npc_claim_cost",
+      "code": "",
+      "name": {
+        "ko": "NPC 알박기 정부 짓기 값(최소 단위)",
+        "en": "NPC land claim cost (minor units)"
+      },
+      "value": 5000,
+      "structural": false,
+      "unit": "minor",
+      "min": 0,
+      "max": 1000000000000,
+      "desc": {
+        "ko": "정부 짓기를 시작할 때 국고에서 소각하는 값. 늦어 멈추면 돌려받지 못한다.",
+        "en": "Burned from the treasury when the build starts; lost if halted."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 빈틈 2243 [임시]"
+    },
+    {
+      "id": "npc_claim_build_hours",
+      "code": "",
+      "name": {
+        "ko": "NPC 알박기 짓는 시간(경제 없을 때, 시간)",
+        "en": "NPC land claim build time without economy (hours)"
+      },
+      "value": 24,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 8760,
+      "desc": {
+        "ko": "시뮬에 경제가 없을 때 짓는 시간. 경제가 있으면 팩 행정 건물 레벨 1 짓는 시간.",
+        "en": "Build time when the simulation has no economy; otherwise the pack government hall level 1 time."
+      },
+      "source": "ADR 2026-11-01-npc-brain-r5 · 빈틈 2243 [임시]"
+    },
+    {
       "id": "npc_stall_food_pm",
       "code": "",
       "name": {

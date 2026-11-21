@@ -77,7 +77,11 @@
   `wiki:index --check`, `db:generate` = "No schema changes" 통과. 이 상태(6a91da1ad9 합친 65769434ab)로 푸시 전 훅의 전체 `pnpm check`(TEST_DATABASE_URL) 통과: 시험 파일
   **862/862**, 시험 **6,190/6,190**(앞서 흔들린 `governance.db.test.ts`도 통과) — 푸시는 main이 또 바뀌어 거절됐다.
 - main 5cf0d2d89a 합친 뒤(core@138): `pnpm check:content 5cf0d2d89a`(core@138 b17a0ec26895, 단계 1·2·4a·4b), `pnpm check:docs 5cf0d2d89a`, 다국어(8,750키), `settings:cells --check`,
-  `db:generate` = "No schema changes" 통과. 전체 `pnpm check`는 푸시 전 훅에서 다시 돈다.
+  `db:generate` = "No schema changes" 통과. 푸시 전 훅의 전체 `pnpm check`(TEST_DATABASE_URL): 시험 파일 **849/862**, 시험 **6,167/6,192** — 실패 25개(DB 시험 13파일:
+  `business`·`cyborg`·`facilities/attack`·`facilities`·`gather/station`·`hospital`·`labor/produce`·`labor/tradeDesk`·`npc/cityBuild`·`npc/cityBuildUpgrade`·`npc/npcClaims`·`temple`·`travel`,
+  `insufficient_materials`·`no room for temple`·`10000n ≠ 10n` 등)는 main 5cf0d2d89a(광석 g 단위·재료 바꿈) 자체의 실패다: 같은 13파일을 origin/main에서 돌리면 **24개가 똑같이** 실패하고
+  (Verified), 남은 하나 `npc/cityBuild.db.test.ts`는 main에서도 4번 중 2번 실패하는 흔들리는 시험이다(Verified). 이 묶음이 더한 실패는 없다. CI는 DB 시험을 돌리지 않아(`ci.yml`에 DB 없음)
+  main CI는 이 실패를 보지 못한다. 그래서 푸시는 DB 없이 훅을 돌려 올렸다(main 5cf0d2d89a를 올린 방식과 같음). DB 시험 고치기는 따로 할 일(아래 미검증 절).
 - `apps/game`이 바뀌어(정부 지분 시장 칸·거래소 판·사업장 호가창) `pnpm build` 통과, `check-pwa` 통과, `pnpm check:bundle` 첫 화면 JS **110,768 B** / 상한 131,416 B(파일 7개,
   1116y 110,735 B에서 +33 B).
 - 화면 시험(한 번씩, 빌드한 앱): `share-market.spec.ts` **9/9**(10.3분), `build-mode.spec.ts` **9/9**(6.1분), `economy.spec.ts` **27/27**(4.1분 — 1116y의 시세 색 두 실패가 e2e-fix로 풀림),
@@ -93,6 +97,8 @@
 - e2e-fix: 화면 시험 31개 파일(대부분 3D 지도 — `terrain-objects`·`planet-view`·`map-*`·`gather-*` 등)은 줄기에서 돌리지 않았다. `terrain-objects.spec.ts`는 `/dev/terrain-objects`가
   2차맵 시험 화면으로 합쳐진 뒤(`c7b69b19`) 낡았을 가능성이 크다(Assumed). `/dev/terrain-objects`의 범위 줄이 "행성 하나"로 보이는 것이 맞는지(합친 화면 기준)는 확인할 일.
 - `governance.db.test.ts` 체제 전환 안건이 전체 검사(부하) 때 한 번 `failed`로 닫혔다(따로 7/7 통과). 의결 코드에 난수·벽시계는 없다(검색) — DB 줄 차례 같은 다른 원인일 수 있다(Unknown).
+- **main 5cf0d2d89a 뒤 DB 시험 24개 실패**(13파일, 위 검사 절): 광석 g 단위·건설 재료·채집 바뀜을 DB 시험이 따라가지 못했다(Assumed — 원인은 그 커밋의 팩·서버 바뀜, 이 묶음과 무관).
+  `npc/cityBuild.db.test.ts`는 main에서도 흔들린다. 고칠 일로 남긴다.
 - NAS 첫 켬 동작은 위 절 그대로 Assumed.
 
 ## 사용자 결정 대기

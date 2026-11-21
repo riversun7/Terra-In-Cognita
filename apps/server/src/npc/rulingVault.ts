@@ -40,6 +40,7 @@ import {
   withResidentProperty,
 } from "./residentProperty.ts";
 import { withNationTaxes } from "../government/nationTax.ts";
+import { withGovernanceHooks } from "./governanceHooks.ts";
 import {
   type InvestVault,
   type RulingSpendRule,
@@ -224,11 +225,16 @@ export const npcRulingHooks = (
   o: {
     readonly ledger: VaultLedger;
     readonly cityHouses: Pick<NpcCityHouses, "rulingHouseOf" | "headOf" | "membersOf"> &
-      Partial<Pick<NpcCityHouses, "rulingPlayerHouseOf">>;
+      Partial<Pick<NpcCityHouses, "rulingPlayerHouseOf" | "controlOf">>;
     readonly rules: () => SocietyCoefficients;
     /** 유닛 주인(지갑 계정 주인)을 읽는 시뮬 세계. 모르는 유닛 — 가문원은 배당에서 빠지고 가문장은 그 나라 것으로 본다 */
     readonly world?:
-      | { readonly units: ReadonlyMap<number, Pick<SimUnit, "id" | "owner" | "city" | "guard">> }
+      | {
+          readonly units: ReadonlyMap<
+            number,
+            Pick<SimUnit, "id" | "owner" | "city" | "guard" | "satisfactionMilli">
+          >;
+        }
       | undefined;
     /** 도시 시설·사업장 장부(house-10 — 투자를 사업장 금고로). 없으면 투자는 국고에 남는다 */
     readonly economy?:
@@ -277,7 +283,13 @@ export const npcRulingHooks = (
     ),
     { ledger: o.ledger, rules: o.rules },
   );
-  return withNpcRulingVault(taxed, {
+  // 의결 고리(governanceHooks.ts — 점령 몰수·독립 투표 가문 지분·나라 단위 판단 멈춤·독재 지분 팔기, 줄기 governance-3)
+  const governed = withGovernanceHooks(taxed, {
+    cityHouses: o.cityHouses,
+    world: o.world,
+    keepSatisfaction: () => o.rules().governance.npcKeepSatisfaction,
+  });
+  return withNpcRulingVault(governed, {
     ledger: o.ledger,
     rulingHouseOf: (owner) => o.cityHouses.rulingHouseOf(owner)?.id,
     rulingPlayerHouseOf: (owner) => o.cityHouses.rulingPlayerHouseOf?.(owner),

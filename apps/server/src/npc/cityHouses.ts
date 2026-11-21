@@ -70,6 +70,11 @@ export interface NpcCityHouses {
   setRuling(owner: number, house: RulingRef | undefined): void;
   /** 의결로 정한 지배 가문이 플레이어 가문이면 그 가문 세력 행. 아니면 undefined */
   rulingPlayerHouseOf(owner: number): number | undefined;
+  /**
+   * 그 NPC 나라를 누가 이끄나(줄기 governance-3 — 질문 2440 나·2434 나 답): npc = NPC 지배 가문(처음 규칙·선출된 NPC 가문), player = 선출된 플레이어 지배 가문,
+   * vacant = 빈자리. NPC 판단의 나라 단위 결정(세율·전쟁·외교)은 npc일 때만(npc/governanceHooks.ts)
+   */
+  controlOf(owner: number): "npc" | "player" | "vacant";
   /** 가문 세우기·가문 없는 NPC 휴먼 넣기·모자란 가문 나누기·죽은 휴먼 빼기(바뀐 줄만 쓰기 대기열에) */
   sync(nowMs: number): {
     readonly created: number;
@@ -297,6 +302,11 @@ export function createNpcCityHouses(o: {
     rulingPlayerHouseOf(owner) {
       const set = overrides.get(owner);
       return set && set !== "vacant" && !set.npc && npcOwner(owner) ? set.id : undefined;
+    },
+    controlOf(owner) {
+      const set = overrides.get(owner);
+      if (set === "vacant") return "vacant";
+      return set && !set.npc && npcOwner(owner) ? "player" : "npc";
     },
     rulingHouseOf(owner) {
       const id = rulingIdOf(owner);

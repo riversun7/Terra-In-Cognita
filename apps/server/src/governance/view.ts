@@ -27,8 +27,19 @@ const EMPTY: Omit<GovernanceResponse, "status"> = {
   canPropose: [],
   leader: false,
   agendas: [],
+  canCoup: false,
+  coups: [],
   warTargets: [],
 };
+
+/** 의결 칸 올리기 목록에 넣지 않는 안건: 세율(나라 세금 명령이 연다 — 2407 가)·도시 독립(서버가 연다 — 2434 (가))·국고 지분 팔기(칸 입력은 시장 줄기 화면 — 2438) */
+const NOT_LISTED: ReadonlySet<AgendaKind> = new Set([
+  "tax_change",
+  "city_independence",
+  "treasury_share_sale",
+]);
+/** 끝난 쿠데타를 몇 개까지 보이나 */
+const RECENT_COUPS = 3;
 
 export function createGovernanceView(o: {
   readonly port: GovernancePort;
@@ -103,9 +114,22 @@ export function createGovernanceView(o: {
     const myKeys = new Set(
       s.electorate.voters.filter((voter) => voter.userId === userId).map((voter) => voter.key),
     );
+    // 도시 독립 투표는 그 도시 투표권(cityVotes.ts)으로 내 자격·투표권 합을 본다
+    const cityElectorates = new Map(
+      await Promise.all(
+        agendas
+          .filter((agenda) => agenda.kind === "city_independence")
+          .map(async (agenda) => [agenda.id, await o.service.electorateOf(agenda, nation)] as const),
+      ),
+    );
     const nowMs = o.now();
     const toView = (agenda: AgendaRow): GovernanceAgendaView => {
       const mine = votes.filter((row) => row.agendaId === agenda.id);
+      const cityElectorate = cityElectorates.get(agenda.id);
+      const agendaKeys = cityElectorate
+        ? new Set(cityElectorate.voters.filter((voter) => voter.userId === userId).map((voter) => voter.key))
+        : myKeys;
+      const { shares, minPrice } = agenda.payload;
       const cands = candidates.filter((row) => row.agendaId === agenda.id);
       const open = agenda.status === "open" && agenda.closesAtMs > nowMs;
       const live = new Map<string, bigint>();
@@ -133,6 +157,8 @@ export function createGovernanceView(o: {
         regime: agenda.regime,
         targetRegime: agenda.payload.regime ?? null,
         taxes: agenda.payload.taxes ?? null,
+        cityId: agenda.payload.cityId ?? null,
+        shareSale: shares !== undefined && minPrice !== undefined ? { shares, minPrice } : null,
         targetNation: target === undefined ? null : { id: target, name: names.get(target) ?? null },
         byAuthority: agenda.payload.byAuthority === true,
         proposer: agenda.proposerKey && isHouseKey(agenda.proposerKey) ? house(agenda.proposerKey) : null,
@@ -142,11 +168,11 @@ export function createGovernanceView(o: {
         effectAtMs: agenda.effectAtMs,
         reason: FAIL_REASONS.find((reason) => reason === agenda.result?.reason) ?? null,
         totals,
-        electorate: agenda.result?.electorate ?? s.electorate.total.toString(),
+        electorate: agenda.result?.electorate ?? (cityElectorate ?? s.electorate).total.toString(),
         quorumPm: agenda.result?.quorumPm ?? rules.quorumOf(agenda.kind),
         thresholdPm:
           agenda.result?.thresholdPm ??
-          (agenda.kind === "leader_election" ? 0 : rules.thresholdOf(agenda.kind)),
+          (agenda.kind === "leader_election" ? 0 : o.service.thresholdFor(agenda)),
         candidates: cands.map((row) => ({
           key: row.houseKey,
           name: houseNames.get(row.houseKey) ?? null,
@@ -163,8 +189,8 @@ export function createGovernanceView(o: {
           weight: row.weight.toString(),
         })),
         me: {
-          canVote: open && myKeys.size > 0,
-          choice: mine.find((row) => myKeys.has(row.voterKey))?.choice ?? null,
+          canVote: open && agendaKeys.size > 0,
+          choice: mine.find((row) => agendaKeys.has(row.voterKey))?.choice ?? null,
           canRegister:
             registering &&
             s.ownHouse !== null &&
@@ -174,17 +200,32 @@ export function createGovernanceView(o: {
         },
       };
     };
+    // 독재 지도자: 체제 전환 직권 + 선전포고 직권(질문 2440 나 — D-217)
     const canPropose: AgendaKind[] =
       nation.regime === "dictatorship"
         ? s.leader
-          ? ["regime_change"]
+          ? rules.warAgenda
+            ? ["regime_change", "war_declaration"]
+            : ["regime_change"]
           : []
         : o.service.mayPropose(s)
-          ? // 세율 안건은 나라 세금 명령(nation_tax)이 연다(질문 2407 가) — 의결 칸의 올리기 목록에는 없다
-            AGENDA_KINDS.filter(
-              (kind) => kind !== "tax_change" && (kind !== "war_declaration" || rules.warAgenda),
+          ? AGENDA_KINDS.filter(
+              (kind) => !NOT_LISTED.has(kind) && (kind !== "war_declaration" || rules.warAgenda),
             )
           : [];
+    // 쿠데타(질문 2433 답·D-583): 일으킬 수 있나·그 나라 쿠데타
+    const coupRows = await o.service.coups.coupsOf(nation.rowId, RECENT_COUPS);
+    const coupSides = new Map(
+      await Promise.all(coupRows.map(async (row) => [row.id, await o.service.coups.sides(row.id)] as const)),
+    );
+    const coupHouses = await o.store.houseNames(coupRows.map((row) => row.houseKey));
+    const gathering = coupRows.some((row) => row.status === "gathering");
+    const canCoup =
+      rules.coupEnabled &&
+      !nation.playerHouse &&
+      !gathering &&
+      s.ownHouse !== null &&
+      s.ownHouse !== s.ruling.key;
     return {
       status: "ready",
       nation: {
@@ -199,6 +240,24 @@ export function createGovernanceView(o: {
       canPropose,
       leader: s.leader,
       agendas: agendas.map(toView),
+      canCoup,
+      coups: coupRows.map((row) => {
+        const sides = coupSides.get(row.id) ?? [];
+        const mine = sides.find((side) => side.userId === userId);
+        return {
+          id: row.id,
+          house: {
+            key: row.houseKey,
+            name: coupHouses.get(row.houseKey) ?? null,
+            npc: row.houseKey.startsWith("n:"),
+          },
+          status: row.status,
+          gatherUntilMs: row.gatherUntilMs,
+          rebels: sides.filter((side) => side.side === "rebel").length,
+          government: sides.filter((side) => side.side === "government").length,
+          mySide: mine?.side ?? null,
+        };
+      }),
       warTargets: others
         .filter((row) => !o.port.atWar(nation, row))
         .map((row) => ({ id: row.rowId, name: names.get(row.rowId) ?? null })),

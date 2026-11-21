@@ -56,6 +56,7 @@ import {
   NATION_TAX_PROTOCOL_VERSION,
   HOUSE_PROTOCOL_VERSION,
   HOUSE_RECRUIT_PROTOCOL_VERSION,
+  COUP_PROTOCOL_VERSION,
   GOVERNANCE_PROTOCOL_VERSION,
   BOAT_PROTOCOL_VERSION,
   GEAR_PROTOCOL_VERSION,
@@ -852,9 +853,12 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       }
       case "gov_propose":
       case "gov_vote":
-      case "gov_candidate": {
-        // 나라 의결(docs/adr/2026-11-21-governance.md)은 GOVERNANCE_PROTOCOL_VERSION(56)의 메시지다. 가문 소켓이 함께 받는다
-        if (protocolVersion < GOVERNANCE_PROTOCOL_VERSION) {
+      case "gov_candidate":
+      case "gov_coup":
+      case "gov_coup_join": {
+        // 나라 의결(docs/adr/2026-11-21-governance.md)은 GOVERNANCE_PROTOCOL_VERSION(56)의 메시지다(쿠데타는 COUP_PROTOCOL_VERSION). 가문 소켓이 함께 받는다
+        const coupOnly = message.t === "gov_coup" || message.t === "gov_coup_join";
+        if (protocolVersion < (coupOnly ? COUP_PROTOCOL_VERSION : GOVERNANCE_PROTOCOL_VERSION)) {
           reject("invalid_message");
           return;
         }

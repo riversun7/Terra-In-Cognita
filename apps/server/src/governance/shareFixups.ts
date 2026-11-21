@@ -7,14 +7,24 @@
 //    도시마다 한 번만 옮긴다(governance_share_fixups) — 그 뒤 국고에 생긴 지분(점령 몰수 D-298·재발행 D-444)은 국고 몫이라 그대로 둔다. 가문이 아직 없는 도시는
 //    가문이 생긴 뒤 틱에 옮긴다. NAS 옛 세계는 배포 뒤 첫 틱에 국고가 가진 지분을 모두 옮긴다(처음 지분과 몰수 지분을 가를 기록이 없다 — 질문 2435).
 // 민주주의 나라·플레이어 가문 나라의 자본주의 지분은 그대로다.
+// 바뀜(governance-3 — 질문 2432 나 답, 2432 (다) 답 D-583): 독재 나라는 지배 쪽 지분을 가진 가문을 기록한다(governance_share_houses). 지배 가문이 바뀌면(수도
+// 이전으로 처음 규칙 가문이 바뀜 — D-574 10 "새 수도의 첫 가문", 쿠데타는 coup.ts가 바로 적는다) 옛 지배 가문 계정의 그 나라 도시 지분을 새 지배 가문으로 옮긴다
+// (D-580 6·D-582·D-344 "과반수이상을 유지", 감사 기록 governance.shares_follow_ruler) [임시: 옛 가문의 다른 몫(자본주의 때 세운 가문 몫)과 가르지 않고 모두 옮긴다].
+// 지분 과반을 사서 독재가 된 나라(treasury_kept — 체제 전환 집행이 적는다)는 국고 지분을 국고에 남긴다(배당은 받고 의결권은 없다 — D-583). 독재가 아닌
+// 나라의 기록은 지운다(다음에 독재가 되면 그때 지배 가문부터 센다). 선출(민주주의·자본주의)로 지배 가문이 바뀔 때는 지배 쪽 지분이 따로 없어 옮기지 않는다.
 import type { HouseKey } from "@terra/shared/governance";
+import type { CoupStore, ShareHouseRow } from "./coupStore.ts";
 import type { ElectorateTools } from "./electorate.ts";
 import type { GovernanceNation, GovernancePort } from "./port.ts";
 import type { GovernanceStore, StateRow } from "./store.ts";
 
 export interface ShareFixupDeps {
-  readonly port: Pick<GovernancePort, "applyRuling" | "moveTreasuryShares" | "founderOf" | "capitalOf">;
+  readonly port: Pick<
+    GovernancePort,
+    "applyRuling" | "moveTreasuryShares" | "founderOf" | "capitalOf" | "moveHouseShares"
+  >;
   readonly store: Pick<GovernanceStore, "fixedCities" | "markFixed">;
+  readonly coups: Pick<CoupStore, "shareHouses" | "saveShareHouse">;
   readonly tools: Pick<ElectorateTools, "ruling">;
   readonly audit: (action: string, after: Record<string, unknown>) => Promise<void>;
 }
@@ -38,14 +48,30 @@ export function applyRulings(
   }
 }
 
-/** 독재 나라 한 곳의 국고 지분 → 지배 가문 계정(위 2). 옮긴 주 수 합 */
+/** 독재 나라 한 곳의 국고 지분 → 지배 가문 계정(위 2)·지배 가문이 바뀌면 옛 지배 가문 지분도(바뀜 governance-3). 국고에서 옮긴 주 수 합 */
 export async function dictatorshipShares(
   d: ShareFixupDeps,
   nation: GovernanceNation,
   ruling: HouseKey | null,
   nowMs: number,
+  record?: ShareHouseRow,
 ): Promise<bigint> {
   if (ruling === null) return 0n;
+  const kept = record?.treasuryKept === true;
+  if (record?.houseKey && record.houseKey !== ruling) {
+    const followed = d.port.moveHouseShares(nation, record.houseKey, ruling, nowMs);
+    if (followed > 0n)
+      await d.audit("governance.shares_follow_ruler", {
+        nationId: nation.rowId,
+        from: record.houseKey,
+        to: ruling,
+        shares: followed.toString(),
+      });
+  }
+  if (record?.houseKey !== ruling)
+    await d.coups.saveShareHouse({ nationId: nation.rowId, houseKey: ruling, treasuryKept: kept }, nowMs);
+  // 지분 과반을 사서 독재가 된 나라는 국고 지분을 국고에 남긴다(D-583)
+  if (kept) return 0n;
   const moved = d.port.moveTreasuryShares(nation, nation.cities, ruling, nowMs);
   const total = moved.reduce((sum, row) => sum + row.amount, 0n);
   if (total > 0n)
@@ -66,11 +92,16 @@ export async function runShareFixups(
   nowMs: number,
 ): Promise<void> {
   let fixed: Set<number> | undefined;
+  const records = await d.coups.shareHouses();
   for (const nation of nations) {
+    const record = records.get(nation.rowId);
+    // 독재가 아니면 지배 쪽 지분 가문 기록을 지운다(위 바뀜 governance-3)
+    if (nation.regime !== "dictatorship" && record && (record.houseKey !== null || record.treasuryKept))
+      await d.coups.saveShareHouse({ nationId: nation.rowId, houseKey: null, treasuryKept: false }, nowMs);
     if (nation.regime === "democracy") continue;
     const ruling = (await d.tools.ruling(nation, states.get(nation.rowId))).key;
     if (nation.regime === "dictatorship") {
-      await dictatorshipShares(d, nation, ruling, nowMs);
+      await dictatorshipShares(d, nation, ruling, nowMs, record);
       continue;
     }
     if (nation.playerHouse) continue;

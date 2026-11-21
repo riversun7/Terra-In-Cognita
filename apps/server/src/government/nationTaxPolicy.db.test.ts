@@ -94,4 +94,47 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 세금 정하기 — 세율 안건 (
     expect(Number(await saved())).toBe(9000);
     expect(opened.length).toBe(1);
   });
+
+  it("선출된 플레이어 지배 가문장(질문 2440 나): 이끄는 NPC 나라의 세금을 정한다", async () => {
+    // 도시 없는 가문(독립 나라 아님) + 그 가문이 선출로 이끄는 NPC 나라
+    const head =
+      (
+        await rows<{ id: string }>(
+          test.db,
+          "insert into users (name, email, username) values ('fake_ntx2', 'fake_ntx2@tax.placeholder.invalid', 'fake_ntx2') returning id",
+        )
+      )[0]?.id ?? "";
+    const houseRow = Number(
+      (
+        await rows<{ id: string }>(
+          test.db,
+          "insert into factions (kind, regime) values ('player', 'democracy') returning id",
+        )
+      )[0]?.id,
+    );
+    const npcNation = Number(
+      (
+        await rows<{ id: string }>(
+          test.db,
+          "insert into factions (kind, regime) values ('npc', 'dictatorship') returning id",
+        )
+      )[0]?.id,
+    );
+    await sql(
+      "insert into house_members (user_id, faction_id, role, joined_at_ms) values ($1, $2, 'leader', 0)",
+      [head, houseRow],
+    );
+    expect(await policy().set(head, ROW)).toEqual({ ok: false, code: "not_ruler" });
+    await sql(
+      "insert into governance_state (nation_id, ruling_house_key, updated_at_ms) values ($1, $2, 0)",
+      [npcNation, `p:${houseRow}`],
+    );
+    expect(await policy().set(head, ROW)).toEqual({ ok: true, factionId: npcNation });
+    const stored = await rows<{ bp: number }>(
+      test.db,
+      "select income_tax_bp as bp from nation_taxes where faction_id = $1",
+      [npcNation],
+    );
+    expect(Number(stored[0]?.bp)).toBe(1000);
+  });
 });

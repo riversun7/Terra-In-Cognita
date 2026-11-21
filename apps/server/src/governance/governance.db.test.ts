@@ -271,7 +271,8 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결(governance)", () => {
     expect(faction.regime).toBe("dictatorship");
     view = await gov.view(leader.userId);
     expect(view.nation?.termEndsAtMs).toBeNull();
-    expect(view.canPropose).toEqual(["regime_change"]);
+    // 독재 지도자 직권: 체제 전환 + 선전포고(질문 2440 나 — 줄기 governance-3)
+    expect(view.canPropose).toEqual(["regime_change", "war_declaration"]);
     // 독재: 지도자 직권만(선출 안건은 없다)
     expect(await gov.service.propose(leader.userId, { kind: "leader_election" })).toEqual({
       ok: false,

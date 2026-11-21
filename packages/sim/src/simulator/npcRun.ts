@@ -21,7 +21,7 @@ import { nextTaxBp, occupationChoice, recruitPicks } from "../npc/policy.ts";
 import type { SocietyCoefficients } from "../society/coefficients.ts";
 import { cityHousingCap } from "../society/logistics.ts";
 import type { ResidentArrears, ResidentHome } from "../society/residentTax.ts";
-import { shareAsset } from "../society/shares.ts";
+import { houseShareCode, shareAsset } from "../society/shares.ts";
 import { rebuildCost } from "../society/warOutcomes.ts";
 import { inTruce, recordFight } from "../society/wars.ts";
 import type { CombatRun } from "./combatRun.ts";
@@ -112,6 +112,15 @@ export interface SimHooks {
   taxOf?(faction: SimFaction): number;
   baseTaxOf?(faction: SimFaction): number;
   setTax?(faction: SimFaction, taxBp: number, nowMs: number): void;
+  // ---- 나라 의결 고리(서버만 — 줄기 governance-3, apps/server/src/npc/governanceHooks.ts. 시뮬은 붙이지 않아 결과 그대로) ----
+  /** 점령 몰수 때 옛 통치자 몫인 가문 지분 계정 꼬리(질문 2431 나 — 옛 통치자 지배 가문). 없으면 국고만 */
+  rulerShareHousesOf?(faction: SimFaction): readonly string[];
+  /** 자본주의 독립 투표에서 그 가문 지분 계정의 찬성(질문 2435 — D-301). 없으면 반대 */
+  houseIndependenceYes?(house: string, cityId: number, parent: SimFaction): boolean;
+  /** 나라 단위 판단(새 선전포고·강화·봉신 독립·세율)을 NPC가 하지 않는 나라(질문 2440 나·2434 나 — 선출된 플레이어 지도자·빈자리) */
+  nationLocked?(faction: SimFaction): boolean;
+  /** 독재 나라 지분 팔기를 그 가문 지분 계정에서 한다(질문 2439 나 — D-338·D-344). 없으면 국고에서 판다 */
+  shareSellerOf?(faction: SimFaction): string | undefined;
 }
 
 /** 판단 실행 횟수(요약 npc 칸) */
@@ -246,7 +255,13 @@ const SHARE_LOT = 100n;
 
 /** 100주를 팔아도 쥐고 있을 몫(‰)이 남는 도시인가(shareKeepPm − 상업 ÷ 10) */
 function sellableCity(ctx: NpcContext, faction: SimFaction, cityId: number): boolean {
-  const have = ctx.world.book.balanceOf(faction.id, shareAsset(cityId));
+  // 독재 나라의 지분은 지배 가문 계정에 있다(서버 고리 shareSellerOf — 질문 2439 나)
+  const house = ctx.hooks?.shareSellerOf?.(faction);
+  const book = ctx.world.book;
+  const have =
+    house === undefined
+      ? book.balanceOf(faction.id, shareAsset(cityId))
+      : book.balance(book.systemAccount(houseShareCode(house, cityId), shareAsset(cityId)));
   const keep = BigInt(ctx.c.npc.shareKeepPm - Math.floor(faction.traits.commerce / 10));
   return have > SHARE_LOT && (have - SHARE_LOT) * 1000n >= keep * BigInt(ctx.c.sharesPerCity);
 }
@@ -305,6 +320,8 @@ export function factionView(ctx: NpcContext, faction: SimFaction, nowMs: number)
     vassals,
     restores: ctx.society?.ruins.npcOptions(faction, nowMs) ?? [],
     claims: ctx.claims?.options(faction, nowMs) ?? [],
+    // 나라 단위 판단 멈춤(서버 고리 — 질문 2440 나·2434 나). 시뮬은 늘 false
+    nationLocked: ctx.hooks?.nationLocked?.(faction) === true,
   };
 }
 
@@ -417,6 +434,11 @@ function attack(
 function proposePeace(ctx: NpcContext, from: SimFaction, toId: number, nowMs: number): void {
   const to = ctx.world.factions.get(toId);
   if (!to?.alive || !from.wars.has(toId)) return;
+  // 받는 쪽이 나라 단위 판단을 멈춘 나라면 NPC가 강화를 받지 않는다(서버 고리 — 질문 2440 나, 지도자가 정한다)
+  if (ctx.hooks?.nationLocked?.(to) === true) {
+    ctx.counts.peaceRefused += 1;
+    return;
+  }
   if (peaceScore(factionView(ctx, to, nowMs), rivalView(ctx, to, from, nowMs), ctx.c.npc) > 0)
     ctx.society?.makePeace(from, to, nowMs);
   else ctx.counts.peaceRefused += 1;
@@ -535,8 +557,8 @@ export function decide(ctx: NpcContext, factionId: number, nowMs: number): void 
     case "idle":
       break;
   }
-  // 세율은 판단을 시작할 때 본 국고끼리 견준다(행동이 쓴 돈과 섞이지 않게)
-  if (faction.alive) taxPolicy(ctx, faction, view, nowMs);
+  // 세율은 판단을 시작할 때 본 국고끼리 견준다(행동이 쓴 돈과 섞이지 않게). 나라 단위 판단을 멈춘 나라는 세율을 바꾸지 않는다(서버 고리 — 질문 2440 나)
+  if (faction.alive && !view.nationLocked) taxPolicy(ctx, faction, view, nowMs);
   if (faction.alive) recruitPolicy(ctx, faction, nowMs);
   if (faction.alive && ctx.build) buildPolicy(ctx, ctx.build, faction, nowMs);
   if (faction.alive) ctx.claims?.prepare?.(faction, nowMs);

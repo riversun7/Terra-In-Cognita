@@ -1,4 +1,4 @@
-// 나라 의결 명령(WebSocket gov_propose·gov_vote·gov_candidate → gov_result, docs/adr/2026-11-21-governance.md)과 조회(tRPC governance.view).
+// 나라 의결 명령(WebSocket gov_propose·gov_vote·gov_candidate·gov_coup·gov_coup_join → gov_result, docs/adr/2026-11-21-governance.md)과 조회(tRPC governance.view).
 // 게임 상태를 바꾸는 명령은 WebSocket으로만 보낸다. 보내고 같은 요청 번호의 답을 기다리는 틀은 가문 명령(houseCommands.ts request)과 같다.
 import type { GovernanceAction, GovernanceResultCode } from "@terra/protocol";
 import type { AgendaKind, GovernanceRegime, GovernanceResponse } from "@terra/shared/governance";
@@ -19,7 +19,9 @@ export type GovernanceRequest =
       readonly targetNationId?: number;
     }
   | { readonly t: "gov_vote"; readonly agendaId: number; readonly choice: string }
-  | { readonly t: "gov_candidate"; readonly agendaId: number };
+  | { readonly t: "gov_candidate"; readonly agendaId: number }
+  | { readonly t: "gov_coup" }
+  | { readonly t: "gov_coup_join"; readonly coupId: number; readonly side: "rebel" | "government" };
 
 /** 의결 명령 하나를 보내고 결과를 기다린다 */
 export function sendGovernance(

@@ -7,6 +7,7 @@
 |---|---|---|---|
 | 2026-11-21 22:00 | 가파른 비탈 막힘 → 느리게 지나감(비용 ×4), 건물은 그대로 못 지음 | Claude Code | [21-2200-steep-slope-pace](worklog/2026/11/21-2200-steep-slope-pace.md) |
 | 2026-11-21 21:30 | 2차맵 화면 높이 과장 ×4(보기만) | Claude Code | [21-2130-second-map-relief](worklog/2026/11/21-2130-second-map-relief.md) |
+| 2026-11-21 21:03~ | 2026-11-21 묶음 1116y 합치기 (의결 3 — 쿠데타·지분 따라가기·빈자리 독립 / 신용 점수) — 리셋 필요 없음 | Claude Code | [21-2103-batch-1116y-merge](worklog/2026/11/21-2103-batch-1116y-merge.md) |
 | 2026-11-21 20:30 | 누르는 곳 최소 크기 규칙 풀기(44px → 24px), 작은 단추 38px로 되돌림 | Claude Code | [21-2030-tap-target-relax](worklog/2026/11/21-2030-tap-target-relax.md) |
 | 2026-11-21 20:30 | 2026-11-21 governance-3 — 점령 통치자 지분만 몰수·지배 쪽 지분 따라가기·군사 쿠데타·빈자리 도시 독립·국고 지분 팔기·나라 단위 판단 멈춤 | Claude Code | [21-2030-governance-3](worklog/2026/11/21-2030-governance-3.md) |
 | 2026-11-21 20:00 | 화면 시험 실패 고치기: 작은 단추 38px → 44px, 작은 창 첫 줄 선택자 | Claude Code | [21-2000-e2e-tap-size-peek-line](worklog/2026/11/21-2000-e2e-tap-size-peek-line.md) |

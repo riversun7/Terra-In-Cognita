@@ -43,6 +43,8 @@
 | `apps/game/src/editor/production/ProductionEditorScreen.tsx` | 옛 서버용 기본값(팩 출발값) `oreGrams` 20 |
 | `packages/sim/src/simulator/gatherEconomy.test.ts` | 철광석 = 수확 단위 × 20g(나머지 0), 잡석(시험 목록은 묶음 1) > 철 ÷ 20, 시험 이름 |
 | `apps/server/src/gather/service.test.ts` | 직접 채집 VIT 20 → (50 + 100) × 20g = 3,000g |
+| `apps/server/src/itemEdit/previewGather.test.ts` | 미리 보기 수확 1단위(`harvestGrams`) 철광석·잡석 1 → 20g |
+| `e2e/economy.spec.ts` | 5cf0d2d89a 뒤 낡은 기대값(코디네이터 범위 추가): 호가창 물건 163 → 160(화석·이탄·소금 지움, 켜진 아이템 176 − 장비 12 − 유전자 4), 광산 일꾼 효과 "한 번에 2개" → 100, 식 기본 1 → 50·율 0.10 → 5.00·상한 10 → 500 |
 | `docs/adr/2026-11-22-ore-yield-mass.md` | 결정 기록 |
 | `docs/adr/2026-11-21-ore-grams-and-cleanup.md` | 상태만 "일부 대체됨"(결정 3) |
 | `docs/questions/2026-11-22-stone-balance.md` | 질문 2511(지금대로 = 추천) |
@@ -54,11 +56,16 @@
 - 건물·배·알박기·시작 재료의 석재·잡석·철광석 수량(g) — 무게 셈(건설 시간·운반)이 이 값을 쓴다.
 
 ## 미검증·TODO·알려진 문제
-- 화면 시험(`e2e/tuning.spec.ts` N44 줄 등)은 돌리지 않았다(미실행 — 칸 값만 바뀌어 화면 모양은 같다, Assumed).
-- 검사 결과는 아래 "검사".
+- `e2e/tuning.spec.ts`(N44 줄)는 돌리지 않았다(미실행 — 칸 값만 바뀌어 화면 모양은 같다, Assumed).
+- 화면 "한 번에 100개"는 수확 단위(× 20g)라 광석에서는 g·kg으로 보이는 편이 읽기 쉽다 — 화면 문구는 이 줄기 밖(TODO).
 
 ## 검사
-- `pnpm vitest run` `packages/sim/src/simulator/gatherEconomy.test.ts`(7 통과), `apps/server/src/gather/service.test.ts`(12 통과).
+- 첫 전체 `pnpm check`(DB 포함, main `3ed55a4756` 위): 시험 22개 실패(파일 11개, 6,170 통과). 21개는 DB 시험 10개 파일로, 바뀜 커밋 5cf0d2d89a의 재료 수량(g) 때문이고 main `3d1730307f`(dbtest-fix)가 고친 것 — origin/main(`25273679b5`)을 합친 뒤 모두 통과. 1개는 `previewGather.test.ts`(이 줄기의 N44 20g) — 기대값 고침.
+- 합친 뒤 실패했던 11개 파일 + `gather/service.test.ts` 다시: 12 파일 64 시험 통과(DB 포함).
+- `pnpm vitest run` `packages/sim/src/simulator/gatherEconomy.test.ts` 7 통과.
+- `pnpm check:content --no-compat` 통과(core@181).
+- `pnpm e2e e2e/economy.spec.ts`: 27 통과(4.9분).
+- 마지막 전체 `pnpm check`(DB 포함)는 이 기록 커밋 뒤 한 번 — 결과는 코디네이터 보고.
 
 ## 사용자 결정 대기
 - 2511(추천 가 = 지금대로).

@@ -144,7 +144,7 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
     expect(loach?.levels[0]?.chanceBp).toBe(816);
   });
 
-  it("진행·수확량(D-507): 철광석 = 새 유닛 속도 ×1·한 번에 100g(50 + 10×5, 상한 500)·T3 필요 진행 120 = 2시간, 수확 1단위 1g", () => {
+  it("진행·수확량(D-507): 철광석 = 새 유닛 속도 ×1·한 번에 100단위(50 + 10×5, 상한 500)·T3 필요 진행 120 = 2시간, 수확 1단위 20g(한 번에 2kg)", () => {
     const work = previewGather(ctx, find("iron_ore"), pack.items, DEFAULT_PREVIEW_UNIT)?.work;
     expect(work).toMatchObject({
       divisor: 20,
@@ -153,14 +153,14 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
       yieldCap: 500,
       requiredProgress: 120,
       tickMs: 60_000,
-      harvestGrams: 1,
+      harvestGrams: 20,
       unitPrimary: 10,
       unitSecondary: 10,
       unitProgress: 1,
       unitYield: 100,
       unitHarvestMs: 7_200_000,
     });
-    // 스탯 40 → 진행 2(한 번 1시간)·한 번에 250g, 100 → 진행 5·상한 500g
+    // 스탯 40 → 진행 2(한 번 1시간)·한 번에 250단위(5kg), 100 → 진행 5·상한 500단위(10kg)
     expect(work?.rows.map((row) => [row.stat, row.progress, row.yield, row.harvestMs])).toEqual([
       [10, 1, 100, 7_200_000],
       [20, 1, 150, 7_200_000],
@@ -170,9 +170,9 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
       [160, 8, 500, 900_000],
       [240, 12, 500, 600_000],
     ]);
-    // 잡석(T0, 1g 기본 단위·묶음 10kg)도 수확 1단위 1g, 필요 진행 30
+    // 잡석(T0, 1g 기본 단위·묶음 10kg)도 수확 1단위 20g(n44_ore_grams, ADR 2026-11-22-ore-yield-mass), 필요 진행 30
     expect(previewGather(ctx, find("rubble"), pack.items, DEFAULT_PREVIEW_UNIT)?.work).toMatchObject({
-      harvestGrams: 1,
+      harvestGrams: 20,
       requiredProgress: 30,
       unitHarvestMs: 1_800_000,
     });

@@ -83,11 +83,11 @@ test.describe("플레이어(실제 자료)", () => {
     await expect(page.locator("#economy-title")).toHaveText(message("ko", "nav_economy"));
     await page.getByRole("link", { name: message("ko", "economy_tab_market"), exact: true }).click();
     await expect(page).toHaveURL(/\/economy\/market$/);
-    // 서버 도시 경제가 돌아 거래소가 열려 있다. 팩의 호가창 물건(장비·유전자·문서 빼고): 켜진 아이템 179개 − 장비 12개 − 유전자 4개 = 163개
+    // 서버 도시 경제가 돌아 거래소가 열려 있다. 팩의 호가창 물건(장비·유전자·문서 빼고): 켜진 아이템 176개 − 장비 12개 − 유전자 4개 = 160개
     // (core@32에서 옛 자원 129·괴 7·판자·벽돌을 켬, core@38에서 마이크로칩·유전자 4개를 더함, core@41에서 유전자는 인스턴스라 경매 매물 D-516,
     // 형식 확인용 dev_placeholder는 꺼짐, D-540에서 자연 채집물·고래 아이템 10개를 더함 — D-556에서 분류만 어류·작물·광석·음료로 옮겨 수는 그대로,
-    // D-570 배 4에서 포획 장비 그물·주낙 장비 둘을 더함 — 묶음 1116k)
-    await expect(economy(page).locator(".eco-row-link")).toHaveCount(163);
+    // D-570 배 4에서 포획 장비 그물·주낙 장비 둘을 더함 — 묶음 1116k, core@137에서 화석·이탄·소금 셋을 지움)
+    await expect(economy(page).locator(".eco-row-link")).toHaveCount(160);
     await expect(economy(page).locator(".eco-not-ready")).toHaveCount(0);
     // 하위 화면에서도 하단 탭의 경제가 지금 화면이다(menuRoute)
     await expect(page.locator('nav.tabbar a[aria-current="page"]')).toHaveText(message("ko", "nav_economy"));

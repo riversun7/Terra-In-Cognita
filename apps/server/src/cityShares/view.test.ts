@@ -86,6 +86,11 @@ function setup() {
     ownerOfUser: () => 2,
     houseOfUser: () => undefined,
     facilities: () => facilities,
+    levy: () => ({
+      rateOf: (cityId) => (cityId === CITY ? { treasuryOwner: 1, taxBp: 300 } : undefined),
+      pay: () => undefined,
+    }),
+    npcNations: () => [],
   };
   const view = createCityShareView({
     port,
@@ -136,6 +141,8 @@ describe("증권 거래소 판(shares.hub)", () => {
     expect(city.me).toEqual({ shares: "0", cash: "0", sellable: "0" });
     expect(city.house).toBeNull();
     expect(city.treasury).toBeNull();
+    // 거래세 요율(D-587 2474 다) — 그 도시에 일하는 증권 거래소 요율이 없으면 이용료 null
+    expect(city.levy).toEqual({ taxBp: 300, feeBp: null });
     expect(city.cityName).toEqual({ ko: "city4", en: "city4" });
   });
 });

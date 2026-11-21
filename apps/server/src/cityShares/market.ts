@@ -12,6 +12,11 @@
 // - 회차 정산은 원장 거래 하나(cityshare_clear — 계정마다 합쳐 적는다): 산 쪽 에스크로 −(체결 × 체결가 + 남은 묶음 차이), 산 쪽 지분 +, 판 쪽 지분 −, 판 쪽 돈 +.
 // - 도시가 사라졌거나(폐허) 주인이 바뀌어 화폐가 바뀌면 그 도시의 옛 화폐 주문은 회차 때 거둔다(묶은 돈을 돌려준다).
 // - 쓰기는 월드 쓰기 대기열(원장 고리와 같은 묶음). 부팅 때 걸린 주문(seq 그대로)·지난 체결가로 다시 만든다(store.ts).
+// 바뀜(줄기 share-market-2, 기획 D-587 — docs/adr/2026-11-21-share-market-2.md):
+// - 거래세·증권 거래소 이용료(질문 2474 다 — levy.ts): 판 쪽이 받은 돈에서 거래세(그 나라 국고, 같은 정산 거래 안)와 이용료(정산 뒤 그 도시 증권 거래소
+//   금고 — 사업장 장부 수입)를 낸다.
+// - 독재 과반은 도시마다 본다(질문 2477 나 — caps는 서비스가 도시 하나로 셈해 넘긴다).
+// - 국고 사기(질문 2479 나): 승인된 국고 지분 사기도 agendaId를 단 사기 주문이다(주문 수 한도 밖, 국고 돈을 묶는다). 국고 주문은 지도자가 거둔다(2473 다).
 import { cityShareEscrowCode, CITY_SHARE_MARKET_PREFIX } from "@terra/shared/cityShares";
 import { type ShareBookView, shareBookLevels } from "@terra/shared/shareBook";
 import {
@@ -25,6 +30,8 @@ import {
 } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
+import { type ShareLevy, shareLevyAmounts } from "./levy.ts";
+import type { NpcShareRules } from "./npcTrade.ts";
 
 export type CityShareSide = "buy" | "sell";
 
@@ -91,6 +98,8 @@ export type CitySharePlaceResult =
 export interface CityShareRules {
   readonly roundMs: number;
   readonly orderMax: number;
+  /** NPC 지분 주문(D-587 질문 2471 다 — npcTrade.ts). 없으면 NPC는 시장에 주문을 내지 않는다(시뮬 직접 양도) */
+  readonly npc?: NpcShareRules | undefined;
 }
 
 /** 독재 과반 줄이기: holder → 이번에 더 걸 수 있는(또는 회차에 팔 수 있는) 주 수의 위 끝. 없는 holder는 끝이 없다 */
@@ -105,6 +114,8 @@ export interface CityShareMarketDeps {
   currencyOf(cityId: number): string | undefined;
   readonly rules: () => CityShareRules;
   readonly now: () => number;
+  /** 거래세·증권 거래소 이용료(질문 2474 다 — levy.ts). 없으면 세금·이용료 없음 */
+  readonly levy?: (() => ShareLevy | undefined) | undefined;
 }
 
 export const ownerHolder = (ownerId: number): string => `o:${ownerId}`;
@@ -325,6 +336,10 @@ export function createCityShareMarket(deps: CityShareMarketDeps) {
         .map((order) => ({ id: order.id, owner: 0, price: order.price, lots: order.shares, seq: order.seq }));
     const result = matchRound(auction("buy"), auction("sell"), lastPrice.get(cityId));
     const price = result.price ?? 0n;
+    const levy = deps.levy?.();
+    const rate = levy?.rateOf(cityId);
+    /** 정산 뒤 거래소 금고로 낼 이용료(판 쪽 돈 계정 → 금액) */
+    const fees = new Map<number, bigint>();
     const sums = new Map<number, bigint>();
     const add = (account: number, amount: bigint): void => {
       if (amount !== 0n) sums.set(account, (sums.get(account) ?? 0n) + amount);
@@ -338,13 +353,23 @@ export function createCityShareMarket(deps: CityShareMarketDeps) {
         add(cashAccount(order.holder, asset), (order.price - price) * filled);
         add(shareAccount(order.holder, cityId), filled);
       } else {
+        // 판 쪽은 받은 돈에서 거래세(그 나라 국고 — 이 거래 안)와 이용료(정산 뒤 거래소 금고)를 낸다(질문 2474 다)
+        const gross = price * filled;
+        const cut = shareLevyAmounts(gross, rate, ownerOfHolder(order.holder));
+        const cash = cashAccount(order.holder, asset);
         add(shareAccount(order.holder, cityId), -filled);
-        add(cashAccount(order.holder, asset), price * filled);
+        add(cash, gross - cut.tax);
+        if (rate && cut.tax > 0n) add(ledger.ownerAccount(rate.treasuryOwner, asset), cut.tax);
+        if (cut.fee > 0n) fees.set(cash, (fees.get(cash) ?? 0n) + cut.fee);
       }
     }
     const entries: LedgerEntry[] = [];
     for (const [account, amount] of sums) if (amount !== 0n) entries.push({ account, amount });
     if (entries.length > 0) ledger.post({ kind: `${CITY_SHARE_MARKET_PREFIX}_clear`, atMs, entries });
+    const feeTo = rate?.fee;
+    if (levy && feeTo)
+      for (const [from, amount] of fees)
+        levy.pay({ from, buildingId: feeTo.buildingId, asset, amount, atMs });
     for (const order of live) {
       const filled = result.fills.get(order.id) ?? 0n;
       if (filled <= 0n) continue;

@@ -15,6 +15,7 @@ import { type GovernanceGateway, createGovernanceGateway } from "./gateway.ts";
 import { type GovernancePort, worldGovernancePort } from "./port.ts";
 import type { GovernanceRules } from "./rules.ts";
 import { type ApprovedShareSale, type GovernanceService, createGovernanceService } from "./service.ts";
+import type { ShareAgendaHooks } from "./shareAgendas.ts";
 import { type GovernanceStore, createGovernanceStore } from "./store.ts";
 import { type GovernanceView, createGovernanceView } from "./view.ts";
 
@@ -50,6 +51,9 @@ export function attachGovernance(o: {
     | undefined;
   /** 승인된 국고 지분 팔기(질문 2438 답 D-583 — 정부 지분 시장 줄기가 붙인다) */
   readonly approvedShareSale?: ((sale: ApprovedShareSale, nowMs: number) => Promise<void>) | undefined;
+  /** 승인된 국고 지분 사기·사기 칸 검사(D-587 질문 2479 나 — 정부 지분 시장이 붙인다). 없으면 사기 안건은 꺼져 있다 */
+  readonly approvedShareBuy?: ShareAgendaHooks["approvedShareBuy"];
+  readonly shareBuyCheck?: ShareAgendaHooks["shareBuyCheck"];
   /** 틱 타이머를 켜지 않는다(시험이 tick을 직접 부른다) */
   readonly manual?: boolean | undefined;
 }): GovernanceAttached {
@@ -84,7 +88,11 @@ export function attachGovernance(o: {
     log: o.log,
     applyTaxes: o.applyTaxes,
     coups,
-    approvedShareSale: o.approvedShareSale,
+    shares: {
+      approvedShareSale: o.approvedShareSale,
+      approvedShareBuy: o.approvedShareBuy,
+      shareBuyCheck: o.shareBuyCheck,
+    },
     leader: createLeaderStore(o.db.$client),
     credit,
   });

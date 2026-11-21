@@ -70,6 +70,8 @@ export interface BooksSource {
   readonly fxFee?: ((buildingId: number) => FxFeeView | undefined) | undefined;
   /** 물자 거래소 이용료(D-574 질문 2085 — 물자 거래소만). 없으면 칸 없음 */
   readonly exchangeFee?: ((buildingId: number) => FeeRateView | undefined) | undefined;
+  /** 증권 거래소 이용료(D-587 질문 2474 다 — 증권 거래소만). 없으면 칸 없음 */
+  readonly shareFee?: ((buildingId: number) => FeeRateView | undefined) | undefined;
   /** 운반 대행(물류센터만 — 기획 D-576, logistics/haulService.ts). 물류센터가 아니면 undefined */
   readonly haulService?: ((buildingId: number) => HaulServiceView | undefined) | undefined;
 }
@@ -240,6 +242,7 @@ export async function readBusinessBooks(
   const repairWorkers = source.repairWorkers?.(buildingId);
   const fxFee = source.fxFee?.(buildingId);
   const exchangeFee = source.exchangeFee?.(buildingId);
+  const shareFee = source.shareFee?.(buildingId);
   const haulService = source.haulService?.(buildingId);
   const lot = source.commands.lotOf(buildingId);
   const holderList = source.core.holders(buildingId);
@@ -295,6 +298,7 @@ export async function readBusinessBooks(
         }),
     ...(fxFee === undefined ? {} : { fxFee }),
     ...(exchangeFee === undefined ? {} : { exchangeFee }),
+    ...(shareFee === undefined ? {} : { shareFee }),
     ...(haulService === undefined ? {} : { haulService }),
     nextSettleMs: source.core.nextSettleMs(nowMs),
     taxBp,

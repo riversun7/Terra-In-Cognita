@@ -1,7 +1,8 @@
 // 환전 시장(동시호가) — docs/adr/2026-10-31-economy-core.md 5절
 // 짝 하나 = (기준 쪽 화폐 base, 값 매기는 화폐 quote, 로트 크기). 값은 로트(base lotSize 최소 단위)당 quote 최소 단위.
 // - 주문을 낼 때 묶는다: 살 쪽 quote(로트 × 상한), 팔 쪽 base(로트 × 로트 크기). 모자라면 거절.
-// - 회차(run)마다 체결가 하나로 모두 체결하고, 회차가 끝나면 남은 주문은 돌려준다(주문은 한 회차만 산다).
+// - 회차(run)마다 체결가 하나로 모두 체결하고, 회차가 끝나면 남은 주문은 돌려준다(주문은 한 회차만 산다). 서버 사업장 지분은 pair.rest로 남은 몫을
+//   다음 회차에 남긴다(D-587 질문 2472 나 — 시뮬은 쓰지 않는다).
 //   회차 정산은 장부 거래 하나다(계정마다 합쳐 적는다). 수수료는 없다(E3 전환 수수료는 통화 제도 전환이 열릴 때).
 // - 서버 몫(시뮬은 쓰지 않는다, 시뮬 출력 그대로 — docs/adr/2026-11-07-play-flow.md WP6): 회차 전에 내 주문 거두기(cancel, 묶은 것을 돌려줌),
 //   부팅 복원(restore: 걸린 주문·지난 체결가·차례), 회차 결과의 주문마다 체결 로트(run().fills), 넣은 주문 ID(place().orderId).
@@ -24,6 +25,11 @@ export interface FxPair {
    * <앞머리>_refund가 환전과 겹치지 않게 한다. 시뮬은 쓰지 않는다(출력 그대로)
    */
   readonly prefix?: string | undefined;
+  /**
+   * 남는 주문(서버 사업장 지분 — 기획 D-587 질문 2472 나 "사업장 지분도 거둘 때까지 걸어 둔다", docs/adr/2026-11-21-share-market-2.md). true면 회차에
+   * 체결된 몫만 정산하고 체결되지 않은 몫은 묶인 채 다음 회차에 그대로 걸린다(차례 seq 그대로). 없으면 옛 판(회차 뒤 돌려줌). 시뮬은 쓰지 않는다(출력 그대로)
+   */
+  readonly rest?: boolean | undefined;
 }
 
 export interface FxOrder extends AuctionOrder {
@@ -107,21 +113,28 @@ export function createFxMarket(
       };
       for (const order of buys) {
         const filled = result.fills.get(order.id) ?? 0n;
-        const locked = order.price * order.lots;
+        // 남는 주문이면 체결된 몫의 묶음만 푼다(남은 몫은 상한 그대로 묶여 있다)
+        const locked = order.price * (pair.rest ? filled : order.lots);
         add(quoteEscrow(), -locked);
         add(book.ownerAccount(order.owner, pair.quote), locked - filled * price);
         add(book.ownerAccount(order.owner, pair.base), filled * pair.lotSize);
       }
       for (const order of sells) {
         const filled = result.fills.get(order.id) ?? 0n;
-        add(baseEscrow(), -order.lots * pair.lotSize);
-        add(book.ownerAccount(order.owner, pair.base), (order.lots - filled) * pair.lotSize);
+        const released = pair.rest ? filled : order.lots;
+        add(baseEscrow(), -released * pair.lotSize);
+        add(book.ownerAccount(order.owner, pair.base), (released - filled) * pair.lotSize);
         add(book.ownerAccount(order.owner, pair.quote), filled * price);
       }
       const entries: LedgerEntry[] = [];
       for (const [account, amount] of sums) if (amount !== 0n) entries.push({ account, amount });
       if (entries.length > 0) book.post({ kind: `${prefix}_clear`, atMs: nowMs, entries });
-      pending = [];
+      pending = pair.rest
+        ? pending.flatMap((order) => {
+            const left = order.lots - (result.fills.get(order.id) ?? 0n);
+            return left > 0n ? [{ ...order, lots: left }] : [];
+          })
+        : [];
       if (result.price !== undefined) {
         lastPrice = result.price;
         volumeLots += result.lots;

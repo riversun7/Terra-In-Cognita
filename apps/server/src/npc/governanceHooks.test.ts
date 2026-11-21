@@ -1,6 +1,7 @@
 // 의결 고리(줄기 governance-3): 점령 몰수 대상 가문·독립 투표 가문 찬반·나라 단위 판단 멈춤·독재 지분 팔기 계정
 import { type SimFaction, type SimHooks, newFaction } from "@terra/sim";
 import { describe, expect, it } from "vitest";
+import { registerNpcShareSale } from "../cityShares/npcTrade.ts";
 import { withGovernanceHooks } from "./governanceHooks.ts";
 
 const traits = { aggression: 500, commerce: 500, faith: 500, station: 500 };
@@ -46,5 +47,25 @@ describe("의결 고리", () => {
     expect(hooks("vacant").nationLocked?.(nation)).toBe(true);
     expect(hooks("npc").shareSellerOf?.(nation)).toBe("npc:5:");
     expect(hooks("player").shareSellerOf?.(nation)).toBeUndefined();
+  });
+});
+
+describe("NPC 지분 팔기를 시장으로(D-587 2471 다)", () => {
+  it("원장에 시장 고리가 등록돼 있으면 맡기고, 없으면 직접 양도(false)", () => {
+    const ledger = {};
+    const nation = newFaction(2, "m", { fixed: true, tech: 1, regime: "democracy", settledAtMs: 0, traits });
+    const withLedger = withGovernanceHooks(base, {
+      ledger,
+      cityHouses: { rulingHouseOf: () => undefined },
+      keepSatisfaction: () => 50,
+    });
+    expect(withLedger.marketShareSale?.(nation, undefined, 7, 0)).toBe(false);
+    const seen: number[] = [];
+    registerNpcShareSale(ledger, (seller, _house, cityId) => {
+      seen.push(seller.id, cityId);
+      return true;
+    });
+    expect(withLedger.marketShareSale?.(nation, undefined, 7, 0)).toBe(true);
+    expect(seen).toEqual([2, 7]);
   });
 });

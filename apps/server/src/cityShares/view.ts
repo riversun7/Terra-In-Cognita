@@ -3,12 +3,16 @@
 // 사업장 지분은 ShareMarkets.view, 도시는 market.view·잔고 읽기만. 계정·시장을 새로 만들지 않는다).
 // - 도시 판(정부 건물): 그 도시 주주 전체(국고·다른 나라·가문·플레이어 — 이름·몫)와 그 나라 전체 주주, 호가창(값마다 주)·지금 닫으면 날 값·다음 회차,
 //   내 계정·내 가문(가문장)의 지분·돈·팔 수 있는 주, 내 걸린 주문, 국고 지분과 국고 팔기 안건 자격(그 나라 사람만).
+//   바뀜(줄기 share-market-2, D-587): 국고 주문과 지도자 거두기(2473 다), 보는 사람 나라의 국고 지분 사기 안건 자격(2479 나), 거래세·이용료 요율(2474 다).
+//   호가창·회차 기록에는 누가 냈는지 보이지 않는다(2480 — 기술 기본값 [임시]: 주주 명부만 이름, 걸린 주문은 내 것·내 나라 국고 것만).
 // - 거래소 판(증권 거래소 건물): 그 건물이 선 도시의 나라 — 그 나라 도시들의 정부 지분 시장 요약과 사업장 지분 시장 요약(그 도시 사업장 전부 +
 //   그 나라 다른 도시의 발행·거래 중인 사업장, 위 끝 BUSINESS_ROWS).
 import type {
   BusinessShareSummary,
   CityShareHolderView,
   CityShareMarketResponse,
+  CityShareMarketView,
+  CityShareTreasuryView,
   CityShareSummary,
   CityShareWallet,
   ShareHubResponse,
@@ -163,16 +167,41 @@ export function createCityShareView(o: {
     };
     const view = market.view(cityId, nowMs);
     const mine = market.ordersOf([actors.me, actors.house].flatMap((holder) => (holder ? [holder] : [])));
-    let treasury: { shares: string; canPropose: boolean; dictatorship: boolean } | null = null;
-    if (nation && g) {
-      const standing = await g.service.standing(userId);
-      if (standing?.nation.rowId === nation.rowId)
-        treasury = {
-          shares: String(ledger?.balanceOf(nation.ownerId, shareAsset(cityId)) ?? 0n),
-          canPropose: nation.regime === "dictatorship" ? standing.leader : g.service.mayPropose(standing),
-          dictatorship: nation.regime === "dictatorship",
-        };
+    let treasury: CityShareTreasuryView | null = null;
+    let treasuryBuy: NonNullable<CityShareMarketView["treasuryBuy"]> | null = null;
+    const standing = g ? await g.service.standing(userId) : undefined;
+    if (nation && g && standing?.nation.rowId === nation.rowId) {
+      const holder = ownerHolder(nation.ownerId);
+      treasury = {
+        shares: String(ledger?.balanceOf(nation.ownerId, shareAsset(cityId)) ?? 0n),
+        canPropose: nation.regime === "dictatorship" ? standing.leader : g.service.mayPropose(standing),
+        dictatorship: nation.regime === "dictatorship",
+        // 국고 주문(승인된 팔기·사기 — D-587 2473 다·2479 나)과 지도자 거두기
+        orders: market
+          .orders(cityId)
+          .filter((order) => order.holder === holder)
+          .map((order) => ({
+            id: order.id,
+            side: order.side,
+            price: String(order.price),
+            shares: String(order.shares),
+            as: "treasury",
+          })),
+        canWithdraw: standing.leader,
+        cash: String(market.cashBalance(holder, asset)),
+      };
     }
+    // 국고 지분 사기 안건(질문 2479 나): 보는 사람 나라 국고가 이 도시(제 나라·남의 나라) 지분을 산다
+    if (g && standing) {
+      const own = standing.nation;
+      treasuryBuy = {
+        canPropose: own.regime === "dictatorship" ? standing.leader : g.service.mayPropose(standing),
+        dictatorship: own.regime === "dictatorship",
+        cash: String(market.cashBalance(ownerHolder(own.ownerId), asset)),
+        own: nation?.rowId === own.rowId,
+      };
+    }
+    const rate = o.port.levy()?.rateOf(cityId);
     const names = nation ? await nationNames([nation.rowId]) : new Map<number, LocalizedName | null>();
     const total = ledger ? totalShares(ledger, cityId) : 0n;
     return {
@@ -213,6 +242,8 @@ export function createCityShareView(o: {
         shares: String(round.shares),
       })),
       treasury,
+      treasuryBuy,
+      levy: rate ? { taxBp: rate.taxBp, feeBp: rate.fee?.bp ?? null } : undefined,
     };
   };
 

@@ -8,6 +8,9 @@ import { houseTiesOf } from "../world/houseTies.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import { ASSET_CREDIT } from "../world/settlement.ts";
 import type { World } from "../world/world.ts";
+import type { ShareLevy } from "./levy.ts";
+import type { NpcShareNation } from "./npcTrade.ts";
+import { createWorldShareLevy } from "./levyWorld.ts";
 import type { ShareMarketView } from "@terra/shared/businessBooks";
 import type { ExchangeKind } from "@terra/shared/exchange";
 import type { LocalizedName } from "@terra/shared/roster";
@@ -47,6 +50,10 @@ export interface CitySharePort {
   houseOfUser(userId: string): number | undefined;
   /** 시설(사업장·거래소 건물) — 증권 거래소 목록 */
   facilities(): ShareFacilities | undefined;
+  /** 지분 체결 거래세·증권 거래소 이용료(D-587 질문 2474 다 — levy.ts). 세계가 준비되지 않았으면 undefined */
+  levy(): ShareLevy | undefined;
+  /** NPC가 이끄는 살아 있는 나라들(NPC 지분 사기 — npcTrade.ts, D-587 질문 2471 다). 선출된 플레이어 지도자·빈자리 나라는 빠진다 */
+  npcNations(): readonly NpcShareNation[];
 }
 
 type ShareWorld = Pick<World, "status" | "npc" | "persistence">;
@@ -83,5 +90,42 @@ export function worldCitySharePort(world: () => ShareWorld | undefined): CitySha
         shareView: (buildingId, nowMs) => facilities.shares.view(buildingId, undefined, nowMs),
       };
     },
+    levy: () => worldShareLevy(live),
+    npcNations() {
+      const l = live();
+      if (!l) return [];
+      const out: NpcShareNation[] = [];
+      for (const faction of l.npc.world.factions.values()) {
+        if (!faction.alive || faction.player || faction.cities.size === 0) continue;
+        if (l.npc.cityHouses.controlOf(faction.id) !== "npc") continue;
+        out.push({
+          ownerId: faction.id,
+          asset: l.npc.economy?.economy.currencyOf.get(faction.id) ?? ASSET_CREDIT,
+          commerce: faction.traits.commerce,
+        });
+      }
+      return out;
+    },
   };
+}
+
+type LiveShareWorld = () =>
+  | { readonly npc: NonNullable<World["npc"]>; readonly persistence: NonNullable<World["persistence"]> }
+  | undefined;
+
+/** 세계 값으로 지분 체결 세금·이용료 고리를 만든다(도시 주인 나라 거래세, 그 도시 일하는 증권 거래소와 그 요율 — levy.ts) */
+export function worldShareLevy(live: LiveShareWorld): ShareLevy | undefined {
+  const l = live();
+  const facilities = l?.persistence.facilities;
+  if (!l || !facilities) return undefined;
+  return createWorldShareLevy({
+    records: () => facilities.service.facilities.values(),
+    catalog: facilities.catalog,
+    works: (buildingId) => facilities.service.works(buildingId),
+    business: facilities.business,
+    businessRules: () => facilities.rules().business,
+    cityOwner: (cityId) => l.npc.world.cities.get(cityId)?.owner,
+    taxOf: (owner) => l.npc.economy?.economy.taxOf.get(owner),
+    balance: (account) => l.persistence.ledger.balance(account),
+  });
 }

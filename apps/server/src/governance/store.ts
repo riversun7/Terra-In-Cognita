@@ -39,6 +39,8 @@ export interface AgendaPayload {
   /** 국고 지분 팔기: 주 수·한 주 가장 낮은 값(10진 글자) */
   readonly shares?: string;
   readonly minPrice?: string;
+  /** 국고 지분 사기: 한 주 가장 높은 값(10진 글자 — D-587 질문 2479 나) */
+  readonly maxPrice?: string;
   /** 화폐 단계 전환: 목표 단계·하루 조절 만분율(질문 2453 — 줄기 governance-5) */
   readonly monetaryMode?: MonetaryMode;
   readonly monetaryRateBp?: number;
@@ -161,6 +163,7 @@ function payloadOf(value: unknown): AgendaPayload {
   const cityId = typeof value.cityId === "number" ? value.cityId : undefined;
   const shares = digits(value.shares);
   const minPrice = digits(value.minPrice);
+  const maxPrice = digits(value.maxPrice);
   const monetaryMode = MONETARY_MODES.find((entry) => entry === value.monetaryMode);
   const monetaryRateBp =
     typeof value.monetaryRateBp === "number" && Number.isSafeInteger(value.monetaryRateBp)
@@ -175,6 +178,7 @@ function payloadOf(value: unknown): AgendaPayload {
     ...(cityId !== undefined ? { cityId } : {}),
     ...(shares !== undefined ? { shares } : {}),
     ...(minPrice !== undefined ? { minPrice } : {}),
+    ...(maxPrice !== undefined ? { maxPrice } : {}),
     ...(monetaryMode ? { monetaryMode } : {}),
     ...(monetaryRateBp !== undefined ? { monetaryRateBp } : {}),
   };

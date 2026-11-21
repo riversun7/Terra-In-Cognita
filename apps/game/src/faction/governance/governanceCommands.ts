@@ -21,6 +21,8 @@ export type GovernanceRequest =
       readonly cityId?: number;
       readonly shares?: string;
       readonly minPrice?: string;
+      /** 국고 지분 사기(D-587 질문 2479 나 — shares/TreasuryShares.tsx): 1주 가장 높은 값 */
+      readonly maxPrice?: string;
     }
   | { readonly t: "gov_vote"; readonly agendaId: number; readonly choice: string }
   | { readonly t: "gov_candidate"; readonly agendaId: number }

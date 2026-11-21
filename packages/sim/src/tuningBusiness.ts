@@ -52,6 +52,37 @@ export const BUSINESS_TUNING_KEYS: readonly TuningKey[] = [
     "도시 지분 회차당 주문 수(건)",
     "City share orders per round (count)",
   ),
+  // 지분 거래 이용료·NPC 지분 사기·NPC 증권 거래소(D-587 — 서버 cityShares 줄기 share-market-2)
+  k(
+    "exchange_share_fee_bp",
+    "exchangeShareFeeBp",
+    "증권 거래소 이용료 적정 요율(만분율)",
+    "Fair stock exchange usage fee (bp)",
+  ),
+  k(
+    "exchange_share_fee_min_bp",
+    "exchangeShareFeeMinBp",
+    "증권 거래소 이용료 아래 끝(만분율)",
+    "Stock exchange usage fee floor (bp)",
+  ),
+  k(
+    "exchange_share_fee_max_bp",
+    "exchangeShareFeeMaxBp",
+    "증권 거래소 이용료 위 끝(만분율)",
+    "Stock exchange usage fee limit (bp)",
+  ),
+  k(
+    "city_share_npc_buy_budget_pm",
+    "cityShareNpcBuyBudgetPm",
+    "NPC 나라 지분 사기 예산(국고 ‰)",
+    "NPC nation share-buying budget (‰ of treasury)",
+  ),
+  k(
+    "city_share_npc_exchange_pm",
+    "cityShareNpcExchangePm",
+    "NPC 증권 거래소 짓기 상업 성향 문턱(배율 ‰)",
+    "NPC stock exchange build commerce threshold (scale ‰)",
+  ),
   k(
     "business_reserve_margin_pm",
     "reserveMarginPm",

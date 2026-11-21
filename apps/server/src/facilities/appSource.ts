@@ -1,6 +1,6 @@
 // 건물 화면 자료의 월드 쪽(app.ts → tRPC 맥락) — docs/adr/2026-11-07-buildings-runtime.md
 // 세계가 준비되고 DB가 있을 때만 자료를 준다(아니면 화면은 not_ready).
-import { exchangeFeeOf, fxFeeOf } from "../market/fxFee.ts";
+import { exchangeFeeOf, fxFeeOf, shareFeeOf } from "../market/fxFee.ts";
 import { CONDITION_FULL } from "@terra/shared/facilityRuntime";
 import { nearestFactionCity } from "@terra/shared/territory";
 import { nationLookupOf } from "../world/nationVision.ts";
@@ -105,6 +105,16 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
             facilities.catalog().facility(facilities.service.facilities.get(id)?.facilityId ?? "")
               ?.exchange === "goods"
               ? exchangeFeeOf(
+                  (building, item) => facilities.business.price(building, item),
+                  facilities.rules().business,
+                  id,
+                )
+              : undefined,
+          // 증권 거래소 이용료(D-587 질문 2474 다): 증권 거래소만
+          shareFee: (id) =>
+            facilities.catalog().facility(facilities.service.facilities.get(id)?.facilityId ?? "")
+              ?.exchange === "securities"
+              ? shareFeeOf(
                   (building, item) => facilities.business.price(building, item),
                   facilities.rules().business,
                   id,

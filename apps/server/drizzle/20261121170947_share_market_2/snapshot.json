@@ -1,0 +1,40 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "96600b4f-7a5b-4d2e-baa5-d735cd2c2d0c",
+  "prevIds": [
+    "8ccb7e3f-9488-45bf-8137-a0bfbba826db",
+    "e44a1520-def3-4dd0-85f2-a97fe6a8e2fb",
+    "90e99c42-2912-427e-b53e-b00329f24354"
+  ],
+  "footprints": [
+    {
+      "statementType": "alter_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "governance_agendas"
+      ],
+      "writes": [
+        "s|ck|public.governance_agendas.governance_agendas_kind"
+      ],
+      "reads": [
+        "n|tbl|public.governance_agendas",
+        "n|sch|public",
+        "n|col|public.governance_agendas.kind",
+        "e|col|public.governance_agendas.kind"
+      ],
+      "sqlHash": "ac03c960b88bdd97"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "alter",
+      "key": "checks\u0000[\"public\",\"governance_agendas\",\"governance_agendas_kind\"]",
+      "set": {
+        "value": "\"kind\" in ('leader_election', 'leader_removal', 'regime_change', 'war_declaration', 'tax_change', 'city_independence', 'treasury_share_sale', 'peace', 'currency_stage', 'house_independence', 'treasury_share_buy')"
+      }
+    }
+  ]
+}

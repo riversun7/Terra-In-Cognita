@@ -60,7 +60,7 @@ describe("동시호가 체결가(환전, D-125·D-411 1)", () => {
 describe("환전 시장(동시호가 + 장부 에스크로)", () => {
   const BASE = "cur:base";
   const QUOTE = "cur:qq";
-  function setup() {
+  function setup(rest?: boolean) {
     const audit = createLedgerAudit();
     const book = createLedgerBook({ nextAccountId: counter(), nextTxId: counter(), hooks: audit.hooks });
     const give = (owner: number, asset: string, amount: bigint) =>
@@ -72,9 +72,34 @@ describe("환전 시장(동시호가 + 장부 에스크로)", () => {
           { account: book.ownerAccount(owner, asset), amount },
         ],
       });
-    const fx = createFxMarket({ id: 1, base: BASE, quote: QUOTE, lotSize: 100n }, book, counter());
+    const fx = createFxMarket({ id: 1, base: BASE, quote: QUOTE, lotSize: 100n, rest }, book, counter());
     return { audit, book, give, fx };
   }
+
+  it("남는 주문(rest — 서버 사업장 지분, D-587 2472 나): 체결된 몫만 정산하고 남은 몫은 묶인 채 다음 회차에 걸린다", () => {
+    const { book, give, fx, audit } = setup(true);
+    give(1, BASE, 1_000n);
+    give(2, QUOTE, 10_000n);
+    const sell = fx.place(1, "sell", 90n, 10n, 0);
+    const buy = fx.place(2, "buy", 110n, 6n, 0);
+    if (!sell.ok || !buy.ok) throw new Error("place");
+    const first = fx.run(60_000);
+    expect(first.price).toBe(90n);
+    // 산 쪽: 6로트 × 90 = 540 냄(상한 110 차이는 돌려받음), 판 쪽: 4로트는 묶인 채 남는다
+    expect(book.balanceOf(2, QUOTE)).toBe(10_000n - 540n);
+    expect(book.balanceOf(1, QUOTE)).toBe(540n);
+    expect(book.balanceOf(1, BASE)).toBe(0n);
+    expect(fx.orders()).toEqual([{ id: sell.orderId, owner: 1, side: "sell", price: 90n, lots: 4n, seq: 1 }]);
+    expect(fx.checkEscrow()).toEqual([]);
+    // 다음 회차: 새 사기 주문이 남은 4로트와 체결된다
+    const next = fx.place(2, "buy", 95n, 3n, 60_001);
+    expect(next.ok).toBe(true);
+    fx.run(120_000);
+    expect(book.balanceOf(2, BASE)).toBe(900n);
+    expect(fx.orders().map((order) => order.lots)).toEqual([1n]);
+    expect(fx.checkEscrow()).toEqual([]);
+    expect(audit.check(book.accounts())).toEqual([]);
+  });
 
   it("회차에 모은 주문을 한 값으로 체결하고, 남은 주문은 회차가 끝나면 돌려준다", () => {
     const { book, give, fx, audit } = setup();

@@ -129,6 +129,11 @@ export interface SimHooks {
   rebellionThresholdShift?(faction: SimFaction): number;
   /** 독재 나라 지분 팔기를 그 가문 지분 계정에서 한다(질문 2439 나 — D-338·D-344). 없으면 국고에서 판다 */
   shareSellerOf?(faction: SimFaction): string | undefined;
+  /**
+   * NPC 지분 팔기를 정부 지분 시장의 팔 주문으로 낸다(기획 D-587 질문 2471 다 — 서버 cityShares/npcTrade.ts). house = shareSellerOf가 준 가문 지분 계정 꼬리(없으면
+   * 국고). true면 맡은 것이라 직접 양도하지 않는다. 시뮬은 붙이지 않는다(시장이 없다 — 직접 양도 그대로, 판정 그대로)
+   */
+  marketShareSale?(seller: SimFaction, house: string | undefined, cityId: number, nowMs: number): boolean;
 }
 
 /** 판단 실행 횟수(요약 npc 칸) */

@@ -12,6 +12,7 @@ import {
   majorityCaps,
   ownerHolder,
 } from "./market.ts";
+import type { ShareLevy } from "./levy.ts";
 
 const ROUND = 1_800_000;
 const T0 = ROUND * 1_000_000;
@@ -22,7 +23,7 @@ const BUYER = 6;
 const HOUSE = "40:";
 const CUR = "cur_aa";
 
-function setup(loaded: LoadedCityShares = EMPTY_CITY_SHARES) {
+function setup(loaded: LoadedCityShares = EMPTY_CITY_SHARES, levy?: ShareLevy) {
   let ids = 1;
   let now = T0 + 10;
   let currency: string | undefined = CUR;
@@ -46,6 +47,7 @@ function setup(loaded: LoadedCityShares = EMPTY_CITY_SHARES) {
     currencyOf: (cityId) => (cityId === CITY ? currency : undefined),
     rules: () => ({ roundMs: ROUND, orderMax: 3 }),
     now: () => now,
+    levy: () => levy,
   });
   const grant = (account: number, asset: string, amount: bigint) =>
     ledger.post({
@@ -79,6 +81,62 @@ function setup(loaded: LoadedCityShares = EMPTY_CITY_SHARES) {
 const none = () => new Map<string, bigint>();
 
 describe("도시 지분 시장(동시호가 + 남는 주문)", () => {
+  it("거래세·이용료(D-587 2474 다): 판 쪽이 받은 돈에서 거래세는 국고로, 이용료는 거래소 금고로", () => {
+    const paid: { from: number; buildingId: number; amount: bigint }[] = [];
+    const levy: ShareLevy = {
+      rateOf: (cityId) =>
+        cityId === CITY
+          ? { treasuryOwner: TREASURY, taxBp: 500, fee: { buildingId: 77, bp: 100 } }
+          : undefined,
+      pay: (input) => paid.push({ from: input.from, buildingId: input.buildingId, amount: input.amount }),
+    };
+    const { ledger, market } = setup(EMPTY_CITY_SHARES, levy);
+    market.place({
+      holder: ownerHolder(BUYER),
+      cityId: CITY,
+      side: "buy",
+      price: 20n,
+      shares: 50n,
+      atMs: T0,
+    });
+    market.place({
+      holder: ownerHolder(SELLER),
+      cityId: CITY,
+      side: "sell",
+      price: 20n,
+      shares: 50n,
+      atMs: T0,
+    });
+    // 국고 팔기는 거래세가 없다(제 국고로 내지 않는다) — 이용료만
+    market.place({
+      holder: ownerHolder(BUYER),
+      cityId: CITY,
+      side: "buy",
+      price: 20n,
+      shares: 10n,
+      atMs: T0,
+    });
+    market.place({
+      holder: ownerHolder(TREASURY),
+      cityId: CITY,
+      side: "sell",
+      price: 20n,
+      shares: 10n,
+      atMs: T0,
+    });
+    expect(market.run(T0 + ROUND, none)).toBe(1);
+    // 판 사람: 50주 × 20 = 1000, 거래세 5% = 50 → 950(이용료 1% = 10은 pay 고리가 금고로 옮긴다)
+    expect(ledger.balanceOf(SELLER, CUR)).toBe(950n);
+    // 국고: 거래세 50 + 제 10주 판 돈 200
+    expect(ledger.balanceOf(TREASURY, CUR)).toBe(250n);
+    expect(paid.map((row) => [row.buildingId, row.amount])).toEqual([
+      [77, 10n],
+      [77, 2n],
+    ]);
+    expect(paid[0]?.from).toBe(ledger.ownerAccount(SELLER, CUR));
+    expect(market.check()).toEqual([]);
+  });
+
   it("사기는 돈을 묶고, 팔기는 지분을 묶지 않는다(의결권·배당이 계정 잔고로 센다)", () => {
     const { ledger, market } = setup();
     const buy = market.place({

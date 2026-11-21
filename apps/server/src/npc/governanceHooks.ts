@@ -9,15 +9,19 @@
 // - 독재 지분 팔기(질문 2439 나 답 — D-338·D-344): shareSellerOf = NPC가 이끄는 독재 NPC 나라의 지배 가문 계정. NPC 판단의 "지분 팔기"가 그 계정에서 팔고 돈은 그
 //   가문 금고로, 과반 아래로는 팔지 않는다(@terra/sim society.sellShares). 플레이어 지배 가문은 NPC가 팔지 않는다.
 // - 반란 문턱 보정(줄기 governance-5 — D-585 신임도): rebellionThresholdShift = 의결 틱이 채운 표(governance/approval.ts).
+// - NPC 지분 팔기(줄기 share-market-2 — D-587 질문 2471 다): marketShareSale = 정부 지분 시장 팔 주문(cityShares/npcTrade.ts — 원장마다 등록표).
 import type { SimFaction, SimHooks, SimUnit } from "@terra/sim";
 import { SATISFACTION_MAX_MILLI } from "@terra/sim";
 import { rebellionShift } from "../governance/approval.ts";
+import { npcShareSaleOf } from "../cityShares/npcTrade.ts";
 import type { NpcCityHouses } from "./cityHouses.ts";
 
 /** 만족도를 읽는 시뮬 세계(유닛만) */
 type UnitsWorld = { readonly units: ReadonlyMap<number, Pick<SimUnit, "city" | "satisfactionMilli">> };
 
 export interface GovernanceHookDeps {
+  /** NPC 지분 팔기를 정부 지분 시장에 맡길 때 찾는 원장(cityShares/npcTrade.ts 등록표 — D-587 질문 2471 다). 없으면 직접 양도 */
+  readonly ledger?: object | undefined;
   readonly cityHouses: Pick<NpcCityHouses, "rulingHouseOf"> &
     Partial<Pick<NpcCityHouses, "rulingPlayerHouseOf" | "controlOf">>;
   readonly world?: UnitsWorld | undefined;
@@ -63,6 +67,12 @@ export function withGovernanceHooks(base: SimHooks, d: GovernanceHookDeps): SimH
     // 지도자 신임도가 낮으면 반란이 쉽다(줄기 governance-5 — D-585, governance/approval.ts. 칸 출발값 0 = 보정 없음)
     rebellionThresholdShift: (faction) =>
       (base.rebellionThresholdShift?.(faction) ?? 0) + rebellionShift(d.world, faction.id),
+    // NPC 지분 팔기는 정부 지분 시장 팔 주문으로(D-587 질문 2471 다 — 시장이 아직 없으면 직접 양도)
+    marketShareSale(seller, house, cityId, nowMs) {
+      if (base.marketShareSale?.(seller, house, cityId, nowMs)) return true;
+      const sale = d.ledger ? npcShareSaleOf(d.ledger) : undefined;
+      return sale ? sale(seller, house, cityId, nowMs) : false;
+    },
     shareSellerOf(faction) {
       const inner = base.shareSellerOf?.(faction);
       if (inner !== undefined) return inner;

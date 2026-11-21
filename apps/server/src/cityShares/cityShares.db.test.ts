@@ -138,6 +138,11 @@ function attach(world: World, rules: () => GovernanceRules) {
     approvedShareSale: async (sale, nowMs) => {
       await shares?.service.approvedSale(sale, nowMs);
     },
+    approvedShareBuy: async (buy, nowMs) => {
+      await shares?.service.approvedBuy(buy, nowMs);
+    },
+    shareBuyCheck: (nation, cityId, count, maxPrice) =>
+      shares ? shares.service.buyCheck(nation, cityId, count, maxPrice) : "busy",
   });
   shares = attachCityShares({
     world: () => world,
@@ -280,6 +285,55 @@ describe.skipIf(!TEST_DATABASE_URL)("도시 지분 시장(D-583)", () => {
     expect(await shares.service.cancel(head.userId, mine)).toEqual({ ok: false, code: "forbidden" });
     expect(await shares.service.cancel(buyer.userId, mine)).toEqual({ ok: true });
     expect(book.balanceOf(buyerOwner, currency)).toBe(cashBefore - 500n);
+
+    // 국고 팔 주문(남은 것 없음 — 다 팔림). 국고 지분 사기 안건(D-587 2479 나): 독재 지도자 직권, 국고 돈이 모자라면 not_enough_funds
+    book.post({
+      kind: "test_grant",
+      atMs: clock,
+      entries: [
+        { account: book.ownerAccount(faction.id, currency), amount: 1_000n },
+        { account: book.systemAccount(`issue:test:${currency}`, currency), amount: -1_000n },
+      ],
+    });
+    const treasuryCash = book.balanceOf(faction.id, currency);
+    expect(
+      await gov.service.propose(head.userId, {
+        kind: "treasury_share_buy",
+        cityId,
+        shares: String(treasuryCash / 7n + 1n),
+        maxPrice: "7",
+      }),
+    ).toEqual({ ok: false, code: "not_enough_funds" });
+    expect(
+      await gov.service.propose(head.userId, {
+        kind: "treasury_share_buy",
+        cityId,
+        shares: "50",
+        maxPrice: "7",
+      }),
+    ).toMatchObject({ ok: true, action: "decided" });
+    const treasuryBuy = market.orders(cityId).find((order) => order.holder === `o:${faction.id}`);
+    expect(treasuryBuy).toMatchObject({ side: "buy", shares: 50n, price: 7n });
+    expect(treasuryBuy?.agendaId).not.toBeNull();
+    expect(book.balanceOf(faction.id, currency)).toBe(treasuryCash - 350n);
+    // 국고 주문은 지도자만 거둔다(D-587 2473 다) — 남은 저절로 거두지 않는다
+    view = await shares.view.city(head.userId, cityId);
+    if (view.status !== "ok") throw new Error(view.status);
+    expect(view.treasury?.orders).toEqual([
+      expect.objectContaining({ side: "buy", shares: "50", as: "treasury" }),
+    ]);
+    expect(view.treasury?.canWithdraw).toBe(true);
+    expect(view.treasuryBuy).toMatchObject({ canPropose: true, own: true });
+    clock += ROUND;
+    await shares.service.tick();
+    expect(market.orders(cityId).some((order) => order.id === treasuryBuy?.id)).toBe(true);
+    expect(await shares.service.cancel(buyer.userId, treasuryBuy?.id ?? -1)).toEqual({
+      ok: false,
+      code: "forbidden",
+    });
+    expect(await shares.service.cancel(head.userId, treasuryBuy?.id ?? -1)).toEqual({ ok: true });
+    expect(book.balanceOf(faction.id, currency)).toBe(treasuryCash);
+    expect(market.check()).toEqual([]);
     expect(await world.checkInvariants()).toEqual([]);
     gov.stop();
     shares.stop();

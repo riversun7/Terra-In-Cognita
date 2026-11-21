@@ -18,6 +18,7 @@
 // 없다. SIM_VERSION 그대로).
 // 바뀜 (house-10, 기획 대조 2301 — D-555 1505·1509·D-554): 그 도시 운반 수요가 크면(기다리는 NPC 운반 일 × 상업 성향 배율 ≥ 설정 칸, 도시 휴먼 ≥ 설정 칸)
 // 목표에 물류센터 하나(npcLogistics.ts wantsCenter — 서버만, SIM_VERSION 그대로).
+// 바뀜(share-market-2, 기획 D-587 질문 2474 다): 상업 성향 배율이 설정 칸 city_share_npc_exchange_pm 이상인 나라는 목표에 증권 거래소 하나(wantsShareExchange).
 // 바뀜(fixes-1116t, 기획 대조 2348 다 — D-554 "고정 규칙 대신 성향 변수"): 하나 상한을 없앤다. 목표 수 = npcLogistics.ts centerTarget(지금 그 세력의 그 도시
 // 물류센터 수 k — 짓는 중 포함 — 에서 문턱·하한 × (k + 1)을 넘으면 k + 1).
 import type { CityCell } from "@terra/shared/goodsPlaces";
@@ -42,6 +43,7 @@ import { isBerth, isShipyard } from "../boats/rules.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { LogisticsCoefficients } from "@terra/sim";
 import { centerTarget } from "./npcLogistics.ts";
+import { traitScalePm } from "./rulingSpend.ts";
 
 /** 월드가 넘기는 짓기 입력(market/worldInput.ts — NPC 도시 경제 입력의 build 칸) */
 export interface NpcBuildWorld {
@@ -285,6 +287,8 @@ export function npcBuildRunOf(o: {
     /** 물류센터 증축 문턱(house-10 2301). 없으면 물류센터를 목표에 넣지 않는다 */
     readonly logistics?: LogisticsCoefficients | undefined;
     readonly npc?: { readonly traitMin: number; readonly traitMax: number } | undefined;
+    /** 증권 거래소 짓기 상업 성향 문턱(D-587 2474 다 — 설정 칸 city_share_npc_exchange_pm). 없으면 짓지 않는다 */
+    readonly business?: { readonly cityShareNpcExchangePm?: number | undefined } | undefined;
   };
   readonly log: ServerNpcBuilderOptions["log"];
 }): NpcBuildRun | undefined {
@@ -315,8 +319,12 @@ export function npcBuildRunOf(o: {
         berth === undefined ? undefined : coast.shipyard(),
       );
       for (const exchange of exchangeTargets(world)) targets = withCoastalDock(targets, exchange);
-      // 물류센터(2301·2348 다): 운반 수요가 크고 상업 성향이 받쳐 줄 때 — 수요가 계속 크면 둘째·셋째도
+      // 증권 거래소(D-587 질문 2474 다): 상업 성향 배율이 문턱 이상인 나라만 도시마다 하나
       const rules = o.rules();
+      const securities = shareExchangeTarget(world);
+      if (securities !== undefined && rules.npc && wantsShareExchange(faction.traits.commerce, rules))
+        targets = withCoastalDock(targets, securities);
+      // 물류센터(2301·2348 다): 운반 수요가 크고 상업 성향이 받쳐 줄 때 — 수요가 계속 크면 둘째·셋째도
       const center = logisticsTarget(world);
       // 기다리는 일이 없으면 더 지을 까닭이 없다(지금 수 그대로 — 시설 훑기를 건너뛴다)
       const waiting = econ.carry?.waitingIn(cityId) ?? 0;
@@ -351,6 +359,28 @@ function exchangeTargets(world: NpcBuildWorld): string[] {
       (def) => (def.exchange === "goods" || def.exchange === "fx") && def.build && def.footprint,
     )
     .map((def) => def.id);
+}
+
+/** NPC 증축 목표에 넣는 증권 거래소 시설(팩에 있고 지을 수 있는 첫 증권 거래소 — D-587 질문 2474 다). 없으면 undefined */
+function shareExchangeTarget(world: NpcBuildWorld): string | undefined {
+  return world.catalog().facilities.find((def) => def.exchange === "securities" && def.build && def.footprint)
+    ?.id;
+}
+
+/**
+ * 그 나라가 증권 거래소를 짓나(D-587 질문 2474 다 "NPC는 성향에 따라 증권 거래소를 짓는다"): 상업 성향 배율(500~1500‰ — rulingSpend.ts traitScalePm)이
+ * 설정 칸 city_share_npc_exchange_pm 이상 [임시]. 문턱이 없으면 짓지 않는다
+ */
+export function wantsShareExchange(
+  commerce: number,
+  rules: {
+    readonly npc?: { readonly traitMin: number; readonly traitMax: number } | undefined;
+    readonly business?: { readonly cityShareNpcExchangePm?: number | undefined } | undefined;
+  },
+): boolean {
+  const threshold = rules.business?.cityShareNpcExchangePm;
+  if (!rules.npc || threshold === undefined || !Number.isFinite(threshold)) return false;
+  return traitScalePm(commerce, rules.npc) >= threshold;
 }
 
 /** 바닷가인지 기억하는 시간(ms) — 건물이 물가를 채우면 다시 본다 */

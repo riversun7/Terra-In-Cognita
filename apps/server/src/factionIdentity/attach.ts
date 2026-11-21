@@ -199,6 +199,12 @@ export function attachHouses(options: {
     approvedShareSale: async (sale, nowMs) => {
       await sharesRef?.service.approvedSale(sale, nowMs);
     },
+    // 국고 지분 사기(D-587 질문 2479 나) → 도시 지분 시장에 국고 사기 주문
+    approvedShareBuy: async (buy, nowMs) => {
+      await sharesRef?.service.approvedBuy(buy, nowMs);
+    },
+    shareBuyCheck: (nation, cityId, count, maxPrice) =>
+      sharesRef ? sharesRef.service.buyCheck(nation, cityId, count, maxPrice) : "busy",
   });
   governanceRef = governance;
   const cityShares = attachCityShares({

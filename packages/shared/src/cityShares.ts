@@ -63,6 +63,14 @@ export interface CityShareTreasuryView {
   /** 국고 지분 팔기 안건을 올릴 수 있나(독재 = 지도자 직권, 그 밖 = 안건을 올릴 자격 — 판정은 서버 gov_propose) */
   readonly canPropose: boolean;
   readonly dictatorship: boolean;
+  /**
+   * 이 도시에 걸린 국고 주문(승인된 국고 지분 팔기·사기 — D-587 질문 2473 다·2479 나: 걸린 값에 남고 저절로 거두지 않는다). 옛 응답에는 없다
+   */
+  readonly orders?: readonly CityShareOrderView[] | undefined;
+  /** 국고 주문을 거둘 수 있나(그 나라 지도자 — 질문 2473 다). 옛 응답에는 없다 */
+  readonly canWithdraw?: boolean | undefined;
+  /** 국고가 가진 이 도시 화폐(국고 지분 사기 안건의 묶을 돈 미리 보기 — 질문 2479 나). 옛 응답에는 없다 */
+  readonly cash?: string | undefined;
 }
 
 export interface CityShareMarketView {
@@ -97,6 +105,18 @@ export interface CityShareMarketView {
   readonly rounds: readonly ShareRoundView[];
   /** 국고 지분(보는 사람이 그 나라 사람일 때 — 아니면 null) */
   readonly treasury: CityShareTreasuryView | null;
+  /**
+   * 보는 사람 나라의 국고 지분 사기 안건(질문 2479 나 — 제 나라·남의 나라 도시 모두). 보는 사람이 나라 사람이 아니면 null. 옛 응답에는 없다.
+   * canPropose = 독재 지도자 직권 또는 안건을 올릴 자격(판정은 서버 gov_propose), cash = 그 국고의 이 도시 화폐
+   */
+  readonly treasuryBuy?: {
+    readonly canPropose: boolean;
+    readonly dictatorship: boolean;
+    readonly cash: string;
+    readonly own: boolean;
+  } | null;
+  /** 체결 때 판 쪽이 내는 거래세·증권 거래소 이용료(만분율 — D-587 질문 2474 다, 이용료는 그 도시에 증권 거래소가 있을 때만). 옛 응답에는 없다 */
+  readonly levy?: { readonly taxBp: number; readonly feeBp: number | null } | undefined;
 }
 
 export type CityShareMarketResponse =

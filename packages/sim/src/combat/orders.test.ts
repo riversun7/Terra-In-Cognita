@@ -265,6 +265,58 @@ describe("파티·군단 명령(D-545·D-549)", () => {
     expect(freed.parties.find((party) => party.id === 2)?.order).toEqual({ kind: "advance", legion: true });
   });
 
+  it("군단장 분대별 명령(D-574 질문 2265 나): 정원 안 그 파티 하나만 2순위로 받고, 소유주 명령이 서 있거나 정원 밖이면 거절", () => {
+    const lock = Math.ceil(TEST_COMBAT_COEFFICIENTS.commandLockMs / TEST_COMBAT_COEFFICIENTS.tickMs);
+    const one = run(
+      legionBattle(2),
+      [{ tick: 0, kind: "legion", side: 1, party: 2, order: { kind: "hold" } }],
+      3,
+    );
+    expect(one.parties.find((party) => party.id === 1)?.order).toBeUndefined();
+    expect(one.parties.find((party) => party.id === 2)?.order).toEqual({ kind: "hold", legion: true });
+    expect(one.rejected).toBe(0);
+    // 소유주 명령이 서 있으면 거절(2순위), 소유주는 언제든 덮는다
+    const owned = run(
+      legionBattle(2),
+      [
+        { tick: 0, kind: "order", party: 2, order: { kind: "advance" } },
+        { tick: 1, kind: "legion", side: 1, party: 2, order: { kind: "hold" } },
+      ],
+      3,
+    );
+    expect(owned.rejected).toBe(1);
+    expect(owned.parties.find((party) => party.id === 2)?.order).toEqual({ kind: "advance", legion: false });
+    const over = run(
+      legionBattle(2),
+      [
+        { tick: 0, kind: "legion", side: 1, party: 2, order: { kind: "hold" } },
+        { tick: 1, kind: "order", party: 2, order: { kind: "advance" } },
+      ],
+      3,
+    );
+    expect(over.parties.find((party) => party.id === 2)?.order).toEqual({ kind: "advance", legion: false });
+    // 정원 밖(정원 1 = 파티 1만)이면 거절
+    const outside = run(
+      legionBattle(1),
+      [{ tick: 0, kind: "legion", side: 1, party: 2, order: { kind: "hold" } }],
+      3,
+    );
+    expect(outside.rejected).toBe(1);
+    expect(outside.parties.find((party) => party.id === 2)?.order).toBeUndefined();
+    // 다시 넣기 막기는 편 단위(같은 편의 군단 명령과 함께)
+    const again = run(
+      legionBattle(2),
+      [
+        { tick: 0, kind: "legion", side: 1, party: 1, order: { kind: "hold" } },
+        { tick: 1, kind: "legion", side: 1, party: 2, order: { kind: "hold" } },
+        { tick: 1 + lock, kind: "legion", side: 1, party: 2, order: { kind: "hold" } },
+      ],
+      2 + lock,
+    );
+    expect(again.rejected).toBe(1);
+    expect(again.parties.find((party) => party.id === 2)?.order).toEqual({ kind: "hold", legion: true });
+  });
+
   it("명령이 든 전투도 같은 입력이면 끝 상태가 같고, 스냅숏에서 다시 켜도 같다", () => {
     const init = legionBattle(2, 11, 12);
     const inputs: BattleInput[] = [

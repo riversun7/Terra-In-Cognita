@@ -110,6 +110,7 @@ import { cityLayoutServiceOf } from "./facilities/cityLayoutView.ts";
 import { nationName } from "./npc/nations.ts";
 import type { AppOptions } from "./appOptions.ts";
 import { createRankingRuntime, createRankingServices } from "./ranking/services.ts";
+import { rankingWorldHooks } from "./ranking/worthSource.ts";
 import { ASSET_CREDIT } from "./world/settlement.ts";
 import { beaconFacilityView } from "./territory/facility.ts";
 import { createTerritoryGateway } from "./territory/gateway.ts";
@@ -522,8 +523,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       coefficients: rankingCoefficients ?? (() => TEST_RANKING_COEFFICIENTS),
       creditAsset: ASSET_CREDIT,
       now,
-      ready: () => world.status().state === "ready",
-      durable: async () => world.persistence?.writer.durable(),
+      ...rankingWorldHooks(world, ASSET_CREDIT, now), // 준비·쓰기 대기열·전투력·자산 출처(house-9 D-576)
       log: app.log,
     });
     // 월드 부팅 복구(앞 onReady 훅) 뒤에 일정을 건다. 집계는 준비를 막지 않는다(뒤에서 돈다)

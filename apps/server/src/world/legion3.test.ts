@@ -170,7 +170,12 @@ describe("실시간 세계 전투 명령(D-571 답 1969)", () => {
       { id: 41, side: 2, party: 11 },
     ],
   };
-  function world(opts: { commander: number; rejected?: boolean }) {
+  function world(opts: {
+    commander: number;
+    rejected?: boolean;
+    uncommanded?: number[];
+    parties?: { id: number; order?: { legion: boolean } }[];
+  }) {
     const owner = new Map([
       [21, 301],
       [22, 301],
@@ -185,7 +190,10 @@ describe("실시간 세계 전투 명령(D-571 답 1969)", () => {
         probe: async (_id, input) => {
           probed.push(input);
           return {
-            state: { sides: [{ id: 1, commander: opts.commander }] },
+            state: {
+              sides: [{ id: 1, commander: opts.commander, uncommanded: opts.uncommanded ?? [] }],
+              parties: opts.parties ?? [],
+            },
             rejected: opts.rejected === true,
           };
         },
@@ -223,8 +231,8 @@ describe("실시간 세계 전투 명령(D-571 답 1969)", () => {
           mapSize: 32,
           commander: true,
           parties: [
-            { id: 1, units: [21, 22], mine: true },
-            { id: 2, units: [31], mine: false },
+            { id: 1, units: [21, 22], mine: true, squad: true, owned: false },
+            { id: 2, units: [31], mine: false, squad: true, owned: false },
           ],
           enemies: [41],
         },
@@ -290,6 +298,57 @@ describe("실시간 세계 전투 명령(D-571 답 1969)", () => {
       }),
     ).toEqual({ ok: false, code: "rejected" });
     expect(refused.added).toEqual([]);
+  });
+
+  it("군단장 분대 명령(D-574 2순위 — 질문 2265 나): 남의 분대 하나에 군단 입력(party), 지휘관이 아니면 not_commander, 판정 거절은 rejected", async () => {
+    const mine = world({ commander: 21 });
+    expect(
+      await createBattleOrders(mine.w, () => now).order("me", {
+        battle: 4,
+        party: 2,
+        legion: true,
+        order: { kind: "hold" },
+      }),
+    ).toMatchObject({ ok: true, tick: 11 });
+    expect(mine.added).toEqual([{ tick: 11, kind: "legion", side: 1, party: 2, order: { kind: "hold" } }]);
+    const notMine = world({ commander: 31 });
+    expect(
+      await createBattleOrders(notMine.w, () => now).order("me", {
+        battle: 4,
+        party: 2,
+        legion: true,
+        order: { kind: "hold" },
+      }),
+    ).toEqual({ ok: false, code: "not_commander" });
+    // 다른 편 분대는 고를 수 없다
+    expect(
+      await createBattleOrders(mine.w, () => now).order("me", {
+        battle: 4,
+        party: 11,
+        legion: true,
+        order: { kind: "hold" },
+      }),
+    ).toEqual({ ok: false, code: "not_your_party" });
+    // 소유주 명령이 서 있는 분대 = 판정 거절(2순위)
+    const owned = world({ commander: 21, rejected: true, parties: [{ id: 2, order: { legion: false } }] });
+    expect(
+      await createBattleOrders(owned.w, () => now).order("me", {
+        battle: 4,
+        party: 2,
+        legion: true,
+        order: { kind: "hold" },
+      }),
+    ).toEqual({ ok: false, code: "rejected" });
+    expect(owned.added).toEqual([]);
+    // 목록: 정원 밖 분대는 squad false, 소유주 명령이 서 있으면 owned
+    const list = await createBattleOrders(
+      world({ commander: 21, uncommanded: [2], parties: [{ id: 1, order: { legion: false } }] }).w,
+      () => now,
+    ).list("me");
+    expect(list.ok && list.battles[0]?.parties).toEqual([
+      { id: 1, units: [21, 22], mine: true, squad: true, owned: true },
+      { id: 2, units: [31], mine: false, squad: false, owned: false },
+    ]);
   });
 
   it("끝난 전투(끝 시각이 지남)는 unknown_battle", async () => {

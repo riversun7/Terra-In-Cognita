@@ -52,17 +52,24 @@ export interface BattleCommandBarProps {
   readonly onIssue: (party: number | null, order: BattleOrderDraft) => void;
   /** 군단 단추를 보이나(없으면 보인다). 실제 세계 전투에서 내가 지휘관이 아니면 끈다(서버도 not_commander로 거절) */
   readonly legion?: boolean | undefined;
+  /**
+   * 군단장 분대 명령(기획 D-574 "군단장 명령 가능하나 2순위" — 질문 2265 나): 내가 지휘관일 때 고를 수 있는 남의 분대 ID(정원 안). 탭은 내 파티 뒤에
+   * "분대 n (군단장)"으로 붙는다. owned = 소유주 명령이 서 있는 분대(탭에 표시 — 보내면 서버가 거절)
+   */
+  readonly squads?: readonly number[] | undefined;
+  readonly owned?: readonly number[] | undefined;
 }
 
 export function BattleCommandBar(props: BattleCommandBarProps) {
   const { parties, pick } = props;
+  const squads = props.squads ?? [];
   const id = useId();
   const legionOn = props.legion !== false;
   const [who, setWho] = useState<number | null>(legionOn ? null : (parties[0] ?? null));
   const [open, setOpen] = useState<"follow" | "formation" | "tactic" | null>(null);
   const [shape, setShape] = useState<ReportFormation>("line");
   const [tactic, setTactic] = useState<ReportTactic>("assault");
-  const leaders = parties.filter((party) => party !== who);
+  const leaders = [...parties, ...squads].filter((party) => party !== who);
   const [leader, setLeader] = useState<number | null>(null);
   const chosenLeader = leader !== null && leaders.includes(leader) ? leader : (leaders[0] ?? null);
   const locked = props.issued.some(
@@ -71,8 +78,14 @@ export function BattleCommandBar(props: BattleCommandBarProps) {
   const disabled = props.busy || locked;
   /** 칸 없이 내릴 수 있는 고르기(전진 = 적 쪽으로, 집결 = 그 자리에서) */
   const noCell = pick && pick.kind !== "attack" ? pick.kind : null;
-  const whoName = (party: number | null): string =>
-    party === null ? m.battle_cmd_legion() : m.battle_cmd_party({ n: parties.indexOf(party) + 1 });
+  const whoName = (party: number | null): string => {
+    if (party === null) return m.battle_cmd_legion();
+    const squad = squads.indexOf(party);
+    if (squad < 0 || parties.includes(party)) return m.battle_cmd_party({ n: parties.indexOf(party) + 1 });
+    return props.owned?.includes(party) === true
+      ? m.battle_cmd_squad_owned({ n: squad + 1 })
+      : m.battle_cmd_squad({ n: squad + 1 });
+  };
 
   const press = (kind: OrderKind): void => {
     setOpen(null);
@@ -104,29 +117,31 @@ export function BattleCommandBar(props: BattleCommandBarProps) {
       data-busy={props.busy ? "true" : "false"}
     >
       <div className="br-cmd-whos" role="group" aria-label={m.battle_cmd_who()}>
-        {[...(legionOn ? [null] : []), ...parties].map((party) => (
-          <button
-            key={party ?? "legion"}
-            type="button"
-            className="button-small br-cmd-who"
-            data-party={party ?? "legion"}
-            data-locked={
-              props.issued.some(
-                (entry) => entry.party === party && Math.abs(entry.atMs - props.timeMs) < COMMAND_LOCK_MS,
-              )
-                ? "true"
-                : "false"
-            }
-            aria-pressed={who === party}
-            onClick={() => {
-              setWho(party);
-              props.onPick(null);
-              setOpen(null);
-            }}
-          >
-            {whoName(party)}
-          </button>
-        ))}
+        {[...(legionOn ? [null] : []), ...parties, ...squads.filter((party) => !parties.includes(party))].map(
+          (party) => (
+            <button
+              key={party ?? "legion"}
+              type="button"
+              className="button-small br-cmd-who"
+              data-party={party ?? "legion"}
+              data-locked={
+                props.issued.some(
+                  (entry) => entry.party === party && Math.abs(entry.atMs - props.timeMs) < COMMAND_LOCK_MS,
+                )
+                  ? "true"
+                  : "false"
+              }
+              aria-pressed={who === party}
+              onClick={() => {
+                setWho(party);
+                props.onPick(null);
+                setOpen(null);
+              }}
+            >
+              {whoName(party)}
+            </button>
+          ),
+        )}
       </div>
       <div className="br-cmd-orders" role="group" aria-label={m.battle_cmd_orders({ who: whoName(who) })}>
         {ORDER_KINDS.map((kind) => (

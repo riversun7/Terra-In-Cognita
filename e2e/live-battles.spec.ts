@@ -3,6 +3,7 @@
 // - 플레이어(가로챈 연결): 서버의 battle_list_result를 가짜 전투 하나(내가 지휘관, 내 분대 하나, 적 둘)로 바꾸고, battle_order는 서버로 보내지
 //   않고 받은 모양을 적어 성공 답을 돌려준다 → 군단 전개 방식(측면 우회)·분대 목표 공격(적 목록에서)이 프로토콜 명령 모양으로 나가는지 본다.
 //   판정·확인(내 파티·지휘관·거절)은 서버 시험(apps/server/src/world/legion3.test.ts·battles.db.test.ts)이 본다.
+// - 바뀜(house-9, D-574 군단장 2순위 — 질문 2265 나): 정원 안 남의 분대(squad)도 "휘하 n분대" 탭으로 나오고 battle_order legion으로 나간다.
 // - 사진: 390·1440 × 파스텔·다크 × 한국어·영어(E2E_SHOTS_DIR) — 명령 줄과 적 목록이 보이는 상태.
 // 복귀 요약은 띄우지 않는다(hideSummary).
 import type { Page } from "@playwright/test";
@@ -72,6 +73,9 @@ async function fakeBattle(page: Page): Promise<unknown[]> {
                 parties: [
                   { id: 7, units: [101, 102, 103], mine: true },
                   { id: 8, units: [201], mine: false },
+                  // 군단장 분대 명령(88 — D-574 2순위): 정원 안 남의 분대, 소유주 명령이 서 있는 분대
+                  { id: 9, units: [301, 302], mine: false, squad: true, owned: false },
+                  { id: 10, units: [401], mine: false, squad: true, owned: true },
                 ],
                 enemies: [901, 902],
               },
@@ -120,11 +124,28 @@ test.describe("플레이어", () => {
     await expect(battle.locator(".lb-enemy")).toHaveCount(2);
     await battle.locator('.lb-enemy[data-unit="902"]').click();
     await expect.poll(() => orders.length).toBe(2);
+    // 군단장 분대 명령(D-574 2순위 — 질문 2265 나): 정원 안 남의 분대 탭, 소유주 명령 중 표시, legion으로 나간다
+    await expect(battle.locator(".lb-squad-hint")).toHaveText(message("ko", "live_battle_squad_hint"));
+    await expect(battle.locator('.br-cmd-who[data-party="9"]')).toHaveText(
+      message("ko", "battle_cmd_squad", { n: 1 }),
+    );
+    await expect(battle.locator('.br-cmd-who[data-party="10"]')).toHaveText(
+      message("ko", "battle_cmd_squad_owned", { n: 2 }),
+    );
+    await battle.locator('.br-cmd-who[data-party="9"]').click();
+    await battle.locator('.br-cmd-order[data-kind="hold"]').click();
+    await expect.poll(() => orders.length).toBe(3);
     expect(
-      orders.map((entry) => [field(entry, "battle"), field(entry, "party"), field(entry, "order")]),
+      orders.map((entry) => [
+        field(entry, "battle"),
+        field(entry, "party"),
+        field(entry, "order"),
+        field(entry, "legion"),
+      ]),
     ).toEqual([
-      [5, null, { kind: "tactic", tactic: "flank" }],
-      [5, 7, { kind: "attack", target: 902 }],
+      [5, null, { kind: "tactic", tactic: "flank" }, undefined],
+      [5, 7, { kind: "attack", target: 902 }, undefined],
+      [5, 9, { kind: "hold" }, true],
     ]);
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(await smallTapTargets(page)).toEqual([]);

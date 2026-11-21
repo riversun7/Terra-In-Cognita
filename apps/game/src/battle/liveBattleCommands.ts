@@ -102,14 +102,27 @@ export function requestLiveBattles(link: ServerLink = serverLink): Promise<LiveL
   );
 }
 
-/** 파티(party = 파티 ID)·군단(party = null) 명령 하나 */
+/** 파티(party = 파티 ID)·군단(party = null)·군단장 분대(party + legion) 명령 하나 */
 export function sendLiveOrder(
-  input: { readonly battle: number; readonly party: number | null; readonly order: BattleOrder },
+  input: {
+    readonly battle: number;
+    readonly party: number | null;
+    readonly order: BattleOrder;
+    /** 군단장 분대 명령(party = 정원 안 남의 분대, 2순위 — 기획 D-574, 프로토콜 88) */
+    readonly legion?: boolean | undefined;
+  },
   link: ServerLink = serverLink,
 ): Promise<LiveOrderOutcome> {
   return request<LiveOrderOutcome>(
     link,
-    (id) => ({ t: "battle_order", id, battle: input.battle, party: input.party, order: input.order }),
+    (id) => ({
+      t: "battle_order",
+      id,
+      battle: input.battle,
+      party: input.party,
+      order: input.order,
+      ...(input.legion === true ? { legion: true } : {}),
+    }),
     (message, id) => {
       if (message.t !== "battle_order_result" || message.id !== id) return undefined;
       return message.ok

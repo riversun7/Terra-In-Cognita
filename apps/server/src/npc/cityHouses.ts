@@ -53,6 +53,10 @@ export interface NpcCityHouses {
   housesOfCity(cityId: number): readonly number[];
   /** 그 나라(소유 주체 ID)의 지배 가문(수도에서 가장 먼저 세운 가문, 질문 2012 답 — leader = 국가 지도자가 있나). 없으면 undefined */
   rulingHouseOf(owner: number): NpcUnitHouse | undefined;
+  /** 그 가문의 가문장 유닛(위 머리 주석 규칙 — 지배 가문은 국가 지도자). 없으면 undefined (house-9, NPC 가문장 금고 꺼내기) */
+  headOf(houseId: number): number | undefined;
+  /** 그 가문의 가문원 유닛(유닛 ID 차례 — 국가 지도자는 가문원 줄이 없어 들지 않는다) */
+  membersOf(houseId: number): readonly number[];
   /** 가문 세우기·가문 없는 NPC 휴먼 넣기·모자란 가문 나누기·죽은 휴먼 빼기(바뀐 줄만 쓰기 대기열에) */
   sync(nowMs: number): {
     readonly created: number;
@@ -248,6 +252,11 @@ export function createNpcCityHouses(o: {
       return house ? view(house, unitId) : undefined;
     },
     housesOfCity: (cityId) => byCity.get(cityId) ?? [],
+    headOf(houseId) {
+      const house = houses.get(houseId);
+      return house ? headOf(house) : undefined;
+    },
+    membersOf: (houseId) => [...(roster.get(houseId) ?? [])].toSorted((a, b) => a - b),
     rulingHouseOf(owner) {
       const capital = o.capitalOf?.(owner);
       const id = capital === undefined ? undefined : rulingOfCity(capital);

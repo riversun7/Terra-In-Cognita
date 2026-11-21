@@ -3,7 +3,8 @@
 // docs/adr/2026-10-31-combat-core.md "바뀜 (D-571)".
 // - battle_list: 내 유닛이 낀 진행 중인 세계 전투 목록(명령 줄을 그릴 자료 — 내 편 파티·내가 지휘관인지·적 유닛). 조회지만 전투가 실시간이라
 //   같은 연결로 받는다.
-// - battle_order: 파티 명령(party = 파티 ID) 또는 군단 명령(party = null — 지휘관 정원 안 파티만 받는다, 1463). 서버가 확인한다: 진행 중인
+// - battle_order: 파티 명령(party = 파티 ID) 또는 군단 명령(party = null — 지휘관 정원 안 파티만 받는다, 1463). 바뀜(88): legion = true + party면
+//   군단장 분대 명령(정원 안 분대 하나, 2순위 — 기획 D-574, 질문 2265 나). 서버가 확인한다: 진행 중인
 //   전투, 그 파티가 모두 내 유닛, 군단 명령이면 지금 내 유닛이 지휘관. 명령은 다음 틱 경계(tick)에 들어간다(판정 결정성 — 저장된 시작 자료 +
 //   입력으로 다시 계산한다). 판정이 거절한 명령(다시 넣기 막기·없는 목표·칸 밖)은 rejected로 바로 알린다(질문 1974 C).
 // 이 꾸러미는 다른 내부 꾸러미를 가져오지 않는다: 대형·전개 방식 목록은 판정(@terra/sim FORMATION_SHAPES·TACTICS)과 같아야 한다(서버 시험이
@@ -12,6 +13,8 @@ import { z } from "zod";
 
 /** 세계 전투 명령에 필요한 가장 낮은 프로토콜 버전. 더 낮게 인사한 연결이 보내면 invalid_message로 거절한다 */
 export const BATTLE_ORDER_PROTOCOL_VERSION = 49;
+/** 군단장 분대 명령(battle_order legion·파티 squad·owned 칸)이 든 프로토콜 버전. 낮은 기기는 보내지 않는다(서버는 받으면 그대로 처리) */
+export const BATTLE_SQUAD_PROTOCOL_VERSION = 88;
 /** 대형(판정 FORMATION_SHAPES와 같은 차례 — custom = 손으로 짠 진형, D-172) */
 export const BATTLE_FORMATIONS = ["line", "column", "wedge", "block", "custom"] as const;
 /** AI 전개 방식 8가지(판정 TACTICS와 같은 차례, D-558 2차) */
@@ -62,6 +65,11 @@ export const battleOrderMessage = z.object({
   battle: rowId,
   party: rowId.nullable(),
   order: battleOrderSchema,
+  /**
+   * 군단장 분대 명령(프로토콜 88, 기획 D-574 "군단장 명령 가능하나 2순위" — 질문 2265 나): true면 party(정원 안 남의 분대도 됨)에 군단 명령(2순위)을
+   * 넣는다. 지금 내 유닛이 지휘관이어야 하고(not_commander), 그 분대에 소유주 명령이 서 있거나 정원 밖이면 rejected. 없으면 옛 뜻
+   */
+  legion: z.boolean().optional(),
 });
 
 // ---------- 서버 → 기기 ----------
@@ -93,6 +101,10 @@ const battlePartyView = z.object({
   units: z.array(rowId).max(64),
   /** 모두 내 유닛인가(파티 명령을 넣을 수 있다) */
   mine: z.boolean(),
+  /** (88) 내가 지휘관이고 이 분대가 지휘 정원 안이다 — 군단장 분대 명령(2순위)을 넣을 수 있다. 없으면 false */
+  squad: z.boolean().optional(),
+  /** (88) 소유주 파티 명령이 서 있다(군단장 명령은 거절된다). 없으면 false */
+  owned: z.boolean().optional(),
 });
 
 const battleView = z.object({

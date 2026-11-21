@@ -5,6 +5,8 @@
 // - 세력 판은 집계 때의 규모(감쇠 없음). 명성 칸 = 정원사 2가 쌓은 세력 명성(점수에 더하지 않음, 질문 427 가).
 // - 쓰기는 한 트랜잭션: 두 판을 통째로 바꾸고 상태 줄을 앞 값과 맞을 때만 고친다(두 번 세지 않는다).
 // - NPC 도시 가문원 유닛 점수(ranking_unit_scores, unitScores.ts — 가문 판의 NPC 가문 점수 = 가문원 실제 점수의 합)도 같은 트랜잭션에서 바꾼다.
+// - 바뀜(house-9, D-576 "전투력, 자산, 등"): 전투력·자산(worth.ts)을 집계 때 한 번 읽어 소유 주체·가문원 재고 지표에 싣고, 값 표(ranking_worth —
+//   판 줄의 전투력·자산 칸)를 같은 트랜잭션에서 바꾼다.
 import type { RankingPathInfo } from "@terra/shared/ranking";
 import {
   type RankingCoefficients,
@@ -33,6 +35,7 @@ import {
   readUnitFlows,
   writeUnitScores,
 } from "./unitScores.ts";
+import { type WorthSource, type WorthValues, readWorth, writeWorth } from "./worth.ts";
 
 /** 집계 주기 하한(설정 칸 범위와 같다) */
 export const MIN_PERIOD_MS = 60_000;
@@ -184,6 +187,18 @@ export interface SnapshotReport {
   readonly factionRows: number;
   /** NPC 가문원 유닛 점수 줄 수 */
   readonly unitRows: number;
+  /** 전투력·자산 값 표 줄 수(house-9) */
+  readonly worthRows: number;
+}
+
+/** 전투력·자산을 재고 지표에 싣는다(없는 주체는 새 줄) */
+function addWorth(stocks: Map<number, OwnerStocks>, values: WorthValues["owners"]): void {
+  for (const [id, value] of values) {
+    const stock = stocks.get(id) ?? { cities: 0, developmentSum: 0, facilityLevelPpm: 0n };
+    stock.combatPower = value.power;
+    stock.assets = value.assets;
+    stocks.set(id, stock);
+  }
 }
 
 /**
@@ -197,6 +212,8 @@ export async function runSnapshot(
     readonly coefficients: RankingCoefficients;
     readonly creditAsset: string;
     readonly nowMs: number;
+    /** 전투력·자산 셈 출처(house-9 — worthSource.ts). 없으면 두 지표 0 */
+    readonly worth?: (() => WorthSource | undefined) | undefined;
   },
 ): Promise<SnapshotReport | null> {
   const c = options.coefficients;
@@ -220,6 +237,10 @@ export async function runSnapshot(
     await readMemberCities(pool, members),
     unitFlows,
   );
+  // 전투력·자산(D-576) — 소유 주체·가문원 재고 지표에 싣는다
+  const worth = await readWorth(pool, options.worth?.(), members);
+  addWorth(stocks, worth.owners);
+  addWorth(unitStocks, worth.units);
   const unitRows = computeUnitScores({
     paths: options.paths,
     prev: prevUnits,
@@ -238,6 +259,7 @@ export async function runSnapshot(
     coefficients: c,
     periods: window.periods,
   });
+  let worthRows = 0;
   const client = await pool.connect();
   try {
     await client.query("begin");
@@ -279,6 +301,7 @@ export async function runSnapshot(
         ],
       );
     await writeUnitScores(client, unitRows);
+    worthRows = await writeWorth(client, worth);
     await client.query(
       `insert into ranking_state (id, period_from_ms, period_to_ms, computed_at_ms) values (1, $1, $2, $3)
        on conflict (id) do update set period_from_ms = excluded.period_from_ms, period_to_ms = excluded.period_to_ms,
@@ -297,5 +320,6 @@ export async function runSnapshot(
     pathRows: next.paths.length,
     factionRows: next.factions.length,
     unitRows: unitRows.length,
+    worthRows,
   };
 }

@@ -147,6 +147,28 @@ export const HOUSE_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 지배 가문 금고 → 국고 몫 최대(‰, 상업 성향 낮음)",
     "NPC ruling house vault to treasury max (‰, low commerce)",
   ),
+  // NPC 지배 가문장 꺼내기·쓰기(D-576 꺼내기를 NPC에도 — D-555 1509·D-212, 쓰는 몫은 D-554 성향) — 49에 칸이 없다
+  k(
+    "house_npc_vault_take_pm",
+    "",
+    "house.npcVaultTakePm",
+    "NPC 지배 가문장 금고 꺼내기 몫(‰)",
+    "NPC ruling house head vault withdrawal (‰)",
+  ),
+  k(
+    "house_npc_spend_dividend_pm",
+    "",
+    "house.npcSpendDividendPm",
+    "NPC 가문장 꺼낸 돈 → 가문원 배당 몫(‰)",
+    "NPC house head withdrawal to member dividend (‰)",
+  ),
+  k(
+    "house_npc_spend_invest_pm",
+    "",
+    "house.npcSpendInvestPm",
+    "NPC 가문장 꺼낸 돈 → 도시 건설 투자 몫(‰)",
+    "NPC house head withdrawal to city building (‰)",
+  ),
   // NPC 도시의 가문 수(D-573 — 도시 등급마다)
   ...CITY_GRADES.map(([ko, en], index) =>
     k(

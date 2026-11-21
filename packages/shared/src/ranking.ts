@@ -18,6 +18,8 @@ export type RankingArea = (typeof RANKING_AREAS)[number];
  * - cities_held: 가진 도시(도시마다 1 + 발전도 ÷ 100) — 집계마다 "유지 일수"만큼 쌓인다(로그, D-042 ④). 재고
  * - production: 산출 원장 항목의 양 합(로그). 흐름
  * - facilities: 지은 시설의 레벨 × 상태(로그) — 가동·내구 유지. 재고
+ * - combat_power: 가진 유닛들의 전투력 합(버프·부상을 뺀 기본 몸 + 입은 장비 — D-7022, 로그). 재고 (house-9, D-576 "전투력, 자산, 등")
+ * - assets: 자산(지갑 화폐 → 기준 통화, 보유 물건 → 시세, 사업장 금고 → 지분만큼 — D-555 1512, 로그). 재고 (house-9, D-576)
  */
 export const RANKING_MEASURES = [
   "war_wins",
@@ -25,6 +27,8 @@ export const RANKING_MEASURES = [
   "cities_held",
   "production",
   "facilities",
+  "combat_power",
+  "assets",
 ] as const;
 export type RankingMeasure = (typeof RANKING_MEASURES)[number];
 
@@ -119,8 +123,18 @@ export interface RankingRow {
   readonly members?: number | undefined;
   /** 가문 판에만: NPC 도시 가문(질문 2014 답 — D-569·D-212 NPC 가문도 같은 판)이면 true */
   readonly npc?: true | undefined;
+  /**
+   * 경로·가문 판: 마지막 집계 때의 전투력·자산(house-9, D-576 — 정수 글자, 자산은 기준 통화 최소 단위). 가문 줄은 가문원 합. 집계에 값이 없으면 없다
+   */
+  readonly worth?: RankingWorth | undefined;
   /** 시안 자료(dev·admin이 켰을 때)면 true */
   readonly preview?: boolean | undefined;
+}
+
+/** 전투력(버프를 뺀 기본 수치 합 — D-7022)·자산(기준 통화 최소 단위). BigInt를 글자로 보낸다 */
+export interface RankingWorth {
+  readonly power: string;
+  readonly assets: string;
 }
 
 /** 등급 문턱마다 그 등급에 드는 가장 낮은 점수(참가자가 없으면 null) */

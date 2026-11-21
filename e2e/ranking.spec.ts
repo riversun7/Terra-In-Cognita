@@ -1,6 +1,6 @@
 // 랭킹 화면 시험 — /cyborg/ranking·/faction/ranking(docs/adr/2026-11-07-ranking.md, D-040·D-041·D-392·D-6010).
 // - 플레이어(실제 자료): 서버가 켜질 때 센 첫 집계(바로 앞 하루 + 지금 재고). 세력 화면 옆 판의 세력 순위 칸 → 세력 순위표(내 세력 줄),
-//   판 고르기로 정복자(NPC 세력이 도시를 가져 판에 있다)·안 연 경로(곧 열림)로 옮긴다. 사이보그 화면 랭킹 칸 → 모든 경로 순위.
+//   판 고르기로 정복자(NPC 세력이 도시를 가져 판에 있다)·전투력(house-9 — 줄마다 전투력·자산 칸)·안 연 경로(곧 열림)로 옮긴다. 사이보그 화면 랭킹 칸 → 모든 경로 순위.
 // - dev + 시안 자료: 50줄 + 내 줄(63위, 위 50줄 밖이라 끝에 한 줄 더), 세력 판 16줄·세력 명성(위 12개만, 나머지 "아직 없음").
 // - 긴 이름·큰 수는 ranking.board 응답을 고쳐 넣는다(helpers/trpc.ts rewriteTrpc).
 // - 사진: 390·1440 × 파스텔·다크(경로 판·세력 판, 390은 한국어·1440은 영어) + 세력 화면 옆 판(E2E_SHOTS_DIR).
@@ -56,6 +56,7 @@ const worstCase = (data: unknown): void => {
       Reflect.set(row, "score", 98_765_432_109);
       Reflect.set(row, "rank", 123_456_789);
       Reflect.set(row, "prevRank", 1);
+      Reflect.set(row, "worth", { power: "987654321098765", assets: "123456789012345678901" });
     }
   }
 };
@@ -106,6 +107,23 @@ test.describe("플레이어(실제 자료)", () => {
     ).toBeVisible();
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(await smallTapTargets(page)).toEqual([]);
+
+    // 전투력 판(house-9, D-576): NPC 나라가 유닛(휴먼)을 가져 판에 있고, 줄마다 전투력·자산 칸
+    await screen.locator(".ranking-picker select").selectOption("path:strongest");
+    await expect(page).toHaveURL(/path=strongest$/);
+    await rankingReady(page);
+    await expect(screen.locator(".ranking-measures")).toContainText(
+      message("ko", "ranking_measure_combat_power"),
+    );
+    const first = screen.locator(".ranking-row").first();
+    await expect(first).toBeVisible();
+    await expect(first.locator(".ranking-meta")).toContainText(
+      message("ko", "ranking_worth_power", { power: "" }).trim(),
+    );
+    await expect(first.locator(".ranking-meta")).toContainText(
+      message("ko", "ranking_worth_assets", { assets: "" }).trim(),
+    );
+    expect(await horizontalOverflow(page)).toEqual([]);
 
     // 안 연 경로(무역상): 곧 열림(D-392)
     await screen.locator(".ranking-picker select").selectOption("path:trader");

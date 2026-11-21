@@ -3,6 +3,8 @@
 // - 세계 전투는 서버가 빨리감기로 계산하고 끝 시각에 결과를 적용한다. 명령은 다음 판정 틱에 들어가고 그 뒤를 다시 계산한다(서버 권위·결정성).
 //   실시간 전장 그림이 아직 없어 칸 고르기 대신 "적 쪽으로·그 자리에서", 목표 공격은 적 유닛 목록에서 고른다 [임시](질문 2111).
 // - 군단 단추는 지금 내가 그 편 지휘관일 때만(서버도 not_commander로 막는다). 파티 탭은 모두 내 유닛인 파티만.
+// - 바뀜(house-9, 기획 D-574 "군단장 명령 가능하나 2순위" — 질문 2265 나): 내가 지휘관이면 정원 안 남의 분대도 "분대 n (군단장)" 탭으로 고르고
+//   군단장 분대 명령(battle_order legion)으로 보낸다. 소유주 명령이 서 있는 분대는 탭에 "주인 명령 중"을 붙인다(보내면 서버가 rejected).
 // 시험용: .lb-panel, .lb-battle[data-battle], .lb-empty, .lb-status, .lb-enemy, .lb-refresh.
 import type { BattleView } from "@terra/protocol";
 import { useCallback, useEffect, useId, useState } from "react";
@@ -126,22 +128,31 @@ function LiveBattle({ battle }: { battle: BattleView }) {
   const timeMs = Math.max(0, nowMs - battle.startedAtMs);
   const leftSec = Math.max(0, Math.ceil((endsAtMs - nowMs) / 1000));
   const parties = battle.parties.filter((party) => party.mine).map((party) => party.id);
+  // 군단장 분대 명령(기획 D-574 2순위 — 질문 2265 나): 내가 지휘관이면 정원 안 남의 분대도 고른다
+  const squads = battle.commander
+    ? battle.parties.filter((party) => !party.mine && party.squad === true).map((party) => party.id)
+    : [];
+  const owned = battle.parties.filter((party) => party.owned === true).map((party) => party.id);
 
   const issue = (party: number | null, draft: BattleOrderDraft): void => {
     setPick(null);
     setBusy(true);
     setStatus(null);
     const atMs = Math.max(0, serverNow() - battle.startedAtMs);
-    void sendLiveOrder({ battle: battle.battle, party, order: liveOrderOf(draft, battle.mapSize) }).then(
-      (outcome) => {
-        setBusy(false);
-        if (outcome.ok) {
-          setIssued((list) => [...list.slice(-9), { party, atMs }]);
-          setStatus(m.live_battle_sent({ tick: formatNumber(outcome.tick) }));
-          setEndsAtMs(outcome.endsAtMs);
-        } else setStatus(liveFailureText(outcome.code));
-      },
-    );
+    const legion = party !== null && squads.includes(party);
+    void sendLiveOrder({
+      battle: battle.battle,
+      party,
+      order: liveOrderOf(draft, battle.mapSize),
+      ...(legion ? { legion: true } : {}),
+    }).then((outcome) => {
+      setBusy(false);
+      if (outcome.ok) {
+        setIssued((list) => [...list.slice(-9), { party, atMs }]);
+        setStatus(m.live_battle_sent({ tick: formatNumber(outcome.tick) }));
+        setEndsAtMs(outcome.endsAtMs);
+      } else setStatus(liveFailureText(outcome.code));
+    });
   };
 
   return (
@@ -166,10 +177,13 @@ function LiveBattle({ battle }: { battle: BattleView }) {
           issued={issued}
           busy={busy}
           legion={battle.commander}
+          squads={squads}
+          owned={owned}
           onPick={setPick}
           onIssue={issue}
         />
       )}
+      {squads.length > 0 ? <p className="field-hint lb-squad-hint">{m.live_battle_squad_hint()}</p> : null}
       {pick?.kind === "attack" ? (
         <div className="lb-enemies" role="group" aria-label={m.live_battle_targets()}>
           {battle.enemies.map((unit, index) => (

@@ -2,11 +2,13 @@
 // 안에서 연다(D-6010). 지연 로딩 조각이다(default export, shell/routeViews.tsx). docs/adr/2026-11-07-ranking.md.
 // - 자료: ranking.board 하나(판마다 다시 받는다 — 판 주소가 바뀌면 key로 새로 그린다). 셈은 서버 집계(하루 한 번 [임시]).
 // - 배치(모바일 우선): 판 고르기 → 재는 것 → 내 자리 → 등급 문턱 → 순위(위 50줄, 내 줄이 밖이면 끝에 한 줄 더) → 집계 안내.
+// - 바뀜(house-9, D-576): 줄마다 전투력·자산(마지막 집계 값, 가문 줄은 가문원 합)을 덧붙임 글로 보인다.
 // - 안 연 경로는 "곧 열림"(D-392). 시간제 버프는 빼고 센다는 안내(D-7022). 세력 명성은 정원사 2 값, 유저 명성은 칸만(값 없음 — 확인 대기).
 import type { RouteMatch } from "@terra/shared";
 import type { RankingBoardRequest, RankingBoardResponse, RankingRow } from "@terra/shared/ranking";
 import { useId, useState } from "react";
 import { formatCount } from "../home/numbers.ts";
+import { formatAmount } from "../roster/rosterText.ts";
 import { m } from "../paraglide/messages.js";
 import { BackButton } from "../shell/BackButton.tsx";
 import { navigate } from "../shell/routerStore.ts";
@@ -138,6 +140,15 @@ function houseTexts(row: RankingRow): string[] {
   return texts;
 }
 
+/** 전투력·자산 칸(house-9, D-576 — 마지막 집계 값, 가문 줄은 가문원 합. 버프 뺀 기본 수치 D-7022) */
+function worthTexts(row: RankingRow): string[] {
+  if (row.worth === undefined) return [];
+  return [
+    m.ranking_worth_power({ power: formatAmount(row.worth.power) }),
+    m.ranking_worth_assets({ assets: formatAmount(row.worth.assets) }),
+  ];
+}
+
 /** 내 자리 칸 제목·빈 글(판 종류마다) */
 const ME_TEXT = {
   faction: { title: m.ranking_me_faction_title, none: m.ranking_me_no_faction },
@@ -223,7 +234,7 @@ function Row({ row }: { row: RankingRow }) {
           {row.me ? <StateChip tone="good" label={m.ranking_me_tag()} /> : null}
           {row.kind === "user" ? null : <StateChip tone="plain" label={KIND_NAMES[row.kind]()} />}
           {row.faction === null ? null : <span translate="no">{nameText(row.faction)}</span>}
-          {[...factionSizeTexts(row), ...houseTexts(row)].map((text) => (
+          {[...factionSizeTexts(row), ...houseTexts(row), ...worthTexts(row)].map((text) => (
             <span key={text}>{text}</span>
           ))}
           {row.preview === true ? <PreviewTag /> : null}

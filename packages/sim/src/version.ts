@@ -265,8 +265,11 @@
  *      sim 시험이 그대로 통과한다)
  *    - (줄기 logistics의 80) 사업장 계수표에 물류센터 운반 대행 요금 단위 칸 둘(haulUnitG·haulUnitCells — 기획 D-576·질문 2213 요금 단위 나, 서버
  *      logistics/haulService.ts만 읽는다). 시뮬 판정·출력은 그대로다(시뮬은 운반 대행을 돌리지 않는다)
+ * 98: (줄기 house-9 판 — 합칠 때 묶음 판으로 다시 붙인다) 군단장의 분대별 명령(기획 D-574 "군단소속이면 군단장 명령 가능하나 2순위", 질문 2265 나,
+ *    docs/adr/2026-10-31-combat-core.md "바뀜 (house-9)"): 군단 입력(kind "legion")에 선택 칸 party가 있으면 정원 안 그 파티 하나에만 군단 명령을
+ *    준다(combat/orders.ts applyOrderInput — 소유주 명령이 서 있거나 정원 밖이면 거절). party 없는 입력·명령 없는 전투는 그대로다
  */
-export const SIM_VERSION = 62;
+export const SIM_VERSION = 98;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

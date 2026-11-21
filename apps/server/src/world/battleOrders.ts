@@ -4,7 +4,8 @@
 // - 서버 권위: 세계 전투는 빨리감기로 끝까지 계산하고 끝 시각에 결과를 적용한다(battles.ts). 명령은 "다음 틱 경계"(지금 진행 틱 + 1)에 입력으로
 //   더하고 그 틱 이하 가장 가까운 스냅숏부터 다시 계산한다(addInput) — 저장된 시작 자료 + 입력으로 늘 같은 결과(결정성).
 // - 확인: 진행 중인 전투, 내 유닛이 낀 전투(유닛 주인 소유 주체의 user_id), 파티 명령 = 그 파티의 세계 유닛이 모두 내 것, 군단 명령 = 그
-//   틱을 돈 뒤 그 편 지휘관(승계 포함)이 내 유닛. 판정이 거절하는 명령(다시 넣기 막기·없는 목표 등)은 넣지 않고 rejected(probe — 저장 없이
+//   틱을 돈 뒤 그 편 지휘관(승계 포함)이 내 유닛. 바뀜(house-9, 기획 D-574 "군단장 명령 가능하나 2순위" — 질문 2265 나): 군단장 분대 명령(legion +
+//   party) = 그 편 분대 하나(남의 분대도)에 군단 입력(party) — 지휘관 확인은 군단 명령과 같고, 정원 밖·소유주 명령이 서 있으면 판정이 거절한다. 판정이 거절하는 명령(다시 넣기 막기·없는 목표 등)은 넣지 않고 rejected(probe — 저장 없이
 //   그 틱 한 번만 돌려 본다).
 // - 같은 전투의 명령은 서버 전체에서 하나씩(스냅숏을 다시 쓰는 계산이 겹치지 않게). 연결마다 받은 순서대로, 사용자별 속도 제한(순간 10·분당
 //   60 — 다시 넣기 막기 1초보다 넉넉히).
@@ -38,7 +39,23 @@ export interface BattleOrderBattles {
     input: BattleInput,
   ): Promise<
     | {
-        readonly state: { readonly sides: readonly { readonly id: number; readonly commander: number }[] };
+        readonly state: {
+          readonly sides: readonly {
+            readonly id: number;
+            readonly commander: number;
+            /** 지휘 정원 밖 파티(D-179·D-331) — 군단장 분대 명령 대상을 고른다 */
+            readonly uncommanded?: readonly number[] | undefined;
+          }[];
+          /** 파티 명령(legion = false면 소유주 명령 — 군단장 명령은 거절된다) */
+          readonly parties?:
+            | readonly {
+                readonly id: number;
+                readonly retreated?: boolean | undefined;
+                readonly retreating?: boolean | undefined;
+                readonly order?: { readonly legion: boolean } | undefined;
+              }[]
+            | undefined;
+        };
         readonly rejected: boolean;
       }
     | undefined
@@ -142,7 +159,10 @@ export function createBattleOrders(world: BattleOrderWorld, now: () => number) {
           unit: 0,
           command: { kind: "retreat" },
         });
-        const commanderId = probe?.state.sides.find((entry) => entry.id === side)?.commander ?? 0;
+        const sideState = probe?.state.sides.find((entry) => entry.id === side);
+        const commanderId = sideState?.commander ?? 0;
+        const commander = commanderId > 0 && mine.has(commanderId);
+        const partyState = (id: number) => probe?.state.parties?.find((entry) => entry.id === id);
         views.push({
           battle: battle.id,
           kind: battle.kind,
@@ -150,16 +170,23 @@ export function createBattleOrders(world: BattleOrderWorld, now: () => number) {
           endsAtMs: battle.endsAtMs,
           side,
           mapSize: Math.max(1, battle.mapSize),
-          commander: commanderId > 0 && mine.has(commanderId),
+          commander,
           parties: battle.parties
             .filter((party) => party.side === side)
             .map((party) => party.id)
             .toSorted((a, b) => a - b)
-            .map((id) => ({
-              id,
-              units: battle.units.filter((unit) => unit.party === id).map((unit) => unit.id),
-              mine: partyMine(battle, id, userId),
-            })),
+            .map((id) => {
+              const state = partyState(id);
+              const gone = state?.retreated === true || state?.retreating === true;
+              return {
+                id,
+                units: battle.units.filter((unit) => unit.party === id).map((unit) => unit.id),
+                mine: partyMine(battle, id, userId),
+                // 군단장 분대 명령(D-574 2순위 — 질문 2265 나): 내가 지휘관이고 정원 안·퇴각하지 않은 분대
+                squad: commander && !gone && !(sideState?.uncommanded ?? []).includes(id),
+                owned: state?.order?.legion === false,
+              };
+            }),
           enemies: battle.units.filter((unit) => unit.side !== side).map((unit) => unit.id),
         });
       }
@@ -169,7 +196,13 @@ export function createBattleOrders(world: BattleOrderWorld, now: () => number) {
     /** 명령 하나(다음 틱 경계에 넣는다) */
     order(
       userId: string,
-      input: { readonly battle: number; readonly party: number | null; readonly order: BattleOrder },
+      input: {
+        readonly battle: number;
+        readonly party: number | null;
+        readonly order: BattleOrder;
+        /** 군단장 분대 명령(party = 정원 안 분대 하나, 2순위 — 기획 D-574, 질문 2265 나) */
+        readonly legion?: boolean | undefined;
+      },
     ): Promise<BattleOrderOutcome> {
       return serial(input.battle, async () => {
         if (!world.hasCyborg(userId)) return fail("no_cyborg");
@@ -181,8 +214,14 @@ export function createBattleOrders(world: BattleOrderWorld, now: () => number) {
         const tick = Math.max(0, Math.floor((nowMs - battle.startedAtMs) / tickMs)) + 1;
         const order = orderInputOf(input.order);
         let next: BattleInput;
+        // 군단 명령(전체) 또는 군단장 분대 명령(그 편 분대 하나 — 남의 분대도 된다, 판정이 정원·소유주 명령을 본다)
+        const asCommander = input.party === null || input.legion === true;
         if (input.party === null) next = { tick, kind: "legion", side, order };
-        else {
+        else if (input.legion === true) {
+          const party = battle.parties.find((entry) => entry.id === input.party);
+          if (!party || party.side !== side) return fail("not_your_party");
+          next = { tick, kind: "legion", side, party: party.id, order };
+        } else {
           const party = battle.parties.find((entry) => entry.id === input.party);
           if (!party || party.side !== side || !partyMine(battle, party.id, userId))
             return fail("not_your_party");
@@ -190,7 +229,7 @@ export function createBattleOrders(world: BattleOrderWorld, now: () => number) {
         }
         const probe = await world.battles.probe(battle.id, next);
         if (!probe) return fail("unknown_battle");
-        if (input.party === null) {
+        if (asCommander) {
           const commander = probe.state.sides.find((entry) => entry.id === side)?.commander ?? 0;
           if (commander === 0 || !mine.has(commander)) return fail("not_commander");
         }
@@ -284,6 +323,7 @@ export function createBattleOrderGateway(options: {
           battle: message.battle,
           party: message.party,
           order: message.order,
+          legion: message.legion,
         });
         if (closed) return;
         if (!result.ok) return replyFail(message, result.code);

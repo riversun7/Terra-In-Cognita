@@ -2,6 +2,7 @@
 // - 이름: 유저 = 사이보그 이름(다른 사람에게 보이는 이름은 이것뿐, D-134), 세력 = 국가 프리셋 이름(세력 code가 프리셋 ID일 때) 또는
 //   서버 코드·번호([임시] 세력 이름 칸이 아직 없다 — 세력 화면과 같다, src/factionScreen/overview.ts).
 // - 판 줄 = 위 RANKING_BOARD_ROWS줄 + 내 줄. 등급 문턱 점수는 같은 표에서 센다.
+// - 바뀜(house-9, D-576): 경로 판 줄에 그 주체의 전투력·자산(마지막 집계 값 표 ranking_worth)을 싣는다.
 import type { LocalizedName } from "@terra/shared/faction";
 import {
   RANKING_BOARD_ROWS,
@@ -20,6 +21,7 @@ import type { RankingCoefficients } from "@terra/sim";
 import type { NationNames } from "./paths.ts";
 import type { Queryable } from "./measures.ts";
 import { readHouseBoard } from "./houseBoard.ts";
+import { worthOf } from "./worthRow.ts";
 import { MIN_PERIOD_MS, readSnapshotState } from "./snapshot.ts";
 
 const num = (value: unknown): number => (typeof value === "number" ? value : Number(value ?? 0));
@@ -118,9 +120,10 @@ async function tierCutsOf(
 
 const PATH_ROW_SQL = `select s.owner_id, s.score, s.gain, s.rank, s.prev_rank, s.tier_pm,
          o.user_id, o.faction_id as owner_faction, c.name as cyborg_name, f.kind as owner_kind, f.code as owner_code,
-         mf.id as member_faction, mf.code as member_code
+         mf.id as member_faction, mf.code as member_code, w.combat_power::text as worth_power, w.assets::text as worth_assets
     from ranking_path_scores s
     join world_owners o on o.id = s.owner_id
+    left join ranking_worth w on w.kind = 0 and w.subject_id = s.owner_id
     left join cyborgs c on c.user_id = o.user_id
     left join factions f on f.id = o.faction_id
     left join faction_members m on m.user_id = o.user_id
@@ -154,6 +157,7 @@ function pathRow(
     top: standing.top,
     me: meOwner !== null && num(row.owner_id) === meOwner,
     detail: null,
+    ...worthOf(row),
   };
 }
 

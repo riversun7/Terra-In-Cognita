@@ -1,0 +1,140 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "ae46b32c-fa02-4c2d-9190-21417cb2c1c1",
+  "prevIds": [
+    "c6f2df91-7ceb-4060-904b-f313a1523b28",
+    "9afdc6b8-11e0-40d9-810f-f00c2e261c8f"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "ranking_worth"
+      ],
+      "writes": [
+        "s|tbl|public.ranking_worth",
+        "n|tbl|public.ranking_worth",
+        "e|tbl|public.ranking_worth",
+        "n|rel|public.ranking_worth",
+        "n|type|public.ranking_worth",
+        "n|rel|public.ranking_worth_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "ranking_worth",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ranking_worth",
+        "name": "kind",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ranking_worth",
+        "name": "subject_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ranking_worth",
+        "name": "combat_power",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ranking_worth",
+        "name": "assets",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ranking_worth",
+        "name": "ranking_worth_pkey",
+        "columns": [
+          "kind",
+          "subject_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ranking_worth",
+        "name": "ranking_worth_kind",
+        "value": "\"kind\" in (0, 1)",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ranking_worth",
+        "name": "ranking_worth_values",
+        "value": "\"combat_power\" >= 0 and \"assets\" >= 0",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

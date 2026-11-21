@@ -97,7 +97,8 @@ export interface GovernmentLeader {
   readonly house?: { readonly name: string; readonly npc: boolean } | null;
   /**
    * 나라를 이끄는 방식(D-574 10·D-217 — leaderRuleOf). 독재면 이 지도자(지배 가문의 장)가 독재자, 민주주의·자본주의면 투표로 정하고 이 지도자는 지배
-   * 가문의 장으로서 나라를 대표한다([임시] 투표·지분 의결 규칙이 아직 없다 — 질문 2254). 모르면 없음(옛 서버)
+   * 가문의 장으로서 나라를 대표한다([임시] 투표·지분 의결 규칙이 아직 없다 — 질문 2254. 방향은 정해졌다: D-5057 안건 "지도자 선출·해임, 체제 전환"·
+   * D-217·D-574 — 민주주의 = 가문 투표, 자본주의 = 지분 의결. 선출·해임은 별도 줄기 governance에서 만든다, 질문 2315). 모르면 없음(옛 서버)
    */
   readonly rule?: GovernmentLeaderRule | undefined;
 }

@@ -25,7 +25,10 @@
 //    있어야"): 일부러 치기(strike — WebSocket unit_attack). 조우는 그대로 다른 나라끼리만 저절로 만난다(같은 나라 유닛이 저절로 싸우지 않게 — NPC도). 플레이어가
 //    내 유닛으로 같은 띄운 2차맵 조우 거리(encounter_radius_cells) 안의 남의 유닛을 고르면 판단 없이 내 편이 공격 편으로 같은 조우 전투를 연다(전쟁 상대면 전쟁 전투,
 //    아니면 약탈 전투 — 진 유닛 짐 몫을 이긴 편이 가져간다). 수비 편 = 그 유닛 + 같은 주인의 유닛 가운데 대상 둘레 조우 거리 안. 수비 편은 빠져나가지 않는다(D-573
-//    회피 판단 없음). 시가지 안이면 싸우지 않는다. 신용 고리(creditUnitAttack)는 open 안이라 그대로 공격 편만 깎는다 [임시 2581].
+//    회피 판단 없음 — 아래 gov-fix-3에서 바뀜). 시가지 안이면 싸우지 않는다. 신용 고리(creditUnitAttack)는 open 안이라 그대로 공격 편만 깎는다 [임시 2581].
+// 바뀜 (gov-fix-3 — 질문 2581 (3) 사용자 답, D-570 1904 "무조건 전투가 아니라 현재 전투세팅상태나 전력차, 성향에 따라 판정"·D-573 2022 나): 일부러 치기의 수비 편도
+//    조우와 같은 판단을 한다(clashDecide.ts resolveStrike — 같은 나라 수비 편도). 회피를 골랐고 공격 편보다 빠르면 전투 없이 빠져나가고(결과 코드 escaped — 프로토콜 114,
+//    낮은 판 연결은 out_of_reach), 느리면 전투가 열리고 수비 편 파티는 시작 틱에 퇴각을 시도한다(조우와 같은 flee). 빠져나간 뒤 다시 치는 것을 막는 쉬는 시간은 없다 [임시 2611].
 import { randomInt } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import {
@@ -61,7 +64,13 @@ import type { WorldPersistence } from "../world/world.ts";
 import { type HaltedGather, reconsiderTrips, RECHECK_SLACK_MS } from "./afterEncounter.ts";
 import { cargoCarriers, cargoGrams } from "./cargo.ts";
 import { type ClashUnit, findClashes } from "./clash.ts";
-import { type ClashResolution, clashPower, engagedUnits, resolveClash } from "./clashDecide.ts";
+import {
+  type ClashResolution,
+  clashPower,
+  engagedUnits,
+  resolveClash,
+  resolveStrike,
+} from "./clashDecide.ts";
 import { coordPacePm, neighborMapKeys } from "./coordPace.ts";
 import { groupEncounters, sidePairs } from "./encounter.ts";
 import {
@@ -183,7 +192,8 @@ export type StrikeCode =
   | "unavailable"
   | "out_of_reach"
   | "own_target"
-  | "safe_zone";
+  | "safe_zone"
+  | "escaped";
 
 /** 이동 서비스 → 일부러 치기(조우 규칙이 켜질 때 붙는다 — 게이트웨이가 찾는다, app.ts를 키우지 않으려고) */
 const strikes = new WeakMap<object, (input: StrikeInput) => Promise<StrikeCode>>();
@@ -748,18 +758,30 @@ export function startCoordinateRules(
     const nations = [nationOfOwner(world, ownerId) ?? 0, nationOfOwner(world, target.ownerId) ?? 0] as const;
     const war = nations[0] !== nations[1] && atWar(nations[0], nations[1]);
     const bodies = bodiesOf([...sides[0], ...sides[1]], at);
+    // 수비 편도 조우와 같은 판단(바뀜 gov-fix-3 — 2581 (3)): 공격 편 짐(약탈 맞불 거리)·수비 편 ① 굴림
+    const carriers = war
+      ? new Set<number>()
+      : cargoCarriers(
+          persistence.ledger,
+          sides[0].map((unit) => unit.unitId),
+        );
     const views = [
-      sideView(sides[0], nations[0], sources, bodies, new Set()),
-      sideView(sides[1], nations[1], sources, bodies, new Set()),
+      sideView(sides[0], nations[0], sources, bodies, carriers),
+      sideView(sides[1], nations[1], sources, bodies, new Set(), roll),
     ] as const;
-    const choice = war ? "fight" : "loot";
+    const resolution = resolveStrike(views[0], views[1], war, r);
+    if (resolution.escaped) {
+      counts.escaped += 1;
+      log.info({ mapKey: map.mapKey, nations, choices: resolution.choices }, "travel: strike escaped");
+      return "escaped";
+    }
     const opened = await open(
       {
         mapKey: map.mapKey,
         loaded: true,
         nations,
         sides,
-        resolution: { attacker: 0, choice, choices: [choice, "avoid"], flee: false, escaped: false },
+        resolution,
         atWar: war,
         retreatPct: [views[0].retreatPct, views[1].retreatPct],
         unitRetreat: unitRetreats(sides, nations, sources),

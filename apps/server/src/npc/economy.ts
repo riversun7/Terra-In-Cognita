@@ -85,6 +85,7 @@ import { type Lockers, createLockers, loadLockers } from "../market/lockers.ts";
 import type { OwnerRow, QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import { ASSET_CREDIT } from "../world/settlement.ts";
+import { convertStaleCityFunds } from "./cityFundFx.ts";
 import { DEFAULT_TAX_BP, MINT_KEY, mintNationCurrencies, nationCurrencies } from "./currency.ts";
 import { type NationPersonality, type NationPreset, nationPresetOf } from "./nations.ts";
 
@@ -467,6 +468,8 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   }))
     economy.today.issued.set(currency, (economy.today.issued.get(currency) ?? 0n) + amount);
 
+  // 나라 화폐가 바뀐 도시 운영비 금고 → 지금 화폐 금고(질문 2576 다 — cityFundFx.ts)
+  convertStaleCityFunds(book, economy, o.startMs, o.log);
   // 없는 도시의 거래소 닫기·도시 표·부팅 손질(질문 2591)·에스크로 불변식 경고(market/escrowRepair.ts)
   settleMarketsAtBoot({ registry, fx, cities: world.cities, ledger: book, nowMs: o.startMs, log: o.log });
 

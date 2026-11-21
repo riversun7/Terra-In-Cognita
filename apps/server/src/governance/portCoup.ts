@@ -67,7 +67,8 @@ export interface GovernancePortCoup {
   /** 시작 도시인가(D-341 — 독립 투표에서 뺀다) */
   isStartCity(cityId: number): boolean;
   /**
-   * 도시 독립(D-583 2434 (가) 가 — 새 도시국가, 체제는 옛 나라 체제). coup = 쿠데타 성공(시작 도시도 그 도시만 — 2542 gov-fix-2). 새 세력 행 ID(못 했으면 undefined)
+   * 도시 독립(D-583 2434 (가) 가 — 새 도시국가, 체제는 옛 나라 체제). coup = 쿠데타 성공(시작 도시도 그 도시만 — 2542 gov-fix-2, 시작 도시 표시를 지운다 —
+   * 2572 나 gov-fix-3). 새 세력 행 ID(못 했으면 undefined)
    */
   cityIndependence(
     nation: GovernanceNation,
@@ -234,6 +235,10 @@ export function worldGovernancePortCoup(
       if (!l) return undefined;
       const child = l.npc.society.cityIndependence(cityId, nowMs, coup === true);
       if (child === undefined) return undefined;
+      // 쿠데타로 떨어져 나간 도시는 시작 도시 표시를 잃는다(질문 2572 나 — 새 나라는 기본 NPC 국가도 시작 세력도 아니다, D-341·D-528).
+      // 다음 틱이 도시 줄과 함께 저장한다(npc/persist.ts citySig)
+      const city = coup === true ? l.npc.world.cities.get(cityId) : undefined;
+      if (city) city.start = false;
       await l.npc.tick(true);
       return l.persistence.owners.get(child)?.factionId ?? undefined;
     },

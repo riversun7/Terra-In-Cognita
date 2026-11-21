@@ -8907,5 +8907,6 @@
   "unit_attack_started": "A battle has started.",
   "unit_attack_out_of_reach": "The target is too far. Move closer and try again.",
   "unit_attack_own_target": "You cannot attack your own unit.",
-  "unit_attack_safe_zone": "You cannot fight inside a town's safe zone."
+  "unit_attack_safe_zone": "You cannot fight inside a town's safe zone.",
+  "unit_attack_escaped": "The target avoided the fight and got away (it was faster)."
 }

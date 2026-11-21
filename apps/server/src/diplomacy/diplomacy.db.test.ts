@@ -433,4 +433,74 @@ describe.skipIf(!TEST_DATABASE_URL)("지도자끼리 조약(diplomacy)", () => {
     expect(a.faction.wars.has(b.faction.id)).toBe(false);
     gov.stop();
   }, 240_000);
+
+  it("선포 기록은 다시 켜도 남아 어긴 나라를 안다(gov-fix-3 — 2582), 명분(제재)이 있는 의결 선포는 비용 없이 부른다(2585)", async () => {
+    let world = await boot();
+    let { npc } = parts(world);
+    const rules: GovernanceRules = { ...TEST_GOVERNANCE_RULES };
+    let { gov, dip, tick } = attach(world, () => rules);
+    const me = await leader(world, "Dipres", "DPR", 0, "dictatorship");
+    await tick();
+    const target = (await dip.view(me.userId)).partners.find((row) => !row.playerLed);
+    if (!target) throw new Error("need an NPC nation");
+    const targetOwner = npc.houses.ownerOfRow(target.id) ?? -1;
+    const targetFaction = npc.world.factions.get(targetOwner);
+    if (!targetFaction) throw new Error("target");
+    targetFaction.traits = { ...targetFaction.traits, aggression: 100 };
+    const made = await dip.service.propose(me.userId, {
+      targetNationId: target.id,
+      clauses: [{ kind: "non_aggression" }],
+      days: 10,
+    });
+    expect(made).toMatchObject({ ok: true, action: "active" });
+    if (!made.ok) throw new Error("propose");
+    // 맺은 동안 선포(독재 직권) → 선포 기록이 표에 남는다. 외교 틱이 보기 전에 서버가 꺼진다
+    clock += 60_000;
+    expect(
+      await gov.service.propose(me.userId, { kind: "war_declaration", targetNationId: target.id }),
+    ).toMatchObject({ ok: true });
+    await dip.service.breaches()?.settle();
+    expect(
+      await rows(
+        test.db,
+        "select declarer, at_ms from diplomacy_declarations where nation_a = $1 or nation_b = $1",
+        [me.nation],
+      ),
+    ).toEqual([{ declarer: String(me.nation), at_ms: String(clock) }]);
+    expect(await treatyRow(made.ref)).toMatchObject({ state: "active" });
+    gov.stop();
+    await parts(world).persistence.writer.durable();
+    await world.stop();
+    worlds.splice(0);
+
+    // 다시 켬: 새 원장 = 새 위반 장부. 켤 때 선포 기록을 읽어 위반 나라를 가린다
+    world = await boot();
+    ({ npc } = parts(world));
+    ({ gov, dip, tick } = attach(world, () => rules));
+    const meOwner = npc.houses.ownerOfRow(me.nation) ?? -1;
+    expect(npc.world.factions.get(meOwner)?.wars.has(targetOwner)).toBe(true);
+    await tick();
+    expect(await treatyRow(made.ref)).toMatchObject({ state: "broken", broken_by: String(me.nation) });
+    const book = dip.service.breaches();
+    expect(book?.breachesOf(meOwner)).toBe(1);
+    expect(book?.hasCause(targetOwner, meOwner, clock)).toBe(true);
+
+    // 명분이 있는 의결 선포(제재 — 우리를 어긴 나라로 본 다른 지도자 나라): 세력·사회 declareWar에 caused = true로 부른다(선포 비용 없음 — 시뮬 시험이 금액을 본다)
+    const choices = parts(world).persistence.cyborgs.creation("probe", clock).factions;
+    const otherIndex = choices.findIndex((row) => row.id !== me.nation && row.id !== target.id);
+    expect(otherIndex).toBeGreaterThanOrEqual(0);
+    const other = await leader(world, "Dipsan", "DPS", otherIndex, "dictatorship");
+    const seen: (boolean | undefined)[] = [];
+    const original = npc.society.declareWar.bind(npc.society);
+    npc.society.declareWar = (attacker, victim, nowMs, caused) => {
+      seen.push(caused);
+      original(attacker, victim, nowMs, caused);
+    };
+    expect(
+      await gov.service.propose(other.userId, { kind: "war_declaration", targetNationId: me.nation }),
+    ).toMatchObject({ ok: true });
+    expect(seen).toEqual([true]);
+    expect(other.faction.wars.has(meOwner)).toBe(true);
+    gov.stop();
+  }, 240_000);
 });

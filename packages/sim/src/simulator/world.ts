@@ -96,8 +96,8 @@ export function rulingFamilyOf(faction: SimFaction): number {
 export interface SimCity {
   readonly id: number;
   owner: number;
-  /** 기본 NPC 국가의 시작 도시(D-341: 주인이 바뀌지 않는다) */
-  readonly start: boolean;
+  /** 기본 NPC 국가의 시작 도시(D-341: 주인이 바뀌지 않는다). 쿠데타로 떨어져 나가면 지운다(서버 — 질문 2572 나, gov-fix-3) */
+  start: boolean;
   /** 휴먼 주거 수(집, world_cities.housing). 인구 상한은 이것 + 숙소 침대(beds) — cityHousingCap(질문 1089 나) */
   housing: number;
   /**

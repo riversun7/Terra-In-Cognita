@@ -184,12 +184,40 @@ export function resolveClash(
   else if (second === "avoid") attacker = 0;
   else attacker = powerRatioPm(b.power, a.power) > powerRatioPm(a.power, b.power) ? 1 : 0;
   const choice = attacker === 0 ? first : second;
-  const defender = attacker === 0 ? b : a;
-  const flee = (attacker === 0 ? second : first) === "avoid" && defender.deciders > 0;
-  const fast = (side: ClashSideView): number => Math.max(0, side.speed ?? 0);
-  const attackerSide = attacker === 0 ? a : b;
-  const escaped = flee && fast(attackerSide) > 0 && fast(defender) > fast(attackerSide);
+  const { flee, escaped } = escapeOf(
+    attacker === 0 ? a : b,
+    attacker === 0 ? b : a,
+    attacker === 0 ? second : first,
+  );
   return { attacker, choice: choice === "avoid" ? "fight" : choice, choices: [first, second], flee, escaped };
+}
+
+/** 수비 편 빠져나가기(D-573 — 질문 2022 나): 수비 편이 판단 끝에 회피했고(판단 유닛이 있는 편) 공격 편보다 빠르면 전투 없이 빠져나간다 */
+function escapeOf(
+  attacker: ClashSideView,
+  defender: ClashSideView,
+  answer: ClashChoice,
+): { readonly flee: boolean; readonly escaped: boolean } {
+  const flee = answer === "avoid" && defender.deciders > 0;
+  const fast = (side: ClashSideView): number => Math.max(0, side.speed ?? 0);
+  return { flee, escaped: flee && fast(attacker) > 0 && fast(defender) > fast(attacker) };
+}
+
+/**
+ * 일부러 치기(unit_attack)의 수비 편 판단(바뀜 gov-fix-3 — 질문 2581 (3) 사용자 답: D-570 1904 "무조건 전투가 아니라 현재 전투세팅상태나 전력차, 성향에 따라 판정",
+ * D-573 2022 나 "더 빠르면 전투 없이 빠져나간다"). 공격 편은 이미 걸었다(choice). 수비 편은 조우와 같은 판단(decideClash — 작전·전력 비·성향·접속·① 굴림)을 하고,
+ * 회피를 고르면 조우와 같은 빠져나가기(escapeOf)다 — 같은 나라끼리도 같다. 수비 편이 걸면(맞불) 그대로 싸운다(공격 편은 앞 편 그대로)
+ */
+export function resolveStrike(
+  attacker: ClashSideView,
+  defender: ClashSideView,
+  atWar: boolean,
+  rules: EncounterRules,
+): ClashResolution {
+  const choice = atWar ? "fight" : "loot";
+  const answer = decideClash(defender, attacker, atWar, rules);
+  const { flee, escaped } = escapeOf(attacker, defender, answer);
+  return { attacker: 0, choice, choices: [choice, answer], flee, escaped };
 }
 
 /** 전투 몸 하나의 전력: (남은 HP + 아머 + 쉴드) × 공격력 × 1000 ÷ 공격 간격 */

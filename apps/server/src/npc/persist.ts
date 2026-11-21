@@ -195,6 +195,7 @@ export function createNpcPersist(
           city.nextRebellionMs,
           o.gardener()?.run.cooldownUntil.get(id) ?? 0,
           city.adminLevel,
+          city.start,
         ])
       : "";
   };

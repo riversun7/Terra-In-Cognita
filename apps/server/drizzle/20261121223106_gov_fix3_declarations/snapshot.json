@@ -1,0 +1,227 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "7e79264e-c94f-43c1-b1a3-9e2f1ba61755",
+  "prevIds": [
+    "8279a039-89b4-4d54-b4be-e0486d58e334",
+    "1b52711f-f437-4ebf-975f-5a44f622f2ac",
+    "7fd1b408-df42-4c3e-8eca-54ca7f942491"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "diplomacy_declarations"
+      ],
+      "writes": [
+        "s|tbl|public.diplomacy_declarations",
+        "n|tbl|public.diplomacy_declarations",
+        "e|tbl|public.diplomacy_declarations",
+        "n|rel|public.diplomacy_declarations",
+        "n|type|public.diplomacy_declarations",
+        "n|rel|public.diplomacy_declarations_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "diplomacy_declarations"
+      ],
+      "writes": [
+        "s|fk|public.diplomacy_declarations.diplomacy_declarations_nation_a_factions_id_fkey",
+        "n|fk|public.diplomacy_declarations.diplomacy_declarations_nation_a_factions_id_fkey",
+        "e|fk|public.diplomacy_declarations.diplomacy_declarations_nation_a_factions_id_fkey",
+        "n|con|public.diplomacy_declarations.diplomacy_declarations_nation_a_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.diplomacy_declarations",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.diplomacy_declarations.nation_a",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "diplomacy_declarations"
+      ],
+      "writes": [
+        "s|fk|public.diplomacy_declarations.diplomacy_declarations_nation_b_factions_id_fkey",
+        "n|fk|public.diplomacy_declarations.diplomacy_declarations_nation_b_factions_id_fkey",
+        "e|fk|public.diplomacy_declarations.diplomacy_declarations_nation_b_factions_id_fkey",
+        "n|con|public.diplomacy_declarations.diplomacy_declarations_nation_b_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.diplomacy_declarations",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.diplomacy_declarations.nation_b",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "diplomacy_declarations",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_declarations",
+        "name": "nation_a",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_declarations",
+        "name": "nation_b",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_declarations",
+        "name": "declarer",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_declarations",
+        "name": "at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_declarations",
+        "name": "diplomacy_declarations_nation_a_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "nation_a"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_declarations",
+        "name": "diplomacy_declarations_nation_b_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "nation_b"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_declarations",
+        "name": "diplomacy_declarations_pkey",
+        "columns": [
+          "nation_a",
+          "nation_b"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_declarations",
+        "name": "diplomacy_declarations_order",
+        "value": "\"nation_a\" < \"nation_b\"",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_declarations",
+        "name": "diplomacy_declarations_declarer",
+        "value": "\"declarer\" = \"nation_a\" or \"declarer\" = \"nation_b\"",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

@@ -638,11 +638,11 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
       payouts.spent(city.id, cost);
     },
 
-    declareWar(attacker, target, nowMs) {
+    declareWar(attacker, target, nowMs, caused = false) {
       if (!attacker.alive || !target.alive || attacker.wars.has(target.id)) return;
-      // 무명분 선포 비용(S3, 질문 196 가): 국고의 만분율을 소각. 나에게서 떨어져 나간 반란 세력을 치는 것은 명분이 있다(D-290 해방)
+      // 무명분 선포 비용(S3, 196 가): 국고 만분율 소각. 명분이 있으면 없다(D-290 — 부르는 쪽이 준 caused: 제재 등 2585 gov-fix-3, 떨어져 나간 반란 세력 = 해방)
       const asset = treasuryAsset(attacker);
-      const cost = target.rebelOf === attacker.id ? 0n : warCost(book.balanceOf(attacker.id, asset), c.npc);
+      const cost = caused || target.rebelOf === attacker.id ? 0n : warCost(treasury(attacker), c.npc);
       if (cost > 0n)
         book.post({
           kind: "burn",

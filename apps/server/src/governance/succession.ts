@@ -13,6 +13,11 @@
 //   가문장 규칙과 같은 서열: 시장이 든 가문이면 시장 → INT + WIS → 스탯 합 → 작은 ID [임시 — 2532 (4) 기술 기본값]). NPC 가문은 후계자 칸이 없다. 세우기 = 의결 상태
 //   npc_head_unit_id에 적고 NPC 런타임에 알린다(applyRuling — NPC 국가 지도자 유닛은 남지만 그 가문을 이끌지 않는다). 이은 가문장이 사라지면 틱이 다음 사람을 세운다.
 //   이을 가문원이 없을 때만 예전처럼 자동 선출.
+// - 바뀜(gov-fix-3 — 질문 2574 점검, D-588 5 "지배가문 서열에 따라 자동 승계"): gov-fix-2는 선출로 지배 가문이 정해지면 계승 기록(npc_head_unit_id)을 지웠다. 그러면
+//   같은 NPC 가문이 다시 뽑히거나 다른 NPC 가문이 뽑혔을 때 런타임 가문장이 NPC 국가 지도자 유닛(해임된 사람)으로 돌아왔다 — 서열 계승과 어긋난다. 이제 선출은 기록을
+//   지우지 않는다(기록이 있으면 그 나라 국가 지도자 유닛은 퇴임한 채다): 같은 가문이면 이은 가문장이 그대로 잇고, 다른 NPC 가문이면 그 가문의 서열 첫 사람이 이끈다
+//   (cityHouses.ts headOf — 기록 유닛이 그 가문원이 아니면 서열 규칙, 다음 틱이 그 사람을 기록으로 옮겨 적는다). 해임 뒤 다시 뽑기에서 다른 NPC 가문이 이기면
+//   (기록이 아직 없을 때) 해임된 가문장 유닛을 빼고 그 가문 서열 첫 사람을 세운다. 해임된 옛 NPC 지도자 유닛을 어떻게 할지는 사용자 답(2574 — 질문 8)을 기다린다.
 import type { HouseKey } from "@terra/shared/governance";
 import type { Database } from "../db/client.ts";
 import { succeedHouseHead } from "../factionIdentity/succession.ts";
@@ -161,8 +166,7 @@ export function createSuccession(d: SuccessionDeps) {
     const next: StateRow = {
       ...current,
       rulingHouseKey: winner ?? current.rulingHouseKey,
-      // 선출로 지배 가문이 정해지면 계승한 NPC 가문장 기록은 지운다(바뀜 gov-fix-2)
-      ...(winner !== null ? { npcHeadUnit: null } : {}),
+      // 계승한 NPC 가문장 기록은 선출로 지우지 않는다(바뀜 gov-fix-3 — 위 머리 주석, 해임된 국가 지도자 유닛이 돌아오지 않게)
       electedAtMs: winner === null ? current.electedAtMs : nowMs,
       termEndsAtMs: nowMs + termMs,
       vacantSinceMs:
@@ -170,6 +174,12 @@ export function createSuccession(d: SuccessionDeps) {
     };
     if (successor !== null && barred) {
       const installed = await install(nation, next, barred, successor, nowMs);
+      if (installed) return installed;
+    }
+    // 해임 뒤 다시 뽑기에서 다른 NPC 가문이 이겼다(기록 없음 — 해임된 사람 = 국가 지도자 유닛): 그 유닛을 빼고 이긴 가문 서열 첫 사람(바뀜 gov-fix-3)
+    if (winner !== null && barredUnit !== undefined && (next.npcHeadUnit ?? null) === null) {
+      const head = await successorOf(winner, { units: new Set([barredUnit]) });
+      const installed = head?.npc === true ? await install(nation, next, winner, head, nowMs) : undefined;
       if (installed) return installed;
     }
     await d.store.saveState(next, nowMs);

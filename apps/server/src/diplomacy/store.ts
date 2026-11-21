@@ -161,6 +161,32 @@ export function createDiplomacyStore(pool: GovernanceQueryable) {
       );
       return rows.map((row) => ({ nationId: num(row.broken_by), atMs: num(row.ended_at_ms) }));
     },
+    /** 선포 기록을 쓴다(쌍마다 가장 최근 하나 — 더 오래된 선포는 덮지 않는다, 줄기 gov-fix-3 질문 2582). 나라는 세력 행 */
+    async saveDeclaration(declarer: number, target: number, atMs: number): Promise<void> {
+      if (declarer === target) return;
+      await pool.query(
+        `insert into diplomacy_declarations (nation_a, nation_b, declarer, at_ms) values (least($1::bigint, $2::bigint), greatest($1::bigint, $2::bigint), $1, $3)
+         on conflict (nation_a, nation_b) do update set declarer = excluded.declarer, at_ms = excluded.at_ms
+         where excluded.at_ms >= diplomacy_declarations.at_ms`,
+        [declarer, target, atMs],
+      );
+    },
+    /** 선포 기록(위반 장부를 켤 때 읽는다 — 선포한 나라·상대·시각, 시각 차례) */
+    async declarations(): Promise<
+      { readonly declarer: number; readonly target: number; readonly atMs: number }[]
+    > {
+      const { rows } = await pool.query(
+        `select nation_a, nation_b, declarer, at_ms from diplomacy_declarations order by at_ms, nation_a, nation_b`,
+      );
+      return rows.map((row) => {
+        const declarer = num(row.declarer);
+        return {
+          declarer,
+          target: declarer === num(row.nation_a) ? num(row.nation_b) : num(row.nation_a),
+          atMs: num(row.at_ms),
+        };
+      });
+    },
     /** 열린 조약과 맺은 조약(틱 — 차례대로) */
     async liveTreaties(): Promise<TreatyRow[]> {
       const { rows } = await pool.query(

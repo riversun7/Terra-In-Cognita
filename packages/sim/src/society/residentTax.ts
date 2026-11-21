@@ -331,3 +331,52 @@ export function refundCityFund(
   if (entries.length > 0) book.post({ kind: "city_fund_refund", atMs, entries });
   return refunded;
 }
+
+/** 화폐 바꿈 창구 계정 코드(도시 운영비 금고 화폐 바꿈 — convertCityFunds) */
+export function cityFundFxCode(asset: string): string {
+  return `cityfund_fx:${asset}`;
+}
+
+/**
+ * 나라 화폐가 바뀐 뒤 도시 운영비 금고(바뀜 gov-fix-3 — 질문 2576 다 사용자 답 "옛 화폐 금고를 바꾼 비율로 새 화폐 금고로 옮긴다", 국고로 돌려주지 않는다):
+ * 금고 화폐가 그 나라 지금 화폐(currencyOf)와 다르면 convert(옛 양, 옛 화폐, 새 화폐)만큼 새 화폐 금고로 옮긴다. 원장은 화폐마다 맞춘다 — 옛 화폐는 창구
+ * cityfund_fx:<옛 화폐>로 가고 새 화폐는 창구 cityfund_fx:<새 화폐>에서 나온다(시스템 계정이라 음수가 될 수 있다 — 발행 계정과 같은 꼴, [임시] 기술 선택).
+ * 바꾼 양이 0 이하(비율을 모름·너무 적음)면 옮기지 않고 옛 금고에 남긴다(지금 화폐 금고만 정산이 쓴다). 지금 화폐를 모르는 나라(사라진 나라 등)는 건너뛴다.
+ * 옮긴 금고 수
+ */
+export function convertCityFunds(
+  book: LedgerBook,
+  currencyOf: (nation: number) => string | undefined,
+  convert: (amount: bigint, from: string, to: string) => bigint,
+  atMs: number,
+): number {
+  const stale: { account: number; nation: number; city: number; from: string; to: string; amount: bigint }[] =
+    [];
+  for (const account of book.accounts()) {
+    const code = account.systemCode;
+    if (account.balance <= 0n || code?.startsWith("cityfund:") !== true) continue;
+    const [, nationText, cityText] = code.split(":");
+    const nation = Number(nationText);
+    const city = Number(cityText);
+    const to = Number.isInteger(nation) ? currencyOf(nation) : undefined;
+    if (to === undefined || to === account.asset || !Number.isInteger(city)) continue;
+    stale.push({ account: account.id, nation, city, from: account.asset, to, amount: account.balance });
+  }
+  let moved = 0;
+  for (const fund of stale.toSorted((a, b) => a.account - b.account)) {
+    const amount = convert(fund.amount, fund.from, fund.to);
+    if (amount <= 0n) continue;
+    book.post({
+      kind: "city_fund_convert",
+      atMs,
+      entries: [
+        { account: fund.account, amount: -fund.amount },
+        { account: book.systemAccount(cityFundFxCode(fund.from), fund.from), amount: fund.amount },
+        { account: book.systemAccount(cityFundFxCode(fund.to), fund.to), amount: -amount },
+        { account: book.systemAccount(cityFundCode(fund.nation, fund.city, fund.to), fund.to), amount },
+      ],
+    });
+    moved += 1;
+  }
+  return moved;
+}

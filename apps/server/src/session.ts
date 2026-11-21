@@ -662,6 +662,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           // 같은 연결이 운영자 모드(전체 보기)로 2차맵을 보고 있으면 보내는 길도 운영자 빠르기
           observing: () => worldSocket?.observing() === true,
           operatorPace,
+          protocolVersion,
         });
         travelSocket.handle(message);
         return;

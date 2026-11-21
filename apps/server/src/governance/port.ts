@@ -6,7 +6,7 @@
 // - 체제를 바꾸면 거울 세계 세력의 regime을 바꾸고 세력 행을 바로 쓰기 대기열에 넣는다(npc/houseRuntime.ts flush — 다음 틱 저장을 기다리지 않음).
 // - 바뀜(governance-2): 지분 = 주체 계정(o:<주체>)과 가문 지분 계정(p:/n: — houseShares.ts, D-338·D-582). 의결이 정한 지배 가문을 NPC 런타임에 알린다
 //   (applyRuling → npc/cityHouses.ts setRuling, 질문 2406). 국고 지분 → 가문 계정 옮기기(moveTreasuryShares — 독재 D-338·자본주의 처음 지분 D-582).
-// - 선전포고는 세력·사회 규칙의 declareWar(무명분 비용 포함 — NPC와 같은 길)를 부르고 런타임 틱을 한 번 밀어 전쟁 줄을 저장한다.
+// - 선전포고는 세력·사회 규칙의 declareWar(무명분 비용 포함 — NPC와 같은 길)를 부르고 런타임 틱을 한 번 밀어 전쟁 줄을 저장한다. 명분(제재)이 있으면 비용 없음(2585 gov-fix-3).
 import { type GovernanceRegime, type HouseKey, isHouseKey } from "@terra/shared/governance";
 import {
   type CombatCatalog,
@@ -15,7 +15,7 @@ import {
   holdingsOf,
   houseHoldingsOf,
 } from "@terra/sim";
-import { breachBookOf } from "../diplomacy/breaches.ts";
+import { breachBookOf, warCauseOf } from "../diplomacy/breaches.ts";
 import { houseTiesOf } from "../world/houseTies.ts";
 import type { World } from "../world/world.ts";
 import { houseKeyOfTail, treasurySharesToHouse } from "./houseShares.ts";
@@ -251,7 +251,8 @@ export function worldGovernancePort(
       const a = l?.npc.world.factions.get(nation.ownerId);
       const b = l?.npc.world.factions.get(target.ownerId);
       if (!l || !a || !b || a.wars.has(b.id)) return false;
-      l.npc.society.declareWar(a, b, nowMs);
+      // 명분(제재 — 위반 장부)이 있으면 선포 비용 없음(질문 2585 gov-fix-3, D-290)
+      l.npc.society.declareWar(a, b, nowMs, warCauseOf(l.persistence.ledger, a.id, b.id, nowMs));
       if (!a.wars.has(b.id)) return false;
       // 조약 위반 나라를 가리려고 선포를 알린다(줄기 fixes-1117c — diplomacy/breaches.ts)
       breachBookOf(l.persistence.ledger)?.declared(a.id, b.id, nowMs);

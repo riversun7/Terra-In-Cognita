@@ -428,6 +428,41 @@ describe("startCoordinateRules — 일부러 치기(unit_attack — fixes-1117c,
   });
 });
 
+/** 같은 나라 100: 내 유닛 1(빠르기 500) · 남의 유닛 2(빠르기 target) */
+const pair = (target: number): FakeUnit[] => [
+  { id: 1, ownerId: 1, kind: KIND_CYBORG, x: 100, y: 100, speed: 500 },
+  { id: 2, ownerId: 2, kind: KIND_CYBORG, x: 102, y: 100, speed: target },
+];
+
+describe("startCoordinateRules — 일부러 치기 수비 편 회피(gov-fix-3 — 2581 (3), D-570 1904·D-573 2022 나)", () => {
+  it("같은 나라 수비 편도 조우와 같은 판단: 회피를 골랐고 더 빠르면 전투 없이 빠져나가고(escaped), 느리면 전투가 열리고 수비 편이 시작 틱에 퇴각한다", async () => {
+    // 공격 편이 짐이 없어 수비 편(NPC 성향 500)은 맞불(약탈)을 걸 거리가 없다 → 회피
+    const fast = fakeWorld({ war: false, loaded: pair(1000), users: { u1: 1 } });
+    const a = startCoordinateRules(fast.world, { now: () => START, log, timer: false, roll: () => 0 });
+    expect(await a?.strike({ userId: "u1", unitIds: [1], targetUnitId: 2 })).toBe("escaped");
+    expect(fast.battles).toEqual([]);
+    expect(fast.halted).toEqual([]);
+    expect(a?.takeMetrics()).toMatchObject({ encounterEscaped: 1, encounterBattles: 0 });
+    a?.stop();
+    const slow = fakeWorld({ war: false, loaded: pair(400), users: { u1: 1 } });
+    const b = startCoordinateRules(slow.world, { now: () => START, log, timer: false, roll: () => 0 });
+    expect(await b?.strike({ userId: "u1", unitIds: [1], targetUnitId: 2 })).toBe("ok");
+    expect(slow.battles).toMatchObject([{ war: false, units: [1, 2] }]);
+    expect(slow.inputs).toEqual([{ tick: 0, kind: "order", party: 201, order: { kind: "retreat" } }]);
+    b?.stop();
+  });
+
+  it("수비 편이 맞불을 걸면(공격 편이 짐을 졌고 전력 비가 약탈 문턱 이상 — 수비 둘 : 공격 하나) 빠르더라도 빠져나가지 않고 그대로 싸운다(퇴각 명령 없음)", async () => {
+    const loaded = [...pair(1000), { id: 3, ownerId: 2, kind: KIND_CYBORG, x: 103, y: 100, speed: 1000 }];
+    const rig = fakeWorld({ war: false, loaded, cargo: [1], users: { u1: 1 } });
+    const rules = startCoordinateRules(rig.world, { now: () => START, log, timer: false, roll: () => 0 });
+    expect(await rules?.strike({ userId: "u1", unitIds: [1], targetUnitId: 2 })).toBe("ok");
+    expect(rig.battles).toMatchObject([{ war: false, units: [1, 2, 3] }]);
+    expect(rig.inputs).toEqual([]);
+    rules?.stop();
+  });
+});
+
 /** 띄운 2차맵: 나라 100 둘(빠르기 speeds[0]) · 나라 200 하나(speeds[1]) */
 const near = (speeds: [number, number]): FakeUnit[] => [
   { id: 1, ownerId: 1, kind: KIND_CYBORG, x: 100, y: 100, speed: speeds[0] },

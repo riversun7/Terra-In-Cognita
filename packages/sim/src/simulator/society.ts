@@ -300,7 +300,8 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
     }
     owner.cities.delete(cityId);
     world.cities.delete(cityId);
-    payouts.cityMoved(cityId);
+    // 폐허가 되면 그 도시의 주민세 빚도 사라진다(질문 2427 나 — 넘어갈 때와 같은 함수)
+    payouts.cityMoved(cityId, owner, nowMs);
     recordTech(owner, nowMs, 0, "city_ruined");
     if (owner.cities.size === 0) {
       dieIfEmpty(owner, cause, into, nowMs);

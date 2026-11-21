@@ -274,6 +274,12 @@
   color: var(--color-text-muted);
   overflow-wrap: break-word;
 }
+/* [신용] 카드 한 줄(주체 × 도시): 점수와 깎은 까닭 */
+.eco-credit-line {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
 .eco-card-sub[data-tone="warning"],
 .eco-hold-meta[data-tone="warning"] {
   color: var(--color-warning);

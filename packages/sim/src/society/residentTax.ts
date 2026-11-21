@@ -10,8 +10,8 @@
 // - 세금 = ⌊재산 값 × 세율‰ ÷ 1000⌋(한 주기 몫, 내림). 세율 0이면 아무것도 하지 않는다(부르는 쪽이 먼저 돌아간다).
 // - 못 낸 몫은 빚: 시스템 계정 debt:resident:<나라>:<도시>:<주인>[:u<유닛>]:<화폐>(잔고 음수 = 갚을 돈 — 유닛 몫이면 u<유닛>)와 짝 claim:resident:<나라>:<화폐>
 //   (받을 돈)에 같은 거래로 적는다(돈은 옮기지 않는다 — 두 시스템 계정 합 0). 다음 주기에는 지난 빚부터 갚는다(그 도시를 떠나도 이어 간다). 도시가 다른 나라로
-//   넘어가면 그 도시의 빚은 사라진다(cancelResidentDebts — D-581 2375 다). 불이익(신용 점수 깎기)은 신용 체계 줄기가 부르는 쪽 고리
-//   SimHooks.residentTaxArrears에 붙인다 — 여기는 기록만 한다(질문 2374 → 다음 줄기).
+//   넘어가거나 폐허가 되면 그 도시의 빚은 사라진다(cancelResidentDebts — D-581 2375 다, 2427 나). 불이익(신용 점수 깎기)은 부르는 쪽 고리
+//   SimHooks.residentTaxArrears에 붙는다(서버 apps/server/src/credit/ — docs/adr/2026-11-21-credit.md). 여기는 기록만 한다.
 // - 낸 돈은 그 나라 국고(사는 도시의 주인 국고)로 간다. 나라 몫(nationSharePm)을 뺀 나머지가 그 도시 세금 수입으로 D-304 정산에 든다.
 // 금액은 BigInt 정수로만 센다. 차례는 (도시 ID, 주인 ID, 유닛 ID — 사업장 몫이 먼저)로 정한다(결정적).
 import { unitPurseLocation } from "@terra/shared/businessBooks";
@@ -57,6 +57,8 @@ export interface ResidentArrears {
   readonly owed: bigint;
   /** 이번 주기에 늘어난 빚(0 아래면 줄었다) */
   readonly added: bigint;
+  /** 빚 계정 코드(residentDebtCode — 신용 체계가 이 코드로 깎은 몫을 기억하고, 계정이 0이 되면 되돌린다. credit ADR) */
+  readonly code: string;
 }
 
 export interface ResidentTaxResult {
@@ -210,12 +212,10 @@ export function collectResidentTax(
       add(treasury, pay);
     }
     const left = owed - pay;
+    const code = residentDebtCode(o.nation, a.city, a.payer, o.asset, a.unit);
     if (left !== before) {
       // 빚 계정 잔고 = −남은 빚, 받을 돈 계정 = +빚 합(짝)
-      add(
-        book.systemAccount(residentDebtCode(o.nation, a.city, a.payer, o.asset, a.unit), o.asset),
-        before - left,
-      );
+      add(book.systemAccount(code, o.asset), before - left);
       add(book.systemAccount(residentClaimCode(o.nation, o.asset), o.asset), left - before);
     }
     if (left > 0n)
@@ -225,6 +225,7 @@ export function collectResidentTax(
         ...(a.unit === undefined ? {} : { unit: a.unit }),
         owed: left,
         added: left - before,
+        code,
       });
     const nationPart = (pay * share) / 1000n;
     const sum = sums.get(a.city) ?? { due: 0n, paid: 0n, cityPart: 0n, nationPart: 0n };

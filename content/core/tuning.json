@@ -14048,6 +14048,132 @@
       "source": "질문 2371 나 \"감가 등은 기술 기본값\" · 줄기 tax-2"
     },
     {
+      "id": "credit_min",
+      "code": "",
+      "name": {
+        "ko": "신용 점수 아래 끝(점)",
+        "en": "Credit score minimum (points)"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "신용 점수가 내려갈 수 있는 가장 낮은 값(도시 신용·나라 신용 같음).",
+        "en": "Lowest value a credit score can fall to (city and nation credit alike)."
+      },
+      "source": "D-581(질문 2374 답 \"점수 범위·깎는 크기는 설정 칸\") · 줄기 credit"
+    },
+    {
+      "id": "credit_max",
+      "code": "",
+      "name": {
+        "ko": "신용 점수 위 끝(점)",
+        "en": "Credit score maximum (points)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "신용 점수가 올라갈 수 있는 가장 높은 값. 지금은 깎기만 있어 시작값보다 위로 가지 않는다.",
+        "en": "Highest value a credit score can reach. Only cuts exist for now, so scores never rise above the start."
+      },
+      "source": "D-581(질문 2374 답 \"점수 범위·깎는 크기는 설정 칸\") · 줄기 credit"
+    },
+    {
+      "id": "credit_start",
+      "code": "",
+      "name": {
+        "ko": "신용 점수 시작값(점)",
+        "en": "Credit score start (points)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "빚이 하나도 없을 때의 신용 점수. 갚지 않은 빚마다 깎은 몫을 뺀다.",
+        "en": "Credit score with no debts. Cuts for each unpaid debt are subtracted from it."
+      },
+      "source": "D-581(질문 2374 답 \"점수 범위·깎는 크기는 설정 칸\") · 줄기 credit"
+    },
+    {
+      "id": "credit_resident_city",
+      "code": "",
+      "name": {
+        "ko": "주민세 빚: 도시 신용 깎기(주기마다, 점)",
+        "en": "Resident tax debt: city credit cut (per cycle, points)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "주민세를 다 못 내 빚이 늘어난 주기마다 그 도시 신용에서 깎는 점수. 빚을 다 갚으면 그 빚으로 깎은 몫을 바로 되돌린다.",
+        "en": "Points cut from city credit each cycle resident tax debt grows. Paying the debt off restores those points at once."
+      },
+      "source": "D-581(질문 2374 답 \"점수 범위·깎는 크기는 설정 칸\") · 줄기 credit"
+    },
+    {
+      "id": "credit_resident_nation",
+      "code": "",
+      "name": {
+        "ko": "주민세 빚: 나라 신용 깎기(주기마다, 점)",
+        "en": "Resident tax debt: nation credit cut (per cycle, points)"
+      },
+      "value": 20,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "주민세 빚이 늘어난 주기마다 그 나라 신용에서 깎는 점수. 다 갚으면 바로 되돌린다.",
+        "en": "Points cut from nation credit each cycle resident tax debt grows. Restored at once when paid off."
+      },
+      "source": "D-581(질문 2374 답 \"점수 범위·깎는 크기는 설정 칸\") · 줄기 credit"
+    },
+    {
+      "id": "credit_business_city",
+      "code": "",
+      "name": {
+        "ko": "사업장 적자: 도시 신용 깎기(점)",
+        "en": "Business deficit: city credit cut (points)"
+      },
+      "value": 30,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "사업장에 적자(갚을 돈)가 생길 때 건물 주인의 그 도시 신용에서 한 번 깎는 점수. 적자를 다 갚으면 되돌린다.",
+        "en": "Points cut once from the owner's city credit when a business runs a deficit. Restored when the deficit is repaid."
+      },
+      "source": "D-581(질문 2374 답 \"점수 범위·깎는 크기는 설정 칸\") · 줄기 credit"
+    },
+    {
+      "id": "credit_business_nation",
+      "code": "",
+      "name": {
+        "ko": "사업장 적자: 나라 신용 깎기(점)",
+        "en": "Business deficit: nation credit cut (points)"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "사업장 적자가 생길 때 건물 주인의 그 나라 신용에서 한 번 깎는 점수. 다 갚으면 되돌린다.",
+        "en": "Points cut once from the owner's nation credit when a business runs a deficit. Restored when repaid."
+      },
+      "source": "D-581(질문 2374 답 \"점수 범위·깎는 크기는 설정 칸\") · 줄기 credit"
+    },
+    {
       "id": "resident_building_floor_pm",
       "code": "",
       "name": {

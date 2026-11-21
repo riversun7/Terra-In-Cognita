@@ -19,6 +19,7 @@
 //   시각, 그 전까지는 돈다). 재정이 안정되면(적자를 다 갚고 금고가 다음 정산까지 낼 임금을 덮으면) 다시 돈다. 새 임금형 계약은 금고에 한 주기 임금이
 //   없거나 멈춘 사업장이면 맺지 않는다(fundDeposit = undefined — 고용을 막는다, 적자로 미리 넣지 않는다).
 // - 쓰기는 월드 쓰기 대기열(원장 고리와 같은 묶음). 거래에 중복 방지 키를 달지 않는다(자동 정산 주기는 business_states.settled_at_ms로 한 번만).
+import { attachCreditBook } from "../credit/book.ts";
 import { houseTaxerOf } from "../factionIdentity/houseTax.ts";
 import {
   type ShareHolder,
@@ -176,6 +177,16 @@ export function createBusinessCore(deps: BusinessDeps): BusinessCore {
   const prices = new Map<string, BusinessPrice>(
     deps.loaded.prices.map((row) => [`${row.buildingId}|${row.item}`, { ...row }]),
   );
+
+  // 신용 장부(D-581 — credit/book.ts): 사업장 적자·주민세 빚으로 깎고 갚으면 되돌린다. 건물 자리·도시 나라는 이 장부의 고리를 쓴다
+  attachCreditBook({
+    ledger,
+    writer,
+    loaded: deps.loaded.credit ?? [],
+    rules: deps.rules,
+    place: deps.place,
+    nationOf: (cityId) => deps.tax(cityId)?.treasuryOwner,
+  });
 
   const stateOf = (buildingId: number): BusinessState => {
     let found = states.get(buildingId);

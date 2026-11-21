@@ -208,4 +208,32 @@ export const BUSINESS_TUNING_KEYS: readonly TuningKey[] = [
     "주민세 건물 감가 바닥(‰)",
     "Resident tax building depreciation floor (‰)",
   ),
+  // 신용 점수(D-581 — 질문 2374 답, apps/server/src/credit/): 범위·시작값, 깎는 크기(주민세 빚·사업장 적자, 도시·나라)
+  k("credit_min", "creditMin", "신용 점수 아래 끝(점)", "Credit score minimum (points)"),
+  k("credit_max", "creditMax", "신용 점수 위 끝(점)", "Credit score maximum (points)"),
+  k("credit_start", "creditStart", "신용 점수 시작값(점)", "Credit score start (points)"),
+  k(
+    "credit_resident_city",
+    "creditResidentCity",
+    "주민세 빚: 도시 신용 깎기(주기마다, 점)",
+    "Resident tax debt: city credit cut (per cycle, points)",
+  ),
+  k(
+    "credit_resident_nation",
+    "creditResidentNation",
+    "주민세 빚: 나라 신용 깎기(주기마다, 점)",
+    "Resident tax debt: nation credit cut (per cycle, points)",
+  ),
+  k(
+    "credit_business_city",
+    "creditBusinessCity",
+    "사업장 적자: 도시 신용 깎기(점)",
+    "Business deficit: city credit cut (points)",
+  ),
+  k(
+    "credit_business_nation",
+    "creditBusinessNation",
+    "사업장 적자: 나라 신용 깎기(점)",
+    "Business deficit: nation credit cut (points)",
+  ),
 ];

@@ -50,6 +50,7 @@ import type { RecruitBoardResponse } from "@terra/shared/recruit";
 import type { FusionOverviewResponse } from "@terra/shared/fusion";
 import type { TempleOverviewResponse } from "@terra/shared/temple";
 import type { GovernanceView } from "../governance/view.ts";
+import type { CreditResponse } from "@terra/shared/credit";
 import type { HospitalOverviewResponse } from "@terra/shared/hospital";
 import type { RuinsOverviewResponse } from "@terra/shared/ruins";
 import type { WorldCitiesResponse, WorldPositionResponse } from "@terra/shared/worldMap";
@@ -376,6 +377,8 @@ export interface EconomyServices {
   marketBook(viewer: Viewer, item: string, city: string, query: EconomyQuery): MarketBookResponse;
   orders(viewer: Viewer, query: EconomyQuery): EconomyOrdersResponse;
   exchange(viewer: Viewer, query: EconomyQuery): EconomyExchangeResponse;
+  /** 내 신용 점수(도시·나라, 깎인 곳만 — docs/adr/2026-11-21-credit.md) */
+  credit(viewer: Viewer, query: EconomyQuery): Promise<CreditResponse>;
 }
 
 /**

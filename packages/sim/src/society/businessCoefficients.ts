@@ -146,6 +146,19 @@ export interface BusinessCoefficients {
   readonly residentBuildingValuePm?: number | undefined;
   readonly residentBuildingDepreciationPm?: number | undefined;
   readonly residentBuildingFloorPm?: number | undefined;
+  /**
+   * 신용 점수(기획 D-581 — 질문 2374 답: 도시 주민·나라 주민의 신용, 범위·깎는 크기는 설정 칸, apps/server/src/credit/ — docs/adr/2026-11-21-credit.md).
+   * 점수 = 시작값 − 아직 갚지 않은 빚마다 깎은 몫의 합, [아래, 위]로 자른다. 서버만 읽는다. 선택 칸 — 없으면 0·1000·1000
+   */
+  readonly creditMin?: number | undefined;
+  readonly creditMax?: number | undefined;
+  readonly creditStart?: number | undefined;
+  /** 주민세를 다 못 낸 주기마다 깎는 점수(도시 신용·나라 신용). 갚으면(빚 계정 0) 그 빚으로 깎은 몫을 바로 되돌린다. 선택 칸 — 없으면 0 */
+  readonly creditResidentCity?: number | undefined;
+  readonly creditResidentNation?: number | undefined;
+  /** 사업장 적자(debt:business — D-555 1504)가 생길 때 한 번 깎는 점수(건물 주인의 그 도시·그 나라 신용). 다 갚으면 되돌린다. 선택 칸 — 없으면 0 */
+  readonly creditBusinessCity?: number | undefined;
+  readonly creditBusinessNation?: number | undefined;
 }
 
 export const START_BUSINESS: BusinessCoefficients = {
@@ -189,4 +202,11 @@ export const START_BUSINESS: BusinessCoefficients = {
   residentBuildingValuePm: 1000,
   residentBuildingDepreciationPm: 1,
   residentBuildingFloorPm: 300,
+  creditMin: 0,
+  creditMax: 1000,
+  creditStart: 1000,
+  creditResidentCity: 50,
+  creditResidentNation: 20,
+  creditBusinessCity: 30,
+  creditBusinessNation: 10,
 };

@@ -177,7 +177,12 @@ test.describe("노동 계약", () => {
     const leasePanel = await openLabor(tenant.page);
     const leaseForm = leasePanel.locator("form.labor-form").first();
     await leaseForm.getByLabel(message("ko", "labor_field_kind")).selectOption("lease");
-    await expect(leaseForm.getByLabel(message("ko", "labor_field_building"))).toHaveValue(String(buildingId));
+    // 빌릴 수 있는 시설에는 NPC 거래소도 있다(줄이 없는 NPC 거래소도 거래 직무 자리를 낸다 — 기획 대조 2204, labor/deskRent.ts).
+    // 그래서 첫 항목에 기대지 않고 시험 건물을 고른다
+    const leaseBuilding = leaseForm.getByLabel(message("ko", "labor_field_building"));
+    await expect(leaseBuilding.locator(`option[value="${String(buildingId)}"]`)).toHaveCount(1);
+    await leaseBuilding.selectOption(String(buildingId));
+    await expect(leaseBuilding).toHaveValue(String(buildingId));
     await expect(leaseForm.locator('[data-part="labor-preview"]')).toHaveText(
       message("ko", "labor_preview_lease", { rent: "5", cycle: await unitText(tenant.page, 1, "hour") }),
     );

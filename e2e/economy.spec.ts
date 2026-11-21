@@ -7,7 +7,7 @@
 //   summary.get 응답을 고쳐 띄우지 않는다(helpers/trpc.ts hideSummary).
 // - 주문표: 호가 줄을 누르면 값이 들어가고, 거래세·묶이는 돈 미리 보기가 바뀌며, [주문]은 "곧 열림"으로 잠겨 있다(명령 없음).
 // - 시세 색(D-442): 한국어 = 한국식(매수 빨강·매도 파랑), 영어 = 서양식(매수 초록·매도 빨강), 설정 "시세 색"이 바꾼다.
-//   색은 토큰 값과 계산된 글자 색을 견준다(파스텔: 위험 #b8283f, 성공 #226b33, 시세 파랑 #1d56b8 — styles/tokens.css).
+//   색은 지금 테마의 토큰(위험·성공·시세 파랑, styles/tokens.css)을 화면에서 읽어 계산된 글자 색과 견준다(값을 시험에 적지 않는다).
 // - 사진: 390·1440 × 파스텔·다크 × 한국어·영어, 화면마다(E2E_SHOTS_DIR).
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
@@ -331,12 +331,30 @@ test.describe("admin 시안 자료(시험 거래소)", () => {
   });
 });
 
-/** 파스텔 테마 토큰(styles/tokens.css)의 계산된 색 */
-const PASTEL = {
-  danger: "rgb(184, 40, 63)",
-  success: "rgb(34, 107, 51)",
-  marketBlue: "rgb(29, 86, 184)",
-} as const;
+/**
+ * 디자인 토큰(styles/tokens.css)의 계산된 색 — 지금 테마에서 토큰 값을 읽는다.
+ * 값을 시험에 적어 두면 토큰을 바꿀 때마다 시험이 깨진다(1116w에서 db1e404545의 색 바꿈을 못 따라감). 경제 화면 뿌리 안에
+ * 잠깐 둔 글자에 `color: var(토큰)`을 주고 계산된 색을 읽어, 호가 글자 색과 같은 형식(rgb(…))으로 비교한다.
+ */
+async function tokenColors(page: Page): Promise<{ danger: string; success: string; marketBlue: string }> {
+  const read = (token: string) =>
+    economy(page).evaluate((root, name) => {
+      const probe = document.createElement("span");
+      probe.style.color = `var(${name})`;
+      root.append(probe);
+      const value = getComputedStyle(probe).color;
+      probe.remove();
+      return value;
+    }, token);
+  const colors = {
+    danger: await read("--color-danger"),
+    success: await read("--color-success"),
+    marketBlue: await read("--color-market-blue"),
+  };
+  // 세 토큰이 서로 달라야 쪽을 가를 수 있다(빈 토큰이면 모두 글자색이 된다)
+  expect(new Set(Object.values(colors)).size).toBe(3);
+  return colors;
+}
 
 /** 호가창의 가장 좋은 매수·매도 값 글자 색 */
 async function bookColors(page: Page): Promise<{ buy: string; sell: string }> {
@@ -358,7 +376,8 @@ test.describe("시세 색(D-442)", () => {
     await openPreview(page, "/economy/market/iron_ore/101");
     await expect(economy(page).locator(".eco-level").first()).toBeVisible();
     await expect(economy(page)).toHaveAttribute("data-market-colors", "korean");
-    expect(await bookColors(page)).toEqual({ buy: PASTEL.danger, sell: PASTEL.marketBlue });
+    const tokens = await tokenColors(page);
+    expect(await bookColors(page)).toEqual({ buy: tokens.danger, sell: tokens.marketBlue });
 
     await page.goto("/settings");
     const select = page.getByLabel(message("ko", "settings_market_colors"));
@@ -372,7 +391,7 @@ test.describe("시세 색(D-442)", () => {
     await page.goto("/economy/market/iron_ore/101");
     await expect(economy(page).locator(".eco-level").first()).toBeVisible();
     await expect(economy(page)).toHaveAttribute("data-market-colors", "western");
-    expect(await bookColors(page)).toEqual({ buy: PASTEL.success, sell: PASTEL.danger });
+    expect(await bookColors(page)).toEqual({ buy: tokens.success, sell: tokens.danger });
     // 새로고침해도 기기에 남는다
     await page.reload();
     await expect(economy(page)).toHaveAttribute("data-market-colors", "western");
@@ -386,12 +405,13 @@ test.describe("시세 색(D-442)", () => {
       await openPreview(page, "/economy/market/iron_ore/101");
       await expect(economy(page).locator(".eco-level").first()).toBeVisible();
       await expect(economy(page)).toHaveAttribute("data-market-colors", "western");
-      expect(await bookColors(page)).toEqual({ buy: PASTEL.success, sell: PASTEL.danger });
+      const tokens = await tokenColors(page);
+      expect(await bookColors(page)).toEqual({ buy: tokens.success, sell: tokens.danger });
       await page.goto("/settings");
       await page.getByLabel(message("en", "settings_market_colors")).selectOption("korean");
       await page.goto("/economy/market/iron_ore/101");
       await expect(economy(page)).toHaveAttribute("data-market-colors", "korean");
-      expect(await bookColors(page)).toEqual({ buy: PASTEL.danger, sell: PASTEL.marketBlue });
+      expect(await bookColors(page)).toEqual({ buy: tokens.danger, sell: tokens.marketBlue });
       expect(deviceErrors).toEqual([]);
     });
   });

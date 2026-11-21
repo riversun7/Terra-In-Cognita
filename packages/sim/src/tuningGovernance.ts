@@ -385,4 +385,26 @@ export const GOVERNANCE_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 조약 수락: 차분함 문턱(‰)",
     "NPC treaty acceptance: calm threshold (‰)",
   ),
+  // 조약 위반 나라·세력 신뢰·제재 명분(줄기 fixes-1117c — 기획 D-255·D-290, 질문 2558)
+  k(
+    "dip_breach_trust_penalty",
+    "",
+    "governance.breachTrustPenalty",
+    "조약 위반 한 번의 세력 신뢰 하락",
+    "Faction trust lost per treaty breach",
+  ),
+  k(
+    "dip_sanction_window_ms",
+    "",
+    "governance.sanctionWindowMs",
+    "조약 위반이 제재 명분이 되는 기간(ms)",
+    "How long a treaty breach gives a sanction cause (ms)",
+  ),
+  k(
+    "dip_sanction_cause_bonus",
+    "",
+    "governance.sanctionCauseBonus",
+    "제재 명분: NPC 선포 점수에서 덜어 내는 무명분 몫",
+    "Sanction cause: no-cause penalty removed from NPC war score",
+  ),
 ];

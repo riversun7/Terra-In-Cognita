@@ -103,6 +103,7 @@ import { GatherPanel } from "./gather/GatherPanel.tsx";
 import { createGatherState } from "./gather/gatherState.ts";
 import { GovernmentSheet } from "../government/GovernmentSheet.tsx";
 import { LeaderSheet } from "../government/LeaderSheet.tsx";
+import { UnitAttack } from "./UnitAttack.tsx";
 import { pickName } from "../economy/economyText.ts";
 import "./map.css";
 import "./unitNames.css";
@@ -289,6 +290,7 @@ function SecondMapView({
   } = useBottomSheet(gather, nearby);
   // 고른 유닛 따라가기(내 유닛·운영자 모드)와 2차맵 확대 단계(사다리, 엔진이 바뀔 때 알린다)
   const [zoomStage, setZoomStage] = useState(0);
+  const [attacker, setAttacker] = useState<number | null>(null);
   // 지도에서 누른 유닛 — 유닛을 누를 때와 지도자 이름표를 누를 때 같다. 내 유닛이면 고르고 기준 유닛이 된다(chooseAnchor).
   // 남의 유닛이면(운영자 모드도) 고르지 않는다(false — 엔진도 고른 표시를 그대로 둔다): 명령 유닛은 그대로, 그 유닛의 작은 창만 연다
   // (사용자 지적 2026-11-09 "이동하려는데 다른 유닛이 선택되는문제", 2026-11-10). ref·상태 바꾸기·늘 같은 판 함수만 쓴다
@@ -308,8 +310,12 @@ function SecondMapView({
     );
   };
   /** 남의 유닛 작은 창을 연다(명령 유닛은 그대로) */
-  const peekUnit = (id: number): void =>
+  const peekUnit = (id: number): void => {
+    // 일부러 치기(unit_attack)에 쓸 내 유닛: 엔진이 고른 유닛이 이 2차맵에 선 내 유닛(시야 전송의 내 유닛 표시)일 때만
+    const actor = engineRef.current?.selected() ?? null;
+    setAttacker(actor !== null && actor !== id && feedRef.current?.isOwn(actor) === true ? actor : null);
     openPeek({ unitId: id, moving: engineRef.current?.unitState(id)?.moving ?? false });
+  };
   const selectFromMapRef = useRef((id: number | null): boolean => {
     if (id !== null && unitTapOf({ own: isOwnUnit(id), commanding: id === selectedRef.current }) === "peek") {
       peekUnit(id);
@@ -768,11 +774,15 @@ function SecondMapView({
             moving={peek.moving}
             glance={glance}
             ground={shown === null ? "none" : operator ? "operator" : "own"}
-            hasActions={leaderTags.isLeader(peek.unitId)}
+            hasActions={leaderTags.isLeader(peek.unitId) || (!operator && attacker !== null)}
             onControl={operator ? () => controlUnit(peek.unitId) : null}
             onClose={closePeek}
           >
             <LeaderSheet tags={leaderTags} selected={peek.unitId} mapKey={mapKey} embedded />
+            {/* 고른 내 유닛으로 일부러 치기(unit_attack — 같은 나라 유저끼리 싸움·약탈은 이 길로만, 줄기 fixes-1117c) */}
+            {!operator && attacker !== null ? (
+              <UnitAttack key={`${attacker}:${peek.unitId}`} actor={attacker} target={peek.unitId} />
+            ) : null}
           </PeekCard>
         ) : null}
         {/* 누른 건물이 행정 건물이면 정부 몫을 그 건물 판 안에(docs/adr/2026-11-07-play-flow.md "WP-NPC", 건물 하나에 판 하나) */}

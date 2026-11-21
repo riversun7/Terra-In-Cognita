@@ -180,9 +180,15 @@ function attach(world: World, rules: () => GovernanceRules) {
 
 const treatyRow = async (id: number) =>
   (
-    await rows<{ state: string; revision: number; author_nation: string; agenda_id: string | null }>(
+    await rows<{
+      state: string;
+      revision: number;
+      author_nation: string;
+      agenda_id: string | null;
+      broken_by: string | null;
+    }>(
       test.db,
-      "select state, revision, author_nation, agenda_id from diplomacy_treaties where id = $1",
+      "select state, revision, author_nation, agenda_id, broken_by from diplomacy_treaties where id = $1",
       [id],
     )
   )[0];
@@ -282,7 +288,17 @@ describe.skipIf(!TEST_DATABASE_URL)("지도자끼리 조약(diplomacy)", () => {
       await gov.service.propose(me.userId, { kind: "war_declaration", targetNationId: target.id }),
     ).toMatchObject({ ok: true });
     await tick();
-    expect(await treatyRow(made.ref)).toMatchObject({ state: "broken" });
+    // 어긴 나라 = 맺은 동안 선포한 우리 나라(fixes-1117c — D-255·D-329 86): 세력 신뢰가 내려가고, 위반 기록이 제재 명분이 된다(D-290)
+    expect(await treatyRow(made.ref)).toMatchObject({ state: "broken", broken_by: String(me.nation) });
+    const after = await dip.view(me.userId);
+    expect(after.nation).toMatchObject({ breaches: 1, trust: -rules.breachTrustPenalty });
+    expect(after.treaties.find((row) => row.id === made.ref)?.brokenBy).toBe("us");
+    expect((await dip.view(other.userId)).nation).toMatchObject({ breaches: 1 });
+    const book = dip.service.breaches();
+    expect(book?.breachesOf(me.faction.id)).toBe(1);
+    expect(book?.causeBonus(targetFaction.id, me.faction.id, clock)).toBe(rules.sanctionCauseBonus);
+    expect(book?.causeBonus(me.faction.id, targetFaction.id, clock)).toBe(0);
+    expect(book?.causeBonus(targetFaction.id, me.faction.id, clock + rules.sanctionWindowMs + 1)).toBe(0);
     gov.stop();
   }, 180_000);
 
@@ -397,7 +413,8 @@ describe.skipIf(!TEST_DATABASE_URL)("지도자끼리 조약(diplomacy)", () => {
     // 강화 안건 → 휴전·강화 조약(옛 2497 길 대신): B와 A가 전쟁(위의 보호 조약은 위반으로 끝남), B 직권 강화 → A에게 휴전·강화 조약이 간다
     npc.society.declareWar(b.faction, a.faction, clock);
     await tick();
-    expect(await treatyRow(offered.ref)).toMatchObject({ state: "broken" });
+    // 선포를 알리지 않은 길(시뮬 안 다른 길)은 어긴 나라를 모른다 [임시 2582] — 신뢰는 그대로
+    expect(await treatyRow(offered.ref)).toMatchObject({ state: "broken", broken_by: null });
     expect(await gov.service.propose(b.userId, { kind: "peace", targetNationId: a.nation })).toMatchObject({
       ok: true,
       action: "decided",

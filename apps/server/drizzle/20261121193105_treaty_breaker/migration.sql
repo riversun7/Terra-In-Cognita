@@ -1,0 +1,1 @@
+ALTER TABLE "diplomacy_treaties" ADD COLUMN "broken_by" bigint;

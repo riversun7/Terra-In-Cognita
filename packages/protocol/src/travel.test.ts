@@ -7,6 +7,8 @@ import {
   TRAVEL_KINDS,
   TRAVEL_PROTOCOL_VERSION,
   TRAVEL_RESULT_CODES,
+  UNIT_ATTACK_MAX_UNITS,
+  UNIT_ATTACK_PROTOCOL_VERSION,
   UNIT_TACTICS_PRESETS,
   UNIT_TACTICS_PROTOCOL_VERSION,
   UNIT_TACTICS_TARGETS,
@@ -87,5 +89,22 @@ describe("2차맵 사이 이동 메시지(프로토콜 16)", () => {
     expect(decodes(decodeClientMessage, { ...message, target: "random" })).toBe(false);
     expect(UNIT_TACTICS_PRESETS).toEqual(["aggressive", "balanced", "defensive", "hold"]);
     expect(UNIT_TACTICS_TARGETS).toEqual(["nearest", "weakest", "threat"]);
+  });
+
+  it("유닛 공격(줄기 판 123 — D-588 2496 가·2543): 내 유닛 1~30·대상 하나, 새 결과 코드", () => {
+    expect(UNIT_ATTACK_PROTOCOL_VERSION).toBe(123);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(UNIT_ATTACK_PROTOCOL_VERSION);
+    const message = { t: "unit_attack" as const, id: 5, unitIds: [7, 8], targetUnitId: 9 };
+    expect(decodeClientMessage(encodeMessage(message))).toEqual(message);
+    expect(decodes(decodeClientMessage, { ...message, unitIds: [] })).toBe(false);
+    expect(
+      decodes(decodeClientMessage, {
+        ...message,
+        unitIds: Array.from({ length: UNIT_ATTACK_MAX_UNITS + 1 }, (_, i) => i + 1),
+      }),
+    ).toBe(false);
+    expect(decodes(decodeClientMessage, { ...message, targetUnitId: 0 })).toBe(false);
+    for (const code of ["out_of_reach", "own_target", "safe_zone"] as const)
+      expect(TRAVEL_RESULT_CODES).toContain(code);
   });
 });

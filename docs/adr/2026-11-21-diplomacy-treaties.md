@@ -64,3 +64,20 @@
   앞 종류를 지웠다. 새 마이그레이션은 끝 넷의 자식이고 두 종류를 함께 넣는다. 넓히기만 해서 직전 판 앱 그대로. 되돌리면 `treaty`
   안건을 모르는 종류로 읽는다 — Assumed 해 없음: 선출로 읽혀 후보 없이 실패), 프로토콜 63(묶음 1117c, 줄기 판 131 — 받는 가장 낮은 판 62, `DIPLOMACY_PROTOCOL_VERSION`, 더하기만),
   팩 core@141(묶음 1117c, 줄기 판 209 — 설정 칸 넷 더함), SIM_VERSION 그대로(시뮬 판정 코드 안 바꿈 — 계수표에 칸만 더함, 시뮬은 읽지 않는다).
+
+## 바뀜 (fixes-1117c — 어긴 나라·세력 신뢰·제재 명분, 2026-11-22 — 기획 검토 2558)
+
+- 근거: 기획 검토(2026-11-22, 코디네이터 전달 — 질문 2558): D-255(사용자 선택) "조약을 어기면 모두가 보는 신뢰가 떨어진다", D-290 기술 전달 "판정 재료: … 조약 위반 기록"(명분 "제재 — 상대가 조약을 어겼다"),
+  D-329 86 "먼저 싸운 쪽에 위반 사건", D-443 154 "신뢰는 세력마다 하나, 모두가 보는 값". 위 결정의 "누가 어겼는지 기록 없음 [임시 2558]"을 아래가 대신한다. 질문 2551·2552·2553·2554·2556·2557·2560은
+  기술 기본값 확정(질문 표시), 2555·2559는 사용자 몫이라 그대로.
+- **어긴 나라**: 맺은 조약의 두 나라가 전쟁 상태가 되면(위반 — 판정은 그대로) 조약을 맺은 뒤 **상대에게 선전포고한 나라**를 어긴 나라로 적는다(`diplomacy_treaties.broken_by`, 세력 행). 선포는 길 셋이
+  위반 장부(`diplomacy/breaches.ts`, 원장마다 하나 — 메모리)에 알린다: NPC 판단(새 시뮬 고리 `SimHooks.warDeclared` — `npcRun.ts`가 선포 뒤 부른다, 서버 `npc/rulingVault.ts`가 `withTreatyHooks`로 얹음),
+  의결 선전포고(`governance/port.ts declareWar` 한 줄), 참전 수락(`diplomacy/port.ts joinWar`). 못 찾으면 null(질문 2582 — 시뮬 안 재건·반란 전쟁, 선포와 틱 사이 재시작).
+- **세력 신뢰**(−100~100): 0 − 위반 수 × 설정 칸 `dip_breach_trust_penalty`(30 [임시]). 위반 기록(DB)에서 셈한다(저장 칸 없음). 오르는 길 없음(질문 2583). 조회 `diplomacy.view`: `nation.trust·breaches`,
+  제안 상대마다 `trust·breaches`, 조약마다 `brokenBy`("us"·"them"·null). 외교 칸: 우리 신뢰 줄·위반 안내 줄·제안 상대 고르기 칸의 상대 신뢰·위반 조약 카드의 어긴 쪽 줄(문구 5개 ko·en).
+- **제재 명분**(D-290 판정 재료): 위반 기록이 설정 칸 `dip_sanction_window_ms`(30일 [임시]) 안이면 누구든 그 나라에 명분이 있다(질문 2584). NPC 판단 치기 점수: 새 시뮬 고리 `SimHooks.causeBonus` →
+  `RivalView.causeBonus` → 무명분 선포 몫(`npc_attack_declare_penalty`)에서 `dip_sanction_cause_bonus`(150 [임시])를 덜어 낸다(무명분 몫까지만, `npc/brain.ts causeOffset` — 판단 분해표
+  `effectiveTraits.ts`도 같다). 무명분 선포 비용(국고 소각)은 그대로(질문 2585 — `simulator/society.ts` 1,000줄 상한).
+- 시뮬 판정 그대로: 고리 둘은 선택 칸이고 시뮬은 붙이지 않는다(`RivalView.causeBonus` 없음 = 0). SIM_VERSION 그대로(전체 검사의 `@terra/sim` 골든).
+- 판: 마이그레이션 `20261121193105_treaty_breaker`(칸 하나 `broken_by` 더하기 — null 허용, 직전 판 앱 그대로, prevIds = `1e0baccb`), 팩 core@201(줄기 판 — 설정 칸 셋), 프로토콜은 이 절과 무관
+  (조회만 바뀜 — tRPC 응답 칸 더하기).

@@ -9,7 +9,9 @@ export type TravelCommand =
   | Omit<ClientMessageOf<"travel_start">, "id">
   | Omit<ClientMessageOf<"travel_cancel">, "id">
   // 유닛 AI 작전 저장(프로토콜 50, 유닛 화면 units/TacticsPanel.tsx — 답도 travel_result)
-  | Omit<ClientMessageOf<"unit_tactics">, "id">;
+  | Omit<ClientMessageOf<"unit_tactics">, "id">
+  // 유닛 공격(프로토콜 123 — 남의 유닛 작은 창 map/UnitAttack.tsx, 답도 travel_result)
+  | Omit<ClientMessageOf<"unit_attack">, "id">;
 
 export type TravelOutcome =
   | { readonly ok: true; readonly maps?: number | undefined; readonly arriveAt?: number | undefined }

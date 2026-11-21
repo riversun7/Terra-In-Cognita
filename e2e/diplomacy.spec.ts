@@ -2,7 +2,7 @@
 // - 플레이어(실제 자료): 첫 접속에서 든 시험 NPC 국가 — 외교 칸이 서고, 지도자가 아니라 조약을 낼 수 없다는 안내와 빈 목록이 보인다.
 // - 조약이 있는 장면: diplomacy.view 응답을 고쳐(helpers/trpc.ts rewriteTrpc) 보는 사람을 지도자로 두고 받은 조약(우리 차례)·우리 비준 투표 중·맺은 보호
 //   조약·참전 요청을 넣는다. [받기]는 WebSocket dip_respond를 보낸다(서버는 지도자가 아니라 not_leader로 답하고 화면은 오류 문구를 보인다).
-//   [조항 고치기]는 고치기 칸을 연다.
+//   [조항 고치기]는 고치기 칸을 연다. 바뀜(fixes-1117c): 우리 세력 신뢰 줄·상대가 어긴 위반 조약(어긴 쪽 줄).
 // - 사진: 390 × 파스텔·다크 × 한국어·영어(E2E_SHOTS_DIR). 가로 넘침 없음.
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
@@ -47,11 +47,12 @@ const withTreaties = (data: unknown): void => {
     activatedAtMs: null,
     expiresAtMs: null,
     endedAtMs: null,
+    brokenBy: null,
     can: { accept: false, counter: false, decline: false },
   };
   Object.assign(data, {
     status: "ready",
-    nation: { id: 1, name: { ko: "칼루누이", en: "Kalunui" }, regime: "democracy" },
+    nation: { id: 1, name: { ko: "칼루누이", en: "Kalunui" }, regime: "democracy", trust: -30, breaches: 1 },
     leader: true,
     maxDays: 30,
     tributeMaxPm: 50,
@@ -63,8 +64,19 @@ const withTreaties = (data: unknown): void => {
         playerLed: true,
         requestTreatyId: 703,
         requestable: [east],
+        trust: 0,
+        breaches: 0,
       },
-      { ...east, atWar: true, truceUntilMs: null, playerLed: false, requestTreatyId: null, requestable: [] },
+      {
+        ...east,
+        atWar: true,
+        truceUntilMs: null,
+        playerLed: false,
+        requestTreatyId: null,
+        requestable: [],
+        trust: -60,
+        breaches: 2,
+      },
     ],
     treaties: [
       {
@@ -103,6 +115,18 @@ const withTreaties = (data: unknown): void => {
         waiting: null,
         activatedAtMs: NOW - DAY,
         expiresAtMs: NOW + 13 * DAY,
+      },
+      {
+        ...base,
+        id: 704,
+        other: east,
+        state: "broken",
+        clauses: [{ kind: "non_aggression", weProtect: null, tributePm: null }],
+        waiting: null,
+        activatedAtMs: NOW - 3 * DAY,
+        expiresAtMs: NOW + 11 * DAY,
+        endedAtMs: NOW - DAY,
+        brokenBy: "them",
       },
     ],
     warJoins: [
@@ -148,8 +172,15 @@ test.describe("플레이어(실제 자료)", () => {
     });
     await openDiplomacy(page, "ko");
     const panel = page.getByTestId("diplomacy");
-    await expect(panel.locator("article.faction-item")).toHaveCount(3);
+    await expect(panel.locator("article.faction-item")).toHaveCount(4);
     await expect(panel.getByText(message("ko", "dip_propose_title"))).toBeVisible();
+    // 세력 신뢰·어긴 쪽(fixes-1117c — D-255)
+    await expect(panel.locator('[data-part="dip-trust"]')).toHaveText(
+      message("ko", "dip_trust_ours", { trust: "-30", breaches: "1" }),
+    );
+    await expect(panel.locator('[data-treaty-state="broken"] [data-part="dip-broken-by"]')).toHaveText(
+      message("ko", "dip_broken_by_them"),
+    );
     await expect(panel.locator('[data-treaty-state="active"]')).toBeVisible();
     await expect(panel.getByText(message("ko", "dip_vote_hint"))).toBeVisible();
     await expect(panel.locator('[data-join-state="requested"]')).toBeVisible();
@@ -179,7 +210,7 @@ test.describe("사진 390px", () => {
         await rewriteTrpc(page, { "summary.get": hideSummary, "diplomacy.view": withTreaties });
         await openDiplomacy(page, language);
         const panel = page.getByTestId("diplomacy");
-        await expect(panel.locator("article.faction-item")).toHaveCount(3);
+        await expect(panel.locator("article.faction-item")).toHaveCount(4);
         await panel.scrollIntoViewIfNeeded();
         expect(await horizontalOverflow(page)).toEqual([]);
         await shot(page, `diplomacy-${theme}-${language}-390`);

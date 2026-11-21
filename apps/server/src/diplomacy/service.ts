@@ -8,6 +8,8 @@
 //   쪽이 전쟁에 들면 보호하는 쪽에 참전 요청이 저절로 간다, 동맹·보호 = 참전 요청·수락(수락 = 그 적과 전쟁 참가자 — 무명분 비용 없음).
 // - 틱(의결 틱 뒤 1분마다): 비준 투표 부결·취소, 답 기한 지남, 기간 끝(expired), 맺은 동안 두 나라가 전쟁 상태가 됨(broken — 조약은 공격을 막지 않는다, D-329 86),
 //   불가침 다시 걸기(켤 때), 공물, 보호 저절로 참전 요청, 참전 요청 기한 지남.
+//   바뀜(fixes-1117c — D-255 "어기면 모두가 보는 신뢰가 떨어진다"·D-290 "조약 위반 기록"): broken이면 맺은 뒤 상대에게 선포한 나라를 어긴 나라로 적는다(broken_by,
+//   위반 장부 breaches.ts — 세력 신뢰·제재 명분). 모르면 null [임시 2582].
 // 쓰기는 DB 바로. 명령·틱은 의결 사슬(governance service.run)에서 돈다 — 의결 틱의 조약 비준 집행(enact)과 겹치지 않는다.
 import { DAY_MS } from "@terra/sim";
 import type { DiplomacyAction, DiplomacyResultCode } from "@terra/protocol";
@@ -111,12 +113,13 @@ export function createDiplomacyService(o: {
 
   const save = (row: TreatyRow, nowMs: number) => o.store.saveTreaty(row, nowMs);
 
-  /** 끝낸다(declined·lapsed·expired·broken). 열린 비준 투표가 있으면 취소 */
+  /** 끝낸다(declined·lapsed·expired·broken). 열린 비준 투표가 있으면 취소. brokenBy = 위반이면 어긴 나라(모르면 null) */
   const end = async (
     treaty: TreatyRow,
     state: "declined" | "lapsed" | "expired" | "broken",
     nowMs: number,
     userId: string | null = null,
+    brokenBy: number | null = null,
   ): Promise<void> => {
     if (treaty.agendaId !== null) {
       const agenda = await o.gstore.agenda(treaty.agendaId);
@@ -124,7 +127,7 @@ export function createDiplomacyService(o: {
         await o.gstore.finish(agenda.id, { status: "cancelled", decidedAtMs: nowMs });
     }
     await save(
-      { ...treaty, state, agendaId: null, agendaNation: null, respondByMs: null, endedAtMs: nowMs },
+      { ...treaty, state, agendaId: null, agendaNation: null, respondByMs: null, endedAtMs: nowMs, brokenBy },
       nowMs,
     );
     await audit(userId, `diplomacy.treaty_${state}`, {
@@ -132,7 +135,34 @@ export function createDiplomacyService(o: {
       nationA: treaty.nationA,
       nationB: treaty.nationB,
       revision: treaty.revision,
+      ...(state === "broken" ? { brokenBy } : {}),
     });
+  };
+
+  /** 위반 장부를 켤 때 한 번 DB 위반 기록으로 채운다(어긴 나라 세력 행 → 거울 세계 세력 ID) */
+  const breachBook = async () => {
+    const book = o.port.breaches();
+    if (!book || book.loaded()) return book;
+    for (const row of await o.store.breaches()) {
+      const owner = o.port.nation(row.nationId)?.ownerId;
+      if (owner !== undefined) book.record(owner, row.atMs);
+    }
+    book.markLoaded();
+    return book;
+  };
+
+  /** 맺은 조약이 두 나라 전쟁으로 깨졌다: 맺은 뒤 선포한 나라를 어긴 나라로 적고 장부에 남긴다 */
+  const breakTreaty = async (
+    treaty: TreatyRow,
+    a: GovernanceNation,
+    b: GovernanceNation,
+    nowMs: number,
+  ): Promise<void> => {
+    const book = await breachBook();
+    const declarer = book?.declarerSince(a.ownerId, b.ownerId, treaty.activatedAtMs ?? 0);
+    const breaker = declarer === a.ownerId ? a : declarer === b.ownerId ? b : undefined;
+    await end(treaty, "broken", nowMs, null, breaker?.rowId ?? null);
+    if (breaker) book?.record(breaker.ownerId, nowMs);
   };
 
   /** 맺는다(D-292 서버가 바로 집행). 조건이 바뀌어 맺을 수 없으면 거절로 끝낸다 */
@@ -513,6 +543,7 @@ export function createDiplomacyService(o: {
     if (!o.port.ready()) return;
     const nowMs = o.now();
     const rules = o.rules();
+    await breachBook();
     for (const treaty of await o.store.liveTreaties()) {
       if (isOpenTreaty(treaty.state)) {
         if (treaty.agendaId !== null) {
@@ -533,7 +564,7 @@ export function createDiplomacyService(o: {
         continue;
       }
       if (o.port.atWar(a, b)) {
-        await end(treaty, "broken", nowMs);
+        await breakTreaty(treaty, a, b, nowMs);
         continue;
       }
       const kinds = kindsOf(treaty.clauses);
@@ -601,6 +632,8 @@ export function createDiplomacyService(o: {
       });
     },
     npcLed,
+    /** 조약 위반 장부(조회·시험 — 세계가 준비되지 않았으면 undefined) */
+    breaches: () => o.port.breaches(),
   };
 }
 

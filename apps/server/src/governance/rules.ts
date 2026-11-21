@@ -61,6 +61,10 @@ export interface GovernanceRules {
   readonly tributeEveryMs: number;
   readonly warRequestMs: number;
   readonly npcTreatyCalmPm: number;
+  /** 조약 위반 한 번의 세력 신뢰 하락·제재 명분 기간(ms)·제재 명분 몫(줄기 fixes-1117c, 설정 칸 dip_breach_* · dip_sanction_*) */
+  readonly breachTrustPenalty: number;
+  readonly sanctionWindowMs: number;
+  readonly sanctionCauseBonus: number;
   /** 강화 조약 불가침 기간(ms — 세력·사회 d292_truce, 휴전·강화 조약의 기본 기간) */
   readonly truceMs: number;
 }
@@ -153,6 +157,9 @@ export function governanceRulesFrom(c: SocietyCoefficients): GovernanceRules {
     tributeEveryMs: period(c.tributeEveryMs),
     warRequestMs: period(g.warRequestMs),
     npcTreatyCalmPm: permille(g.npcTreatyCalmPm),
+    breachTrustPenalty: Math.min(200, whole(g.breachTrustPenalty)),
+    sanctionWindowMs: whole(g.sanctionWindowMs),
+    sanctionCauseBonus: whole(g.sanctionCauseBonus),
     truceMs: period(c.npc.truceMs),
   };
 }

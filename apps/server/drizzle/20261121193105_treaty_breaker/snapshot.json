@@ -1,0 +1,47 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "1b52711f-f437-4ebf-975f-5a44f622f2ac",
+  "prevIds": [
+    "1e0baccb-fd0f-4de9-b479-ad67274e5a40"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "diplomacy_treaties",
+        "broken_by"
+      ],
+      "writes": [
+        "s|col|public.diplomacy_treaties.broken_by",
+        "n|col|public.diplomacy_treaties.broken_by",
+        "e|col|public.diplomacy_treaties.broken_by"
+      ],
+      "reads": [
+        "n|tbl|public.diplomacy_treaties",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "broken_by",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

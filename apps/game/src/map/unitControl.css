@@ -198,6 +198,7 @@
 }
 .map-peek-line,
 .map-peek-empty,
+.map-peek-hint,
 .map-peek-note {
   margin: 0;
   font-size: var(--font-size-sm);
@@ -205,6 +206,7 @@
   overflow-wrap: anywhere;
 }
 .map-peek-empty,
+.map-peek-hint,
 .map-peek-note {
   color: var(--color-text-muted);
 }

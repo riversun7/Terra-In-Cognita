@@ -27,9 +27,9 @@ export function attachDiplomacy(o: {
   readonly now: () => number;
   readonly log: { info(obj: object, message: string): void; error(obj: object, message: string): void };
 }): DiplomacyAttached {
-  const port = worldDiplomacyPort(o.world, o.governance.port);
-  const store = createDiplomacyStore(o.db.$client);
   const rules = o.governance.rules;
+  const port = worldDiplomacyPort(o.world, o.governance.port, rules);
+  const store = createDiplomacyStore(o.db.$client);
   const service = createDiplomacyService({
     governance: () => o.governance.service,
     gstore: o.governance.store,

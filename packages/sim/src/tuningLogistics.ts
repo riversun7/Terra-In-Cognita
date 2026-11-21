@@ -44,4 +44,16 @@ export const LOGISTICS_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 일꾼이 피로 바퀴로 일터 ↔ 쉼터를 오감(1 = 피로 바퀴, 0 = 지역 낮·밤)",
     "NPC workers walk between work and rest on the fatigue cycle (1 = fatigue, 0 = local day/night)",
   ),
+  k(
+    "logistics_npc_build_waits",
+    "npcBuildWaits",
+    "NPC 물류센터 증축: 기다리는 운반 일 수(상업 성향 배율 곱)",
+    "NPC logistics center build: waiting haul jobs (times commerce trait scale)",
+  ),
+  k(
+    "logistics_npc_build_humans",
+    "npcBuildHumans",
+    "NPC 물류센터 증축: 도시 휴먼 수 하한",
+    "NPC logistics center build: minimum city humans",
+  ),
 ];

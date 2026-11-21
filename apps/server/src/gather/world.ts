@@ -18,6 +18,7 @@ import { type ObjectStore, createObjectStore, loadObjectStates } from "./state.t
 import { type StationRuntime, createStationRuntime } from "./station.ts";
 import { cellMaterials, oreSharePm, woodSharePm } from "@terra/shared/catchment";
 import { exchangeRoom } from "../market/lockerRoom.ts";
+import { withNpcStaff } from "../npc/npcLogistics.ts";
 
 /** 조회가 쓰는 채집 세계 */
 export interface GatherWorld {
@@ -142,8 +143,13 @@ export function startWorldGather(
         // 어군(기획 D-536)은 정산 시각의 자리로 반경을 본다
         objects: (mapKey) => service.objectsAt(mapKey, options.now()),
         pollution: (mapKey) => world.npc?.gardener.run.layer().get(mapKey) ?? 0,
-        // 운반꾼(질문 1090 가): 그 채집소 일꾼 가운데 채집 줄이 없는 유닛
-        workersAt,
+        // 운반꾼(질문 1090 가): 그 채집소 일꾼 가운데 채집 줄이 없는 유닛. 노동 계약 일꾼이 없는 NPC 물류센터는 NPC 운반꾼(house-10 2301 — npcLogistics.ts)
+        workersAt: (id) =>
+          withNpcStaff(
+            workersAt(id),
+            world.npc?.economy?.centerStaff(id),
+            (unitId) => world.npc?.world.units.get(unitId)?.owner,
+          ),
         // 거래소 거래 직무(질문 2084): 그 자리 유닛이 반입·반출을 먼저 나르고 시간이 설정 칸 배(‰)
         deskHaulPm: (buildingId) => {
           const record = facilities.service.facilities.get(buildingId);

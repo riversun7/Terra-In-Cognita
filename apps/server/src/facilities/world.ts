@@ -44,6 +44,7 @@ import type { LoadedFacilities } from "./state.ts";
 import { type HaulService, createHaulService } from "../logistics/haulService.ts";
 import { createAutoHaulPrefs } from "../logistics/autoHaul.ts";
 import { type HaulEconomy, haulMoneyOf } from "../logistics/haulMoney.ts";
+import { npcCenterHourly } from "../npc/npcLogistics.ts";
 
 /** 월드 설정의 건물 칸(app.ts가 실효 콘텐츠 접근자를 넘긴다) */
 export interface FacilitiesConfig {
@@ -244,7 +245,11 @@ export function createWorldFacilities(input: {
             };
             /** 도시 경제(세력마다 거래세 — 사업장 소득세율로 쓴다 [임시]; 나라 화폐·환전 체결가 — 물류센터 요금 화폐, 기획 대조 2277) */
             readonly economy?:
-              | { readonly economy: { readonly taxOf: ReadonlyMap<number, number> } & HaulEconomy }
+              | {
+                  readonly economy: { readonly taxOf: ReadonlyMap<number, number> } & HaulEconomy;
+                  /** NPC 물류센터 운반꾼(house-10 2301 — 적정가 인건비) */
+                  centerStaff(buildingId: number): readonly number[];
+                }
               | undefined;
           }
         | undefined)
@@ -396,8 +401,12 @@ export function createWorldFacilities(input: {
     price: (buildingId, item) => core.price(buildingId, item),
     taxRateOf: (buildingId, ownerId) => core.taxRateOf(buildingId, ownerId),
     suspended: (buildingId) => core.suspended(buildingId),
-    laborHourly: (buildingId) => labor?.hourlyLabor(buildingId) ?? 0n,
-    workerCount: (buildingId) => labor?.workersAt(buildingId).length ?? 0,
+    // 노동 계약 일꾼이 없는 NPC 물류센터는 NPC 운반꾼·NPC 기준 임금 시간당(house-10 2301 — npc/npcLogistics.ts)
+    laborHourly: (buildingId) =>
+      labor?.hourlyLabor(buildingId) ||
+      npcCenterHourly(input.npc?.()?.economy?.centerStaff(buildingId).length ?? 0, input.rules()),
+    workerCount: (buildingId) =>
+      labor?.workersAt(buildingId).length || (input.npc?.()?.economy?.centerStaff(buildingId).length ?? 0),
     freeStaff: (buildingId, mapKey, nowMs) =>
       haulStaff?.(buildingId, mapKey, nowMs) ?? labor?.workersAt(buildingId).length ?? 0,
     rules: input.rules,

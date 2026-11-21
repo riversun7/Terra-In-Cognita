@@ -72,6 +72,7 @@ import { type CarryBoard, type CarryBoardOptions, createCarryBoard, peopleCounte
 import { EVENT_NPC_DELIVER, type NpcBusiness, createNpcDeliveries } from "./npcDelivery.ts";
 import { shopPriceSource } from "./npcShopPrice.ts";
 import { createNpcWages } from "./npcWages.ts";
+import { createNpcLogistics } from "./npcLogistics.ts";
 import type { NpcBuildWorld } from "./cityBuild.ts";
 import type { ServerEconomyCatalog } from "../market/catalog.ts";
 import { rulingVaultOf } from "../factionIdentity/houseVault.ts";
@@ -239,6 +240,8 @@ export interface ServerEconomy {
    * 붙인다(D-570 1886 — 판정은 시간 셈 그대로)
    */
   workFacilities(cityId: number): WorkFacility[];
+  /** NPC 물류센터 운반꾼(house-10 기획 대조 2301, npcLogistics.ts — 운반 길·적정가가 본다). NPC 물류센터가 아니면 빈 목록 */
+  centerStaff(buildingId: number): readonly number[];
   /** 만료 주문 거두기(런타임 틱이 부른다) */
   expire(nowMs: number): number;
   /** 다음 환전 회차 시각(회차 길이의 정시, 564 다: 마지막 회차 다음 정시, 아직 없으면 켠 시각 다음 정시) */
@@ -509,6 +512,15 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   const restPlans = new Map<number, CityRestPlan>();
   /** 시설 → 시작·끝 시각(화면용) */
   const runs = new Map<number, { startedAtMs: number; endsAtMs: number | null; buildingId: number | null }>();
+  // NPC 물류센터 운반꾼(2301): 시설 일꾼 다음 일 없는 휴먼 — 건물 서비스가 없으면(시험) 물류센터 없음
+  const centers = createNpcLogistics({
+    world,
+    economy,
+    facilitiesIn: o.input.facilitiesIn,
+    defOf: (facilityId) => o.input.build?.catalog().facility(facilityId),
+    cityOf: (buildingId) => o.input.build?.service.facilities.get(buildingId)?.cityId,
+    now: o.now,
+  });
   wagesRef.current = createNpcWages({
     book,
     world,
@@ -899,8 +911,10 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
             : {}),
         });
       }
-      return out.toSorted((a, b) => a.id - b.id);
+      // 물류센터 운반꾼은 도시 경제 시설 뒤(같은 휴먼 차례 — npcLogistics.ts)
+      return [...out.toSorted((a, b) => a.id - b.id), ...centers.workFacilities(cityId)];
     },
+    centerStaff: (buildingId) => centers.staffAt(buildingId),
     cityJobsOf: (cityId) => personalityOfCity(cityId)?.cityJobs ?? CITY_JOBS,
     refreshCity(cityId, nowMs) {
       recount();

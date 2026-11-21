@@ -18,12 +18,14 @@ import type { GatherResultCode } from "@terra/protocol";
 import type { GatherLoopView, GatherPhase, GatherStop } from "@terra/shared/gather";
 import {
   type CellPoint,
+  type CellRect,
   JOB_NONE,
   type Motion,
   type SizeClass,
   anchorAt,
   anchorCenter,
   arrivalAt,
+  footprintRect,
   positionAt,
 } from "@terra/sim";
 import { type StorageContext, roomGrams } from "../facilities/storage.ts";
@@ -61,7 +63,16 @@ import type { GatherCommandResult, GatherDeps, GatherService } from "./serviceTy
 import { type Action, freshAction } from "./action.ts";
 
 export type { GatherCommandResult, GatherDeps, GatherService } from "./serviceTypes.ts";
-import { BOAT_BODY_SIZE, boatReach, commandCode, onLand, onWater, seaObject, standNear } from "./stand.ts";
+import {
+  BOAT_BODY_SIZE,
+  boatReach,
+  commandCode,
+  onLand,
+  onWater,
+  seaObject,
+  standNear,
+  standNearRect,
+} from "./stand.ts";
 import { boatWorkers, tireCrew } from "./boatCrew.ts";
 import { holdStacks } from "../boats/hold.ts";
 
@@ -767,22 +778,18 @@ export function createGatherService(deps: GatherDeps): GatherService {
   async function walkToBuilding(action: Action): Promise<GatherCommandResult> {
     const world = deps.places();
     const where = unitAt(action);
-    const cell =
-      world && action.buildingId !== null
-        ? (() => {
-            let found: CellPoint | undefined;
-            maps.get(action.mapKey)?.forEachBuilding((building) => {
-              if (building.id === action.buildingId) found = { x: building.x, y: building.y };
-            });
-            return found;
-          })()
-        : undefined;
-    if (!where || !cell) {
+    let rect: CellRect | undefined;
+    if (world && action.buildingId !== null)
+      maps.get(action.mapKey)?.forEachBuilding((building) => {
+        if (building.id === action.buildingId) rect = footprintRect(building.placement);
+      });
+    if (!where || !rect) {
       finish(action, "interrupted");
       return fail("unknown_building");
     }
+    // 건물 둘레에서 유닛에 가까운 설 칸(stand.ts standNearRect — 바로 옆 건물인데 모서리로 돌아가던 것 고침, 2026-11-21)
     const here = anchorAt(positionAt(where.info.motion, now()), where.info.size);
-    const goal = standNear(where.map, cell, where.info.size, BUILDING_STAND_CELLS, here);
+    const goal = standNearRect(where.map, rect, where.info.size, BUILDING_STAND_CELLS, here);
     if (!goal) {
       finish(action, "no_path");
       return fail("no_path");

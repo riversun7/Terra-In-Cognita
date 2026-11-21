@@ -1,8 +1,8 @@
 // 이웃 받기: 경계 가까이 그쪽만, 모두 받기, 같은 이웃은 한 번만, 판 표지가 바뀌면 처음부터
 import type { NeighbourTerrain, TerrainInput } from "@terra/engine";
 import { cellKey, stepCell } from "@terra/planet";
-import { describe, expect, it } from "vitest";
-import { createNeighbourLoader } from "./secondMapNeighbourLoader.ts";
+import { describe, expect, it, vi } from "vitest";
+import { NEIGHBOUR_RETRY_MS, NEIGHBOUR_TRIES, createNeighbourLoader } from "./secondMapNeighbourLoader.ts";
 
 const KEY = cellKey(0, 9, 282, 328);
 const SIZE = 1500;
@@ -104,5 +104,40 @@ describe("이웃 받기", () => {
     await settle();
     expect(urls).toHaveLength(1);
     loader.stop();
+  });
+});
+
+describe("이웃 받기 실패", () => {
+  it("못 받은 이웃은 잠시 뒤 다시 바랄 때 다시 받는다(시도 상한까지) — 사용자 지적 2026-11-21 회색 2차맵", async () => {
+    vi.useFakeTimers();
+    try {
+      const urls: string[] = [];
+      const loader = createNeighbourLoader({
+        mapKey: KEY,
+        all: false,
+        setNeighbours: () => Promise.resolve(),
+        fetchTerrain: (url) => {
+          urls.push(url);
+          return Promise.reject(new Error("404"));
+        },
+      });
+      const right = stepCell(KEY, 1, 0) ?? 0;
+      loader.setMain("/api/maps/1/terrain?v=1.3.aaaaaaaa.bbbbbbbb", SIZE);
+      loader.want([right]);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(urls).toHaveLength(1);
+      // 곧바로 다시 바라면 받지 않는다
+      loader.want([right]);
+      expect(urls).toHaveLength(1);
+      for (let i = 0; i < 5; i++) {
+        await vi.advanceTimersByTimeAsync(NEIGHBOUR_RETRY_MS);
+        loader.want([right]);
+      }
+      await vi.advanceTimersByTimeAsync(0);
+      expect(urls).toHaveLength(NEIGHBOUR_TRIES);
+      loader.stop();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

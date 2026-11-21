@@ -239,6 +239,13 @@ async function touchOtherUnitRow(page: Page, which: "first" | "last" = "first"):
   return otherId;
 }
 
+/** 유닛 이름이 들어가는 명령 문장(이름은 무엇이든) — 사용자 지적 2026-11-21 이후 "유닛 {id}" 대신 유닛 이름 */
+const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function unitLine(key: "map_command_ok" | "map_command_stopped"): RegExp {
+  const [before = "", after = ""] = message("ko", key, { unit: "@@" }).split("@@");
+  return new RegExp(`^${escapeRegExp(before)}.+${escapeRegExp(after)}$`);
+}
+
 test.describe("유닛 조종: 플레이어", () => {
   test.use({ account: "player" });
 
@@ -286,9 +293,7 @@ test.describe("유닛 조종: 플레이어", () => {
       return false;
     };
     expect(await send()).toBe(true);
-    await expect(page.locator(".map-hint .map-command").first()).toHaveText(
-      message("ko", "map_command_ok", { id: cyborg ?? "" }),
-    );
+    await expect(page.locator(".map-hint .map-command").first()).toHaveText(unitLine("map_command_ok"));
     // 가는 동안 경로(땅 위 점선, 점 수 > 0)와 목적지 고리(1)를 그린다(사용자 요청 2026-11-09)
     await expect(screen).toHaveAttribute("data-route", /^[1-9]\d*,1$/, { timeout: 5_000 });
     // 가는 동안 [멈추기] → 그 자리에 선다
@@ -311,10 +316,9 @@ test.describe("유닛 조종: 플레이어", () => {
         .catch(() => false);
     }
     expect(stopped, "[멈추기]를 누르지 못했다(누르기 전에 닿음 세 번)").toBe(true);
-    await expect(page.locator(".map-hint .map-command").first()).toHaveText(
-      message("ko", "map_command_stopped", { id: cyborg ?? "" }),
-      { timeout: 20_000 },
-    );
+    await expect(page.locator(".map-hint .map-command").first()).toHaveText(unitLine("map_command_stopped"), {
+      timeout: 20_000,
+    });
     await expect(screen).toHaveAttribute("data-command", "ok");
     await expect(stop).toHaveCount(0, { timeout: 5_000 });
     // 서면 경로·목적지를 거둔다

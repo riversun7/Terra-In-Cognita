@@ -102,6 +102,7 @@ import { GatherPanel } from "./gather/GatherPanel.tsx";
 import { createGatherState } from "./gather/gatherState.ts";
 import { GovernmentSheet } from "../government/GovernmentSheet.tsx";
 import { LeaderSheet } from "../government/LeaderSheet.tsx";
+import { pickName } from "../economy/economyText.ts";
 import "./map.css";
 import "./unitNames.css";
 
@@ -608,6 +609,11 @@ function SecondMapView({
   const glanceUnit = peek?.unitId ?? (control?.kind === "other" ? shown : null);
   const glance = useUnitGlance(mapKey, glanceUnit, glanceUnit !== null);
   const labelOf = (unitId: number): string => unitLabel(unitId, myUnits.units);
+  /** 건물 이름(근처 판 건물 겉모습 — 들어가는 줄에 붙인다) */
+  const buildingNameOf = (buildingId: number): string | null => {
+    const look = nearby.looks.get(buildingId);
+    return look?.name ? pickName(look.name, String(buildingId)) : null;
+  };
   // 이동 경로·목적지 표시(엔진 setRouteUnit): 내가 다룰 수 있는 고른 유닛만(사용자 요청 2026-11-09)
   const routeUnit = control !== null && canCommand(control) ? shown : null;
   useEffect(() => {
@@ -776,6 +782,7 @@ function SecondMapView({
           unitLabel={labelOf}
           buildingExtra={<GovernmentSheet state={gather} embedded />}
           operator={operator}
+          buildingName={buildingNameOf}
         />
         {/* 고른 유닛이 NPC 국가 지도자면 지도자 판 → 수도 정부 판("WP-NPC3"). 다른 판이 열린 동안은 숨긴다 */}
         {!building && sheet === "nearby" ? (
@@ -785,7 +792,7 @@ function SecondMapView({
         {building && command === null && going === null ? null : (
           <div className="map-panel map-hint" role="status">
             {building ? null : <p>{hint}</p>}
-            {command ? <p className="map-command">{commandText(command)}</p> : null}
+            {command ? <p className="map-command">{commandText(command, labelOf)}</p> : null}
             <TravelLine going={going} />
           </div>
         )}

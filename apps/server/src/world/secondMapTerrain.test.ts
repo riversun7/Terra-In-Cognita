@@ -268,7 +268,10 @@ describe("월드와 지형 경로", () => {
     const ok = await get(neighbour, "admin");
     expect(ok.statusCode).toBe(200);
     expect(decodeTerrain(ok.rawPayload).mapKey).toBe(neighbour);
-    expect((await get(neighbour, "admin", "1.1.00000000.00000000")).statusCode).toBe(404);
+    // 판 표지가 다르면 지금 표지 주소로 넘긴다(307 — 사용자 지적 2026-11-21 회색 2차맵, terrainRoute.ts)
+    const moved = await get(neighbour, "admin", "1.1.00000000.00000000");
+    expect(moved.statusCode).toBe(307);
+    expect(moved.headers.location).toBe(terrainPath(neighbour, version));
     expect((await get(far, "admin")).statusCode).toBe(200);
     // 플레이어는 볼 수 있는 2차맵이 없어(탐사·유닛 없음) 이웃도 못 본다
     expect((await get(neighbour, "player")).statusCode).toBe(404);

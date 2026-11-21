@@ -491,9 +491,6 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "npcAi.houseTaxPm",
   "npcAi.houseCareMinPm",
   "npcAi.houseCareMaxPm",
-  "npcAi.leagueDuesPm",
-  "npcAi.leagueLot",
-  "npcAi.offlineStewardEnabled",
   "npcAi.offlineStewardAfterMs",
 ];
 

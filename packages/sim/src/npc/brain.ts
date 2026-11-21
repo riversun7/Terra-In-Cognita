@@ -9,6 +9,7 @@
 // 근처 빈 2차맵(도시·폐허 없음) 후보마다 점수(성향 가중 규칙식 — 상업 +, 공격 −, 가진 도시·전쟁 수 −, 붐빔 +, 남이 짓는 중 −)를 매겨 가장 좋은
 // 하나를 낸다. 짓는 중 정부·다 지으면 새 도시는 부르는 쪽(시뮬 simulator/npcClaim.ts, 서버 NPC 런타임)이 한다.
 import type { NpcCoefficients } from "./coefficients.ts";
+import { investChallenges, investCostPenalty } from "./invest.ts";
 import type { Traits } from "./traits.ts";
 
 /** 판단하는 세력의 지표 */
@@ -167,6 +168,8 @@ export function scoreActions(
   me: FactionView,
   rivals: readonly RivalView[],
   c: NpcCoefficients,
+  /** 투자 도전 굴림(0 이상 정수, npc/invest.ts). 없으면 0 = 도전 확률이 0보다 크면 넘는다 */
+  investRoll = 0,
 ): ScoredAction[] {
   const out: ScoredAction[] = [{ action: { kind: "idle" }, score: c.idleScore }];
   const sorted = rivals.toSorted((a, b) => a.id - b.id);
@@ -185,12 +188,19 @@ export function scoreActions(
       action: { kind: "found" },
       score: c.foundScore + Math.floor((1000 - me.traits.aggression) / 4) - me.vassals * c.foundVassalPenalty,
     });
-  if (me.research && needs(me.treasury, me.research.cost, c))
+  // 연구 시설 = NPC 투자 판단(npc/invest.ts, D-587 질문 2465): 다음 기술이 막혔으면 기대 수익이 있어 바로 후보, 아니면(앞선 기술) 국고가 클수록
+  // 높은 도전 확률로 굴려 넘을 때만 후보. 점수 = 기본 + 성향 − 비용 몫(국고에 견줘 비쌀수록 덜 한다)
+  if (
+    me.research &&
+    needs(me.treasury, me.research.cost, c) &&
+    (me.research.blocked || investChallenges(me.research.cost, me.treasury, investRoll, c))
+  )
     out.push({
       action: { kind: "research" },
       score:
         (me.research.blocked ? c.researchBlockedScore : c.researchScore) +
-        Math.floor((me.traits.commerce + me.traits.faith) / 8),
+        Math.floor((me.traits.commerce + me.traits.faith) / 8) -
+        investCostPenalty(me.research.cost, me.treasury, c),
     });
   if (me.poor && me.sellableShares)
     out.push({
@@ -242,8 +252,9 @@ export function decideAction(
   rivals: readonly RivalView[],
   roll: number,
   c: NpcCoefficients,
+  investRoll = 0,
 ): NpcAction {
-  return chooseAction(scoreActions(me, rivals, c), roll);
+  return chooseAction(scoreActions(me, rivals, c, investRoll), roll);
 }
 
 /** 강화를 받는 쪽의 점수(> 0이면 받는다, 질문 195 가). proposer = 받는 쪽이 본 제안자 */

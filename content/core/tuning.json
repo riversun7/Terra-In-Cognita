@@ -4089,6 +4089,60 @@
       "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
     },
     {
+      "id": "npc_invest_cost_weight_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 투자 비용 몫 가중치(‰)",
+        "en": "NPC investment cost-share weight (‰)"
+      },
+      "value": 400,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "투자 점수에서 (값 ÷ 국고 ‰) × 이 값 ÷ 1000을 뺀다. 국고에 견줘 비싼 투자일수록 덜 한다.",
+        "en": "Investment score loses (cost ÷ treasury ‰) × this ÷ 1000. Costlier investments relative to the treasury score lower."
+      },
+      "source": "ADR 2026-11-21-npc-needs-drives · 질문 2465(D-587) [임시]"
+    },
+    {
+      "id": "npc_invest_challenge_step_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 투자 도전 확률 걸음(국고 배수마다 ‰)",
+        "en": "NPC investment challenge step (‰ per treasury multiple)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "지금 수요가 없는 앞선 투자(지금 기술보다 높은 연구 시설)를 해 볼 확률: 국고가 값의 1배를 넘는 배수마다 이만큼(‰). 자본이 많을수록 도전한다.",
+        "en": "Chance to try an ahead-of-need investment (research above current tech): this much (‰) per multiple of the cost above 1x in the treasury. More capital, more challenges."
+      },
+      "source": "ADR 2026-11-21-npc-needs-drives · 질문 2465(D-587) [임시]"
+    },
+    {
+      "id": "npc_invest_challenge_max_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 투자 도전 확률 상한(‰)",
+        "en": "NPC investment challenge cap (‰)"
+      },
+      "value": 900,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "도전 확률의 상한.",
+        "en": "Upper bound of the challenge chance."
+      },
+      "source": "ADR 2026-11-21-npc-needs-drives · 질문 2465(D-587) [임시]"
+    },
+    {
       "id": "npc_share_sale_score",
       "code": "",
       "name": {
@@ -16712,60 +16766,6 @@
       "source": "ADR 2026-11-21-npc-needs-drives"
     },
     {
-      "id": "npc_ai_league_dues_pm",
-      "code": "",
-      "name": {
-        "ko": "가문 연맹 분담금: 하루에 가문 금고에서 연맹 기금으로 가는 몫(‰)",
-        "en": "House league dues: daily share of each house vault to the league fund (‰)"
-      },
-      "value": 200,
-      "structural": false,
-      "unit": "pm",
-      "min": 0,
-      "max": 1000,
-      "desc": {
-        "ko": "가문 연맹 분담금: 하루에 가문 금고에서 연맹 기금으로 가는 몫(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
-        "en": "House league dues: daily share of each house vault to the league fund (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
-      },
-      "source": "ADR 2026-11-21-npc-needs-drives"
-    },
-    {
-      "id": "npc_ai_league_lot",
-      "code": "",
-      "name": {
-        "ko": "가문 연맹 확장·생산 지원의 최소 묶음(최소 단위 — 이만큼 모이면 국고로)",
-        "en": "House league expand/production support minimum lot (minor units — sent to the treasury once saved)"
-      },
-      "value": 500,
-      "structural": false,
-      "unit": "minor",
-      "min": 1,
-      "max": 1000000000,
-      "desc": {
-        "ko": "가문 연맹 확장·생산 지원의 최소 묶음(최소 단위 — 이만큼 모이면 국고로) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
-        "en": "House league expand/production support minimum lot (minor units — sent to the treasury once saved) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
-      },
-      "source": "ADR 2026-11-21-npc-needs-drives"
-    },
-    {
-      "id": "npc_ai_offline_steward_enabled",
-      "code": "",
-      "name": {
-        "ko": "비접속 유저 유닛 관리인 스위치(0=끔, 1=켬)",
-        "en": "Offline player unit steward switch (0=off, 1=on)"
-      },
-      "value": 1,
-      "structural": false,
-      "unit": "count",
-      "min": 0,
-      "max": 1,
-      "desc": {
-        "ko": "비접속 유저 유닛 관리인 스위치(0=끔, 1=켬) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
-        "en": "Offline player unit steward switch (0=off, 1=on) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
-      },
-      "source": "ADR 2026-11-21-npc-needs-drives"
-    },
-    {
       "id": "npc_ai_offline_steward_after_ms",
       "code": "",
       "name": {
@@ -16776,10 +16776,10 @@
       "structural": false,
       "unit": "ms",
       "min": 0,
-      "max": 604800000,
+      "max": 3600000,
       "desc": {
-        "ko": "비접속 유저 유닛 관리인이 움직이기까지의 비접속 시간(ms) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
-        "en": "Time offline before the unit steward acts (ms) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+        "ko": "비접속 유저 유닛 관리인이 움직이기까지의 비접속 시간(ms). 관리인은 늘 켜져 있다(끄는 칸 없음, 24시간 상한 없음 — 질문 2466 가, D-587). 잠깐 끊긴 것을 걸러 내는 값이라 1시간까지만 — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Time offline before the unit steward acts (ms). The steward is always on (no off switch, no 24-hour cap — question 2466 a, D-587). Only filters out brief disconnects, so capped at 1 hour — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
       },
       "source": "ADR 2026-11-21-npc-needs-drives"
     }

@@ -501,6 +501,9 @@ export const STRATEGY_CARD_GROUPS: readonly StrategyCardGroup[] = [
     keys: [
       "npc_research_blocked_score",
       "npc_research_score",
+      "npc_invest_cost_weight_pm",
+      "npc_invest_challenge_step_pm",
+      "npc_invest_challenge_max_pm",
       "npc_share_sale_score",
       "npc_share_keep_pm",
       "s19_trait_min",

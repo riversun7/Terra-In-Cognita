@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-22 01:24 | 가문 연맹 바로잡기(조약)·NPC 투자 판단·비접속 관리인 늘 켬 (사용자 답 D-587) | Claude Code | [22-0124-league-fix](worklog/2026/11/22-0124-league-fix.md) |
 | 2026-11-22 01:22 | 광산 한 사이클 무게를 g 단위 바뀜 전으로 되돌림 (stone-balance) | Claude Code | [22-0122-stone-balance](worklog/2026/11/22-0122-stone-balance.md) |
 | 2026-11-22 01:10~ | 2026-11-22 묶음 1117a 합치기 (DB 시험 g 단위 / 나라 의결 5·한 점수 신용 / 사는 곳 고르기) — 리셋 필요 없음 | Claude Code | [22-0110-batch-1117a-merge](worklog/2026/11/22-0110-batch-1117a-merge.md) |
 | 2026-11-22 01:00 | DB 시험 고침: 광석 1g 기본 단위(팩 core@137) 뒤 시험 재료 수량 | Claude Code | [22-0100-dbtest-fix](worklog/2026/11/22-0100-dbtest-fix.md) |

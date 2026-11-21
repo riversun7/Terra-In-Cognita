@@ -71,9 +71,6 @@ const HOUSE_ORDER_FIELDS: readonly { readonly id: string; readonly step: number 
   { id: "npc_ai_house_tax_pm", step: 10 },
   { id: "npc_ai_house_care_min_pm", step: 10 },
   { id: "npc_ai_house_care_max_pm", step: 10 },
-  { id: "npc_ai_league_dues_pm", step: 10 },
-  { id: "npc_ai_league_lot", step: 50 },
-  { id: "npc_ai_offline_steward_enabled", step: 1 },
   { id: "npc_ai_offline_steward_after_ms", step: 60_000 },
 ];
 

@@ -31,6 +31,13 @@ export interface NpcCoefficients {
   /** 연구 시설: 다음 기술 단계가 연구 시설에 막혔을 때 / 아닐 때 기본 점수 */
   readonly researchBlockedScore: number;
   readonly researchScore: number;
+  /**
+   * NPC 투자 판단(npc/invest.ts, 사용자 답 D-587 질문 2465 — [임시] 출발값): 비용 몫 가중치(‰ — 값 ÷ 국고 몫에 곱해 점수에서 뺀다),
+   * 도전 확률 걸음(국고가 값의 1배를 넘는 배수마다 ‰)·상한(‰). 지금 수요가 없는 연구 시설(앞선 기술)은 도전 굴림을 넘어야 후보가 된다
+   */
+  readonly investCostWeightPm: number;
+  readonly investChallengeStepPm: number;
+  readonly investChallengeMaxPm: number;
   /** 지분 팔기 기본 점수(국고가 모자랄 때만) */
   readonly shareSaleScore: number;
   /** 지분을 판 뒤에도 쥐고 있을 몫(‰) = 이 값 − 상업 성향 ÷ 10(독립 투표로 도시를 잃지 않게, D-300) */
@@ -185,6 +192,9 @@ export const TEST_NPC_COEFFICIENTS: NpcCoefficients = {
   foundVassalPenalty: 150,
   researchBlockedScore: 700,
   researchScore: 150,
+  investCostWeightPm: 400,
+  investChallengeStepPm: 100,
+  investChallengeMaxPm: 900,
   shareSaleScore: 200,
   shareKeepPm: 600,
   peaceWearyScore: 400,

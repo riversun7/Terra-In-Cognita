@@ -108,6 +108,27 @@ export const NPC_TUNING_KEYS: readonly TuningKey[] = [
   ),
   k("npc_research_score", "", "researchScore", "NPC 연구 시설 점수(평소)", "NPC research score (normal)"),
   k(
+    "npc_invest_cost_weight_pm",
+    "",
+    "investCostWeightPm",
+    "NPC 투자 비용 몫 가중치(‰)",
+    "NPC investment cost-share weight (‰)",
+  ),
+  k(
+    "npc_invest_challenge_step_pm",
+    "",
+    "investChallengeStepPm",
+    "NPC 투자 도전 확률 걸음(국고 배수마다 ‰)",
+    "NPC investment challenge step (‰ per treasury multiple)",
+  ),
+  k(
+    "npc_invest_challenge_max_pm",
+    "",
+    "investChallengeMaxPm",
+    "NPC 투자 도전 확률 상한(‰)",
+    "NPC investment challenge cap (‰)",
+  ),
+  k(
     "npc_share_sale_score",
     "",
     "shareSaleScore",

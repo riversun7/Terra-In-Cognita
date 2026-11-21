@@ -61,6 +61,12 @@ export interface OwnerSettleInput {
    * 일꾼과 같은 숙소 규칙, apps/server/src/labor/workerRest.ts). 없으면 모두 rules(예전과 같다). 시뮬은 쓰지 않는다
    */
   readonly unitRules?: readonly (JobRules | undefined)[] | undefined;
+  /**
+   * 유닛마다 비접속 24시간 상한(D-061)을 받지 않는가(입력 jobs와 같은 차례). 서버 비접속 유저 유닛 관리인(질문 2466 가, D-587 — 이 기능에는
+   * D-061·D-144·D-162를 대신한다)이 맡은 유닛(남의 일자리에서 임금형 계약으로 일하는 유닛)은 접속 상태와 상관없이 계속 일한다. 없으면 모두
+   * 상한을 받는다(예전과 같다). 시뮬은 쓰지 않는다
+   */
+  readonly offlineExempt?: readonly boolean[] | undefined;
   readonly upkeepPerUnit?: bigint | undefined;
   readonly upkeepPeriodMs?: number | undefined;
   /**
@@ -150,11 +156,13 @@ export function settleOwnerPeriod(
   const goodsTo = new Map<number, bigint>();
   const jobs = input.jobs.map((job, index) => {
     const rules = input.unitRules?.[index] ?? baseRules;
+    // 관리인이 맡은 유닛은 비접속 상한 없이 접속 중처럼 센다
+    const offlineSinceMs = input.offlineExempt?.[index] === true ? null : input.offlineSinceMs;
     // 직무 없는 유닛은 산출 없이 쉰다(피로 회복, settle.ts restIdle)
-    if (job.job === JOB_NONE) return settleJob(job, fromMs, toMs, input.offlineSinceMs, rules).state;
+    if (job.job === JOB_NONE) return settleJob(job, fromMs, toMs, offlineSinceMs, rules).state;
     const segments = input.outputs?.[index];
     if (!segments || segments.length === 0) {
-      const result = settleJob(job, fromMs, toMs, input.offlineSinceMs, rules);
+      const result = settleJob(job, fromMs, toMs, offlineSinceMs, rules);
       cycles += result.cycles;
       return result.state;
     }
@@ -163,7 +171,7 @@ export function settleOwnerPeriod(
     for (const segment of segments) {
       const until = Math.min(segment.untilMs, toMs);
       if (until <= from) continue;
-      const result = settleJob(state, from, until, input.offlineSinceMs, rules);
+      const result = settleJob(state, from, until, offlineSinceMs, rules);
       state = result.state;
       from = until;
       if (result.cycles === 0) continue;
@@ -195,7 +203,7 @@ export function settleOwnerPeriod(
       routed.set(account, (routed.get(account) ?? 0) + made);
     }
     if (from < toMs) {
-      const result = settleJob(state, from, toMs, input.offlineSinceMs, rules);
+      const result = settleJob(state, from, toMs, offlineSinceMs, rules);
       state = result.state;
       cycles += result.cycles;
     }

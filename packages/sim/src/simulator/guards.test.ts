@@ -126,7 +126,8 @@ const refill = (credit: string): Scenario =>
 
 describe("경비대 다시 채우기(기획 답 920 나 — 구인 규칙식, 시뮬·서버 같은 함수)", () => {
   it("죽은 경비대를 구인 카드로 등급 값까지 다시 채우고, 카드 값을 국고에서 소각한다. 등급 값을 넘지 않는다", () => {
-    const { world, ctx } = npcContext(refill("200000"));
+    // 국고가 넉넉해야 다음 판단이 연구 시설을 고른다(SIM 140 — 연구 점수에서 비용 몫을 빼므로 국고가 얇으면 붐빈 세력이 마을을 세워 경비대가 떠난다)
+    const { world, ctx } = npcContext(refill("2000000"));
     const faction = world.factions.get(1);
     if (!faction) throw new Error("faction");
     expect(faction.guardsPerCity).toBe(4);

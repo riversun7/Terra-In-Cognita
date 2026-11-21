@@ -72,6 +72,29 @@ export function buildingPlace(
   return { mapKey: cell.mapKey, cityId, ownerId: cell.ownerId };
 }
 
+/**
+ * 시설 줄에 비어 있는 도시를 채울 값(관리자 시험 건물·직전 판 줄용 — buildingPlace의 칸 판정). 이미 도시가 있으면 null. 도시 없는 행정 건물은
+ * "알박기 중"(ruins/landClaim.ts — 다 지으면 새 도시가 선다)이라 채우지 않는다: 다른 세력 영토 안 빈 2차맵에도 알박기를 지을 수 있어(D-572)
+ * 영토 지방(D-568)이 도시를 돌려주는데, 그 도시로 채우면 알박기가 깨진다(고르기 바꾸기 not_buildable, 다 지어도 도시가 서지 않음)
+ */
+export function cityToFill(world: PlaceWorld, record: FacilityRecord): number | null {
+  return fillCityOf(
+    record,
+    world.catalog().facility(record.facilityId)?.stage,
+    () => buildingPlace(world, record.buildingId)?.cityId,
+  );
+}
+
+/** cityToFill의 판정(칸 판정은 필요할 때만 부른다) */
+export function fillCityOf(
+  record: Pick<FacilityRecord, "cityId">,
+  stage: string | undefined,
+  placeCity: () => number | null | undefined,
+): number | null {
+  if (record.cityId !== null || stage === "government") return null;
+  return placeCity() ?? null;
+}
+
 /** 창고 시설인가(창고 단계 시설 줄) */
 export function isStorage(world: PlaceWorld, buildingId: number): boolean {
   const record = world.facilities.get(buildingId);

@@ -58,6 +58,8 @@ export function cityTargets(economy: Economy, cityId: number): Map<string, bigin
   }
   // NPC 증축 재료(질문 1101 나, npcBuild.ts) — 거래 판단이 이 도시로 모은다
   for (const [asset, qty] of economy.buildWants?.get(cityId) ?? []) add(asset, qty);
+  // NPC 알박기 재료(npc-claim-3, 질문 2331 가 — 증축과 같은 길로 산다)
+  for (const [asset, qty] of economy.claimWants?.get(cityId) ?? []) add(asset, qty);
   return need;
 }
 

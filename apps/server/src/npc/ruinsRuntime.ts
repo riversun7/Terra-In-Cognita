@@ -15,6 +15,7 @@ import {
   type SimWorld,
   ruinedGoodsHome,
 } from "@terra/sim";
+import type { ClaimSpawner } from "./npcClaims.ts";
 import type { CityPlace } from "./persist.ts";
 
 /** 행정 레벨 범위(49 N45, world_cities 검사 조건 1~5) */
@@ -32,6 +33,8 @@ export interface NpcRuinsInput {
   readonly hasGuardians?: ((cityId: number) => boolean) | undefined;
   /** 유저 소유 주체가 드는 나라(세력 소유 주체 ID, 사이보그 나라). 세력 주체·모르면 undefined */
   readonly nationOf?: ((ownerId: number) => number | undefined) | undefined;
+  /** 빈 2차맵을 그때 띄우기(서버 NPC 알박기 — npcClaims.ts, 월드 저장 묶음 spawn). 없으면 띄운 2차맵만 알박기 후보 */
+  readonly spawner?: (() => ClaimSpawner | undefined) | undefined;
 }
 
 /** 행정 건물이 있는 도시의 행정 레벨을 그 건물 레벨로 맞춘다(489 다). 바꾼 도시 수 */

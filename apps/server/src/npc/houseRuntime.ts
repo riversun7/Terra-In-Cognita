@@ -60,6 +60,11 @@ export interface NpcHouses {
     housing: number,
     nowMs: number,
   ): number;
+  /**
+   * 도시 행·자리만 만든다(주인 = ownerId, 가문 마을 모양 — 시설 고리·지분은 부르는 쪽). NPC 알박기 가문(D-580, ruins/landClaim.ts → @terra/sim
+   * SocietyRun.claimHouse의 settle)이 쓴다. 세운 도시 ID
+   */
+  placeCity(ownerId: number, place: Omit<CityPlace, "foundedAtMs">, housing: number, nowMs: number): number;
   /** 가문 세력 행·도시 행을 쓰기 대기열에 넣는다(동기). 쓴 행 수 */
   flush(ownerId: number, cityId?: number): number;
   /** 세력 행 → 소유 주체(거울 세계에 있는 세력만) */
@@ -90,6 +95,27 @@ export function attachNpcHouses(o: {
       regime: faction.regime,
       cities: [...faction.cities].toSorted((a, b) => a - b),
     };
+  };
+
+  const placeCity: NpcHouses["placeCity"] = (ownerId, place, housing, nowMs) => {
+    const faction = world.factions.get(ownerId);
+    if (!faction) throw new Error(`house village: unknown owner ${String(ownerId)}`);
+    const city: SimCity = {
+      id: world.nextCityId(),
+      owner: ownerId,
+      start: false,
+      housing: Math.max(1, Math.trunc(housing)),
+      researchLevel: 0,
+      // NPC 새 마을과 같다: 행정 Lv1(행정 건물을 지으면 그 레벨 — 489 다)
+      adminLevel: 1,
+      recruitDraw: null,
+      development: 0,
+      nextRebellionMs: nowMs,
+    };
+    world.cities.set(city.id, city);
+    faction.cities.add(city.id);
+    persist.places.set(city.id, { ...place, foundedAtMs: nowMs });
+    return city.id;
   };
 
   return {
@@ -132,27 +158,12 @@ export function attachNpcHouses(o: {
       return persist.siteNear(from, own[0]);
     },
 
+    placeCity,
     foundVillage(ownerId, place, housing, nowMs) {
-      const faction = world.factions.get(ownerId);
-      if (!faction) throw new Error(`house village: unknown owner ${String(ownerId)}`);
-      const city: SimCity = {
-        id: world.nextCityId(),
-        owner: ownerId,
-        start: false,
-        housing: Math.max(1, Math.trunc(housing)),
-        researchLevel: 0,
-        // NPC 새 마을과 같다: 행정 Lv1(행정 건물을 지으면 그 레벨 — 489 다)
-        adminLevel: 1,
-        recruitDraw: null,
-        development: 0,
-        nextRebellionMs: nowMs,
-      };
-      world.cities.set(city.id, city);
-      faction.cities.add(city.id);
-      persist.places.set(city.id, { ...place, foundedAtMs: nowMs });
-      o.hooks()?.cityFounded?.(city.id, 0, nowMs);
-      issueShares(world.book, city.id, [{ owner: ownerId, amount: BigInt(o.rules().sharesPerCity) }], nowMs);
-      return city.id;
+      const cityId = placeCity(ownerId, place, housing, nowMs);
+      o.hooks()?.cityFounded?.(cityId, 0, nowMs);
+      issueShares(world.book, cityId, [{ owner: ownerId, amount: BigInt(o.rules().sharesPerCity) }], nowMs);
+      return cityId;
     },
 
     flush(ownerId, cityId) {

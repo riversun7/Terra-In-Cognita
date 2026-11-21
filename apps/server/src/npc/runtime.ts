@@ -82,6 +82,7 @@ import { type NpcHouses, attachNpcHouses } from "./houseRuntime.ts";
 import { restCycleOf } from "./cityRest.ts";
 import { createHumanPlaces } from "./humanPlaces.ts";
 import { nationBuildTargets, npcBuildRunOf } from "./cityBuild.ts";
+import { npcClaimsOf } from "./npcClaims.ts";
 import { type ServerGardener, attachServerGardener } from "./gardener.ts";
 import { type WaveRewardItems, grantWaveReward } from "./waveRewards.ts";
 import { type NationPreset, nationPresetOf, nationStartOf, presetOfCode } from "./nations.ts";
@@ -719,6 +720,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     rules: o.rules,
     log,
   });
+  const claims = npcClaimsOf(o, world, persist.places, econ);
+  ctx.claims = claims; // 빈 2차맵 알박기(npc-claim-3, npcClaims.ts — 설정 칸 npc_claim_server가 1일 때만 짓는다)
   const society = attachSociety(
     {
       world,
@@ -904,7 +907,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       // 끝난 웨이브 전투(전투 서비스가 알려 줌)의 결과를 먼저 넣는다
       const results = gardener.applyPending(o.now());
       metrics.waveResults += results;
-      const lifted = liftGovernments(world, o.ruins, o.now());
+      const lifted = liftGovernments(world, o.ruins, o.now()) + (claims?.tick(o.now()) ?? 0);
       loop.runUntil(o.now() + 1);
       // 걸어 둔 거래소 주문의 만료(쓰기 대기열로 바로 간다)
       if (econ && o.now() - expiredAt >= EXPIRE_EVERY_MS) {
@@ -974,6 +977,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         catchmentRows: metrics.catchmentRows,
         catchmentCells: catchmentState?.stock.size ?? 0,
         ...econ?.takeMetrics(),
+        ...claims?.takeMetrics(), // 알박기(npc-claim-3, npcClaims.ts)
       };
       metrics.decisions = 0;
       metrics.decideMs = 0;

@@ -68,6 +68,7 @@ import {
   buildingOfLocation,
   buildingPlace,
   cityAt,
+  cityToFill,
   isStorage,
   materialScope,
 } from "./places.ts";
@@ -272,11 +273,11 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
     return place.ownerId === me ? [buildingLocation(buildingId), ...rest] : rest;
   };
   /** 시설 줄에 도시가 없으면(직전 판 앱이 넣은 줄) 건물 칸에서 정해 적는다 */
+  // 비어 있는 시설 줄 도시를 칸으로 채운다. 알박기 중(도시 없는 행정 건물)은 채우지 않는다(places.ts cityToFill)
   const fillCity = (record: FacilityRecord): void => {
-    if (record.cityId !== null) return;
-    const place = buildingPlace(places, record.buildingId);
-    if (!place || place.cityId === null) return;
-    record.cityId = place.cityId;
+    const cityId = cityToFill(places, record);
+    if (cityId === null) return;
+    record.cityId = cityId;
     saveFacility(record);
   };
 
@@ -736,7 +737,11 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       const { record, def } = found;
       if (jobOn((job) => job.buildingId === input.buildingId && job.kind !== "equipment"))
         return fail("job_running");
-      if (record.level < 1) return fail("under_construction");
+      // NPC 알박기 짓기(npc-claim-3, npc/npcClaims.ts): 레벨 0·도시 없는 행정 건물, 재료 = 날라 온 그 건물 창고, 도시는 채우지 않음(cityToFill)
+      const claim = input.kind === "build";
+      if (claim && (record.level >= 1 || record.cityId !== null || def.stage !== "government"))
+        return fail("not_buildable");
+      if (!claim && record.level < 1) return fail("under_construction");
       if (input.kind === "upgrade" && (record.level >= def.maxLevel || !def.build)) return fail("max_level");
       // 면적 모듈(기획 D-569 1768 — 플레이어와 같은 자리 규칙)
       const closed = input.kind === "plot" ? plotOpen(record, def, options.rules().buildingGather) : null;
@@ -752,9 +757,14 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       }
       // 재료 자리: 그 건물이 선 도시의 도시 창고·그 도시의 NPC 창고 시설(유닛 화물은 보지 않는다 — npcBuild와 같다)
       const place = buildingPlace(places, input.buildingId);
-      const scope = place ? materialScope(places, input.ownerId, place.mapKey, place.cityId, false) : [];
-      const reason =
-        input.kind === "upgrade"
+      const scope = claim
+        ? [buildingLocation(input.buildingId)]
+        : place
+          ? materialScope(places, input.ownerId, place.mapKey, place.cityId, false)
+          : [];
+      const reason = claim
+        ? "facility_build"
+        : input.kind === "upgrade"
           ? "facility_upgrade"
           : input.kind === "plot"
             ? "facility_plot"
@@ -768,7 +778,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
         buildingId: input.buildingId,
         beaconId: null,
         holdingId: null,
-        targetLevel: input.kind === "upgrade" ? record.level + 1 : null,
+        targetLevel: input.kind === "upgrade" ? record.level + 1 : claim ? 1 : null,
         restorePpm: input.kind === "repair" ? restore : null,
         unitIds: [],
         materials: [...input.materials],

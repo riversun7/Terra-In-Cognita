@@ -76,6 +76,17 @@ export interface SocietyRun {
   ): void;
   /** 붐비는 도시에서 마을 세우기(봉신 | 독립은 세우는 가문의 규칙식) */
   found(parent: SimFaction, nowMs: number): void;
+  /**
+   * 알박기 도시를 지은 NPC 가문(기획 D-580 — 질문 2335 나, simulator/npcClaim.ts): 새 가문 세력을 세우고(봉신 | 독립 + 체제는 그 가문 성향 규칙식 —
+   * 마을 세우기와 같은 foundingChoice), settle이 그 가문 도시를 만든다(도시 ID). 재료를 낸 도시(source)의 부모 휴먼 가운데 가문원(마을 세우기 수
+   * founders까지, 경비대 빼고)이 새 도시로 옮기고, 지분 1,000주는 그 가문(최초 설립자, D-575). 세운 가문
+   */
+  claimHouse(
+    parent: SimFaction,
+    source: number,
+    nowMs: number,
+    settle: (house: SimFaction) => number,
+  ): SimFaction;
   /** 선전포고(무명분 비용, 질문 196 가). 이미 전쟁이면 아무것도 안 한다 */
   declareWar(attacker: SimFaction, target: SimFaction, nowMs: number): void;
   /** 강화 조약(백지 + 불가침, 질문 195 가). 받는지는 부르는 쪽(판단)이 정했다 */

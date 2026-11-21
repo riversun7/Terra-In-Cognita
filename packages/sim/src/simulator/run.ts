@@ -48,9 +48,8 @@ import {
   type ClaimSummary,
   EVENT_CLAIM,
   type SimClaims,
-  claimBuildMsOf,
-  claimFallbackMs,
   createSimClaims,
+  simClaimSupply,
 } from "./npcClaim.ts";
 import { SIM_GRID_SIZE, cityDistance, createSimSites, simSiegeEdge, waveEdgeOf } from "./simGrid.ts";
 import {
@@ -96,7 +95,8 @@ import {
  * 21: 요약 npc.plots(NPC 면적 모듈 붙이기 시작한 수, 기획 D-569 1768)
  * 22: econ 줄·요약 economy 칸에 living(NPC 휴먼 지갑 — 임금 받은·못 받은 일꾼 수, 화폐마다 임금·지갑에서 낸 생필품 값·주인 현물 부양, 지갑 합·국고 합,
  *    질문 2236, simulator/humanPurse.ts)
- * 23: 요약 npc.actions.claim·npc.claims(빈 2차맵 알박기 — 시작·새 도시·멈춤·잃음·짓는 중·소각한 값, 빈틈 2243, simulator/npcClaim.ts)
+ * 23: 요약 npc.actions.claim·npc.claims(빈 2차맵 알박기 — 시작·새 도시·멈춤·잃음·짓는 중·소각한 값, 빈틈 2243, simulator/npcClaim.ts).
+ *    바뀜 (npc-claim-3): npc.claims.spent는 도시 창고에서 뺀 재료(자산 → 기본 단위 수)다(칸 모양 그대로 — 형식 그대로 23)
  */
 export const SIM_OUTPUT_FORMAT = 23;
 /** 가상 시계 시작 시각(ms). 정산 경계(정시)가 0에서 센 시각이라 0으로 둔다 */
@@ -367,16 +367,16 @@ export function runSimulation(options: RunOptions): RunSummary {
     SIM_START_MS,
   );
   ctx.society = society;
-  // 빈 2차맵 알박기(빈틈 2243): 짓는 시간 = 팩 행정 건물 레벨 1(경제가 있을 때), 아니면 설정 칸
+  // 빈 2차맵 알박기(빈틈 2243): 재료 = 가장 가까운 내 도시 창고의 행정 건물 레벨 1 재료, 운반·짓는 시간 = claimRules.ts(경제가 있을 때만 —
+  // 경제가 없으면 재료 자리가 없어 후보가 없다, npc-claim-3)
   const claims = createSimClaims({
     world,
     c: societyCoefficients,
     hooks: econ?.hooks,
-    treasuryAsset: (faction) => (econ ? econ.hooks.treasuryAsset(faction) : TEST_ASSET_CREDIT),
     sites,
-    buildMs: econ
-      ? claimBuildMsOf(econ.economy, world, societyCoefficients, claimFallbackMs(societyCoefficients))
-      : () => claimFallbackMs(societyCoefficients),
+    supply: econ ? simClaimSupply(econ.economy, world, societyCoefficients) : undefined,
+    // D-580(질문 2335 나): 다 지으면 지은 NPC 가문이 새 세력(봉신 | 독립 = 성향 규칙식)
+    house: society.claimHouse.bind(society),
     schedule: (atMs, claimId) => loop.schedule(atMs, { kind: EVENT_CLAIM, subject: claimId }),
     cancel: (eventId) => loop.cancel(eventId),
   });

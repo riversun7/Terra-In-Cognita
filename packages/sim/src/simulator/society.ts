@@ -480,6 +480,43 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
       o.scheduleFaction(child, nowMs);
     },
 
+    claimHouse(parent, source, nowMs, settle) {
+      // D-580(질문 2335 나): 알박기는 NPC 가문이 짓는다 — 다 지으면 그 가문이 새 세력, 봉신 | 독립은 가문 성향 규칙식(D-323·D-340 마을 세우기와 같다)
+      const child = spawnFaction(parent, "house", parent.regime, null, nowMs);
+      const plan = foundingChoice(child.traits, c.npc);
+      if (plan.vassal) child.overlord = parent.id;
+      else child.regime = plan.regime;
+      const cityId = settle(child);
+      child.cities.add(cityId);
+      // 가문원: 재료를 낸 도시의 부모 휴먼(경비대 빼고) 가운데 늦게 든 founders명
+      const movers = (unitsByCity().get(source) ?? [])
+        .filter((unit) => unit.owner === parent.id && unit.guard !== true)
+        .slice(-s.founders);
+      o.hooks?.unitsOwnerChanged?.(
+        movers.map((unit) => unit.id),
+        parent.id,
+        child.id,
+        nowMs,
+      );
+      for (const unit of movers) {
+        parent.units.delete(unit.id);
+        child.units.add(unit.id);
+        o.hooks?.unitsChanged?.(unit.city, -1);
+        unit.city = cityId;
+        unit.owner = child.id;
+      }
+      o.hooks?.cityFounded?.(cityId, movers.length, nowMs);
+      issueShares(book, cityId, [{ owner: child.id, amount: BigInt(c.sharesPerCity) }], nowMs);
+      birthTech(child);
+      recorder.born(nowMs, child.id, "claim", {
+        parent: parent.id,
+        mode: plan.vassal ? "vassal" : "independent",
+        city: cityId,
+      });
+      o.scheduleFaction(child, nowMs);
+      return child;
+    },
+
     sellShares(seller, cityId, nowMs) {
       if (!seller.cities.has(cityId)) return;
       // [임시] 사는 쪽 = 국고가 가장 많은 다른 살아 있는 세력, 수량·주당 값 = 설정 칸(d_share_sale_*, 출발값 100주·주당 10, 사는 쪽 국고 화폐)

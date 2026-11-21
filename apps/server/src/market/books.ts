@@ -14,6 +14,13 @@
 //     (fee 고리 — 사업장 장부 수입, 소득세 포함). 거래세(국고)와 따로, 체결 거래 바로 뒤 같은 동기 처리.
 //   - NPC(질문 1945 답 — D-212·D-564 1626, npcHaul 고리가 있을 때): 그 도시에 거래소 건물이 없으면 NPC 주문을 받지 않고, NPC 물건 자리도 거래소
 //     건물 창고다. 팔 물건은 보이지 않는 운반꾼 시간 뒤에 오른다(npcHaul.ts). 런타임 틱(expire)이 닿은 짐을 처리한다.
+// - 부팅 손질(줄기 escrow-fix, docs/questions/2026-11-22-escrow-fix.md):
+//   - 묶음 크기가 바뀐 뒤 남은 옛 팔 주문: 걸린 팔 주문 줄의 locked(그때 묶은 물건 기본 단위)가 남은 묶음 × 지금 묶음 크기와 다르면, 그 주문은
+//     되살리지 않고 locked 그대로 주인 물건 자리로 돌려준 뒤 취소로 끝낸다. 지금 묶음 크기로 되살리면 돌려주기·체결이 묶은 양과 다른 양을 옮겨
+//     물건이 생기거나 사라진다(팩 core@137 광석 묶음 1kg·1개 → 10kg 때 "market escrow differs after restore"의 원인).
+//   - 에스크로 맞추기(escrowRepair.ts): 위 손질 뒤에도 물건 에스크로 잔고가 걸린 팔 주문 합(남은 묶음 × 묶음 크기)과 다르면 차이를 시스템 계정 reconcile:escrow:<자산>과 맞바꿔
+//     맞춘다(남는 것은 그 계정으로, 모자란 것은 그 계정에서 — 누구에게도 주지 않는다 [임시] 질문 2591). 되살리지 않은 거래소(걸린 주문 없음)의 남은
+//     잔고도 0으로 맞춘다. 맞춘 뒤에는 차이가 0이라 다시 켜도 아무것도 하지 않는다. 돈 에스크로는 손대지 않는다(경고만).
 import {
   TEST_ASSET_CREDIT,
   type BookFill,
@@ -24,6 +31,7 @@ import {
   type PlaceResult,
   type Side,
   createGoodsMarket,
+  goodsEscrowCode,
 } from "@terra/sim";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import { exchangeEscrowLocation, exchangeHolding } from "./exchangeStock.ts";
@@ -112,6 +120,20 @@ export interface LoadedMarkets {
 
 export interface LoadedOrder extends OrderMeta {
   readonly order: BookOrder;
+  /** 줄에 남긴 지금 묶인 양(market_orders.locked). 팔 쪽이면 묶음 크기가 바뀌었는지 이것으로 안다. 없으면 보지 않는다 */
+  readonly locked?: bigint | undefined;
+}
+
+/** 묶음 크기가 바뀐 뒤 남아 돌려준 옛 팔 주문 하나(부팅 손질) */
+export interface RelottedOrder {
+  readonly marketId: number;
+  readonly orderId: number;
+  readonly owner: number;
+  readonly remaining: bigint;
+  /** 돌려준 물건(기본 단위 — 줄의 locked) */
+  readonly locked: bigint;
+  /** 지금 묶음 크기 */
+  readonly lot: bigint;
 }
 
 export const EMPTY_MARKETS: LoadedMarkets = {
@@ -184,6 +206,8 @@ export interface MarketRegistry {
   expire(nowMs: number): number;
   /** 에스크로 불변식(모든 거래소) */
   check(): string[];
+  /** 부팅 때 묶음 크기가 바뀌어 돌려준 옛 팔 주문(만들 때 한 것 — escrowRepair.ts가 기록에 남긴다) */
+  relotted(): readonly RelottedOrder[];
   /** NPC 운반 대기 수(지표, 고리가 없으면 0) */
   npcHaulPending(): number;
 }
@@ -223,8 +247,14 @@ export function createMarketRegistry(o: MarketRegistryOptions): MarketRegistry {
       ? createNpcHauler({ ...o.npcHaul, ledger, exchangeOf, isUser: o.isUser })
       : undefined;
 
-  for (const row of loaded.open)
+  /** 부팅 때 읽은 걸린 주문의 묶인 양(줄의 locked — 묶음 크기가 바뀐 옛 팔 주문을 찾는다) */
+  const restoredLocked = new Map<number, bigint>();
+  /** 부팅 때 묶음 크기가 바뀌어 돌려준 옛 팔 주문(escrowRepair.ts가 함께 알린다) */
+  const relotted: RelottedOrder[] = [];
+  for (const row of loaded.open) {
     metas.set(row.order.id, { marketId: row.marketId, qty: row.qty, placedAtMs: row.placedAtMs });
+    if (row.locked !== undefined) restoredLocked.set(row.order.id, row.locked);
+  }
   for (const row of loaded.done) {
     const list = done.get(row.ownerId) ?? [];
     list.push(row);
@@ -432,21 +462,26 @@ export function createMarketRegistry(o: MarketRegistryOptions): MarketRegistry {
         const after = new Map(inner.orders().map((order) => [order.id, order]));
         // 체결: 걸린 주문(maker)의 남은 양은 체결 뒤 값(다 찼으면 0)
         const left = new Map([...before].map(([id, entry]) => [id, entry.remaining]));
-        for (const fill of result.fills) {
-          const rem = (left.get(fill.makerId) ?? fill.qty) - fill.qty;
-          left.set(fill.makerId, rem);
-          pushTrade(book, fill, nowMs, rem);
-        }
-        sync(before, "filled", nowMs);
-        // 들어온 주문이 다 찼으면(걸리지 않음) 끝난 주문으로 남긴다
-        if (!after.has(result.orderId)) {
-          writeDone(
-            book,
-            { id: result.orderId, owner, side, price, seq: 0, expiresAtMs },
-            0n,
-            "filled",
-            nowMs,
-          );
+        try {
+          for (const fill of result.fills) {
+            const rem = (left.get(fill.makerId) ?? fill.qty) - fill.qty;
+            left.set(fill.makerId, rem);
+            pushTrade(book, fill, nowMs, rem);
+          }
+        } finally {
+          // 체결 알림·이용료가 던져도 주문 줄은 이미 넣은 원장 거래(에스크로·체결)와 같은 쓰기 묶음에 쓴다. 안 쓰면 DB의 주문 줄과 에스크로가
+          // 어긋나 다시 켤 때 "market escrow differs after restore"가 된다
+          sync(before, "filled", nowMs);
+          // 들어온 주문이 다 찼으면(걸리지 않음) 끝난 주문으로 남긴다
+          if (!after.has(result.orderId)) {
+            writeDone(
+              book,
+              { id: result.orderId, owner, side, price, seq: 0, expiresAtMs },
+              0n,
+              "filled",
+              nowMs,
+            );
+          }
         }
         return result;
       },
@@ -511,6 +546,14 @@ export function createMarketRegistry(o: MarketRegistryOptions): MarketRegistry {
     stored?: string,
   ): MarketBook => {
     const wanted = o.configOf(cityId, asset);
+    const lot = wanted.lotSize ?? 1n;
+    // 묶음 크기가 바뀐 뒤 남은 옛 팔 주문(줄의 locked ≠ 남은 묶음 × 지금 묶음 크기)은 되살리지 않고 아래에서 locked 그대로 돌려준다
+    const stale = (order: BookOrder): boolean => {
+      const locked = restoredLocked.get(order.id);
+      return order.side === "sell" && locked !== undefined && locked !== order.remaining * lot;
+    };
+    const old = restore.filter(stale);
+    const kept = old.length === 0 ? restore : restore.filter((order) => !stale(order));
     const config: GoodsMarketConfig = {
       ...wanted,
       currency: stored ?? wanted.currency,
@@ -525,7 +568,7 @@ export function createMarketRegistry(o: MarketRegistryOptions): MarketRegistry {
       item: asset,
     };
     const ref: { current?: MarketBook } = {};
-    const market = wrap(ref, createGoodsMarket(config, ledger, nextOrderId, restore));
+    const market = wrap(ref, createGoodsMarket(config, ledger, nextOrderId, kept));
     const book: MarketBook = {
       id,
       cityId,
@@ -537,10 +580,47 @@ export function createMarketRegistry(o: MarketRegistryOptions): MarketRegistry {
     ref.current = book;
     byId.set(id, book);
     markets.get(cityId)?.set(asset, market);
+    for (const order of old) refundRelotted(book, order, lot);
     if (config.currency !== wanted.currency && o.allowed(cityId, asset))
       market.retarget(o.now(), wanted.currency, wanted.treasuryOwner, wanted.taxBp);
     return book;
   };
+
+  /** 묶음 크기가 바뀐 옛 팔 주문: 묶어 둔 양(locked) 그대로 에스크로 → 주인 물건 자리, 취소로 끝낸다(부팅 때 만들면서) */
+  function refundRelotted(book: MarketBook, order: BookOrder, lot: bigint): void {
+    const locked = restoredLocked.get(order.id) ?? 0n;
+    const atMs = o.now();
+    const config = book.market.config;
+    if (locked > 0n)
+      ledger.post({
+        kind: "order_refund",
+        atMs,
+        entries: [
+          {
+            account: ledger.systemAccount(goodsEscrowCode(book.id), book.asset, config.location),
+            amount: -locked,
+          },
+          {
+            account: ledger.ownerAccount(
+              order.owner,
+              book.asset,
+              config.holdingOf?.(order.owner) ?? config.location,
+            ),
+            amount: locked,
+          },
+        ],
+      });
+    writeDone(book, order, order.remaining, "cancelled", atMs);
+    hauler?.touch(order.owner, book.cityId, book.asset);
+    relotted.push({
+      marketId: book.id,
+      orderId: order.id,
+      owner: order.owner,
+      remaining: order.remaining,
+      locked,
+      lot,
+    });
+  }
 
   const existing = (cityId: number, asset: string): MarketBook | undefined => {
     const id = idOf.get(`${cityId}|${asset.slice(5)}`);
@@ -664,6 +744,8 @@ export function createMarketRegistry(o: MarketRegistryOptions): MarketRegistry {
       for (const entry of byId.values()) problems.push(...entry.market.checkEscrow());
       return problems;
     },
+
     npcHaulPending: () => hauler?.pending() ?? 0,
+    relotted: () => [...relotted],
   };
 }

@@ -53,12 +53,19 @@ afterEach(async () => {
   await test.drop();
 });
 
-async function boot(presets?: readonly NationPreset[]): Promise<World> {
+async function boot(
+  presets?: readonly NationPreset[],
+  log: {
+    info(...args: unknown[]): void;
+    warn(...args: unknown[]): void;
+    error(...args: unknown[]): void;
+  } = silentLog,
+): Promise<World> {
   const world = startWorld({
     testBots: 30,
     paths: { kind: "inline" },
     now: () => clock,
-    log: silentLog,
+    log,
     pool: test.db.$client,
     writeIntervalMs: 10,
     onFatal: (error) => {
@@ -420,6 +427,102 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
     expect(reloaded.fx.check()).toEqual([]);
     expect(await count(`select id from ledger_transactions where idempotency_key like 'npc_mint:%'`)).toBe(3);
     expect(await again.checkInvariants()).toEqual([]);
+  });
+
+  it("부팅 손질(escrow-fix 2591): 묶음 크기가 바뀐 옛 팔 주문은 묶은 양 그대로 돌려주고, 남은 물건 에스크로는 짝 계정으로 맞춘다(한 번만)", async () => {
+    const world = await boot();
+    const npc = world.npc;
+    const persistence = world.persistence;
+    if (!npc?.economy || !persistence) throw new Error("city economy");
+    for (let step = 0; step < 24; step += 1) {
+      clock += 5 * 60_000;
+      await npc.tick();
+    }
+    const { ledger, writer } = persistence;
+    const ask = [...npc.economy.registry.books()]
+      .flatMap((book) => book.market.orders().map((order) => ({ book, order })))
+      .filter(({ order }) => order.side === "sell")
+      .toSorted((a, b) => a.order.id - b.order.id)[0];
+    if (!ask) throw new Error("no npc ask");
+    const lot = ask.book.market.config.lotSize ?? 1n;
+    // 옛 판 흉내: 이 주문은 묶음 크기 lot + 1일 때 걸렸다(줄의 locked·에스크로가 그 판 값 — M1은 맞고 메모리 검사만 어긋난다)
+    const oldLocked = ask.order.remaining * (lot + 1n);
+    const damage = (code: string, asset: string, amount: bigint) =>
+      ledger.post({
+        kind: "test_damage",
+        atMs: clock,
+        entries: [
+          { account: ledger.systemAccount(code, asset, ask.book.market.config.location), amount },
+          { account: ledger.systemAccount(`test:damage:${asset}`, asset), amount: -amount },
+        ],
+      });
+    damage(`escrow:goods:${String(ask.book.id)}`, ask.book.asset, oldLocked - ask.order.remaining * lot);
+    // 걸린 주문이 없는 거래소(줄 없는 ID)에 남은 물건 7
+    damage("escrow:goods:999999", ask.book.asset, 7n);
+    await writer.durable();
+    await world.stop();
+    worlds.splice(worlds.indexOf(world), 1);
+    await test.db.$client.query(`update market_orders set locked = $1 where id = $2`, [
+      oldLocked,
+      ask.order.id,
+    ]);
+    const owner = ask.order.owner;
+    const balanceSum = async (): Promise<bigint> =>
+      BigInt(
+        (
+          await rows<{ n: string | null }>(
+            test.db,
+            `select sum(balance)::text as n from ledger_accounts where owner_id = $1 and asset = $2`,
+            [owner, ask.book.asset],
+          )
+        )[0]?.n ?? "0",
+      );
+    const ownerBefore = await balanceSum();
+
+    const warned: string[] = [];
+    const fields: Record<string, unknown>[] = [];
+    const capture = {
+      info: () => {},
+      error: () => {},
+      warn: (obj: unknown, message?: unknown) => {
+        warned.push(String(message));
+        if (message === "market escrow repaired after restore" && typeof obj === "object" && obj !== null)
+          fields.push(Object.fromEntries(Object.entries(obj)));
+      },
+    };
+    const again = await boot(undefined, capture);
+    expect(warned).not.toContain("market escrow differs after restore");
+    expect(fields[0]).toMatchObject({
+      relottedOrders: 1,
+      relottedGoods: String(oldLocked),
+      adjustedMarkets: 1,
+    });
+    expect(fields[0]?.adjusted).toEqual([
+      { market: 999999, asset: ask.book.asset, escrow: "7", expected: "0", diff: "7" },
+    ]);
+    const reloaded = again.npc?.economy;
+    expect(reloaded?.registry.check()).toEqual([]);
+    expect(
+      reloaded?.registry
+        .existing(ask.book.cityId, ask.book.asset)
+        ?.market.orders()
+        .some((o) => o.id === ask.order.id),
+    ).toBe(false);
+    await again.persistence?.writer.durable();
+    // 주인은 묶은 양(옛 판 locked)을 그대로 돌려받는다(NPC 주문 줄은 지운다)
+    expect((await balanceSum()) - ownerBefore).toBe(oldLocked);
+    expect(await count(`select id from market_orders where id = ${String(ask.order.id)}`)).toBe(0);
+    expect(await count(`select id from ledger_transactions where kind = 'escrow_reconcile'`)).toBe(1);
+    expect(await again.checkInvariants()).toEqual([]);
+
+    // 다시 켜면 손질할 것이 없다
+    await again.stop();
+    worlds.splice(worlds.indexOf(again), 1);
+    warned.length = 0;
+    await boot(undefined, capture);
+    expect(warned).not.toContain("market escrow repaired after restore");
+    expect(warned).not.toContain("market escrow differs after restore");
+    expect(await count(`select id from ledger_transactions where kind = 'escrow_reconcile'`)).toBe(1);
   });
 
   it("나라 성격(531 다·533 다·553 나·554 다·600 나): 국가마다 도시 직무·처음 창고가 다르고, 모자란 생필품은 굶음 먼저 일꾼을 둔다(532 나)", async () => {

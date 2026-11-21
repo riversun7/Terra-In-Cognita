@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-22 05:20 | 거래소 물건 보증금 불일치("market escrow differs after restore") 원인과 부팅 손질 (escrow-fix) | Claude Code | [22-0520-escrow-fix](worklog/2026/11/22-0520-escrow-fix.md) |
 | 2026-11-22 03:40~ | 2026-11-22 묶음 1117c 합치기 (모든 도시 쿠데타·신임도 오르내림 / 지도자끼리 조약) — 리셋 필요 없음 | Claude Code | [22-0340-batch-1117c-merge](worklog/2026/11/22-0340-batch-1117c-merge.md) |
 | 2026-11-22 03:00 | 2026-11-22 gov-coup — 모든 도시 쿠데타·신임도 오르내림·같은 나라 유닛 공격 신용·목표 물가 상한 | Claude Code | [22-0300-gov-coup](worklog/2026/11/22-0300-gov-coup.md) |
 | 2026-11-22 03:00 | 2026-11-22 diplomacy — 지도자끼리 조약(제안·협상·비준·서버 집행), 동맹·보호 효과, 참전 요청 | Claude Code | [22-0300-diplomacy](worklog/2026/11/22-0300-diplomacy.md) |

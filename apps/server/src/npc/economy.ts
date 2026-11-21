@@ -77,6 +77,7 @@ import type { NpcBuildWorld } from "./cityBuild.ts";
 import type { ServerEconomyCatalog } from "../market/catalog.ts";
 import { rulingVaultOf } from "../factionIdentity/houseVault.ts";
 import { type MarketRegistry, createMarketRegistry } from "../market/books.ts";
+import { settleMarketsAtBoot } from "../market/escrowRepair.ts";
 import { type FxRegistry, createFxRegistry } from "../market/fx.ts";
 import { fxFeeHook } from "../market/fxFeeHook.ts";
 import { loadFx, loadMarkets } from "../market/load.ts";
@@ -466,13 +467,8 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   }))
     economy.today.issued.set(currency, (economy.today.issued.get(currency) ?? 0n) + amount);
 
-  // 없는 도시(폐허 등)의 복원한 거래소는 걸린 주문을 돌려주고 닫는다
-  // (지우면서 훑어도 된다: Map 반복은 지운 열쇠를 건너뛴다)
-  for (const cityId of registry.markets.keys())
-    if (!world.cities.has(cityId)) registry.dropCity(cityId, o.startMs);
-  for (const cityId of world.cities.keys()) registry.ensureCity(cityId);
-  const escrow = [...registry.check(), ...fx.check()];
-  if (escrow.length > 0) o.log.warn({ problems: escrow }, "market escrow differs after restore");
+  // 없는 도시의 거래소 닫기·도시 표·부팅 손질(질문 2591)·에스크로 불변식 경고(market/escrowRepair.ts)
+  settleMarketsAtBoot({ registry, fx, cities: world.cities, ledger: book, nowMs: o.startMs, log: o.log });
 
   const presets = o.input.presets ?? [];
   /** 도시 주인의 나라 성격(없으면 undefined = 기본) */

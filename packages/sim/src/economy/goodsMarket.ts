@@ -71,6 +71,11 @@ export interface GoodsMarket {
   checkEscrow(): string[];
 }
 
+/** 거래소의 물건 에스크로 시스템 계정 코드(서버 부팅 손질 market/books.ts reconcile이 같은 코드를 찾는다) */
+export function goodsEscrowCode(marketId: number): string {
+  return `escrow:goods:${String(marketId)}`;
+}
+
 /** 0이 아닌 항목만 넣는다(장부는 0 항목을 받지 않는다) */
 function push(entries: LedgerEntry[], account: number, amount: bigint): void {
   if (amount !== 0n) entries.push({ account, amount });
@@ -92,7 +97,7 @@ export function createGoodsMarket(
   let taxCollected = 0n;
 
   const goodsEscrow = (): number =>
-    book.systemAccount(`escrow:goods:${config.id}`, config.item, config.location);
+    book.systemAccount(goodsEscrowCode(config.id), config.item, config.location);
   const cashEscrow = (): number =>
     book.systemAccount(`escrow:cash:${config.id}:${config.currency}`, config.currency);
   const goodsOf = (owner: number): number =>

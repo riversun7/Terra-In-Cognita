@@ -62,10 +62,15 @@ describe.skipIf(!TEST_DATABASE_URL)("신용 점수 저장(DB)", () => {
       ],
     });
     book1.residentArrears(NATION, [{ city: CITY, payer: PAYER, owed: 10n, added: 10n, code }], clock);
-    expect(book1.score({ ownerId: PAYER, unitId: null }, { city: CITY })).toBe(950);
+    expect(book1.score({ ownerId: PAYER, unitId: null }, NATION, clock)).toBe(80);
+    // 소속 줄(D-584 — 소속 훑기가 만든다)도 저장·복구된다
+    book1.sweep(clock, new Map([[PAYER, NATION]]));
     await p1.writer.durable();
     expect(await rows(test.db, "select cause, city_points, nation_points, count from credit_marks")).toEqual([
-      { cause: code, city_points: 50, nation_points: 20, count: 1 },
+      { cause: code, city_points: 0, nation_points: 20, count: 1 },
+    ]);
+    expect(await rows(test.db, "select owner_id, nation_id, rise from credit_standings")).toEqual([
+      { owner_id: String(PAYER), nation_id: String(NATION), rise: 0 },
     ]);
     await first.stop();
     worlds.splice(0);
@@ -74,8 +79,8 @@ describe.skipIf(!TEST_DATABASE_URL)("신용 점수 저장(DB)", () => {
     const p2 = second.persistence;
     const book2 = p2 ? creditBookOf(p2.ledger) : undefined;
     if (!p2 || !book2) throw new Error("credit book");
-    expect(book2.score({ ownerId: PAYER, unitId: null }, { city: CITY })).toBe(950);
-    expect(book2.score({ ownerId: PAYER, unitId: null }, { nation: NATION })).toBe(980);
+    expect(book2.score({ ownerId: PAYER, unitId: null }, NATION, clock)).toBe(80);
+    expect(book2.standingOf(PAYER)?.nationId).toBe(NATION);
     // 다 갚음(탕감과 같은 꼴 — 빚 계정 0) → 바로 회복, 줄 지움
     p2.ledger.post({
       kind: "resident_tax_cancel",
@@ -85,7 +90,7 @@ describe.skipIf(!TEST_DATABASE_URL)("신용 점수 저장(DB)", () => {
         { account: p2.ledger.systemAccount(residentClaimCode(NATION, CUR), CUR), amount: -10n },
       ],
     });
-    expect(book2.score({ ownerId: PAYER, unitId: null }, { city: CITY })).toBe(1000);
+    expect(book2.score({ ownerId: PAYER, unitId: null }, NATION, clock)).toBe(100);
     await p2.writer.durable();
     expect(await rows(test.db, "select cause from credit_marks")).toEqual([]);
   }, 60_000);

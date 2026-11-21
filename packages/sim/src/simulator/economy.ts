@@ -17,6 +17,7 @@ import {
   type CentralBankRule,
   TEST_CENTRAL_BANK_RULE,
   centralBankStep,
+  manualBankStep,
   initialMint,
 } from "../economy/centralBank.ts";
 import { type FxMarket, createFxMarket } from "../economy/fxMarket.ts";
@@ -181,6 +182,10 @@ export interface Economy {
   /** 화폐 → 발행하는 나라(고정 NPC 나라) */
   readonly issuer: Map<string, number>;
   readonly interestOwed: Map<string, bigint>;
+  /**
+   * 지도자 손 조절(서버만 — 줄기 governance-5, 질문 2453): 발행 나라 → 하루 조절 만분율(+발행 −소각). undefined면 공식(D-131). 시뮬은 붙이지 않는다(판정 그대로)
+   */
+  bankOverride?: ((factionId: number) => number | undefined) | undefined;
   /** 나라 → 소각한 발행 이자 누적(D-303). 도시 세금 정산(D-304)이 기간 차이를 쓴다 */
   readonly interestPaid: Map<number, bigint>;
   readonly facilities: Map<number, EcoFacility>;
@@ -830,15 +835,14 @@ export function bankDay(
   for (const [currency, factionId] of economy.issuer) {
     const faction = world.factions.get(factionId);
     if (!faction?.alive) continue;
-    const step = centralBankStep(
-      {
-        outstanding: moneySupply(world.book, currency),
-        indexMilli: priceIndexMilli(economy, currency),
-        treasury: world.book.balanceOf(factionId, currency),
-        interestOwed: economy.interestOwed.get(currency) ?? 0n,
-      },
-      rule,
-    );
+    const input = {
+      outstanding: moneySupply(world.book, currency),
+      indexMilli: priceIndexMilli(economy, currency),
+      treasury: world.book.balanceOf(factionId, currency),
+      interestOwed: economy.interestOwed.get(currency) ?? 0n,
+    };
+    const manual = economy.bankOverride?.(factionId);
+    const step = manual === undefined ? centralBankStep(input, rule) : manualBankStep(input, rule, manual);
     economy.interestOwed.set(currency, step.interestOwed);
     economy.interestPaid.set(factionId, (economy.interestPaid.get(factionId) ?? 0n) + step.interestBurn);
     burn(economy, world.book, currency, factionId, step.interestBurn + step.burn, nowMs);

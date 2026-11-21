@@ -496,6 +496,30 @@
       "compensation": {
         "kind": "none"
       }
+    },
+    {
+      "category": "tuning",
+      "id": "credit_business_city",
+      "since": 176,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "credit_resident_city",
+      "since": 176,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "gov_vacancy_split_ms",
+      "since": 176,
+      "compensation": {
+        "kind": "none"
+      }
     }
   ]
 }

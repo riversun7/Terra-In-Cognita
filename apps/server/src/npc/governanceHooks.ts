@@ -8,8 +8,10 @@
 //   새 선전포고·강화·봉신 독립·세율(거래세)을 하지 않는다(이미 하는 전쟁의 공격은 잇는다 [임시]). 도시 세금(시장)·짓기·구인은 그대로(D-252).
 // - 독재 지분 팔기(질문 2439 나 답 — D-338·D-344): shareSellerOf = NPC가 이끄는 독재 NPC 나라의 지배 가문 계정. NPC 판단의 "지분 팔기"가 그 계정에서 팔고 돈은 그
 //   가문 금고로, 과반 아래로는 팔지 않는다(@terra/sim society.sellShares). 플레이어 지배 가문은 NPC가 팔지 않는다.
+// - 반란 문턱 보정(줄기 governance-5 — D-585 신임도): rebellionThresholdShift = 의결 틱이 채운 표(governance/approval.ts).
 import type { SimFaction, SimHooks, SimUnit } from "@terra/sim";
 import { SATISFACTION_MAX_MILLI } from "@terra/sim";
+import { rebellionShift } from "../governance/approval.ts";
 import type { NpcCityHouses } from "./cityHouses.ts";
 
 /** 만족도를 읽는 시뮬 세계(유닛만) */
@@ -58,6 +60,9 @@ export function withGovernanceHooks(base: SimHooks, d: GovernanceHookDeps): SimH
     },
     nationLocked: (faction) =>
       base.nationLocked?.(faction) === true || (!faction.player && controlOf(faction.id) !== "npc"),
+    // 지도자 신임도가 낮으면 반란이 쉽다(줄기 governance-5 — D-585, governance/approval.ts. 칸 출발값 0 = 보정 없음)
+    rebellionThresholdShift: (faction) =>
+      (base.rebellionThresholdShift?.(faction) ?? 0) + rebellionShift(d.world, faction.id),
     shareSellerOf(faction) {
       const inner = base.shareSellerOf?.(faction);
       if (inner !== undefined) return inner;

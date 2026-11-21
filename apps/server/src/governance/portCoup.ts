@@ -72,7 +72,7 @@ type CoupWorld = Pick<World, "status" | "npc" | "persistence">;
 
 export function worldGovernancePortCoup(
   world: () => CoupWorld | undefined,
-  combat?: () => { readonly catalog: CombatCatalog; readonly rules: CombatCoefficients },
+  combat?: () => { readonly catalog: CombatCatalog; readonly rules: CombatCoefficients } | undefined,
 ): GovernancePortCoup {
   const live = () => {
     const w = world();

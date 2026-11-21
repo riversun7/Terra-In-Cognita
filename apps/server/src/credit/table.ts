@@ -20,4 +20,13 @@ export const CREDIT_TABLES = {
     ],
     key: ["cause"],
   },
+  /**
+   * 신용 소속(주인마다 지금 속한 나라 한 줄 — 줄기 governance-5, D-584): 소속 시작(소속 기간 오름)·쌓인 오른 몫(사업장 운영·쿠데타 보상)·마지막으로 사업장 몫을 더한 날.
+   * 나라를 옮기면 새 줄로 바꾼다(처음부터 센다 [임시 — 질문 2474])
+   */
+  creditStandings: {
+    name: "credit_standings",
+    columns: ["owner_id", "nation_id", "since_ms", "rise", "rose_day", "updated_at_ms"],
+    key: ["owner_id"],
+  },
 } as const satisfies Record<string, TableSpec>;

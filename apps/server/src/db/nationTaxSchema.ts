@@ -21,6 +21,8 @@ export const nationTaxes = pgTable(
     residentTaxPm: integer("resident_tax_pm"),
     residentEveryDays: integer("resident_every_days"),
     residentNationPm: integer("resident_nation_pm"),
+    /** 거래세(만분율 — 줄기 governance-5, 질문 2460: 지도자가 정함 D-128). null = 정하지 않음(NPC 나라는 거래세 규칙식, 지도자 나라는 지금 값 그대로) */
+    tradeTaxBp: integer("trade_tax_bp"),
     /** 마지막으로 정한 시각·사람(감사 기록과 같은 값) */
     setAtMs: bigint("set_at_ms", { mode: "number" }).notNull(),
     setBy: uuid("set_by"),
@@ -30,5 +32,6 @@ export const nationTaxes = pgTable(
     check("nation_taxes_resident_tax_pm", sql`${table.residentTaxPm} between 0 and 1000`),
     check("nation_taxes_resident_every_days", sql`${table.residentEveryDays} between 1 and 365`),
     check("nation_taxes_resident_nation_pm", sql`${table.residentNationPm} between 0 and 1000`),
+    check("nation_taxes_trade_tax_bp", sql`${table.tradeTaxBp} between 0 and 10000`),
   ],
 );

@@ -24,6 +24,11 @@ export interface NationTaxRow {
   readonly residentTaxPm: number | null;
   readonly residentEveryDays: number | null;
   readonly residentNationPm: number | null;
+  /**
+   * 거래세(만분율 — 줄기 governance-5, 질문 2460 "정부가 세율 지정" D-128). null = 정하지 않음(그 나라 지금 거래세 그대로). 없으면(옛 기기 명령·옛 안건) 앞 값을 남긴다
+   * — 정할 때 부르는 쪽이 채운다. 지도자가 이끄는 나라만 의결 틱이 거래소에 건다(NPC 나라는 거래세 규칙식 그대로)
+   */
+  readonly tradeTaxBp?: number | null | undefined;
 }
 
 export const UNSET_NATION_TAX: NationTaxRow = {
@@ -31,6 +36,7 @@ export const UNSET_NATION_TAX: NationTaxRow = {
   residentTaxPm: null,
   residentEveryDays: null,
   residentNationPm: null,
+  tradeTaxBp: null,
 };
 
 export interface NationTaxTable {
@@ -59,11 +65,12 @@ export function nationTaxRowOf(row: Record<string, unknown> | undefined): Nation
     residentTaxPm: intOrNull(row.resident_tax_pm),
     residentEveryDays: intOrNull(row.resident_every_days),
     residentNationPm: intOrNull(row.resident_nation_pm),
+    tradeTaxBp: intOrNull(row.trade_tax_bp),
   };
 }
 
 export const NATION_TAX_SELECT =
-  "select faction_id, income_tax_bp, resident_tax_pm, resident_every_days, resident_nation_pm from nation_taxes";
+  "select faction_id, income_tax_bp, resident_tax_pm, resident_every_days, resident_nation_pm, trade_tax_bp from nation_taxes";
 
 const tables = new WeakMap<object, NationTaxTable>();
 

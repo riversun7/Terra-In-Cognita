@@ -34,6 +34,8 @@ export interface CoupSideRow {
   readonly side: CoupSide;
   readonly power: number;
   readonly joinedAtMs: number;
+  /** 데려온 병력(플레이어 — 질문 2455, 줄기 governance-5). null = 옛 줄·NPC 가문(가문원) */
+  readonly units?: readonly number[] | null | undefined;
 }
 
 const num = (value: unknown): number => Number(value);
@@ -134,9 +136,18 @@ export function createCoupStore(pool: GovernanceQueryable) {
     },
     async join(row: CoupSideRow): Promise<void> {
       await pool.query(
-        `insert into governance_coup_sides (coup_id, joiner_key, user_id, side, power, joined_at_ms) values ($1, $2, $3, $4, $5, $6)
-         on conflict (coup_id, joiner_key) do update set side = excluded.side, power = excluded.power, joined_at_ms = excluded.joined_at_ms`,
-        [row.coupId, row.joinerKey, row.userId, row.side, row.power, row.joinedAtMs],
+        `insert into governance_coup_sides (coup_id, joiner_key, user_id, side, power, joined_at_ms, units) values ($1, $2, $3, $4, $5, $6, $7)
+         on conflict (coup_id, joiner_key) do update set side = excluded.side, power = excluded.power, joined_at_ms = excluded.joined_at_ms,
+           units = excluded.units`,
+        [
+          row.coupId,
+          row.joinerKey,
+          row.userId,
+          row.side,
+          row.power,
+          row.joinedAtMs,
+          row.units === null || row.units === undefined ? null : JSON.stringify(row.units),
+        ],
       );
     },
     /** 그 나라 쿠데타(참가 받는 중 전부 + 끝난 것 최근 limit개, 새것부터) */
@@ -152,7 +163,7 @@ export function createCoupStore(pool: GovernanceQueryable) {
     },
     async sides(coupId: number): Promise<CoupSideRow[]> {
       const { rows } = await pool.query(
-        `select coup_id, joiner_key, user_id, side, power, joined_at_ms from governance_coup_sides
+        `select coup_id, joiner_key, user_id, side, power, joined_at_ms, units from governance_coup_sides
           where coup_id = $1 order by joined_at_ms, joiner_key`,
         [coupId],
       );
@@ -163,6 +174,11 @@ export function createCoupStore(pool: GovernanceQueryable) {
         side: row.side === "government" ? "government" : "rebel",
         power: num(row.power),
         joinedAtMs: num(row.joined_at_ms),
+        units: Array.isArray(row.units)
+          ? row.units.flatMap((id: unknown) =>
+              typeof id === "number" && Number.isSafeInteger(id) ? [id] : [],
+            )
+          : null,
       }));
     },
   };

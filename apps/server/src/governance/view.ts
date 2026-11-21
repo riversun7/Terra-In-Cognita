@@ -114,21 +114,10 @@ export function createGovernanceView(o: {
     const myKeys = new Set(
       s.electorate.voters.filter((voter) => voter.userId === userId).map((voter) => voter.key),
     );
-    // 도시 독립 투표는 그 도시 투표권(cityVotes.ts)으로 내 자격·투표권 합을 본다
-    const cityElectorates = new Map(
-      await Promise.all(
-        agendas
-          .filter((agenda) => agenda.kind === "city_independence")
-          .map(async (agenda) => [agenda.id, await o.service.electorateOf(agenda, nation)] as const),
-      ),
-    );
     const nowMs = o.now();
     const toView = (agenda: AgendaRow): GovernanceAgendaView => {
       const mine = votes.filter((row) => row.agendaId === agenda.id);
-      const cityElectorate = cityElectorates.get(agenda.id);
-      const agendaKeys = cityElectorate
-        ? new Set(cityElectorate.voters.filter((voter) => voter.userId === userId).map((voter) => voter.key))
-        : myKeys;
+      const agendaKeys = myKeys;
       const { shares, minPrice } = agenda.payload;
       const cands = candidates.filter((row) => row.agendaId === agenda.id);
       const open = agenda.status === "open" && agenda.closesAtMs > nowMs;
@@ -160,6 +149,9 @@ export function createGovernanceView(o: {
         cityId: agenda.payload.cityId ?? null,
         shareSale: shares !== undefined && minPrice !== undefined ? { shares, minPrice } : null,
         targetNation: target === undefined ? null : { id: target, name: names.get(target) ?? null },
+        monetary: agenda.payload.monetaryMode
+          ? { mode: agenda.payload.monetaryMode, rateBp: agenda.payload.monetaryRateBp ?? 0 }
+          : null,
         byAuthority: agenda.payload.byAuthority === true,
         proposer: agenda.proposerKey && isHouseKey(agenda.proposerKey) ? house(agenda.proposerKey) : null,
         openedAtMs: agenda.openedAtMs,
@@ -168,7 +160,7 @@ export function createGovernanceView(o: {
         effectAtMs: agenda.effectAtMs,
         reason: FAIL_REASONS.find((reason) => reason === agenda.result?.reason) ?? null,
         totals,
-        electorate: agenda.result?.electorate ?? (cityElectorate ?? s.electorate).total.toString(),
+        electorate: agenda.result?.electorate ?? s.electorate.total.toString(),
         quorumPm: agenda.result?.quorumPm ?? rules.quorumOf(agenda.kind),
         thresholdPm:
           agenda.result?.thresholdPm ??

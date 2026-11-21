@@ -252,6 +252,8 @@ export interface ServerGardener {
   takeDirtyWaves(): number[];
   /** 끝난 웨이브의 보상 기록(gardener_waves.reward jsonb 글자, 꺼내면 지운다). 없으면 null */
   takeRewardRecord(waveId: number): string | null;
+  /** 지금 전투 자료·계수(팩 실효 값 — 나라 의결 쿠데타 전투도 같은 자료를 쓴다, 줄기 governance-5) */
+  combat(): { readonly catalog: CombatCatalog; readonly rules: CombatCoefficients };
 }
 
 export function attachServerGardener(o: ServerGardenerOptions): ServerGardener {
@@ -375,6 +377,7 @@ export function attachServerGardener(o: ServerGardenerOptions): ServerGardener {
   return {
     run,
     mothershipCell,
+    combat: () => ({ catalog: o.catalog(), rules: o.combatRules() }),
     battleEnded(battleId, attackerWon) {
       for (const wave of run.waves.values())
         if (wave.battleId === battleId) {

@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-21 22:30 | 2026-11-21 governance-5 — 신용 한 점수·빈자리 자동 선출·강화·화폐 단계·거래세·가문 독립·쿠데타 새 나라·병력·신임도 | Claude Code | [21-2230-governance-5](worklog/2026/11/21-2230-governance-5.md) |
 | 2026-11-21 22:00 | 가파른 비탈 막힘 → 느리게 지나감(비용 ×4), 건물은 그대로 못 지음 | Claude Code | [21-2200-steep-slope-pace](worklog/2026/11/21-2200-steep-slope-pace.md) |
 | 2026-11-21 21:30 | 2차맵 화면 높이 과장 ×4(보기만) | Claude Code | [21-2130-second-map-relief](worklog/2026/11/21-2130-second-map-relief.md) |
 | 2026-11-21 21:03~ | 2026-11-21 묶음 1116y 합치기 (의결 3 — 쿠데타·지분 따라가기·빈자리 독립 / 신용 점수) — 리셋 필요 없음 | Claude Code | [21-2103-batch-1116y-merge](worklog/2026/11/21-2103-batch-1116y-merge.md) |

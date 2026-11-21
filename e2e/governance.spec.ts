@@ -32,6 +32,7 @@ const withAgendas = (data: unknown): void => {
     regime: "democracy",
     targetRegime: null,
     targetNation: null,
+    monetary: null,
     byAuthority: false,
     registerUntilMs: null,
     effectAtMs: null,

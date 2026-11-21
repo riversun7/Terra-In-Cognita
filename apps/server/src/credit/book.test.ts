@@ -1,4 +1,4 @@
-// 신용 점수 장부 시험 — book.ts·hooks.ts·view.ts (D-581, docs/adr/2026-11-21-credit.md)
+// 신용 점수 장부 시험 — book.ts·hooks.ts·view.ts (D-581·D-584 한 점수, docs/adr/2026-11-21-credit.md)
 import { businessDebtCode, businessLocation, unitPurseLocation } from "@terra/shared/businessBooks";
 import {
   type BusinessCoefficients,
@@ -26,9 +26,11 @@ const BUILDING = 500;
 /** 쓰기 대기열 흉내: 신용 표의 마지막 상태만 본다 */
 function fakeWriter() {
   const rows = new Map<string, Record<string, unknown>>();
+  const standingRows = new Map<number, Record<string, unknown>>();
   const writer: WorldWriter = {
     upsert(table, row) {
       if (table === "creditMarks") rows.set(String(row.cause), { ...row });
+      if (table === "creditStandings") standingRows.set(Number(row.owner_id), { ...row });
     },
     remove(table, key) {
       if (table === "creditMarks") rows.delete(String(key.cause));
@@ -40,19 +42,20 @@ function fakeWriter() {
     takeMetrics: () => ({}),
     crash: async () => {},
   };
-  return { writer, rows };
+  return { writer, rows, standingRows };
 }
 
 function world(
   o: {
     loaded?: CreditMark[];
     rules?: Partial<BusinessCoefficients>;
+    operating?: () => ReadonlyMap<number, number>;
     seed?: (l: ReturnType<typeof createLedger>) => void;
   } = {},
 ) {
   let account = 0;
   let tx = 0;
-  const { writer, rows } = fakeWriter();
+  const { writer, rows, standingRows } = fakeWriter();
   const ledger = createLedger({ writer, nextAccountId: () => ++account, nextTxId: () => ++tx, accounts: [] });
   o.seed?.(ledger);
   const rules: BusinessCoefficients = { ...START_BUSINESS, ...o.rules };
@@ -63,6 +66,7 @@ function world(
     rules: () => rules,
     place: (buildingId) => (buildingId === BUILDING ? { ownerId: PLAYER, cityId: CITY } : undefined),
     nationOf: (cityId) => (cityId === CITY ? NATION : undefined),
+    operating: o.operating,
   });
   const give = (owner: number, amount: bigint, location?: number) =>
     ledger.post({
@@ -73,7 +77,7 @@ function world(
         { account: ledger.ownerAccount(owner, CUR, location ?? null), amount },
       ],
     });
-  return { ledger, book, rows, give };
+  return { ledger, book, rows, standingRows, give };
 }
 
 const unitSubject = { ownerId: PLAYER, unitId: UNIT };
@@ -108,29 +112,31 @@ const residentCycle = (w: ReturnType<typeof world>, atMs: number) => {
   return result;
 };
 
-describe("신용 점수 장부(D-581)", () => {
-  it("주민세 빚이 늘어난 주기마다 도시·나라 신용을 깎고(유닛 주체), 다 갚으면 바로 모두 되돌린다", () => {
+const DAY = 86_400_000;
+const T0 = 10 * DAY;
+
+describe("신용 점수 장부(D-581 · D-584 한 점수)", () => {
+  it("주민세 빚이 늘어난 주기마다 그 나라 신용을 깎고(유닛 주체), 일부만 갚으면 그대로, 다 갚으면 바로 되돌린다", () => {
     const w = world();
-    expect(w.book.score(unitSubject, { city: CITY })).toBe(1000);
+    expect(w.book.score(unitSubject, NATION, T0)).toBe(100);
     residentCycle(w, 1);
-    expect(w.book.score(unitSubject, { city: CITY })).toBe(950);
-    expect(w.book.score(unitSubject, { nation: NATION })).toBe(980);
-    // 주인 자신·다른 도시는 그대로
-    expect(w.book.score(ownerSubject, { city: CITY })).toBe(1000);
-    expect(w.book.score(unitSubject, { city: 8 })).toBe(1000);
+    expect(w.book.score(unitSubject, NATION, T0)).toBe(80);
+    // 주인 자신·다른 나라는 그대로
+    expect(w.book.score(ownerSubject, NATION, T0)).toBe(100);
+    expect(w.book.score(unitSubject, 9, T0)).toBe(100);
     residentCycle(w, 2);
-    expect(w.book.score(unitSubject, { city: CITY })).toBe(900);
+    expect(w.book.score(unitSubject, NATION, T0)).toBe(60);
     expect(w.rows.get(residentDebtCode(NATION, CITY, PLAYER, CUR, UNIT))).toMatchObject({
       kind: "resident",
       unit_id: UNIT,
-      city_points: 100,
+      city_points: 0,
       nation_points: 40,
       count: 2,
     });
-    // 일부만 갚으면 그대로(빚 20 + 이번 10 = 30 가운데 15만 냄 → 빚 15), 빚이 줄어든 주기는 더 깎지 않는다
+    // 일부만 갚으면 그대로(2443 가 — 빚 20 + 이번 10 = 30 가운데 15만 냄 → 빚 15), 빚이 줄어든 주기는 더 깎지 않는다
     w.give(PLAYER, 15n, unitPurseLocation(UNIT));
     residentCycle(w, 3);
-    expect(w.book.score(unitSubject, { city: CITY })).toBe(900);
+    expect(w.book.score(unitSubject, NATION, T0)).toBe(60);
   });
 
   it("빚 계정이 0이 되면(다 갚음) 깎은 몫이 바로 돌아오고 표 줄이 지워진다", () => {
@@ -138,25 +144,23 @@ describe("신용 점수 장부(D-581)", () => {
     residentCycle(w, 1);
     const code = residentDebtCode(NATION, CITY, PLAYER, CUR, UNIT);
     expect(w.rows.has(code)).toBe(true);
-    // 유닛 지갑에 돈을 넣고 다음 주기 — 빚 10 + 이번 10 = 20을 낸다
     w.give(PLAYER, 20n, unitPurseLocation(UNIT));
     residentCycle(w, 2);
-    expect(w.book.score(unitSubject, { city: CITY })).toBe(1000);
-    expect(w.book.score(unitSubject, { nation: NATION })).toBe(1000);
+    expect(w.book.score(unitSubject, NATION, T0)).toBe(100);
     expect(w.rows.has(code)).toBe(false);
     expect(w.book.marksOf(PLAYER)).toEqual([]);
   });
 
-  it("도시가 넘어가거나 폐허가 되어 빚이 사라지면(탕감) 깎은 몫도 돌아온다", () => {
+  it("도시가 넘어가 빚이 사라지면(탕감) 깎은 몫도 돌아온다", () => {
     const w = world();
     residentCycle(w, 1);
-    expect(w.book.score(unitSubject, { city: CITY })).toBe(950);
+    expect(w.book.score(unitSubject, NATION, T0)).toBe(80);
     cancelResidentDebts(w.ledger, NATION, CITY, 2);
-    expect(w.book.score(unitSubject, { city: CITY })).toBe(1000);
+    expect(w.book.score(unitSubject, NATION, T0)).toBe(100);
     expect(w.rows.size).toBe(0);
   });
 
-  it("사업장 적자가 생기면 건물 주인의 그 도시·나라 신용을 한 번 깎고, 다 갚으면 되돌린다. 같은 주머니는 깎지 않는다", () => {
+  it("사업장 적자가 생기면 건물 주인의 신용을 한 번 깎고, 다 갚거나 탕감(건물이 사라짐 2445 나)되면 되돌린다", () => {
     const w = world();
     const debt = w.ledger.systemAccount(businessDebtCode(BUILDING, CUR), CUR);
     const vault = w.ledger.ownerAccount(PLAYER, CUR, businessLocation(BUILDING));
@@ -170,25 +174,25 @@ describe("신용 점수 장부(D-581)", () => {
         ],
       });
     advance(30n, 5);
-    expect(w.book.score(ownerSubject, { city: CITY })).toBe(970);
-    expect(w.book.score(ownerSubject, { nation: NATION })).toBe(990);
+    expect(w.book.score(ownerSubject, NATION, T0)).toBe(90);
     advance(30n, 6);
     // 같은 적자(계정)가 더 늘어도 한 번만
-    expect(w.book.score(ownerSubject, { city: CITY })).toBe(970);
+    expect(w.book.score(ownerSubject, NATION, T0)).toBe(90);
     expect(w.book.marksOf(PLAYER)).toMatchObject([{ kind: "business", count: 1, sinceMs: 5 }]);
+    // 탕감(business/core.ts forget과 같은 거래 꼴)
     w.ledger.post({
-      kind: "business_repay",
+      kind: "business_debt_writeoff",
       atMs: 7,
       entries: [
-        { account: vault, amount: -60n },
         { account: debt, amount: 60n },
+        { account: w.ledger.systemAccount(`writeoff:business:${CUR}`, CUR), amount: -60n },
       ],
     });
-    expect(w.book.score(ownerSubject, { city: CITY })).toBe(1000);
+    expect(w.book.score(ownerSubject, NATION, T0)).toBe(100);
     expect(w.rows.size).toBe(0);
   });
 
-  it("같은 주머니(건물 주인 = 그 도시 나라)·모르는 건물은 깎지 않는다, 깎는 크기 0이면 줄을 만들지 않는다", () => {
+  it("같은 주머니(건물 주인 = 그 도시 나라)는 깎지 않는다, 깎는 크기 0이면 줄을 만들지 않는다", () => {
     const own = world();
     const nationDebt = own.ledger.systemAccount(businessDebtCode(999, CUR), CUR);
     own.ledger.post({
@@ -200,39 +204,78 @@ describe("신용 점수 장부(D-581)", () => {
       ],
     });
     expect(own.rows.size).toBe(0);
-    const off = world({ rules: { creditResidentCity: 0, creditResidentNation: 0 } });
+    const off = world({ rules: { creditResidentNation: 0 } });
     residentCycle(off, 1);
     expect(off.rows.size).toBe(0);
-    expect(off.book.score(unitSubject, { city: CITY })).toBe(1000);
+    expect(off.book.score(unitSubject, NATION, T0)).toBe(100);
+  });
+
+  it("소속 기간마다 저절로 오르고(상한까지), 사업장 운영은 하루 한 번, 나라를 옮기면 처음부터(D-584)", () => {
+    let operating = new Map<number, number>([[PLAYER, 3]]);
+    const w = world({ operating: () => operating });
+    w.book.sweep(T0, new Map([[PLAYER, NATION]]));
+    expect(w.book.score(ownerSubject, NATION, T0)).toBe(100);
+    // 사흘 뒤: 소속 +30, 그날 사업장 3 × 2 = 6
+    w.book.sweep(T0 + 3 * DAY, new Map([[PLAYER, NATION]]));
+    expect(w.book.score(ownerSubject, NATION, T0 + 3 * DAY)).toBe(136);
+    // 같은 날 다시 훑어도 더하지 않는다
+    w.book.sweep(T0 + 3 * DAY + 1000, new Map([[PLAYER, NATION]]));
+    expect(w.book.standingOf(PLAYER)?.rise).toBe(6);
+    // 소속 오름 상한(300) — 100일 뒤
+    operating = new Map();
+    expect(w.book.score(ownerSubject, NATION, T0 + 100 * DAY)).toBe(100 + 300 + 6);
+    // 나라를 옮기면 처음부터, 옛 나라 점수는 시작값
+    w.book.sweep(T0 + 5 * DAY, new Map([[PLAYER, 9]]));
+    expect(w.book.score(ownerSubject, 9, T0 + 5 * DAY)).toBe(100);
+    expect(w.book.score(ownerSubject, NATION, T0 + 5 * DAY)).toBe(100);
+    expect(w.standingRows.get(PLAYER)).toMatchObject({ nation_id: 9, rise: 0 });
+  });
+
+  it("남는 벌점(쿠데타 가담·같은 나라 공격)·유지비 체납(마지막 경계를 내면 되돌림)·새 나라 시작 가산", () => {
+    const w = world({ rules: { creditStart: 500 } });
+    // 소속을 모르면 벌점을 적지 않는다
+    expect(w.book.event(PLAYER, "coup_join", T0)).toBe(false);
+    w.book.sweep(T0, new Map([[PLAYER, NATION]]));
+    expect(w.book.event(PLAYER, "coup_join", T0)).toBe(true);
+    expect(w.book.event(PLAYER, "same_nation_attack", T0)).toBe(true);
+    expect(w.book.score(ownerSubject, NATION, T0)).toBe(500 - 100 - 50);
+    w.book.upkeep(PLAYER, 3, false, T0);
+    expect(w.book.score(ownerSubject, NATION, T0)).toBe(350 - 6);
+    w.book.upkeep(PLAYER, 0, true, T0 + 1);
+    expect(w.book.score(ownerSubject, NATION, T0)).toBe(350);
+    w.book.restartAt(PLAYER, 12, 40, T0 + 2);
+    // 새 나라: 시작값 + 가산, 옛 나라 벌점은 옛 나라에 남는다
+    expect(w.book.score(ownerSubject, 12, T0 + 2)).toBe(540);
+    expect(w.book.score(ownerSubject, NATION, T0 + 2)).toBe(350);
+    expect(w.book.check()).toEqual([]);
   });
 
   it("점수는 설정 칸 범위로 자른다", () => {
-    const w = world({ rules: { creditMin: 900, creditResidentCity: 70 } });
+    const w = world({ rules: { creditMin: 70, creditResidentNation: 30 } });
     residentCycle(w, 1);
     residentCycle(w, 2);
-    expect(w.book.score(unitSubject, { city: CITY })).toBe(900);
+    expect(w.book.score(unitSubject, NATION, T0)).toBe(70);
     const low = world({ rules: { creditStart: 500, creditMax: 400 } });
-    expect(low.book.score(unitSubject, { city: CITY })).toBe(400);
+    expect(low.book.score(unitSubject, NATION, T0)).toBe(400);
   });
 
-  it("켤 때 읽은 줄: 빚이 남은 줄만 남기고 이미 갚은(계정 0·없음) 줄은 지운다", () => {
+  it("켤 때 읽은 줄: 빚이 남은 줄만 남기고 이미 갚은(계정 0·없음) 줄은 지운다. 유지비·벌점 줄은 남는다", () => {
     const open = residentDebtCode(NATION, CITY, PLAYER, CUR);
     const paid = residentDebtCode(NATION, 8, PLAYER, CUR);
-    const mark = (cause: string, cityId: number): CreditMark => ({
+    const mark = (cause: string, cityId: number, kind: CreditMark["kind"] = "resident"): CreditMark => ({
       cause,
-      kind: "resident",
+      kind,
       ownerId: PLAYER,
       unitId: null,
       cityId,
       nationId: NATION,
-      cityPoints: 50,
-      nationPoints: 20,
+      points: 20,
       count: 1,
       sinceMs: 1,
       updatedAtMs: 1,
     });
     const w = world({
-      loaded: [mark(open, CITY), mark(paid, 8)],
+      loaded: [mark(open, CITY), mark(paid, 8), mark(`upkeep:${PLAYER}`, 0, "upkeep")],
       seed: (ledger) => {
         // 남은 빚 하나(짝 계정과 함께), 갚은 빚 계정 하나(잔고 0)
         ledger.post({
@@ -246,14 +289,14 @@ describe("신용 점수 장부(D-581)", () => {
         ledger.systemAccount(paid, CUR);
       },
     });
-    expect(w.book.marksOf(PLAYER).map((m) => m.cause)).toEqual([open]);
-    expect(w.book.score(ownerSubject, { city: CITY })).toBe(950);
-    expect(w.book.score(ownerSubject, { nation: NATION })).toBe(980);
+    expect(w.book.marksOf(PLAYER).map((m) => m.cause)).toEqual([open, `upkeep:${PLAYER}`]);
+    expect(w.book.score(ownerSubject, NATION, T0)).toBe(60);
     expect(w.book.check()).toEqual([]);
   });
 
-  it("조회 줄: 주인 자신이 먼저, 그 도시 신용과 나라 신용을 함께", () => {
+  it("조회 줄: 주인 지금 나라 줄이 먼저(소속·오른 몫), 유닛 줄", () => {
     const w = world();
+    w.book.sweep(T0, new Map([[PLAYER, NATION]]));
     residentCycle(w, 1);
     const debt = w.ledger.systemAccount(businessDebtCode(BUILDING, CUR), CUR);
     w.ledger.post({
@@ -266,26 +309,26 @@ describe("신용 점수 장부(D-581)", () => {
     });
     const book = creditBookOf(w.ledger);
     if (!book) throw new Error("book");
-    expect(creditLines(book, PLAYER, (id) => (id === CITY ? "도시" : undefined))).toEqual([
+    expect(creditLines(book, PLAYER, T0 + 2 * DAY)).toEqual([
       {
         subject: "owner",
         unitId: null,
-        cityId: CITY,
-        cityName: "도시",
         nationId: NATION,
-        cityScore: 970,
-        nationScore: 990,
-        marks: [{ cause: "business", cityPoints: 30, nationPoints: 10, count: 1, sinceMs: 2 }],
+        current: true,
+        score: 100 + 20 - 10,
+        tenure: 20,
+        rise: 0,
+        marks: [{ cause: "business", points: 10, count: 1, sinceMs: 2 }],
       },
       {
         subject: "unit",
         unitId: UNIT,
-        cityId: CITY,
-        cityName: "도시",
         nationId: NATION,
-        cityScore: 950,
-        nationScore: 980,
-        marks: [{ cause: "resident", cityPoints: 50, nationPoints: 20, count: 1, sinceMs: 1 }],
+        current: false,
+        score: 80,
+        tenure: 0,
+        rise: 0,
+        marks: [{ cause: "resident", points: 20, count: 1, sinceMs: 1 }],
       },
     ]);
   });

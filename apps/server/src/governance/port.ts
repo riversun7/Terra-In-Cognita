@@ -20,6 +20,7 @@ import type { World } from "../world/world.ts";
 import { houseKeyOfTail, treasurySharesToHouse } from "./houseShares.ts";
 import type { NpcTraits } from "./npcVote.ts";
 import { type GovernancePortCoup, worldGovernancePortCoup } from "./portCoup.ts";
+import { type GovernancePortLeader, worldGovernancePortLeader } from "./portLeader.ts";
 
 export interface GovernanceNation {
   /** 세력 행 ID(의결 표의 nation_id) */
@@ -51,7 +52,7 @@ export interface GovernanceOwner {
   readonly satisfaction: number | undefined;
 }
 
-export interface GovernancePort extends GovernancePortCoup {
+export interface GovernancePort extends GovernancePortCoup, GovernancePortLeader {
   /** 세계·NPC 사회 런타임이 준비됐나 */
   ready(): boolean;
   nations(): readonly GovernanceNation[];
@@ -97,7 +98,7 @@ const avg = (sum: number, count: number): number | undefined =>
 /** 실제 세계 포트 */
 export function worldGovernancePort(
   world: () => GovernanceWorld | undefined,
-  combat?: () => { readonly catalog: CombatCatalog; readonly rules: CombatCoefficients },
+  combat?: () => { readonly catalog: CombatCatalog; readonly rules: CombatCoefficients } | undefined,
 ): GovernancePort {
   const live = () => {
     const w = world();
@@ -147,6 +148,8 @@ export function worldGovernancePort(
   return {
     // 쿠데타·지분 따라가기·도시 독립·국고 지분(줄기 governance-3 — portCoup.ts)
     ...worldGovernancePortCoup(world, combat),
+    // 강화·거래세·화폐 단계·가문 독립·신임도(줄기 governance-5 — portLeader.ts)
+    ...worldGovernancePortLeader(world),
     ready: () => live() !== undefined,
     nations() {
       const l = live();

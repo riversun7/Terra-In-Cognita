@@ -91,6 +91,8 @@ export interface BuildingAttackOptions {
   readonly seed: () => number;
   readonly now: () => number;
   readonly ready: () => boolean;
+  /** 전투를 넣은 뒤(공격한 주인, 수비 편 주인, 시각) — 신용 같은 나라 공격 벌점(D-584, credit/hooks.ts). 없으면 부르지 않는다 */
+  readonly onAttack?: ((attackerOwner: number, targetOwner: number, atMs: number) => void) | undefined;
 }
 
 const fail = (code: Extract<FacilityCommandResult, { ok: false }>["code"]): FacilityCommandResult => ({
@@ -403,6 +405,7 @@ export function createBuildingAttack(options: BuildingAttackOptions): BuildingAt
       if (!init) return fail("busy");
       const war = myFaction !== null && found.faction !== null && (await atWar(myFaction, found.faction));
       const battleId = await options.startBattle(init, war);
+      if (found.defenderOwner !== 0) options.onAttack?.(me, found.defenderOwner, at);
       const endsAt = await options.endsAt(battleId);
       return endsAt === undefined ? { ok: true } : { ok: true, doneAtMs: endsAt };
     },

@@ -390,7 +390,7 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "governance.npcWarTraitPm",
   "governance.npcRunScore",
   "governance.npcRunMax",
-  "governance.vacancySplitMs",
+  "governance.vacancyElectionMs",
   "governance.coupSatisfactionDrop",
   "governance.taxAgendaWidthPm",
   // 군사 쿠데타(governance/coup.ts — 줄기 governance-3)
@@ -404,6 +404,16 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "governance.coupBattleUnits",
   "governance.coupMeritRenown",
   "governance.coupCreditReward",
+  // 줄기 governance-5(쿠데타 보호·화폐 단계 문턱·강화 기다림·가문 독립·지도자 신임도)
+  "governance.coupProtectMs",
+  "governance.thresholdCurrencyPm",
+  "governance.peaceOfferMs",
+  "governance.houseIndependenceNpcScore",
+  "governance.houseIndependencePowerPm",
+  "governance.approvalPlayerStart",
+  "governance.approvalNpcStart",
+  "governance.approvalRemovalEasePm",
+  "governance.approvalRebellionEase",
   // NPC 자율행동·7축 성향·조직 합성·충성도 개입(docs/adr/2026-11-20-npc-autonomous-ai.md): 조회·판단마다 읽는다
   "npcAi.unitTraitMin",
   "npcAi.unitTraitMax",

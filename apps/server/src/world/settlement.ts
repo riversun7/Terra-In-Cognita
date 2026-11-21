@@ -84,6 +84,10 @@ export interface Settlement {
   pauseOutputs(pauses: OutputPauses | undefined): void;
   /** 정산 뒤 고리: 산출 거래를 넣은 뒤 같은 동기 처리 안에서 부른다(노동 계약 유예 끝 물건 옮기기) */
   afterSettle(hook: ((ownerId: number, toMs: number) => void) | undefined): void;
+  /** 유지비 고리(신용 유지비 체납 — 질문 2447 나, credit/book.ts upkeep): 정산마다 (주체, 못 낸 경계 수, 마지막 경계를 냈나, 시각) */
+  onUpkeep(
+    hook: ((ownerId: number, unpaid: number, lastPaid: boolean | null, toMs: number) => void) | undefined,
+  ): void;
   /** 작업 중 부상 고리(D-521): 직무 정산 전에 유닛마다 (정산 전 직무, 구간, 접속 상태)로 부른다 */
   injureWork(hook: WorkInjuryHook | undefined): void;
   /**
@@ -239,6 +243,7 @@ export function createSettlement(options: {
   let router: OutputRouter | undefined;
   let pauser: OutputPauses | undefined;
   let after: ((ownerId: number, toMs: number) => void) | undefined;
+  let upkeepHook: Parameters<Settlement["onUpkeep"]>[0];
   let injury: WorkInjuryHook | undefined;
   let restHook: RestRulesHook | undefined;
   const weightOf = options.upkeepWeightPm;
@@ -294,6 +299,7 @@ export function createSettlement(options: {
       owner.upkeepUnpaidAtMs = Math.floor(toMs / UPKEEP_PERIOD_MS) * UPKEEP_PERIOD_MS;
     owner.settledAtMs = toMs;
     saveOwner(owner);
+    upkeepHook?.(owner.id, result.upkeepUnpaid, result.lastUpkeepPaid, toMs);
     after?.(owner.id, toMs);
     return { cycles: result.cycles, upkeepPaid: result.upkeepPaid, upkeepUnpaid: result.upkeepUnpaid };
   };
@@ -393,6 +399,9 @@ export function createSettlement(options: {
     },
     afterSettle(hook) {
       after = hook;
+    },
+    onUpkeep(hook) {
+      upkeepHook = hook;
     },
     injureWork(hook) {
       injury = hook;

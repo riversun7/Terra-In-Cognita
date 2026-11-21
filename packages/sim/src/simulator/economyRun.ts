@@ -73,6 +73,9 @@ const SYSTEM_KINDS: Readonly<Record<string, readonly string[]>> = {
     "restore_refund",
   ],
   transit: ["ship", "cargo"],
+  // 주민세 빚(debt:resident:…)과 짝인 받을 돈(claim:resident:…) — D-579, society/residentTax.ts(돈은 옮기지 않는다)
+  debt: ["resident_tax"],
+  claim: ["resident_tax"],
 };
 
 /** 감사의 시스템 계정 규칙. S3 시험 자산(유지비 → sink, 산출 ← reserve)도 같은 표로 본다 */

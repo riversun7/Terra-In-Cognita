@@ -157,12 +157,24 @@ export const BUSINESS_TUNING_KEYS: readonly TuningKey[] = [
     "운반 대행 요금 단위 거리(칸)",
     "Haul service fee unit distance (cells)",
   ),
-  // 세금(기획 D-578, 줄기 tax-withhold) — 원천징수는 서버만 읽고, 주민세는 자리만(읽는 코드 없음)
+  // 세금(기획 D-578·D-579) — 원천징수는 서버만 읽고, 주민세(재산 바탕, 주기·국세 몫)는 사회 하루 끝이 읽는다(0이면 걷지 않음)
   k(
     "business_wage_withhold_mode",
     "wageWithholdMode",
     "임금 소득세 원천징수(1 켬·0 끔)",
     "Wage income tax withholding (1 on, 0 off)",
   ),
-  k("nation_resident_tax_pm", "residentTaxPm", "주민세(‰, 기획 미정)", "Resident tax (‰, undecided)"),
+  k(
+    "nation_resident_tax_pm",
+    "residentTaxPm",
+    "주민세율(재산 ‰, 주기마다)",
+    "Resident tax (‰ of property per period)",
+  ),
+  k("nation_resident_tax_every_ms", "residentTaxEveryMs", "주민세 주기(ms)", "Resident tax period (ms)"),
+  k(
+    "nation_resident_tax_nation_pm",
+    "residentTaxNationPm",
+    "주민세 국세 몫(‰)",
+    "Resident tax national share (‰)",
+  ),
 ];

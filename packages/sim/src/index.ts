@@ -816,16 +816,8 @@ export {
   type IndependenceVote,
   type UnrestBand,
 } from "./society/uprising.ts";
-export {
-  payCityProfit,
-  profitRecipient,
-  settleCityTaxes,
-  type CityProfitPayment,
-  type CityRevenue,
-  type CityTaxSettlement,
-  type ProfitRecipient,
-  type TaxSettlement,
-} from "./society/dividends.ts";
+export * from "./society/dividends.ts";
+export * from "./society/residentTax.ts";
 export {
   rebirthBlockers,
   rebirthCyborg,

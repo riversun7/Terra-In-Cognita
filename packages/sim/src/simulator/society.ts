@@ -804,6 +804,7 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
 
       // 점령 상태 세금·끝, 회복 불이익 끝(D-520, societyWar.ts) — 배당 정산 전(점령자가 가져간 뒤 남은 국고로 정산)
       war.endOfDay(nowMs);
+      payouts.collectResidentTax(nowMs, day);
       if (day % periodDays(c.dividendEveryMs) === 0) payouts.settleDividends(nowMs);
       if (day % periodDays(c.tributeEveryMs) === 0) payouts.payTribute(nowMs);
       // 폐허 복원 NPC 규칙식(정부 짓기·넣기·투자, societyRuins.ts)

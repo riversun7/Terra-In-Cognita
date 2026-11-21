@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { TEST_ASSET_CREDIT } from "../settle/owner.ts";
 import { type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS } from "../society/coefficients.ts";
 import type { OccupationChoice } from "../npc/policy.ts";
+import { residentClaimCode, residentDebtCode } from "../society/residentTax.ts";
 import { holdingsOf } from "../society/shares.ts";
 import { DAY_MS, createMetricsRecorder } from "./metrics.ts";
 import { parseScenario } from "./scenario.ts";
@@ -304,5 +305,72 @@ describe("시뮬 배당·공물(D-304·D-338·D-443)", () => {
     const unitsIn7 = [...world.units.values()].filter((u) => u.city === 7);
     expect(unitsIn7.every((u) => u.satisfactionMilli === 35_000)).toBe(true);
     expect(society.check(1000)).toEqual([]);
+  });
+});
+
+describe("시뮬 주민세(D-579)", () => {
+  /** 도시 5(자본주의 2번 세력)에 사는 휴먼 하나를 77번 주인에게 넘기고 77번에게 돈을 준다 */
+  const residentSetup = (c: SocietyCoefficients, property: bigint, calls: number[] = []) => {
+    const { hooks } = taxHooks();
+    const arrears: bigint[] = [];
+    const withProperty: SimHooks = {
+      ...hooks,
+      residentProperty: (nowMs) => {
+        calls.push(nowMs);
+        return (payer, city) => (payer === 77 && city === 5 ? property : 0n);
+      },
+      residentTaxArrears: (_faction, list) => {
+        for (const entry of list) arrears.push(entry.owed);
+      },
+    };
+    const made = setup({ hooks: withProperty, c });
+    const unit = [...made.world.units.values()].find((u) => u.city === 5);
+    if (!unit) throw new Error("unit in city 5");
+    unit.owner = 77;
+    // 시험 동안 수명으로 떠나지 않게
+    unit.lifespanMs = 1000 * DAY_MS;
+    made.world.book.post({
+      kind: "transfer",
+      atMs: 0,
+      entries: [
+        { account: made.world.book.ownerAccount(2, TEST_ASSET_CREDIT), amount: -150n },
+        { account: made.world.book.ownerAccount(77, TEST_ASSET_CREDIT), amount: 150n },
+      ],
+    });
+    return { ...made, arrears };
+  };
+
+  it("세율 0(출발값)이면 재산 값을 묻지도 않고 아무것도 걷지 않는다", () => {
+    const calls: number[] = [];
+    const { world, society } = residentSetup(TEST_SOCIETY_COEFFICIENTS, 10_000n, calls);
+    for (let day = 1; day <= 14; day++) society.endOfDay(day * DAY_MS);
+    expect(calls).toEqual([]);
+    expect(world.book.balanceOf(77, TEST_ASSET_CREDIT)).toBe(150n);
+  });
+
+  it("주기마다 재산 × 세율을 사는 도시 나라 국고에, 도시 몫은 D-304 도시 세금 수입으로, 못 낸 몫은 빚(다음에 먼저 갚는다)", () => {
+    const c: SocietyCoefficients = {
+      ...TEST_SOCIETY_COEFFICIENTS,
+      business: { ...TEST_SOCIETY_COEFFICIENTS.business, residentTaxPm: 10, residentTaxEveryMs: 7 * DAY_MS },
+    };
+    const { world, society, arrears } = residentSetup(c, 10_000n);
+    giveShares(world, 2, 5);
+    for (let day = 1; day <= 6; day++) society.endOfDay(day * DAY_MS);
+    expect(world.book.balanceOf(77, TEST_ASSET_CREDIT)).toBe(150n);
+    society.endOfDay(7 * DAY_MS);
+    // 세금 100(10,000 × 10‰) → 국고. 같은 날 도시 세금 정산에서 도시 5 수입 100의 지분 40% = 40이 77번에게
+    expect(world.book.balanceOf(77, TEST_ASSET_CREDIT)).toBe(90n);
+    for (let day = 8; day <= 14; day++) society.endOfDay(day * DAY_MS);
+    // 둘째 주: 세금 100 가운데 90만 낸다 → 빚 10, 배당 40% × 90 = 36
+    expect(world.book.balanceOf(77, TEST_ASSET_CREDIT)).toBe(36n);
+    expect(arrears).toEqual([10n]);
+    const debt = world.book.systemAccount(residentDebtCode(2, 5, 77, TEST_ASSET_CREDIT), TEST_ASSET_CREDIT);
+    const claim = world.book.systemAccount(residentClaimCode(2, TEST_ASSET_CREDIT), TEST_ASSET_CREDIT);
+    expect(world.book.balance(debt)).toBe(-10n);
+    expect(world.book.balance(claim)).toBe(10n);
+    // 셋째 주: 빚 10 + 세금 100 = 110 가운데 36만 → 빚 74
+    for (let day = 15; day <= 21; day++) society.endOfDay(day * DAY_MS);
+    expect(world.book.balance(debt)).toBe(-74n);
+    expect(world.book.balance(claim)).toBe(74n);
   });
 });

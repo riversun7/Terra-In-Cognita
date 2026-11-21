@@ -424,6 +424,10 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결(governance)", () => {
     if (!dictator || !demo) throw new Error("nations");
     dictator.regime = "dictatorship";
     demo.regime = "democracy";
+    // 나라 성향은 세계 시드(새 DB마다 무작위 — npc/runtime.ts randomInt)로 굴려 판마다 다르다. 출마 점수 = (101 − 만족도) × 2 + 공격 − 신앙 기울기라
+    // 공격이 낮고 신앙이 높게 굴린 판(예: 공격 229·신앙 980 → 82 − 27 − 48 = 7 < 문턱 20)은 도전자가 나서지 않아 시험이 흔들렸다. 이 시험은 도전자 길을 보므로
+    // 성향을 가운데(기울기 0)로 둔다 → 점수 = (101 − 만족도) × 2, 만족도 91 이하면 문턱 20 이상(시험 세계 도시 만족도는 60 → 82)
+    demo.traits = { ...demo.traits, aggression: 500, faith: 500 };
     const ruling = npc.cityHouses.rulingHouseOf(dictator.id);
     if (!ruling) throw new Error("no ruling house");
     await gov.service.tick();

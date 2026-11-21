@@ -65,7 +65,7 @@
 - `pnpm vitest run` `packages/sim/src/simulator/gatherEconomy.test.ts` 7 통과.
 - `pnpm check:content --no-compat` 통과(core@181).
 - `pnpm e2e e2e/economy.spec.ts`: 27 통과(4.9분).
-- 마지막 전체 `pnpm check`(DB 포함)는 이 기록 커밋 뒤 한 번 — 결과는 코디네이터 보고.
+- 마지막 전체 `pnpm check`(DB 포함, `1d21e8e326`): 포맷·린트·타입·경계·크기·다국어·대비·콘텐츠 통과, 시험 6,214 통과·1 실패(867 파일). 실패 = `governance/governance.db.test.ts` "독재 나라 국고 지분 … NPC 도전자"(도전자 0명) — 이 파일만 따로 돌리면 이 가지 3번 중 1번, origin/main `25273679b5` 5번 중 2번 실패하는 원래 흔들리는 시험(이 줄기와 무관, 고치지 않음).
 
 ## 사용자 결정 대기
 - 2511(추천 가 = 지금대로).

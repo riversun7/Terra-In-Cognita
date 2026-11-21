@@ -7,8 +7,10 @@
 //   applyNationTaxes로 쓴다. 폭 아래·독재는 지도자가 바로 정한다. 칸의 null(정하지 않음)은 0으로 견준다 [임시 질문 2436].
 // - 바뀜(governance-3, 질문 2440 나 답 — D-252·D-128·D-5057): 선출로 NPC 나라를 이끄는 플레이어 지배 가문의 장(governance_state — houseEntryPolicy.ts
 //   electedNationOf)도 그 나라 세금을 정한다(NPC 판단은 그 나라 세율을 정하지 않는다 — npc/governanceHooks.ts nationLocked). 체제·안건 규칙은 같다.
+// - 바뀜(residence, 사용자 답 D-585 2): 주민세 주기는 정부가 고르기 목록(@terra/shared/government RESIDENT_TAX_PERIOD_DAYS)에서 고른다 — 목록 밖 값으로 바꾸면
+//   invalid_period(이미 정해 둔 옛 값을 그대로 두는 것은 받는다). 주기만 바꾸는 것은 폭 셈에 들지 않아 지도자가 바로 정한다(taxChangeWidthPm — 세율 칸만 본다).
 // - 감사 기록 faction.nation_tax(나라·앞뒤 값). 정한 뒤 메모리 표(nationTax.ts)를 바꾼다 — 다음 사업장 소득세·하루 끝 주민세부터 쓴다.
-import type { GovernmentRegime, GovernmentTaxes } from "@terra/shared/government";
+import { type GovernmentRegime, type GovernmentTaxes, isResidentTaxPeriod } from "@terra/shared/government";
 import type { NationTaxResultCode } from "@terra/protocol";
 import type { SocietyCoefficients } from "@terra/sim";
 import { writeAudit } from "../auth/store.ts";
@@ -45,6 +47,8 @@ export function taxChangeWidthPm(before: NationTaxRow | undefined, after: Nation
     diff(was.incomeTaxBp, after.incomeTaxBp, 10),
     diff(was.residentTaxPm, after.residentTaxPm),
     diff(was.residentNationPm, after.residentNationPm),
+    // 거래세(줄기 governance-5 — 질문 2460): bp ÷ 10, 칸이 없으면(바꾸지 않음) 폭 0
+    after.tradeTaxBp === undefined ? 0 : diff(was.tradeTaxBp ?? null, after.tradeTaxBp, 10),
   );
 }
 
@@ -68,24 +72,35 @@ export async function applyNationTaxes(
   nowMs: number,
   setBy: string | null,
 ): Promise<void> {
-  await q.query(
+  // 거래세 칸이 없으면(옛 기기·옛 안건) 앞 값을 남긴다(줄기 governance-5 — 질문 2460)
+  const keepTrade = row.tradeTaxBp === undefined;
+  const { rows } = await q.query(
     `insert into nation_taxes
-       (faction_id, income_tax_bp, resident_tax_pm, resident_every_days, resident_nation_pm, set_at_ms, set_by)
-     values ($1, $2, $3, $4, $5, $6, $7)
+       (faction_id, income_tax_bp, resident_tax_pm, resident_every_days, resident_nation_pm, trade_tax_bp, set_at_ms, set_by)
+     values ($1, $2, $3, $4, $5, $6, $7, $8)
      on conflict (faction_id) do update set income_tax_bp = excluded.income_tax_bp,
        resident_tax_pm = excluded.resident_tax_pm, resident_every_days = excluded.resident_every_days,
-       resident_nation_pm = excluded.resident_nation_pm, set_at_ms = excluded.set_at_ms, set_by = excluded.set_by`,
+       resident_nation_pm = excluded.resident_nation_pm,
+       trade_tax_bp = case when $9 then nation_taxes.trade_tax_bp else excluded.trade_tax_bp end,
+       set_at_ms = excluded.set_at_ms, set_by = excluded.set_by
+     returning trade_tax_bp`,
     [
       nationRow,
       row.incomeTaxBp,
       row.residentTaxPm,
       row.residentEveryDays,
       row.residentNationPm,
+      row.tradeTaxBp ?? null,
       nowMs,
       setBy,
+      keepTrade,
     ],
   );
-  table?.set(nationRow, row);
+  const stored = rows[0]?.trade_tax_bp;
+  table?.set(nationRow, {
+    ...row,
+    tradeTaxBp: stored === null || stored === undefined ? null : Number(stored),
+  });
 }
 
 const fail = (code: NationTaxResultCode): NationTaxResult => ({ ok: false, code });
@@ -113,6 +128,7 @@ export function createNationTaxPolicy(o: {
   return {
     async set(userId, row) {
       let audit: Record<string, unknown> | null = null;
+      let applied: NationTaxRow = row;
       const result = await inTransaction(o.pool, async (q): Promise<NationTaxResult> => {
         const mine = await membershipOf(q, userId);
         if (!mine) return fail("not_in_house");
@@ -140,18 +156,24 @@ export function createNationTaxPolicy(o: {
         }
         const before = await q.query(`${NATION_TAX_SELECT} where faction_id = $1`, [nationId]);
         const was = nationTaxRowOf(before.rows[0]);
+        // 주기는 고르기 목록 안에서만 바꾼다(D-585 2 — 옛 값을 그대로 두는 것은 받는다)
+        const period = row.residentEveryDays;
+        if (period !== null && period !== was?.residentEveryDays && !isResidentTaxPeriod(period))
+          return fail("invalid_period");
         // 민주주의·자본주의에서 폭이 문턱 이상이면 안건으로(질문 2407 가 — 트랜잭션 밖에서 연다)
         if (o.openAgenda && taxChangeRule(regimeOf(regime), was, row, o.agendaWidthPm?.()) === "vote")
           return { ok: true, factionId: nationId, agendaId: 0 };
         await applyNationTaxes(q, undefined, nationId, row, o.now(), userId);
-        audit = { factionId: nationId, before: was ?? null, after: row };
+        // 거래세 칸이 없으면(옛 기기) 앞 값을 남긴다(줄기 governance-5)
+        applied = row.tradeTaxBp === undefined ? { ...row, tradeTaxBp: was?.tradeTaxBp ?? null } : row;
+        audit = { factionId: nationId, before: was ?? null, after: applied };
         return { ok: true, factionId: nationId };
       });
       if (result.ok && result.agendaId !== undefined && o.openAgenda) {
         const opened = await o.openAgenda(userId, row);
         return opened.ok ? { ok: true, factionId: result.factionId, agendaId: opened.agendaId } : opened;
       }
-      if (result.ok) o.table()?.set(result.factionId, row);
+      if (result.ok) o.table()?.set(result.factionId, applied);
       if (audit && o.db)
         await writeAudit(o.db, {
           actor: { kind: "user", id: userId, ip: null },

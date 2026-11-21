@@ -977,6 +977,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "businessShareOrders",
   "businessShareRounds",
   "creditMarks",
+  "creditStandings",
   "cityShareOrders",
   "cityShareRounds",
   "marketBooks",

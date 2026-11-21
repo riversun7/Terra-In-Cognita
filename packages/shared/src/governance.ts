@@ -21,14 +21,31 @@ export const AGENDA_KINDS = [
   "city_independence",
   /** 국고 지분 팔기(질문 2438 답 D-583 — "도시·영토 매각" 묶음, 독재는 지배 가문장 직권) */
   "treasury_share_sale",
+  /**
+   * 강화(줄기 governance-5 — 질문 2452, D-5057 "전쟁·외교: 강화 수락"): 전쟁 중인 상대와 강화. 민주주의·자본주의 = 투표(전쟁 묶음 — 짧은 기간), 독재 = 직권(D-217).
+   * 상대가 NPC가 이끄는 나라면 NPC 강화 규칙식이 받는다, 플레이어가 이끄는 나라면 그쪽도 같은 강화를 정해야(기다림 gov_peace_offer_ms) 맺는다 [임시]
+   */
+  "peace",
+  /** 화폐 단계 전환(질문 2453, D-252·D-131): 공식(테일러 준칙) ↔ 지도자 손 조절 [임시]. 문턱 gov_threshold_currency_pm(2/3), 독재 = 직권 */
+  "currency_stage",
+  /**
+   * 가문 독립 선언(질문 2454, D-300 "한 가문이 그 도시 지분 50% 이상이면 투표 없이 독립 선언"): 자본주의 나라 도시 하나 — 투표가 없어 늘 바로 집행한 기록(직권 줄)이다.
+   * NPC 가문은 성향 규칙식(D-323)과 옛 나라와의 힘 비(D-585)로 고른다
+   */
+  "house_independence",
 ] as const;
 export type AgendaKind = (typeof AGENDA_KINDS)[number];
 
 /** 안건 묶음(투표 기간·정족수 설정 칸 — 2352 나): 지도자(선출·해임·체제 전환)·전쟁 */
 export type AgendaGroup = "leader" | "war";
 export function agendaGroupOf(kind: AgendaKind): AgendaGroup {
-  return kind === "war_declaration" ? "war" : "leader";
+  // 강화도 전쟁 묶음(D-5057 "급한 전쟁·강화 안건은 짧게" — 줄기 governance-5)
+  return kind === "war_declaration" || kind === "peace" ? "war" : "leader";
 }
+
+/** 나라 화폐 정책 단계(질문 2453 — formula = 중앙은행 공식 D-131, manual = 지도자가 하루 조절량을 정함 [임시]) */
+export const MONETARY_MODES = ["formula", "manual"] as const;
+export type MonetaryMode = (typeof MONETARY_MODES)[number];
 
 /** 정권 체제(D-217 — government.ts GovernmentRegime과 같은 값) */
 export const GOVERNANCE_REGIMES = ["dictatorship", "democracy", "capitalism"] as const;
@@ -173,6 +190,8 @@ export interface GovernanceTaxes {
   readonly residentTaxPm: number | null;
   readonly residentEveryDays: number | null;
   readonly residentNationPm: number | null;
+  /** 거래세(만분율 — 줄기 governance-5, 질문 2460). 없으면(옛 안건·옛 기기) 바꾸지 않는다 */
+  readonly tradeTaxBp?: number | null | undefined;
 }
 
 /** 나라 이름(팩 국가 프리셋 두 언어 — 플레이어 가문 나라는 두 언어 같은 글자) */
@@ -213,8 +232,10 @@ export interface GovernanceAgendaView {
   readonly cityId: number | null;
   /** 국고 지분 팔기: 주 수·한 주 가장 낮은 값(10진 글자). 아니면 null */
   readonly shareSale: { readonly shares: string; readonly minPrice: string } | null;
-  /** 선전포고 상대 나라(세력 행 ID·이름 — 선전포고만) */
+  /** 선전포고·강화 상대 나라(세력 행 ID·이름 — 선전포고·강화만) */
   readonly targetNation: { readonly id: number; readonly name: GovernanceName | null } | null;
+  /** 화폐 단계 전환의 목표 단계·하루 조절(만분율 — 화폐 단계 안건만) */
+  readonly monetary: { readonly mode: MonetaryMode; readonly rateBp: number } | null;
   /** 직권 결정(독재 지도자·지분 과반 — 투표 없음) */
   readonly byAuthority: boolean;
   /** 올린 쪽(시스템 = 임기 끝 자동 선출) */

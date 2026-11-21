@@ -1,0 +1,650 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "e44a1520-def3-4dd0-85f2-a97fe6a8e2fb",
+  "prevIds": [
+    "ee4d36aa-5559-4825-ab82-9ce79bf8db2c",
+    "ace6aeb5-b447-493e-affb-6e24cd0be200"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "credit_standings"
+      ],
+      "writes": [
+        "s|tbl|public.credit_standings",
+        "n|tbl|public.credit_standings",
+        "e|tbl|public.credit_standings",
+        "n|rel|public.credit_standings",
+        "n|type|public.credit_standings",
+        "n|rel|public.credit_standings_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "governance_approval"
+      ],
+      "writes": [
+        "s|tbl|public.governance_approval",
+        "n|tbl|public.governance_approval",
+        "e|tbl|public.governance_approval",
+        "n|rel|public.governance_approval",
+        "n|type|public.governance_approval",
+        "n|rel|public.governance_approval_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "nation_monetary"
+      ],
+      "writes": [
+        "s|tbl|public.nation_monetary",
+        "n|tbl|public.nation_monetary",
+        "e|tbl|public.nation_monetary",
+        "n|rel|public.nation_monetary",
+        "n|type|public.nation_monetary",
+        "n|rel|public.nation_monetary_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "nation_taxes",
+        "trade_tax_bp"
+      ],
+      "writes": [
+        "s|col|public.nation_taxes.trade_tax_bp",
+        "n|col|public.nation_taxes.trade_tax_bp",
+        "e|col|public.nation_taxes.trade_tax_bp"
+      ],
+      "reads": [
+        "n|tbl|public.nation_taxes",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "governance_coup_sides",
+        "units"
+      ],
+      "writes": [
+        "s|col|public.governance_coup_sides.units",
+        "n|col|public.governance_coup_sides.units",
+        "e|col|public.governance_coup_sides.units"
+      ],
+      "reads": [
+        "n|tbl|public.governance_coup_sides",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "governance_approval"
+      ],
+      "writes": [
+        "s|fk|public.governance_approval.governance_approval_nation_id_factions_id_fkey",
+        "n|fk|public.governance_approval.governance_approval_nation_id_factions_id_fkey",
+        "e|fk|public.governance_approval.governance_approval_nation_id_factions_id_fkey",
+        "n|con|public.governance_approval.governance_approval_nation_id_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.governance_approval",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.governance_approval.nation_id",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "nation_monetary"
+      ],
+      "writes": [
+        "s|fk|public.nation_monetary.nation_monetary_nation_id_factions_id_fkey",
+        "n|fk|public.nation_monetary.nation_monetary_nation_id_factions_id_fkey",
+        "e|fk|public.nation_monetary.nation_monetary_nation_id_factions_id_fkey",
+        "n|con|public.nation_monetary.nation_monetary_nation_id_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.nation_monetary",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.nation_monetary.nation_id",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "nation_taxes"
+      ],
+      "writes": [
+        "s|ck|public.nation_taxes.nation_taxes_trade_tax_bp",
+        "n|ck|public.nation_taxes.nation_taxes_trade_tax_bp",
+        "e|ck|public.nation_taxes.nation_taxes_trade_tax_bp",
+        "n|con|public.nation_taxes.nation_taxes_trade_tax_bp"
+      ],
+      "reads": [
+        "n|tbl|public.nation_taxes",
+        "n|sch|public",
+        "n|col|public.nation_taxes.trade_tax_bp"
+      ]
+    },
+    {
+      "statementType": "alter_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "governance_agendas"
+      ],
+      "writes": [
+        "s|ck|public.governance_agendas.governance_agendas_kind"
+      ],
+      "reads": [
+        "n|tbl|public.governance_agendas",
+        "n|sch|public",
+        "n|col|public.governance_agendas.kind",
+        "e|col|public.governance_agendas.kind"
+      ],
+      "sqlHash": "157c49288686e1aa"
+    },
+    {
+      "statementType": "alter_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "credit_marks"
+      ],
+      "writes": [
+        "s|ck|public.credit_marks.credit_marks_kind"
+      ],
+      "reads": [
+        "n|tbl|public.credit_marks",
+        "n|sch|public",
+        "n|col|public.credit_marks.kind",
+        "e|col|public.credit_marks.kind"
+      ],
+      "sqlHash": "d886f5268a5e78c1"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "credit_standings",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "governance_approval",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "nation_monetary",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "credit_standings",
+        "name": "owner_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "credit_standings",
+        "name": "nation_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "credit_standings",
+        "name": "since_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "credit_standings",
+        "name": "rise",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "credit_standings",
+        "name": "rose_day",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "credit_standings",
+        "name": "updated_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nation_taxes",
+        "name": "trade_tax_bp",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_approval",
+        "name": "nation_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_approval",
+        "name": "house_key",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_approval",
+        "name": "approval",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_approval",
+        "name": "set_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coup_sides",
+        "name": "units",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nation_monetary",
+        "name": "nation_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nation_monetary",
+        "name": "mode",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nation_monetary",
+        "name": "rate_bp",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nation_monetary",
+        "name": "set_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nation_monetary",
+        "name": "set_by",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_approval",
+        "name": "governance_approval_nation_id_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "nation_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nation_monetary",
+        "name": "nation_monetary_nation_id_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "nation_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "credit_standings",
+        "name": "credit_standings_pkey",
+        "columns": [
+          "owner_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_approval",
+        "name": "governance_approval_pkey",
+        "columns": [
+          "nation_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nation_monetary",
+        "name": "nation_monetary_pkey",
+        "columns": [
+          "nation_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "credit_standings",
+        "name": "credit_standings_rise",
+        "value": "\"rise\" >= 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nation_taxes",
+        "name": "nation_taxes_trade_tax_bp",
+        "value": "\"trade_tax_bp\" between 0 and 10000",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_approval",
+        "name": "governance_approval_range",
+        "value": "\"approval\" between 0 and 1000",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nation_monetary",
+        "name": "nation_monetary_mode",
+        "value": "\"mode\" in ('formula', 'manual')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nation_monetary",
+        "name": "nation_monetary_rate",
+        "value": "\"rate_bp\" between -10000 and 10000",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "checks\u0000[\"public\",\"governance_agendas\",\"governance_agendas_kind\"]",
+      "set": {
+        "value": "\"kind\" in ('leader_election', 'leader_removal', 'regime_change', 'war_declaration', 'tax_change', 'city_independence', 'treasury_share_sale', 'peace', 'currency_stage', 'house_independence')"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "checks\u0000[\"public\",\"credit_marks\",\"credit_marks_kind\"]",
+      "set": {
+        "value": "\"kind\" in ('resident', 'business', 'upkeep', 'coup_join', 'same_nation_attack')"
+      }
+    }
+  ]
+}

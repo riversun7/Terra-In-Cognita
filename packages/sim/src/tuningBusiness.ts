@@ -221,32 +221,57 @@ export const BUSINESS_TUNING_KEYS: readonly TuningKey[] = [
     "주민세 건물 감가 바닥(‰)",
     "Resident tax building depreciation floor (‰)",
   ),
-  // 신용 점수(D-581 — 질문 2374 답, apps/server/src/credit/): 범위·시작값, 깎는 크기(주민세 빚·사업장 적자, 도시·나라)
+  // 신용 점수(D-581 — 질문 2374 답, 바뀜 D-584 "한 점수", apps/server/src/credit/): 범위·시작값, 내리는 크기(빚·체납·쿠데타 가담·같은 나라 공격), 오르는 크기(소속 기간·사업장)
   k("credit_min", "creditMin", "신용 점수 아래 끝(점)", "Credit score minimum (points)"),
   k("credit_max", "creditMax", "신용 점수 위 끝(점)", "Credit score maximum (points)"),
   k("credit_start", "creditStart", "신용 점수 시작값(점)", "Credit score start (points)"),
   k(
-    "credit_resident_city",
-    "creditResidentCity",
-    "주민세 빚: 도시 신용 깎기(주기마다, 점)",
-    "Resident tax debt: city credit cut (per cycle, points)",
-  ),
-  k(
     "credit_resident_nation",
     "creditResidentNation",
-    "주민세 빚: 나라 신용 깎기(주기마다, 점)",
-    "Resident tax debt: nation credit cut (per cycle, points)",
-  ),
-  k(
-    "credit_business_city",
-    "creditBusinessCity",
-    "사업장 적자: 도시 신용 깎기(점)",
-    "Business deficit: city credit cut (points)",
+    "주민세 빚: 신용 깎기(주기마다, 점)",
+    "Resident tax debt: credit cut (per cycle, points)",
   ),
   k(
     "credit_business_nation",
     "creditBusinessNation",
-    "사업장 적자: 나라 신용 깎기(점)",
-    "Business deficit: nation credit cut (points)",
+    "사업장 적자: 신용 깎기(점)",
+    "Business deficit: credit cut (points)",
+  ),
+  // 줄기 governance-5(D-584·질문 2447 나)
+  k(
+    "credit_upkeep",
+    "creditUpkeep",
+    "유지비 체납: 신용 깎기(못 낸 시간마다, 점)",
+    "Upkeep arrears: credit cut (per unpaid hour, points)",
+  ),
+  k(
+    "credit_tenure_per_day",
+    "creditTenurePerDay",
+    "소속 기간: 하루마다 오르는 신용(점)",
+    "Membership tenure: credit rise per day (points)",
+  ),
+  k(
+    "credit_tenure_cap",
+    "creditTenureCap",
+    "소속 기간: 오르는 신용 상한(점)",
+    "Membership tenure: credit rise cap (points)",
+  ),
+  k(
+    "credit_business_daily",
+    "creditBusinessDaily",
+    "사업장 운영: 하루마다 오르는 신용(사업장마다, 점)",
+    "Running businesses: credit rise per day (per business, points)",
+  ),
+  k(
+    "credit_coup_join",
+    "creditCoupJoin",
+    "쿠데타 가담: 신용 깎기(점)",
+    "Joining a coup: credit cut (points)",
+  ),
+  k(
+    "credit_same_nation_attack",
+    "creditSameNationAttack",
+    "같은 나라 유저 공격: 신용 깎기(한 번마다, 점)",
+    "Attacking a same-nation user: credit cut (per attack, points)",
   ),
 ];

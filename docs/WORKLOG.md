@@ -6,9 +6,13 @@
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
 | 2026-11-22 01:22 | 광산 한 사이클 무게를 g 단위 바뀜 전으로 되돌림 (stone-balance) | Claude Code | [22-0122-stone-balance](worklog/2026/11/22-0122-stone-balance.md) |
+| 2026-11-22 01:10~ | 2026-11-22 묶음 1117a 합치기 (DB 시험 g 단위 / 나라 의결 5·한 점수 신용 / 사는 곳 고르기) — 리셋 필요 없음 | Claude Code | [22-0110-batch-1117a-merge](worklog/2026/11/22-0110-batch-1117a-merge.md) |
+| 2026-11-22 01:00 | DB 시험 고침: 광석 1g 기본 단위(팩 core@137) 뒤 시험 재료 수량 | Claude Code | [22-0100-dbtest-fix](worklog/2026/11/22-0100-dbtest-fix.md) |
 | 2026-11-21 23:58 | 광석 1g·10kg 묶음·g 단위 채집, 화석·이탄·소금 제거, 벽돌 가공품 이동 | Antigravity | [21-2355-ore-grams-and-cleanup](worklog/2026/11/21-2355-ore-grams-and-cleanup.md) |
 | 2026-11-21 23:08~ | 2026-11-21 묶음 1116z 합치기 (도시 지분 시장·증권 거래소 / 낡은 화면 시험 고치기) — 리셋 필요 없음 | Claude Code | [21-2308-batch-1116z-merge](worklog/2026/11/21-2308-batch-1116z-merge.md) |
+| 2026-11-21 22:30 | 2026-11-21 governance-5 — 신용 한 점수·빈자리 자동 선출·강화·화폐 단계·거래세·가문 독립·쿠데타 새 나라·병력·신임도 | Claude Code | [21-2230-governance-5](worklog/2026/11/21-2230-governance-5.md) |
 | 2026-11-21 22:16 | 도시(정부) 지분 시장·증권 거래소 주기능·지분 호가창 (D-583, 질문 2438) | Claude Code | [21-2216-share-market](worklog/2026/11/21-2216-share-market.md) |
+| 2026-11-21 22:05 | 2026-11-21 residence — 사는 곳 하나 고르기(유닛마다, 주민세 거주가 따름)·주민세 주기 고르기 목록·도시 몫 [임시]·폐허 빚 남김(2427 나 되돌림, D-585) | Claude Code | [21-2205-residence](worklog/2026/11/21-2205-residence.md) |
 | 2026-11-21 22:05 | 낡은 화면 시험 고치기(누르는 곳 크기 말고 다른 까닭) | Claude Code | [21-2205-e2e-fix](worklog/2026/11/21-2205-e2e-fix.md) |
 | 2026-11-21 22:00 | 가파른 비탈 막힘 → 느리게 지나감(비용 ×4), 건물은 그대로 못 지음 | Claude Code | [21-2200-steep-slope-pace](worklog/2026/11/21-2200-steep-slope-pace.md) |
 | 2026-11-21 21:45 | NPC AI 구체화 A단계: 유닛 2차 지수 층 · 5상태 FSM · 개인 식사 몫 → 만족도 (SIM_VERSION 69) | Claude Code | [21-2145-npc-needs-drives](worklog/2026/11/21-2145-npc-needs-drives.md) |

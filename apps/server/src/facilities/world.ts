@@ -39,6 +39,7 @@ import { type BusinessCommands, createBusinessCommands } from "../business/comma
 import { EMPTY_SHARES, type ShareMarkets, createShareMarkets } from "../business/shares.ts";
 import { ASSET_CREDIT } from "../world/settlement.ts";
 import { nationIncomeTaxBp } from "../government/nationTax.ts";
+import { creditAttackHook, creditUpkeepHook } from "../credit/hooks.ts";
 import { DEFAULT_TAX_BP } from "../npc/currency.ts";
 import { TEST_PLANET_ID } from "../world/testMaps.ts";
 import type { LoadedFacilities } from "./state.ts";
@@ -306,7 +307,7 @@ export function createWorldFacilities(input: {
     },
     onGone: (buildingId) => {
       shares?.forget(buildingId, input.now());
-      business?.forget(buildingId);
+      business?.forget(buildingId, input.now());
     },
   });
   input.holdings.setLocked((holdingId) => service.holdingLocked(holdingId));
@@ -445,7 +446,10 @@ export function createWorldFacilities(input: {
     unitAway: (unitId) => labor?.unitAway(unitId) ?? false,
     now: input.now,
     ready: input.ready,
+    onAttack: creditAttackHook(input.ledger),
   });
+  // 유지비 체납 → 신용(질문 2447 나, 줄기 governance-5)
+  input.settlement.onUpkeep(creditUpkeepHook(input.ledger));
   let readRest: RestReader | undefined;
   let cityFood: { atMs: number; map: Map<number, Set<string>> } | undefined;
   const conditionSource: ConditionSource = {

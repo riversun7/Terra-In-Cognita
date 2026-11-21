@@ -50,7 +50,7 @@ export const governanceAgendas = pgTable(
     index("governance_agendas_nation_idx").on(table.nationId, table.status),
     check(
       "governance_agendas_kind",
-      sql`${table.kind} in ('leader_election', 'leader_removal', 'regime_change', 'war_declaration', 'tax_change', 'city_independence', 'treasury_share_sale')`,
+      sql`${table.kind} in ('leader_election', 'leader_removal', 'regime_change', 'war_declaration', 'tax_change', 'city_independence', 'treasury_share_sale', 'peace', 'currency_stage', 'house_independence')`,
     ),
     check(
       "governance_agendas_status",
@@ -192,10 +192,54 @@ export const governanceCoupSides = pgTable(
     side: text("side").notNull(),
     /** 들어갈 때 낸 힘(화면용 — 셈은 전투 때 다시 본다) */
     power: integer("power").notNull().default(0),
+    /**
+     * 데려온 병력(거울 세계 유닛 ID 배열 — 줄기 governance-5, 질문 2455 답 D-583 "참전 = 병력을 데려온다"). 플레이어만 적는다(NPC 가문은 가문원). null = 옛 줄(그때는
+     * 전투 때 그 사람 유닛을 모두 셌다). 빈 배열 = 병력 없이 편만 듦(보상 없음)
+     */
+    units: jsonb("units").$type<number[]>(),
     joinedAtMs: bigint("joined_at_ms", { mode: "number" }).notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.coupId, table.joinerKey] }),
     check("governance_coup_sides_side", sql`${table.side} in ('rebel', 'government')`),
   ],
+);
+
+/**
+ * 나라 화폐 정책 단계(줄기 governance-5 — 질문 2453, D-252 "발행·소각과 화폐 체제는 지도자 몫"·D-131 중앙은행 공식): 나라마다 한 줄, 줄이 없으면 공식(테일러 준칙 — 지금과 같다).
+ * mode = formula(공식) | manual(지도자가 하루 조절량을 정함 [임시]). rate_bp = manual일 때 하루 조절(시중 통화량의 만분율, +발행 −소각 — 설정 칸 하루 상한 안).
+ * 단계 바꾸기는 안건(민주주의·자본주의 — 문턱 gov_threshold_currency_pm) 또는 독재 직권, 같은 단계 안의 조절량은 지도자가 바로 정한다.
+ */
+export const nationMonetary = pgTable(
+  "nation_monetary",
+  {
+    nationId: bigint("nation_id", { mode: "number" })
+      .primaryKey()
+      .references(() => factions.id, { onDelete: "cascade" }),
+    mode: text("mode").notNull(),
+    rateBp: integer("rate_bp").notNull().default(0),
+    setAtMs: bigint("set_at_ms", { mode: "number" }).notNull(),
+    setBy: uuid("set_by"),
+  },
+  (table) => [
+    check("nation_monetary_mode", sql`${table.mode} in ('formula', 'manual')`),
+    check("nation_monetary_rate", sql`${table.rateBp} between -10000 and 10000`),
+  ],
+);
+
+/**
+ * 지도자 신임도(줄기 governance-5 — 사용자 답 D-585, governance/approval.ts): 나라마다 지금 지배 가문의 신임도(0~1000) 한 줄. 지배 가문이 바뀌면 시작값으로 다시 적는다.
+ * 오르내림 규칙은 정해지지 않았다(질문 2493)
+ */
+export const governanceApproval = pgTable(
+  "governance_approval",
+  {
+    nationId: bigint("nation_id", { mode: "number" })
+      .primaryKey()
+      .references(() => factions.id, { onDelete: "cascade" }),
+    houseKey: text("house_key"),
+    approval: integer("approval").notNull(),
+    setAtMs: bigint("set_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [check("governance_approval_range", sql`${table.approval} between 0 and 1000`)],
 );

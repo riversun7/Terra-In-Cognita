@@ -1,6 +1,6 @@
 // 나라 의결 셋째 DB 통합 시험(줄기 governance-3) — TEST_DATABASE_URL이 있을 때만. 계정은 가짜 값이다.
 // 군사 쿠데타(질문 2433 답·D-583 — 참가 받기·NPC 참가·전투·결과), 지분 과반을 사서 된 독재의 국고 지분 남기기(2432 (다) 답 D-583), 지배 쪽 지분 따라가기(2432 나),
-// 자본주의 발의 하한(2436 다 — D-580 1), 독재 지도자의 선전포고·국고 지분 팔기 직권(2440 나·2438 답 D-583), 빈자리 도시 독립 투표(2434 (가) 답 D-583).
+// 자본주의 발의 하한(2436 다 — D-580 1), 독재 지도자의 선전포고·국고 지분 팔기 직권(2440 나·2438 답 D-583), 빈자리 자동 선출(D-584 — 도시 독립 투표 대신, 줄기 governance-5).
 import { loadContentPack } from "@terra/content/node";
 import {
   DAY_MS,
@@ -339,55 +339,42 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 3(governance-3)", () => {
     gov.stop();
   }, 120_000);
 
-  it("빈자리가 기간을 넘으면 시작 도시가 아닌 도시마다 독립 투표가 열리고, 가결되면 새 도시국가(2434 (가))", async () => {
+  it("빈자리는 도시 독립으로 이어지지 않고 누구나 나서는 선출을 바로 연다(D-584 — D-583 3 대신), 열려 있던 도시 독립 투표는 취소", async () => {
     const world = await boot();
     const { npc } = parts(world);
-    const rules: GovernanceRules = {
-      ...TEST_GOVERNANCE_RULES,
-      npcKeepSatisfaction: 101,
-      vacancySplitMs: 60_000,
-    };
+    const rules: GovernanceRules = { ...TEST_GOVERNANCE_RULES, vacancyElectionMs: 2 * 3_600_000 };
     const gov = governance(world, () => rules);
     const head = await citizen(world, "Vacone");
     const faction = npc.world.factions.get(npc.houses.ownerOfRow(head.nation) ?? -1);
     if (!faction) throw new Error("nation");
     faction.regime = "democracy";
-    // 서버 시험 나라의 처음 도시는 모두 시작 도시(D-341 — 주인이 바뀌지 않는다)라, 하나를 마을처럼 시작 도시가 아니게 둔다
-    const cities = [...faction.cities].toSorted((a, b) => a - b);
-    const village = npc.world.cities.get(cities.at(-1) ?? -1);
-    if (!village || cities.length < 2) throw new Error("need two cities");
-    Object.assign(village, { start: false });
-    const loose = [village.id];
     await test.db.$client.query(
       `insert into governance_state (nation_id, vacant_since_ms, term_ends_at_ms, updated_at_ms) values ($1, $2, $3, $2)
        on conflict (nation_id) do update set vacant_since_ms = excluded.vacant_since_ms`,
       [head.nation, clock - 120_000, clock + DAY_MS],
     );
-    await gov.service.tick();
-    let view = await gov.view(head.userId);
-    const votes = view.agendas.filter((agenda) => agenda.kind === "city_independence");
-    expect(new Set(votes.map((agenda) => agenda.cityId))).toEqual(new Set(loose));
-    // 다시 돌아도 같은 빈자리 동안 다시 열지 않는다
-    await gov.service.tick();
-    view = await gov.view(head.userId);
-    expect(view.agendas.filter((agenda) => agenda.kind === "city_independence").length).toBe(loose.length);
-    // NPC 가문(불만 — 문턱 101)이 찬성 → 기간 끝(또는 일찍) 가결 → 독립
-    clock += rules.periodOf("city_independence");
-    await gov.service.tick();
-    await gov.service.tick();
-    const enacted = (
-      await rows<{ payload: { cityId: number }; status: string }>(
-        test.db,
-        "select payload, status from governance_agendas where kind = 'city_independence'",
-      )
-    ).filter((row) => row.status === "enacted");
-    expect(enacted.map((row) => row.payload.cityId)).toEqual(loose);
-    for (const row of enacted) expect(npc.world.cities.get(row.payload.cityId)?.owner).not.toBe(faction.id);
-    const independent = await rows<{ action: string }>(
-      test.db,
-      "select action from audit_log where action = 'governance.city_independent'",
+    // 옛 판(1116y)이 연 도시 독립 투표 하나
+    const city = [...faction.cities][0] ?? -1;
+    await test.db.$client.query(
+      `insert into governance_agendas (nation_id, kind, regime, payload, opened_at_ms, closes_at_ms, status)
+       values ($1, 'city_independence', 'democracy', $2, $3, $4, 'open')`,
+      [head.nation, JSON.stringify({ cityId: city }), clock, clock + DAY_MS],
     );
-    expect(independent.length).toBe(enacted.length);
+    await gov.service.tick();
+    const view = await gov.view(head.userId);
+    const elections = view.agendas.filter(
+      (agenda) => agenda.kind === "leader_election" && agenda.status === "open",
+    );
+    expect(elections.length).toBe(1);
+    expect(elections[0]?.closesAtMs).toBe(clock + rules.vacancyElectionMs);
+    expect(elections[0]?.barred).toBeNull();
+    expect(view.agendas.find((agenda) => agenda.kind === "city_independence")?.status).toBe("cancelled");
+    // 같은 빈자리에 선출을 또 열지 않는다
+    await gov.service.tick();
+    expect(
+      (await gov.view(head.userId)).agendas.filter((agenda) => agenda.kind === "leader_election").length,
+    ).toBe(1);
+    for (const cityId of faction.cities) expect(npc.world.cities.get(cityId)?.owner).toBe(faction.id);
     gov.stop();
   }, 120_000);
 });

@@ -160,8 +160,12 @@ async function buildNear(world: World, userId: string, unitId: number, facility:
       [12, 12],
     ] as const) {
       const at = { mapKey: map.mapKey, x: cx + dx, y: cy + dy };
-      for (const item of ["pine_log", "stone"])
-        expect(await service.devFacilityGrant(userId, item, 40, at)).toEqual({ ok: true });
+      // 석재는 1g 기본 단위(팩 core@137): 원목 40개·석재 40kg
+      for (const [item, qty] of [
+        ["pine_log", 40],
+        ["stone", 40_000],
+      ] as const)
+        expect(await service.devFacilityGrant(userId, item, qty, at)).toEqual({ ok: true });
       const built = await service.build(userId, { ...at, facility, rotation: 0 });
       if (!built.ok || built.buildingId === undefined) continue;
       expect(await service.devFinish(userId, { buildingId: built.buildingId })).toMatchObject({ ok: true });

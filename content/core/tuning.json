@@ -13988,10 +13988,10 @@
       "min": 86400000,
       "max": 31536000000,
       "desc": {
-        "ko": "주민세를 걷는 간격(하루 끝 단위로 내림). 기획 D-579는 나라가 정한다 — 정부 세금 칸에서 정하지 않은 나라(NPC 나라 포함)가 이 값을 쓴다(기본 주 1회).",
-        "en": "How often resident tax is collected (rounded down to whole days at day end). Design D-579 lets each nation set it — nations that have not set one in the government tax panel (NPC nations included) use this value (default weekly)."
+        "ko": "주민세를 걷는 간격(하루 끝 단위로 내림). 정해진 기본 규칙은 없고 정부가 고르기 목록(하루·한 주)에서 정한다(D-585). 정부 세금 칸에서 고르지 않은 나라(NPC 나라 포함)가 이 값을 쓴다 — [임시] 기본값(주 1회).",
+        "en": "How often resident tax is collected (rounded down to whole days at day end). There is no fixed default rule — each government picks one from a list (daily, weekly) (D-585). Nations that have not picked one in the government tax panel (NPC nations included) use this value — [temporary] default (weekly)."
       },
-      "source": "D-579 \"나라가 정함, 기본 후보 주 1회\"(기획 해석) · 줄기 resident-tax"
+      "source": "D-579 \"나라가 정함\" · D-585 2 \"정부가 정책으로 고름(하루·주 등)\" — 고르지 않은 나라의 기본값은 [임시] · 줄기 resident-tax·residence"
     },
     {
       "id": "nation_resident_tax_nation_pm",
@@ -14006,8 +14006,8 @@
       "min": 0,
       "max": 1000,
       "desc": {
-        "ko": "걷은 주민세 가운데 국세로 국고에 남는 몫. 나머지는 사는 도시의 세금 수입으로 도시 세금 정산(발행 이자 소각 → 도시 운영비 → 남은 이익을 체제대로, D-304)에 든다. 0 = 모두 도시세. 정부 세금 칸에서 정하지 않은 나라가 쓴다.",
-        "en": "Share of collected resident tax kept in the treasury as national tax. The rest counts as the residence city's tax revenue in the city tax settlement (issue interest burn → city upkeep → remaining profit by regime, D-304). 0 = all city tax. Used by nations that have not set one in the government tax panel."
+        "ko": "걷은 주민세 가운데 국세로 국고에 남는 몫. 나머지는 사는 도시의 세금 수입으로 도시 세금 정산(발행 이자 소각 → 도시 운영비 → 남은 이익을 체제대로, D-304)에 든다 — [임시] 이 나눔은 사용자 답이 없다(질문 2484). 0 = 모두 도시세. 정부 세금 칸에서 정하지 않은 나라가 쓴다.",
+        "en": "Share of collected resident tax kept in the treasury as national tax. The rest counts as the residence city's tax revenue in the city tax settlement (issue interest burn → city upkeep → remaining profit by regime, D-304) — [temporary] this split has no user answer yet (question 2484). 0 = all city tax. Used by nations that have not set one in the government tax panel."
       },
       "source": "D-579 \"도시세 → 국세 2중 구조\"(기획 해석) · 줄기 resident-tax"
     },
@@ -14126,41 +14126,23 @@
         "ko": "신용 점수 시작값(점)",
         "en": "Credit score start (points)"
       },
-      "value": 1000,
+      "value": 100,
       "structural": false,
       "unit": "points",
       "min": 0,
       "max": 100000,
       "desc": {
-        "ko": "빚이 하나도 없을 때의 신용 점수. 갚지 않은 빚마다 깎은 몫을 뺀다.",
-        "en": "Credit score with no debts. Cuts for each unpaid debt are subtracted from it."
+        "ko": "처음(그 나라에 속한 첫날) 신용 점수. 소속 기간·사업장 운영으로 오르고 빚·체납·쿠데타 가담·같은 나라 공격으로 내린다.",
+        "en": "Credit score on the first day of belonging to a nation. Rises with tenure and running businesses, falls with debts, arrears, joining coups and attacking compatriots."
       },
-      "source": "D-581(질문 2374 답 \"점수 범위·깎는 크기는 설정 칸\") · 줄기 credit"
-    },
-    {
-      "id": "credit_resident_city",
-      "code": "",
-      "name": {
-        "ko": "주민세 빚: 도시 신용 깎기(주기마다, 점)",
-        "en": "Resident tax debt: city credit cut (per cycle, points)"
-      },
-      "value": 50,
-      "structural": false,
-      "unit": "points",
-      "min": 0,
-      "max": 100000,
-      "desc": {
-        "ko": "주민세를 다 못 내 빚이 늘어난 주기마다 그 도시 신용에서 깎는 점수. 빚을 다 갚으면 그 빚으로 깎은 몫을 바로 되돌린다.",
-        "en": "Points cut from city credit each cycle resident tax debt grows. Paying the debt off restores those points at once."
-      },
-      "source": "D-581(질문 2374 답 \"점수 범위·깎는 크기는 설정 칸\") · 줄기 credit"
+      "source": "D-584(사용자 결정 \"신용은 한 점수 — 소속 기간·사업장으로 오르고 체납·쿠데타 가담·같은 나라 공격으로 내린다, 크기는 설정 칸\") · 줄기 governance-5 · D-587(사용자 답 \"소속 하루 +5·사업장마다 하루 +10, 시작 100·상한 300\")"
     },
     {
       "id": "credit_resident_nation",
       "code": "",
       "name": {
-        "ko": "주민세 빚: 나라 신용 깎기(주기마다, 점)",
-        "en": "Resident tax debt: nation credit cut (per cycle, points)"
+        "ko": "주민세 빚: 신용 깎기(주기마다, 점)",
+        "en": "Resident tax debt: credit cut (per cycle, points)"
       },
       "value": 20,
       "structural": false,
@@ -14168,35 +14150,17 @@
       "min": 0,
       "max": 100000,
       "desc": {
-        "ko": "주민세 빚이 늘어난 주기마다 그 나라 신용에서 깎는 점수. 다 갚으면 바로 되돌린다.",
-        "en": "Points cut from nation credit each cycle resident tax debt grows. Restored at once when paid off."
+        "ko": "주민세를 다 못 낸 주기마다 그 사람이 속한 나라 신용에서 깎는 점수. 빚을 다 갚아야 되돌린다(일부만 갚으면 그대로).",
+        "en": "Points cut from the payer's credit each cycle the resident tax goes unpaid. Restored only when the debt is fully repaid."
       },
-      "source": "D-581(질문 2374 답 \"점수 범위·깎는 크기는 설정 칸\") · 줄기 credit"
-    },
-    {
-      "id": "credit_business_city",
-      "code": "",
-      "name": {
-        "ko": "사업장 적자: 도시 신용 깎기(점)",
-        "en": "Business deficit: city credit cut (points)"
-      },
-      "value": 30,
-      "structural": false,
-      "unit": "points",
-      "min": 0,
-      "max": 100000,
-      "desc": {
-        "ko": "사업장에 적자(갚을 돈)가 생길 때 건물 주인의 그 도시 신용에서 한 번 깎는 점수. 적자를 다 갚으면 되돌린다.",
-        "en": "Points cut once from the owner's city credit when a business runs a deficit. Restored when the deficit is repaid."
-      },
-      "source": "D-581(질문 2374 답 \"점수 범위·깎는 크기는 설정 칸\") · 줄기 credit"
+      "source": "D-584(사용자 결정 \"신용은 한 점수 — 소속 기간·사업장으로 오르고 체납·쿠데타 가담·같은 나라 공격으로 내린다, 크기는 설정 칸\") · 줄기 governance-5 [임시 출발값]"
     },
     {
       "id": "credit_business_nation",
       "code": "",
       "name": {
-        "ko": "사업장 적자: 나라 신용 깎기(점)",
-        "en": "Business deficit: nation credit cut (points)"
+        "ko": "사업장 적자: 신용 깎기(점)",
+        "en": "Business deficit: credit cut (points)"
       },
       "value": 10,
       "structural": false,
@@ -14204,10 +14168,118 @@
       "min": 0,
       "max": 100000,
       "desc": {
-        "ko": "사업장 적자가 생길 때 건물 주인의 그 나라 신용에서 한 번 깎는 점수. 다 갚으면 되돌린다.",
-        "en": "Points cut once from the owner's nation credit when a business runs a deficit. Restored when repaid."
+        "ko": "사업장에 적자(갚을 돈)가 생길 때 건물 주인의 신용에서 한 번 깎는 점수. 적자를 다 갚거나 건물이 사라지면(탕감) 되돌린다.",
+        "en": "Points cut once from the owner's credit when a business runs a deficit. Restored when fully repaid or when the building disappears (written off)."
       },
-      "source": "D-581(질문 2374 답 \"점수 범위·깎는 크기는 설정 칸\") · 줄기 credit"
+      "source": "D-584(사용자 결정 \"신용은 한 점수 — 소속 기간·사업장으로 오르고 체납·쿠데타 가담·같은 나라 공격으로 내린다, 크기는 설정 칸\") · 줄기 governance-5 [임시 출발값]"
+    },
+    {
+      "id": "credit_upkeep",
+      "code": "",
+      "name": {
+        "ko": "유지비 체납: 신용 깎기(못 낸 시간마다, 점)",
+        "en": "Upkeep arrears: credit cut (per unpaid hour, points)"
+      },
+      "value": 2,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "유지비를 못 낸 정산 경계(1시간)마다 그 주인의 신용에서 깎는 점수. 마지막 경계를 내면(체납이 끝나면) 되돌린다.",
+        "en": "Points cut from the owner's credit for each unpaid upkeep boundary (hour). Restored once the latest boundary is paid."
+      },
+      "source": "질문 2447 나(D-150 유지비 체납) · D-584 · 줄기 governance-5 [임시 출발값]"
+    },
+    {
+      "id": "credit_tenure_per_day",
+      "code": "",
+      "name": {
+        "ko": "소속 기간: 하루마다 오르는 신용(점)",
+        "en": "Membership tenure: credit rise per day (points)"
+      },
+      "value": 5,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "그 나라에 속한 하루마다 저절로 오르는 신용(상한은 다음 칸). 나라를 옮기면 처음부터 센다.",
+        "en": "Credit gained automatically per day of belonging to the nation (capped by the next cell). Restarts when changing nations."
+      },
+      "source": "D-584(사용자 결정 \"신용은 한 점수 — 소속 기간·사업장으로 오르고 체납·쿠데타 가담·같은 나라 공격으로 내린다, 크기는 설정 칸\") · 줄기 governance-5 · D-587(사용자 답 \"소속 하루 +5·사업장마다 하루 +10, 시작 100·상한 300\")"
+    },
+    {
+      "id": "credit_tenure_cap",
+      "code": "",
+      "name": {
+        "ko": "소속 기간: 오르는 신용 상한(점)",
+        "en": "Membership tenure: credit rise cap (points)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "소속 기간으로 오르는 신용의 상한.",
+        "en": "Cap on the credit gained from tenure."
+      },
+      "source": "D-584(사용자 결정 \"신용은 한 점수 — 소속 기간·사업장으로 오르고 체납·쿠데타 가담·같은 나라 공격으로 내린다, 크기는 설정 칸\") · 줄기 governance-5 · D-587(사용자 답 \"소속 하루 +5·사업장마다 하루 +10, 시작 100·상한 300\")"
+    },
+    {
+      "id": "credit_business_daily",
+      "code": "",
+      "name": {
+        "ko": "사업장 운영: 하루마다 오르는 신용(사업장마다, 점)",
+        "en": "Running businesses: credit rise per day (per business, points)"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "멈추지 않고 돌아가는 사업장 하나마다 하루에 한 번 주인의 신용에 더하는 점수.",
+        "en": "Points added once a day to the owner's credit for each business that is running (not suspended)."
+      },
+      "source": "D-584(사용자 결정 \"신용은 한 점수 — 소속 기간·사업장으로 오르고 체납·쿠데타 가담·같은 나라 공격으로 내린다, 크기는 설정 칸\") · 줄기 governance-5 · D-587(사용자 답 \"소속 하루 +5·사업장마다 하루 +10, 시작 100·상한 300\")"
+    },
+    {
+      "id": "credit_coup_join",
+      "code": "",
+      "name": {
+        "ko": "쿠데타 가담: 신용 깎기(점)",
+        "en": "Joining a coup: credit cut (points)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "군사 쿠데타 혁명군에 들 때 그 나라 신용에서 깎는 점수.",
+        "en": "Points cut from the nation credit when joining the rebels of a military coup."
+      },
+      "source": "D-584(사용자 결정 \"신용은 한 점수 — 소속 기간·사업장으로 오르고 체납·쿠데타 가담·같은 나라 공격으로 내린다, 크기는 설정 칸\") · 줄기 governance-5 [임시 출발값]"
+    },
+    {
+      "id": "credit_same_nation_attack",
+      "code": "",
+      "name": {
+        "ko": "같은 나라 유저 공격: 신용 깎기(한 번마다, 점)",
+        "en": "Attacking a same-nation user: credit cut (per attack, points)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "같은 나라 유저의 건물·유닛을 공격할 때마다 그 나라 신용에서 깎는 점수.",
+        "en": "Points cut from the nation credit each time a same-nation user's building or unit is attacked."
+      },
+      "source": "D-584(사용자 결정 \"신용은 한 점수 — 소속 기간·사업장으로 오르고 체납·쿠데타 가담·같은 나라 공격으로 내린다, 크기는 설정 칸\") · 줄기 governance-5 [임시 출발값]"
     },
     {
       "id": "resident_building_floor_pm",
@@ -14874,24 +14946,6 @@
         "en": "How many challenger NPC houses run in one election (highest score first). 0 means no NPC challengers (an incumbent NPC ruling house always runs)."
       },
       "source": "질문 2404 나 · D-580 7 · ADR 2026-11-21-governance"
-    },
-    {
-      "id": "gov_vacancy_split_ms",
-      "code": "",
-      "name": {
-        "ko": "지도자 빈자리 기간: 독립 투표까지(ms)",
-        "en": "Leader vacancy: time until independence votes (ms)"
-      },
-      "value": 1209600000,
-      "structural": false,
-      "unit": "ms",
-      "min": 86400000,
-      "max": 7776000000,
-      "desc": {
-        "ko": "해임 뒤 다시 뽑기가 실패해 지도자 자리가 빈 채 이만큼 지나면 도시마다 독립 투표로 나라가 갈라질 수 있다. 가르는 절차는 아직 정해지지 않아 지금은 쓰지 않는다.",
-        "en": "If the leader seat stays vacant this long after a failed re-election, cities may vote on independence. The split procedure is not decided yet, so this is not used now."
-      },
-      "source": "질문 2403 답 D-582 · D-302 · ADR 2026-11-21-governance"
     },
     {
       "id": "gov_coup_satisfaction_drop",
@@ -16292,10 +16346,190 @@
       "min": 0,
       "max": 1000,
       "desc": {
-        "ko": "쿠데타에서 이긴 편 플레이어 참가자의 신용 보상. 신용 체계가 아직 없어 지금은 쓰지 않는다.",
-        "en": "Credit reward for player participants on the winning side of a coup. The credit system does not exist yet, so this is unused."
+        "ko": "쿠데타에서 이긴 편 플레이어 참가자의 신용 가산(새 나라 신용을 이 값만큼 높게 시작 — 새 나라 만들기는 아직 없어 지금 나라 신용에 더한다 [임시]).",
+        "en": "Credit bonus for players on the winning side of a coup (their credit starts this much higher; until coups create a new nation it is added to the current one)."
       },
-      "source": "D-583 (질문 2433 나 가) · D-581 · ADR 2026-11-21-governance"
+      "source": "D-583 (질문 2433 나 가) · D-584 · 줄기 governance-5"
+    },
+    {
+      "id": "gov_vacancy_election_ms",
+      "code": "",
+      "name": {
+        "ko": "지도자 빈자리 자동 선출 기간(ms)",
+        "en": "Leader vacancy: automatic election period (ms)"
+      },
+      "value": 259200000,
+      "structural": false,
+      "unit": "ms",
+      "min": 3600000,
+      "max": 2592000000,
+      "desc": {
+        "ko": "지도자 자리가 비면 누구나 나설 수 있는 선출을 저절로 열고 이 기간 뒤 닫는다(빈자리는 도시 독립으로 이어지지 않는다 — D-584).",
+        "en": "When the leader seat is vacant an election anyone may enter opens automatically and closes after this period (vacancy no longer leads to city independence — D-584)."
+      },
+      "source": "D-584(D-583 3을 대신) · ADR 2026-11-21-governance · 줄기 governance-5 [임시 출발값]"
+    },
+    {
+      "id": "gov_coup_protect_ms",
+      "code": "",
+      "name": {
+        "ko": "군사 쿠데타 보호 기간: 지배 가문이 바뀐 뒤(ms)",
+        "en": "Military coup protection after the ruling house changes (ms)"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 2592000000,
+      "desc": {
+        "ko": "지배 가문이 바뀐(선출·쿠데타) 뒤 이 기간에는 그 나라에서 쿠데타를 일으킬 수 없다. 0이면 막지 않는다.",
+        "en": "No coup may be launched in a nation for this long after its ruling house changes. 0 = no protection."
+      },
+      "source": "질문 2451~2460 답(코디네이터 전달) · D-584 · ADR 2026-11-21-governance · 줄기 governance-5 [임시 출발값]"
+    },
+    {
+      "id": "gov_threshold_currency_pm",
+      "code": "",
+      "name": {
+        "ko": "가결 문턱: 화폐 단계 전환(‰)",
+        "en": "Pass threshold: currency stage change (‰)"
+      },
+      "value": 666,
+      "structural": false,
+      "unit": "pm",
+      "min": 1,
+      "max": 999,
+      "desc": {
+        "ko": "화폐 정책 단계(공식 ↔ 지도자 손 조절) 안건의 가결 문턱. D-131 통화 단계 전환 2/3 선례.",
+        "en": "Pass threshold for monetary stage agendas (formula ↔ leader control). D-131 two-thirds precedent."
+      },
+      "source": "질문 2451~2460 답(코디네이터 전달) · D-584 · ADR 2026-11-21-governance · 줄기 governance-5 [임시 출발값]"
+    },
+    {
+      "id": "gov_peace_offer_ms",
+      "code": "",
+      "name": {
+        "ko": "강화 제안 수락 기다림(ms)",
+        "en": "Peace offer acceptance window (ms)"
+      },
+      "value": 259200000,
+      "structural": false,
+      "unit": "ms",
+      "min": 3600000,
+      "max": 2592000000,
+      "desc": {
+        "ko": "지도자가 낸 강화 제안을 상대 플레이어 지도자가 같은 강화로 받을 수 있는 기간.",
+        "en": "How long a peace offer waits for the other player-led nation to accept with its own peace decision."
+      },
+      "source": "질문 2451~2460 답(코디네이터 전달) · D-584 · ADR 2026-11-21-governance · 줄기 governance-5 [임시 출발값]"
+    },
+    {
+      "id": "gov_house_independence_npc_score",
+      "code": "",
+      "name": {
+        "ko": "NPC 가문 독립 선언: 성향 점수 문턱",
+        "en": "NPC house independence: temperament score threshold"
+      },
+      "value": 40,
+      "structural": false,
+      "unit": "points",
+      "min": -1000,
+      "max": 1000,
+      "desc": {
+        "ko": "자본주의 나라에서 도시 지분 50% 이상을 가진 NPC 가문이 독립을 선언하는 성향 점수 문턱(쿠데타 점수와 같은 식).",
+        "en": "Temperament score an NPC house holding at least 50% of a city's shares in a capitalist nation needs to declare independence (same formula as the coup score)."
+      },
+      "source": "질문 2451~2460 답(코디네이터 전달) · D-584 · ADR 2026-11-21-governance · 줄기 governance-5 [임시 출발값]"
+    },
+    {
+      "id": "gov_house_independence_power_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 가문 독립 선언: 옛 나라와 힘 비 문턱(‰)",
+        "en": "NPC house independence: power ratio against the old nation (‰)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "NPC 가문이 독립을 선언하려면 가문 유닛 힘이 옛 나라 군대 힘의 이 몫 이상이어야 한다(독립하면 옛 나라가 적이 된다 — D-585).",
+        "en": "An NPC house declares independence only if its units' power is at least this share of the old nation's army (independence makes the old nation hostile — D-585)."
+      },
+      "source": "사용자 답 D-585 · ADR 2026-11-21-governance · 줄기 governance-5 [임시 출발값]"
+    },
+    {
+      "id": "gov_approval_player_start",
+      "code": "",
+      "name": {
+        "ko": "지도자 신임도 시작값: 플레이어 지도자(‰)",
+        "en": "Leader approval start: player leader (‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "플레이어 가문이 지배 가문이 될 때의 신임도(주민이 지도자를 얼마나 믿나 — 신용과 다른 값). 낮게 시작한다(D-585). 오르내림 규칙은 아직 없다.",
+        "en": "Approval when a player house becomes the ruling house (how much residents trust the leader — not credit). Starts low (D-585). Rise/fall rules are not decided yet."
+      },
+      "source": "사용자 답 D-585 · ADR 2026-11-21-governance · 줄기 governance-5 [임시 출발값]"
+    },
+    {
+      "id": "gov_approval_npc_start",
+      "code": "",
+      "name": {
+        "ko": "지도자 신임도 시작값: NPC 지도자(‰)",
+        "en": "Leader approval start: NPC leader (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "NPC 가문이 지배 가문이 될 때의 신임도. 오르내림 규칙은 아직 없다.",
+        "en": "Approval when an NPC house becomes the ruling house. Rise/fall rules are not decided yet."
+      },
+      "source": "사용자 답 D-585 · ADR 2026-11-21-governance · 줄기 governance-5 [임시 출발값]"
+    },
+    {
+      "id": "gov_approval_removal_ease_pm",
+      "code": "",
+      "name": {
+        "ko": "낮은 신임도: 해임 문턱 낮추는 폭(‰)",
+        "en": "Low approval: removal threshold ease (‰)"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "신임도가 0일 때 지도자 해임 가결 문턱을 이만큼 낮춘다(신임도에 비례). 0이면 보정 없음.",
+        "en": "At zero approval the leader removal pass threshold drops by this much (proportional to approval). 0 = no effect."
+      },
+      "source": "사용자 답 D-585 · ADR 2026-11-21-governance · 줄기 governance-5 [임시 출발값]"
+    },
+    {
+      "id": "gov_approval_rebellion_ease",
+      "code": "",
+      "name": {
+        "ko": "낮은 신임도: 반란 문턱 올리는 폭(만족도 점)",
+        "en": "Low approval: rebellion threshold ease (satisfaction points)"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100,
+      "desc": {
+        "ko": "신임도가 0일 때 그 나라 도시의 반란 만족도 문턱을 이만큼 올린다(신임도에 비례). 0이면 보정 없음.",
+        "en": "At zero approval the rebellion satisfaction threshold of the nation's cities rises by this much (proportional to approval). 0 = no effect."
+      },
+      "source": "사용자 답 D-585 · ADR 2026-11-21-governance · 줄기 governance-5 [임시 출발값]"
     },
     {
       "id": "npc_ai_drive_work_mood_floor_pm",

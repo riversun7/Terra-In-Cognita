@@ -269,13 +269,9 @@ export function createEconomyServices(options: {
       return { cities: known ? all.filter((city) => known.has(city.id)) : [] };
     },
 
-    // 내 신용(D-581): 깎인 줄만. 도시 이름은 아는 도시만(621 나 — 모르는 도시는 #ID)
-    async credit(viewer, query) {
-      const owner = world?.ownerOf(viewer.id);
-      const known = await world?.knownCityIds?.(viewer);
-      const name = (cityId: number) => (known?.has(cityId) === true ? world?.cityName?.(cityId) : undefined);
-      return creditResponse(world?.creditBook?.(), owner, query.now, name);
-    },
+    // 내 신용(D-581·D-584 한 점수): 지금 속한 나라 줄 + 내린 몫이 남은 줄
+    credit: (viewer, query) =>
+      Promise.resolve(creditResponse(world?.creditBook?.(), world?.ownerOf(viewer.id), query.now)),
 
     async holdings(viewer: Viewer, query: EconomyQuery): Promise<EconomyHoldingsResponse> {
       const { catalog } = view();

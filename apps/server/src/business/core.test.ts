@@ -189,6 +189,21 @@ describe("사업장 장부 코어", () => {
     expect(ledger.balanceOf(OWNER, ASSET)).toBe(200n);
   });
 
+  it("건물이 사라지면 그 적자 빚을 탕감한다(질문 2445 나 — 줄기 governance-5), 돌아가는 사업장 수(신용 오름)", () => {
+    const { ledger, core } = setup({ taxBp: 0 });
+    expect(core.operatingOwners()).toEqual(new Map([[OWNER, 1]]));
+    core.advance(SHOP, OWNER, ASSET, 300n, T0 + 1000);
+    core.forget(SHOP, T0 + 2000);
+    expect(core.debts(SHOP).size).toBe(0);
+    expect(ledger.balance(ledger.systemAccount(`writeoff:business:${ASSET}`, ASSET))).toBe(-300n);
+    expect(core.check()).toEqual([]);
+    // 시각 없이 부르면(옛 부르는 쪽) 탕감하지 않는다
+    const old = setup({ taxBp: 0 });
+    old.core.advance(SHOP, OWNER, ASSET, 100n, T0);
+    old.core.forget(SHOP);
+    expect(old.core.debts(SHOP).get(ASSET)).toBe(100n);
+  });
+
   it("판매 값을 적고 사라진 건물이면 줄을 지운다", () => {
     const { core, ops } = setup();
     core.setPrice(SHOP, "item:wood", 12n);

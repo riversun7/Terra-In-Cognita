@@ -303,8 +303,8 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
     }
     owner.cities.delete(cityId);
     world.cities.delete(cityId);
-    // 폐허가 되면 그 도시의 주민세 빚도 사라진다(질문 2427 나 — 넘어갈 때와 같은 함수)
-    payouts.cityMoved(cityId, owner, nowMs);
+    // 폐허가 되어도 그 도시의 주민세 빚은 남는다(D-585 — 2427 나를 되돌림: 빚은 도시의 나라가 바뀔 때만 사라진다, D-581 E). 정산 기준점만 다시 잡는다
+    payouts.cityMoved(cityId);
     recordTech(owner, nowMs, 0, "city_ruined");
     if (owner.cities.size === 0) {
       dieIfEmpty(owner, cause, into, nowMs);
@@ -806,7 +806,10 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
         const parent = world.factions.get(city.owner);
         const units = byCity.get(city.id) ?? [];
         if (!parent?.alive || nowMs < city.nextRebellionMs) continue;
-        const rebels = new Set(rebelsOf(units, c));
+        const shift = Math.trunc(o.hooks?.rebellionThresholdShift?.(parent) ?? 0); // 신임도 보정(서버 고리 — D-585)
+        const rebels = new Set(
+          rebelsOf(units, shift === 0 ? c : { ...c, rebellionThreshold: c.rebellionThreshold + shift }),
+        );
         if (rebels.size === 0) continue;
         city.nextRebellionMs = nowMs + s.rebellionCooldownDays * DAY_MS;
         const rebelUnits = units.filter((u) => rebels.has(u.id));

@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import {
   NATION_TAX_LIMITS,
+  NATION_TAX_PERIOD_PROTOCOL_VERSION,
   NATION_TAX_PROTOCOL_VERSION,
   NATION_TAX_RESULT_CODES,
   PROTOCOL_VERSION,
@@ -33,6 +34,10 @@ const base = {
 describe("나라 세금 메시지(프로토콜 57)", () => {
   it("판: 지금 판 안", () => {
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(NATION_TAX_PROTOCOL_VERSION);
+    // 주기 목록 밖 코드(D-585 2)는 프로토콜 61부터
+    expect(NATION_TAX_PERIOD_PROTOCOL_VERSION).toBe(61);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(NATION_TAX_PERIOD_PROTOCOL_VERSION);
+    expect(NATION_TAX_RESULT_CODES).toContain("invalid_period");
   });
 
   it("왕복·null = 정하지 않음", () => {

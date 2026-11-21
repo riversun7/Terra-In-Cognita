@@ -141,7 +141,7 @@ describe.skipIf(!TEST_DATABASE_URL)("채집소(DB)", () => {
         const x = vein.x + dx;
         const y = vein.y + dy;
         if (x < 0 || y < 0 || x > 250 || y > 250) continue;
-        for (const [item, qty] of Object.entries({ pine_log: 20, stone: 20 }))
+        for (const [item, qty] of Object.entries({ pine_log: 20, stone: 20_000 }))
           await service.devFacilityGrant(userId, item, qty, { mapKey: map.mapKey, x, y });
         const built = await service.build(userId, {
           mapKey: map.mapKey,
@@ -365,7 +365,7 @@ describe.skipIf(!TEST_DATABASE_URL)("채집소(DB)", () => {
     await joinCityFaction(test.db, userId, map.mapKey);
     p.settlement.grantCredit(ownerId, 100_000n, clock);
     const service = p.facilities.service;
-    for (const [item, qty] of Object.entries({ pine_log: 40, stone: 10 }))
+    for (const [item, qty] of Object.entries({ pine_log: 40, stone: 10_000 }))
       expect(await service.devFacilityGrant(userId, item, qty, { mapKey: map.mapKey, x: 50, y: 50 })).toEqual(
         { ok: true },
       );
@@ -385,7 +385,7 @@ describe.skipIf(!TEST_DATABASE_URL)("채집소(DB)", () => {
         if (map.canPlace({ x, y, width: 3, height: 3, rotation: 0 }) && waterOk(map, fishing, x, y, 0))
           dock = { x, y };
     if (!dock) throw new Error("no water-side spot");
-    for (const [item, qty] of Object.entries({ pine_log: 20, stone: 5 }))
+    for (const [item, qty] of Object.entries({ pine_log: 20, stone: 5_000 }))
       expect(await service.devFacilityGrant(userId, item, qty, { mapKey: map.mapKey, ...dock })).toEqual({
         ok: true,
       });

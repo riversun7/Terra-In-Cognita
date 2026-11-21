@@ -57,6 +57,9 @@ async function fullShot(page: Page, name: string): Promise<void> {
   await style.evaluate((element) => element.parentNode?.removeChild(element));
 }
 
+/** 글자를 정규식에 그대로 넣는다 */
+const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 test.describe("플레이어(실제 자료)", () => {
   test.use({ account: "player" });
 
@@ -66,10 +69,16 @@ test.describe("플레이어(실제 자료)", () => {
   }) => {
     const calls = watchTrpc(page);
     await page.goto("/economy");
-    // 카드 넷(자산·생산·거래·환전) + [신용](D-581 — 누르는 곳 없음, 빚이 없는 새 플레이어는 시작값 한 줄)
+    // 카드 넷(자산·생산·거래·환전) + [신용](D-581·D-584 — 누르는 곳 없음, 새 플레이어는 시작값 100점: 소속 훑기 전이면 시작값 한 줄, 뒤면 지금 나라 줄)
     await expect(economy(page).locator(".eco-card")).toHaveCount(5);
-    await expect(economy(page).locator('[data-card="credit"] .eco-card-metric')).toHaveText(
-      message("ko", "economy_credit_clean", { score: 1000 }),
+    const clean = message("ko", "economy_credit_clean", { score: 100 });
+    const current = message("ko", "economy_credit_scores", {
+      who: message("ko", "economy_credit_me"),
+      nation: message("ko", "economy_credit_nation_current"),
+      score: 100,
+    });
+    await expect(economy(page).locator('[data-card="credit"] .eco-card-metric').first()).toHaveText(
+      new RegExp(`^(${escapeRegExp(clean)}|${escapeRegExp(current)})$`),
     );
     await expect(page.locator("#economy-title")).toHaveText(message("ko", "nav_economy"));
     await page.getByRole("link", { name: message("ko", "economy_tab_market"), exact: true }).click();

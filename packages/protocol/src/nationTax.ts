@@ -10,6 +10,11 @@ import { z } from "zod";
 
 /** 이 파일의 메시지에 필요한 가장 낮은 프로토콜 버전(더 낮게 인사한 연결이 보내면 invalid_message) */
 export const NATION_TAX_PROTOCOL_VERSION = 57;
+/**
+ * 결과 코드 invalid_period(주민세 주기가 고르기 목록 밖 — D-585 2, @terra/shared/government RESIDENT_TAX_PERIOD_DAYS)가 가는 가장 낮은 판(프로토콜 61,
+ * 묶음 1117a). 더 낮은 판 연결은 internal_error를 받는다(그 판 화면은 목록 밖 값도 보낼 수 있었다)
+ */
+export const NATION_TAX_PERIOD_PROTOCOL_VERSION = 61;
 
 const requestId = z.number().int().nonnegative().max(0xffff_ffff);
 
@@ -19,10 +24,12 @@ export const NATION_TAX_LIMITS = {
   incomeTaxBp: { min: 0, max: 10_000 },
   /** 주민세(재산 ‰, 주기마다) */
   residentTaxPm: { min: 0, max: 1000 },
-  /** 주민세 주기(날) */
+  /** 주민세 주기(날). 서버는 고르기 목록(@terra/shared/government RESIDENT_TAX_PERIOD_DAYS) 안의 값만 받는다(D-585 2 — invalid_period) */
   residentEveryDays: { min: 1, max: 365 },
   /** 주민세 국세 몫(‰) */
   residentNationPm: { min: 0, max: 1000 },
+  /** 거래세(만분율 — 줄기 governance-5, 질문 2460) */
+  tradeTaxBp: { min: 0, max: 10_000 },
 } as const;
 
 const intIn = (range: { readonly min: number; readonly max: number }) =>
@@ -36,6 +43,8 @@ export const nationTaxMessage = z.object({
   residentTaxPm: intIn(NATION_TAX_LIMITS.residentTaxPm),
   residentEveryDays: intIn(NATION_TAX_LIMITS.residentEveryDays),
   residentNationPm: intIn(NATION_TAX_LIMITS.residentNationPm),
+  /** 거래세(만분율 — 줄기 governance-5, 질문 2460, 프로토콜 61(묶음 1117a, 프로토콜 61)부터). 없으면 바꾸지 않는다(옛 기기), null = 정하지 않음 */
+  tradeTaxBp: intIn(NATION_TAX_LIMITS.tradeTaxBp).optional(),
 });
 
 /** 결과 코드. 화면 문구는 기기가 코드로 고른다 */
@@ -51,6 +60,8 @@ export const NATION_TAX_RESULT_CODES = [
   "not_leader",
   /** 내 가문이 나라가 아니다(도시를 가진 독립 가문이 아님 — 봉신·도시 없는 가문) */
   "not_ruler",
+  /** 주민세 주기(날)가 고르기 목록 밖(D-585 2 — 판 61부터, 더 낮은 판은 internal_error) */
+  "invalid_period",
 ] as const;
 export type NationTaxResultCode = (typeof NATION_TAX_RESULT_CODES)[number];
 

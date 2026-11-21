@@ -7,6 +7,7 @@ import type { Viewer } from "../trpc/context.ts";
 import { OPERATOR_SPEED_FACTOR, fixedOperatorPace } from "../world/operatorPace.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { createTestMap } from "../world/testSupport.ts";
+import { registerResidenceService } from "../residence/attach.ts";
 import { createGatherGateway } from "./gateway.ts";
 import type { GatherCommandResult, GatherService } from "./service.ts";
 
@@ -108,5 +109,37 @@ describe("채집·들어가기 운영자 빠르기", () => {
     expect(operator.sent).toEqual([{ t: "gather_result", id: 1, ok: false, code: "forbidden" }]);
     expect(map.paceOf(2)).toBe(1);
     map.stop();
+  });
+});
+
+describe("사는 곳 고르기(residence_set, D-585 1)", () => {
+  it("사는 곳 서비스가 붙기 전은 busy, 붙으면 결과를 residence_result로", async () => {
+    const { map } = createTestMap();
+    const service = fakeService(map);
+    const sent: unknown[] = [];
+    const gateway = createGatherGateway({
+      service: () => service,
+      now: () => Date.now(),
+      log: { error: () => {} },
+    });
+    const socket = gateway.open({
+      send: (text) => sent.push(decodeServerMessage(text)),
+      viewer: () => Promise.resolve(PLAYER),
+    });
+    socket.handle({ t: "residence_set", id: 7, unitId: 1, buildingId: 100 });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sent).toEqual([{ t: "residence_result", id: 7, ok: false, code: "busy" }]);
+    registerResidenceService(service, {
+      set: (_userId, unitId, buildingId) =>
+        Promise.resolve({ ok: true, unitId, buildingId, cityId: buildingId === null ? null : 5 }),
+      view: () => ({ status: "not_ready", unitId: 1, current: null, building: null, generatedAt: 0 }),
+    });
+    socket.handle({ t: "residence_set", id: 8, unitId: 1, buildingId: 100 });
+    socket.handle({ t: "residence_set", id: 9, unitId: 1, buildingId: null });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sent.slice(1)).toEqual([
+      { t: "residence_result", id: 8, ok: true, unitId: 1, buildingId: 100, cityId: 5 },
+      { t: "residence_result", id: 9, ok: true, unitId: 1, buildingId: null, cityId: null },
+    ]);
   });
 });

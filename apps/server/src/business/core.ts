@@ -142,8 +142,13 @@ export interface BusinessCore {
   /** 판매 값(정한 값, 없으면 undefined) */
   price(buildingId: number, item: string): bigint | undefined;
   setPrice(buildingId: number, item: string, price: bigint): void;
-  /** 사라진 건물의 상태·값 줄을 지운다 */
-  forget(buildingId: number): void;
+  /**
+   * 사라진 건물의 상태·값 줄을 지운다. 바뀜(줄기 governance-5 — 질문 2445 나): 갚을 곳(사업장)이 없어진 적자 빚은 탕감한다(빚 계정 → 0, 짝 = 시스템 계정
+   * writeoff:business:<화폐>). 신용 장부가 빚 계정 0을 듣고 그 적자로 내린 몫을 되돌린다. atMs가 없으면(옛 부르는 쪽) 탕감하지 않는다
+   */
+  forget(buildingId: number, atMs?: number): void;
+  /** 주인마다 돌아가는(멈추지 않은) 사업장 수(신용 사업장 운영 오름 — D-584) */
+  operatingOwners(): Map<number, number>;
   /** 메모리 불변 조건: 적자 계정은 0 이하 */
   check(): string[];
   /** 노동 계약 고리를 잇는다(지급준비금 필요액·보증금 채우기 — labor/service.ts) */
@@ -178,11 +183,26 @@ export function createBusinessCore(deps: BusinessDeps): BusinessCore {
     deps.loaded.prices.map((row) => [`${row.buildingId}|${row.item}`, { ...row }]),
   );
 
+  /** 주인마다 돌아가는(멈추지 않은) 사업장 수(신용 사업장 운영 오름 — D-584) */
+  const operatingOwners = (): Map<number, number> => {
+    const out = new Map<number, number>();
+    for (const buildingId of deps.businesses()) {
+      const place = deps.place(buildingId);
+      const stopAt = states.get(buildingId)?.suspendedAtMs ?? null;
+      const stopped = stopAt !== null && stopAt <= (deps.now?.() ?? stopAt);
+      if (!place || place.ownerId === null || stopped) continue;
+      out.set(place.ownerId, (out.get(place.ownerId) ?? 0) + 1);
+    }
+    return out;
+  };
+
   // 신용 장부(D-581 — credit/book.ts): 사업장 적자·주민세 빚으로 깎고 갚으면 되돌린다. 건물 자리·도시 나라는 이 장부의 고리를 쓴다
   attachCreditBook({
     ledger,
     writer,
     loaded: deps.loaded.credit ?? [],
+    standings: deps.loaded.creditStandings ?? [],
+    operating: operatingOwners,
     rules: deps.rules,
     place: (buildingId) => deps.place(buildingId),
     nationOf: (cityId) => deps.tax(cityId)?.treasuryOwner,
@@ -523,7 +543,19 @@ export function createBusinessCore(deps: BusinessDeps): BusinessCore {
         price,
       });
     },
-    forget(buildingId) {
+    forget(buildingId, atMs) {
+      if (atMs !== undefined) {
+        const owed = debts(buildingId);
+        const entries: { account: number; amount: bigint }[] = [];
+        for (const [asset, amount] of [...owed].toSorted((a, b) => (a[0] < b[0] ? -1 : 1))) {
+          entries.push({ account: debtAccount(buildingId, asset), amount });
+          entries.push({
+            account: ledger.systemAccount(`writeoff:business:${asset}`, asset),
+            amount: -amount,
+          });
+        }
+        if (entries.length > 0) ledger.post({ kind: "business_debt_writeoff", atMs, entries });
+      }
       if (states.delete(buildingId)) writer.remove("businessStates", { building_id: buildingId });
       for (const [key, row] of prices)
         if (row.buildingId === buildingId) {
@@ -531,6 +563,7 @@ export function createBusinessCore(deps: BusinessDeps): BusinessCore {
           writer.remove("businessPrices", { building_id: buildingId, item: row.item });
         }
     },
+    operatingOwners,
     attachLabor(hook) {
       labor = hook;
     },

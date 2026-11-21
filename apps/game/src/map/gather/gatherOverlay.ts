@@ -21,7 +21,7 @@ import { type Point, buildingCentre, objectCentre, rankByDistance } from "../nea
 import type { NearbyState } from "../nearby/nearbyState.ts";
 import { getLocale } from "../../paraglide/runtime.js";
 import { groupOf } from "../city/cityRows.ts";
-import { kgText, nameText, phaseText } from "./gatherData.ts";
+import { kgText, loopPhaseText, nameText } from "./gatherData.ts";
 import { type DigProgress, digProgress } from "./gatherProgress.ts";
 import { type GatherObjectEntry, type GatherSheet, type GatherState, livePoint } from "./gatherState.ts";
 import { createStationRing } from "./stationRing.ts";
@@ -263,10 +263,22 @@ export function attachGatherOverlay(
     return shown;
   };
 
+  /** 건물 이름(근처 판 건물 겉모습), 모르면 null */
+  const buildingName = (buildingId: number): string | null => {
+    const look = nearby.looks.get(buildingId);
+    return look?.name ? (getLocale() === "en" ? look.name.en : look.name.ko) : null;
+  };
+
   const placeTag = (view: EngineLayerView): void => {
     const sheet = state.sheet;
-    const building =
-      sheet?.kind === "building" ? state.buildings.find((entry) => entry.id === sheet.id) : undefined;
+    // 판이 열린 건물, 없으면 내 유닛이 들어가러 가는 건물(사용자 지적 2026-11-21 "건물 이름이 뜨지 않는다")
+    const targetId =
+      sheet?.kind === "building"
+        ? sheet.id
+        : (state.loops.find(
+            (loop) => loop.mapKey === options.mapKey && loop.phase === "entering" && loop.buildingId !== null,
+          )?.buildingId ?? null);
+    const building = targetId === null ? undefined : state.buildings.find((entry) => entry.id === targetId);
     const centre = building ? buildingCentre(building) : null;
     const point = centre ? view.project(centre.x, centre.y, BUILDING_LIFT_M) : null;
     if (!building || !point) {
@@ -274,8 +286,7 @@ export function attachGatherOverlay(
       return;
     }
     const look = nearby.looks.get(building.id);
-    const name = look?.name ? (getLocale() === "en" ? look.name.en : look.name.ko) : null;
-    const label = name ?? m.nearby_building_unknown({ id: building.id });
+    const label = buildingName(building.id) ?? m.nearby_building_unknown({ id: building.id });
     const text = look && look.level > 0 ? m.map_building_tag({ name: label, level: look.level }) : label;
     const key = `${building.id}:${text}`;
     if (tagKey !== key) {
@@ -304,9 +315,9 @@ export function attachGatherOverlay(
       }
       const text =
         loop.kindId === null
-          ? phaseText(loop.phase)
+          ? loopPhaseText(loop, buildingName)
           : m.gather_chip({
-              phase: phaseText(loop.phase),
+              phase: loopPhaseText(loop, buildingName),
               kg: kgText(loop.carriedGrams),
               max: kgText(loop.capacityGrams),
             });

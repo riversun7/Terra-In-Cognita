@@ -6,7 +6,7 @@ import { type ServerLink, serverLink } from "../net/serverLink.ts";
 export type NationTaxCommand = Omit<ClientMessageOf<"nation_tax">, "t" | "id">;
 
 export type NationTaxOutcome =
-  | { readonly ok: true; readonly factionId: number }
+  | { readonly ok: true; readonly factionId: number; readonly agendaId?: number | undefined }
   | { readonly ok: false; readonly code: NationTaxResultCode | "offline" | "timeout" };
 
 const TIMEOUT_MS = 15_000;
@@ -53,7 +53,11 @@ export function sendNationTax(
         event.message.id === id
       ) {
         const message = event.message;
-        finish(message.ok ? { ok: true, factionId: message.factionId } : { ok: false, code: message.code });
+        finish(
+          message.ok
+            ? { ok: true, factionId: message.factionId, agendaId: message.agendaId }
+            : { ok: false, code: message.code },
+        );
       }
     });
     timer = setTimeout(() => finish({ ok: false, code: sent ? "timeout" : "offline" }), TIMEOUT_MS);

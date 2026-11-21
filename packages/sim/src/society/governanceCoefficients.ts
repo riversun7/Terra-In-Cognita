@@ -31,6 +31,19 @@ export interface GovernanceCoefficients {
   readonly npcKeepSatisfaction: number;
   /** NPC 투표 규칙식: 공격 성향(‰)이 이 값 이상이면 선전포고 찬성 */
   readonly npcWarTraitPm: number;
+  /** NPC 후보 규칙식(질문 2404 나 — D-323 점수 + 성향): 현직이 아닌 NPC 가문의 출마 점수가 이 값 이상이면 선출에 나선다(줄기 governance-2) */
+  readonly npcRunScore: number;
+  /** 한 선출에 스스로 나서는 도전자 NPC 가문 수 상한(점수 높은 차례, 0 = 도전자 없음) */
+  readonly npcRunMax: number;
+  /**
+   * 지도자 빈자리 기간(ms, 질문 2403 답 D-582): 빈자리가 이만큼 이어지면 도시마다 독립 투표(D-302 모양)로 나라가 갈라질 수 있다. 가르는 절차가 정해지지
+   * 않아 지금은 읽기만 하고 아무것도 하지 않는다(빈틈 — 질문 2434)
+   */
+  readonly vacancySplitMs: number;
+  /** 군사 쿠데타 충성도 벌칙(만족도 점, 질문 2401 답 D-582 "충성도 크게 떨어짐"). 쿠데타 길은 아직 없다(도우미만, 질문 2433) */
+  readonly coupSatisfactionDrop: number;
+  /** 세율 안건 폭(‰, 질문 2407 가): 민주주의·자본주의에서 지도자가 나라 세율 칸 하나라도 이만큼 이상 바꾸면 안건(투표), 아래는 바로. 소득세는 bp ÷ 10 */
+  readonly taxAgendaWidthPm: number;
 }
 
 export const START_GOVERNANCE: GovernanceCoefficients = {
@@ -50,4 +63,9 @@ export const START_GOVERNANCE: GovernanceCoefficients = {
   warAgenda: 1,
   npcKeepSatisfaction: 50,
   npcWarTraitPm: 600,
+  npcRunScore: 20,
+  npcRunMax: 1,
+  vacancySplitMs: 14 * 86_400_000,
+  coupSatisfactionDrop: 30,
+  taxAgendaWidthPm: 50,
 };

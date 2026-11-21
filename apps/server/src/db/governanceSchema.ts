@@ -39,7 +39,7 @@ export const governanceAgendas = pgTable(
     index("governance_agendas_nation_idx").on(table.nationId, table.status),
     check(
       "governance_agendas_kind",
-      sql`${table.kind} in ('leader_election', 'leader_removal', 'regime_change', 'war_declaration')`,
+      sql`${table.kind} in ('leader_election', 'leader_removal', 'regime_change', 'war_declaration', 'tax_change')`,
     ),
     check(
       "governance_agendas_status",
@@ -105,4 +105,19 @@ export const governanceState = pgTable("governance_state", {
   termEndsAtMs: bigint("term_ends_at_ms", { mode: "number" }),
   shareVotesSuspended: boolean("share_votes_suspended").notNull().default(false),
   updatedAtMs: bigint("updated_at_ms", { mode: "number" }).notNull(),
+  /** 지도자 빈자리가 된 시각(질문 2403 답 D-582 — 해임 뒤 다시 뽑기가 실패하면). 선출로 채우면 null. 직전 판 앱은 읽지 않는다 */
+  vacantSinceMs: bigint("vacant_since_ms", { mode: "number" }),
+});
+
+/**
+ * 자본주의 NPC 나라 처음 지분을 세운 가문으로 옮긴 기록(기획 D-582 — 도시 지분은 그 도시를 처음 세운 NPC 가문, 수도는 지배 가문. 줄기 governance-2).
+ * 도시마다 한 번만 옮긴다(그 뒤 국고에 생긴 지분 — 점령 몰수 D-298·재발행 D-444 — 은 국고 몫이라 옮기지 않는다). 세계 표(시험 세계 새로 시작에서 지운다)
+ */
+export const governanceShareFixups = pgTable("governance_share_fixups", {
+  cityId: bigint("city_id", { mode: "number" }).primaryKey(),
+  /** 받은 가문 열쇠(p:/n:) */
+  houseKey: text("house_key").notNull(),
+  /** 옮긴 주 수(10진 문자열이 아니라 정수 — 도시마다 1000주 출발값) */
+  shares: bigint("shares", { mode: "number" }).notNull(),
+  doneAtMs: bigint("done_at_ms", { mode: "number" }).notNull(),
 });

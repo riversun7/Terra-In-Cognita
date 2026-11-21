@@ -64,7 +64,7 @@
 
   /* 조작부 크기 */
   --control-h: 46px;
-  --control-h-sm: 38px;
+  --control-h-sm: 44px;
   /* 나란한 버튼의 기본 너비(글자 크기 기준) */
   --button-basis: 8em;
   /* 누르는 영역의 최소 크기(가로·세로) */

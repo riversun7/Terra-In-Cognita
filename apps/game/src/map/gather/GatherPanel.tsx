@@ -26,6 +26,7 @@ import {
   loadGatherObjects,
   minutesText,
   nameText,
+  loopPhaseText,
   phaseText,
   stopText,
 } from "./gatherData.ts";
@@ -51,7 +52,10 @@ interface GatherPanelProps {
   readonly actorAboard?: boolean;
   /** 운영자 모드(건물 판 관리 칸 — 남의 건물도, 서버가 다시 본다) */
   readonly operator?: boolean;
+  /** 건물 ID → 이름(들어가는 줄에 붙인다, 모르면 null) */
+  readonly buildingName?: ((buildingId: number) => string | null) | undefined;
 }
+const noName = (): null => null;
 
 const serverNow = (): number => Date.now() + serverLink.clockOffsetMs();
 
@@ -70,14 +74,14 @@ function loopFor(
   );
 }
 
-function loopText(loop: GatherLoopView): string {
+function loopText(loop: GatherLoopView, buildingName: (buildingId: number) => string | null): string {
   if (loop.phase === "done") {
     if (loop.enterResult) return enterText(loop.enterResult, loop.depositedUnits);
     return loop.stop ? stopText(loop.stop) : phaseText(loop.phase);
   }
-  if (loop.kindId === null) return phaseText(loop.phase);
+  if (loop.kindId === null) return loopPhaseText(loop, buildingName);
   return m.gather_loop_line({
-    phase: phaseText(loop.phase),
+    phase: loopPhaseText(loop, buildingName),
     kg: kgText(loop.carriedGrams),
     max: kgText(loop.capacityGrams),
   });
@@ -91,6 +95,7 @@ export function GatherPanel({
   buildingExtra,
   actorAboard = false,
   operator = false,
+  buildingName = noName,
 }: GatherPanelProps) {
   const version = useSyncExternalStore(
     (listener) => state.subscribe(listener),
@@ -178,7 +183,8 @@ export function GatherPanel({
     setSending(true);
     const outcome = await run();
     setSending(false);
-    setNotice(outcome.ok ? m.gather_sent() : gatherErrorText(outcome.code));
+    // 보낸 것은 채집 줄(아래 한 줄)이 바로 알린다 — "보냈습니다"를 따로 띄우지 않고, 실패 까닭만 잠깐 띄운다
+    setNotice(outcome.ok ? null : gatherErrorText(outcome.code));
     if (outcome.ok) state.open(null);
     await refresh();
   };
@@ -206,8 +212,11 @@ export function GatherPanel({
           data-stop={loop.stop ?? undefined}
           data-unit={loop.unitId}
         >
+          {/* 고른 유닛의 줄이면 이름은 아래 안내 줄에 있으니 빼고 할 일만(중복 줄이기) */}
           <p>
-            {unitLabel(loop.unitId)} · {loopText(loop)}
+            {loop.unitId === actor
+              ? loopText(loop, buildingName)
+              : `${unitLabel(loop.unitId)} · ${loopText(loop, buildingName)}`}
           </p>
           {loop.phase !== "done" ? <GatherMeters loop={loop} now={now} /> : null}
           {loop.phase !== "done" && loop.deposit ? (

@@ -7,9 +7,13 @@
 //   국고 지분 표): 주주마다 무게 = 가진 주 + ⌊국고 주 × 가진 주 ÷ 다른 주주 주 합⌋(나머지는 버림 — 몫 비율은 그대로). 다른 주주가 없으면 투표권이
 //   비어 정족수를 못 채운다(현상 유지).
 // - 지배 가문 = 선출 기록(governance_state) → 없으면 처음 규칙(port.defaultRulingHouse — D-574 10). 지도자 = 지배 가문의 장.
-// - 지분 과반(D-344): 지배 쪽(그 나라 국고 — sim rulingFamilyOf와 같은 [임시] 규칙 — + 지배 플레이어 가문 국고)의 지분이 그 나라 도시 지분 합의
-//   절반을 넘나. 지분이 하나도 없으면(상장폐지) 과반으로 본다(@terra/sim rulerHasMajority와 같다).
-import type { HouseKey } from "@terra/shared/governance";
+// - 지분 과반(D-344): 바뀜(governance-2 — 기획 대조 D-298 "의결권도 국고가 받는다. 지도자가 사적으로 갖지 않는다"·D-581·D-580 6 "과반의 지분을 사들이는
+//   방법"): 지배 쪽 = 지배 가문의 지분(가문 지분 계정 p:/n: + 지배 플레이어 가문 소유 주체 계정 — 그 나라 국고가 아닐 때)만. 국고 지분은 지배 쪽으로 치지 않고
+//   D-581대로 다른 주주에게 비례로 나눈 것으로 센다 = 지배 쪽 ÷ (합 − 국고). 국고만 지분을 가진 나라의 지도자는 지분을 사지 않으면 과반이 아니다.
+//   지분이 하나도 없으면(상장폐지) 과반으로 본다(@terra/sim rulerHasMajority와 같다).
+// - 자본주의 가문 지분 계정(D-338·D-582)도 주주다: 플레이어 가문(p:)은 가문장이, NPC 가문(n:)은 NPC 규칙식(그 가문 도시 만족도·나라 성향)이 던진다.
+// - 빈자리(질문 2403 답 D-582): governance_state.vacant_since_ms가 있으면 지배 가문·지도자가 없다.
+import { type HouseKey, isHouseKey } from "@terra/shared/governance";
 import type { NpcTraits } from "./npcVote.ts";
 import type { GovernanceNation, GovernancePort } from "./port.ts";
 import { parseHouseKey } from "./port.ts";
@@ -52,23 +56,28 @@ export function createElectorate(o: {
   readonly store: Pick<GovernanceStore, "playerHousesOf" | "headOf">;
 }) {
   const ruling = async (nation: GovernanceNation, state: StateRow | undefined): Promise<Ruling> => {
+    if (state?.vacantSinceMs !== null && state?.vacantSinceMs !== undefined)
+      return { key: null, leaderUser: null };
     const key = state?.rulingHouseKey ?? o.port.defaultRulingHouse(nation);
     const parsed = key === null ? undefined : parseHouseKey(key);
     const leaderUser = parsed && !parsed.npc ? ((await o.store.headOf(parsed.id)) ?? null) : null;
     return { key, leaderUser };
   };
 
-  /** 지배 쪽 지분 몫(‰ — D-344). 지분이 없으면 1000 */
+  /** 지배 쪽 지분 몫(‰ — D-344, 국고는 빼고 D-581 비례 나눔으로 센다). 지분이 없으면 1000, 국고만 있으면 0 */
   const rulingSharePm = (nation: GovernanceNation, rulingKey: HouseKey | null): number => {
     const holdings = o.port.holdingsOf(nation);
     const total = holdings.reduce((sum, row) => sum + row.amount, 0n);
     if (total === 0n) return 1000;
-    const sides = new Set<number>([nation.ownerId]);
-    const parsed = rulingKey === null ? undefined : parseHouseKey(rulingKey);
+    const treasuryKey = `o:${String(nation.ownerId)}`;
+    const others = total - (holdings.find((row) => row.holder === treasuryKey)?.amount ?? 0n);
+    if (others <= 0n || rulingKey === null) return 0;
+    const sides = new Set<string>([rulingKey]);
+    const parsed = parseHouseKey(rulingKey);
     const houseOwner = parsed && !parsed.npc ? o.port.ownerOfHouseRow(parsed.id) : undefined;
-    if (houseOwner !== undefined) sides.add(houseOwner);
-    const own = holdings.filter((row) => sides.has(row.owner)).reduce((sum, row) => sum + row.amount, 0n);
-    return Number((own * 1000n) / total);
+    if (houseOwner !== undefined && houseOwner !== nation.ownerId) sides.add(`o:${String(houseOwner)}`);
+    const own = holdings.filter((row) => sides.has(row.holder)).reduce((sum, row) => sum + row.amount, 0n);
+    return Number((own * 1000n) / others);
   };
 
   const electorate = async (nation: GovernanceNation): Promise<Electorate> => {
@@ -99,20 +108,42 @@ export function createElectorate(o: {
         });
     } else {
       const holdings = o.port.holdingsOf(nation);
-      const treasury = holdings.find((row) => row.owner === nation.ownerId)?.amount ?? 0n;
-      const others = holdings.filter((row) => row.owner !== nation.ownerId);
+      const treasuryKey = `o:${String(nation.ownerId)}`;
+      const treasury = holdings.find((row) => row.holder === treasuryKey)?.amount ?? 0n;
+      const others = holdings.filter((row) => row.holder !== treasuryKey);
       const othersTotal = others.reduce((sum, row) => sum + row.amount, 0n);
+      // NPC 가문 도시(가문 지분 계정의 NPC 규칙식 만족도)
+      const npcCity = new Map(o.port.npcHousesOf(nation).map((house) => [house.id, house.cityId]));
       for (const holding of others) {
-        const info = o.port.ownerInfo(holding.owner);
+        // D-581: 국고 지분의 의결권을 지분 비례로 더한다
+        const weight = holding.amount + (othersTotal > 0n ? (treasury * holding.amount) / othersTotal : 0n);
+        const house = parseHouseKey(holding.holder);
+        if (house && isHouseKey(holding.holder)) {
+          const head = house.npc ? undefined : await o.store.headOf(house.id);
+          if (!house.npc && head === undefined) continue;
+          const cityId = npcCity.get(house.id);
+          voters.push({
+            key: holding.holder,
+            weight,
+            userId: head ?? null,
+            npc: house.npc,
+            self: holding.holder,
+            satisfaction: house.npc && cityId !== undefined ? o.port.citySatisfaction(cityId) : undefined,
+            traits: house.npc ? nation.traits : NEUTRAL,
+            loyal: false,
+          });
+          continue;
+        }
+        const ownerId = Number(holding.holder.slice(2));
+        const info = o.port.ownerInfo(ownerId);
         if (!info) continue;
         const head =
           info.playerHouse && info.factionRow !== null ? await o.store.headOf(info.factionRow) : undefined;
         const userId = info.userId ?? head ?? null;
         if (userId === null && info.traits === null) continue;
         voters.push({
-          key: `o:${holding.owner}`,
-          // D-581: 국고 지분의 의결권을 지분 비례로 더한다
-          weight: holding.amount + (othersTotal > 0n ? (treasury * holding.amount) / othersTotal : 0n),
+          key: holding.holder,
+          weight,
           userId,
           npc: userId === null,
           self: null,

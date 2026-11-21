@@ -56,6 +56,20 @@ export function kgText(grams: number): string {
   return new Intl.NumberFormat(getLocale(), { maximumFractionDigits: 1 }).format(Math.max(0, grams) / 1000);
 }
 
+/**
+ * 줄의 단계 글: 건물로 가는 중이면 그 건물 이름을 붙인다(사용자 지적 2026-11-21 "건물 이름이 뜨지 않는다"). buildingName = 건물 ID → 이름(모르면 null)
+ */
+export function loopPhaseText(
+  loop: { readonly phase: GatherPhase; readonly buildingId: number | null },
+  buildingName: (buildingId: number) => string | null,
+): string {
+  if (loop.phase === "entering" && loop.buildingId !== null) {
+    const name = buildingName(loop.buildingId);
+    if (name) return m.gather_phase_entering_named({ building: name });
+  }
+  return phaseText(loop.phase);
+}
+
 export function phaseText(phase: GatherPhase): string {
   switch (phase) {
     case "to_object":

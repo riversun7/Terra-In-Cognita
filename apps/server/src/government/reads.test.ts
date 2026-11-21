@@ -146,6 +146,24 @@ describe("지배 가문·가문 이동 정책(질문 2012·2018 답)", () => {
       house: { name: "Dawn", npc: false },
     });
   });
+  it("선출로 NPC 나라를 이끄는 플레이어 가문(governance-2, 질문 2406 가): 지도자 = 그 가문장, NPC 지도자 유닛은 보이지 않는다", async () => {
+    const base = source();
+    const reads = createGovernmentReads({
+      ...base,
+      runtime: () => {
+        const runtime = base.runtime();
+        if (!runtime) return undefined;
+        return { ...runtime, rulingPlayerHouseOf: () => 7 };
+      },
+      houseLeader: async (row) => (row === 7 ? { unitId: 902, name: "Bora", house: "Dusk" } : undefined),
+    });
+    const answer = await reads.government(viewer, 10, NOW);
+    expect(answer.leader).toMatchObject({
+      unitId: 902,
+      name: { ko: "Bora", en: "Bora" },
+      house: { name: "Dusk", npc: false },
+    });
+  });
 });
 
 describe("world.government", () => {

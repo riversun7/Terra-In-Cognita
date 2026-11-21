@@ -63,6 +63,11 @@ const nationTaxResultMessage = z.discriminatedUnion("ok", [
     ok: z.literal(true),
     /** 정한 나라(세력 행 ID) */
     factionId: rowId,
+    /**
+     * 바로 정하지 않고 세율 안건을 열었으면 그 안건 ID(질문 2407 가 — 민주주의·자본주의에서 폭이 설정 칸 이상, 프로토콜 58(묶음 1116x, 줄기 판 98)부터). 없으면 바로 정함.
+     * 더 낮은 판 기기는 이 칸을 모른 채 받는다(정함으로 보인다)
+     */
+    agendaId: rowId.optional(),
   }),
   z.object({
     t: z.literal("nation_tax_result"),

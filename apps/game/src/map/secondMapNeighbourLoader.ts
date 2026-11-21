@@ -12,6 +12,10 @@ import {
   wantedDirections,
 } from "./secondMapNeighbours.ts";
 
+/** 못 받은 이웃을 다시 바랄 수 있게 되기까지(ms)와 다시 해 보는 횟수 상한(사용자 지적 2026-11-21 회색 2차맵 — 전에는 다시 묻지 않았다) */
+export const NEIGHBOUR_RETRY_MS = 8_000;
+export const NEIGHBOUR_TRIES = 3;
+
 export interface NeighbourLoaderOptions {
   mapKey: number;
   /** true면 지금 2차맵 지형이 오자마자 이웃을 모두 받는다(개발자 3×3 이어 보기) */
@@ -48,6 +52,9 @@ export function createNeighbourLoader(options: NeighbourLoaderOptions): Neighbou
   const spots = neighbourSpots(options.mapKey);
   const loaded = new Map<number, NeighbourTerrain>();
   const requested = new Set<number>();
+  /** 이웃마다 받기 시도 수(실패해도 NEIGHBOUR_TRIES까지는 NEIGHBOUR_RETRY_MS 뒤 다시 바랄 수 있다) */
+  const tries = new Map<number, number>();
+  const timers = new Set<ReturnType<typeof setTimeout>>();
   let mainUrl: string | null = null;
   let mapSizeM = 0;
   let generation = 0;
@@ -61,6 +68,7 @@ export function createNeighbourLoader(options: NeighbourLoaderOptions): Neighbou
     const url = neighbourTerrainUrl(mainUrl, spot.key);
     if (!url) return;
     requested.add(spot.key);
+    tries.set(spot.key, (tries.get(spot.key) ?? 0) + 1);
     const mine = generation;
     options
       .fetchTerrain(url)
@@ -71,7 +79,13 @@ export function createNeighbourLoader(options: NeighbourLoaderOptions): Neighbou
         options.onChange?.(loaded.size);
       })
       .catch(() => {
-        // 못 받은 이웃은 그리지 않는다(볼 수 없는 이웃·네트워크). 다음 판 표지에서 다시 해 본다
+        // 못 받은 이웃은 그리지 않는다(볼 수 없는 이웃·네트워크). 잠시 뒤 다시 바랄 수 있게 한다(다음 onView·want가 다시 받는다)
+        if (stopped || mine !== generation || (tries.get(spot.key) ?? 0) >= NEIGHBOUR_TRIES) return;
+        const timer = setTimeout(() => {
+          timers.delete(timer);
+          if (!stopped && mine === generation) requested.delete(spot.key);
+        }, NEIGHBOUR_RETRY_MS);
+        timers.add(timer);
       });
   };
 
@@ -103,6 +117,7 @@ export function createNeighbourLoader(options: NeighbourLoaderOptions): Neighbou
       if (changed) {
         generation += 1;
         requested.clear();
+        tries.clear();
         if (loaded.size > 0) {
           loaded.clear();
           void options.setNeighbours([]);
@@ -134,6 +149,8 @@ export function createNeighbourLoader(options: NeighbourLoaderOptions): Neighbou
     terrains: () => new Map([...loaded].map(([key, item]) => [key, item.terrain])),
     stop() {
       stopped = true;
+      for (const timer of timers) clearTimeout(timer);
+      timers.clear();
     },
   };
 }

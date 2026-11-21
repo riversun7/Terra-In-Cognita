@@ -7,9 +7,11 @@
 //   시장 급여·유지비(D-252)는 생기면 더한다(D-444 166).
 // - 남은 이익: 자본주의 = 지분 비례(국고가 가진 몫은 국고에 남는다, D-298), 독재 = 지분 비례이고 국고가 가진 몫은 지배 가문
 //   금고로(D-338, 충성 지분을 받은 가문 D-349는 지분대로), 민주주의 = 국고(지분과 별개, D-304).
+// - 가문 지분 계정(서버만 — shares.ts houseHoldingsOf, D-338 "독재 나라 도시의 주식 = 지배 가문 계정")의 몫은 그 가문 돈 금고(vault:house:<가문 꼬리><자산>)로
+//   간다(체제와 상관없이 그 가문이 가진 주주 몫). 시뮬은 가문 계정이 없어 결과 그대로다.
 // 이 파일은 계산과 이체만 한다. 이자 소각 자체는 화폐 발행 쪽(중앙은행 centralBank.ts)이 날마다 하고, 부르는 쪽이 그 양을 넘긴다.
 import type { LedgerBook, LedgerEntry } from "../ledger/ledgerBook.ts";
-import { type Regime, holdingsOf } from "./shares.ts";
+import { type Regime, holdingsOf, houseHoldingsOf, houseMoneyCode } from "./shares.ts";
 
 export interface CityRevenue {
   readonly city: number;
@@ -103,7 +105,9 @@ export function payCityProfit(book: LedgerBook, p: CityProfitPayment): bigint {
   const balance = book.balanceOf(p.treasury, p.asset);
   const total = min(p.profit, balance);
   const holdings = holdingsOf(book, p.city);
-  const shares = holdings.reduce((sum, h) => sum + h.amount, 0n);
+  const houses = houseHoldingsOf(book, p.city);
+  const shares =
+    holdings.reduce((sum, h) => sum + h.amount, 0n) + houses.reduce((sum, h) => sum + h.amount, 0n);
   if (shares === 0n || total <= 0n) return 0n;
   const parts = new Map<number, bigint>();
   let vaultPart = 0n;
@@ -125,9 +129,18 @@ export function payCityProfit(book: LedgerBook, p: CityProfitPayment): bigint {
     entries.push({ account: book.ownerAccount(owner, p.asset), amount: part });
     paid += part;
   }
-  if (vaultPart > 0n && p.rulingAccount !== undefined) {
-    entries.push({ account: p.rulingAccount, amount: vaultPart });
-    paid += vaultPart;
+  // 가문 지분 계정 몫 → 그 가문 돈 금고(지배 가문 금고와 같은 계정이면 한 줄로 모은다)
+  const vaults = new Map<number, bigint>();
+  if (vaultPart > 0n && p.rulingAccount !== undefined) vaults.set(p.rulingAccount, vaultPart);
+  for (const h of houses) {
+    const part = (total * h.amount) / shares;
+    if (part <= 0n) continue;
+    const account = book.systemAccount(houseMoneyCode(h.house, p.asset), p.asset);
+    vaults.set(account, (vaults.get(account) ?? 0n) + part);
+  }
+  for (const [account, part] of vaults) {
+    entries.push({ account, amount: part });
+    paid += part;
   }
   if (paid === 0n) return 0n;
   entries.push({ account: book.ownerAccount(p.treasury, p.asset), amount: -paid });

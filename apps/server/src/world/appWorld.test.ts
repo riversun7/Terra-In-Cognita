@@ -187,12 +187,16 @@ describe("지형 파일 경로", () => {
     expect(gunzipSync(zipped.rawPayload).equals(res.rawPayload)).toBe(true);
   });
 
-  it("버전이 다르거나 없는 2차맵·숫자가 아닌 키는 404", async () => {
+  it("판 표지가 다르면 그 2차맵 지금 판 주소로 넘긴다(307, 저장 안 함). 표지 없음·없는 2차맵·숫자가 아닌 키는 404", async () => {
     const server = await makeApp({ viewer: ADMIN });
     const get = (path: string) => server.inject({ method: "GET", url: path });
-    expect((await get(terrainPath(S1_TEST_MAP_KEY, 2))).json()).toEqual({
-      error: "TERRAIN_VERSION_NOT_FOUND",
-    });
+    // 고정본 2차맵과 생성기 2차맵은 판 표지가 다를 수 있다 — 이웃 지형을 지금 2차맵 표지로 물어도 받게 한다(사용자 지적 2026-11-21 회색 2차맵)
+    const moved = await get(terrainPath(S1_TEST_MAP_KEY, 2));
+    expect(moved.statusCode).toBe(307);
+    expect(moved.headers["cache-control"]).toBe("no-store");
+    const location = String(moved.headers.location);
+    expect(location).toMatch(new RegExp(`^/api/maps/${S1_TEST_MAP_KEY}/terrain\\?v=`));
+    expect((await get(location)).statusCode).toBe(200);
     expect((await get(`/api/maps/${S1_TEST_MAP_KEY}/terrain`)).statusCode).toBe(404);
     expect((await get(terrainPath(12345, 1))).json()).toEqual({ error: "MAP_NOT_FOUND" });
     expect((await get("/api/maps/abc/terrain?v=1")).statusCode).toBe(404);

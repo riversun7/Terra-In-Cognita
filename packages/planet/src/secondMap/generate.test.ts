@@ -24,14 +24,15 @@ const MAPS = {
 } as const;
 
 /**
- * 골든 해시(SECOND_MAP_GENERATOR_VERSION 1, 행성 생성기 출력 판 3, S2 시험 행성 F6, 시험 소품 규칙 = 팩 map_props 사본).
+ * 골든 해시(SECOND_MAP_GENERATOR_VERSION 2, 행성 생성기 출력 판 3, S2 시험 행성 F6, 시험 소품 규칙 = 팩 map_props 사본).
+ * 2판(2026-11-21 강 폭·여울, rivers.ts): 강이 있는 river·lake만 바뀌고 desert·ocean·coast는 1판과 같다
  * 2026-11-12 소품 규칙(팩 core@77 지형별 장식·물 위 소품, 기획 D-536)이 바뀌어 고쳤다 — 생성기 코드는 앞 규칙에서 같은 해시를 낸다(작업 기록)
  * 2026-11-14 작은 섬(islet)을 팩에서 지워(core@92) 호수·해안이 바뀌었다 — 바뀐 칸은 작은 섬이 있던 물 칸뿐이다(작업 기록)
  */
 const GOLDEN: Record<keyof typeof MAPS, string> = {
   desert: "d818ec09",
-  river: "0f227059",
-  lake: "1d84dcaf",
+  river: "5e83a2ec",
+  lake: "777b4580",
   ocean: "e69e35a6",
   coast: "46165490",
 };
@@ -47,7 +48,7 @@ const wetShare = (heights: Int32Array, levels: Int32Array): number => {
 
 describe("2차맵 생성기", () => {
   it("골든 해시", () => {
-    expect(SECOND_MAP_GENERATOR_VERSION).toBe(1);
+    expect(SECOND_MAP_GENERATOR_VERSION).toBe(2);
     const hashes = Object.fromEntries(
       Object.entries(MAPS).map(([name, key]) => [name, generateSecondMap(values, key, rules).hash]),
     );

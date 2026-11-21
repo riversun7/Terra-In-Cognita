@@ -1,0 +1,179 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "13002149-32f1-42b0-b099-24026612317f",
+  "prevIds": [
+    "6429529b-49e0-4cd0-ab48-8bf2fd73fba0",
+    "8ba706b5-4e3d-4b0c-bb3d-742111c9a039",
+    "74cfa5b9-26db-4497-a517-6d62ca86c3f7"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "governance_share_fixups"
+      ],
+      "writes": [
+        "s|tbl|public.governance_share_fixups",
+        "n|tbl|public.governance_share_fixups",
+        "e|tbl|public.governance_share_fixups",
+        "n|rel|public.governance_share_fixups",
+        "n|type|public.governance_share_fixups",
+        "n|rel|public.governance_share_fixups_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "governance_state",
+        "vacant_since_ms"
+      ],
+      "writes": [
+        "s|col|public.governance_state.vacant_since_ms",
+        "n|col|public.governance_state.vacant_since_ms",
+        "e|col|public.governance_state.vacant_since_ms"
+      ],
+      "reads": [
+        "n|tbl|public.governance_state",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "alter_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "governance_agendas"
+      ],
+      "writes": [
+        "s|ck|public.governance_agendas.governance_agendas_kind"
+      ],
+      "reads": [
+        "n|tbl|public.governance_agendas",
+        "n|sch|public",
+        "n|col|public.governance_agendas.kind",
+        "e|col|public.governance_agendas.kind"
+      ],
+      "sqlHash": "eb901fcb0a5e2ab7"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "governance_share_fixups",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_share_fixups",
+        "name": "city_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_share_fixups",
+        "name": "house_key",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_share_fixups",
+        "name": "shares",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_share_fixups",
+        "name": "done_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_state",
+        "name": "vacant_since_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_share_fixups",
+        "name": "governance_share_fixups_pkey",
+        "columns": [
+          "city_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "checks\u0000[\"public\",\"governance_agendas\",\"governance_agendas_kind\"]",
+      "set": {
+        "value": "\"kind\" in ('leader_election', 'leader_removal', 'regime_change', 'war_declaration', 'tax_change')"
+      }
+    }
+  ]
+}

@@ -29,7 +29,8 @@ export const NO_SELECTION: SelectionState = { own: false, moving: false };
 /** 넓은 화면(데스크톱)인가 — 목록을 펼친 채 열고, 줄을 골라도 접지 않는다(기획 60 §2.4 "지도 옆에 유닛 목록") */
 export const wideScreen = (): boolean => window.matchMedia("(min-width: 64em)").matches;
 
-export function commandText(notice: CommandNotice): string {
+/** labelOf = 유닛 이름(아래 안내 줄과 같은 이름 — 사용자 지적 2026-11-21 "조센징, 내사이보그, 유닛 2892 제각각") */
+export function commandText(notice: CommandNotice, labelOf: (unitId: number) => string): string {
   switch (notice.kind) {
     case "view_only":
       return m.map_view_only();
@@ -39,21 +40,21 @@ export function commandText(notice: CommandNotice): string {
       return selectionText({ kind: "hold", hold: notice.hold }, notice.label, 0, false);
     case "sent":
       return notice.action === "stop"
-        ? m.map_command_stop_sent({ id: notice.unitId })
-        : m.map_command_sent({ id: notice.unitId });
+        ? m.map_command_stop_sent({ unit: labelOf(notice.unitId) })
+        : m.map_command_sent({ unit: labelOf(notice.unitId) });
     case "result": {
       const { outcome, unitId, action } = notice.report;
       if (action === "stop") {
-        if (outcome.ok) return m.map_command_stopped({ id: unitId });
-        return `${m.map_command_stop_failed({ id: unitId })} ${resultText(outcome.code)}`;
+        if (outcome.ok) return m.map_command_stopped({ unit: labelOf(unitId) });
+        return `${m.map_command_stop_failed({ unit: labelOf(unitId) })} ${resultText(outcome.code)}`;
       }
-      if (outcome.ok) return m.map_command_ok({ id: unitId });
-      return `${m.map_command_failed({ id: unitId })} ${resultText(outcome.code)}`;
+      if (outcome.ok) return m.map_command_ok({ unit: labelOf(unitId) });
+      return `${m.map_command_failed({ unit: labelOf(unitId) })} ${resultText(outcome.code)}`;
     }
     case "travel":
-      if (notice.outcome === null) return m.map_command_sent({ id: notice.unitId });
-      if (notice.outcome.ok) return m.map_travel_sent({ id: notice.unitId });
-      return `${m.map_command_failed({ id: notice.unitId })} ${travelProblemText(notice.outcome.code)}`;
+      if (notice.outcome === null) return m.map_command_sent({ unit: labelOf(notice.unitId) });
+      if (notice.outcome.ok) return m.map_travel_sent({ unit: labelOf(notice.unitId) });
+      return `${m.map_command_failed({ unit: labelOf(notice.unitId) })} ${travelProblemText(notice.outcome.code)}`;
     default: {
       const unhandled: never = notice;
       return unhandled;

@@ -10,6 +10,7 @@ export const AGENDA_KIND_TEXT = {
   leader_removal: m.gov_kind_leader_removal,
   regime_change: m.gov_kind_regime_change,
   war_declaration: m.gov_kind_war_declaration,
+  tax_change: m.gov_kind_tax_change,
 } satisfies Record<AgendaKind, Text>;
 
 export const AGENDA_STATUS_TEXT = {

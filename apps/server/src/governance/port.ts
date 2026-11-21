@@ -4,11 +4,14 @@
 // - 지분 = 그 나라 모든 도시의 도시 지분(원장 자산 share_<도시 ID>, D-130·D-293 — 질문 2356 가) 주체마다 합.
 // - 처음 지배 가문 = NPC 나라는 수도에서 처음 세운 NPC 가문(D-574 10, npc/cityHouses.ts rulingHouseOf), 플레이어 가문 나라는 그 가문.
 // - 체제를 바꾸면 거울 세계 세력의 regime을 바꾸고 세력 행을 바로 쓰기 대기열에 넣는다(npc/houseRuntime.ts flush — 다음 틱 저장을 기다리지 않음).
+// - 바뀜(governance-2): 지분 = 주체 계정(o:<주체>)과 가문 지분 계정(p:/n: — houseShares.ts, D-338·D-582). 의결이 정한 지배 가문을 NPC 런타임에 알린다
+//   (applyRuling → npc/cityHouses.ts setRuling, 질문 2406). 국고 지분 → 가문 계정 옮기기(moveTreasuryShares — 독재 D-338·자본주의 처음 지분 D-582).
 // - 선전포고는 세력·사회 규칙의 declareWar(무명분 비용 포함 — NPC와 같은 길)를 부르고 런타임 틱을 한 번 밀어 전쟁 줄을 저장한다.
 import { type GovernanceRegime, type HouseKey, isHouseKey } from "@terra/shared/governance";
-import { SATISFACTION_MAX_MILLI, holdingsOf } from "@terra/sim";
+import { SATISFACTION_MAX_MILLI, holdingsOf, houseHoldingsOf } from "@terra/sim";
 import { houseTiesOf } from "../world/houseTies.ts";
 import type { World } from "../world/world.ts";
+import { houseKeyOfTail, treasurySharesToHouse } from "./houseShares.ts";
 import type { NpcTraits } from "./npcVote.ts";
 
 export interface GovernanceNation {
@@ -22,6 +25,12 @@ export interface GovernanceNation {
   readonly regime: GovernanceRegime;
   readonly traits: NpcTraits;
   readonly cities: readonly number[];
+}
+
+/** 지분 한 줄: holder = o:<소유 주체> | p:<플레이어 가문 행> | n:<NPC 가문 ID>(가문 지분 계정) */
+export interface GovernanceHolding {
+  readonly holder: string;
+  readonly amount: bigint;
 }
 
 export interface GovernanceOwner {
@@ -46,8 +55,21 @@ export interface GovernancePort {
   npcHousesOf(nation: GovernanceNation): readonly { readonly id: number; readonly cityId: number }[];
   /** 도시 휴먼 평균 만족도(0~100). 휴먼이 없으면 undefined */
   citySatisfaction(cityId: number): number | undefined;
-  /** 그 나라 모든 도시 지분의 주체별 합(주체 ID 차례) */
-  holdingsOf(nation: GovernanceNation): readonly { readonly owner: number; readonly amount: bigint }[];
+  /** 그 나라 모든 도시 지분의 주체·가문별 합(주체 ID 차례 → 가문 열쇠 차례) */
+  holdingsOf(nation: GovernanceNation): readonly GovernanceHolding[];
+  /** 의결이 정한 지배 가문을 NPC 런타임에 알린다(NPC 나라만 — null = 처음 규칙, "vacant" = 빈자리) */
+  applyRuling(nation: GovernanceNation, ruling: HouseKey | "vacant" | null): void;
+  /** 그 도시들의 국고 지분을 그 가문 계정으로(도시마다 옮긴 주 수) */
+  moveTreasuryShares(
+    nation: GovernanceNation,
+    cities: readonly number[],
+    key: HouseKey,
+    nowMs: number,
+  ): readonly { readonly cityId: number; readonly amount: bigint }[];
+  /** 그 도시를 처음 세운 NPC 가문(그 도시에서 먼저 세운 가문, D-575 — 없으면 undefined) */
+  founderOf(cityId: number): number | undefined;
+  /** 그 나라 수도 도시 */
+  capitalOf(nation: GovernanceNation): number | undefined;
   ownerInfo(ownerId: number): GovernanceOwner | undefined;
   /** 그 가문 세력 행의 소유 주체(도시를 가진 가문). 없으면 undefined */
   ownerOfHouseRow(rowId: number): number | undefined;
@@ -145,14 +167,38 @@ export function worldGovernancePort(world: () => GovernanceWorld | undefined): G
       const l = live();
       if (!l) return [];
       const sums = new Map<number, bigint>();
-      for (const cityId of nation.cities)
+      const houses = new Map<string, bigint>();
+      for (const cityId of nation.cities) {
         for (const holding of holdingsOf(l.npc.world.book, cityId))
           sums.set(holding.owner, (sums.get(holding.owner) ?? 0n) + holding.amount);
-      return [...sums]
-        .map(([owner, amount]) => ({ owner, amount }))
-        .filter((row) => row.amount > 0n)
-        .toSorted((a, b) => a.owner - b.owner);
+        for (const holding of houseHoldingsOf(l.npc.world.book, cityId)) {
+          const key = houseKeyOfTail(holding.house);
+          if (key) houses.set(key, (houses.get(key) ?? 0n) + holding.amount);
+        }
+      }
+      return [
+        ...[...sums]
+          .filter(([, amount]) => amount > 0n)
+          .toSorted((a, b) => a[0] - b[0])
+          .map(([owner, amount]) => ({ holder: `o:${String(owner)}`, amount })),
+        ...[...houses]
+          .filter(([, amount]) => amount > 0n)
+          .toSorted((a, b) => (a[0] < b[0] ? -1 : 1))
+          .map(([holder, amount]) => ({ holder, amount })),
+      ];
     },
+    applyRuling(nation, ruling) {
+      const l = live();
+      if (!l || nation.playerHouse) return;
+      const parsed = ruling === null || ruling === "vacant" ? undefined : parseHouseKey(ruling);
+      l.npc.cityHouses.setRuling(nation.ownerId, ruling === "vacant" ? "vacant" : parsed);
+    },
+    moveTreasuryShares(nation, cities, key, nowMs) {
+      const l = live();
+      return l ? treasurySharesToHouse(l.npc.world.book, cities, nation.ownerId, key, nowMs) : [];
+    },
+    founderOf: (cityId) => live()?.npc.cityHouses.housesOfCity(cityId)[0],
+    capitalOf: (nation) => live()?.npc.capitalOf(nation.ownerId),
     ownerInfo(ownerId) {
       const l = live();
       const row = l?.persistence.owners.get(ownerId);

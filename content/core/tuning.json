@@ -14676,6 +14676,96 @@
         "en": "NPC houses and shareholders vote for war if their nation's aggression trait is at least this, otherwise against."
       },
       "source": "질문 2361 나안 · D-554 · ADR 2026-11-21-governance"
+    },
+    {
+      "id": "gov_npc_run_score",
+      "code": "",
+      "name": {
+        "ko": "NPC 후보: 출마 점수 문턱",
+        "en": "NPC candidacy: run score threshold"
+      },
+      "value": 20,
+      "structural": false,
+      "unit": "points",
+      "min": -1000,
+      "max": 1000,
+      "desc": {
+        "ko": "현직이 아닌 NPC 가문은 선출이 열릴 때 출마 점수(그 가문 도시 만족도가 현직 편 문턱보다 낮은 만큼 × 2 + 공격 성향 − 신앙 성향, 각 −50~50)가 이 값 이상이면 후보로 나선다.",
+        "en": "A non-incumbent NPC house runs when an election opens if its run score (twice how far its city's satisfaction is below the incumbent threshold, plus aggression minus faith, each -50 to 50) is at least this."
+      },
+      "source": "질문 2404 나 · D-323 · D-555 1509 · ADR 2026-11-21-governance"
+    },
+    {
+      "id": "gov_npc_run_max",
+      "code": "",
+      "name": {
+        "ko": "NPC 후보: 선출마다 도전자 수 상한",
+        "en": "NPC candidacy: challengers per election"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 10,
+      "desc": {
+        "ko": "한 선출에 스스로 나서는 도전자 NPC 가문 수(점수 높은 차례). 0이면 NPC 도전자가 없다(현직 NPC 지배 가문은 늘 나선다).",
+        "en": "How many challenger NPC houses run in one election (highest score first). 0 means no NPC challengers (an incumbent NPC ruling house always runs)."
+      },
+      "source": "질문 2404 나 · D-580 7 · ADR 2026-11-21-governance"
+    },
+    {
+      "id": "gov_vacancy_split_ms",
+      "code": "",
+      "name": {
+        "ko": "지도자 빈자리 기간: 독립 투표까지(ms)",
+        "en": "Leader vacancy: time until independence votes (ms)"
+      },
+      "value": 1209600000,
+      "structural": false,
+      "unit": "ms",
+      "min": 86400000,
+      "max": 7776000000,
+      "desc": {
+        "ko": "해임 뒤 다시 뽑기가 실패해 지도자 자리가 빈 채 이만큼 지나면 도시마다 독립 투표로 나라가 갈라질 수 있다. 가르는 절차는 아직 정해지지 않아 지금은 쓰지 않는다.",
+        "en": "If the leader seat stays vacant this long after a failed re-election, cities may vote on independence. The split procedure is not decided yet, so this is not used now."
+      },
+      "source": "질문 2403 답 D-582 · D-302 · ADR 2026-11-21-governance"
+    },
+    {
+      "id": "gov_coup_satisfaction_drop",
+      "code": "",
+      "name": {
+        "ko": "군사 쿠데타 만족도 감소(점)",
+        "en": "Military coup satisfaction drop (points)"
+      },
+      "value": 30,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100,
+      "desc": {
+        "ko": "군사 쿠데타가 이기면 그 나라 휴먼 만족도가 이만큼 떨어진다. 쿠데타를 일으키는 길은 아직 없다.",
+        "en": "Satisfaction drop for the nation's humans when a military coup wins. There is no way to launch a coup yet."
+      },
+      "source": "질문 2401 답 D-582 · D-293 · ADR 2026-11-21-governance"
+    },
+    {
+      "id": "gov_tax_agenda_width_pm",
+      "code": "",
+      "name": {
+        "ko": "세율 안건 폭(‰)",
+        "en": "Tax change agenda width (‰)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "pm",
+      "min": 1,
+      "max": 1000,
+      "desc": {
+        "ko": "민주주의·자본주의 나라에서 지도자가 나라 세율 칸 하나라도 한 번에 이만큼 이상 바꾸면 바로 정하지 않고 세율 안건(투표)을 연다. 아래면 지도자가 바로 정한다. 소득세는 만분율 ÷ 10으로 견준다.",
+        "en": "In democracies and capitalist nations, if the leader changes any nation tax field by at least this much at once, a tax agenda (vote) opens instead of applying it. Smaller changes apply directly. Income tax is compared as basis points ÷ 10."
+      },
+      "source": "질문 2407 가 · D-5057 · ADR 2026-11-21-governance"
     }
   ]
 }

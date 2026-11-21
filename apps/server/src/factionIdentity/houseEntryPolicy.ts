@@ -4,6 +4,8 @@
 // - 도시 정책(city_policies): 그 도시를 가진 가문(world_cities.faction_id = 가문 행)의 가문장만 정한다(도시 주인). 봉신 가문 도시도 된다.
 // - 나라 정책(factions.house_entry_fee): 그 나라의 지도자 = 지배 가문의 장(D-217·질문 2012 답). 플레이어 나라는 도시를 가진 독립 가문(위 세력 없음)
 //   이라 그 가문장이 정한다. NPC 나라는 정하는 사람이 없고 성향 규칙식(@terra/sim npcHouseEntryFee — 정하지 않은 값 null일 때 읽을 때 셈).
+// - 바뀜(governance-2, 질문 2406 — 기획 대조: 선출된 지배 가문이 나라 정책도 정한다, D-217·D-221): 의결(governance_state)로 NPC 나라의 지배 가문이 된 플레이어
+//   가문의 가문장도 그 나라 정책을 정한다(electedNationOf).
 // - 값: 가문원마다 + 가입비 / − 지원금(최소 단위), null = 정하지 않음(도시는 나라 정책을, 플레이어 나라는 0을 따른다). 매기는 곳은 houseEntry.ts.
 // - 감사 기록 faction.house_entry_policy(자리·도시·앞뒤 값). 가문원 소식은 없다(옮길 때 공고 칸이 값을 보인다).
 import type { GovernmentHouseEntry } from "@terra/shared/government";
@@ -41,6 +43,18 @@ export async function ruledBy(
     cities: new Set(rows.map((row) => Number(row.id))),
     nation: rows.length > 0 && rows.every((row) => row.parent_id === null),
   };
+}
+
+/** 의결로 그 가문이 지배 가문이 된 나라(세력 행 — 해산하지 않은 나라). 없으면 undefined */
+export async function electedNationOf(q: IdentityQueryable, houseId: number): Promise<number | undefined> {
+  const { rows } = await q.query<{ nation_id: string }>(
+    `select s.nation_id from governance_state s join factions f on f.id = s.nation_id
+      where s.ruling_house_key = $1 and s.vacant_since_ms is null and f.dissolved_at_ms is null
+      order by s.nation_id limit 1`,
+    [`p:${String(houseId)}`],
+  );
+  const id = rows[0]?.nation_id;
+  return id === undefined ? undefined : Number(id);
 }
 
 const fail = (code: Extract<HouseMemberResult, { ok: false }>["code"]): HouseMemberResult => ({
@@ -90,17 +104,19 @@ export function createHouseEntryPolicy(o: {
             after: request.fee,
           };
         } else {
-          if (!ruled.nation) return fail("not_ruler");
+          const nationId = ruled.nation ? mine.factionId : await electedNationOf(q, mine.factionId);
+          if (nationId === undefined) return fail("not_ruler");
           const before = await q.query<{ house_entry_fee: string | null }>(
             "select house_entry_fee::text as house_entry_fee from factions where id = $1",
-            [mine.factionId],
+            [nationId],
           );
           await q.query("update factions set house_entry_fee = $2 where id = $1", [
-            mine.factionId,
+            nationId,
             fee === null ? null : fee.toString(),
           ]);
           audit = {
             factionId: mine.factionId,
+            nationId,
             scope: "nation",
             before: before.rows[0]?.house_entry_fee ?? null,
             after: request.fee,
@@ -141,12 +157,14 @@ export async function readHouseEntryPolicy(
     ),
   ]);
   const ruled = mine?.role === "leader" ? await ruledBy(q, mine.factionId) : null;
+  const elected =
+    mine?.role === "leader" && !ruled?.nation ? await electedNationOf(q, mine.factionId) : undefined;
   return {
     city: own.rows[0]?.house_entry_fee ?? null,
     nation: nation.terms.toString(),
     nationSource: nation.source === "nation" ? "leader" : nation.source === "npc" ? "npc" : "none",
     canSetCity: ruled?.cities.has(input.cityId) === true,
-    canSetNation: ruled?.nation === true && mine?.factionId === city.nationId,
+    canSetNation: (ruled?.nation === true && mine?.factionId === city.nationId) || elected === city.nationId,
     // 같은 나라 다른 가문의 짓기(D-574 2124 — 가문 도시만, 정하는 사람 = canSetCity). NPC 나라 도시는 칸이 없다
     ...(owner.rows[0]?.kind === "player"
       ? { build: { city: own.rows[0]?.house_build ?? null, fallback: input.rules.cityBuildDefault } }

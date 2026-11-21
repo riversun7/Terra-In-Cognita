@@ -251,3 +251,44 @@ describe("도시 건설 투자 → 사업장 금고(house-10 — 기획 대조 2
     expect(book.balanceOf(5, ASSET)).toBe(1200n);
   });
 });
+
+describe("선출된 플레이어 지배 가문(governance-2, 질문 2406)", () => {
+  it("NPC 나라의 지배 가문이 플레이어 가문이면 남은 이익 국고 몫은 그 가문 금고로, NPC 돌려보내기는 하지 않는다", () => {
+    let accountId = 0;
+    let txId = 0;
+    const book = createLedgerBook({ nextAccountId: () => ++accountId, nextTxId: () => ++txId });
+    const base: SimHooks = {
+      treasuryAsset: () => ASSET,
+      beforeCityTransfer: () => {},
+      factionBorn: () => {},
+      factionDied: () => {},
+    };
+    const hooks = withNpcRulingVault(base, {
+      ledger: book,
+      rulingHouseOf: () => undefined,
+      rulingPlayerHouseOf: (owner) => (owner === 5 ? 77 : undefined),
+      rule: () => ({ traitMin: 0, traitMax: 1000, minPm: 300, maxPm: 900 }),
+    });
+    const faction = newFaction(5, "fake_nation", {
+      fixed: true,
+      tech: 0,
+      regime: "dictatorship",
+      settledAtMs: 0,
+      traits: { aggression: 500, commerce: 500, faith: 500, station: 500 },
+    });
+    const account = hooks.rulingVaultOf?.(faction, ASSET);
+    expect([...book.accounts()].find((a) => a.id === account)?.systemCode).toBe("vault:house:77:credit");
+    const issue = book.systemAccount("issue:test", ASSET);
+    book.post({
+      kind: "issue",
+      atMs: 0,
+      entries: [
+        { account: issue, amount: -1000n },
+        { account: account ?? 0, amount: 1000n },
+      ],
+    });
+    hooks.rulingVaultPaid?.(faction, ASSET, 10);
+    expect(book.balance(account ?? 0)).toBe(1000n);
+    expect(book.balanceOf(5, ASSET)).toBe(0n);
+  });
+});

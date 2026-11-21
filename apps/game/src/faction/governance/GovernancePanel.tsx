@@ -91,6 +91,15 @@ function AgendaCard({
             {m.gov_regime_target({ regime: REGIME_NAMES[agenda.targetRegime]() })}
           </p>
         ) : null}
+        {agenda.taxes ? (
+          <p className="gov-agenda-target">
+            {m.gov_tax_target({
+              income:
+                agenda.taxes.incomeTaxBp === null ? "—" : `${(agenda.taxes.incomeTaxBp / 100).toFixed(2)}%`,
+              resident: agenda.taxes.residentTaxPm === null ? "—" : `${agenda.taxes.residentTaxPm}‰`,
+            })}
+          </p>
+        ) : null}
         {agenda.targetNation ? (
           <p className="faction-vote-detail">
             {m.gov_war_target({ nation: nationText(agenda.targetNation) })}

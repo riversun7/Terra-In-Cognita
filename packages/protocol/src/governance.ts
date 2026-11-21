@@ -5,18 +5,23 @@
 // - gov_candidate: 열린 선출 안건에 내 가문을 후보로 등록한다(2358 가 — 등록 기간 안).
 // 결과는 gov_result 하나로 온다(id = 요청 id). 조회는 tRPC governance.view. 이 꾸러미는 다른 내부 꾸러미를 가져오지 않는다.
 import { z } from "zod";
+import { NATION_TAX_LIMITS } from "./nationTax.ts";
 
 /** 나라 의결 메시지에 필요한 가장 낮은 프로토콜 버전(묶음 1116v, 줄기 판 94) */
 export const GOVERNANCE_PROTOCOL_VERSION = 56;
 
 const requestId = z.number().int().nonnegative().max(0xffff_ffff);
 const rowId = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
+const taxField = (range: { readonly min: number; readonly max: number }) =>
+  z.number().int().min(range.min).max(range.max).nullable();
 
 export const GOVERNANCE_AGENDA_KINDS = [
   "leader_election",
   "leader_removal",
   "regime_change",
   "war_declaration",
+  /** 세율 크게 바꾸기(질문 2407 가 — 프로토콜 58(묶음 1116x, 줄기 판 98)부터, taxes 칸) */
+  "tax_change",
 ] as const;
 export const GOVERNANCE_MESSAGE_REGIMES = ["dictatorship", "democracy", "capitalism"] as const;
 
@@ -30,6 +35,15 @@ export const govProposeMessage = z.object({
   regime: z.enum(GOVERNANCE_MESSAGE_REGIMES).optional(),
   /** 선전포고 상대 나라(세력 행 ID — 선전포고만) */
   targetNationId: rowId.optional(),
+  /** 세율 안건이 바꾸려는 나라 세금(세율 안건만 — nation_tax와 같은 칸, null = 정하지 않음) */
+  taxes: z
+    .object({
+      incomeTaxBp: taxField(NATION_TAX_LIMITS.incomeTaxBp),
+      residentTaxPm: taxField(NATION_TAX_LIMITS.residentTaxPm),
+      residentEveryDays: taxField(NATION_TAX_LIMITS.residentEveryDays),
+      residentNationPm: taxField(NATION_TAX_LIMITS.residentNationPm),
+    })
+    .optional(),
 });
 
 export const govVoteMessage = z.object({

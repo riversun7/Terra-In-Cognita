@@ -69,6 +69,7 @@ export function createGovernanceGateway(options: {
                 kind: message.kind,
                 regime: message.regime,
                 targetNationId: message.targetNationId,
+                taxes: message.taxes,
               })
             : message.t === "gov_vote"
               ? await service.vote(viewer.id, message.agendaId, message.choice)

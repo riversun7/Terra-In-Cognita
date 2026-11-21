@@ -7,12 +7,16 @@
 // - 선출(2359 가 단순 다수, 2360 동점 가 → 나 → 다): 표가 가장 많은 후보. 같으면 현직(지금 지배 가문) → 가문 판 점수 → 먼저 등록한 후보.
 // - 정족수를 못 채우면 부결(현상 유지) — 선출이면 현직이 그대로다.
 
-/** 안건 종류(D-5057 가운데 첫 판에 만든 것). 세율 크게 바꾸기는 나라 세율 저장(다른 줄기 tax-2)이 생긴 뒤에 잇는다 — TODO */
+/**
+ * 안건 종류(D-5057 가운데 만든 것). 세율 크게 바꾸기(tax_change — 질문 2407 가, 줄기 governance-2): 민주주의·자본주의 나라에서 지도자가 세율을 한 번에
+ * 설정 칸 폭 이상 바꾸려 하면 안건이 된다(나라 세금 명령 nation_tax가 연다). 폭 아래·독재는 지도자가 바로 정한다
+ */
 export const AGENDA_KINDS = [
   "leader_election",
   "leader_removal",
   "regime_change",
   "war_declaration",
+  "tax_change",
 ] as const;
 export type AgendaKind = (typeof AGENDA_KINDS)[number];
 
@@ -159,6 +163,14 @@ export function tallyElection(
 
 // ---------- tRPC 조회 모양(governance.view) ----------
 
+/** 세율 안건 값(나라 세금 한 줄 — 소득세 bp·주민세 ‰·주민세 주기 일·주민세 국세 몫 ‰, null = 정하지 않음) */
+export interface GovernanceTaxes {
+  readonly incomeTaxBp: number | null;
+  readonly residentTaxPm: number | null;
+  readonly residentEveryDays: number | null;
+  readonly residentNationPm: number | null;
+}
+
 /** 나라 이름(팩 국가 프리셋 두 언어 — 플레이어 가문 나라는 두 언어 같은 글자) */
 export interface GovernanceName {
   readonly ko: string;
@@ -191,6 +203,8 @@ export interface GovernanceAgendaView {
   readonly regime: GovernanceRegime;
   /** 체제 전환 목표(체제 전환만) */
   readonly targetRegime: GovernanceRegime | null;
+  /** 세율 안건이 바꾸려는 나라 세금(세율 안건만 — 칸마다 null = 정하지 않음으로 되돌림) */
+  readonly taxes: GovernanceTaxes | null;
   /** 선전포고 상대 나라(세력 행 ID·이름 — 선전포고만) */
   readonly targetNation: { readonly id: number; readonly name: GovernanceName | null } | null;
   /** 직권 결정(독재 지도자·지분 과반 — 투표 없음) */

@@ -188,6 +188,38 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 이동 정책 (DB)", () => {
     });
   });
 
+  it("governance-2(질문 2406): 의결로 NPC 나라의 지배 가문이 된 가문의 가문장이 그 나라 정책을 정한다(빈자리면 못 함)", async () => {
+    const elected = await house({});
+    await sql(
+      `insert into governance_state (nation_id, ruling_house_key, updated_at_ms) values ($1, $2, 0)
+       on conflict (nation_id) do update set ruling_house_key = excluded.ruling_house_key, vacant_since_ms = null`,
+      [npcNation, `p:${String(elected.id)}`],
+    );
+    expect((await policy().set(elected.leader, { scope: "nation", fee: "-5" })).ok).toBe(true);
+    const fee = await rows<{ fee: string }>(
+      test.db,
+      "select house_entry_fee::text as fee from factions where id = $1",
+      [npcNation],
+    );
+    expect(fee[0]?.fee).toBe("-5");
+    expect(
+      (
+        await readHouseEntryPolicy(test.db.$client, {
+          cityId: 902,
+          viewerId: elected.leader,
+          rules: TEST_HOUSE_RULES,
+        })
+      )?.canSetNation,
+    ).toBe(true);
+    await sql("update governance_state set vacant_since_ms = 1 where nation_id = $1", [npcNation]);
+    expect(await policy().set(elected.leader, { scope: "nation", fee: "1" })).toEqual({
+      ok: false,
+      code: "not_ruler",
+    });
+    await sql("update factions set house_entry_fee = null where id = $1", [npcNation]);
+    await sql("delete from governance_state where nation_id = $1", [npcNation]);
+  });
+
   it("D-573: 가입비는 가문장 지갑(가문 금고가 없을 때)이 가문원 수만큼 한꺼번에 — 모자라면 entry_fee_short로 옮기지 않는다", async () => {
     // 가문(가문장 + 가문원 2 = 셋)이 다른 나라(독립 가문 도시 970, 가입비 40)로 옮긴다 → 120
     const target = await house({ city: 970 });

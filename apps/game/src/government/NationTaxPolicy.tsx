@@ -85,7 +85,10 @@ export function NationTaxPolicy({ taxes }: { taxes: GovernmentTaxes }) {
     setBusy(true);
     try {
       const outcome = await sendNationTax(body);
-      if (outcome.ok) {
+      if (outcome.ok && outcome.agendaId !== undefined) {
+        // 세율 안건을 열었다(질문 2407 가 — 가결되면 바뀐다)
+        notice.show([m.government_tax_agenda_opened()]);
+      } else if (outcome.ok) {
         const saved = applySavedTaxes(shown, body);
         notice.show([saved.stale ? m.government_tax_done_reopen() : m.government_tax_done()]);
         setShown(saved.taxes);

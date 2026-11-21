@@ -8613,5 +8613,8 @@
   "government_tax_done": "나라 세금을 정했습니다.",
   "government_tax_done_reopen": "나라 세금을 정했습니다. 기본값으로 돌린 칸의 수치는 다시 열면 보입니다.",
   "government_tax_invalid": "세율은 범위 안의 숫자여야 합니다(소득세 0~100%, 소수 둘째 자리까지 · 주민세·국세 몫 0~1000‰ · 주기 1~365일).",
-  "gather_phase_entering_named": "{building}에 들어가는 중"
+  "gather_phase_entering_named": "{building}에 들어가는 중",
+  "gov_kind_tax_change": "세율 크게 바꾸기",
+  "gov_tax_target": "바꿀 세율: 소득세 {income} · 주민세 {resident}",
+  "government_tax_agenda_opened": "바꾸는 폭이 커서 세율 안건을 열었습니다. 투표로 가결되면 바뀝니다."
 }

@@ -795,6 +795,8 @@ export {
   type Regime,
   type TransferResult,
 } from "./society/shares.ts";
+// 가문 지분 계정(서버만 — D-338, 줄기 governance-2)
+export * from "./society/houseShareApi.ts";
 export {
   makeOffers,
   occupationShifts,

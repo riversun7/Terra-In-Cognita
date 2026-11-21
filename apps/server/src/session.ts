@@ -53,6 +53,7 @@ import {
   HOUSE_ENTRY_POLICY_PROTOCOL_VERSION,
   HOUSE_MEMBER_PROTOCOL_VERSION,
   HOUSE_POLICY_PROTOCOL_VERSION,
+  NATION_TAX_PROTOCOL_VERSION,
   HOUSE_PROTOCOL_VERSION,
   HOUSE_RECRUIT_PROTOCOL_VERSION,
   GOVERNANCE_PROTOCOL_VERSION,
@@ -732,6 +733,24 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         }
         if (!context.house) {
           send({ t: "house_result", id: message.id, ok: false, code: "busy" });
+          return;
+        }
+        houseSocket ??= context.house.open({
+          send: sendText,
+          viewer: context.viewer ?? signedOut,
+          protocolVersion,
+        });
+        houseSocket.handle(message);
+        return;
+      }
+      case "nation_tax": {
+        // 나라 세금 정하기는 프로토콜 57의 메시지다(질문 2322 나·2373 가 — 가문 게이트웨이가 받아 government/nationTaxPolicy.ts로)
+        if (protocolVersion < NATION_TAX_PROTOCOL_VERSION) {
+          reject("invalid_message");
+          return;
+        }
+        if (!context.house) {
+          send({ t: "nation_tax_result", id: message.id, ok: false, code: "busy" });
           return;
         }
         houseSocket ??= context.house.open({

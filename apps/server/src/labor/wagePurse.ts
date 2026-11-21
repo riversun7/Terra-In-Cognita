@@ -6,6 +6,7 @@
 //   NPC 휴먼 봇(0 — D-097 해석 "NPC 세력의 휴먼도 같은 규칙"). 사이보그 본체(3)는 플레이어 자신이라 플레이어 지갑이다.
 // - 유닛을 찾지 못하면(사라진 유닛의 마지막 정산) 소유 주체 지갑으로 간다(돈이 사라지지 않는다).
 // - 유닛 지갑 돈은 유닛 것이다: 숙박비 등 유닛이 쓰는 돈은 여기서 나간다. 주인이 꺼내 쓰는 길은 두지 않는다(D-097).
+import type { LaborNetView } from "@terra/shared/labor";
 import type { LaborAccounts, LaborContract } from "@terra/sim";
 import { wageWithholdOf } from "../business/withhold.ts";
 import { unitPurseLocation } from "@terra/shared/businessBooks";
@@ -56,5 +57,30 @@ export function withWageTaxes(ledger: object, accounts: LaborAccounts): LaborAcc
     // 계약이 지금까지 낸 총 임금(paidTotal — 이번 임금을 더하기 전)으로 누적 내림(withhold.ts)
     incomeTax: (c, amount) => wageWithholdOf(ledger)?.(c.buildingId, c.ownerId, c.asset, amount, c.paidTotal),
     wageTax: (c, amount) => houseTaxerOf(ledger)?.unitTax(c.unitId, c.workerOwnerId, c.asset, amount),
+  };
+}
+
+/**
+ * 임금형 계약의 다음 지급 세후 임금(질문 2325 나 — 계약 화면): 총 임금(c.rate)에서 위 두 세금을 같은 셈으로 뗀 값. 소득세는 계약 누적 내림(paidTotal)이라
+ * 다음 지급 몫 그대로다. 둘의 합이 총 임금을 넘으면 가문세를 남은 만큼으로 줄인다(@terra/sim wageEntries와 같다). 임대형·끝난 계약은 {}(칸 없음)
+ */
+export function wageNetView(
+  ledger: object,
+  c: Pick<
+    LaborContract,
+    "kind" | "state" | "rate" | "buildingId" | "ownerId" | "asset" | "paidTotal" | "unitId" | "workerOwnerId"
+  >,
+): { net?: LaborNetView } {
+  if (c.kind !== "wage" || c.state === "ended" || c.rate <= 0n) return {};
+  const income = wageWithholdOf(ledger)?.(c.buildingId, c.ownerId, c.asset, c.rate, c.paidTotal)?.tax ?? 0n;
+  const incomeTax = income > c.rate ? c.rate : income;
+  const house = houseTaxerOf(ledger)?.unitTax(c.unitId, c.workerOwnerId, c.asset, c.rate)?.tax ?? 0n;
+  const houseTax = house > c.rate - incomeTax ? c.rate - incomeTax : house;
+  return {
+    net: {
+      incomeTax: String(incomeTax),
+      houseTax: String(houseTax),
+      net: String(c.rate - incomeTax - houseTax),
+    },
   };
 }

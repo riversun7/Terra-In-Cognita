@@ -16,6 +16,16 @@ export type LaborEndReasonView =
   | "unit_gone"
   | "building_gone";
 
+/**
+ * 임금형 계약의 다음 지급 세후 임금(질문 2325 나 — 기획 D-578·D-579): 총 임금(rate)에서 소득세(사업장이 원천징수 — 그 사업장 도시 나라 소득세율, 계약 누적
+ * 내림)와 가문세(일한 유닛의 가문 세율)를 둘 다 총 임금에서 따로 뗀 값(총 100 → 소득세 2 + 가문세 10 → 88). 세금이 붙지 않으면 incomeTax·houseTax "0"
+ */
+export interface LaborNetView {
+  readonly incomeTax: LaborAmount;
+  readonly houseTax: LaborAmount;
+  readonly net: LaborAmount;
+}
+
 export interface LaborContractView {
   readonly id: number;
   readonly kind: LaborKindView;
@@ -44,6 +54,8 @@ export interface LaborContractView {
   readonly settledAt: number;
   /** 유예가 끝나 시설에 남은 임차인 물건이 시설 주인에게 넘어간 시각(기획 341, 시설 창고가 없어 기록만). 아니면 null */
   readonly leftoversMovedAt: number | null;
+  /** 임금형 열린 계약의 다음 지급 세후 임금(2325 나). 임대형·끝난 계약·옛 서버는 없음 */
+  readonly net?: LaborNetView | undefined;
 }
 
 /** 직무(서버 시설에 종류가 아직 없어 시험 채집 하나) */
@@ -168,6 +180,8 @@ export interface LaborBuildingContractView {
   readonly paidTotal: LaborAmount;
   /** 보는 사람이 유닛 주인(worker)·시설 관리(owner)·둘 다·아무것도 아님 */
   readonly role: "owner" | "worker" | "both" | "none";
+  /** 임금형 계약의 다음 지급 세후 임금(2325 나). 임대형·옛 서버는 없음 */
+  readonly net?: LaborNetView | undefined;
 }
 
 /** labor.building */

@@ -211,6 +211,18 @@ test.describe("정부 판·지도자: 플레이어", () => {
       message("ko", "government_entry_npc"),
     );
     await expect(entryBox.locator('[data-part="government-entry-input"]')).toHaveCount(0);
+    // 나라 세금 칸(tax-2 — 2322 나·2373 가): NPC 나라는 NPC 규칙식, 플레이어는 정하지 못한다(정하기 칸 없음)
+    const taxBox = dialog.locator('[data-part="government-nation-tax"]');
+    await expect(taxBox.locator('[data-part="government-tax-income"]')).toContainText(
+      message("ko", "government_tax_source_npc"),
+    );
+    await expect(taxBox.locator('[data-part="government-tax-every"]')).toContainText(
+      message("ko", "government_tax_source_default"),
+    );
+    await expect(taxBox.locator('[data-part="government-tax-edit"]')).toHaveCount(0);
+    const taxes = field(hall.data, "taxes");
+    expect(field(field(taxes, "incomeTaxBp"), "source")).toBe("npc");
+    expect(field(taxes, "canSet")).toBe(false);
     await expect(dialog.locator('[data-part="government-mayor"] dd')).toContainText(
       message("ko", "government_mayor_named", {
         name: String(mayorName),
@@ -375,6 +387,9 @@ test.describe("정부 판 사진", () => {
         // 가문 이동 정책 칸(질문 2018 답)
         await dialog.locator('[data-part="government-house-entry"]').scrollIntoViewIfNeeded();
         await shot(page, `government-entry-390-${theme}-${language}`);
+        // 나라 세금 칸(tax-2)
+        await dialog.locator('[data-part="government-nation-tax"]').scrollIntoViewIfNeeded();
+        await shot(page, `government-tax-390-${theme}-${language}`);
         // 아래(구인 카드)까지 내려 한 장 더
         await dialog.evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
         await shot(page, `government-dialog-cards-390-${theme}-${language}`);

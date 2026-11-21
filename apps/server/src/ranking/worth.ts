@@ -21,6 +21,8 @@
 // 바뀜(fixes-1116t, 기획 대조 2345 나 — 규모 시험 봇은 게임 유닛이 아니다): 시험 2차맵 줄(world/testMaps.ts testMapKey, MAX_TEST_MAPS장)에 선 봇 종류
 // (UNIT_KIND_BOT) 가운데 휴먼 줄(world_humans)이 없는 것 = 규모 시험 봇(S1_TEST_BOTS)은 유닛 몫(유닛 판·unitInfo)에 넣지 않는다. NPC 휴먼(같은 봇 종류지만
 // world_humans 줄이 있다)·경비대·지도자는 그대로 든다. 주인(시험 NPC 세력) 전투력 합에는 옛처럼 든다(사람 판 몫 — 바꾸지 않는다).
+// 바뀜(tax-2, 질문 2392 나 — 같은 까닭): 규모 시험 봇의 전투력은 주인(시험 NPC 세력) 전투력 합에서도 뺀다(시험 NPC 세력이 봇 수만큼 전투력 판 위에
+// 서지 않게). 봇 판정은 위와 같다(시험 2차맵 줄 + 휴먼 줄 없음). 지갑은 처음부터 어느 몫에도 넣지 않았다.
 import { parseBusinessShareAsset } from "@terra/shared/businessBooks";
 import { BUILDING_LOCATION_BASE } from "@terra/shared/goodsPlaces";
 import { MAX_TEST_MAPS } from "../config.ts";
@@ -100,7 +102,7 @@ export const emptyWorth = (): WorthValues => ({
   npcHouses: new Map(),
 });
 
-/** 유닛 훑기: 주인·이름, 전투력(소유 주체 합, 유닛마다, 지도자는 지배 가문에도). 규모 시험 봇은 유닛 몫에서 빼고 testBots에 담는다 */
+/** 유닛 훑기: 주인·이름, 전투력(소유 주체 합, 유닛마다, 지도자는 지배 가문에도). 규모 시험 봇은 어느 몫에도 넣지 않고 testBots에 담는다 */
 async function readUnits(
   db: Queryable,
   source: WorthSource,
@@ -130,11 +132,12 @@ async function readUnits(
       const cyborgName = typeof row.cyborg_name === "string" ? row.cyborg_name : undefined;
       out.unitInfo.set(unitId, { owner, name: cyborgName ?? source.nameOf?.(unitId) ?? null });
     }
+    // 규모 시험 봇은 주인 전투력 합에도 넣지 않는다(2392 나)
+    if (testBot) continue;
     const power = source.powerOf?.(unitId) ?? 0;
     if (!(power > 0)) continue;
     const value = BigInt(Math.trunc(power));
     entryOf(out.owners, owner).power += value;
-    if (testBot) continue;
     entryOf(out.units, unitId).power += value;
     const house = leaders.get(unitId);
     if (house !== undefined) entryOf(out.npcHouses, house).power += value;

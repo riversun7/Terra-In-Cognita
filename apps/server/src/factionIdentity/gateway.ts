@@ -1,5 +1,6 @@
 // WebSocket 연결 하나의 가문 창설·가입 메시지 처리(src/session.ts가 넘긴다) — docs/adr/2026-11-11-faction-identity.md "바뀜 (926~935 답)"·
 // "바뀜 (981~986 답)". 가입 메시지(house_invite 등, 프로토콜 23)는 house_member_result로 답하고 속도 제한을 따로 센다(순간 10번·분당 30번).
+// 나라 세금 정하기(nation_tax, 프로토콜 57 — government/nationTaxPolicy.ts)도 받아 nation_tax_result로 답한다(가입 속도 제한을 함께 센다).
 // 국적 바꾸기 게이트웨이(citizenship/gateway.ts)와 같은 틀이다: 로그인한 사용자만, 한 연결의 요청은 받은 순서대로 하나씩, 사용자별 속도
 // 제한(드문 명령이라 순간 3번·분당 6번), 밀린 요청이 MAX_PENDING을 넘으면 busy, 창설 서비스가 없으면(DB 없는 서버) busy.
 import {
@@ -8,6 +9,7 @@ import {
   type HouseMemberResultCode,
   type HouseRecruitResultCode,
   type HouseResultCode,
+  type NationTaxResultCode,
   PROTOCOL_VERSION,
   encodeMessage,
   legacyHouseMemberAction,
@@ -23,6 +25,7 @@ import type { HousePolicyService } from "./housePolicy.ts";
 import type { HouseMemberResult, HouseMembers } from "./members.ts";
 import type { HouseRecruitResult, HouseRecruitService } from "./houseRecruit.ts";
 import type { HouseSuccession } from "./succession.ts";
+import type { NationTaxPolicyService, NationTaxResult } from "../government/nationTaxPolicy.ts";
 
 export type HouseMemberClientMessage = ClientMessageOf<
   | "house_invite"
@@ -42,8 +45,11 @@ export type HouseMemberClientMessage = ClientMessageOf<
 >;
 export type HouseCityClientMessage = ClientMessageOf<"house_village" | "house_ruin" | "house_independence">;
 export type HouseRecruitClientMessage = ClientMessageOf<"house_recruit_auto" | "house_recruit_hire">;
+/** 나라 세금 정하기(프로토콜 57 — 나라 지도자 = 독립 나라 가문장, government/nationTaxPolicy.ts) */
+export type NationTaxClientMessage = ClientMessageOf<"nation_tax">;
 export type HouseClientMessage =
   | ClientMessageOf<"house_found">
+  | NationTaxClientMessage
   | HouseMemberClientMessage
   | HouseCityClientMessage
   | HouseRecruitClientMessage;
@@ -120,7 +126,14 @@ function recruitText(id: number, result: HouseRecruitResult): string {
     : encodeMessage({ t: "house_recruit_result", id, ok: false, code: result.code });
 }
 
+function nationTaxText(id: number, result: NationTaxResult): string {
+  return result.ok
+    ? encodeMessage({ t: "nation_tax_result", id, ok: true, factionId: result.factionId })
+    : encodeMessage({ t: "nation_tax_result", id, ok: false, code: result.code });
+}
+
 const recruitFail = (code: HouseRecruitResultCode): HouseRecruitResult => ({ ok: false, code });
+const taxFail = (code: NationTaxResultCode): NationTaxResult => ({ ok: false, code });
 const fail = (code: HouseResultCode): HouseFoundResult => ({ ok: false, code });
 const cityFail = (code: HouseCityResultCode): HouseCityResult => ({ ok: false, code });
 const memberFail = (code: HouseMemberResultCode): HouseMemberResult => ({ ok: false, code });
@@ -201,6 +214,8 @@ export function createHouseGateway(options: {
   entryPolicy?: (() => HouseEntryPolicyService | undefined) | undefined;
   /** 가문 금고 기부·가문세율·도시 짓기 정책(프로토콜 54, D-574, 없으면 busy) */
   policy?: (() => HousePolicyService | undefined) | undefined;
+  /** 나라 세금 정하기(프로토콜 57, 질문 2322 나·2373 가, 없으면 busy) */
+  nationTax?: (() => NationTaxPolicyService | undefined) | undefined;
   /** 창설·가입·넘기기·해산·소속 도시가 성공한 뒤(시야 묶음·가문 표 다시 읽기 — 가문원 나라·구인 자격이 바뀐다) */
   afterMembership?: (() => Promise<void>) | undefined;
   now: () => number;
@@ -229,11 +244,19 @@ export function createHouseGateway(options: {
       const replyRecruit = (id: number, result: HouseRecruitResult): void => {
         if (!closed) link.send(recruitText(id, result));
       };
+      const replyTax = (id: number, result: NationTaxResult): void => {
+        if (!closed) link.send(nationTaxText(id, result));
+      };
       const answer = (
         message: HouseClientMessage,
-        code: HouseResultCode & HouseMemberResultCode & HouseCityResultCode & HouseRecruitResultCode,
+        code: HouseResultCode &
+          HouseMemberResultCode &
+          HouseCityResultCode &
+          HouseRecruitResultCode &
+          NationTaxResultCode,
       ): void => {
         if (message.t === "house_found") reply(message.id, fail(code));
+        else if (message.t === "nation_tax") replyTax(message.id, taxFail(code));
         else if (message.t === "house_recruit_auto" || message.t === "house_recruit_hire")
           replyRecruit(message.id, recruitFail(code));
         else if (
@@ -331,7 +354,29 @@ export function createHouseGateway(options: {
           );
         replyRecruit(message.id, result);
       };
+      const processTax = async (message: NationTaxClientMessage): Promise<void> => {
+        const viewer = await link.viewer();
+        if (closed) return;
+        if (!viewer) return replyTax(message.id, taxFail("sign_in_required"));
+        const service = options.nationTax?.();
+        if (!service) return replyTax(message.id, taxFail("busy"));
+        if (!memberLimiter.take(viewer.id)) return replyTax(message.id, taxFail("rate_limited"));
+        const { incomeTaxBp, residentTaxPm, residentEveryDays, residentNationPm } = message;
+        const result = await service.set(viewer.id, {
+          incomeTaxBp,
+          residentTaxPm,
+          residentEveryDays,
+          residentNationPm,
+        });
+        if (result.ok)
+          options.log.info(
+            { userId: viewer.id, factionId: result.factionId, incomeTaxBp, residentTaxPm, residentEveryDays },
+            "nation tax set",
+          );
+        replyTax(message.id, result);
+      };
       const process = async (message: HouseClientMessage): Promise<void> => {
+        if (message.t === "nation_tax") return processTax(message);
         if (message.t === "house_village" || message.t === "house_ruin" || message.t === "house_independence")
           return processCity(message);
         if (message.t === "house_recruit_auto" || message.t === "house_recruit_hire")

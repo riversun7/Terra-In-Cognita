@@ -305,6 +305,16 @@ export function BuildingLabor({
                     ? ` · ${m.blabor_grace_until({ at: timeText(c.graceUntil, locale) })}`
                     : ""}
                 </p>
+                {c.kind === "wage" && c.net ? (
+                  <p className="bp-muted" data-part="blabor-net-wage">
+                    {m.blabor_net_wage({
+                      net: formatAmount(c.net.net, locale),
+                      money,
+                      income: formatAmount(c.net.incomeTax, locale),
+                      house: formatAmount(c.net.houseTax, locale),
+                    })}
+                  </p>
+                ) : null}
                 {c.kind === "wage" ? (
                   <span className="bp-meter" aria-hidden="true">
                     <span

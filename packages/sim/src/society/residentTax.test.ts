@@ -1,7 +1,9 @@
 // 주민세(D-579) 규칙 시험 — residentTax.ts
 import { describe, expect, it } from "vitest";
+import { unitPurseLocation } from "@terra/shared/businessBooks";
 import { createLedgerBook } from "../ledger/ledgerBook.ts";
 import {
+  cancelResidentDebts,
   collectResidentTax,
   parseResidentDebtCode,
   residentAssessments,
@@ -38,17 +40,84 @@ describe("주민세(D-579)", () => {
     expect(residentTaxDue(100n, 5000)).toBe(100n);
   });
 
-  it("과세 단위 = (도시, 사는 유닛의 주인) — 같은 주머니(그 나라 자신)는 빼고, 도시·주인 차례", () => {
-    const residents = new Map([
-      [7, new Set([NATION, 50, 40])],
-      [3, new Set([40])],
+  it("과세 단위(D-581): 사는 주인마다 사업장 몫 + 사는 유닛마다 집 몫 — 같은 주머니(그 나라 자신)는 빼고, 도시·주인·유닛 차례", () => {
+    const homes = new Map([
+      [
+        7,
+        [
+          { unit: 9, owner: NATION, housing: 500n },
+          { unit: 12, owner: 50, housing: 30n },
+          { unit: 11, owner: 40, housing: 20n },
+          { unit: 10, owner: 40, housing: 0n },
+        ],
+      ],
+      [3, [{ unit: 5, owner: 40, housing: 7n }]],
     ]);
-    const out = residentAssessments(NATION, [7, 3], residents, (payer, city) => BigInt(payer * 1000 + city));
+    const out = residentAssessments(
+      NATION,
+      [7, 3],
+      (city) => homes.get(city) ?? [],
+      (payer, city) => BigInt(payer * 1000 + city),
+    );
     expect(out).toEqual([
       { city: 3, payer: 40, property: 40_003n },
+      { city: 3, payer: 40, unit: 5, property: 7n },
       { city: 7, payer: 40, property: 40_007n },
+      { city: 7, payer: 40, unit: 10, property: 0n },
+      { city: 7, payer: 40, unit: 11, property: 20n },
       { city: 7, payer: 50, property: 50_007n },
+      { city: 7, payer: 50, unit: 12, property: 30n },
     ]);
+  });
+
+  it("집 몫은 사는 유닛 지갑에서 내고, 못 낸 몫은 유닛 빚 계정(u<유닛>)에 적는다", () => {
+    const book = bookWith({});
+    const purse = book.ownerAccount(40, CUR, unitPurseLocation(11));
+    book.post({
+      kind: "issue",
+      atMs: 0,
+      entries: [
+        { account: book.systemAccount(`issue:${CUR}`, CUR), amount: -3n },
+        { account: purse, amount: 3n },
+      ],
+    });
+    const out = collectResidentTax(book, {
+      nation: NATION,
+      asset: CUR,
+      assessments: [{ city: 7, payer: 40, unit: 11, property: 1000n }],
+      ratePm: 10,
+      nationSharePm: 0,
+      atMs: 1,
+    });
+    expect(out.arrears).toEqual([{ city: 7, payer: 40, unit: 11, owed: 7n, added: 7n }]);
+    expect(book.balance(purse)).toBe(0n);
+    expect(book.balanceOf(NATION, CUR)).toBe(3n);
+    expect(book.balance(book.systemAccount(residentDebtCode(NATION, 7, 40, CUR, 11), CUR))).toBe(-7n);
+  });
+
+  it("도시가 넘어가면 그 도시의 옛 나라 빚이 사라진다(D-581 2375 다) — 다른 도시 빚은 그대로", () => {
+    const book = bookWith({});
+    collectResidentTax(book, {
+      nation: NATION,
+      asset: CUR,
+      assessments: [
+        { city: 7, payer: 40, property: 1000n },
+        { city: 7, payer: 40, unit: 11, property: 500n },
+        { city: 3, payer: 40, property: 2000n },
+      ],
+      ratePm: 10,
+      nationSharePm: 0,
+      atMs: 1,
+    });
+    const claim = book.systemAccount(residentClaimCode(NATION, CUR), CUR);
+    expect(book.balance(claim)).toBe(35n);
+    const gone = cancelResidentDebts(book, NATION, 7, 2);
+    expect(gone.get(CUR)).toBe(15n);
+    expect(book.balance(claim)).toBe(20n);
+    expect(book.balance(book.systemAccount(residentDebtCode(NATION, 7, 40, CUR), CUR))).toBe(0n);
+    expect(book.balance(book.systemAccount(residentDebtCode(NATION, 3, 40, CUR), CUR))).toBe(-20n);
+    // 지울 빚이 없으면 거래도 없다
+    expect(cancelResidentDebts(book, NATION, 7, 3).size).toBe(0);
   });
 
   it("국고로 내고 국세 몫을 나눈다, 못 낸 몫은 빚 계정(짝 = 받을 돈)에 적고 다음 주기에 먼저 갚는다", () => {
@@ -115,5 +184,10 @@ describe("주민세(D-579)", () => {
     expect(parseResidentDebtCode(residentDebtCode(2, 7, 40, CUR), 2, CUR)).toEqual({ city: 7, payer: 40 });
     expect(parseResidentDebtCode(residentDebtCode(3, 7, 40, CUR), 2, CUR)).toBeUndefined();
     expect(parseResidentDebtCode(residentDebtCode(2, 7, 40, "other"), 2, CUR)).toBeUndefined();
+    expect(parseResidentDebtCode(residentDebtCode(2, 7, 40, CUR, 11), 2, CUR)).toEqual({
+      city: 7,
+      payer: 40,
+      unit: 11,
+    });
   });
 });

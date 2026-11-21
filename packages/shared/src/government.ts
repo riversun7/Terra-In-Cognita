@@ -146,6 +146,36 @@ export interface GovernmentMayor {
   readonly satisfaction: number;
 }
 
+/**
+ * 나라 세금 칸 하나의 값을 정한 곳(줄기 tax-2 — 기획 D-128 "세율은 정부가 정한다"·D-579, 질문 2322 나·2373 가): leader = 그 나라 지도자가 정함 ·
+ * npc = NPC 나라 규칙식(D-323 — 소득세는 거래세 규칙식, 주민세는 성향 규칙식) · default = 설정 칸 기본값(소득세는 그 나라 거래세율)
+ */
+export type GovernmentTaxSource = "leader" | "npc" | "default";
+
+/** 나라 세금 칸 하나: 지금 쓰는 값·정한 곳·지도자가 정한 값(정하지 않았으면 null — 정하기 칸의 처음 값) */
+export interface GovernmentTaxField {
+  readonly value: number;
+  readonly source: GovernmentTaxSource;
+  readonly own: number | null;
+}
+
+/**
+ * 정부 판의 나라 세금(줄기 tax-2). 모두에게 보인다(그 나라 사람이 아니어도 — 세율은 공개 정책). 정하기는 WebSocket nation_tax(지도자만, canSet).
+ * 소득세는 사업장 수입 소득세와 임금 원천징수(D-578)가 같은 율로 쓴다. 주민세 = 재산(그 도시 건물 값) × ‰, 주기마다, 국세 몫 뒤 나머지는 도시세(D-579)
+ */
+export interface GovernmentTaxes {
+  /** 소득세(만분율) */
+  readonly incomeTaxBp: GovernmentTaxField;
+  /** 주민세(재산 ‰, 주기마다) */
+  readonly residentTaxPm: GovernmentTaxField;
+  /** 주민세 주기(날) */
+  readonly residentEveryDays: GovernmentTaxField;
+  /** 주민세 국세 몫(‰) */
+  readonly residentNationPm: GovernmentTaxField;
+  /** 보는 사람이 정할 수 있나(그 나라의 지도자 = 독립 나라 가문장. 투표 체제의 안건 절차는 governance 줄기 몫 — 지금은 지도자가 바로 정한다) */
+  readonly canSet: boolean;
+}
+
 export interface GovernmentResponse {
   readonly status: GovernmentStatus;
   readonly buildingId: number;
@@ -158,5 +188,7 @@ export interface GovernmentResponse {
   readonly mayor: GovernmentMayor | null;
   /** 가문 이동 정책(질문 2018 답). 읽지 못하면(DB 없는 서버·옛 서버) null·없음 */
   readonly houseEntry?: GovernmentHouseEntry | null;
+  /** 나라 세금(줄기 tax-2). 읽지 못하면(DB 없는 서버·옛 서버) null·없음 */
+  readonly taxes?: GovernmentTaxes | null;
   readonly generatedAt: number;
 }

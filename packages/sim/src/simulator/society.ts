@@ -249,7 +249,7 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
   const moveCity = (cityId: number, from: SimFaction, to: SimFaction, nowMs: number): void => {
     o.hooks?.beforeCityTransfer(cityId, from, to, nowMs);
     transferCity(world, cityId, to, nowMs);
-    payouts.cityMoved(cityId);
+    payouts.cityMoved(cityId, from, nowMs);
   };
 
   const removeUnit = (unit: SimUnit): void => {

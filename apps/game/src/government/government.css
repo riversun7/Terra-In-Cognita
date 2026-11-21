@@ -408,3 +408,24 @@
   flex: 1 1 10rem;
   min-width: 0;
 }
+
+/* 나라 세금 칸(줄기 tax-2, NationTaxPolicy.tsx): 지도자 입력 칸 넷 — 좁으면 한 줄에 하나, 넓으면 둘씩 */
+.gov-tax-edit {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--space-2);
+  margin-block-start: var(--space-2);
+}
+.gov-tax-input {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.gov-tax-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  grid-column: 1 / -1;
+}

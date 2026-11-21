@@ -39,6 +39,7 @@ export {
   livingDay,
   moneyAssets,
   movePurses,
+  necessityCost,
   npcBaseDailyWage,
   npcDailyWage,
   purseTotals,

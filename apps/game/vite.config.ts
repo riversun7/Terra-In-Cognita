@@ -15,7 +15,7 @@ const devServerTarget = process.env.TERRA_SERVER_URL ?? "http://127.0.0.1:4100";
 
 // 기본(파스텔) 테마의 바탕색 — manifest 색과 index.html의 theme-color가 같아야 한다(scripts/check-pwa.mjs가 확인).
 // src/settings/theme.ts의 THEME_COLORS.pastel과도 같다(src/settings/themeSources.test.ts가 확인). ADR 2026-10-28-design-system
-const THEME_COLOR = "#dff2fb";
+const THEME_COLOR = "#eef2f7";
 
 /** git 커밋 해시(실패하면 빈 글 — git이 없는 Docker 빌드는 CI가 APP_BUILD로 넘긴다) */
 function gitCommit(): string {
@@ -167,6 +167,7 @@ export default defineConfig({
           "assets/[Tt]uningPanel*.{js,css}",
           "assets/[Bb]alancePanel*.{js,css}",
           "assets/[Ss]econdaryStats*.{js,css}",
+          "assets/[Ee]xpTable*.{js,css}",
           "assets/[Ss]killEditor*.{js,css}",
           "assets/[Ii]temEditor*.{js,css}",
           "assets/[Bb]uildingEditor*.{js,css}",

@@ -5,7 +5,21 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
-| 2026-11-17 00:40 | 가문 9 — 랭킹 전투력·자산 지표(2258 다안·D-576)·NPC 지배 가문장 꺼내기·쓰기(2255 다안)·군단장 분대별 명령(2265 나)·지도자 [임시] 표시(2254) | Claude Code | [17-0040-house-9](worklog/2026/11/17-0040-house-9.md) |
+| 2026-11-21 09:20 (KST) — 2026-11-17 00:40에 바탕 `0efec8a4a7`에서 끝내고(사용량 제한으로 멈춤) 11-21에 커밋·새 main 합치기 | 가문 9 — 랭킹 전투력·자산 지표(2258 다안·D-576)·NPC 지배 가문장 꺼내기·쓰기(2255 다안)·군단장 분대별 명령(2265 나)·지도자 [임시] 표시(2254) | Claude Code | [21-0920-house-9](worklog/2026/11/21-0920-house-9.md) |
+| 2026-11-20 15:20 | 홈 대시보드 테라 인코그니타 독자 비대칭 커맨드 벤토 개편 및 VIT·DEX 스탯 색상 분리 | Antigravity | [20-1520-dashboard-original-bento-and-stat-colors](worklog/2026/11/20-1520-dashboard-original-bento-and-stat-colors.md) |
+| 2026-11-20 13:55 | 건물 티어별 재료 2의 제곱수 밸런스 · 유닛 공통 경험치 테이블 및 시각화 에디터 | Antigravity | [20-1355-balance-buildings-exp-table](worklog/2026/11/20-1355-balance-buildings-exp-table.md) |
+| 2026-11-20 13:00 | 홈 대시보드 프로 터미널 개편 및 전역 타이포그래피·사이드바 정돈 | Antigravity | [20-1300-pro-dashboard-and-shell-overhaul](worklog/2026/11/20-1300-pro-dashboard-and-shell-overhaul.md) |
+| 2026-11-20 00:30 | 지형 오브젝트 3D 로우폴리 모델 표시 및 2차맵 시험 화면 PC 통합 | Antigravity | [20-0030-terrain-objects-3d-and-lab-merge](worklog/2026/11/20-0030-terrain-objects-3d-and-lab-merge.md) |
+| 2026-11-19 23:37 | 1차맵 타일 경계 앞치마·선명한 유기적 지형·연속 사행 하천 셰이더 | Antigravity | [19-2337-planet-seamless-terrain-and-rivers](worklog/2026/11/19-2337-planet-seamless-terrain-and-rivers.md) |
+| 2026-11-19 23:05 | 1차맵 내 본캐릭 사이보그·전역 보유 유닛 위치 표시 및 내 부대 레이아웃 | Antigravity | [19-2305-planet-cyborg-and-my-units](worklog/2026/11/19-2305-planet-cyborg-and-my-units.md) |
+| 2026-11-19 22:40 | 1차맵 4X 전략 지도 개편 — 국가 이름·세력 전쟁 전선·지형 셰이더·레이어 레이아웃 | Antigravity | [19-2240-planet-map-4x-overhaul](worklog/2026/11/19-2240-planet-map-4x-overhaul.md) |
+| 2026-11-19 13:15 | 모바일 UI 최적화 및 2차맵 이동 경로·인디케이터·3D 모델 개선 | Antigravity | [19-1315-mobile-ui-and-2nd-map-polish](worklog/2026/11/19-1315-mobile-ui-and-2nd-map-polish.md) |
+| 2026-11-19 01:00 | 전체 건물 3D 모델 재제작 및 국가 시그니처 컬러·깃발 문양 반영 | Antigravity | [19-0100-all-buildings-and-emblems](worklog/2026/11/19-0100-all-buildings-and-emblems.md) |
+| 2026-11-19 00:45 | 홈 대시보드 카드·쉘·테마 토큰 디자인 정돈 | Antigravity | [19-0045-theme-and-home-cards](worklog/2026/11/19-0045-theme-and-home-cards.md) |
+| 2026-11-18 23:45 | 로컬 개발 서버·교차 PC 테스트 DB 시드 구성 | Antigravity | [18-2345-local-dev-db](worklog/2026/11/18-2345-local-dev-db.md) |
+| 2026-11-18 23:20 | 영토 비콘(`territory_beacon`) 전용 3D 모델 추가 | Antigravity | [18-2320-beacon-3d-model](worklog/2026/11/18-2320-beacon-3d-model.md) |
+| 2026-11-18 17:25 | CI 경량화: 검증은 작업 PC 훅으로, 실행 점검·되돌림 훈련은 NAS로 | Antigravity | [18-1725-ci-local-and-nas](worklog/2026/11/18-1725-ci-local-and-nas.md) |
+| 2026-11-18 16:25 | 문서만 바뀐 푸시는 CI를 시작하지 않음 (GitHub Actions 사용량 0) | Antigravity | [18-1625-ci-docs-zero-usage](worklog/2026/11/18-1625-ci-docs-zero-usage.md) |
 | 2026-11-16 22:10 | 2026-11-16 fixes-1116o — [기다림] 계정 저장(2237)·1인 가문 이름 붙이기(2242)·짓는 중 귀속 고르기 바꾸기·가문 단위 독립(D-577)·빈틈 일정(2236·2243) | Claude Code | [16-2210-fixes-1116o](worklog/2026/11/16-2210-fixes-1116o.md) |
 | 2026-11-16 22:10~ | 2026-11-16 묶음 1116p 합치기 (가문 8 · 기타 D-574 · 기획 미러 D-577 · 물류센터 · 1116o 고침) — 리셋 필요 없음 | Claude Code | [16-2210-batch-1116p-merge](worklog/2026/11/16-2210-batch-1116p-merge.md) |
 | 2026-11-16 22:00 | 물류센터(운반 대행 사업장): 시설·요금·고른 물류센터 운반·자동 맡기기 (D-576 2213) | Claude Code | [16-2200-logistics](worklog/2026/11/16-2200-logistics.md) |

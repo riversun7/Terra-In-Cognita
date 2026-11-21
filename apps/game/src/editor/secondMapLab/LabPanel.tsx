@@ -15,6 +15,7 @@ import {
   surfaceText,
 } from "./labMessages.ts";
 import type { LabMap, LabPlanet } from "./labSource.ts";
+import type { BiomeOption } from "./TerrainObjectsPanel.tsx";
 
 /** 게임 높이 → 실제 높이 배율(@terra/planet generator VERTICAL_SCALE) */
 const VERTICAL_SCALE = 12;
@@ -35,6 +36,8 @@ export interface LabSettings {
 export interface LabPanelProps {
   readonly planets: readonly LabPlanet[];
   readonly biomes: readonly unknown[];
+  readonly biomeOptions: readonly BiomeOption[];
+  readonly locale: "ko" | "en";
   readonly planetId: string;
   readonly map: LabMap | null;
   readonly settings: LabSettings;
@@ -46,6 +49,7 @@ export interface LabPanelProps {
   readonly viewStats: { readonly neighbours: number; readonly props: number } | null;
   readonly onPlanet: (planetId: string) => void;
   readonly onPreset: (preset: MapPreset | "test") => void;
+  readonly onBiome: (biomeId: string) => void;
   readonly onInputs: (inputs: LabPanelProps["inputs"]) => void;
   readonly onOpenCell: () => void;
   readonly onOpenKey: () => void;
@@ -230,6 +234,27 @@ export function LabPanel(props: LabPanelProps) {
             ))}
           </div>
         </div>
+        {props.biomeOptions.length > 0 ? (
+          <div className="field">
+            <span className="field-label">{m.dev_terrain_lab_biomes_jump()}</span>
+            <div className="sml-presets">
+              {props.biomeOptions.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="button-small sml-biome-jump"
+                  data-biome={item.id}
+                  aria-pressed={map?.cell.biomeId === item.id}
+                  disabled={busy}
+                  onClick={() => props.onBiome(item.id)}
+                >
+                  <span className="to-biome-dot" aria-hidden="true" style={{ backgroundColor: item.color }} />
+                  {item.name[props.locale]}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <div className="sml-cell-inputs">
           {(
             [

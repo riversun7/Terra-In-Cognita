@@ -5,29 +5,22 @@
 // - 목적지: 누른 자리(명령 직후, 경로가 오기 전에도) 또는 경로 끝에 고리를 둔다.
 // - 땅에 가려지지 않게 깊이 검사를 끈다(언덕 뒤 경로도 보인다 — 길 안내용). 선택 고리와 같은 색(HIGHLIGHT_COLOR).
 // 계산(자르기·목적지 수명)은 routePath.ts(시험 대상).
-import {
-  BufferAttribute,
-  BufferGeometry,
-  Color,
-  Group,
-  Mesh,
-  MeshBasicMaterial,
-  RingGeometry,
-  ShaderMaterial,
-} from "three";
+import { BufferAttribute, BufferGeometry, Color, Group, Mesh, RingGeometry, ShaderMaterial } from "three";
 import { drapeRoute } from "./routePath.ts";
 import { HIGHLIGHT_COLOR, OUTLINE_COLOR } from "./unitMaterials.ts";
 
 /** 경로를 자르는 간격(배치 칸) — 땅 높이를 따라가는 정도 */
-const ROUTE_STEP_CELLS = 0.5;
+const ROUTE_STEP_CELLS = 0.4;
+/** 꺾이는 모서리 둥글리기 반경(배치 칸) — 각진 꺾임을 부드러운 곡선으로 */
+const ROUTE_CORNER_RADIUS_CELLS = 0.42;
 /** 땅에서 띄우는 높이(m) */
 const ROUTE_LIFT_M = 0.15;
 /** 띠 너비(CSS 픽셀)와 최소 너비(m) */
-const ROUTE_WIDTH_PX = 6;
-const ROUTE_MIN_WIDTH_M = 0.12;
+const ROUTE_WIDTH_PX = 7;
+const ROUTE_MIN_WIDTH_M = 0.16;
 /** 목적지 고리 바깥 반지름(CSS 픽셀 최소)과 m 최소 */
 const TARGET_MIN_PX = 18;
-const TARGET_MIN_M = 0.6;
+const TARGET_MIN_M = 0.68;
 
 const ROUTE_VERTEX = /* glsl */ `
 attribute vec2 aNormal;
@@ -46,15 +39,60 @@ void main() {
 
 const ROUTE_FRAGMENT = /* glsl */ `
 uniform float uTravelled;
+uniform float uTime;
 uniform vec3 uColor;
 uniform vec3 uEdge;
 varying float vDist;
 varying float vSide;
 void main() {
-  if (vDist < uTravelled) discard;
-  // 가장자리는 어둡게(밝은 땅에서도 보이게)
-  vec3 colour = mix(uColor, uEdge, smoothstep(0.55, 0.9, abs(vSide)));
-  gl_FragColor = vec4(colour, 0.92);
+  float head = smoothstep(uTravelled - 0.04, uTravelled + 0.12, vDist);
+  if (head <= 0.002) discard;
+  float side = abs(vSide);
+  float edgeMask = smoothstep(0.56, 0.84, side);
+  float coreMask = 1.0 - smoothstep(0.0, 0.58, side);
+  // 진행 방향을 은은히 알리는 화살 흐름(선은 실선 유지, 끊김 없음)
+  float wave = fract((vDist - side * 0.24) * 0.85 - uTime * 1.45);
+  float chevron = smoothstep(0.68, 0.86, wave) * smoothstep(0.99, 0.88, wave) * coreMask;
+  vec3 fill = mix(uColor, vec3(1.0, 0.99, 0.92), coreMask * 0.24 + chevron * 0.48);
+  vec3 colour = mix(fill, uEdge, edgeMask * 0.88);
+  float alpha = smoothstep(1.0, 0.8, side) * 0.94 * head;
+  gl_FragColor = vec4(colour, alpha);
+}
+`;
+
+const TARGET_VERTEX = /* glsl */ `
+varying vec2 vPos;
+void main() {
+  vPos = position.xz;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`;
+
+const TARGET_FRAGMENT = /* glsl */ `
+uniform float uTime;
+uniform vec3 uColor;
+uniform vec3 uEdge;
+varying vec2 vPos;
+void main() {
+  float r = length(vPos);
+  if (r > 1.0) discard;
+  // 바깥 고리 + 중심 점 + 외곽선(밝은 풀·눈 위에서도 또렷하게)
+  float outerBand = smoothstep(0.58, 0.64, r) * (1.0 - smoothstep(0.82, 0.88, r));
+  float outerHalo = smoothstep(0.52, 0.60, r) * (1.0 - smoothstep(0.86, 0.95, r));
+  float centerDot = 1.0 - smoothstep(0.22, 0.28, r);
+  float centerHalo = 1.0 - smoothstep(0.27, 0.34, r);
+  // 안쪽에서 바깥으로 퍼지는 잔물결
+  float phase = fract(uTime * 0.85);
+  float waveR = 0.28 + phase * 0.54;
+  float ripple = smoothstep(0.08, 0.0, abs(r - waveR)) * (1.0 - phase) * 0.55;
+  float softFill = (1.0 - smoothstep(0.25, 0.85, r)) * 0.14;
+  float bright = clamp(max(outerBand, centerDot) + ripple * 0.7, 0.0, 1.0);
+  float outline = clamp(max(outerHalo, centerHalo) - bright, 0.0, 1.0);
+  float alpha = clamp(bright * 0.96 + outline * 0.72 + ripple * 0.45 + softFill, 0.0, 0.96);
+  if (alpha <= 0.01) discard;
+  vec3 brightCol = mix(uColor, vec3(1.0, 0.99, 0.92), centerDot * 0.35 + ripple * 0.35);
+  vec3 colour = mix(uEdge, brightCol, clamp(bright + softFill + ripple, 0.0, 1.0));
+  gl_FragColor = vec4(colour, alpha);
 }
 `;
 
@@ -64,6 +102,7 @@ export class RouteView {
   private readonly uniforms = {
     uHalfWidth: { value: 0.2 },
     uTravelled: { value: 0 },
+    uTime: { value: 0 },
     uColor: { value: new Color(HIGHLIGHT_COLOR) },
     uEdge: { value: new Color(OUTLINE_COLOR) },
   };
@@ -76,17 +115,21 @@ export class RouteView {
     depthWrite: false,
   });
   private readonly line = new Mesh(this.geometry, this.material);
-  private readonly ringGeometry = new RingGeometry(0.62, 1, 40).rotateX(-Math.PI / 2);
-  private readonly ringMaterial = new MeshBasicMaterial({
-    color: HIGHLIGHT_COLOR,
+  private readonly targetUniforms = {
+    uTime: { value: 0 },
+    uColor: { value: new Color(HIGHLIGHT_COLOR) },
+    uEdge: { value: new Color(OUTLINE_COLOR) },
+  };
+  private readonly ringGeometry = new RingGeometry(0, 1, 40).rotateX(-Math.PI / 2);
+  private readonly ringMaterial = new ShaderMaterial({
+    uniforms: this.targetUniforms,
+    vertexShader: TARGET_VERTEX,
+    fragmentShader: TARGET_FRAGMENT,
     transparent: true,
-    opacity: 0.95,
     depthTest: false,
     depthWrite: false,
   });
   private readonly ring = new Mesh(this.ringGeometry, this.ringMaterial);
-  private readonly dotGeometry = new RingGeometry(0, 0.28, 24).rotateX(-Math.PI / 2);
-  private readonly dot = new Mesh(this.dotGeometry, this.ringMaterial);
   private builtKey = "";
   private pointCount = 0;
   private lengthCells = 0;
@@ -95,11 +138,9 @@ export class RouteView {
     this.line.frustumCulled = false;
     this.line.renderOrder = 18;
     this.ring.renderOrder = 19;
-    this.dot.renderOrder = 19;
     this.line.visible = false;
     this.ring.visible = false;
-    this.dot.visible = false;
-    this.group.add(this.line, this.ring, this.dot);
+    this.group.add(this.line, this.ring);
   }
 
   /** 그린 경로의 잘린 점 수(0이면 경로 없음)와 목적지 표시 여부 — 시험·HUD용 */
@@ -119,7 +160,7 @@ export class RouteView {
   ): void {
     if (key === this.builtKey) return;
     this.builtKey = key;
-    const route = points ? drapeRoute(points, ROUTE_STEP_CELLS) : null;
+    const route = points ? drapeRoute(points, ROUTE_STEP_CELLS, ROUTE_CORNER_RADIUS_CELLS) : null;
     if (!route) {
       this.pointCount = 0;
       this.lengthCells = 0;
@@ -163,7 +204,7 @@ export class RouteView {
 
   /**
    * 프레임마다: travelledCells = 이미 간 길이(배치 칸, 그 앞은 지운다), target = 목적지(배치 칸, null이면 숨김),
-   * pixelsPerMetre = 목표점에서 1m의 CSS 픽셀(너비·고리 크기용)
+   * pixelsPerMetre = 목표점에서 1m의 CSS 픽셀(너비·고리 크기용), nowMs = 흐름 애니메이션 시각(ms)
    */
   update(
     travelledCells: number,
@@ -171,15 +212,18 @@ export class RouteView {
     cellM: number,
     groundAt: (wx: number, wz: number) => number,
     pixelsPerMetre: number,
+    nowMs = 0,
   ): void {
     const metresPerPx = pixelsPerMetre > 0 ? 1 / pixelsPerMetre : 0;
+    const timeSec = (nowMs % 60_000) / 1000;
     this.uniforms.uHalfWidth.value = Math.max(ROUTE_MIN_WIDTH_M, ROUTE_WIDTH_PX * metresPerPx) / 2;
     this.uniforms.uTravelled.value = travelledCells;
+    this.uniforms.uTime.value = timeSec;
+    this.targetUniforms.uTime.value = timeSec;
     // 다 갔으면 경로를 숨긴다(셰이더가 모두 지우지만 그리기 호출을 아낀다)
     if (this.pointCount > 0) this.line.visible = travelledCells < this.lengthCells;
     const show = target !== null;
     this.ring.visible = show;
-    this.dot.visible = show;
     if (!target) return;
     const wx = target.x * cellM;
     const wz = target.y * cellM;
@@ -187,8 +231,6 @@ export class RouteView {
     const outer = Math.max(TARGET_MIN_M, TARGET_MIN_PX * metresPerPx);
     this.ring.position.set(wx, wy, wz);
     this.ring.scale.set(outer, 1, outer);
-    this.dot.position.set(wx, wy, wz);
-    this.dot.scale.set(outer, 1, outer);
   }
 
   /** 모두 숨긴다(다음 setPath는 같은 key라도 다시 만든다) */
@@ -198,7 +240,6 @@ export class RouteView {
     this.lengthCells = 0;
     this.line.visible = false;
     this.ring.visible = false;
-    this.dot.visible = false;
   }
 
   dispose(): void {
@@ -206,7 +247,6 @@ export class RouteView {
     this.geometry.dispose();
     this.material.dispose();
     this.ringGeometry.dispose();
-    this.dotGeometry.dispose();
     this.ringMaterial.dispose();
   }
 }

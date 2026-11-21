@@ -1,21 +1,39 @@
-// [임시] 지도 카드 — 2차맵·1차맵을 여는 단추만(ADR 2026-10-29-app-shell 6절). 1차맵 단추는 6-3에서 지도 안 전환이
-// 생기면 지운다(3절 "지도 안 단추"). 주소로 연다: 지도는 쌓는다(push, 2절).
-// 둘 다 ?key= 없이 연다 = 내 사이보그가 있는 2차맵(카메라는 내 사이보그), 1차맵은 내 자리를 가운데로(docs/adr/2026-11-07-play-flow.md "WP2").
+// 홈 [지도] 전술 런처 카드 — 2차맵(현장 작전)과 1차맵(행성 전략)을 컴팩트 전술 액션 행으로 바로 연다.
 import type { RouteTarget } from "@terra/shared";
 import { m } from "../../paraglide/messages.js";
+import { Icon } from "../../ui/icons.tsx";
 import { HomeLink } from "../shellParts.tsx";
+import { ExternalArrowIcon } from "./icons.tsx";
 
 const LOCAL_MAP: RouteTarget = { route: "map" };
 const WORLD_MAP: RouteTarget = { route: "map_planet" };
 
 export function MapsCardBody() {
   return (
-    <div className="home-maps">
-      <HomeLink to={LOCAL_MAP} className="home-link-button home-link-primary">
-        {m.home_maps_local()}
+    <div className="dash-map-stack">
+      <HomeLink to={LOCAL_MAP} className="dash-map-row" data-tone="primary">
+        <span className="dash-map-badge" aria-hidden="true">
+          <Icon name="map" />
+        </span>
+        <span className="dash-map-copy">
+          <span className="dash-map-title">{m.home_maps_local()}</span>
+          <span className="dash-map-desc">{m.home_maps_local_desc()}</span>
+        </span>
+        <span className="dash-map-arrow" aria-hidden="true">
+          <ExternalArrowIcon />
+        </span>
       </HomeLink>
-      <HomeLink to={WORLD_MAP} className="home-link-button">
-        {m.home_maps_world()}
+      <HomeLink to={WORLD_MAP} className="dash-map-row" data-tone="secondary">
+        <span className="dash-map-badge" aria-hidden="true">
+          <Icon name="globe" />
+        </span>
+        <span className="dash-map-copy">
+          <span className="dash-map-title">{m.home_maps_world()}</span>
+          <span className="dash-map-desc">{m.home_maps_world_desc()}</span>
+        </span>
+        <span className="dash-map-arrow" aria-hidden="true">
+          <ExternalArrowIcon />
+        </span>
       </HomeLink>
     </div>
   );

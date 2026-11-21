@@ -45,7 +45,8 @@ describe("groupOf", () => {
   it("시설이 없거나 모르는 시설(엔진이 일반 집으로 그림)은 그 밖", () => {
     expect(groupOf(undefined)).toBe("other");
     expect(groupOf(look(1, null))).toBe("other");
-    expect(groupOf(look(1, "city_wall"))).toBe("other");
+    expect(groupOf(look(1, "city_wall"))).toBe("military");
+    expect(groupOf(look(1, "future_facility"))).toBe("other");
   });
 });
 

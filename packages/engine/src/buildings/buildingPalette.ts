@@ -8,10 +8,13 @@ export type { Rgb } from "../terrain/terrainTextures.ts";
 
 /** 이름 붙인 색(0~1) */
 export const BUILDING_COLORS = {
-  /** 바닥 판(다진 흙)·돌 기단 */
+  /** 바닥 판(다진 흙)·돌 기단·포장 마당·산업 바닥 */
   pad: [0.74, 0.66, 0.54],
   padStone: [0.72, 0.71, 0.68],
-  /** 벽: 크림·나무·돌·흰 벽·벽돌 */
+  padDark: [0.43, 0.45, 0.48],
+  cobble: [0.64, 0.62, 0.59],
+  marble: [0.93, 0.92, 0.88],
+  /** 벽: 크림·나무·돌·흰 벽·벽돌·헛간·연구소 */
   wallCream: [0.96, 0.89, 0.76],
   wallWood: [0.76, 0.56, 0.38],
   wallStone: [0.8, 0.78, 0.73],
@@ -19,7 +22,7 @@ export const BUILDING_COLORS = {
   wallBrick: [0.8, 0.5, 0.4],
   wallBarn: [0.86, 0.46, 0.4],
   wallLab: [0.9, 0.95, 0.96],
-  /** 지붕: 붉은 기와·밤색·청회색 돌판·이끼·짚 */
+  /** 지붕: 붉은 기와·밤색·청회색 돌판·이끼·짚·청록 */
   roofTerracotta: [0.86, 0.45, 0.36],
   roofBrown: [0.55, 0.4, 0.32],
   roofSlate: [0.47, 0.53, 0.63],
@@ -28,9 +31,11 @@ export const BUILDING_COLORS = {
   roofTeal: [0.38, 0.66, 0.66],
   /** 문·창틀·기둥 받침(짙은 나무) */
   trim: [0.38, 0.29, 0.23],
-  /** 쇠(밝은·어두운), 금 장식 */
+  /** 쇠(밝은·어두운), 구리, 산업 붉은 철골, 금 장식 */
   metal: [0.6, 0.63, 0.67],
   metalDark: [0.32, 0.34, 0.38],
+  copper: [0.76, 0.48, 0.34],
+  ironRed: [0.74, 0.34, 0.28],
   gold: [0.96, 0.79, 0.32],
   /** 바위·광석·석탄·광산 입구 */
   rock: [0.58, 0.57, 0.55],
@@ -40,10 +45,11 @@ export const BUILDING_COLORS = {
   /** 통나무 껍질·널빤지 */
   log: [0.56, 0.41, 0.28],
   plank: [0.86, 0.7, 0.5],
-  /** 밭: 흙 이랑·잎·익은 곡식 */
+  /** 밭·수목: 흙 이랑·잎·익은 곡식·조경 잎 */
   soil: [0.55, 0.42, 0.3],
   crop: [0.52, 0.74, 0.36],
   wheat: [0.93, 0.8, 0.42],
+  foliage: [0.35, 0.62, 0.34],
   /** 약초원: 짙은 잎·보랏빛 꽃(라벤더)·말린 다발 */
   herbLeaf: [0.34, 0.6, 0.4],
   herbBloom: [0.68, 0.56, 0.84],
@@ -53,17 +59,19 @@ export const BUILDING_COLORS = {
   hideLight: [0.95, 0.93, 0.88],
   hideDark: [0.42, 0.3, 0.24],
   water: [0.42, 0.66, 0.82],
-  /** 낚시터: 배 몸통·그물 */
+  /** 낚시터·항만: 배 몸통·그물·천막 돛 */
   hull: [0.36, 0.52, 0.62],
   net: [0.7, 0.68, 0.6],
+  sail: [0.95, 0.92, 0.84],
   /** 상자·통 */
   crate: [0.8, 0.62, 0.4],
   barrel: [0.6, 0.42, 0.3],
   /** 병원 십자·흰 판 */
   crossRed: [0.88, 0.25, 0.28],
   white: [0.98, 0.98, 0.97],
-  /** 연구소 둥근 지붕(엷은 유리) */
+  /** 연구소 둥근 지붕(엷은 유리)·바이오 시안 */
   glassDome: [0.76, 0.9, 0.95],
+  bioCyan: [0.32, 0.78, 0.82],
   /** 짓는 중 비계(밝은 나무)·무너진 돌 */
   scaffold: [0.86, 0.72, 0.5],
   rubble: [0.5, 0.47, 0.44],
@@ -117,6 +125,20 @@ export const NATION_ACCENTS: readonly Rgb[] = [
 export function nationAccent(index: number | null | undefined): Rgb | null {
   if (index === null || index === undefined || !Number.isInteger(index) || index < 0) return null;
   return NATION_ACCENTS[index % NATION_ACCENTS.length] ?? null;
+}
+
+const HEX_COLOR = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i;
+
+/** `#rrggbb` 시그니처 컬러 → sRGB 0~1 색(형식이 맞지 않으면 null) */
+export function parseHexColor(hex: string | null | undefined): Rgb | null {
+  if (typeof hex !== "string") return null;
+  const match = HEX_COLOR.exec(hex.trim());
+  if (!match) return null;
+  return [
+    Number.parseInt(match[1] ?? "00", 16) / 255,
+    Number.parseInt(match[2] ?? "00", 16) / 255,
+    Number.parseInt(match[3] ?? "00", 16) / 255,
+  ];
 }
 
 /**

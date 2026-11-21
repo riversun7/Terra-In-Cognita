@@ -11,9 +11,10 @@ import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import type { LegendNation, ResourceLoad } from "./PlanetLayerPicker.tsx";
 import { loadResourceMap } from "./planetResource.ts";
-import { nationStyle } from "./nationColor.ts";
+import { nationHex, nationStyle } from "./nationColor.ts";
 import { territoryAtWorld } from "./territoryPick.ts";
 import { territoryViewOf } from "./territoryView.ts";
+import { warSetsOf } from "./warOverlay.ts";
 import { cityLabel, factionColor, factionName } from "./worldMapData.ts";
 
 /** 영토 레이어에서 누른 곳의 국가 안내 한 줄(도시 자료가 없으면 null) */
@@ -103,13 +104,21 @@ export function usePlanetLayers({ planetId, engineRef, engineReady, layerRef, wo
   const territory = useMemo(() => territoryViewOf(world), [world]);
   const nations = useMemo((): LegendNation[] | null => {
     if (world?.status !== "ready") return null;
+    const { warringFactions } = warSetsOf(world.relations);
+    const cityCounts = new Map<number, number>();
+    for (const city of world.cities)
+      cityCounts.set(city.factionId, (cityCounts.get(city.factionId) ?? 0) + 1);
     return world.factions
-      .filter((faction) => world.cities.some((city) => city.factionId === faction.id))
+      .filter((faction) => (cityCounts.get(faction.id) ?? 0) > 0)
       .map((faction) => ({
         id: faction.id,
         name: factionName(world.factions, faction.id),
         color: factionColor(world.factions, faction.id),
         style: nationStyle(world.factions, faction.id),
+        hex: nationHex(world.factions, faction.id),
+        emblem: faction.emblem,
+        cityCount: faction.cityCount ?? cityCounts.get(faction.id) ?? 0,
+        atWar: warringFactions.has(faction.id),
         patterned: territory.patterned.has(faction.id),
       }));
   }, [world, territory]);

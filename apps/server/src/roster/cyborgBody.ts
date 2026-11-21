@@ -11,6 +11,7 @@
 // - 이동 속도(move, 2026-11-12): 서버가 쓰는 걷기 빠르기 그대로(unitBody.ts rosterMoveOf — D-540 실효 AGI → 계산식 walk_speed). 원자재별 채집 예상(gather)은 서비스가 붙인다
 //   (services.ts — 실효 팩 채집 시설·컨디션이 필요하다, gatherSheet.ts).
 // - 생활비(D-453): 마지막 유지비를 못 냈으면 효율 불이익(N38 ‰, @terra/sim livingEfficiencyPm).
+import { DEFAULT_EXP_TABLE, type ExpTableEntryJson, expSpanAt } from "@terra/shared/expTable";
 import type { CyborgBody } from "@terra/shared/roster";
 import { livingEfficiencyPm, skillGradeCap } from "@terra/sim";
 import type { CyborgRecord } from "../cyborg/state.ts";
@@ -28,9 +29,9 @@ import {
   withoutBuffs,
 } from "./unitBody.ts";
 
-/** [임시] 레벨 구간 경험치 = floor(40 × 레벨^1.9)(48 §2.4 출발값 후보, 시안 본체와 같은 식) */
-export function levelSpan(level: number): number {
-  return Math.floor(40 * Math.max(1, level) ** 1.9);
+/** 유닛 공통 경험치 테이블(팩 exp_table, 48 §2.4 · 49 N8)에서 레벨 구간 경험치를 읽는다 */
+export function levelSpan(level: number, table: readonly ExpTableEntryJson[] = DEFAULT_EXP_TABLE): number {
+  return expSpanAt(table, level);
 }
 
 export function realCyborgBody(
@@ -53,7 +54,7 @@ export function realCyborgBody(
   return {
     level: record.level,
     maxLevel: catalog.society.cyborg.maxLevel,
-    exp: { into: record.exp, span: levelSpan(record.level) },
+    exp: { into: record.exp, span: levelSpan(record.level, catalog.expTable) },
     rebirths: record.rebirths,
     skillGradeCap: skillGradeCap(record.rebirths, catalog.society),
     faith: record.faith,

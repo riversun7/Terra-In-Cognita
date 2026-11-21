@@ -12,7 +12,7 @@
 // - 구간 걸음 배율(구간 빠르기)은 지나는 칸 중 가장 큰 배율이다(보수적 — 실제보다 조금 늦게 닿을 수는 있어도 빠르지 않다).
 import type { SizeClass } from "../grid/clearance.ts";
 import { type PlacementGrid, footprintCost } from "../grid/placementGrid.ts";
-import { PLACEMENT_SIZE } from "../units.ts";
+import { CELL_UNITS, HALF_CELL_UNITS, PLACEMENT_SIZE, type Point } from "../units.ts";
 import { DIAGONAL_STEP, STRAIGHT_STEP } from "./astar.ts";
 
 /**
@@ -55,11 +55,117 @@ export function sweptAnchors(a: number, b: number): number[] {
   return out;
 }
 
+/**
+ * 고정소수점 위치 from → 기준 칸 toCell 중심 직선 위를 크기 등급 size 정사각형이 움직일 때 덮는 기준 칸 번호.
+ * 정수 격자선 교차만 비교(오차·부동소수점 없음). from의 정사각형이 지도 밖이면 null
+ */
+export function sweptAnchorsFromPoint(from: Point, toCell: number, size: SizeClass): number[] | null {
+  const fx = from.x - size * HALF_CELL_UNITS;
+  const fy = from.y - size * HALF_CELL_UNITS;
+  const maxCorner = (PLACEMENT_SIZE - size) * CELL_UNITS;
+  if (fx < 0 || fy < 0 || fx > maxCorner || fy > maxCorner) return null;
+  const bx = toCell % PLACEMENT_SIZE;
+  const by = (toCell - bx) / PLACEMENT_SIZE;
+  const tx = bx * CELL_UNITS;
+  const ty = by * CELL_UNITS;
+  const dx = tx - fx;
+  const dy = ty - fy;
+  const out: number[] = [];
+  if (dx === 0 && dy === 0) {
+    const x0 = Math.floor(fx / CELL_UNITS);
+    const y0 = Math.floor(fy / CELL_UNITS);
+    const xs = fx % CELL_UNITS === 0 ? [x0] : [x0, x0 + 1];
+    const ys = fy % CELL_UNITS === 0 ? [y0] : [y0, y0 + 1];
+    for (const y of ys) for (const x of xs) out.push(y * PLACEMENT_SIZE + x);
+    return out;
+  }
+  const adx = Math.abs(dx);
+  const ady = Math.abs(dy);
+  // 진행 방향 직후(u = 0+)에서 정사각형 왼쪽 위 모서리가 속한 정수 구간 [ix, ix+1] × [iy, iy+1]
+  let ix =
+    dx > 0
+      ? Math.floor(fx / CELL_UNITS)
+      : dx < 0
+        ? Math.ceil(fx / CELL_UNITS) - 1
+        : Math.floor(fx / CELL_UNITS);
+  let iy =
+    dy > 0
+      ? Math.floor(fy / CELL_UNITS)
+      : dy < 0
+        ? Math.ceil(fy / CELL_UNITS) - 1
+        : Math.floor(fy / CELL_UNITS);
+  const constXs = dx === 0 ? (fx % CELL_UNITS === 0 ? [ix] : [ix, ix + 1]) : null;
+  const constYs = dy === 0 ? (fy % CELL_UNITS === 0 ? [iy] : [iy, iy + 1]) : null;
+  const hasMoreX = (): boolean => (dx > 0 ? ix < bx : dx < 0 ? ix >= bx : false);
+  const hasMoreY = (): boolean => (dy > 0 ? iy < by : dy < 0 ? iy >= by : false);
+  while (hasMoreX() || hasMoreY()) {
+    const xs = constXs ?? [ix, ix + 1];
+    const ys = constYs ?? [iy, iy + 1];
+    for (const y of ys) for (const x of xs) out.push(y * PLACEMENT_SIZE + x);
+    if (dx === 0) {
+      iy += dy > 0 ? 1 : -1;
+    } else if (dy === 0) {
+      ix += dx > 0 ? 1 : -1;
+    } else {
+      const remX = dx > 0 ? (ix + 1) * CELL_UNITS - fx : fx - ix * CELL_UNITS;
+      const remY = dy > 0 ? (iy + 1) * CELL_UNITS - fy : fy - iy * CELL_UNITS;
+      const crossX = remX * ady;
+      const crossY = remY * adx;
+      if (crossX < crossY) ix += dx > 0 ? 1 : -1;
+      else if (crossY < crossX) iy += dy > 0 ? 1 : -1;
+      else {
+        ix += dx > 0 ? 1 : -1;
+        iy += dy > 0 ? 1 : -1;
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * 출발 칸 중심을 건너뛰고 from → toCell 중심으로 곧장 갈 수 있으면 그 구간 걸음 배율, 아니면 null.
+ * 쓸고 가는 칸이 모두 통과 가능하고, 원래 출발 칸 → toCell 직선의 최대 칸 비용을 넘지 않아야 한다.
+ */
+export function directSegmentPace(
+  grid: PlacementGrid,
+  from: Point,
+  startCell: number,
+  toCell: number,
+  size: SizeClass,
+  paceAt: (cell: number) => number,
+): number | null {
+  const anchors = sweptAnchorsFromPoint(from, toCell, size);
+  if (!anchors) return null;
+  let baselineMaxCost = 0;
+  for (const anchor of sweptAnchors(startCell, toCell)) {
+    if (anchor === startCell) continue;
+    const cost = footprintCost(grid, anchor, size);
+    if (cost > baselineMaxCost) baselineMaxCost = cost;
+  }
+  const { clearance } = grid;
+  let highestPace = 0;
+  for (const anchor of anchors) {
+    if ((clearance[anchor] ?? 0) < size) return null;
+    if (anchor === startCell) continue;
+    if (footprintCost(grid, anchor, size) > baselineMaxCost) return null;
+    const pace = paceAt(anchor);
+    if (pace > highestPace) highestPace = pace;
+  }
+  return highestPace > 0 ? highestPace : paceAt(toCell);
+}
+
 /** 칸 번호 → (x, y) */
 const xyOf = (cell: number): { x: number; y: number } => {
   const x = cell % PLACEMENT_SIZE;
   return { x, y: (cell - x) / PLACEMENT_SIZE };
 };
+
+/** 두 기준 칸 사이의 유클리드 거리(칸) */
+function cellDistance(a: number, b: number): number {
+  const pa = xyOf(a);
+  const pb = xyOf(b);
+  return Math.sqrt((pb.x - pa.x) * (pb.x - pa.x) + (pb.y - pa.y) * (pb.y - pa.y));
+}
 
 export interface SmoothedPath {
   /** 남긴 기준 칸(첫 칸·끝 칸 포함) */
@@ -115,7 +221,7 @@ export function smoothCellPath(
       ? highestPace
       : null;
   };
-  const kept = [cells[0] ?? 0];
+  const keptIdx = [0];
   const paces: number[] = [];
   let i = 0;
   while (i < n - 1) {
@@ -128,9 +234,46 @@ export function smoothCellPath(
       best = k;
       bestPace = pace;
     }
-    kept.push(cells[best] ?? 0);
+    keptIdx.push(best);
     paces.push(bestPace);
     i = best;
   }
-  return { cells: kept, paces };
+  // 2차 모서리 당기기: 앞쪽 욕심 탐색이 벽 모서리를 지나치며 만든 불필요한 직각 꺾임(L자)을 줄인다.
+  // 연속한 세 점 A → B → C에서 A와 C 사이 A* 칸 m으로 옮겨 A → m → C가 모두 통과 가능하고 더 짧으면 당긴다.
+  const paceOfEdge = (fromIdx: number, toIdx: number): number | null =>
+    toIdx === fromIdx + 1 ? paceAt(cells[toIdx] ?? 0) : lineOf(fromIdx, toIdx);
+  if (keptIdx.length >= 3) {
+    for (let p = 1; p < keptIdx.length - 1; p++) {
+      const idxA = keptIdx[p - 1] ?? 0;
+      const idxB = keptIdx[p] ?? 0;
+      const idxC = keptIdx[p + 1] ?? 0;
+      const cellA = cells[idxA] ?? 0;
+      const cellB = cells[idxB] ?? 0;
+      const cellC = cells[idxC] ?? 0;
+      let bestM = idxB;
+      let bestLen = cellDistance(cellA, cellB) + cellDistance(cellB, cellC);
+      let bestP1 = paces[p - 1] ?? 0;
+      let bestP2 = paces[p] ?? 0;
+      for (let m = idxA + 1; m < idxC; m++) {
+        if (m === idxB) continue;
+        const cellM = cells[m] ?? 0;
+        const len = cellDistance(cellA, cellM) + cellDistance(cellM, cellC);
+        if (len + 1e-9 >= bestLen) continue;
+        const p1 = paceOfEdge(idxA, m);
+        if (p1 === null) continue;
+        const p2 = paceOfEdge(m, idxC);
+        if (p2 === null) continue;
+        bestM = m;
+        bestLen = len;
+        bestP1 = p1;
+        bestP2 = p2;
+      }
+      if (bestM !== idxB) {
+        keptIdx[p] = bestM;
+        paces[p - 1] = bestP1;
+        paces[p] = bestP2;
+      }
+    }
+  }
+  return { cells: keptIdx.map((idx) => cells[idx] ?? 0), paces };
 }

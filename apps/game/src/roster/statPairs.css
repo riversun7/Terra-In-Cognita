@@ -92,6 +92,7 @@
   font-weight: var(--font-weight-strong);
   line-height: var(--line-height-tight);
   letter-spacing: var(--letter-spacing-display);
+  white-space: nowrap;
 }
 .stat-chip {
   margin-inline-end: var(--space-1);
@@ -130,6 +131,7 @@
   font-variant-numeric: tabular-nums;
   line-height: var(--line-height-tight);
   text-align: end;
+  white-space: nowrap;
 }
 .stat-bar {
   display: flex;

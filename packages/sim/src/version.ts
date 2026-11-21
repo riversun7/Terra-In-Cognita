@@ -265,6 +265,10 @@
  *      sim 시험이 그대로 통과한다)
  *    - (줄기 logistics의 80) 사업장 계수표에 물류센터 운반 대행 요금 단위 칸 둘(haulUnitG·haulUnitCells — 기획 D-576·질문 2213 요금 단위 나, 서버
  *      logistics/haulService.ts만 읽는다). 시뮬 판정·출력은 그대로다(시뮬은 운반 대행을 돌리지 않는다)
+ * 63: 2차맵 경로 출발 칸 중심 역행 제거 및 모서리 당기기(docs/adr/2026-11-19-path-backtrack-and-corner-pull.md, 사용자 지적 2026-11-19
+ *    "유닛이 근처 타일로 뒤로 갔다가 이동하는등 부자연 스러운 모습도 개선해라"): planRoute가 출발점이 칸 중심과 다를 때 다음 꺾이는 칸 중심으로
+ *    곧장 가는 선이 통과 가능하고 비용 손해가 없으면 출발 칸 중심으로 뒤돌아가지 않는다(path/smooth.ts directSegmentPace·sweptAnchorsFromPoint).
+ *    smoothCellPath가 앞쪽 욕심 탐색 뒤에 연속 세 점 A → B → C의 모서리를 당겨 불필요한 직각 꺾임을 줄인다. 경로 비용(cost)은 A* 값 그대로다
  * 98: (줄기 house-9 판 — 합칠 때 묶음 판으로 다시 붙인다) 군단장의 분대별 명령(기획 D-574 "군단소속이면 군단장 명령 가능하나 2순위", 질문 2265 나,
  *    docs/adr/2026-10-31-combat-core.md "바뀜 (house-9)"): 군단 입력(kind "legion")에 선택 칸 party가 있으면 정원 안 그 파티 하나에만 군단 명령을
  *    준다(combat/orders.ts applyOrderInput — 소유주 명령이 서 있거나 정원 밖이면 거절). party 없는 입력·명령 없는 전투는 그대로다

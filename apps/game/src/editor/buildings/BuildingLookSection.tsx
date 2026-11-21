@@ -15,6 +15,7 @@ import {
   type FacilityLookModel,
 } from "@terra/shared/buildingEditor";
 import { FACILITY_RUNTIME_LIMITS } from "@terra/shared/facilityRuntime";
+import type { NationEmblemView } from "@terra/shared/nationEditor";
 import { BUILDING_COLORS, LOOK_COLORS, NATION_ACCENTS } from "@terra/engine/buildingArt";
 import type { BuildingPreview } from "@terra/engine/buildingPreview";
 import { type KeyboardEvent, useEffect, useId, useMemo, useRef, useState } from "react";
@@ -46,6 +47,40 @@ const cssRgb = (rgb: readonly number[]): string =>
 
 const formatM = (value: number): string => (Math.round(value * 10) / 10).toFixed(1);
 
+/** 편집기 미리 보기용 샘플 국가 시그니처 컬러·문양 6종(색 1~6 고를 때 깃발·배너 문양까지 함께 확인) */
+const PREVIEW_EMBLEMS: readonly NationEmblemView[] = [
+  {
+    color: "#e6004c",
+    spec: { shape: "shield", division: "chief", charge: "star", scheme: 0 },
+    uploaded: null,
+  },
+  {
+    color: "#1f7ae0",
+    spec: { shape: "circle", division: "border", charge: "leaf", scheme: 1 },
+    uploaded: null,
+  },
+  {
+    color: "#22a05b",
+    spec: { shape: "hexagon", division: "fess", charge: "wave", scheme: 0 },
+    uploaded: null,
+  },
+  {
+    color: "#8844d8",
+    spec: { shape: "circle", division: "plain", charge: "mountain", scheme: 2 },
+    uploaded: null,
+  },
+  {
+    color: "#e69b17",
+    spec: { shape: "banner", division: "chevron", charge: "crown", scheme: 0 },
+    uploaded: null,
+  },
+  {
+    color: "#eb6328",
+    spec: { shape: "diamond", division: "quarterly", charge: "flame", scheme: 0 },
+    uploaded: null,
+  },
+];
+
 interface PreviewView {
   readonly level: number;
   readonly state: ViewState;
@@ -76,6 +111,7 @@ function LookPreview({ entry }: { entry: FacilityJson }) {
   const depth = entry.footprint?.height ?? 3;
   const maxLevel = Math.min(entry.maxLevel ?? FACILITY_LEVEL_MAX, FACILITY_LEVEL_MAX);
   const art = entry.look;
+  const previewEmblem = view.accent === null ? null : (PREVIEW_EMBLEMS[view.accent] ?? null);
   const input = useMemo(
     () => ({
       widthCells: width,
@@ -87,10 +123,12 @@ function LookPreview({ entry }: { entry: FacilityJson }) {
         state: view.level === 0 ? ("building" as const) : view.state,
         upgrading: view.upgrading,
         accent: view.accent,
+        accentColor: previewEmblem?.color ?? null,
+        emblem: previewEmblem,
         art: art ?? null,
       },
     }),
-    [width, depth, entry.id, view.level, view.state, view.upgrading, view.accent, art],
+    [width, depth, entry.id, view.level, view.state, view.upgrading, view.accent, previewEmblem, art],
   );
   // 시험·견주기용 표지: 미리 보기에 넣은 바닥·겉모습
   const key = JSON.stringify([width, depth, input.look]);

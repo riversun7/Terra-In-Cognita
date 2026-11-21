@@ -31,6 +31,8 @@ export interface TerritoryFrame {
   readonly fills: Map<number, string>;
   /** 두 국가가 맞닿은 선(받침) */
   readonly dividers: string;
+  /** 전쟁 중인 두 국가가 맞닿은 국경 선(강조용) */
+  readonly warDividers: string;
   /** 그린 국가 덩이 수와 둥근 표시로 그린 국가 수(시험·측정용) */
   readonly areas: number;
   readonly blobs: number;
@@ -67,8 +69,16 @@ const append = (map: Map<number, string>, key: number, part: string): void => {
   if (part !== "") map.set(key, (map.get(key) ?? "") + part);
 };
 
+/** 두 세력 ID의 정규화 쌍 열쇠(작은 ID:큰 ID) */
+export const pairKey = (a: number, b: number): string =>
+  a < b ? `${String(a)}:${String(b)}` : `${String(b)}:${String(a)}`;
+
 /** 영토 모양을 이 프레임의 화면 경로로 */
-export function projectTerritory(projector: PlanetProjector, shapes: TerritoryShapes): TerritoryFrame {
+export function projectTerritory(
+  projector: PlanetProjector,
+  shapes: TerritoryShapes,
+  warPairs?: ReadonlySet<string>,
+): TerritoryFrame {
   const { width, height } = projector.viewport;
   const fills = new Map<number, string>();
   // 국가마다 화면에서 가장 큰 덩이 반지름(px)
@@ -105,8 +115,18 @@ export function projectTerritory(projector: PlanetProjector, shapes: TerritorySh
     blobs += 1;
   }
   let dividers = "";
-  for (const line of shapes.dividers) dividers += pathOf(projector, line, 1, false);
-  return { fills, dividers, areas: drawn, blobs };
+  let warDividers = "";
+  if (shapes.dividerEdges && shapes.dividerEdges.length > 0) {
+    for (const edge of shapes.dividerEdges) {
+      const part = pathOf(projector, edge.points, 1, false);
+      if (part === "") continue;
+      dividers += part;
+      if (warPairs?.has(pairKey(edge.factions[0], edge.factions[1]))) warDividers += part;
+    }
+  } else {
+    for (const line of shapes.dividers) dividers += pathOf(projector, line, 1, false);
+  }
+  return { fills, dividers, warDividers, areas: drawn, blobs };
 }
 
 /** 이름표 크기(px) */
@@ -128,15 +148,31 @@ const overlaps = (a: Box, b: Box): boolean =>
   a.top < b.bottom + LABEL_GAP_PX &&
   b.top < a.bottom + LABEL_GAP_PX;
 
+/** 화면 가장자리 여유(px) — 일부만 보이는 가장자리 국가도 위·아래 HUD를 피해 안쪽으로 당겨 표시한다 */
+const EDGE_REACH_X_PX = 48;
+const EDGE_REACH_Y_PX = 44;
+const EDGE_PAD_X_PX = 10;
+const EDGE_PAD_TOP_PX = 64;
+const EDGE_PAD_BOTTOM_PX = 76;
+
+const nearViewport = (point: ProjectedPoint, width: number, height: number): boolean =>
+  point.visible &&
+  point.x >= -EDGE_REACH_X_PX &&
+  point.x <= width + EDGE_REACH_X_PX &&
+  point.y >= -EDGE_REACH_Y_PX &&
+  point.y <= height + EDGE_REACH_Y_PX;
+
 /**
- * 국가 이름표 자리(이름표 가운데 화면 점). 넓은 국가부터(spots 차례) 후보 자리(가운데 → 위 → 아래 → 두 칸 위·아래 → 오른쪽 → 왼쪽) 가운데 다른 이름표·피할 점(보이는 도시
- * 표시)과 겹치지 않고 화면 안인 첫 자리, 그런 자리가 없으면 표시와만 겹치는 가운데. 다른 이름표와 늘 겹치면 넣지 않는다(감춘다)
+ * 국가 이름표 자리(이름표 가운데 화면 점). 넓은 국가부터(spots 차례) 후보 자리 가운데 다른 이름표·피할 점(보이는 도시 표시)과 겹치지 않고
+ * 화면 안인 첫 자리를 고른다. 영토 중심이 화면 가장자리 바깥 살짝 걸쳤거나 다른 덩이 도시만 화면 안에 있을 때도 보이는 기준점으로 당겨
+ * 국가 이름이 사라지지 않게 한다.
  */
 export function placeLabels(
   projector: PlanetProjector,
   spots: readonly TerritoryLabelSpot[],
   sizes: ReadonlyMap<number, LabelSize>,
   avoid: readonly { readonly x: number; readonly y: number }[],
+  fallbacks?: ReadonlyMap<number, readonly LatLon[]>,
 ): Map<number, { x: number; y: number }> {
   const { width, height } = projector.viewport;
   const markers: Box[] = avoid.map((point) => ({
@@ -150,8 +186,27 @@ export function placeLabels(
   for (const spot of spots) {
     const size = sizes.get(spot.factionId);
     if (!size || size.width <= 0) continue;
-    const point = projector.project(spot.latDeg, spot.lonDeg);
-    if (!point?.visible) continue;
+    let point = projector.project(spot.latDeg, spot.lonDeg);
+    if (!point || !nearViewport(point, width, height)) {
+      const extras = fallbacks?.get(spot.factionId) ?? [];
+      point = null;
+      for (const [lat, lon] of extras) {
+        const candidate = projector.project(lat, lon);
+        if (candidate && nearViewport(candidate, width, height)) {
+          point = candidate;
+          break;
+        }
+      }
+      if (!point) continue;
+    }
+    const minX = Math.min(width / 2, size.width / 2 + EDGE_PAD_X_PX);
+    const maxX = Math.max(width / 2, width - size.width / 2 - EDGE_PAD_X_PX);
+    const minY = Math.min(height / 2, size.height / 2 + EDGE_PAD_TOP_PX);
+    const maxY = Math.max(height / 2, height - size.height / 2 - EDGE_PAD_BOTTOM_PX);
+    const clampX = (x: number): number => Math.min(maxX, Math.max(minX, x));
+    const clampY = (y: number): number => Math.min(maxY, Math.max(minY, y));
+    const ax = clampX(point.x);
+    const ay = clampY(point.y);
     const boxAt = (x: number, y: number): Box => ({
       left: x - size.width / 2,
       right: x + size.width / 2,
@@ -161,18 +216,23 @@ export function placeLabels(
     const inside = (box: Box): boolean =>
       box.left >= 0 && box.top >= 0 && box.right <= width && box.bottom <= height;
     const free = (box: Box): boolean => inside(box) && !labels.some((other) => overlaps(box, other));
-    // 가운데·위·아래(두 칸까지)·오른쪽·왼쪽 가운데 도시 표시도 피하는 첫 자리, 없으면 가운데(표시 위에 겹쳐도 — 표시가 이름표 위에 그려진다)
+    // 가운데 → 위 → 아래 → 두 칸 위·아래 → 좌우 → 대각선 순으로 도시 표시도 피하는 첫 자리, 없으면 다른 국가 이름표만 피하는 첫 자리
     const stepY = size.height + MARKER_AVOID_PX;
-    const stepX = size.width / 2 + MARKER_AVOID_PX * 2;
+    const stepX = size.width / 2 + MARKER_AVOID_PX * 1.5;
     const candidates = [
-      boxAt(point.x, point.y),
-      ...[-1, 1, -2, 2].map((shift) => boxAt(point.x, point.y + shift * stepY)),
-      boxAt(point.x + stepX, point.y),
-      boxAt(point.x - stepX, point.y),
+      boxAt(ax, ay),
+      boxAt(ax, clampY(point.y - stepY)),
+      boxAt(ax, clampY(point.y + stepY)),
+      boxAt(ax, clampY(point.y - 2 * stepY)),
+      boxAt(ax, clampY(point.y + 2 * stepY)),
+      boxAt(clampX(point.x + stepX), ay),
+      boxAt(clampX(point.x - stepX), ay),
+      boxAt(clampX(point.x + stepX * 0.7), clampY(point.y - stepY)),
+      boxAt(clampX(point.x - stepX * 0.7), clampY(point.y - stepY)),
     ];
     const chosen =
       candidates.find((box) => free(box) && !markers.some((marker) => overlaps(box, marker))) ??
-      candidates.find((box, index) => index === 0 && free(box));
+      candidates.find((box) => free(box));
     if (!chosen) continue;
     placed.set(spot.factionId, { x: (chosen.left + chosen.right) / 2, y: (chosen.top + chosen.bottom) / 2 });
     labels.push(chosen);

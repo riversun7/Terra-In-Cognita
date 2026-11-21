@@ -36,6 +36,20 @@ export const ELEVATION_SEA_SCALE = 0.5;
 /** 고도 레이어 호수 색(바다와 다른 청록) */
 export const ELEVATION_LAKE_COLOR = 0x5cc8bf;
 
+/**
+ * 기후 레이어 기온 색 띠(-30°C ~ +38°C 정규화 0 ~ 1): 한대(남보라) → 냉대(하늘) → 온대(초록·노랑) → 열대(주황·빨강).
+ * 셰이더(temperatureColor)와 화면 기후 범례가 같은 색 띠를 쓴다.
+ */
+export const CLIMATE_TEMP_RAMP: readonly RampStop[] = [
+  { at: 0, color: 0x5b6ee1 },
+  { at: 0.294, color: 0x7fb2f0 },
+  { at: 0.441, color: 0xb7e4f5 },
+  { at: 0.588, color: 0xa8e6a1 },
+  { at: 0.735, color: 0xf6e58d },
+  { at: 0.853, color: 0xf8b26a },
+  { at: 1, color: 0xe8615a },
+];
+
 /** 자원·영토 레이어 바탕(흐린 땅·물) — 덧칠한 색이 잘 보이게 */
 export const MUTED_LAND_COLOR = 0xe6e1d6;
 export const MUTED_WATER_COLOR = 0xcbd9e2;

@@ -22,6 +22,7 @@ import {
 } from "@terra/sim";
 import type { MapUnitGlance } from "@terra/shared/mapUnits";
 import type { NationEmblemView } from "@terra/shared/nationEditor";
+import { EMBLEM_CHARGES, EMBLEM_DIVISIONS, EMBLEM_SHAPES, normalizeEmblem } from "@terra/shared/nationEmblem";
 import type { LocalizedName } from "@terra/shared/roster";
 import { catchmentRadiusMilli } from "@terra/shared/catchment";
 import { cityGrade } from "@terra/shared/territory";
@@ -33,6 +34,7 @@ import type {
   WorldMapFaction,
   WorldMapHull,
   WorldMapLand,
+  WorldMapRegime,
   WorldPosition,
   WorldPositionResponse,
   WorldTerritoryDisplay,
@@ -56,6 +58,7 @@ import { beaconKnown, hullKnown, isCityKnown, knownWithoutSight } from "./knownC
 import { createTravelDanger } from "./travelDanger.ts";
 import { cyborgLookOf } from "../cyborg/state.ts";
 import { ownerFactionsOf } from "../facilities/targets.ts";
+import { loadCityOccupations, loadFactionRelations } from "./diplomacyReads.ts";
 import { type MapUnitReads, createMapUnitReads } from "./mapUnits.ts";
 import { type TravelReads, createTravelReads } from "./travelReads.ts";
 
@@ -65,8 +68,14 @@ export interface WorldMapSource {
   readonly maps: ReadonlyMap<number, SecondMap>;
   /** 시야 규칙(구독과 같은 canViewSecondMap)이 읽는 세계 — 사용자의 소유 주체 */
   readonly directory: WorldDirectory;
-  /** 사이보그 본체 유닛 ID·시작 도시(없으면 undefined) */
-  cyborgOf(userId: string): { readonly unitId: number | null; readonly startCityId: number } | undefined;
+  /** 사이보그 본체 유닛 ID·이름·시작 도시(없으면 undefined) */
+  cyborgOf(userId: string):
+    | {
+        readonly unitId: number | null;
+        readonly startCityId: number;
+        readonly name?: string | undefined;
+      }
+    | undefined;
   /** 띄운 2차맵에서 내가 아는 시야 칸(탐사 기록 ∪ 지금 시야, MapVision.sighted). 없으면 DB 탐사 기록만 본다 */
   sighted?: ((mapKey: number, viewer: Viewer) => Promise<Uint8Array | undefined>) | undefined;
   /** 영토 셈(조회 캐시). 없으면(영토 서비스 없음) undefined */
@@ -90,6 +99,8 @@ export interface WorldMapReadDeps {
   readonly factionName?: ((code: string) => LocalizedName | undefined) | undefined;
   /** 세력 코드 → 국가 프리셋 시그니처 색(`#rrggbb`). 세력 정체성 색이 있으면 그것이 이긴다 */
   readonly factionColor?: ((code: string) => string | undefined) | undefined;
+  /** 세력 코드 → 국가 마크(만든 마크 + 올린 그림 해시). 건물 깃발·배너 문양에 쓴다 */
+  readonly factionEmblem?: ((code: string) => Promise<NationEmblemView | null>) | undefined;
   /**
    * 배후지 지금 반경 규칙(1차맵 영토 원, ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"). 없거나 undefined면 도시 catchmentMilli = null
    * (화면은 영향권 반경으로 그린다)
@@ -141,11 +152,16 @@ interface CityRecord {
   readonly name: string | null;
   readonly code: string | null;
   readonly kind: "npc" | "player";
+  readonly regime: WorldMapRegime;
+  readonly parentId: number | null;
   /** 사는 휴먼 수·발전도·주인 세력 기술 단계(배후지 지금 반경 — 세계 배치 화면 배후지 덮개와 같은 값) */
   readonly population: number;
   readonly development: number;
   readonly tech: number;
 }
+
+const asRegime = (value: unknown): WorldMapRegime =>
+  value === "dictatorship" || value === "capitalism" ? value : "democracy";
 
 // 배후지 지금 반경 규칙은 영토 판정(territory/service.ts)과 같이 쓴다(D-568) — territory/catchmentRules.ts
 export { type CatchmentRadiusRules, catchmentRadiusRulesOf } from "../territory/catchmentRules.ts";
@@ -153,7 +169,7 @@ export { type CatchmentRadiusRules, catchmentRadiusRulesOf } from "../territory/
 async function loadCityRecords(pool: QueryPool, planetId: string): Promise<CityRecord[]> {
   const result = await pool.query(
     `select c.id, c.faction_id, c.map_key, c.cell_x, c.cell_y, c.start, c.name, f.code, f.kind, c.development,
-            f.tech_level as tech,
+            f.tech_level as tech, f.regime, f.parent_id,
             (f.capital_city_id is not null and f.capital_city_id = c.id) as capital,
             (select count(*) from world_humans h where h.city_id = c.id) as population
      from world_cities c join factions f on f.id = c.faction_id
@@ -172,27 +188,55 @@ async function loadCityRecords(pool: QueryPool, planetId: string): Promise<CityR
     name: typeof row.name === "string" ? row.name : null,
     code: typeof row.code === "string" ? row.code : null,
     kind: row.kind === "player" ? "player" : "npc",
+    regime: asRegime(row.regime),
+    parentId: row.parent_id === null || row.parent_id === undefined ? null : Number(row.parent_id),
     population: Number(row.population ?? 0),
     development: Number(row.development ?? 0),
     tech: Number(row.tech ?? 1),
   }));
 }
 
-/** 세력 정체성 색(faction_identities.faction_id — 하우스를 세운 세력만). 모양이 틀린 값은 뺀다. 표가 없으면(옛 DB) 빈 표 */
-async function identityColors(pool: QueryPool, factionIds: readonly number[]): Promise<Map<number, string>> {
+interface IdentityVisual {
+  readonly color: string;
+  readonly emblem: NationEmblemView;
+}
+
+/** 세력 정체성 색·마크(faction_identities.faction_id — 하우스를 세운 세력만). 모양이 틀린 값은 뺀다. 표가 없으면(옛 DB) 빈 표 */
+async function identityVisuals(
+  pool: QueryPool,
+  factionIds: readonly number[],
+): Promise<Map<number, IdentityVisual>> {
   if (factionIds.length === 0) return new Map();
   const result = await pool
-    .query(`select faction_id, color from faction_identities where faction_id = any($1::bigint[])`, [
-      factionIds,
-    ])
+    .query(
+      `select faction_id, color, emblem_shape, emblem_division, emblem_charge, emblem_scheme, emblem_sha256
+       from faction_identities where faction_id = any($1::bigint[])`,
+      [factionIds],
+    )
     .catch(() => ({ rows: [] as Record<string, unknown>[] }));
-  const colors = new Map<number, string>();
+  const visuals = new Map<number, IdentityVisual>();
   for (const row of result.rows) {
     const color = typeof row.color === "string" ? row.color.toLowerCase() : "";
-    if (row.faction_id !== null && NATION_COLOR_PATTERN.test(color))
-      colors.set(Number(row.faction_id), color);
+    if (row.faction_id === null || !NATION_COLOR_PATTERN.test(color)) continue;
+    const shape = EMBLEM_SHAPES.find((item) => item === row.emblem_shape);
+    const division = EMBLEM_DIVISIONS.find((item) => item === row.emblem_division);
+    const charge = EMBLEM_CHARGES.find((item) => item === row.emblem_charge);
+    const spec = normalizeEmblem({
+      ...(shape ? { shape } : {}),
+      ...(division ? { division } : {}),
+      ...(charge ? { charge } : {}),
+      scheme: typeof row.emblem_scheme === "number" ? row.emblem_scheme : Number(row.emblem_scheme),
+    });
+    visuals.set(Number(row.faction_id), {
+      color,
+      emblem: {
+        spec,
+        color,
+        uploaded: typeof row.emblem_sha256 === "string" ? row.emblem_sha256 : null,
+      },
+    });
   }
-  return colors;
+  return visuals;
 }
 
 /** 내 탐사 기록(그 행성의 2차맵마다 시야 칸 비트, world_exploration) */
@@ -332,6 +376,7 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
         ),
       );
       const cities: WorldMapCity[] = [];
+      const factionStats = new Map<number, { cityCount: number; population: number }>();
       const catchmentRules = deps.catchment?.();
       for (const record of records) {
         if (!isCellKey(record.mapKey)) continue;
@@ -341,12 +386,19 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
         const number = (numbers.get(record.factionId) ?? 0) + 1;
         numbers.set(record.factionId, number);
         if (!knownIds.has(record.id)) continue;
+        const stat = factionStats.get(record.factionId) ?? { cityCount: 0, population: 0 };
+        stat.cityCount += 1;
+        stat.population += record.population;
+        factionStats.set(record.factionId, stat);
         if (!factions.has(record.factionId))
           factions.set(record.factionId, {
             id: record.factionId,
             code: record.code,
             kind: record.kind,
             name: nameOf(record.code),
+            regime: record.regime,
+            parentId: record.parentId,
+            techLevel: record.tech,
           });
         const map = source.maps.get(record.mapKey);
         const area = territoryCities.get(record.id);
@@ -381,6 +433,8 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
           point: territoryPoint(placementCellKey(record.mapKey, record.cellX, record.cellY)),
           loaded: map !== undefined,
           viewable: viewable.get(record.mapKey) ?? false,
+          population: record.population,
+          development: record.development,
           land: landOf(record.mapKey, bytes),
         });
       }
@@ -402,25 +456,56 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
         myFactionId,
         observer,
       });
-      // 국가 색(바뀜 2026-11-14): 세력 정체성 색 > 팩 국가 프리셋 시그니처 색. 아는 국가(안개를 지난 도시의 국가)만
-      const identity = await identityColors(pool, [...factions.keys()]);
-      const colored = [...factions.values()].map((faction): WorldMapFaction => {
-        const preset = faction.code === null ? undefined : deps.factionColor?.(faction.code)?.toLowerCase();
-        const color =
-          identity.get(faction.id) ?? (preset && NATION_COLOR_PATTERN.test(preset) ? preset : null);
-        return { ...faction, color };
-      });
+      // 국가 색·마크 + 세력 외교(전쟁·불가침) + 도시 점령·최근 교전 — 아는 국가·도시만
+      const factionIds = [...factions.keys()];
+      const [identity, relations, occupations] = await Promise.all([
+        identityVisuals(pool, factionIds),
+        loadFactionRelations(pool, factionIds, nowMs),
+        loadCityOccupations(
+          pool,
+          cities.map((city) => city.id),
+          nowMs,
+        ),
+      ]);
+      const enrichedCities =
+        occupations.size === 0
+          ? cities
+          : cities.map((city) => {
+              const occupation = occupations.get(city.id);
+              return occupation ? { ...city, occupation } : city;
+            });
+      const colored = await Promise.all(
+        [...factions.values()].map(async (faction): Promise<WorldMapFaction> => {
+          const own = identity.get(faction.id);
+          const preset = faction.code === null ? undefined : deps.factionColor?.(faction.code)?.toLowerCase();
+          const color = own?.color ?? (preset && NATION_COLOR_PATTERN.test(preset) ? preset : null);
+          const presetEmblem =
+            !own && faction.code !== null && deps.factionEmblem
+              ? await deps.factionEmblem(faction.code).catch(() => null)
+              : null;
+          const baseEmblem = own?.emblem ?? presetEmblem;
+          const emblem = baseEmblem ? { ...baseEmblem, color: color ?? baseEmblem.color } : undefined;
+          const stat = factionStats.get(faction.id);
+          return {
+            ...faction,
+            color,
+            ...(emblem ? { emblem } : {}),
+            ...(stat ? { cityCount: stat.cityCount, population: stat.population } : {}),
+          };
+        }),
+      );
       return {
         status: "ready",
         planetId,
         faceLevel,
         factions: colored,
-        cities,
+        cities: enrichedCities,
         hulls,
         // 영토 서비스가 없어도 배후지 원을 그릴 수 있게 행성 평균 칸 환산(같은 값 — @terra/planet/territory)
         milliPerRadian: territory?.milliPerRadian ?? territoryMetric(faceLevel).milliPerRadian,
         beacons,
         territoryDisplay: { ...(deps.territoryDisplay?.() ?? TERRITORY_DISPLAY_START) },
+        relations,
         myFactionId,
         generatedAt: nowMs,
       };
@@ -449,6 +534,7 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
             cellY,
             ...placeLatLon(mapKey, cellX, cellY),
             unitId,
+            ...(cyborg.name ? { name: cyborg.name } : {}),
             startCityId: cyborg.startCityId,
             hidden: false,
           };
@@ -470,6 +556,7 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
             cellY: spot.cellY,
             ...placeLatLon(spot.mapKey, spot.cellX, spot.cellY),
             unitId,
+            ...(cyborg.name ? { name: cyborg.name } : {}),
             startCityId: cyborg.startCityId,
             hidden: standing === undefined,
           };
@@ -622,6 +709,7 @@ export function worldMapReadsOf(options: {
     biomeName: (id) => planets?.manifest(planetId)?.biomes.find((biome) => biome.id === id)?.name,
     factionName: nameOfCode,
     factionColor: (code) => nationEmblemOf(code, options.presets)?.color,
+    factionEmblem: emblemOfCode,
     catchment: options.catchment ?? (society ? () => catchmentRadiusRulesOf(society()) : undefined),
     territoryDisplay: options.territoryDisplay ?? (society ? () => society().territoryDisplay : undefined),
   });
@@ -645,6 +733,10 @@ export function worldMapReadsOf(options: {
     (mapKey, x, y) => (isCellKey(mapKey) ? placeLatLon(mapKey, x, y) : { latDeg: 0, lonDeg: 0 }),
     danger,
     (userId) => world.ownerOfUser?.(userId),
+    {
+      maps: () => world.maps.values(),
+      cyborgName: (userId) => world.persistence?.cyborgs.record(userId)?.name,
+    },
   );
   // 2차맵 화면의 내 유닛 목록(docs/adr/2026-11-07-unit-control.md): 메모리 유닛만 읽는다. 남의 유닛 한눈 정보(636 나)만 세력 행을 DB에서 읽는다
   const units = createMapUnitReads({

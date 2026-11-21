@@ -87,6 +87,8 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2) var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: var(--hairline) solid var(--color-border);
 }
 .screen-section-title {
   font-family: var(--font-display);
@@ -259,11 +261,11 @@
   }
 }
 
-/* 이름·값 쌍 목록(dl.facts) — 좁으면 2열 격자 */
+/* 이름·값 쌍 목록(dl.facts) — 데이터 타일 격자 */
 .facts {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(8.5em, 1fr));
-  gap: var(--space-3) var(--space-4);
+  gap: var(--space-2) var(--space-3);
   margin: 0;
 }
 .fact {
@@ -271,6 +273,10 @@
   flex-direction: column;
   gap: var(--space-1);
   min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
 }
 .fact-label {
   font-size: var(--font-size-xs);

@@ -1,50 +1,40 @@
-# CI — main 푸시마다 전체 검사 → 이미지 → (NAS 실행기가 있으면) 배포. 문서·스킬만 바뀐 푸시는 문서 검사만(2026-11-15)
-# docs/adr/2026-10-28-dev-workflow.md, docs/adr/2026-10-28-deploy-and-ops.md
+# CI — 코드·설정 검증(check·secrets)은 작업 PC(lefthook pre-commit·pre-push)에서 돌리고,
+# GitHub CI는 main 코드 푸시 때 이미지 빌드·푸시(image) → NAS 배포·점검(deploy)만 한다(2026-11-18).
+# 문서·스킬만 바뀐 푸시는 이 워크플로가 아예 시작하지 않는다(paths-ignore, 사용량 0).
+# docs/adr/2026-10-28-dev-workflow.md, docs/adr/2026-10-28-deploy-and-ops.md, docs/adr/2026-11-18-ci-local-and-nas.md
 name: ci
 
 on:
   push:
     branches: [main]
-  pull_request:
+    paths-ignore:
+      - "docs/**"
+      - ".claude/**"
+      - ".agent/**"
+      - "**/*.md"
   workflow_dispatch:
 
 permissions:
   contents: read
-  # 배포가 필요한지 볼 때 마지막으로 성공한 main 실행을 찾는다(아래 changes 단계)
   actions: read
 
-# PR은 새 푸시가 오면 이전 실행을 취소한다. main은 취소하지 않는다(배포 도중에 끊기지 않게).
+# main은 취소하지 않는다(배포 도중에 끊기지 않게).
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
-env:
-  NODE_VERSION: "24.22.1"
-  PNPM_VERSION: "11.28.9"
+  cancel-in-progress: false
 
 jobs:
-  check:
+  image:
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      packages: write
     outputs:
       deploy: ${{ steps.changes.outputs.deploy }}
-      # 검사를 통과한 서버 팩(content/core)의 버전·해시 — 이미지 점검과 배포 점검이 /health와 비교한다
-      content_version: ${{ steps.content.outputs.content_version }}
-      content_hash: ${{ steps.content.outputs.content_hash }}
-    # DB 통합 테스트용 — 운영과 같은 PostgreSQL 이미지. 이 작업 안에서만 쓰고 버리므로 비밀번호 없이 연다
-    services:
-      postgres:
-        image: postgres:18.6-trixie
-        env:
-          POSTGRES_USER: terra
-          POSTGRES_DB: terra
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -h 127.0.0.1 -U terra -d terra"
-          --health-interval 2s --health-timeout 3s --health-retries 30
-    env:
-      TEST_DATABASE_URL: postgres://terra@127.0.0.1:5432/terra
+      tag: ${{ steps.meta.outputs.tag }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -55,9 +45,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           before="${{ github.event.before }}"
-          # 같은 동시 실행 묶음은 대기 하나만 남긴다: 코드 푸시의 실행이 대기 중에 다음 푸시로 취소되면,
-          # 다음(문서만 바뀐) 푸시의 범위만 보고 배포를 건너뛰어 그 코드가 배포되지 않는다.
-          # 그래서 기준을 "마지막으로 성공한 main 푸시 실행의 커밋"으로 잡는다(찾지 못하면 푸시 범위 그대로).
           if [ "${{ github.event_name }}" = "push" ]; then
             last_ok="$(gh api "repos/${{ github.repository }}/actions/workflows/ci.yml/runs?branch=main&event=push&status=success&per_page=1" --jq '.workflow_runs[0].head_sha // empty' 2>/dev/null || true)"
             if [ -n "$last_ok" ] && git cat-file -e "${last_ok}^{commit}" 2>/dev/null && git merge-base --is-ancestor "$last_ok" "$GITHUB_SHA"; then
@@ -73,76 +60,16 @@ jobs:
             echo "deploy=false" >> "$GITHUB_OUTPUT"
             echo "문서·스킬만 바뀌어 이미지 빌드와 배포를 건너뜁니다." >> "$GITHUB_STEP_SUMMARY"
           fi
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      - run: npm install -g pnpm@${{ env.PNPM_VERSION }}
-      - run: pnpm install --frozen-lockfile
-      - name: 검사 (포맷·린트·타입·경계·파일 크기·다국어·테스트, DB 통합 테스트 포함)
-        if: steps.changes.outputs.deploy == 'true'
-        run: pnpm check
-      - name: 표 정의와 마이그레이션 일치 (schema.ts를 바꾸고 db:generate를 빠뜨리면 실패)
-        if: steps.changes.outputs.deploy == 'true'
-        run: |
-          pnpm --filter @terra/server db:generate
-          if [ -n "$(git status --porcelain -- apps/server/drizzle)" ]; then
-            git status --short -- apps/server/drizzle
-            echo "::error::apps/server/src/db/schema.ts에 맞는 마이그레이션이 없습니다. pnpm --filter @terra/server db:generate 후 커밋하세요."
-            exit 1
-          fi
-      - name: 콘텐츠 검증 (content-check — 스키마·참조·ID 변경표 + 이전 버전 호환, 버전·해시를 작업 출력으로)
-        id: content
-        if: steps.changes.outputs.deploy == 'true'
-        run: node scripts/check-content.mjs "${{ github.event.pull_request.base.sha || github.event.before }}" --print >> "$GITHUB_OUTPUT"
-      - name: 작업 기록 목차 최신 여부
-        run: pnpm docs:index --check
-      - name: 문서 갱신 규칙 (코드 변경 → 작업 기록, 새 런타임 의존성 → ADR)
-        run: node scripts/check-docs.mjs "${{ github.event.pull_request.base.sha || github.event.before }}"
-      # 문서·스킬만 바뀐 main 푸시는 무거운 검사(pnpm check·빌드, 11~17분)를 건너뛰고 문서 검사만 한다(사용자 지적 2026-11-15:
-      # "문서만 바꾼걸 왜 계속 쳐올려서 빌드를 돌리냐"). 코드가 바뀐 푸시·PR은 위 if가 그대로 다 돌린다.
-      - name: 위키 검사 (문서만 바뀐 푸시)
-        if: steps.changes.outputs.deploy != 'true'
-        run: pnpm check:wiki
-      - name: 빌드
-        if: steps.changes.outputs.deploy == 'true'
-        run: pnpm build
-      - name: PWA 빌드 결과 (manifest·아이콘·theme-color, sw.js의 화면 이동 제외 경로·SKIP_WAITING)
-        if: steps.changes.outputs.deploy == 'true'
-        run: node scripts/check-pwa.mjs
-      - name: 첫 화면 JS 크기 (빌드한 index.html의 모듈 + modulepreload, 파일마다 gzip 9단계 합 ≤ apps/game/bundle-budget.json)
-        if: steps.changes.outputs.deploy == 'true'
-        run: pnpm check:bundle
-
-  secrets:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - name: gitleaks (저장소 전체 이력)
-        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 git --no-banner --redact -v /repo
-
-  image:
-    needs: [check, secrets]
-    # main 푸시 또는 main에서 수동 실행(Run workflow)할 때만. 문서·스킬만 바뀐 푸시는 건너뛴다
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && needs.check.outputs.deploy == 'true'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    permissions:
-      contents: read
-      packages: write
-    outputs:
-      tag: ${{ steps.meta.outputs.tag }}
-    steps:
-      - uses: actions/checkout@v7
       - id: meta
+        if: steps.changes.outputs.deploy == 'true'
         run: |
           echo "tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
           echo "IMAGE_REF=ghcr.io/${GITHUB_REPOSITORY,,}:sha-${GITHUB_SHA::12}" >> "$GITHUB_ENV"
       - name: GHCR 로그인
+        if: steps.changes.outputs.deploy == 'true'
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-      - name: 이미지 빌드
+      - name: 이미지 빌드 (Dockerfile 안에서 check-pwa·check-bundle·check-content 함께 확인)
+        if: steps.changes.outputs.deploy == 'true'
         run: |
           # source 라벨: GHCR 패키지를 이 저장소에 연결한다(권한 상속)
           # APP_BUILD = 커밋 앞 12자(접속 인사·성능 보고가 쓴다), APP_BUILD_NUMBER = 이 워크플로 실행 번호(설정 → 앱 정보에 보이는 차례 번호)
@@ -153,42 +80,15 @@ jobs:
             --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
             --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
             -t "$IMAGE_REF" .
-      - name: 이미지 동작 확인 (컨테이너 실행 → /health, 첫 화면, 자동 점검)
-        env:
-          EXPECT_CONTENT_VERSION: ${{ needs.check.outputs.content_version }}
-          EXPECT_CONTENT_HASH: ${{ needs.check.outputs.content_hash }}
-        run: |
-          docker run -d --name smoke -p 127.0.0.1:4100:4100 "$IMAGE_REF"
-          ok=""
-          # 시험 2차맵 지형이 S2 시험 행성 값에서 나와(ADR 2026-10-31-second-map-from-planet WP-3) 빈 캐시면 월드 부팅이
-          # 행성 굽기(약 12~20초)를 기다린다. listen은 월드 준비 뒤라 /health까지 90초를 준다
-          for _ in $(seq 1 90); do
-            if curl -fsS http://127.0.0.1:4100/health; then ok=1; break; fi
-            sleep 1
-          done
-          if [ -z "$ok" ]; then docker logs smoke; exit 1; fi
-          curl -fsS http://127.0.0.1:4100/ | grep -q 'id="root"'
-          # PWA 파일 형식, 없는 파일은 HTML이 아니라 404 (옛 SW·지연 로딩이 HTML을 받지 않게)
-          expect_type() {
-            ct=$(curl -fsS -o /dev/null -w '%{content_type}' "http://127.0.0.1:4100$1") && echo "$ct" | grep -Eq "$2" \
-              || { echo "::error::$1 형식이 '$ct'입니다 ($2)"; exit 1; }
-          }
-          expect_type /manifest.webmanifest '^application/manifest\+json'
-          expect_type /sw.js '^(text|application)/javascript'
-          code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4100/assets/missing-abc.js)
-          if [ "$code" != 404 ]; then echo "::error::없는 파일 응답이 $code입니다 (404)"; exit 1; fi
-          # 배포와 같은 점검(ops/smoke.mjs)을 컨테이너 안의 node로. DB 없이 띄웠으므로 db는 off
-          docker exec -i -e EXPECT_DB=off -e EXPECT_CONTENT_VERSION -e EXPECT_CONTENT_HASH smoke \
-            node --input-type=module - < ops/smoke.mjs || { docker logs smoke; exit 1; }
-          docker rm -f smoke
       - name: 이미지 푸시
+        if: steps.changes.outputs.deploy == 'true'
         run: docker push "$IMAGE_REF"
 
   deploy:
-    # check: 콘텐츠 버전·해시(작업 출력)를 배포 점검에 넘긴다
-    needs: [check, image]
+    needs: [image]
     # NAS에 실행기를 설치하고 저장소 변수 NAS_DEPLOY_ENABLED=true를 켜야 동작한다 (ops/nas-setup.md)
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && vars.NAS_DEPLOY_ENABLED == 'true'
+    # 컨테이너 실행 점검(/health·정적 파일·PWA·WebSocket, ops/smoke.mjs)은 NAS에서 하며 실패 시 이전 태그로 되돌린다
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && needs.image.outputs.deploy == 'true' && vars.NAS_DEPLOY_ENABLED == 'true'
     runs-on: [self-hosted, nas]
     timeout-minutes: 15
     permissions:
@@ -202,4 +102,4 @@ jobs:
       - name: GHCR 로그인
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: 배포
-        run: bash ops/deploy.sh "${{ needs.image.outputs.tag }}" "${{ needs.check.outputs.content_version }}" "${{ needs.check.outputs.content_hash }}"
+        run: bash ops/deploy.sh "${{ needs.image.outputs.tag }}"

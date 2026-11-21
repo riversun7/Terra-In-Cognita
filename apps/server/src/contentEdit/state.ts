@@ -11,6 +11,7 @@
 import {
   type CreatureEntry,
   type EffectEntry,
+  type ExpTableEntry,
   type FacilityEntry,
   type GatherTierEntry,
   type ItemEntry,
@@ -26,6 +27,7 @@ import {
   combatClassEntrySchema,
   creatureEntrySchema,
   effectEntrySchema,
+  expTableEntrySchema,
   facilityEntrySchema,
   gatherTierEntrySchema,
   itemEntrySchema,
@@ -95,6 +97,8 @@ export interface ContentEffective {
   readonly combatClasses: readonly CombatClassEntry[];
   /** 국력 등급 표(같은 편집기의 등급 탭 — docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)"). 국가 프리셋의 powerTier가 가리킨다 */
   readonly nationTiers: readonly NationTierEntry[];
+  /** 유닛 공통 경험치 테이블(/dev/exp-table, 48 §2.4 · 49 N8). 사이보그·휴먼·크리쳐 레벨업 구간 경험치 표 */
+  readonly expTable: readonly ExpTableEntry[];
 }
 
 export interface ContentSnapshot {
@@ -180,6 +184,7 @@ function parseEffective(raw: RawEntries): ContentEffective {
     nationPresets: raw.nation_presets.map((entry) => nationPresetEntrySchema.parse(entry)),
     combatClasses: raw.combat_classes.map((entry) => combatClassEntrySchema.parse(entry)),
     nationTiers: raw.nation_tiers.map((entry) => nationTierEntrySchema.parse(entry)),
+    expTable: raw.exp_table.map((entry) => expTableEntrySchema.parse(entry)),
   };
 }
 

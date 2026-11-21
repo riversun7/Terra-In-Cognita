@@ -1,0 +1,285 @@
+/*
+ * 1차맵 내 본캐릭 사이보그·보유 유닛 위치 판(PlanetUnitsPanel.tsx) — 값은 styles/tokens.css의 var(--…)만 쓴다.
+ */
+.planet-units-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-block-size: var(--tap-size);
+  white-space: nowrap;
+}
+.planet-units-toggle .icon {
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.planet-units-toggle[data-spotlight="true"],
+.planet-units-toggle[aria-expanded="true"] {
+  --button-lip: var(--color-primary-lip);
+  border-color: transparent;
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.planet-units-toggle[data-moving="true"]:not([aria-expanded="true"]):not([data-spotlight="true"]) {
+  border-color: var(--color-primary);
+  background-color: var(--color-nav-active);
+  color: var(--color-text);
+}
+
+.planet-units-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-self: stretch;
+  max-height: 52vh;
+  overflow-y: auto;
+}
+@media (min-width: 48em) {
+  .planet-units-sheet {
+    inline-size: min(34rem, 100%);
+  }
+}
+
+.planet-units-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.planet-units-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-tight);
+}
+.planet-units-title-icon,
+.planet-units-btn-icon {
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.planet-units-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.planet-units-head-actions > button {
+  min-block-size: var(--tap-size);
+}
+.planet-units-spotlight-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.planet-units-spotlight-btn[aria-pressed="true"] {
+  --button-lip: var(--color-primary-lip);
+  border-color: transparent;
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.planet-units-section {
+  display: grid;
+  gap: var(--space-2);
+}
+.planet-units-subhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+}
+.planet-units-subtitle {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+.planet-units-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.planet-units-pill {
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+.planet-units-pill[data-tone="moving"] {
+  border-color: var(--color-primary);
+  background-color: var(--color-nav-active);
+  color: var(--color-text);
+}
+
+/* 본캐릭 사이보그 카드 */
+.planet-units-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: var(--border-strong-w) solid var(--color-primary);
+  border-radius: var(--radius-control);
+  background-color: var(--color-nav-active);
+}
+.planet-units-hero[data-focused="true"] {
+  box-shadow: 0 0 0 var(--border-w) var(--color-focus);
+}
+.planet-units-hero-avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--nav-icon-box);
+  height: var(--nav-icon-box);
+  border: var(--border-strong-w) solid var(--color-space-focus);
+  border-radius: var(--radius-control);
+  background-color: var(--color-space-panel);
+  color: var(--color-space-focus);
+}
+.planet-units-hero-avatar .icon {
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+
+.planet-units-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.planet-units-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-left: calc(var(--border-strong-w) * 1.5) solid var(--color-primary);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+}
+.planet-units-row[data-kind="boat"] {
+  border-left-color: var(--color-stat-int);
+}
+.planet-units-row[data-focused="true"] {
+  border-color: var(--color-primary);
+  background-color: var(--color-nav-active);
+}
+.planet-units-icon-box {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--card-icon);
+  height: var(--card-icon);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  color: var(--color-primary);
+}
+.planet-units-row[data-kind="boat"] .planet-units-icon-box {
+  color: var(--color-stat-int);
+}
+.planet-units-icon-box .icon {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+.planet-units-info {
+  display: grid;
+  flex: 1 1 9rem;
+  gap: calc(var(--space-1) * 0.5);
+  min-width: 0;
+}
+.planet-units-name-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  min-width: 0;
+}
+.planet-units-me-tag {
+  flex: none;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.planet-units-name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.planet-units-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+}
+.planet-units-state {
+  font-weight: var(--font-weight-strong);
+}
+.planet-units-state[data-tone="moving"] {
+  color: var(--color-primary);
+}
+.planet-units-state[data-tone="work"] {
+  color: var(--color-success);
+}
+
+.planet-units-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+.planet-units-action {
+  min-block-size: var(--tap-size);
+  white-space: nowrap;
+}
+
+/* 레이어 시트 안의 "내 부대 위치 강조" 토글 줄 */
+.planet-layer-spotlight {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+}
+.planet-layer-spotlight-text {
+  display: grid;
+  flex: 1 1 11rem;
+  min-width: 0;
+}
+.planet-layer-spotlight-title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text);
+}
+.planet-layer-spotlight-note {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}

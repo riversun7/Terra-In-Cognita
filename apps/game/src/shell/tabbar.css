@@ -15,8 +15,9 @@
   min-height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
   padding: 0 max(var(--space-1), env(safe-area-inset-right)) env(safe-area-inset-bottom)
     max(var(--space-1), env(safe-area-inset-left));
-  border-top: var(--border-w) solid var(--color-border);
-  background-color: var(--color-surface);
+  border-top: var(--border-w) solid var(--color-border-strong);
+  background-color: var(--color-nav-bg);
+  box-shadow: var(--shadow-panel);
 }
 /* A: 칸 + 끝칸 ☰, 모두 같은 너비 */
 .tabbar[data-layout="a"] {
@@ -77,8 +78,9 @@
   color: var(--color-text);
 }
 .tab[aria-current="page"] .tab-icon {
-  background-color: var(--color-surface-2);
-  box-shadow: inset 0 0 0 var(--border-w) var(--color-border);
+  background-color: var(--color-nav-active);
+  color: var(--color-primary);
+  box-shadow: inset 0 0 0 var(--border-w) var(--color-border-strong);
 }
 .tab:active .tab-icon {
   transform: scale(0.92);

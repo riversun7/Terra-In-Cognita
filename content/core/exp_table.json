@@ -1,0 +1,299 @@
+{
+  "entries": [
+    {
+      "id": "lv_01",
+      "level": 1,
+      "requiredExp": 35
+    },
+    {
+      "id": "lv_02",
+      "level": 2,
+      "requiredExp": 132
+    },
+    {
+      "id": "lv_03",
+      "level": 3,
+      "requiredExp": 285
+    },
+    {
+      "id": "lv_04",
+      "level": 4,
+      "requiredExp": 492
+    },
+    {
+      "id": "lv_05",
+      "level": 5,
+      "requiredExp": 752
+    },
+    {
+      "id": "lv_06",
+      "level": 6,
+      "requiredExp": 1063
+    },
+    {
+      "id": "lv_07",
+      "level": 7,
+      "requiredExp": 1425
+    },
+    {
+      "id": "lv_08",
+      "level": 8,
+      "requiredExp": 1836
+    },
+    {
+      "id": "lv_09",
+      "level": 9,
+      "requiredExp": 2297
+    },
+    {
+      "id": "lv_10",
+      "level": 10,
+      "requiredExp": 2806
+    },
+    {
+      "id": "lv_11",
+      "level": 11,
+      "requiredExp": 3363
+    },
+    {
+      "id": "lv_12",
+      "level": 12,
+      "requiredExp": 3968
+    },
+    {
+      "id": "lv_13",
+      "level": 13,
+      "requiredExp": 4619
+    },
+    {
+      "id": "lv_14",
+      "level": 14,
+      "requiredExp": 5318
+    },
+    {
+      "id": "lv_15",
+      "level": 15,
+      "requiredExp": 6063
+    },
+    {
+      "id": "lv_16",
+      "level": 16,
+      "requiredExp": 6853
+    },
+    {
+      "id": "lv_17",
+      "level": 17,
+      "requiredExp": 7690
+    },
+    {
+      "id": "lv_18",
+      "level": 18,
+      "requiredExp": 8572
+    },
+    {
+      "id": "lv_19",
+      "level": 19,
+      "requiredExp": 9500
+    },
+    {
+      "id": "lv_20",
+      "level": 20,
+      "requiredExp": 10472
+    },
+    {
+      "id": "lv_21",
+      "level": 21,
+      "requiredExp": 11489
+    },
+    {
+      "id": "lv_22",
+      "level": 22,
+      "requiredExp": 12551
+    },
+    {
+      "id": "lv_23",
+      "level": 23,
+      "requiredExp": 13657
+    },
+    {
+      "id": "lv_24",
+      "level": 24,
+      "requiredExp": 14808
+    },
+    {
+      "id": "lv_25",
+      "level": 25,
+      "requiredExp": 16002
+    },
+    {
+      "id": "lv_26",
+      "level": 26,
+      "requiredExp": 17240
+    },
+    {
+      "id": "lv_27",
+      "level": 27,
+      "requiredExp": 18521
+    },
+    {
+      "id": "lv_28",
+      "level": 28,
+      "requiredExp": 19846
+    },
+    {
+      "id": "lv_29",
+      "level": 29,
+      "requiredExp": 21215
+    },
+    {
+      "id": "lv_30",
+      "level": 30,
+      "requiredExp": 22626
+    },
+    {
+      "id": "lv_31",
+      "level": 31,
+      "requiredExp": 24081
+    },
+    {
+      "id": "lv_32",
+      "level": 32,
+      "requiredExp": 25578
+    },
+    {
+      "id": "lv_33",
+      "level": 33,
+      "requiredExp": 27118
+    },
+    {
+      "id": "lv_34",
+      "level": 34,
+      "requiredExp": 28701
+    },
+    {
+      "id": "lv_35",
+      "level": 35,
+      "requiredExp": 30326
+    },
+    {
+      "id": "lv_36",
+      "level": 36,
+      "requiredExp": 31993
+    },
+    {
+      "id": "lv_37",
+      "level": 37,
+      "requiredExp": 33703
+    },
+    {
+      "id": "lv_38",
+      "level": 38,
+      "requiredExp": 35455
+    },
+    {
+      "id": "lv_39",
+      "level": 39,
+      "requiredExp": 37248
+    },
+    {
+      "id": "lv_40",
+      "level": 40,
+      "requiredExp": 39084
+    },
+    {
+      "id": "lv_41",
+      "level": 41,
+      "requiredExp": 40961
+    },
+    {
+      "id": "lv_42",
+      "level": 42,
+      "requiredExp": 42880
+    },
+    {
+      "id": "lv_43",
+      "level": 43,
+      "requiredExp": 44841
+    },
+    {
+      "id": "lv_44",
+      "level": 44,
+      "requiredExp": 46843
+    },
+    {
+      "id": "lv_45",
+      "level": 45,
+      "requiredExp": 48886
+    },
+    {
+      "id": "lv_46",
+      "level": 46,
+      "requiredExp": 50971
+    },
+    {
+      "id": "lv_47",
+      "level": 47,
+      "requiredExp": 53097
+    },
+    {
+      "id": "lv_48",
+      "level": 48,
+      "requiredExp": 55265
+    },
+    {
+      "id": "lv_49",
+      "level": 49,
+      "requiredExp": 57473
+    },
+    {
+      "id": "lv_50",
+      "level": 50,
+      "requiredExp": 61093
+    },
+    {
+      "id": "lv_51",
+      "level": 51,
+      "requiredExp": 67026
+    },
+    {
+      "id": "lv_52",
+      "level": 52,
+      "requiredExp": 74326
+    },
+    {
+      "id": "lv_53",
+      "level": 53,
+      "requiredExp": 82684
+    },
+    {
+      "id": "lv_54",
+      "level": 54,
+      "requiredExp": 91928
+    },
+    {
+      "id": "lv_55",
+      "level": 55,
+      "requiredExp": 101947
+    },
+    {
+      "id": "lv_56",
+      "level": 56,
+      "requiredExp": 112660
+    },
+    {
+      "id": "lv_57",
+      "level": 57,
+      "requiredExp": 124004
+    },
+    {
+      "id": "lv_58",
+      "level": 58,
+      "requiredExp": 135931
+    },
+    {
+      "id": "lv_59",
+      "level": 59,
+      "requiredExp": 148401
+    }
+  ]
+}

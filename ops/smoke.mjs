@@ -48,6 +48,35 @@ for (const [key, value] of Object.entries(expected)) {
   if (value) check(health[key] === value, `/health ${key}가 ${show(health[key])}입니다(기대 ${show(value)})`);
 }
 
+// 1b) 정적 파일·PWA 응답 (컨테이너 안 STATIC_DIR 또는 EXPECT_STATIC=ok일 때 — 옛 CI image 작업의 점검을 NAS 배포 점검으로 합침)
+if (process.env.STATIC_DIR || process.env.EXPECT_STATIC === "ok") {
+  try {
+    const rootRes = await fetch(`${baseUrl}/`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const rootText = await rootRes.text();
+    check(rootRes.status === 200 && rootText.includes('id="root"'), '/ 첫 화면에 id="root"가 없습니다');
+    const manifestRes = await fetch(`${baseUrl}/manifest.webmanifest`, {
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    const manifestType = manifestRes.headers.get("content-type") ?? "";
+    check(
+      manifestRes.status === 200 && /^application\/manifest\+json/i.test(manifestType),
+      `/manifest.webmanifest 형식이 ${show(manifestType)}입니다`,
+    );
+    const swRes = await fetch(`${baseUrl}/sw.js`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const swType = swRes.headers.get("content-type") ?? "";
+    check(
+      swRes.status === 200 && /^(text|application)\/javascript/i.test(swType),
+      `/sw.js 형식이 ${show(swType)}입니다`,
+    );
+    const missingRes = await fetch(`${baseUrl}/assets/missing-abc.js`, {
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    check(missingRes.status === 404, `없는 파일 응답이 ${missingRes.status}입니다(404여야 함)`);
+  } catch (error) {
+    failures.push(`정적·PWA 파일 점검 실패 (${error.message})`);
+  }
+}
+
 // 2) WebSocket 접속 인사 — 기기가 하는 것과 같은 첫 메시지(packages/protocol의 hello)를 보낸다
 const wsUrl = `${baseUrl.replace(/^http/, "ws")}/ws`;
 let welcome;

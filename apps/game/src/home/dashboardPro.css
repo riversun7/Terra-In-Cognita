@@ -1,0 +1,912 @@
+/*
+ * 테라 인코그니타 커맨드 대시보드 전용 스타일 —
+ * 비대칭 12열 커맨드 벤토(좌 5열 사이보그 도시에 · 우 7열 가로 3분할 재무 데스크 + 2×3 거래소 시세 매트릭스) + 하단 작전 카드.
+ * 모든 색·길이는 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast 준수).
+ */
+
+.dash-deck-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--card-gap);
+  min-width: 0;
+}
+
+/* ── 상단 비대칭 12열 커맨드 벤토 ─────────── */
+.dash-hero-bento {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--card-gap);
+  align-items: stretch;
+}
+.dash-hero-primary {
+  display: flex;
+  min-width: 0;
+}
+.dash-hero-finance {
+  display: flex;
+  flex-direction: column;
+  gap: var(--card-gap);
+  min-width: 0;
+}
+.dash-hero-finance > .dash-market-card {
+  flex: 1 1 auto;
+}
+@media (min-width: 64em) {
+  .dash-hero-bento[data-layout="split"] {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+  .dash-hero-bento[data-layout="split"] .dash-hero-primary {
+    grid-column: span 5;
+  }
+  .dash-hero-bento[data-layout="split"] .dash-hero-finance {
+    grid-column: span 7;
+  }
+}
+
+/* ── 좌측 5열: 내 사이보그 바이오-텔레메트리 도시에 ─────────── */
+.dash-cyborg {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.dash-cyborg-id {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.dash-cyborg-name-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.dash-cyborg-name {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: var(--letter-spacing-display);
+  line-height: var(--line-height-tight);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+.dash-cyborg-status-pills {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+.dash-rebirth-chip {
+  flex: none;
+  padding: calc(var(--space-1) / 2) var(--space-2);
+  border: var(--hairline) solid var(--dash-violet-border);
+  border-radius: var(--radius-pill);
+  background: var(--dash-violet-bg);
+  color: var(--dash-violet-fg);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+
+/* 클릭형 레벨 + 경험치 진행 줄 + 상세 팝오버 */
+.dash-exp-wrap {
+  position: relative;
+}
+.dash-exp-trigger {
+  --button-lip: transparent;
+  --button-press: 0px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--tap-size);
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--dash-tile-bg);
+  box-shadow: none;
+  color: var(--color-text);
+  text-align: start;
+  transition:
+    background-color var(--duration-fast) var(--easing-out),
+    border-color var(--duration-fast) var(--easing-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .dash-exp-trigger:hover {
+    filter: none;
+    background-color: var(--dash-tile-hover);
+    border-color: var(--color-border-strong);
+  }
+}
+.dash-lv-pill {
+  flex: none;
+  padding: var(--space-1) var(--space-2);
+  border: var(--hairline) solid var(--dash-cobalt-border);
+  border-radius: var(--radius-sm);
+  background: var(--dash-cobalt-bg);
+  color: var(--dash-cyan);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--line-height-tight);
+}
+.dash-exp-col {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.dash-exp-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.dash-exp-nums {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.dash-exp-pct {
+  color: var(--dash-cyan);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+}
+.dash-exp-track {
+  display: block;
+  width: 100%;
+  height: var(--dash-bar-exp);
+  border-radius: var(--radius-pill);
+  background-color: var(--dash-track);
+  overflow: hidden;
+}
+.dash-exp-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background-color: var(--dash-cyan);
+  transition: width var(--duration-slow) var(--easing-out);
+}
+
+/* 경험치 상세 플로팅 팝오버 */
+.dash-exp-popover {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  z-index: 12;
+  width: min(var(--dash-popover-w), 100%);
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--dash-popover-border);
+  border-radius: var(--radius-control);
+  background-color: var(--dash-popover-bg);
+  box-shadow: var(--dash-popover-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.dash-exp-pop-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
+}
+.dash-exp-pop-lv {
+  color: var(--dash-cyan);
+  font-variant-numeric: tabular-nums;
+}
+.dash-exp-pop-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-2) 0;
+  border-top: var(--hairline) solid var(--color-border);
+  border-bottom: var(--hairline) solid var(--color-border);
+}
+.dash-exp-pop-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+}
+.dash-exp-pop-row dt {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+}
+.dash-exp-pop-row dd {
+  margin: 0;
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+.dash-pop-sq {
+  width: var(--dash-dot);
+  height: var(--dash-dot);
+  border-radius: var(--hairline);
+  background-color: var(--dash-cyan);
+}
+.dash-pop-sq[data-tone="cobalt"] {
+  background-color: var(--dash-cobalt-fg);
+}
+.dash-pop-sq[data-tone="violet"] {
+  background-color: var(--dash-violet-fg);
+}
+.dash-exp-pop-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.dash-exp-pop-left {
+  color: var(--dash-amber-fg);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 2열 병렬 전투 자원 포드(HP · MP) */
+.dash-vital-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.dash-vital-pod {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--dash-tile-bg);
+  min-width: 0;
+}
+.dash-vital-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.dash-vital-code {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: 0.05em;
+}
+.dash-vital-num {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--line-height-tight);
+  color: var(--color-text);
+}
+.dash-vital-track {
+  display: block;
+  width: 100%;
+  height: var(--dash-bar-vital);
+  border-radius: var(--radius-pill);
+  background-color: var(--dash-track);
+  overflow: hidden;
+}
+.dash-vital-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  transition: width var(--duration-slow) var(--easing-out);
+}
+.dash-vital-pod[data-vital="hp"] .dash-vital-code {
+  color: var(--dash-crimson);
+}
+.dash-vital-pod[data-vital="hp"] .dash-vital-fill {
+  background-color: var(--dash-crimson);
+}
+.dash-vital-pod[data-vital="mp"] .dash-vital-code {
+  color: var(--dash-sky);
+}
+.dash-vital-pod[data-vital="mp"] .dash-vital-fill {
+  background-color: var(--dash-sky);
+}
+
+/* 1차 스탯 6종 정밀 텔레메트리 막대(STR 진홍·VIT 주황·INT 파랑·WIS 보라·DEX 순수 노랑·AGI 초록) */
+.dash-stat-bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-1);
+}
+.dash-bar-row {
+  display: grid;
+  grid-template-columns: calc(var(--dash-code-w) + var(--space-3)) minmax(0, 1fr) var(--dash-val-w);
+  align-items: center;
+  gap: var(--space-3);
+}
+.dash-bar-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.dash-stat-pip {
+  flex: none;
+  width: var(--dash-dot);
+  height: var(--dash-dot);
+  border-radius: var(--radius-pill);
+}
+.dash-bar-code {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+.dash-bar-track {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  height: var(--dash-bar-h);
+  border-radius: var(--radius-pill);
+  background-color: var(--dash-track);
+  overflow: hidden;
+}
+.dash-bar-seg {
+  display: block;
+  height: 100%;
+  transition: width var(--duration-slow) var(--easing-out);
+}
+.dash-bar-base {
+  border-radius: var(--radius-pill) 0 0 var(--radius-pill);
+}
+.dash-bar-base:last-child {
+  border-radius: var(--radius-pill);
+}
+.dash-bar-bonus {
+  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+}
+.dash-bar-val {
+  text-align: right;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--line-height-tight);
+}
+
+/* 1차 스탯 6종 고유 색상 매핑(VIT 주황 vs DEX 순수 노랑 명확 구분) */
+.dash-bar-row[data-stat="str"] .dash-bar-val {
+  color: var(--color-stat-str);
+}
+.dash-bar-row[data-stat="str"] .dash-stat-pip,
+.dash-bar-row[data-stat="str"] .dash-bar-base {
+  background-color: var(--dash-stat-str-base);
+}
+.dash-bar-row[data-stat="str"] .dash-bar-bonus {
+  background-color: var(--color-stat-str);
+}
+.dash-bar-row[data-stat="vit"] .dash-bar-val {
+  color: var(--color-stat-vit);
+}
+.dash-bar-row[data-stat="vit"] .dash-stat-pip,
+.dash-bar-row[data-stat="vit"] .dash-bar-base {
+  background-color: var(--dash-stat-vit-base);
+}
+.dash-bar-row[data-stat="vit"] .dash-bar-bonus {
+  background-color: var(--color-stat-vit);
+}
+.dash-bar-row[data-stat="int"] .dash-bar-val {
+  color: var(--color-stat-int);
+}
+.dash-bar-row[data-stat="int"] .dash-stat-pip,
+.dash-bar-row[data-stat="int"] .dash-bar-base {
+  background-color: var(--dash-stat-int-base);
+}
+.dash-bar-row[data-stat="int"] .dash-bar-bonus {
+  background-color: var(--color-stat-int);
+}
+.dash-bar-row[data-stat="wis"] .dash-bar-val {
+  color: var(--color-stat-wis);
+}
+.dash-bar-row[data-stat="wis"] .dash-stat-pip,
+.dash-bar-row[data-stat="wis"] .dash-bar-base {
+  background-color: var(--dash-stat-wis-base);
+}
+.dash-bar-row[data-stat="wis"] .dash-bar-bonus {
+  background-color: var(--color-stat-wis);
+}
+.dash-bar-row[data-stat="dex"] .dash-bar-val {
+  color: var(--color-stat-dex);
+}
+.dash-bar-row[data-stat="dex"] .dash-stat-pip,
+.dash-bar-row[data-stat="dex"] .dash-bar-base {
+  background-color: var(--dash-stat-dex-base);
+}
+.dash-bar-row[data-stat="dex"] .dash-bar-bonus {
+  background-color: var(--color-stat-dex);
+}
+.dash-bar-row[data-stat="agi"] .dash-bar-val {
+  color: var(--color-stat-agi);
+}
+.dash-bar-row[data-stat="agi"] .dash-stat-pip,
+.dash-bar-row[data-stat="agi"] .dash-bar-base {
+  background-color: var(--dash-stat-agi-base);
+}
+.dash-bar-row[data-stat="agi"] .dash-bar-bonus {
+  background-color: var(--color-stat-agi);
+}
+
+/* 장착 현황(장비 · 인공장기 · 스킬) + 스킬 칩 푸터 */
+.dash-loadout-foot {
+  margin-top: auto;
+  padding-top: var(--space-3);
+  border-top: var(--hairline) solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.dash-loadout-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.dash-loadout-cell {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-1) / 2);
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--dash-tile-bg);
+  min-width: 0;
+}
+.dash-loadout-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.dash-loadout-val {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--line-height-tight);
+  color: var(--color-text);
+  white-space: nowrap;
+}
+.dash-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.dash-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: calc(var(--space-1) / 2) var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--dash-tile-bg);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.dash-tag-chip[data-kind="innate"],
+.dash-tag-chip[data-kind="equipment"] {
+  border-color: var(--dash-cobalt-border);
+  background: var(--dash-cobalt-bg);
+  color: var(--dash-cobalt-fg);
+}
+.dash-tag-chip[data-kind="ok"] {
+  border-color: var(--color-border);
+  color: var(--dash-emerald);
+}
+.dash-tag-chip[data-kind="warn"] {
+  border-color: var(--color-danger);
+  background-color: var(--color-danger-surface);
+  color: var(--color-danger);
+}
+
+/* ── 우측 상단 7열: 경제 요약 가로 3분할 재무 데스크(상단 2px 포인트 바) ─────────── */
+.dash-eco-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+}
+@media (min-width: 37.5em) {
+  .dash-eco-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.dash-kpi-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border: var(--hairline) solid var(--color-border);
+  border-top: var(--dash-kpi-bar) solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background-color: var(--dash-tile-bg);
+  min-width: 0;
+}
+.dash-kpi-cell[data-tone="amber"] {
+  border-top-color: var(--dash-amber-fg);
+}
+.dash-kpi-cell[data-tone="cyan"] {
+  border-top-color: var(--dash-cyan);
+}
+.dash-kpi-cell[data-tone="violet"] {
+  border-top-color: var(--dash-violet-fg);
+}
+.dash-kpi-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
+  line-height: var(--line-height-snug);
+}
+.dash-kpi-hero {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--letter-spacing-display);
+  line-height: var(--line-height-tight);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+.dash-kpi-money {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+.dash-kpi-part {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+.dash-kpi-sep {
+  opacity: 0.45;
+  margin-inline-end: var(--space-1);
+}
+.dash-approx {
+  opacity: 0.55;
+  font-size: var(--font-size-md);
+}
+.dash-kpi-unit {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
+}
+.dash-kpi-cell[data-tone="amber"] .dash-kpi-unit {
+  color: var(--dash-amber-fg);
+}
+.dash-kpi-cell[data-tone="cyan"] .dash-kpi-unit {
+  color: var(--dash-cyan);
+}
+.dash-kpi-cell[data-tone="violet"] .dash-kpi-unit {
+  color: var(--dash-violet-fg);
+}
+.dash-kpi-sub {
+  margin-top: auto;
+  padding-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: var(--line-height-snug);
+}
+
+/* ── 우측 하단 7열: 2×3 실시간 거래소 시세 매트릭스 ─────────── */
+.dash-quote-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  flex: 1 1 auto;
+}
+@media (min-width: 37.5em) {
+  .dash-quote-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.dash-quote-item {
+  display: flex;
+  min-width: 0;
+}
+.dash-quote-tile {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: var(--tap-size);
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--dash-tile-bg);
+  color: var(--color-text);
+  text-decoration: none;
+  min-width: 0;
+  transition:
+    background-color var(--duration-fast) var(--easing-out),
+    border-color var(--duration-fast) var(--easing-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .dash-quote-tile:hover {
+    background-color: var(--dash-tile-hover);
+    border-color: var(--color-border-strong);
+  }
+}
+.dash-quote-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.dash-quote-id {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.dash-quote-tier {
+  flex: none;
+  padding: 0 var(--space-1);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--line-height-snug);
+}
+.dash-quote-name {
+  min-width: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dash-quote-delta {
+  flex: none;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  border: var(--hairline) solid var(--color-border);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.dash-quote-delta[data-trend="up"] {
+  color: var(--dash-emerald);
+  border-color: var(--color-border);
+}
+.dash-quote-delta[data-trend="down"] {
+  color: var(--dash-crimson);
+  border-color: var(--color-border);
+}
+.dash-quote-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.dash-quote-price {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+.dash-quote-unit {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+}
+.dash-spark {
+  flex: none;
+  width: var(--dash-spark-w);
+  height: var(--dash-spark-h);
+  color: var(--color-text-muted);
+  opacity: 0.6;
+}
+.dash-spark[data-trend="up"] {
+  color: var(--dash-emerald);
+  opacity: 1;
+}
+.dash-spark[data-trend="down"] {
+  color: var(--dash-crimson);
+  opacity: 1;
+}
+
+/* ── 하단 3열 작전 데크(보유 유닛 · 세력 · 전술 지도) ─────────── */
+.dash-ops-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1 1 auto;
+}
+.dash-faction-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.dash-faction-name {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: var(--letter-spacing-display);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+.dash-mini-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(4.6em, 1fr));
+  gap: var(--space-2);
+}
+.dash-mini-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--dash-tile-bg);
+  min-width: 0;
+}
+.dash-mini-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+}
+.dash-mini-val {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--line-height-tight);
+  color: var(--color-text);
+}
+.dash-mini-val[data-accent="cyan"] {
+  color: var(--dash-cyan);
+}
+.dash-mini-val[data-accent="cobalt"] {
+  color: var(--dash-cobalt-fg);
+}
+.dash-mini-val[data-accent="violet"] {
+  color: var(--dash-violet-fg);
+}
+.dash-mini-val[data-accent="amber"] {
+  color: var(--dash-amber-fg);
+}
+.dash-mini-val[data-accent="emerald"] {
+  color: var(--dash-emerald);
+}
+.dash-ops-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: auto;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-strong);
+}
+.dash-status-dot {
+  width: var(--dash-dot);
+  height: var(--dash-dot);
+  border-radius: var(--radius-pill);
+  background-color: var(--dash-emerald);
+}
+.dash-ops-note {
+  margin-top: auto;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: var(--line-height-snug);
+}
+
+/* 전술 지도 런처 — 컴팩트 2행 액션 리스트 */
+.dash-map-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1 1 auto;
+}
+.dash-map-row {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--tap-size);
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--dash-tile-bg);
+  color: var(--color-text);
+  text-decoration: none;
+  min-width: 0;
+  transition:
+    border-color var(--duration-fast) var(--easing-out),
+    background-color var(--duration-fast) var(--easing-out);
+}
+.dash-map-badge {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: var(--nav-icon-box);
+  height: var(--nav-icon-box);
+  border-radius: var(--radius-sm);
+  border: var(--hairline) solid var(--dash-cobalt-border);
+  background: var(--dash-cobalt-bg);
+  color: var(--dash-cyan);
+}
+.dash-map-row[data-tone="secondary"] .dash-map-badge {
+  border-color: var(--dash-violet-border);
+  background: var(--dash-violet-bg);
+  color: var(--dash-violet-fg);
+}
+.dash-map-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-1) / 2);
+}
+.dash-map-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-tight);
+}
+.dash-map-desc {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: var(--line-height-snug);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dash-map-arrow {
+  flex: none;
+  color: var(--color-text-muted);
+}
+.dash-map-arrow .home-icon {
+  width: var(--font-size-sm);
+  height: var(--font-size-sm);
+}
+@media (hover: hover) and (pointer: fine) {
+  .dash-map-row:hover {
+    background-color: var(--dash-tile-hover);
+    border-color: var(--color-border-strong);
+  }
+}
+
+@media (forced-colors: active) {
+  .dash-kpi-cell,
+  .dash-quote-tile,
+  .dash-vital-pod,
+  .dash-mini-kpi,
+  .dash-map-row,
+  .dash-exp-popover {
+    border: var(--hairline) solid CanvasText;
+  }
+  .dash-vital-fill,
+  .dash-bar-seg,
+  .dash-exp-fill {
+    forced-color-adjust: none;
+    background-color: Highlight;
+  }
+}

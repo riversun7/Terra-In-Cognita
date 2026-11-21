@@ -323,6 +323,14 @@
   grid-template-columns: repeat(9, minmax(0, 1fr));
   gap: var(--space-1);
 }
+@media (max-width: 37.5em) {
+  .units-formation-board {
+    gap: var(--hairline);
+  }
+  .units-formation-cell {
+    padding: calc(var(--space-1) / 2);
+  }
+}
 .units-formation-cell {
   display: flex;
   align-items: center;

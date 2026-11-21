@@ -6,7 +6,7 @@
 (() => {
   "use strict";
   const STORAGE_KEY = "terra.settings";
-  const THEME_COLORS = { pastel: "#dff2fb", dark: "#13203a", contrast: "#ffffff", station: "#05050c" };
+  const THEME_COLORS = { pastel: "#eef2f7", dark: "#0b0f19", contrast: "#ffffff", station: "#05050c" };
   let theme = null;
   let followSystem = false;
   try {

@@ -1,10 +1,14 @@
 // 지도 흐름 조회 모양(tRPC world.cities·world.myPosition) — 기획 60 §4.1(D-6017·D-6018)·§7.1(D-6041), docs/adr/2026-11-07-play-flow.md
 // "WP2 지도 흐름". 1차맵의 도시·국가 표시, 시작 도시 고르기(주변 땅·기후), 2차맵 들어가기(내 사이보그 자리)가 같은 자료를 쓴다.
 // 읽기만 한다. 2차맵 키(mapKey)는 1차맵 칸의 셀 키(면 레벨 F, 안전 정수)다. 위도·경도는 표시용 실수(판정에 쓰지 않는다).
+import type { NationEmblemView } from "./nationEditor.ts";
 import type { LocalizedName } from "./roster.ts";
 import { TERRITORY_MAP_START, type TerritoryMapValues } from "./territoryMap.ts";
 
-/** 국가(세력) 한 줄 — 1차맵 색·이름 */
+/** 1차맵 정권 체제 */
+export type WorldMapRegime = "dictatorship" | "democracy" | "capitalism";
+
+/** 국가(세력) 한 줄 — 1차맵 색·이름·마크·세력 현황 */
 export interface WorldMapFaction {
   readonly id: number;
   readonly code: string | null;
@@ -13,9 +17,40 @@ export interface WorldMapFaction {
   readonly name: LocalizedName | null;
   /**
    * 국가 색(`#rrggbb` 소문자) — 세력 정체성(faction_identities.color)이 있으면 그것, 없으면 팩 국가 프리셋 시그니처 색. 1차맵 영토·도시 점·
-   * 범례가 쓴다(ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"). 둘 다 없거나 옛 서버면 null·없음 → 화면은 여섯 색 돌려 쓰기
+   * 범례·건물 시그니처 컬러가 쓴다(ADR 2026-11-07-planet-view "바뀜 (2026-11-14)"). 둘 다 없거나 옛 서버면 null·없음 → 화면은 여섯 색 돌려 쓰기
    */
   readonly color?: string | null | undefined;
+  /** 국가 마크(만든 마크 사양·시그니처 컬러 + 올린 그림 해시 — 정부 건물·비콘 깃발·1차맵 이름표 문양). 옛 서버는 없다 */
+  readonly emblem?: NationEmblemView | null | undefined;
+  /** 정권 체제(민주·자본·독재). 옛 서버는 없다 */
+  readonly regime?: WorldMapRegime | undefined;
+  /** 종주국 세력 ID(봉신일 때). 없으면 null·undefined */
+  readonly parentId?: number | null | undefined;
+  /** 기술 단계(1 이상). 옛 서버는 없다 */
+  readonly techLevel?: number | undefined;
+  /** 아는 도시 수(1차맵 세력 현황 정렬용). 옛 서버는 없다 */
+  readonly cityCount?: number | undefined;
+  /** 아는 도시 총인구. 옛 서버는 없다 */
+  readonly population?: number | undefined;
+}
+
+/** 1차맵 세력 외교 관계(전쟁·불가침, faction_wars) */
+export interface WorldMapRelation {
+  readonly factionA: number;
+  readonly factionB: number;
+  readonly state: "war" | "truce";
+  /** 전쟁 = 마지막 교전 시각, 불가침 = 끝 시각 */
+  readonly atMs: number;
+}
+
+/** 1차맵 도시의 진행 중이거나 최근 공성·점령 상태(war_outcomes) */
+export interface WorldMapCityOccupation {
+  readonly attackerFactionId: number;
+  readonly outcome: "loot" | "integrate" | "occupy";
+  /** 약탈·점령 끝 시각(진행 중일 때, 없으면 null) */
+  readonly untilAt: number | null;
+  /** 끝난 결과면 true(최근 교전지 표시용) */
+  readonly recent: boolean;
 }
 
 /** 국가 색 모양(`#rrggbb`) — 서버가 보내기 전에, 화면이 style에 넣기 전에 본다 */
@@ -80,6 +115,11 @@ export interface WorldMapCity {
   readonly loaded: boolean;
   /** 지금 내가 이 2차맵을 볼 수 있다(내 유닛·건물·탐사 칸, 또는 전체 보기 권한 — 서버 시야 규칙) */
   readonly viewable: boolean;
+  /** 도시 거주 인구·발전도(0~100). 옛 서버는 없다 */
+  readonly population?: number | undefined;
+  readonly development?: number | undefined;
+  /** 진행 중 약탈·점령이나 최근 교전 기록(war_outcomes). 없으면 null·undefined */
+  readonly occupation?: WorldMapCityOccupation | null | undefined;
   readonly land: WorldMapLand | null;
 }
 
@@ -132,6 +172,8 @@ export interface WorldCitiesResponse {
   readonly beacons?: readonly WorldMapBeacon[] | undefined;
   /** 영토 표시 값(설정 칸 실효 값). 옛 서버는 없다 → 화면은 TERRITORY_DISPLAY_START */
   readonly territoryDisplay?: WorldTerritoryDisplay | undefined;
+  /** 아는 세력 사이의 전쟁·불가침 관계(faction_wars). 옛 서버는 없다 */
+  readonly relations?: readonly WorldMapRelation[] | undefined;
   /** 내가 가입한 국가(없으면 null) */
   readonly myFactionId: number | null;
   readonly generatedAt: number;
@@ -151,6 +193,8 @@ export interface WorldPosition {
   readonly lonDeg: number;
   /** 사이보그 본체 세계 유닛 ID(2차맵 화면이 카메라를 맞춘다) */
   readonly unitId: number;
+  /** 내 사이보그 이름(1차맵 본캐릭 표시에 쓴다). 옛 서버는 없다 */
+  readonly name?: string | null | undefined;
   /** 시작 도시 ID */
   readonly startCityId: number;
   /**
@@ -284,6 +328,32 @@ export interface WorldTravel {
   readonly scoutedMapKey: number | null;
   /** 띄우지 않은 2차맵을 건너뛰는 중(mapKey·칸은 곧은 선을 따라 지금 있을 자리, 질문 593 나) */
   readonly hidden: boolean;
+  /** 1차맵 이동 경로 점(위도·경도, 현재 위치 → 남은 경유지 → 목적지). 옛 서버는 없다 */
+  readonly routePoints?: readonly (readonly [latDeg: number, lonDeg: number])[] | undefined;
+}
+
+/** 1차맵 내 유닛 종류 */
+export type WorldMyUnitKind = "cyborg" | "human" | "cyborg_unit" | "guardian" | "boat" | "other";
+
+/** 1차맵에 띄우는 내 유닛 한 기(사이보그 본체 + 띄운/안 띄운 2차맵·이동 중인 모든 내 유닛) */
+export interface WorldMyUnit {
+  readonly unitId: number;
+  readonly kind: WorldMyUnitKind;
+  /** 본체 이름 등(없으면 종류 + #ID로 표시) */
+  readonly name?: string | null | undefined;
+  readonly mapKey: number;
+  readonly cellX: number;
+  readonly cellY: number;
+  readonly latDeg: number;
+  readonly lonDeg: number;
+  /** 서버가 띄워 둔 2차맵에 있는가(바로 2차맵 들어가기 가능) */
+  readonly loaded: boolean;
+  /** 2차맵 사이를 이동·정찰 중인가 */
+  readonly moving: boolean;
+  /** 직무(채집·작업) 수행 중인가 */
+  readonly working?: boolean | undefined;
+  /** 배에 타고 있으면 그 배 유닛 ID(지도에선 배 자리에 묶어 표시) */
+  readonly aboardId?: number | null | undefined;
 }
 
 /**
@@ -309,5 +379,7 @@ export interface WorldTravelsResponse {
   readonly travels: readonly WorldTravel[];
   /** 내 좌표 유닛(서 있음, 승객 빼고), 유닛 ID 차례. 옛 서버는 없음 */
   readonly parked?: readonly WorldParkedUnit[] | undefined;
+  /** 행성 전역의 내 모든 유닛(사이보그 본체 + 띄운/안 띄운 2차맵·이동 중 내 유닛 전부). 옛 서버는 없음 */
+  readonly units?: readonly WorldMyUnit[] | undefined;
   readonly generatedAt: number;
 }

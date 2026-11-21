@@ -20,10 +20,10 @@ export const COUP_PROTOCOL_VERSION = 59;
  */
 export const GOVERNANCE5_PROTOCOL_VERSION = 61;
 /**
- * 국고 지분 사기 안건(treasury_share_buy + maxPrice)·결과 코드 not_enough_funds에 필요한 가장 낮은 프로토콜 버전(줄기 share-market-2 판 101 — 합칠 때 맞춤,
+ * 국고 지분 사기 안건(treasury_share_buy + maxPrice)·결과 코드 not_enough_funds에 필요한 가장 낮은 프로토콜 버전(프로토콜 62 — 묶음 1117b, 줄기 판 101,
  * 기획 D-587 질문 2479 나). 더 낮은 판 기기는 이 안건을 보내지 않아 새 코드를 받지 않는다
  */
-export const SHARE_BUY_PROTOCOL_VERSION = 101;
+export const SHARE_BUY_PROTOCOL_VERSION = 62;
 
 const requestId = z.number().int().nonnegative().max(0xffff_ffff);
 const rowId = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);

@@ -63,10 +63,10 @@
   `governance/shareAgendas.ts`(의결 서비스 1,000줄 상한).
 - **이름 가리기(2480 기술 기본값)** [임시]: 주주 명부는 지금대로 이름·몫을 누구에게나 보인다(사업장 장부 공개와 같다 — D-555 1513). 호가창·회차 기록에는 누가 냈는지
   보이지 않는다. 걸린 주문은 내 것(내 계정·내 가문)과, 그 나라 사람에게 그 나라 국고 것만 보인다.
-- **프로토콜 101(줄기 판 — 합칠 때 main + 1)**, 받는 가장 낮은 판 100: `gov_propose` kind `treasury_share_buy` + `maxPrice`, 결과 코드 `not_enough_funds`,
-  `business_price` item `service:share_fee`. 더하기만. 100판 기기는 새 값을 보내지 않는다.
-- **팩 core 179(줄기 판)**: 설정 칸 다섯(`exchange_share_fee_bp`·`exchange_share_fee_min_bp`·`exchange_share_fee_max_bp`·`city_share_npc_buy_budget_pm`·
-  `city_share_npc_exchange_pm`), 회차 칸 설명 고침(남는 주문). 시뮬 계수표는 선택 칸만(시뮬은 쓰지 않는다 — SIM 판 그대로).
+- **프로토콜 62(묶음 1117b, 줄기 판 101)**, 받는 가장 낮은 판 61: `gov_propose` kind `treasury_share_buy` + `maxPrice`, 결과 코드 `not_enough_funds`,
+  `business_price` item `service:share_fee`. 더하기만. 61판 기기는 새 값을 보내지 않는다.
+- **팩 core@140(묶음 1117b, 줄기 판 179)**: 설정 칸 다섯(`exchange_share_fee_bp`·`exchange_share_fee_min_bp`·`exchange_share_fee_max_bp`·`city_share_npc_buy_budget_pm`·
+  `city_share_npc_exchange_pm`), 회차 칸 설명 고침(남는 주문). 시뮬 계수표는 선택 칸만(시뮬은 쓰지 않는다 — 이 줄기로는 SIM 판 그대로. 묶음 1117b는 다른 두 줄기로 SIM 72).
 - **마이그레이션** `20261121170947_share_market_2`: 안건 종류 검사에 `treasury_share_buy`를 더한다(넓히기만 — 옛 앱은 그대로 돈다). prevIds = 세 끝.
 
 ## 이유

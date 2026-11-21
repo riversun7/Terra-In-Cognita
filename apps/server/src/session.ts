@@ -834,7 +834,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "gov_propose":
       case "gov_vote":
       case "gov_candidate": {
-        // 나라 의결(docs/adr/2026-11-21-governance.md)은 줄기 판 GOVERNANCE_PROTOCOL_VERSION의 메시지다. 가문 소켓이 함께 받는다
+        // 나라 의결(docs/adr/2026-11-21-governance.md)은 GOVERNANCE_PROTOCOL_VERSION(56)의 메시지다. 가문 소켓이 함께 받는다
         if (protocolVersion < GOVERNANCE_PROTOCOL_VERSION) {
           reject("invalid_message");
           return;

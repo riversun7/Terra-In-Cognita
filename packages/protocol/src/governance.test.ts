@@ -1,4 +1,4 @@
-// 나라 의결 메시지(줄기 판 94, docs/adr/2026-11-21-governance.md) 스키마 시험 — 왕복, 값 모양, 결과 코드
+// 나라 의결 메시지(프로토콜 56 — 줄기 판 94, docs/adr/2026-11-21-governance.md) 스키마 시험 — 왕복, 값 모양, 결과 코드
 import { describe, expect, it } from "vitest";
 import {
   GOVERNANCE_PROTOCOL_VERSION,

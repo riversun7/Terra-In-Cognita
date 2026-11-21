@@ -6,8 +6,8 @@
 // 결과는 gov_result 하나로 온다(id = 요청 id). 조회는 tRPC governance.view. 이 꾸러미는 다른 내부 꾸러미를 가져오지 않는다.
 import { z } from "zod";
 
-/** 나라 의결 메시지에 필요한 가장 낮은 프로토콜 버전(줄기 판 — 합칠 때 묶음 판으로) */
-export const GOVERNANCE_PROTOCOL_VERSION = 94;
+/** 나라 의결 메시지에 필요한 가장 낮은 프로토콜 버전(묶음 1116v, 줄기 판 94) */
+export const GOVERNANCE_PROTOCOL_VERSION = 56;
 
 const requestId = z.number().int().nonnegative().max(0xffff_ffff);
 const rowId = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);

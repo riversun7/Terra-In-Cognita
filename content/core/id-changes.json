@@ -484,7 +484,7 @@
     {
       "category": "tuning",
       "id": "npc_claim_cost",
-      "since": 170,
+      "since": 131,
       "compensation": {
         "kind": "none"
       }
@@ -492,7 +492,7 @@
     {
       "category": "tuning",
       "id": "npc_claim_build_hours",
-      "since": 170,
+      "since": 131,
       "compensation": {
         "kind": "none"
       }

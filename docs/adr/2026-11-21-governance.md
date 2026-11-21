@@ -1,4 +1,4 @@
-# 나라 의결(governance): 안건·투표·선출·체제 전환 첫 판, 서버 의결 서비스 + 줄기 판 94
+# 나라 의결(governance): 안건·투표·선출·체제 전환 첫 판, 서버 의결 서비스 + 프로토콜 56
 
 - 상태: 제안
 - 날짜: 2026-11-21
@@ -34,7 +34,7 @@
 - 지도자 = 지배 가문의 장(플레이어 가문이면 그 가문장 계정, NPC 가문이면 없음).
 - 지배 쪽 지분 몫(D-344) = (그 나라 국고 + 지배 플레이어 가문 국고) ÷ 그 나라 도시 지분 합. 국고를 지배 쪽으로 치는 것은 시뮬 `rulingFamilyOf`(국고 = 지배 가문 금고 [임시])와 같다. 지분이 없으면 과반으로 본다.
 
-### 4. 명령(WebSocket, 줄기 판 94 — 받는 가장 낮은 판은 줄기에서 93, 묶음에서 원칙대로)
+### 4. 명령(WebSocket, 프로토콜 56(묶음 1116v, 줄기 판 94) — 받는 가장 낮은 판 55)
 - `gov_propose { kind, regime?, targetNationId? }`·`gov_vote { agendaId, choice }`·`gov_candidate { agendaId }` → `gov_result`(ok: agendaId·action proposed | decided | voted | registered, 실패 코드 19개). 가문 소켓과 한 소켓(`governance/gateway.ts withGovernance` — app.ts를 키우지 않으려고 가문 묶음 `factionIdentity/attach.ts`에 얹었다). 속도 제한 순간 10번·분당 30번.
 - 발의(2351 가): 지도자는 늘, 민주주의 = 소속 가문장, 자본주의 = 내 표 무게 ≥ 투표권 × `gov_propose_share_pm`. 한 발의자가 열어 둔 안건 수 ≤ `gov_open_per_proposer`. 같은 종류(선전포고는 같은 상대) 안건이 열려 있으면 `already_open`.
 - 독재: 투표 안건이 없다(`dictatorship`). 지도자가 체제 전환을 직권으로 정한다(안건 줄은 바로 passed, 집행 = 지금 + `gov_grace_regime_ms` — D-217·D-131·2362 가). NPC 독재자는 지금 직권을 쓰지 않는다.
@@ -48,7 +48,7 @@
 - 집행: 선출 = 이긴 가문이 지배 가문(다른 가문이면 바뀜, 2358 가), 임기 = 닫은 때 + 임기 칸. 정족수 미달·후보 없음이면 현직 그대로·임기 새로. 해임 가결 = 바로 다시 뽑기(해임된 가문은 못 나섬, 결과까지 임시로 남음 [임시 2403]). 체제 전환 = 유예 뒤. 선전포고 = 바로 전쟁.
 - 감사 기록: `governance.propose`·`governance.regime_decree`·`governance.ruling_house`·`governance.regime_enacted`·`governance.war_declared`.
 
-### 6. 설정 칸(core@131, 줄기 판 — 16개, 모두 [임시] 출발값, 서버 실시간 반영)
+### 6. 설정 칸(core@131(묶음 1116v) — 16개, 모두 [임시] 출발값, 서버 실시간 반영)
 - 49 S34: `gov_period_leader_ms`(72시간)·`gov_period_war_ms`(6시간)·`gov_quorum_leader_pm`(500)·`gov_quorum_war_pm`(300).
 - 문턱: `gov_threshold_pm`(500 — 선전포고)·`gov_threshold_regime_pm`(666)·`gov_threshold_removal_pm`(666). 2354 출발값 나(체제 전환·해임 2/3).
 - `gov_term_ms`(14일)·`gov_register_ms`(24시간)·`gov_grace_regime_ms`(7일)·`gov_propose_share_pm`(50)·`gov_open_per_proposer`(1)·`gov_auto_elections`(1)·`gov_war_agenda`(1)·`gov_npc_keep_satisfaction`(50)·`gov_npc_war_trait_pm`(600).

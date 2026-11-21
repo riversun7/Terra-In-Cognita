@@ -285,7 +285,7 @@
  *    끝 예약 claim_done, 다 지으면 가문 마을 모양 새 도시, 같은 칸 다른 편은 멈춤). 도시 자리 함수를 simulator/simGrid.ts로 옮겼다(값 그대로).
  *    끄면(설정 칸 npc_claim_max_active 0) 판정·출력이 옛 판과 같다(econ16 시드 1 × 30일 머리·요약 밖 줄 바이트까지 같음). 켜면(출발값) 판단
  *    차례가 바뀌어 모든 시나리오 결과가 바뀐다(작업 기록 docs/worklog/2026/11/21-1400-npc-claim.md 전·후 표). 출력 형식 23
- * 106: (줄기 npc-claim-3 판 — 합칠 때 main 다음 판으로) NPC 알박기 재료(질문 docs/questions/2026-11-21-npc-claim.md 2331 가·2333 가 — 기획
+ * 67: (묶음 1116v 합친 판, 줄기 npc-claim-3의 106) NPC 알박기 재료(질문 docs/questions/2026-11-21-npc-claim.md 2331 가·2333 가 — 기획
  *    D-555 1505·1509·D-564 1626): 국고 값 소각([임시])을 없애고 팩 행정 건물 레벨 1 재료를 그 칸에서 가장 가까운 내 도시 창고에서 뺀다
  *    (simulator/claimRules.ts — 서버와 같은 함수). 재료가 모자라면 후보가 아니고 판단 끝(NpcClaimRun.prepare)에 그 도시 목표 재고(Economy.
  *    claimWants → npcTrade.ts cityTargets)에 넣어 증축처럼 산다. 재료는 시간 셈으로 옮긴다(운반 시간 = 옮김 셈 haulMs, 2차맵 거리 ×
@@ -295,7 +295,7 @@
  *    1,000주 = 그 가문 — 예전: 그 세력 도시). 세력 생김 줄 cause "claim"이 생긴다(요약 society 생김 원인 표에 새 열쇠 — 칸 모양 그대로). 출력 칸
  *    모양 그대로(npc.claims.spent = 뺀 재료) — 형식 23
  */
-export const SIM_VERSION = 106;
+export const SIM_VERSION = 67;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

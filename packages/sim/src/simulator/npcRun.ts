@@ -40,6 +40,9 @@ import {
   streamRng,
 } from "./world.ts";
 
+/** NPC 투자 도전 굴림 흐름(npc/invest.ts — 판단 흐름과 따로 두어 그 뒤 굴림을 밀지 않는다) */
+export const STREAM_INVEST = 11;
+
 export const EVENT_ARRIVE = "arrive";
 export const EVENT_DECIDE = "decide";
 
@@ -518,7 +521,8 @@ export function decide(ctx: NpcContext, factionId: number, nowMs: number): void 
   // 굴림 수는 판단마다 같다(무엇을 하든 다음 굴림이 밀리지 않게): 같은 점수 고르기, 도시 고르기, 지분 고르기·공성 결과 고르기
   const rolls = [rng.nextInt(0x1_0000), rng.nextInt(0x1_0000), rng.nextInt(0x1_0000)];
   const view = factionView(ctx, faction, nowMs);
-  const action = decideAction(view, rivalsOf(ctx, faction, nowMs), rolls[0] ?? 0, ctx.c.npc);
+  const investRoll = streamRng(ctx.world.seed, STREAM_INVEST, faction.id, faction.aiStep).nextInt(1000);
+  const action = decideAction(view, rivalsOf(ctx, faction, nowMs), rolls[0] ?? 0, ctx.c.npc, investRoll);
   ctx.counts.actions[action.kind] += 1;
   const society = ctx.society;
   switch (action.kind) {

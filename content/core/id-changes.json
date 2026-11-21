@@ -544,6 +544,30 @@
       "compensation": {
         "kind": "none"
       }
+    },
+    {
+      "category": "tuning",
+      "id": "npc_ai_league_dues_pm",
+      "since": 180,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "npc_ai_league_lot",
+      "since": 180,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "npc_ai_offline_steward_enabled",
+      "since": 180,
+      "compensation": {
+        "kind": "none"
+      }
     }
   ]
 }

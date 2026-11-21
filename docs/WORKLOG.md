@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-22 01:24 | 가문 연맹 바로잡기(조약)·NPC 투자 판단·비접속 관리인 늘 켬 (사용자 답 D-587) | Claude Code | [22-0124-league-fix](worklog/2026/11/22-0124-league-fix.md) |
 | 2026-11-21 23:58 | 광석 1g·10kg 묶음·g 단위 채집, 화석·이탄·소금 제거, 벽돌 가공품 이동 | Antigravity | [21-2355-ore-grams-and-cleanup](worklog/2026/11/21-2355-ore-grams-and-cleanup.md) |
 | 2026-11-21 23:08~ | 2026-11-21 묶음 1116z 합치기 (도시 지분 시장·증권 거래소 / 낡은 화면 시험 고치기) — 리셋 필요 없음 | Claude Code | [21-2308-batch-1116z-merge](worklog/2026/11/21-2308-batch-1116z-merge.md) |
 | 2026-11-21 22:16 | 도시(정부) 지분 시장·증권 거래소 주기능·지분 호가창 (D-583, 질문 2438) | Claude Code | [21-2216-share-market](worklog/2026/11/21-2216-share-market.md) |

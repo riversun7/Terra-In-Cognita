@@ -424,24 +424,6 @@ export const NPC_AI_TUNING_KEYS: readonly TuningKey[] = [
     "House care: vault share spent, max (‰)",
   ),
   k(
-    "npc_ai_league_dues_pm",
-    "leagueDuesPm",
-    "가문 연맹 분담금: 하루에 가문 금고에서 연맹 기금으로 가는 몫(‰)",
-    "House league dues: daily share of each house vault to the league fund (‰)",
-  ),
-  k(
-    "npc_ai_league_lot",
-    "leagueLot",
-    "가문 연맹 확장·생산 지원의 최소 묶음(최소 단위 — 이만큼 모이면 국고로)",
-    "House league expand/production support minimum lot (minor units — sent to the treasury once saved)",
-  ),
-  k(
-    "npc_ai_offline_steward_enabled",
-    "offlineStewardEnabled",
-    "비접속 유저 유닛 관리인 스위치(0=끔, 1=켬)",
-    "Offline player unit steward switch (0=off, 1=on)",
-  ),
-  k(
     "npc_ai_offline_steward_after_ms",
     "offlineStewardAfterMs",
     "비접속 유저 유닛 관리인이 움직이기까지의 비접속 시간(ms)",

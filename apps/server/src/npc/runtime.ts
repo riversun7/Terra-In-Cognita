@@ -866,7 +866,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     units,
     maps,
     mapKeyOfCity: (cityId) => persist.places.get(cityId)?.mapKey,
-    ties: bridgeTies(cityHouses, society, ledger, econ, ctxRef),
+    ties: bridgeTies(cityHouses, society, ledger, econ),
   });
   const syncPeople = (): void => {
     aiBridge.syncHumanPlaces({

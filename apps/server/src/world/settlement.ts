@@ -89,6 +89,11 @@ export interface Settlement {
   /** 작업 중 부상 고리(D-521): 직무 정산 전에 유닛마다 (정산 전 직무, 구간, 접속 상태)로 부른다 */
   injureWork(hook: WorkInjuryHook | undefined): void;
   /**
+   * 비접속 상한 빼기 고리(비접속 유저 유닛 관리인, 질문 2466 가·D-587 — labor/offlineSteward.ts): 접속을 끊은 주체를 정산할 때 유닛마다 불러 참이면
+   * 그 유닛은 24시간 상한(D-061) 없이 계속 일한다(부상 굴림도 같은 끝). undefined면 모두 상한을 받는다(예전과 같다)
+   */
+  exemptOffline(hook: ((unitId: number) => boolean) | undefined): void;
+  /**
    * 일꾼 쉼터 고리(질문 1088 가, labor/workerRest.ts): 주체를 정산할 때마다 (주체, 유닛들, 구간)으로 불러 유닛마다 직무 규칙(쉼터 회복 배율)을 받는다.
    * undefined면 모두 기본 규칙(예전과 같다)
    */
@@ -242,6 +247,7 @@ export function createSettlement(options: {
   let pauser: OutputPauses | undefined;
   let after: ((ownerId: number, toMs: number) => void) | undefined;
   let injury: WorkInjuryHook | undefined;
+  let exempt: ((unitId: number) => boolean) | undefined;
   let restHook: RestRulesHook | undefined;
   const weightOf = options.upkeepWeightPm;
 
@@ -265,10 +271,15 @@ export function createSettlement(options: {
     };
     const special = routes !== undefined || pauses !== undefined || units.some((unit) => defaultOf(unit));
     const offline = offlineOf(owner);
+    // 관리인이 맡은 유닛(비접속 상한 없음, 질문 2466 가) — 접속 중이면 볼 것이 없다
+    const offlineExempt =
+      offline !== null && exempt ? units.map((unit) => exempt?.(unit.id) === true) : undefined;
     // 작업 중 부상(D-521): 정산 전 직무 상태로 굴린다(직무가 있는 유닛만)
     if (injury)
-      for (const unit of units)
-        if (unit.job.job !== JOB_NONE && unit.map) injury({ ...unit, map: unit.map }, from, toMs, offline);
+      units.forEach((unit, index) => {
+        if (unit.job.job !== JOB_NONE && unit.map)
+          injury?.({ ...unit, map: unit.map }, from, toMs, offlineExempt?.[index] === true ? null : offline);
+      });
     // 판정은 @terra/sim 공용 함수(시뮬레이터와 같다). 여기서는 결과를 2차맵·소유 주체 행에 적기만 한다
     const result = settleOwnerPeriod(
       {
@@ -277,6 +288,7 @@ export function createSettlement(options: {
         fromMs: from,
         toMs,
         offlineSinceMs: offline,
+        offlineExempt,
         outputs: special ? units.map(outputOf) : undefined,
         upkeepWeightPm: weightOf ? units.reduce((sum, unit) => sum + weightOf(unit.kind), 0) : undefined,
         // 일꾼 쉼터(질문 1088 가): 숙소·집 회복 배율을 얹은 유닛별 규칙
@@ -405,6 +417,9 @@ export function createSettlement(options: {
     },
     injureWork(hook) {
       injury = hook;
+    },
+    exemptOffline(hook) {
+      exempt = hook;
     },
     offMapUnits(source) {
       offMap = source;

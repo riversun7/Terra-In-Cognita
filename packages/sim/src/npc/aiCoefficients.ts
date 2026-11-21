@@ -112,11 +112,10 @@ export interface NpcAiCoefficients {
   readonly houseTaxPm: number;
   readonly houseCareMinPm: number;
   readonly houseCareMaxPm: number;
-  /** 가문 연맹(houseLeague.ts·leagueBrain.ts): 분담금 몫(‰)·확장/생산 지원 최소 묶음(최소 단위) */
-  readonly leagueDuesPm: number;
-  readonly leagueLot: number;
-  /** 비접속 유저 유닛 관리인(서버 labor/offlineSteward.ts): 스위치·움직이기까지의 비접속 시간(ms) */
-  readonly offlineStewardEnabled: number;
+  /**
+   * 비접속 유저 유닛 관리인(서버 labor/offlineSteward.ts): 움직이기까지의 비접속 시간(ms). 관리인은 늘 켜져 있다(끄는 칸 없음 — 질문 2466 가,
+   * D-587). 가문 연맹 칸(분담금·묶음)은 연맹이 투자 기구가 아니게 되어 없앴다(D-587 2464)
+   */
   readonly offlineStewardAfterMs: number;
 }
 
@@ -211,9 +210,6 @@ export const DEFAULT_NPC_AI_COEFFICIENTS: NpcAiCoefficients = {
   houseTaxPm: 100,
   houseCareMinPm: 100,
   houseCareMaxPm: 900,
-  leagueDuesPm: 200,
-  leagueLot: 500,
-  offlineStewardEnabled: 1,
   offlineStewardAfterMs: 10 * MIN_MS,
 };
 

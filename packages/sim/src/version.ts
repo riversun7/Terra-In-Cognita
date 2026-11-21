@@ -309,8 +309,12 @@
  *    ① `TEST_SOCIETY_COEFFICIENTS.gatherOreGrams` 1,000 → 1(광산 수확량 50 + VIT × 5, 상한 500과 곱해 사이클당 50~500g), `cyborg.startStone`
  *    10 → 10,000(10kg). ② 건설 재료 수량이 기본 단위(원장 단위)이므로 `npcBuild.ts lotWeightOf`가 `lotSize`를 다시 곱하지 않고 기본 단위 무게(g)를
  *    돌려준다(석재·잡석이 1g·묶음 10,000g이 되면서 건설 시간·알박기 운반 무게가 10,000배로 튀지 않게). 팩으로 도는 시나리오 결과가 바뀐다
+ * 140: (줄기 league-fix의 판 — 묶음이 합칠 때 번호를 다시 매긴다) NPC 투자 판단(사용자 답 D-587 질문 2465, docs/adr/2026-11-21-npc-needs-drives.md
+ *    "바뀜 (2026-11-22, D-587 …)", npc/invest.ts): 세력 판단의 연구 시설 점수에서 비용 몫(값 ÷ 국고 × npc_invest_cost_weight_pm)을 빼고, 다음 기술이
+ *    막히지 않은 앞선 연구는 도전 굴림(흐름 STREAM_INVEST 11 — (국고 ÷ 값 − 1배) × 걸음, 상한)을 넘을 때만 후보가 된다. 칸을 0·1000·1000으로
+ *    두면 옛 판과 같다. 비접속 상한 빼기(settle/owner.ts offlineExempt)는 시뮬이 쓰지 않는다
  */
-export const SIM_VERSION = 71;
+export const SIM_VERSION = 140;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

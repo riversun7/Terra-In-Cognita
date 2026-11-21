@@ -36,6 +36,16 @@ function bookWithCredit(ownerId: number, credit: bigint) {
   return book;
 }
 
+/** 일꾼 하나를 48시간 정산한 주기 수(접속 상태·상한 빼기) */
+function cyclesOver48h(offlineSinceMs: number | null, offlineExempt?: boolean[]): number {
+  const book = bookWithCredit(1, 1000n);
+  return settleOwnerPeriod(
+    { ownerId: 1, jobs: [fresh], fromMs: 0, toMs: 48 * HOUR, offlineSinceMs, offlineExempt },
+    book,
+    testSettleAccounts(book, 1),
+  ).cycles;
+}
+
 describe("소유 주체 정산(시험 직무·유지비, 서버·시뮬 공용)", () => {
   it("접속 중 2시간: 일꾼 둘이 120주기씩 일하고 쉬기로, 유지비는 경계 둘 중 잔고만큼만 낸다", () => {
     const book = bookWithCredit(5, 3n);
@@ -80,6 +90,13 @@ describe("소유 주체 정산(시험 직무·유지비, 서버·시뮬 공용)"
     expect(result.cycles).toBe(0);
     expect(result.jobs[0]).toEqual({ ...idle, fatigue: 70 });
     expect(book.balanceOf(6, TEST_ASSET_ORE)).toBe(0n);
+  });
+
+  it("비접속 상한 빼기(offlineExempt, 관리인 — 질문 2466 가): 뺀 유닛은 24시간 뒤에도 접속 중처럼 일한다", () => {
+    const online = cyclesOver48h(null);
+    expect(cyclesOver48h(0, [true])).toBe(online);
+    expect(cyclesOver48h(0, [false])).toBeLessThan(online);
+    expect(cyclesOver48h(0)).toBe(cyclesOver48h(0, [false]));
   });
 
   it("나눠 정산해도 한 번에 한 것과 같다(장부 잔고까지)", () => {

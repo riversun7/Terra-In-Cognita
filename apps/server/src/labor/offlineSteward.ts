@@ -1,12 +1,14 @@
-// 비접속 유저 유닛의 필수요소 자율(관리인) — docs/adr/2026-11-21-npc-needs-drives.md "바뀜 (비접속 유저 자율)"
+// 비접속 유저 유닛의 필수요소 자율(관리인) — docs/adr/2026-11-21-npc-needs-drives.md "바뀜 (비접속 유저 자율)"·"바뀜 (2026-11-22, D-587 …)"
 // 사용자 방향(2026-11-21): "유닛들이 다른 곳에서 임금을 받게 활동은 계속해야 한다. 높은 기술에 투자 등 손실 위험이 있는 행동을 하지 않게 필수요소만
-// 우선 돌아가게 하자." 접속을 끊은 지 일정 시간(설정 칸 npc_ai_offline_steward_after_ms)이 지난 유저의 일 없는 유닛을, 같은 2차맵에 열려 있는 남의
-// 일자리(임금 높은 차례)에 넣는다. 유저가 직접 받는 것과 같은 명령(labor acceptJob)이라 조건·임금·세금·가문세가 모두 그대로다.
-// - 돈을 쓰는 일(자기 시설 배치의 임금, 건설, 구인, 연구, 거래)은 하지 않는다. 계약은 돌아온 유저가 해지할 수 있다.
+// 우선 돌아가게 하자." 접속을 끊은 지 일정 시간(설정 칸 npc_ai_offline_steward_after_ms — 잠깐 끊긴 것만 거른다)이 지난 유저의 일 없는 유닛을, 같은
+// 2차맵에 열려 있는 남의 일자리(임금 높은 차례)에 넣는다. 유저가 직접 받는 것과 같은 명령(labor acceptJob)이라 조건·임금·세금·가문세가 모두 그대로다.
+// 사용자 답(D-587, 질문 2466 가): 늘 켜져 있고(끄는 칸 없음) 24시간 상한이 없다 — 이 기능에는 D-061·D-144·D-162를 대신한다. 그래서 남의 시설에서
+// 임금형 계약으로 일하는 유닛은 접속을 끊은 지 24시간이 지나도 계속 일한다(stewardExemption → settlement.exemptOffline).
+// - 꼭 필요한 일만, 손실 위험이 있는 일은 하지 않는다(D-586): 돈을 쓰는 일(자기 시설 배치의 임금, 건설, 구인, 연구, 거래)은 하지 않는다.
+//   일꾼 쪽이 내는 돈이 없는 임금형 받기만 한다(보증금은 고용주가 낸다). 계약은 돌아온 유저가 해지할 수 있다.
 // - 대상: 고용 휴먼·사이보그 유닛(유저의 사이보그 본체·수호신·배는 건드리지 않는다).
 // - 부하: 살피는 주기 = 가문 상태 점검 주기(설정 칸 npc_ai_house_check_ms), 한 번에 받는 계약 수 상한.
-// 스위치: 설정 칸 npc_ai_offline_steward_enabled(0 = 끔).
-import type { SocietyCoefficients } from "@terra/sim";
+import type { LaborContract, SocietyCoefficients } from "@terra/sim";
 import { UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
 
 /** [임시] 한 번 살필 때 맺는 계약 수 상한(부하·한꺼번에 몰림 방지) */
@@ -26,12 +28,32 @@ export interface OfflineSteward {
   sweep(nowMs: number): Promise<number>;
 }
 
+/**
+ * 관리인이 맡는 일(24시간 상한 없이 계속 일하는 유닛): 남의 시설에서 열린(일함·일시 중지) 임금형 계약으로 일하는 유닛. 관리인이 맺은 계약이든
+ * 유저가 끊기 전에 맺은 계약이든 같은 일이다(질문 docs/questions/2026-11-22-league-fix.md 2506)
+ */
+export function stewardExemption(
+  contracts: ReadonlyMap<
+    number,
+    Pick<LaborContract, "unitId" | "kind" | "state" | "ownerId" | "workerOwnerId">
+  >,
+): (unitId: number) => boolean {
+  return (unitId) => {
+    for (const c of contracts.values())
+      if (c.unitId === unitId && (c.state === "active" || c.state === "paused"))
+        return c.kind === "wage" && c.workerOwnerId !== c.ownerId;
+    return false;
+  };
+}
+
 export function createOfflineSteward(o: {
   readonly rules: () => SocietyCoefficients;
   readonly settlement: {
     /** 접속을 끊은 유저와 끊긴 시각 */
     offlineUsers(): readonly { readonly userId: string; readonly sinceMs: number }[];
     findOwnerOfUser(userId: string): number | undefined;
+    /** 관리인이 맡은 유닛은 비접속 24시간 상한을 받지 않는다(없으면 걸지 않는다 — 시험) */
+    exemptOffline?: ((hook: ((unitId: number) => boolean) | undefined) => void) | undefined;
   };
   readonly labor: {
     /** 그 유저가 받을 수 있는 남의 열린 일자리(임금 높은 차례 — labor service jobs) */
@@ -49,16 +71,21 @@ export function createOfflineSteward(o: {
     };
     acceptJob(userId: string, jobId: number, unitId: number): Promise<{ readonly ok: boolean }>;
     unitBusy(unitId: number): boolean;
+    readonly contracts?:
+      | ReadonlyMap<number, Pick<LaborContract, "unitId" | "kind" | "state" | "ownerId" | "workerOwnerId">>
+      | undefined;
   };
   readonly maps: ReadonlyMap<number, StewardMap>;
   readonly log?: { warn(obj: object, message: string): void } | undefined;
 }): OfflineSteward {
+  // 늘 켜져 있다: 만들 때 정산에 상한 빼기 고리를 건다
+  if (o.labor.contracts) o.settlement.exemptOffline?.(stewardExemption(o.labor.contracts));
   let nextAt = 0;
   let busy = false;
   return {
     async sweep(nowMs) {
       const ai = o.rules().npcAi;
-      if (ai.offlineStewardEnabled !== 1 || busy || nowMs < nextAt) return 0;
+      if (busy || nowMs < nextAt) return 0;
       nextAt = nowMs + Math.max(10_000, Math.trunc(ai.houseCheckMs));
       busy = true;
       let accepted = 0;

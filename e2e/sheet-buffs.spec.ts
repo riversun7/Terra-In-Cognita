@@ -177,6 +177,14 @@ const combatBuffLine = (language: Language): RegExp =>
       .replace("VALUE", "\\+[\\d.]+%"),
   );
 
+/** "n칸/초" 걷기 빠르기 글(서버 계산식 값이라 수는 아무것) */
+const moveCellsText = (language: Language): RegExp =>
+  new RegExp(
+    `^${message(language, "cyborg_move_cells", { value: "VALUE" })
+      .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      .replace("VALUE", "[\\d.,]+")}$`,
+  );
+
 test.describe("관리자 계정: 버프 물약 → 사이보그 판 버프 몫", () => {
   test.use({ account: "admin" });
 
@@ -227,10 +235,10 @@ test.describe("관리자 계정: 버프 물약 → 사이보그 판 버프 몫",
     await expect(attack).toHaveAttribute("data-buff", "up");
     await attack.locator(".combat-toggle").click();
     await expect(attack.locator(".combat-detail")).toContainText(combatBuffLine("ko"));
-    // 이동 속도(2차 행 없음): 기동 묶음에 100% + 디버프 알약 "-n%"
+    // 이동 속도(2차 행 없음): 기동 묶음에 걷기 빠르기 "n칸/초"(서버 move가 있으면 — ba1f17a73f, D-540) + 디버프 알약 "-n%"
     const move = realRow(page, "move_speed");
     await expect(page.locator('.combat-group[data-group="mobility"]').locator(move)).toBeVisible();
-    await expect(move.locator(".combat-value-base")).toHaveText("100%");
+    await expect(move.locator(".combat-value-base")).toHaveText(moveCellsText("ko"));
     await expect(move.locator(".buff-chip")).toContainText(/-\d+(\.\d+)?%/);
     await expect(move).toHaveAttribute("data-buff", "down");
     expect(await horizontalOverflow(page)).toEqual([]);

@@ -1,7 +1,7 @@
 // 지도자 안건·나라 단위 결정(줄기 governance-5 — service.ts 줄 수 때문에 따로 둔다). 질문 2451~2460 답(코디네이터 전달)·사용자 결정 D-584·D-585.
 // - 강화(2452, D-5057 "전쟁·외교: 강화 수락"): 전쟁 중인 상대와. 민주주의·자본주의 = 투표(전쟁 묶음 — 짧은 기간), 독재 = 직권(D-217). 집행: 상대가 NPC가 이끄는 나라면 NPC 강화
 //   규칙식(npcRun proposePeace와 같은 셈)이 받으면 강화 조약, 아니면 거절(failed). 상대가 플레이어가 이끄는 나라(빈자리 포함)면 그쪽이 gov_peace_offer_ms 안에 우리에게 같은
-//   강화를 집행했으면 맺고, 아니면 제안으로 남는다(enacted + 감사 기록 governance.peace_offered) [임시 — 질문 2477]. 동맹·보호 조약은 세계에 조약 체계가 없어 만들지 않았다(질문 2478).
+//   강화를 집행했으면 맺고, 아니면 제안으로 남는다(enacted + 감사 기록 governance.peace_offered) [임시 — 질문 2497]. 동맹·보호 조약은 세계에 조약 체계가 없어 만들지 않았다(질문 2498).
 // - 화폐 단계(2453, D-252·D-131): 공식(테일러 준칙 — 지금과 같다) ↔ 지도자 손 조절(하루 조절 만분율, 하루 상한 = 중앙은행 칸 E5) [임시]. 단계를 바꾸는 것은 안건(문턱
 //   gov_threshold_currency_pm 2/3) 또는 독재 직권, 손 조절 단계 안에서 조절량만 바꾸는 것은 지도자가 바로(직권 줄). 손 조절은 플레이어가 이끄는 나라에서만 건다(NPC가 이끌게
 //   되면 공식으로 돈다 [임시]).
@@ -10,7 +10,7 @@
 // - 가문 독립 선언(2454, D-300 "한 가문이 그 도시 지분 50% 이상이면 투표 없이 독립 선언"): 자본주의 나라의 시작 도시가 아닌 도시(D-341). 그 도시가 새 도시국가가 되고 선언한
 //   가문이 지배 가문(선출 기록 자리), 체제 = 옛 나라 체제 [임시 2459]. 플레이어 = gov_propose house_independence(그 가문의 장), NPC 가문 = 성향 규칙식(쿠데타 점수와 같은 식 ≥
 //   gov_house_independence_npc_score — D-323) + 옛 나라와 힘 비(가문 힘 × 1000 ≥ 옛 나라 군대 힘 × gov_house_independence_power_pm — D-585) [임시 식].
-// - 지도자 신임도(D-585 — approval.ts): 지배 가문이 바뀌면 시작값(플레이어 낮게·NPC), 해임 문턱·반란 문턱 고리. 오르내림 규칙은 질문 2473.
+// - 지도자 신임도(D-585 — approval.ts): 지배 가문이 바뀌면 시작값(플레이어 낮게·NPC), 해임 문턱·반란 문턱 고리. 오르내림 규칙은 질문 2493.
 import type { HouseKey, MonetaryMode } from "@terra/shared/governance";
 import { rebellionShiftOf, removalThresholdWithApproval } from "./approval.ts";
 import type { ElectorateTools } from "./electorate.ts";

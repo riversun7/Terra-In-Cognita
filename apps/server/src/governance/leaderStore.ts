@@ -1,5 +1,5 @@
 // 나라 의결 표 셋째 묶음(SQL만 — 줄기 governance-5, store.ts 줄 수 때문에 따로 둔다): 나라 화폐 단계(nation_monetary — 질문 2453)·지도자 신임도
-// (governance_approval — 사용자 답 D-585)·가문 소속 도시(house_homes — 쿠데타로 떨어져 나갈 도시, 질문 2472 [임시]). 표 정의 db/governanceSchema.ts·houseSchema.ts.
+// (governance_approval — 사용자 답 D-585)·가문 소속 도시(house_homes — 쿠데타로 떨어져 나갈 도시, 질문 2492 [임시]). 표 정의 db/governanceSchema.ts·houseSchema.ts.
 import { type HouseKey, type MonetaryMode, isHouseKey } from "@terra/shared/governance";
 import type { GovernanceQueryable } from "./store.ts";
 

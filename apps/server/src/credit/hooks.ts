@@ -15,7 +15,7 @@ export function withCredit(base: SimHooks, o: { readonly ledger: object }): SimH
 
 /**
  * 같은 나라 유저 공격(D-584 — 신용 내림): 공격한 주인과 대상 주인이 둘 다 소속 줄이 있고(사용자 주인 — 소속 훑기가 만든다) 같은 나라면 남는 벌점 한 번.
- * facilities/attack.ts가 전투를 넣은 뒤 부른다. "같은 나라 유저"를 소속 줄로 읽는다 [임시 — 질문 2476: 가문원끼리·봉신 나라·전쟁 중 내전 등]
+ * facilities/attack.ts가 전투를 넣은 뒤 부른다. "같은 나라 유저"를 소속 줄로 읽는다 [임시 — 질문 2496: 가문원끼리·봉신 나라·전쟁 중 내전 등]
  */
 export function creditAttackHook(ledger: object) {
   return (attackerOwner: number, targetOwner: number, atMs: number): void => {

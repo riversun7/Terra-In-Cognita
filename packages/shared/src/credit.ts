@@ -62,7 +62,7 @@ export interface CreditLine {
   /** 내가 지금 속한 나라 줄인가(아니면 옛 나라에 남은 내린 몫 줄 — 화면이 #ID로 보인다) */
   readonly current: boolean;
   readonly score: number;
-  /** 소속 기간으로 오른 몫(유닛 줄은 0 [임시 — 유닛 소속 기간은 질문 2475]) */
+  /** 소속 기간으로 오른 몫(유닛 줄은 0 [임시 — 유닛 소속 기간은 질문 2495]) */
   readonly tenure: number;
   /** 사업장 운영·보상으로 오른 몫 */
   readonly rise: number;

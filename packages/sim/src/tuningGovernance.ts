@@ -249,7 +249,7 @@ export const GOVERNANCE_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 가문 독립 선언: 옛 나라와 힘 비 문턱(‰)",
     "NPC house independence: power ratio against the old nation (‰)",
   ),
-  // 지도자 신임도(사용자 답 D-585 — 오르내림 규칙은 질문 2473)
+  // 지도자 신임도(사용자 답 D-585 — 오르내림 규칙은 질문 2493)
   k(
     "gov_approval_player_start",
     "",

@@ -37,7 +37,7 @@ export interface GovernanceCoefficients {
   readonly npcRunMax: number;
   /**
    * 지도자 빈자리 자동 선출 기간(ms, 사용자 결정 D-584 — D-583 3 "빈자리 → 도시 독립 투표"를 대신한다): 빈자리가 되면 누구나 나설 수 있는 선출을 저절로 열고 이 기간
-   * 뒤 닫는다. 후임자(국가 지도자 가문에서 대행·계승)를 고르는 방법은 정해지지 않았다(질문 2471) [임시]
+   * 뒤 닫는다. 후임자(국가 지도자 가문에서 대행·계승)를 고르는 방법은 정해지지 않았다(질문 2491) [임시]
    */
   readonly vacancyElectionMs: number;
   /** 군사 쿠데타 충성도 벌칙(만족도 점, 질문 2401 답 D-582 "충성도 크게 떨어짐"). 쿠데타 길은 아직 없다(도우미만, 질문 2433) */
@@ -67,7 +67,7 @@ export interface GovernanceCoefficients {
   readonly houseIndependencePowerPm: number;
   /**
    * 지도자 신임도(사용자 답 D-585 — 신용과 다른 새 값, governance/approval.ts): 플레이어 지도자·NPC 지도자 시작값(0~1000), 낮은 신임도가 해임 문턱을 낮추는 폭(‰)·반란 문턱을
-   * 올리는 폭(만족도 점). 오르내림 규칙은 정해지지 않았다(질문 2473). 폭 출발값 0 = 보정 없음
+   * 올리는 폭(만족도 점). 오르내림 규칙은 정해지지 않았다(질문 2493). 폭 출발값 0 = 보정 없음
    */
   readonly approvalPlayerStart: number;
   readonly approvalNpcStart: number;

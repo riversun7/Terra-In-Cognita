@@ -1,7 +1,7 @@
 // 신용 점수 장부(서버 권위) — 기획 D-581(질문 2374 답), 바뀜 사용자 결정 D-584(줄기 governance-5 — "신용은 한 점수"), docs/adr/2026-11-21-credit.md.
 // - 점수: 그 주체가 속한 나라에 대한 점수 하나(도시·나라 따로가 아니다). 점수 = 시작값(낮게) + 소속 기간 몫(하루마다, 상한) + 쌓인 오른 몫(사업장 운영·쿠데타 보상)
 //   − 내린 몫(갚지 않은 빚·체납 + 남는 벌점), 설정 칸 범위로 자른다(@terra/shared/credit creditScore).
-// - 주체: 주민세 내는 쪽과 같게 — 집 몫(유닛 지갑)이면 그 유닛, 사업장 몫·사업장 적자·유지비면 소유 주체(주인)(2441 가). 소속 기간·오른 몫은 주인 주체만 [임시 — 질문 2475].
+// - 주체: 주민세 내는 쪽과 같게 — 집 몫(유닛 지갑)이면 그 유닛, 사업장 몫·사업장 적자·유지비면 소유 주체(주인)(2441 가). 소속 기간·오른 몫은 주인 주체만 [임시 — 질문 2495].
 // - 내린 몫(표 credit_marks — 까닭 하나마다 한 줄, 점수는 nation_points 칸 하나만 쓴다. city_points는 옛 줄 호환으로 0을 적는다):
 //   · 주민세 빚(debt:resident:…): 하루 끝 고리 SimHooks.residentTaxArrears(withCredit) — 빚이 늘어난 주기마다 credit_resident_nation.
 //   · 사업장 적자(debt:business:…): 원장 거래를 듣다가 그 계정에 빚이 생기면 한 번 credit_business_nation. 같은 주머니(주인 = 그 나라)는 깎지 않는다.
@@ -10,7 +10,7 @@
 //   · 대출 연체: 대출이 아직 없다(TODO — 대출 계정이 생기면 그 빚 계정 코드로 같은 길에 붙인다).
 // - 회복: 빚 계정 잔고가 0이 되면(어느 길로든 — 다 갚음·정산·도시가 넘어가거나 폐허가 되어 탕감·건물이 사라져 탕감 2445 나) 그 줄을 지운다. 일부만 갚으면 그대로(2443 가).
 // - 오른 몫(표 credit_standings — 주인마다 지금 속한 나라 한 줄): 소속 훑기(sweep, credit/standing.ts가 몇 분마다)가 주인 → 나라를 알려 준다. 나라가 바뀌면 줄을 새로
-//   만든다(소속 기간·오른 몫 처음부터 [임시 — 질문 2474]). 하루에 한 번 그 주인의 돌아가는(멈추지 않은) 사업장 수 × credit_business_daily를 더한다.
+//   만든다(소속 기간·오른 몫 처음부터 [임시 — 질문 2494]). 하루에 한 번 그 주인의 돌아가는(멈추지 않은) 사업장 수 × credit_business_daily를 더한다.
 // - 표: 원장마다 하나(WeakMap). 사업장 장부(createBusinessCore)가 만들 때 붙인다. 고리·조회는 원장으로 찾는다.
 // 점수·크기는 정수(점). 쓰기는 월드 쓰기 대기열(원장 거래와 같은 묶음).
 import { parseBusinessDebtCode } from "@terra/shared/businessBooks";
@@ -134,7 +134,7 @@ export interface CreditBook {
   bonus(ownerId: number, amount: number, nowMs: number): boolean;
   /**
    * 새 나라에서 처음부터(쿠데타로 떨어져 나간 새 나라 — D-585: 새 나라 신용은 처음부터, 이긴 편 참가자는 시작 가산). 그 주인 소속 줄을 그 나라로 바꾸고 오른 몫 = 가산.
-   * 소속 훑기가 그 주인을 다른 나라로 보면 다시 바뀐다(그 나라에 속하지 않은 참가자는 가산이 남지 않는다 [임시 — 질문 2474])
+   * 소속 훑기가 그 주인을 다른 나라로 보면 다시 바뀐다(그 나라에 속하지 않은 참가자는 가산이 남지 않는다 [임시 — 질문 2494])
    */
   restartAt(ownerId: number, nationId: number, bonus: number, nowMs: number): void;
   /** 정산 한 번의 유지비(못 낸 경계 수·마지막 경계를 냈나 — 모르면 undefined) */
@@ -308,7 +308,7 @@ export function createCreditBook(deps: CreditBookDeps): CreditBook {
       for (const [ownerId, nationId] of belongs) {
         let row = standings.get(ownerId);
         if (!row || row.nationId !== nationId) {
-          // 처음 보거나 나라를 옮겼다: 소속 기간·오른 몫을 처음부터 [임시 — 질문 2474]
+          // 처음 보거나 나라를 옮겼다: 소속 기간·오른 몫을 처음부터 [임시 — 질문 2494]
           row = { ownerId, nationId, sinceMs: nowMs, rise: 0, roseDay: today, updatedAtMs: nowMs };
           standings.set(ownerId, row);
           saveStanding(row);

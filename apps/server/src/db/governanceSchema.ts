@@ -229,7 +229,7 @@ export const nationMonetary = pgTable(
 
 /**
  * 지도자 신임도(줄기 governance-5 — 사용자 답 D-585, governance/approval.ts): 나라마다 지금 지배 가문의 신임도(0~1000) 한 줄. 지배 가문이 바뀌면 시작값으로 다시 적는다.
- * 오르내림 규칙은 정해지지 않았다(질문 2473)
+ * 오르내림 규칙은 정해지지 않았다(질문 2493)
  */
 export const governanceApproval = pgTable(
   "governance_approval",

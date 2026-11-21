@@ -308,38 +308,38 @@ describe("시뮬 배당·공물(D-304·D-338·D-443)", () => {
   });
 });
 
-describe("시뮬 주민세(D-579)", () => {
-  /** 도시 5(자본주의 2번 세력)에 사는 휴먼 하나를 77번 주인에게 넘기고 77번에게 돈을 준다 */
-  const residentSetup = (c: SocietyCoefficients, property: bigint, calls: number[] = []) => {
-    const { hooks } = taxHooks();
-    const arrears: bigint[] = [];
-    const withProperty: SimHooks = {
-      ...hooks,
-      residentProperty: (nowMs) => {
-        calls.push(nowMs);
-        return (payer, city) => (payer === 77 && city === 5 ? property : 0n);
-      },
-      residentTaxArrears: (_faction, list) => {
-        for (const entry of list) arrears.push(entry.owed);
-      },
-    };
-    const made = setup({ hooks: withProperty, c });
-    const unit = [...made.world.units.values()].find((u) => u.city === 5);
-    if (!unit) throw new Error("unit in city 5");
-    unit.owner = 77;
-    // 시험 동안 수명으로 떠나지 않게
-    unit.lifespanMs = 1000 * DAY_MS;
-    made.world.book.post({
-      kind: "transfer",
-      atMs: 0,
-      entries: [
-        { account: made.world.book.ownerAccount(2, TEST_ASSET_CREDIT), amount: -150n },
-        { account: made.world.book.ownerAccount(77, TEST_ASSET_CREDIT), amount: 150n },
-      ],
-    });
-    return { ...made, arrears };
+/** 도시 5(자본주의 2번 세력)에 사는 휴먼 하나를 77번 주인에게 넘기고 77번에게 돈을 준다 */
+const residentSetup = (c: SocietyCoefficients, property: bigint, calls: number[] = []) => {
+  const { hooks } = taxHooks();
+  const arrears: bigint[] = [];
+  const withProperty: SimHooks = {
+    ...hooks,
+    residentProperty: (nowMs) => {
+      calls.push(nowMs);
+      return (payer, city) => (payer === 77 && city === 5 ? property : 0n);
+    },
+    residentTaxArrears: (_faction, list) => {
+      for (const entry of list) arrears.push(entry.owed);
+    },
   };
+  const made = setup({ hooks: withProperty, c });
+  const unit = [...made.world.units.values()].find((u) => u.city === 5);
+  if (!unit) throw new Error("unit in city 5");
+  unit.owner = 77;
+  // 시험 동안 수명으로 떠나지 않게
+  unit.lifespanMs = 1000 * DAY_MS;
+  made.world.book.post({
+    kind: "transfer",
+    atMs: 0,
+    entries: [
+      { account: made.world.book.ownerAccount(2, TEST_ASSET_CREDIT), amount: -150n },
+      { account: made.world.book.ownerAccount(77, TEST_ASSET_CREDIT), amount: 150n },
+    ],
+  });
+  return { ...made, arrears };
+};
 
+describe("시뮬 주민세(D-579)", () => {
   it("세율 0(출발값)이면 재산 값을 묻지도 않고 아무것도 걷지 않는다", () => {
     const calls: number[] = [];
     const { world, society } = residentSetup(TEST_SOCIETY_COEFFICIENTS, 10_000n, calls);

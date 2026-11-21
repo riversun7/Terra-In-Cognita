@@ -76,7 +76,8 @@
 ## 검사
 - 작업 중(Verified): `@terra/sim` 시험 118파일 1,006개, 타입 검사. 서버 `residentProperty.test.ts`·`withhold.test.ts`·`rulingVault.test.ts`·`houseTax.test.ts`, 서버 타입 검사.
   `pnpm settings:cells --check`, `pnpm check:content --no-compat`(core@130) 통과.
-- 끝 전체 `pnpm check`(TEST_DATABASE_URL): 아래 "끝 검사"에 적는다.
+- 끝 전체 `pnpm check`(TEST_DATABASE_URL, DB 시험 포함, 잠금 안) 한 번(Verified — 첫 판은 린트 경고·오류 셋으로 실패해 고친 뒤 다시): 포맷·린트·타입·경계·크기·다국어(8,504키)·
+  디자인 값(746쌍)·콘텐츠(core@130 0d8958af0d33) 통과, 시험 파일 **813/813**, 시험 **5,975/5,975**.
 
 ## 미검증·TODO·알려진 문제
 - 서버 실제 세계에서 세율을 올려 돌려 보지 않았다(미실행). 지금 서버 세계에서 사는 도시가 있는 유닛은 NPC 휴먼·가문 마을 휴먼뿐이고 거의 모두 같은 주머니(주인 = 도시 나라)라, 세율을 올려도

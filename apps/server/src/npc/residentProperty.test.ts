@@ -42,8 +42,10 @@ describe("주민세 재산 값(D-579)", () => {
   });
 
   it("사업장 장부가 없으면 고리를 얹지 않는다(걷지 않는다)", () => {
-    expect(withResidentProperty(BASE, undefined).residentProperty).toBeUndefined();
-    expect(withResidentProperty(BASE, { facilitiesIn: () => [] }).residentProperty).toBeUndefined();
+    expect(Object.hasOwn(withResidentProperty(BASE, undefined), "residentProperty")).toBe(false);
+    expect(Object.hasOwn(withResidentProperty(BASE, { facilitiesIn: () => [] }), "residentProperty")).toBe(
+      false,
+    );
     const hooked = withResidentProperty(BASE, {
       business: { vaultBalance: () => 5n },
       facilitiesIn: () => [{ buildingId: 1, facility: "shop", level: 1, ownerId: 3 }],

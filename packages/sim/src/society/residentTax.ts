@@ -67,6 +67,9 @@ export function parseResidentDebtCode(
   return match ? { city: Number(match[1]), payer: Number(match[2]) } : undefined;
 }
 
+/** (도시, 주인) 표 열쇠 */
+const keyOf = (city: number, payer: number): string => `${city}|${payer}`;
+
 /** 한 주기 세금 = ⌊재산 × 세율‰ ÷ 1000⌋. 세율은 0~1000으로 자른다 */
 export function residentTaxDue(property: bigint, ratePm: number): bigint {
   const rate = Math.min(1000, Math.max(0, Math.trunc(ratePm)));
@@ -109,7 +112,6 @@ export function collectResidentTax(
 ): ResidentTaxResult {
   // 지난 빚(그 나라·화폐) — 한 번 훑는다
   const debts = new Map<string, { city: number; payer: number; owed: bigint }>();
-  const keyOf = (city: number, payer: number): string => `${city}|${payer}`;
   for (const account of book.accounts()) {
     if (account.systemCode === null || account.balance >= 0n) continue;
     const parsed = parseResidentDebtCode(account.systemCode, o.nation, o.asset);

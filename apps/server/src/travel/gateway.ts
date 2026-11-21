@@ -7,7 +7,7 @@
 // - 유닛 AI 작전 저장(unit_tactics, 프로토콜 50 — 기획 D-5039·D-5040, 질문 2021·2023 답): 조우 판단 입력이라 이동 메시지와 같은 줄로 받는다.
 //   저장소(tactics/store.ts)가 소유·종류를 본다. 답은 travel_result.
 // - 유닛 공격(unit_attack, 프로토콜 64 — 묶음 1117d, 줄기 fixes-1117c 판 123, D-588 2496 가·기획 대조 2543): 조우 규칙의 일부러 치기(encounterWorld.ts strike)로 넘긴다.
-//   조우 규칙이 아직 켜지지 않았으면 busy. 답은 travel_result(ok = 전투가 열렸다). 수비 편이 빠져나가면 escaped(프로토콜 114 연결만, 낮은 판은 out_of_reach — gov-fix-3).
+//   조우 규칙이 아직 켜지지 않았으면 busy. 답은 travel_result(ok = 전투가 열렸다). 수비 편이 빠져나가면 escaped(프로토콜 65 연결만, 낮은 판은 out_of_reach — gov-fix-3).
 // - 걷는 빠르기 = 이 연결의 운영자 배율(기본 1, D-560 1246). 운영자 모드를 끄면 그 연결이 보낸 길의 빠르기를 1로 돌린다(releasePace, 1248).
 import {
   type ClientMessageOf,
@@ -41,7 +41,7 @@ export interface TravelLink {
   observing?(): boolean;
   /** 이 연결의 운영자 배율(기본 1 — 기획 D-560 1246, world/operatorPace.ts). 없으면 1 */
   operatorPace?: OperatorPaceLink | undefined;
-  /** 이 연결이 인사한 프로토콜 판(새 결과 코드 escaped를 낮은 판에 보내지 않으려고 — 프로토콜 114). 없으면 지금 판으로 본다 */
+  /** 이 연결이 인사한 프로토콜 판(새 결과 코드 escaped를 낮은 판에 보내지 않으려고 — 프로토콜 65). 없으면 지금 판으로 본다 */
   protocolVersion?: number | undefined;
 }
 
@@ -139,7 +139,7 @@ export function createTravelGateway(options: {
             targetUnitId: message.targetUnitId,
           });
           if (code === "ok") return reply(message.id, { ok: true });
-          // 수비 편이 빠져나감(escaped — 프로토콜 114, gov-fix-3): 낮은 판 연결은 모르는 코드라 out_of_reach
+          // 수비 편이 빠져나감(escaped — 프로토콜 65, gov-fix-3): 낮은 판 연결은 모르는 코드라 out_of_reach
           const low =
             (link.protocolVersion ?? UNIT_ATTACK_ESCAPE_PROTOCOL_VERSION) <
             UNIT_ATTACK_ESCAPE_PROTOCOL_VERSION;

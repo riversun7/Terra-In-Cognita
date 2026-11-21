@@ -26,10 +26,10 @@ export const UNIT_TACTICS_PROTOCOL_VERSION = 50;
  */
 export const UNIT_ATTACK_PROTOCOL_VERSION = 64;
 /**
- * 유닛 공격의 수비 편 회피(줄기 gov-fix-3 판 114 — 질문 2581 (3) 사용자 답, D-570 1904 "현재 전투세팅상태나 전력차, 성향에 따라 판정"·D-573 2022 나 "더 빠르면 전투 없이
+ * 유닛 공격의 수비 편 회피(묶음 1117e 65 — 줄기 gov-fix-3 판 114 — 질문 2581 (3) 사용자 답, D-570 1904 "현재 전투세팅상태나 전력차, 성향에 따라 판정"·D-573 2022 나 "더 빠르면 전투 없이
  * 빠져나간다"): 답 travel_result의 새 코드 escaped는 이 판 연결에만 간다(더 낮은 판은 out_of_reach)
  */
-export const UNIT_ATTACK_ESCAPE_PROTOCOL_VERSION = 114;
+export const UNIT_ATTACK_ESCAPE_PROTOCOL_VERSION = 65;
 /** 유닛 공격 한 번에 보낼 수 있는 내 유닛 수 */
 export const UNIT_ATTACK_MAX_UNITS = 30;
 /** AI 작전 프리셋·목표 우선순위(@terra/shared/aiTactics와 같은 목록 — 이 꾸러미는 다른 내부 꾸러미를 가져오지 않는다) */
@@ -138,7 +138,7 @@ export const TRAVEL_RESULT_CODES = [
   "own_target",
   /** 유닛 공격: 시가지(안전지대 D-146) 안이라 싸우지 않는다 */
   "safe_zone",
-  /** 유닛 공격(프로토콜 114): 수비 편이 회피를 골랐고 더 빨라 전투 없이 빠져나갔다(D-573 2022 나) */
+  /** 유닛 공격(프로토콜 65): 수비 편이 회피를 골랐고 더 빨라 전투 없이 빠져나갔다(D-573 2022 나) */
   "escaped",
 ] as const;
 export type TravelResultCode = (typeof TRAVEL_RESULT_CODES)[number];

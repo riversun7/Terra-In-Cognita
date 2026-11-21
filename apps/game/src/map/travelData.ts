@@ -165,7 +165,7 @@ export function travelProblemText(
       return m.unit_attack_own_target();
     case "safe_zone":
       return m.unit_attack_safe_zone();
-    // 수비 편이 회피를 골랐고 더 빨라 빠져나감(프로토콜 114 — 줄기 gov-fix-3, 2581 (3))
+    // 수비 편이 회피를 골랐고 더 빨라 빠져나감(프로토콜 65 — 줄기 gov-fix-3, 2581 (3))
     case "escaped":
       return m.unit_attack_escaped();
     case "offline":

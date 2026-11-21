@@ -109,8 +109,8 @@ describe("2차맵 사이 이동 메시지(프로토콜 16)", () => {
       expect(TRAVEL_RESULT_CODES).toContain(code);
   });
 
-  it("유닛 공격 수비 편 회피(줄기 gov-fix-3 판 114 — 2581 (3)): 새 결과 코드 escaped", () => {
-    expect(UNIT_ATTACK_ESCAPE_PROTOCOL_VERSION).toBe(114);
+  it("유닛 공격 수비 편 회피(묶음 1117e 65 — 줄기 gov-fix-3 판 114 — 2581 (3)): 새 결과 코드 escaped", () => {
+    expect(UNIT_ATTACK_ESCAPE_PROTOCOL_VERSION).toBe(65);
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(UNIT_ATTACK_ESCAPE_PROTOCOL_VERSION);
     expect(TRAVEL_RESULT_CODES).toContain("escaped");
     expect(

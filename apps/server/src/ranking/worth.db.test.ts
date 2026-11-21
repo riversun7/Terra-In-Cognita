@@ -240,7 +240,7 @@ describe.skipIf(!TEST_DATABASE_URL)("랭킹 전투력·자산 (DB)", () => {
     expect(wealth.rows.find((row) => row.npc === true)?.score).toBeGreaterThan(Number(ownRows[2]?.[3]));
   });
 
-  it("규모 시험 봇(2345 나): 시험 2차맵의 휴먼 줄 없는 봇은 유닛 몫에서 빠지고, 같은 자리의 NPC 휴먼은 든다", async () => {
+  it("규모 시험 봇(2345 나·2392 나): 시험 2차맵의 휴먼 줄 없는 봇은 유닛 몫·주인 전투력에서 빠지고, 같은 자리의 NPC 휴먼은 든다", async () => {
     const testKey = testMapKey(0);
     await sql(
       `insert into world_units (id, owner_id, kind, size, speed, map_key, path, depart_at_ms) values
@@ -255,8 +255,8 @@ describe.skipIf(!TEST_DATABASE_URL)("랭킹 전투력·자산 (DB)", () => {
       expect(worth.units.has(30)).toBe(false);
       expect(worth.unitInfo.has(30)).toBe(false);
       expect(worth.units.get(31)).toEqual({ power: 310n, assets: 0n });
-      // 주인(나라) 전투력 합에는 옛처럼 든다: 270 + 300 + 310
-      expect(worth.owners.get(1)?.power).toBe(880n);
+      // 주인(나라) 전투력 합에서도 빠진다(2392 나): 270 + 310 — 봇 30의 300은 넣지 않는다
+      expect(worth.owners.get(1)?.power).toBe(580n);
     } finally {
       await sql(`delete from world_humans where unit_id = 31`);
       await sql(`delete from world_units where id in (30, 31)`);

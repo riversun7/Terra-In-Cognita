@@ -38,6 +38,7 @@ import { type BusinessCore, EMPTY_BUSINESS, createBusinessCore } from "../busine
 import { type BusinessCommands, createBusinessCommands } from "../business/commands.ts";
 import { EMPTY_SHARES, type ShareMarkets, createShareMarkets } from "../business/shares.ts";
 import { ASSET_CREDIT } from "../world/settlement.ts";
+import { nationIncomeTaxBp } from "../government/nationTax.ts";
 import { DEFAULT_TAX_BP } from "../npc/currency.ts";
 import { TEST_PLANET_ID } from "../world/testMaps.ts";
 import type { LoadedFacilities } from "./state.ts";
@@ -320,9 +321,10 @@ export function createWorldFacilities(input: {
     tax: (cityId) => {
       const city = npcCity(cityId);
       if (!city) return undefined;
-      // 그 나라 거래세(만분율 [임시]). 도시 경제가 없으면(시험) 기본 거래세
-      const bp = input.npc?.()?.economy?.economy.taxOf.get(city.owner) ?? DEFAULT_TAX_BP;
-      return { treasuryOwner: city.owner, bp };
+      // 그 나라 소득세(만분율): 나라가 정한 값(정부 세금 칸 — 질문 2322 나, government/nationTax.ts), 없으면 그 나라 거래세(옛 판). 도시 경제가 없으면(시험)
+      // 기본 거래세
+      const trade = input.npc?.()?.economy?.economy.taxOf.get(city.owner) ?? DEFAULT_TAX_BP;
+      return { treasuryOwner: city.owner, bp: nationIncomeTaxBp(input.ledger, city.owner, trade) };
     },
     rules: () => input.rules().business,
     holders: (buildingId) => shares?.holders(buildingId) ?? [],

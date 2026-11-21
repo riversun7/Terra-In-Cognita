@@ -51,6 +51,11 @@ export interface NpcLivingHooks {
   }): number | undefined;
   /** 그 도시 일꾼마다 다음 숙박비(지갑에 남길 몫 — 열쇠 "시설ID:차례", cityWorkerUnits와 같은 차례). 없으면 0 */
   lodgingDue?(cityId: number): ReadonlyMap<string, bigint> | undefined;
+  /**
+   * 그날 휴먼마다 포만감 효율 배율(‰, N33 — 일꾼 임금과 같은 셈: 그날 받은 생필품 경계 몫 → foodEfficiency 구간). 있으면 일꾼이 아닌 휴먼까지 모두 알린다
+   * (서버 NPC 물류센터 운반꾼 임금이 같은 배율을 곱한다 — 질문 2391 나, D-555 1509 "똑같이"). 판정을 바꾸지 않는다(시뮬은 붙이지 않는다)
+   */
+  foodPm?(cityId: number, unitId: number, pm: number): void;
 }
 
 /** 하루 끝 셈(하루 줄 living 칸) */
@@ -294,11 +299,13 @@ export function livingDay(
           eaten += necessityCost(economy, city.id, spec.asset, currency, spec.perUnit * BigInt(times));
       }
       let change = 0n;
+      // 포만감 효율 배율(N33): 받은 경계 몫(0~100) → 구간 ‰. 고리가 있으면 일꾼이 아닌 휴먼도 알린다(운반꾼 임금 — 질문 2391 나)
+      const foodPm = foodPmOf(due === 0 ? 100 : Math.floor((fed * 100) / due), rules.foodEfficiency);
+      hooks.foodPm?.(city.id, unit.id, foodPm);
       // ① 임금(일꾼만) — 포만감 효율 배율(N33)을 곱한다
       const worker = byUnit.get(unit.id);
       if (worker) {
-        const food = due === 0 ? 100 : Math.floor((fed * 100) / due);
-        const pay = (wage * BigInt(foodPmOf(food, rules.foodEfficiency))) / 1000n;
+        const pay = (wage * BigInt(foodPm)) / 1000n;
         const source = sourceOf.get(worker.facilityId) ?? treasury;
         if (pay > 0n && balanceOf(source) >= pay) {
           shift(source, -pay);

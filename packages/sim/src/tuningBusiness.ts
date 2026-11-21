@@ -177,4 +177,35 @@ export const BUSINESS_TUNING_KEYS: readonly TuningKey[] = [
     "주민세 국세 몫(‰)",
     "Resident tax national share (‰)",
   ),
+  // 나라 세금(tax-2 — 질문 2371 나·2373 가): NPC 나라 주민세 규칙식 범위, 주민세 재산의 건물 값(지은 값·감가)
+  k(
+    "npc_resident_tax_min_pm",
+    "npcResidentTaxMinPm",
+    "NPC 주민세 규칙식 아래(‰)",
+    "NPC resident tax rule low (‰)",
+  ),
+  k(
+    "npc_resident_tax_max_pm",
+    "npcResidentTaxMaxPm",
+    "NPC 주민세 규칙식 위(‰)",
+    "NPC resident tax rule high (‰)",
+  ),
+  k(
+    "resident_building_value_pm",
+    "residentBuildingValuePm",
+    "주민세 건물 값(지은 값의 ‰)",
+    "Resident tax building value (‰ of built cost)",
+  ),
+  k(
+    "resident_building_depreciation_pm",
+    "residentBuildingDepreciationPm",
+    "주민세 건물 하루 감가(‰)",
+    "Resident tax building depreciation per day (‰)",
+  ),
+  k(
+    "resident_building_floor_pm",
+    "residentBuildingFloorPm",
+    "주민세 건물 감가 바닥(‰)",
+    "Resident tax building depreciation floor (‰)",
+  ),
 ];

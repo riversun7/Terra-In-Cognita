@@ -668,7 +668,9 @@ export function worldMapReadsOf(options: {
   /** 설정 칸 실효 계수표(앱). catchment·territoryDisplay를 따로 주지 않으면 여기서 읽는다 */
   readonly society?: (() => SocietyCoefficients) | undefined;
   /** 정부 판의 가문 몫(플레이어 가문 나라 지도자·가문 이동 정책 — government/houseRule.ts). 없으면 그 칸이 없다 */
-  readonly governmentHouses?: Pick<GovernmentSource, "houseLeader" | "houseEntry"> | undefined;
+  readonly governmentHouses?:
+    | Pick<GovernmentSource, "houseLeader" | "houseEntry" | "nationTaxes">
+    | undefined;
 }): () =>
   | (WorldMapReadServices &
       TravelReads &

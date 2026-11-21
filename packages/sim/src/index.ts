@@ -213,6 +213,7 @@ export {
   independenceYes,
   nextTaxBp,
   npcHouseEntryFee,
+  npcResidentTaxPm,
   npcRulingVaultReturnPm,
   recruitPicks,
   tradePolicy,

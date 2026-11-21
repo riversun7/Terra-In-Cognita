@@ -3,6 +3,7 @@
 // - 서버가 판정한다(소유·임금 식·보증금·잔고). 화면은 미리 셈(임금·보증금)만 보이고 결과 코드를 문구로 바꾼다.
 // - 차례: 잔고 → 내 계약 → 구인 게시판(남의 일자리를 내 유닛으로) → 새 계약(내 시설·내 유닛, 남의 시설 임대) → 내 구인 → 임대료.
 // - 임대형은 손 해지도 유예에 든다(기획 341). 유예는 손으로 끝내지 않아 [해지]가 없고, 남은 물건 안내는 표시만이다(시설 창고 없음).
+// - 바뀜(tax-2, 질문 2325 나): 임금형 계약 줄에 다음 지급 세후 임금(총 임금에서 소득세·가문세를 따로 뗀 값 — 서버 labor/wagePurse.ts wageNetView).
 // - [임시] 시설·유닛은 번호로 보인다(서버 시설에 종류·이름이 아직 없다).
 import type { LaborContractView, LaborOverviewResponse } from "@terra/shared/labor";
 import { useState } from "react";
@@ -90,6 +91,15 @@ function ContractRow({
         {(wage ? m.labor_rate_wage : m.labor_rate_lease)({ amount: fmt(contract.rate), cycle })} ·{" "}
         {m.labor_paid_total({ amount: fmt(contract.paidTotal) })}
       </p>
+      {wage && contract.net ? (
+        <p className="eco-row-meta" data-part="labor-net-wage">
+          {m.labor_net_wage({
+            net: fmt(contract.net.net),
+            income: fmt(contract.net.incomeTax),
+            house: fmt(contract.net.houseTax),
+          })}
+        </p>
+      ) : null}
       {wage && contract.state !== "ended" ? (
         <p className="eco-row-meta">
           {m.labor_deposit({ amount: fmt(contract.deposit), cycles: contract.cyclesLeft })}

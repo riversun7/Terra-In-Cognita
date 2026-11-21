@@ -23,6 +23,7 @@ import type { Ledger } from "../economy/ledger.ts";
 import type { WorldFacilities } from "../facilities/world.ts";
 import { type CityRestPlaces, cityRestPlacesOf } from "../market/worldInput.ts";
 import { type PlayerRest, type PlayerWorker, planPlayerRest } from "../npc/cityRest.ts";
+import { registerPlayerHomes } from "../npc/residentProperty.ts";
 import type { NpcRuntime } from "../npc/runtime.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
@@ -211,19 +212,20 @@ export function attachWorkerRest(parts: {
 }): WorkerRest {
   const { labor, facilities } = parts;
   const places = cityRestPlacesOf(facilities, parts.maps);
+  const workersIn = (cityId: number): PlayerWorker[] =>
+    [...facilities.service.facilities.values()]
+      .filter((record) => record.cityId === cityId)
+      .flatMap((record) =>
+        labor
+          .workersAt(record.buildingId)
+          .map((entry) => ({ unitId: entry.unitId, buildingId: record.buildingId })),
+      );
   const rest = createWorkerRest({
     rules: parts.rules,
     now: parts.now,
     workplaceOf: (unitId) => labor.workplaceOf(unitId),
     cityOf: (buildingId) => facilities.service.facilities.get(buildingId)?.cityId,
-    workersIn: (cityId) =>
-      [...facilities.service.facilities.values()]
-        .filter((record) => record.cityId === cityId)
-        .flatMap((record) =>
-          labor
-            .workersAt(record.buildingId)
-            .map((entry) => ({ unitId: entry.unitId, buildingId: record.buildingId })),
-        ),
+    workersIn,
     places: (cityId) => places(cityId, null),
     npcTaken: (cityId) => parts.npc()?.economy?.restPlan(cityId)?.occupancy,
     // 오감(일터 ↔ 쉼터) 시간은 그 일꾼의 걷기 빠르기로(D-540)
@@ -239,5 +241,19 @@ export function attachWorkerRest(parts: {
     business: facilities.business,
   });
   parts.settlement.restRules((ownerId, units, fromMs, toMs) => rest.rulesFor(ownerId, units, fromMs, toMs));
+  // 주민세 거주(D-581 2372 — 숙소 배정이 있는 플레이어 일꾼은 그 도시 주민, npc/residentProperty.ts)
+  registerPlayerHomes(parts.ledger, (cityId) =>
+    workersIn(cityId).flatMap((worker) => {
+      const found = rest.restOf(worker.unitId);
+      let owner: number | undefined;
+      for (const map of parts.maps.values()) owner ??= map.unitInfo(worker.unitId)?.ownerId;
+      return found?.lodgingId !== null &&
+        found?.lodgingId !== undefined &&
+        found.cityId === cityId &&
+        owner !== undefined
+        ? [{ unit: worker.unitId, owner, lodging: found.lodgingId }]
+        : [];
+    }),
+  );
   return rest;
 }

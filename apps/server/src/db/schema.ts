@@ -974,6 +974,8 @@ export { currencyProfiles, factionIdentities, factionProfiles, opsGrants, opsSwi
 export * from "./houseSchema.ts";
 // 나라 의결 표(docs/adr/2026-11-21-governance.md)
 export * from "./governanceSchema.ts";
+// 나라 세금(질문 2322 나·2373 가 — 지도자가 정함): nationTaxSchema.ts
+export { nationTaxes } from "./nationTaxSchema.ts";
 // 고정 NPC 국가 자리(D-528 세계 배치 화면): worldPlacementSchema.ts
 export { worldCityLayoutRequests, worldNationPlacements, worldTierRequests } from "./worldPlacementSchema.ts";
 

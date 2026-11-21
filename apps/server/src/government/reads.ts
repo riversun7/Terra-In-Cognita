@@ -14,10 +14,12 @@
 // 바뀜(D-574 10 — 2144·2147 가): 지배 가문 = 수도에서 처음 세운 가문(수도를 옮기면 새 수도의 첫 가문 — npc/cityHouses.ts가 읽을 때 정한다, 그대로).
 // 나라를 누가 이끄는지는 체제대로(D-217): 나라 칸 regime, 지도자 칸 rule(독재 = 독재자·민주주의 = 투표·자본주의 = 지분).
 // [임시] 투표·지분 의결이 아직 없어 어느 체제든 지도자 = 지배 가문의 장이 나라를 대표한다(질문 2254 — 선출·해임은 별도 줄기 governance, 질문 2315).
+// 바뀜(tax-2, 질문 2322 나·2373 가): 나라 세금 칸(taxes — 소득세·주민세 세율·주기·국세 몫, 정한 곳, 지도자면 정하기 — nationTaxPolicy.ts).
 import {
   type GovernmentHouseEntry,
   type GovernmentMayor,
   type GovernmentResponse,
+  type GovernmentTaxes,
   leaderRuleOf,
 } from "@terra/shared/government";
 import type { NationEmblemView } from "@terra/shared/nationEditor";
@@ -25,6 +27,7 @@ import type { LocalizedName } from "@terra/shared/roster";
 import type { SimCity, SimFaction, SimUnit } from "@terra/sim";
 import type { Viewer } from "../trpc/context.ts";
 import { BASELINE_HUMAN_STAT } from "../npc/cityPeople.ts";
+import { DEFAULT_TAX_BP } from "../npc/currency.ts";
 import { type LeaderUnits, leaderUnitOf } from "../npc/leaders.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { UNIT_KIND_NPC_LEADER } from "../world/unitKinds.ts";
@@ -53,7 +56,7 @@ export interface GovernmentSource {
           >;
           readonly factions: ReadonlyMap<
             number,
-            Pick<SimFaction, "code" | "fixed"> & Partial<Pick<SimFaction, "player" | "regime">>
+            Pick<SimFaction, "code" | "fixed"> & Partial<Pick<SimFaction, "player" | "regime" | "traits">>
           >;
           readonly units: ReadonlyMap<number, Pick<SimUnit, "city" | "recruit" | "satisfactionMilli">>;
         };
@@ -103,6 +106,18 @@ export interface GovernmentSource {
     | undefined;
   /** 가문 이동 정책 칸(질문 2018 답, factionIdentity/houseEntryPolicy.ts). 없으면 칸 없음 */
   houseEntry?: ((viewer: Viewer, cityId: number) => Promise<GovernmentHouseEntry | null>) | undefined;
+  /** 나라 세금 칸(줄기 tax-2 — 질문 2322 나·2373 가, government/nationTaxPolicy.ts). 없으면 칸 없음 */
+  nationTaxes?:
+    | ((
+        viewer: Viewer,
+        nation: {
+          readonly factionRow: number | undefined;
+          readonly npc: boolean;
+          readonly commerce: number | undefined;
+          readonly tradeTaxBp: number;
+        },
+      ) => Promise<GovernmentTaxes | null>)
+    | undefined;
 }
 
 export interface GovernmentReads {
@@ -258,6 +273,16 @@ export function createGovernmentReads(source: GovernmentSource): GovernmentReads
         headRow !== undefined ? await source.houseLeader?.(headRow).catch(() => undefined) : undefined;
       const ruling = leaderUnit === undefined ? undefined : runtime.rulingHouseOf?.(city.owner);
       const houseEntry = (await source.houseEntry?.(viewer, city.id).catch(() => null)) ?? null;
+      // 나라 세금(tax-2): 소득세 기본값 = 그 나라 거래세율(도시 경제가 없으면 기본 거래세 — 사업장 소득세와 같은 뒷길)
+      const taxes =
+        (await source
+          .nationTaxes?.(viewer, {
+            factionRow,
+            npc: faction?.player !== true,
+            commerce: faction?.traits?.commerce,
+            tradeTaxBp: runtime.taxOf?.(city.owner) ?? DEFAULT_TAX_BP,
+          })
+          .catch(() => null)) ?? null;
       const code = faction?.code ?? null;
       const mayorId = runtime.mayorOf?.(city.id);
       const mayorUnit = mayorId === undefined ? undefined : runtime.world.units.get(mayorId);
@@ -314,6 +339,7 @@ export function createGovernmentReads(source: GovernmentSource): GovernmentReads
             ? null
             : mayorView(mayorId, mayorUnit, runtime.humanName?.(mayorId)),
         houseEntry,
+        taxes,
         generatedAt: nowMs,
       };
     },
@@ -326,7 +352,14 @@ export function governmentReadsOfWorld(
   world: Pick<World, "maps" | "persistence" | "npc">,
   names: Pick<
     GovernmentSource,
-    "knownCityIds" | "nationName" | "nationEmblem" | "leaderName" | "seesUnit" | "houseLeader" | "houseEntry"
+    | "knownCityIds"
+    | "nationName"
+    | "nationEmblem"
+    | "leaderName"
+    | "seesUnit"
+    | "houseLeader"
+    | "houseEntry"
+    | "nationTaxes"
   >,
 ): GovernmentReads {
   return createGovernmentReads({

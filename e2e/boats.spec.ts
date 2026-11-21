@@ -53,6 +53,38 @@ async function waterOf(page: Page, mapKey: number): Promise<(tx: number, ty: num
   };
 }
 
+/**
+ * 동쪽 변(지형 칸 x = TERRAIN − 1)의 물과 이어진 물 칸(네 이웃으로 채움). 배가 동쪽 바다 2차맵으로 건너가려면 이 물에 떠 있어야 한다 —
+ * 바닷가 2차맵에는 바다와 따로 떨어진 물(호수)도 있어, 앞 테마 시험이 바다 쪽 물가 자리를 쓴 뒤 다음 자리가 호수 물가면 건너기가 no_path였다
+ */
+function eastSea(isWater: (tx: number, ty: number) => boolean): (tx: number, ty: number) => boolean {
+  const seen = new Uint8Array(TERRAIN * TERRAIN);
+  const queue: number[] = [];
+  for (let ty = 0; ty < TERRAIN; ty++)
+    if (isWater(TERRAIN - 1, ty)) {
+      seen[ty * TERRAIN + TERRAIN - 1] = 1;
+      queue.push(ty * TERRAIN + TERRAIN - 1);
+    }
+  while (queue.length > 0) {
+    const i = queue.pop() ?? 0;
+    const tx = i % TERRAIN;
+    const ty = (i - tx) / TERRAIN;
+    for (const [nx, ny] of [
+      [tx + 1, ty],
+      [tx - 1, ty],
+      [tx, ty + 1],
+      [tx, ty - 1],
+    ] as const) {
+      const j = ny * TERRAIN + nx;
+      if (isWater(nx, ny) && seen[j] === 0) {
+        seen[j] = 1;
+        queue.push(j);
+      }
+    }
+  }
+  return (tx, ty) => tx >= 0 && ty >= 0 && tx < TERRAIN && ty < TERRAIN && seen[ty * TERRAIN + tx] === 1;
+}
+
 interface Site {
   /** 부두 기준 배치 칸 */
   readonly dockX: number;
@@ -60,10 +92,14 @@ interface Site {
 }
 
 /**
- * 부두 자리 후보(가까운 차례): 지형 칸 (tx, ty)에서 물 쪽 방향 d로 깊이 1~2는 물, 깊이 −1~0은 땅(물가 따라 0~1 두 칸).
+ * 부두 자리 후보(가까운 차례): 지형 칸 (tx, ty)에서 물 쪽 방향 d로 깊이 1~2는 물, 깊이 −1~0은 땅(물가 따라 0~1 두 칸), 물은 동쪽 바다와 이어진다.
  * 부두(3×3)는 그 땅 2×2 지형 칸 안에서 물에 붙게 놓는다
  */
-function coastSites(isWater: (tx: number, ty: number) => boolean, near: { x: number; y: number }): Site[] {
+function coastSites(
+  isWater: (tx: number, ty: number) => boolean,
+  near: { x: number; y: number },
+  sea: (tx: number, ty: number) => boolean,
+): Site[] {
   const out: (Site & { d: number })[] = [];
   const dirs = [
     [1, 0],
@@ -86,7 +122,8 @@ function coastSites(isWater: (tx: number, ty: number) => boolean, near: { x: num
             const [cx, cy] = at(depth, along);
             if (isWater(cx, cy) !== depth >= 1) ok = false;
           }
-        if (!ok) continue;
+        // 물 쪽이 동쪽 바다와 이어진 물가만(호수 물가는 뺀다 — eastSea)
+        if (!ok || !sea(...at(1, 0))) continue;
         // 부두 지형 칸 네모(깊이 −1~0 × 물가 0~1) → 배치 칸 4×4, 그 안 3×3을 물 쪽에 붙인다
         const cells = [at(-1, 0), at(0, 0), at(-1, 1), at(0, 1)];
         const minX = Math.min(...cells.map(([x]) => x)) * 2;
@@ -98,14 +135,18 @@ function coastSites(isWater: (tx: number, ty: number) => boolean, near: { x: num
   return out.toSorted((a, b) => a.d - b.d);
 }
 
-/** 배를 보낼 물가 물 칸(지형 칸 — 네 이웃에 땅이 있다, 내릴 땅이 가깝다) 기준 배치 칸, 부두에서 6~40 지형 칸, 가까운 차례 */
-function shoreTargets(isWater: (tx: number, ty: number) => boolean, dock: Site): { x: number; y: number }[] {
+/** 배를 보낼 물가 물 칸(지형 칸 — 네 이웃에 땅이 있다, 내릴 땅이 가깝다, 동쪽 바다와 이어진 물) 기준 배치 칸, 부두에서 6~40 지형 칸, 가까운 차례 */
+function shoreTargets(
+  isWater: (tx: number, ty: number) => boolean,
+  sea: (tx: number, ty: number) => boolean,
+  dock: Site,
+): { x: number; y: number }[] {
   const out: { x: number; y: number; d: number }[] = [];
   const cx = dock.dockX / 2;
   const cy = dock.dockY / 2;
   for (let ty = 2; ty < TERRAIN - 2; ty++)
     for (let tx = 2; tx < TERRAIN - 2; tx++) {
-      if (!isWater(tx, ty)) continue;
+      if (!sea(tx, ty)) continue;
       const shore =
         !isWater(tx + 1, ty) || !isWater(tx - 1, ty) || !isWater(tx, ty + 1) || !isWater(tx, ty - 1);
       const d = Math.hypot(tx - cx, ty - cy);
@@ -327,7 +368,8 @@ for (const theme of ["pastel", "dark"] as const) {
       await page.goto("/health");
       const rider = await humanAtCoast(page);
       const isWater = await waterOf(page, COAST_KEY);
-      const sites = coastSites(isWater, { x: rider.x, y: rider.y });
+      const sea = eastSea(isWater);
+      const sites = coastSites(isWater, { x: rider.x, y: rider.y }, sea);
       console.log(`[boats] coast map ${String(COAST_KEY)} dock sites ${String(sites.length)}`);
       expect(sites.length, "바닷가 2차맵에 부두 자리가 없다").toBeGreaterThan(0);
       const coast = { mapKey: COAST_KEY, isWater };
@@ -338,6 +380,7 @@ for (const theme of ["pastel", "dark"] as const) {
         sites,
         theme === "pastel" ? 7100 : 7600,
       );
+      console.log(`[boats] shipyard ${String(buildingId)} at ${String(site.dockX)},${String(site.dockY)}`);
       // 타기: 멀면 배 옆까지 걸어간 뒤 탄다(운영자 빠르기)
       const board = await sendCommands(
         page,
@@ -354,7 +397,7 @@ for (const theme of ["pastel", "dark"] as const) {
       // 물 위로: 승객에게 내린 이동이 배 이동이 된다(D-541 1279 나 — 같은 물에 닿는 물가 칸을 가까운 차례로 해 본다). 승객은 배를 따라간다
       let sailed: { x: number; y: number } | undefined;
       let requestId = nextId + 20;
-      for (const target of shoreTargets(coast.isWater, site).slice(0, 12)) {
+      for (const target of shoreTargets(coast.isWater, sea, site).slice(0, 12)) {
         const reply = await sendCommands(
           page,
           [
@@ -532,7 +575,7 @@ for (const theme of ["pastel", "dark"] as const) {
         trade.nextId + 50,
       );
       expect(cross[0], "바다 2차맵 띄우기").toMatchObject({ ok: true });
-      expect(cross[2], "승객 → 배의 바다 건너기").toMatchObject({ ok: true });
+      expect(cross[2], `승객 → 배의 바다 건너기 ${JSON.stringify(cross[2])}`).toMatchObject({ ok: true });
       await expect
         .poll(async () => field(await myUnit(page, EAST_SEA_KEY, boatId), "kind"), { timeout: 120_000 })
         .toBe("boat");

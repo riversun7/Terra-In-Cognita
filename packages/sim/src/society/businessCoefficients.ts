@@ -133,11 +133,14 @@ export interface BusinessCoefficients {
    * 그때 SimHooks.residentTaxOf가 나라 값을 준다). 선택 칸 — 없으면 0
    */
   readonly residentTaxPm?: number | undefined;
-  /** 주민세 주기(ms, D-579 "나라가 정함, 기본 후보 주 1회" — 하루 끝 단위로 내림, 1일 아래는 1일). 선택 칸 — 없으면 7일 */
+  /**
+   * 주민세 주기(ms, D-579 "나라가 정함" — 하루 끝 단위로 내림, 1일 아래는 1일). 정해진 기본 규칙은 없고 정부가 고르기 목록에서 고른다(D-585 2 — 서버 나라 값).
+   * 이 칸은 고르지 않은 나라의 [임시] 기본값이다. 선택 칸 — 없으면 7일
+   */
   readonly residentTaxEveryMs?: number | undefined;
   /**
    * 주민세 가운데 국세 몫(‰, D-579 "도시세 → 국세 2중 구조"). 나머지는 사는 도시의 세금 수입으로 도시 세금 정산(D-304 — 이자 소각 → 운영비 → 남은 이익을
-   * 체제대로)에 든다. 0 = 모두 도시세. 선택 칸 — 없으면 0
+   * 체제대로)에 든다 — [임시] 이 나눔은 사용자 답이 없다(D-585 3, 질문 2484). 0 = 모두 도시세. 선택 칸 — 없으면 0
    */
   readonly residentTaxNationPm?: number | undefined;
   /**

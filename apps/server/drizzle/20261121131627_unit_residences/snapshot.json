@@ -1,0 +1,173 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "8ccb7e3f-9488-45bf-8137-a0bfbba826db",
+  "prevIds": [
+    "ee4d36aa-5559-4825-ab82-9ce79bf8db2c",
+    "ace6aeb5-b447-493e-affb-6e24cd0be200"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "unit_residences"
+      ],
+      "writes": [
+        "s|tbl|public.unit_residences",
+        "n|tbl|public.unit_residences",
+        "e|tbl|public.unit_residences",
+        "n|rel|public.unit_residences",
+        "n|type|public.unit_residences",
+        "n|rel|public.unit_residences_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "unit_residences",
+        "unit_residences_owner_idx"
+      ],
+      "writes": [
+        "s|idx|public.unit_residences_owner_idx",
+        "n|idx|public.unit_residences_owner_idx",
+        "e|idx|public.unit_residences_owner_idx",
+        "n|rel|public.unit_residences_owner_idx"
+      ],
+      "reads": [
+        "n|tbl|public.unit_residences",
+        "n|sch|public",
+        "n|col|public.unit_residences.owner_id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "unit_residences",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_residences",
+        "name": "unit_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_residences",
+        "name": "owner_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_residences",
+        "name": "building_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_residences",
+        "name": "chosen_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_residences",
+        "name": "unit_residences_owner_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "owner_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_residences",
+        "name": "unit_residences_pkey",
+        "columns": [
+          "unit_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_residences",
+        "name": "unit_residences_ids",
+        "value": "\"unit_id\" > 0 and \"building_id\" > 0",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

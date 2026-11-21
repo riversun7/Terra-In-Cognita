@@ -5,7 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
-| 2026-11-21 22:30 | 2026-11-21 governance-5 — 신용 한 점수·빈자리 자동 선출·강화·화폐 단계·거래세·가문 독립·쿠데타 새 나라·병력·신임도 | Claude Code | [21-2230-governance-5](worklog/2026/11/21-2230-governance-5.md) |
+| 2026-11-21 22:05 | 2026-11-21 residence — 사는 곳 하나 고르기(유닛마다, 주민세 거주가 따름)·주민세 주기 고르기 목록·도시 몫 [임시]·폐허 빚 남김(2427 나 되돌림, D-585) | Claude Code | [21-2205-residence](worklog/2026/11/21-2205-residence.md) |
 | 2026-11-21 22:00 | 가파른 비탈 막힘 → 느리게 지나감(비용 ×4), 건물은 그대로 못 지음 | Claude Code | [21-2200-steep-slope-pace](worklog/2026/11/21-2200-steep-slope-pace.md) |
 | 2026-11-21 21:45 | NPC AI 구체화 A단계: 유닛 2차 지수 층 · 5상태 FSM · 개인 식사 몫 → 만족도 (SIM_VERSION 69) | Claude Code | [21-2145-npc-needs-drives](worklog/2026/11/21-2145-npc-needs-drives.md) |
 | 2026-11-21 21:30 | 2차맵 화면 높이 과장 ×4(보기만) | Claude Code | [21-2130-second-map-relief](worklog/2026/11/21-2130-second-map-relief.md) |

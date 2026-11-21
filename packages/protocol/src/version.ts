@@ -249,12 +249,16 @@
  *    결과 코드 coup_disabled·coup_cooldown·coup_open·unknown_coup·not_enough_shares), gov_propose kind treasury_share_sale + cityId·shares·minPrice(질문 2438 답
  *    D-583), 안건 종류 city_independence(빈자리 도시 독립 투표 — 질문 2434 (가) 답 D-583, 서버가 연다). 더하기만 했다. 새 메시지·코드는 이 판 연결에만
  *    간다(governance.ts COUP_PROTOCOL_VERSION).
- * 60: (묶음 1116z) 줄기 share-market(줄기 판 99) — 도시(정부) 지분 시장(기획 D-583, 질문 2438 답 — docs/adr/2026-11-21-share-market.md):
+ * 60: (묶음 1116z) 줄기 share-market(프로토콜 61) — 도시(정부) 지분 시장(기획 D-583, 질문 2438 답 — docs/adr/2026-11-21-share-market.md):
  *    city_share_order(도시·사기/팔기·1주 값·주 수·asHouse)·city_share_cancel → city_share_result(결과 코드 12개). 더하기만 했다. 59판 이하 기기는
  *    보내지 않는다(cityShares.ts CITY_SHARE_PROTOCOL_VERSION). 다른 메시지 꼴은 그대로.
- * 61: (묶음 1117a) 줄기 governance-5(줄기 판 99) — 질문 2451~2460 답: gov_propose kind peace·currency_stage(+ monetaryMode·monetaryRateBp)·house_independence,
+ * 61: (묶음 1117a) 줄기 governance-5(프로토콜 61) — 질문 2451~2460 답: gov_propose kind peace·currency_stage(+ monetaryMode·monetaryRateBp)·house_independence,
  *    gov_coup_join unitIds(데려갈 병력), taxes·nation_tax tradeTaxBp(거래세), 결과 코드 not_at_war·coup_protected·not_majority_holder. 더하기만 했다. 새 코드는 이 판
  *    연결에만 간다(낮은 판은 not_eligible — governance.ts GOVERNANCE5_PROTOCOL_VERSION).
+ *    같은 판에 줄기 residence(프로토콜 61) — 사는 곳(거주지) 고르기와 주민세 주기 목록(D-585):
+ *    - residence_set(유닛·숙소 건물 | null = 고른 것 풀기) → residence_result(residence.ts RESIDENCE_PROTOCOL_VERSION, 결과 코드 10개). 더하기만 했다.
+ *    - nation_tax_result에 새 실패 코드 invalid_period(주기가 목록 밖 — @terra/shared/government RESIDENT_TAX_PERIOD_DAYS). 이 판 연결에만 가고 더 낮은 판은
+ *      internal_error를 받는다(nationTax.ts NATION_TAX_PERIOD_PROTOCOL_VERSION). 다른 메시지 꼴은 그대로.
  */
 export const PROTOCOL_VERSION = 61;
 

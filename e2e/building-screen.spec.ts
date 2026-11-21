@@ -5,6 +5,7 @@
 //   거둔다(프로토콜 38). [일꾼] 칸: 일자리·임대·계약 카드. 가로 넘침·작은 단추 없음.
 // - dev(운영자 모드): 남의 사업장에도 [관리] 칸 + 운영자 표시, 임대료를 정하면 [일꾼] 칸에 시간당 임대료가 보인다(서버가 주인 대신 처리).
 // - dev(운영자 모드): [관리] 칸 지급준비금(D-564 1623) 비율을 골라 저장되고 기본값으로 되돌린다.
+// - player: 시작 도시 NPC 숙소(생활 단계) 건물 판 개요에 [사는 곳] 카드(D-585 1) — 남의 숙소라 [여기를 사는 곳으로]가 없다. 390 두 테마 사진.
 // - 사진(E2E_SHOTS_DIR): 건물 판 개요·지분·장부 칸과 재무 화면, [관리] 칸 지급준비금, 390 파스텔 한국어·다크 영어. 장부 사진은 응답에 견본 장부를 얹는다(rewriteTrpc —
 //   화면 모양 확인용, 판정은 위 시험이 실제 서버 값으로 본다).
 import type { Page } from "@playwright/test";
@@ -151,6 +152,36 @@ async function openFacilitySheet(page: Page, sample: boolean, operator = false):
   await collapseNearby(page);
   await openBuildingFromList(page, found ?? 0);
   return found ?? 0;
+}
+
+/** 내 2차맵을 열고 시작 도시 숙소(생활 단계 시설) 하나의 건물 판을 연다. 건물 ID(없으면 null) */
+async function openLodgingSheet(page: Page): Promise<number | null> {
+  await rewriteTrpc(page, { "summary.get": hideSummary });
+  await page.goto("/map");
+  const map = page.locator(".map-screen[data-map-key]");
+  await expect(map).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
+  await expect(map).toHaveAttribute("data-status", "ready", { timeout: 60_000 });
+  await openNearby(page, "buildings");
+  await expect(page.locator('.map-nearby-row[data-kind="building"]').first()).toBeVisible({
+    timeout: 30_000,
+  });
+  const ids = await nearbyBuildingIds(page);
+  const found = await page.evaluate(async (list) => {
+    for (const id of list) {
+      const input = encodeURIComponent(JSON.stringify({ buildingId: id }));
+      const reply: unknown = await fetch(`/api/trpc/gather.building?input=${input}`).then((r) => r.json());
+      const data: unknown =
+        typeof reply === "object" && reply !== null
+          ? Reflect.get(Reflect.get(reply, "result") ?? {}, "data")
+          : undefined;
+      if (typeof data === "object" && data !== null && Reflect.get(data, "stage") === "living") return id;
+    }
+    return null;
+  }, ids);
+  if (found === null) return null;
+  await collapseNearby(page);
+  await openBuildingFromList(page, found);
+  return found;
 }
 
 const sheetOf = (page: Page, id: number) => page.locator(`.gather-sheet[data-building="${String(id)}"]`);
@@ -310,6 +341,28 @@ for (const look of LOOKS) {
       await expect(screen.locator('[data-part="income-statement"]').first()).toBeVisible({ timeout: 20_000 });
       expect(await horizontalOverflow(page)).toEqual([]);
       await shot(page, `building-finance-390-${look.theme}-${look.language}`);
+      expect(deviceErrors).toEqual([]);
+    });
+  });
+
+  test.describe(`숙소 건물 판 사는 곳 390·${look.theme}·${look.language}`, () => {
+    test.use({ account: "player", theme: look.theme, language: look.language, ...VIEWPORTS.phone });
+
+    test(`[사는 곳] 카드 (390·${look.theme}·${look.language})`, async ({ page, deviceErrors }) => {
+      test.setTimeout(240_000);
+      const id = await openLodgingSheet(page);
+      expect(id).not.toBeNull();
+      const sheet = sheetOf(page, id ?? 0);
+      const card = sheet.locator('[data-part="building-residence"]');
+      await expect(card).toBeVisible({ timeout: 20_000 });
+      await expect(card).toContainText(message(look.language, "residence_title"));
+      // 남의(NPC) 숙소 — 내 집도 배정받은 숙소도 아니라 고를 단추가 없다
+      await expect(card.locator('[data-part="residence-choose"]')).toHaveCount(0);
+      await expect(card.locator('[data-part="residence-clear"]')).toHaveCount(0);
+      expect(await horizontalOverflow(page)).toEqual([]);
+      expect(await smallTapTargets(page)).toEqual([]);
+      await card.scrollIntoViewIfNeeded();
+      await elementShot(sheet, `building-residence-390-${look.theme}-${look.language}`);
       expect(deviceErrors).toEqual([]);
     });
   });

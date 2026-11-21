@@ -1,6 +1,12 @@
 // 나라 세금 칸 입력 셈 시험(nationTaxData.ts) — % → 만분율, 빈칸 = 정하지 않음, 범위
 import { describe, expect, it } from "vitest";
-import { applySavedTaxes, draftsOf, parseIncomePercent, parseNationTaxDraft } from "./nationTaxData.ts";
+import {
+  applySavedTaxes,
+  draftsOf,
+  parseIncomePercent,
+  parseNationTaxDraft,
+  periodChoices,
+} from "./nationTaxData.ts";
 
 const field = (value: number, own: number | null) => ({ value, own, source: "leader" as const });
 
@@ -64,5 +70,12 @@ describe("나라 세금 입력(tax-2)", () => {
     });
     expect(cleared.stale).toBe(true);
     expect(cleared.taxes.incomeTaxBp.source).toBe("default");
+  });
+
+  it("주기 고르기 줄 = 목록(하루·한 주, D-585 2) + 전에 정해 둔 목록 밖 값", () => {
+    expect(periodChoices("")).toEqual([1, 7]);
+    expect(periodChoices("7")).toEqual([1, 7]);
+    expect(periodChoices("3")).toEqual([1, 3, 7]);
+    expect(periodChoices("abc")).toEqual([1, 7]);
   });
 });

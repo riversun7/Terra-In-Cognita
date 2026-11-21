@@ -4,13 +4,24 @@
 // - 소유·자리 판정과 걷기·캐기는 서비스(service.ts)가 한다. 기기는 유닛·오브젝트 번호·건물만 보낸다(서버 권위).
 // - 운영자 모드(같은 연결이 2차맵 전체 보기 + 모든 유닛 명령 권한) 명령은 그 유닛에 운영자 빠르기 표시를 단다 — 채집 줄 왕복·들어가기 걸음이
 //   2차맵 이동 명령처럼 빠르다(사용자 지적 2026-11-12, world/operatorPace.ts). 아니면 표시를 지운다.
-import { type ClientMessageOf, type GatherResultCode, encodeMessage } from "@terra/protocol";
+// - 사는 곳 고르기(residence_set, 프로토콜 61 — D-585 1)도 받아 residence_result로 답한다(서비스 = 채집 서비스에 붙은 사는 곳 서비스, residence/attach.ts.
+//   app.ts 줄 수 때문에 이 게이트웨이가 함께 받는다. 속도 제한을 함께 센다).
+import {
+  type ClientMessageOf,
+  type GatherResultCode,
+  type ResidenceResultCode,
+  encodeMessage,
+} from "@terra/protocol";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
 import { type OperatorPaceLink, type PaceMap, operatorFactor, withPace } from "../world/operatorPace.ts";
+import { residenceServiceOf } from "../residence/attach.ts";
+import type { ResidenceCommandResult } from "../residence/service.ts";
 import type { GatherCommandResult, GatherService } from "./service.ts";
 
 export type GatherClientMessage = ClientMessageOf<"gather_start" | "gather_stop" | "unit_enter">;
+/** 사는 곳 고르기(D-585 1) */
+export type ResidenceClientMessage = ClientMessageOf<"residence_set">;
 
 const MAX_PENDING = 8;
 const LIMIT = { capacity: 10, refillPerMinute: 30 };
@@ -25,7 +36,7 @@ export interface GatherLink {
 }
 
 export interface GatherSocket {
-  handle(message: GatherClientMessage): void;
+  handle(message: GatherClientMessage | ResidenceClientMessage): void;
   close(): void;
 }
 
@@ -40,6 +51,21 @@ function resultText(id: number, result: GatherCommandResult): string {
 }
 
 const fail = (code: GatherResultCode): GatherCommandResult => ({ ok: false, code });
+
+function residenceText(id: number, result: ResidenceCommandResult): string {
+  return result.ok
+    ? encodeMessage({
+        t: "residence_result",
+        id,
+        ok: true,
+        unitId: result.unitId,
+        buildingId: result.buildingId,
+        cityId: result.cityId,
+      })
+    : encodeMessage({ t: "residence_result", id, ok: false, code: result.code });
+}
+
+const residenceFail = (code: ResidenceResultCode): ResidenceCommandResult => ({ ok: false, code });
 
 function run(service: GatherService, viewer: Viewer, message: GatherClientMessage) {
   switch (message.t) {
@@ -74,19 +100,38 @@ export function createGatherGateway(options: {
       let chain: Promise<void> = Promise.resolve();
       let pending = 0;
       let closed = false;
-      const reply = (id: number, result: GatherCommandResult): void => {
+      const replyGather = (id: number, result: GatherCommandResult): void => {
         if (!closed) link.send(resultText(id, result));
       };
+      const replyResidence = (id: number, result: ResidenceCommandResult): void => {
+        if (!closed) link.send(residenceText(id, result));
+      };
+      /** 실패 코드(둘 다 있는 코드만 — sign_in_required·busy·rate_limited·internal_error) */
+      const reply = (
+        message: GatherClientMessage | ResidenceClientMessage,
+        code: "sign_in_required" | "busy" | "rate_limited" | "internal_error",
+      ): void => {
+        if (message.t === "residence_set") replyResidence(message.id, residenceFail(code));
+        else replyGather(message.id, fail(code));
+      };
 
-      const process = async (message: GatherClientMessage): Promise<void> => {
+      const process = async (message: GatherClientMessage | ResidenceClientMessage): Promise<void> => {
         const viewer = await link.viewer();
         if (closed) return;
-        if (!viewer) return reply(message.id, fail("sign_in_required"));
+        if (!viewer) return reply(message, "sign_in_required");
         const service = options.service();
-        if (!service) return reply(message.id, fail("busy"));
-        if (!limiter.take(viewer.id)) return reply(message.id, fail("rate_limited"));
+        if (!service) return reply(message, "busy");
+        if (!limiter.take(viewer.id)) return reply(message, "rate_limited");
+        if (message.t === "residence_set") {
+          const residence = residenceServiceOf(service);
+          if (!residence) return reply(message, "busy");
+          return replyResidence(
+            message.id,
+            await residence.set(viewer.id, message.unitId, message.buildingId),
+          );
+        }
         const factor = operatorFactor(link, viewer.roles);
-        reply(
+        replyGather(
           message.id,
           await withPace(
             options.maps?.() ?? [],
@@ -102,7 +147,7 @@ export function createGatherGateway(options: {
         handle(message) {
           if (closed) return;
           if (pending >= MAX_PENDING) {
-            reply(message.id, fail("busy"));
+            reply(message, "busy");
             return;
           }
           pending += 1;
@@ -110,7 +155,7 @@ export function createGatherGateway(options: {
             .then(() => process(message))
             .catch((error: unknown) => {
               options.log.error({ err: error, t: message.t }, "gather request failed");
-              reply(message.id, fail("internal_error"));
+              reply(message, "internal_error");
             })
             .finally(() => {
               pending -= 1;

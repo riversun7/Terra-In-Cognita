@@ -13,6 +13,8 @@
 // - 거주: NPC 휴먼 = 그 도시에 사는 휴먼(사는 도시 SimUnit.city — 떠도는 사람은 도시가 없다), 숙소 = 도시 경제 쉼터 계획(cityRest.ts plan — 일꾼만 숙소를
 //   받는다). 플레이어 유닛 = 그 도시 일터의 숙소 배정이 있는 일꾼(labor/workerRest.ts — registerPlayerHomes로 원장에 붙는다). 숙소 없이 집으로 쉬는
 //   플레이어 일꾼은 그 도시 주거 수에 들지 않아 거주로 보지 않는다(cityRest.ts planPlayerRest 머리 주석).
+// 바뀜(residence, 사용자 답 D-585 1 — 사는 곳은 하나를 고른다): 고른 거주지(residence/book.ts — 원장에 붙은 장부)가 쓸 수 있으면 그 유닛은 그 집이 선 도시에만
+//   산다(집 몫 = 그 집 값 ÷ 그 집에 사는 사람 수). 다른 도시의 숙소 배정·사는 도시로는 세지 않는다. 고른 것이 없거나 쉬면(집을 잃음 등) 위 옛 길 그대로.
 // - 지분이 팔린 사업장도 건물 주인 몫으로 센다(건물은 주인 것 — 지분은 금고 몫을 나눈다).
 // 세율 0이면 사회 규칙이 이 고리를 부르지 않는다(건물 훑기 없음). 부를 때마다 도시별로 한 번만 훑어 표로 든다.
 import { type FacilityBuildJson, buildCostAt } from "@terra/shared/facilityBuild";
@@ -27,6 +29,7 @@ import {
   necessityCost,
 } from "@terra/sim";
 import type { FacilityRecord } from "../facilities/state.ts";
+import { type ResidenceBook, residenceBookOf } from "../residence/book.ts";
 import type { CityRestPlan } from "./cityRest.ts";
 
 const DAY_MS = 86_400_000;
@@ -164,6 +167,21 @@ export function withResidentProperty(base: SimHooks, source: ResidentPropertySou
   };
 }
 
+/**
+ * 그 도시 거주 = 옛 길(NPC 사는 도시·숙소 배정) 가운데 고른 거주지가 쓸 수 있는 유닛을 뺀 것 + 그 도시에 고른 거주지가 있는 유닛(바뀜 residence — D-585 1).
+ * 장부가 없으면 옛 길 그대로
+ */
+export function withChosenResidences(
+  cityId: number,
+  base: Iterable<ResidentUnit>,
+  book: Pick<ResidenceBook, "chosenPlace" | "chosenIn"> | undefined,
+): ResidentUnit[] {
+  if (!book) return [...base];
+  const out = [...base].filter((resident) => book.chosenPlace(resident.unit) === undefined);
+  out.push(...book.chosenIn(cityId));
+  return out;
+}
+
 /** 플레이어 일꾼의 거주(도시 → 숙소에 사는 유닛) — labor/workerRest.ts가 원장에 붙인다 */
 export type PlayerHomes = (cityId: number) => readonly ResidentUnit[];
 const playerHomes = new WeakMap<object, PlayerHomes>();
@@ -246,12 +264,15 @@ export function residentSourceOf(
             const lodgingOf = new Map<number, number | null>();
             for (const worker of cityWorkerUnits(sim, econ.economy, cityId))
               lodgingOf.set(worker.unitId, rests.get(`${worker.facilityId}:${worker.index}`) ?? null);
+            const base: ResidentUnit[] = [];
             for (const unit of sim.units.values())
               if (unit.city === cityId)
-                yield { unit: unit.id, owner: unit.owner, lodging: lodgingOf.get(unit.id) ?? null };
+                base.push({ unit: unit.id, owner: unit.owner, lodging: lodgingOf.get(unit.id) ?? null });
             // 플레이어 일꾼: 그 도시 숙소 배정이 있는 유닛
             const players = o.ledger ? playerHomes.get(o.ledger) : undefined;
-            if (players) yield* players(cityId);
+            if (players) base.push(...players(cityId));
+            // 고른 거주지가 쓸 수 있는 유닛은 그 집 도시에서만 센다(바뀜 residence — D-585 1)
+            yield* withChosenResidences(cityId, base, residenceBookOf(o.ledger));
           },
         }
       : {}),

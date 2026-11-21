@@ -19,6 +19,9 @@ import { type StationRuntime, createStationRuntime } from "./station.ts";
 import { cellMaterials, oreSharePm, woodSharePm } from "@terra/shared/catchment";
 import { exchangeRoom } from "../market/lockerRoom.ts";
 import { withNpcStaff } from "../npc/npcLogistics.ts";
+import { attachResidence, registerResidenceService } from "../residence/attach.ts";
+import { loadResidences } from "../residence/store.ts";
+import type { ResidenceService } from "../residence/service.ts";
 
 /** 조회가 쓰는 채집 세계 */
 export interface GatherWorld {
@@ -38,6 +41,8 @@ export interface GatherWorld {
   jobs(): ReadonlyMap<number, JobRecord>;
   /** 플레이어 일꾼 쉼터(숙소 회복, 질문 1088 가) */
   readonly workerRest: WorkerRest;
+  /** 사는 곳 고르기·조회(D-585 1 — residence/) */
+  readonly residence: ResidenceService;
 }
 
 export interface WorldGather {
@@ -61,6 +66,8 @@ export function startWorldGather(
       const parts = world.persistence;
       if (stopped || !parts) return;
       const rows = await loadObjectStates(parts.pool, TEST_PLANET_ID);
+      // 고른 사는 곳(D-585 1 — 아래 일꾼 쉼터 뒤에 장부를 만든다)
+      const residenceRows = await loadResidences(parts.pool);
       if (stopped) return;
       const store = createObjectStore({ planetId: TEST_PLANET_ID, rows, writer: parts.writer });
       const facilities = parts.facilities;
@@ -223,11 +230,24 @@ export function startWorldGather(
       });
       // 컨디션 주거 = 그 일꾼의 쉼터(D-535 1152 나, facilities/world.ts attachRest)
       facilities.attachRest((unitId) => workerRest.restOf(unitId));
+      // 사는 곳(D-585 1): 고른 거주지 표를 읽어 장부를 원장에 붙인다(주민세 거주·신용 조회가 읽는다)
+      const residence = attachResidence({
+        rows: residenceRows,
+        pool: parts.pool,
+        ledger: parts.ledger,
+        facilities,
+        maps: world.maps,
+        workerRest,
+        ownerOf,
+        now: options.now,
+      });
+      registerResidenceService(service, residence.service);
       built = {
         service,
         store,
         station,
         workerRest,
+        residence: residence.service,
         rules,
         jobs: () => facilities.service.jobs,
         kinds: options.kinds,

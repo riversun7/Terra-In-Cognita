@@ -953,6 +953,8 @@ export { nationTaxes } from "./nationTaxSchema.ts";
 export { creditMarks, creditStandings } from "./creditSchema.ts";
 // 도시(정부) 지분 시장(D-583 — docs/adr/2026-11-21-share-market.md): cityShareSchema.ts
 export { cityShareOrders, cityShareRounds } from "./cityShareSchema.ts";
+// 사는 곳(D-585 — docs/adr/2026-11-15-business-ledger.md "바뀜 (residence …)"): residenceSchema.ts
+export { unitResidences } from "./residenceSchema.ts";
 // 고정 NPC 국가 자리(D-528 세계 배치 화면): worldPlacementSchema.ts
 export { worldCityLayoutRequests, worldNationPlacements, worldTierRequests } from "./worldPlacementSchema.ts";
 

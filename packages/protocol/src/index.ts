@@ -168,6 +168,7 @@ export {
 } from "./governance.ts";
 export {
   NATION_TAX_LIMITS,
+  NATION_TAX_PERIOD_PROTOCOL_VERSION,
   NATION_TAX_PROTOCOL_VERSION,
   NATION_TAX_RESULT_CODES,
   type NationTaxResultCode,
@@ -177,6 +178,11 @@ export {
   CITY_SHARE_RESULT_CODES,
   type CityShareResultCode,
 } from "./cityShares.ts";
+export {
+  RESIDENCE_PROTOCOL_VERSION,
+  RESIDENCE_RESULT_CODES,
+  type ResidenceResultCode,
+} from "./residence.ts";
 export {
   HOSPITAL_PROTOCOL_VERSION,
   HOSPITAL_RESULT_CODES,

@@ -783,25 +783,20 @@ export {
   type SocketedItem,
 } from "./combat/gems.ts";
 export {
-  HOUSE_MONEY_PREFIX,
-  HOUSE_SHARE_PREFIX,
   allocateShares,
   burnShares,
   holdingsOf,
-  houseHoldingsOf,
-  houseMoneyCode,
-  houseShareCode,
   issueShares,
-  moveSharesToHouse,
   rulerHasMajority,
   shareAsset,
   totalShares,
   transferShares,
   type Holding,
-  type HouseHolding,
   type Regime,
   type TransferResult,
 } from "./society/shares.ts";
+// 가문 지분 계정(서버만 — D-338, 줄기 governance-2)
+export * from "./society/houseShareApi.ts";
 export {
   makeOffers,
   occupationShifts,

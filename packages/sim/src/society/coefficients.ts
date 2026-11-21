@@ -205,7 +205,10 @@ export interface SocietyCoefficients {
   readonly gatherTierProgressStep: number;
   /** 진행 1의 길이(49 N44): 기준 일꾼(진행 속도 1)이 진행 1을 쌓는 시간. 옛 1분 틱(server.js BuildingGatherTick 60,000ms) */
   readonly gatherTickMs: number;
-  /** 광석 한 번 캘 때 g(49 N44, 기술 처리): 옛 1개 = 1kg(ITM-10 무게 1.0) → 1,000g. 기본 단위가 g인 아이템(묶음 > 1)에 쓴다 */
+  /**
+   * 광석 수확량 1단위 g(49 N44, 기술 처리): 기본 단위가 g인 아이템(묶음 > 1)에 쓴다. 광산 수확량(50 + VIT × 5, 상한 500) × 20g = 사이클당
+   * 1~10kg — g 단위 바뀜(판 71) 전 광산 한 사이클 무게(1 + VIT × 0.1개 × 1kg, 상한 10kg)와 같다(D-587 11 나, 질문 2511)
+   */
   readonly gatherOreGrams: number;
   /**
    * 전투 클래스 분류 문턱(‰, 기획 D-529 = 옛 CHR-1 §6.1): 3스탯 조합 = S3 × 1000 ≥ S1 × threeStatPm(옛 0.60), 범용 = S6 × 1000 ≥ S1 ×
@@ -544,7 +547,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   gatherTierProgressBase: 30,
   gatherTierProgressStep: 30,
   gatherTickMs: 60_000,
-  gatherOreGrams: 1,
+  gatherOreGrams: 20,
   combatClass: { threeStatPm: 600, generalistPm: 800 },
   foodEfficiency: [
     { atMost: 30, pm: 0 },

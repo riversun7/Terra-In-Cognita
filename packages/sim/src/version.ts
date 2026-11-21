@@ -309,8 +309,12 @@
  *    ① `TEST_SOCIETY_COEFFICIENTS.gatherOreGrams` 1,000 → 1(광산 수확량 50 + VIT × 5, 상한 500과 곱해 사이클당 50~500g), `cyborg.startStone`
  *    10 → 10,000(10kg). ② 건설 재료 수량이 기본 단위(원장 단위)이므로 `npcBuild.ts lotWeightOf`가 `lotSize`를 다시 곱하지 않고 기본 단위 무게(g)를
  *    돌려준다(석재·잡석이 1g·묶음 10,000g이 되면서 건설 시간·알박기 운반 무게가 10,000배로 튀지 않게). 팩으로 도는 시나리오 결과가 바뀐다
+ * 111: 광산 한 사이클 무게를 g 단위 바뀜(판 71) 전으로 되돌림(사용자 결정 D-587 11 나 "느려짐은 의도 아님", 질문 2511,
+ *    docs/adr/2026-11-22-ore-yield-mass.md): `TEST_SOCIETY_COEFFICIENTS.gatherOreGrams`(N44) 1 → 20 — 수확량(50 + VIT × 5, 상한 500) × 20g =
+ *    사이클당 1~10kg(옛 1 + VIT × 0.1개 × 1kg과 같은 무게). 건물 석재 수량(g)은 그대로. 경제 시나리오 결과가 바뀐다(econ16 30일 NPC 짓기가 판 70
+ *    수준으로 돌아온다). 출력 칸 모양 그대로 — 형식 23
  */
-export const SIM_VERSION = 71;
+export const SIM_VERSION = 111;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

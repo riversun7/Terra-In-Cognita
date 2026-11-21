@@ -1,6 +1,6 @@
 # 광석 1g 기본 단위·10kg 묶음·g 단위 채집 및 화석·이탄·소금 제거
 
-- 상태: 확정
+- 상태: 확정 (일부 대체됨: 2026-11-22-ore-yield-mass.md — 결정 3 광산 한 사이클 무게 50~500g → 1~10kg, `n44_ore_grams` 1 → 20)
 - 날짜: 2026-11-21
 - 관련: `docs/PLAN.md` 4장, `docs/adr/2026-10-31-economy-core.md`, `docs/adr/2026-11-07-gather-objects.md`, `docs/adr/2026-11-15-gather-object-tiers.md`, `docs/adr/2026-11-15-shipyard-harbor.md`
 

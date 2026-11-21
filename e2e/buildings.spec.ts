@@ -72,6 +72,53 @@ async function freshEditor(page: Page, path = "/dev/buildings"): Promise<void> {
   await expect(screen(page)).toHaveAttribute("data-status", "ready");
 }
 
+/** 팩 재료 한 줄 */
+interface PackStack {
+  readonly item: string;
+  readonly qty: number;
+}
+/** 덮어쓰기가 없는(팩 값) 시설의 건설 칸: 분류 배율과 레벨 구간 */
+interface PackBuild {
+  readonly mulPm: number;
+  readonly levels: readonly { readonly from: number; readonly materials: readonly PackStack[] }[];
+}
+
+/**
+ * 시설의 팩 건설 칸(buildings.list — freshEditor 뒤라 덮어쓰기가 없다). 기대값을 팩에서 센다: 팩의 수량·배율을 시험에 적어 두면
+ * 팩 밸런스를 바꿀 때마다 시험이 깨진다(3d66465c94가 농장·광산 수량 8 → 4, 배율 800 → 1000으로 바꾼 뒤 실패)
+ */
+async function packBuild(page: Page, id: string): Promise<PackBuild> {
+  const facilities = list(field((await trpc(page, "buildings.list")).data, "facilities"));
+  const build = field(
+    field(
+      facilities.find((row) => field(field(row, "entry"), "id") === id),
+      "entry",
+    ),
+    "build",
+  );
+  const mulPm = field(build, "mulPm");
+  if (typeof mulPm !== "number") throw new Error(`${id} build.mulPm`);
+  const levels = list(field(build, "levels")).map((band) => ({
+    from: Number(field(band, "from")),
+    materials: list(field(band, "materials")).map((stack) => ({
+      item: String(field(stack, "item")),
+      qty: Number(field(stack, "qty")),
+    })),
+  }));
+  return { mulPm, levels };
+}
+
+/** 구간 하나의 그 아이템 수량(없으면 시험 실패) */
+function packQty(build: PackBuild, bandIndex: number, item: string): number {
+  const qty = build.levels[bandIndex]?.materials.find((stack) => stack.item === item)?.qty;
+  if (qty === undefined) throw new Error(`pack band ${String(bandIndex)} has no ${item}`);
+  return qty;
+}
+
+/** 레벨 L의 재료 수량 = round(qty × L² × mulPm ÷ 1000)(@terra/shared/facilityBuild — 반은 올림, 양수라 Math.round와 같다) */
+const levelQty = (qty: number, level: number, mulPm: number): number =>
+  Math.round((qty * level * level * mulPm) / 1000);
+
 /** 왼쪽 목록의 시설 줄(누르면 편집 판) */
 const row = (page: Page, id: string) => page.locator(`.be-row-button[data-facility="${id}"]`);
 const detail = (page: Page) => page.locator(".be-detail");
@@ -114,26 +161,41 @@ test.describe("개발자", () => {
     await expect(
       detail(page).locator('input[type="checkbox"]:not([data-targets="extra-subcategories"] input)'),
     ).toHaveCount(0);
-    // 팩 값: Lv1 = 소나무 round(8 × 0.8) = 6, Lv2~ = 판자(켜짐) round(8 × 4 × 0.8) = 26
+    // 팩 값: Lv1 = 소나무 round(팩 수량 × 1 × 배율), Lv2~ = 판자 round(팩 수량 × 4 × 배율)
+    const farmPack = await packBuild(page, "farm");
+    const pinePack = packQty(farmPack, 0, "pine_log");
+    const plankPack = packQty(farmPack, 1, "plank");
     await expect(levelRow(page, 1)).toContainText(
-      message("ko", "dev_buildings_material_qty", { name: "소나무", qty: 6 }),
+      message("ko", "dev_buildings_material_qty", {
+        name: "소나무",
+        qty: levelQty(pinePack, 1, farmPack.mulPm),
+      }),
     );
     await expect(levelRow(page, 2)).toContainText(
-      message("ko", "dev_buildings_material_qty", { name: "판자", qty: 26 }),
+      message("ko", "dev_buildings_material_qty", {
+        name: "판자",
+        qty: levelQty(plankPack, 2, farmPack.mulPm),
+      }),
     );
     await expect(levelRow(page, 2).locator(".be-badge-off")).toHaveCount(0);
     const before = await screen(page).getAttribute("data-revision");
 
-    // Lv1 소나무 8 → 10: 담기고 레벨 표가 바로 바뀐다(round(10 × 0.8) = 8)
-    await band(page, 0).locator('.be-material[data-item="pine_log"] .be-material-qty input').fill("10");
+    // Lv1 소나무 팩 수량 → 팩 수량 + 2: 담기고 레벨 표가 바로 바뀐다
+    const pineEdited = pinePack + 2;
+    await band(page, 0)
+      .locator('.be-material[data-item="pine_log"] .be-material-qty input')
+      .fill(String(pineEdited));
     await expect(stagebar(page)).toHaveAttribute("data-count", "1");
     await expect(row(page, "farm")).toHaveAttribute("data-staged", "");
-    // 칸 견주기(2026-11-08 화면 개편): 고친 칸에 담음 표지·팩 값(8)
+    // 칸 견주기(2026-11-08 화면 개편): 고친 칸에 담음 표지·팩 값
     const qty = band(page, 0).locator('.be-material[data-item="pine_log"] .be-material-qty');
     await expect(qty).toHaveAttribute("data-staged", "");
-    await expect(qty.locator('[data-part="pack"]')).toContainText("8");
+    await expect(qty.locator('[data-part="pack"]')).toContainText(String(pinePack));
     await expect(levelRow(page, 1)).toContainText(
-      message("ko", "dev_buildings_material_qty", { name: "소나무", qty: 8 }),
+      message("ko", "dev_buildings_material_qty", {
+        name: "소나무",
+        qty: levelQty(pineEdited, 1, farmPack.mulPm),
+      }),
     );
     await expect(stagebar(page)).toHaveAttribute("data-check", "ok", { timeout: 10_000 });
     await stagebar(page).locator(".be-note").fill("e2e 건축 재료");
@@ -148,8 +210,8 @@ test.describe("개발자", () => {
     );
     expect(field(field(farm, "override"), "note")).toBe("e2e 건축 재료");
     expect(field(field(field(farm, "entry"), "build"), "levels")).toEqual([
-      { from: 1, materials: [{ item: "pine_log", qty: 10 }] },
-      { from: 2, materials: [{ item: "plank", qty: 8 }] },
+      { from: 1, materials: [{ item: "pine_log", qty: pineEdited }] },
+      { from: 2, materials: [{ item: "plank", qty: plankPack }] },
     ]);
     // 내보내기 차이에 시설 항목이 든다(pnpm tuning:apply → facilities.json)
     await page.locator(".be-summary-tools button").first().click();
@@ -166,7 +228,10 @@ test.describe("개발자", () => {
     await expect(stagebar(page)).toHaveCount(0);
     await expect(row(page, "farm")).not.toHaveAttribute("data-changed", "");
     await expect(levelRow(page, 1)).toContainText(
-      message("ko", "dev_buildings_material_qty", { name: "소나무", qty: 6 }),
+      message("ko", "dev_buildings_material_qty", {
+        name: "소나무",
+        qty: levelQty(pinePack, 1, farmPack.mulPm),
+      }),
     );
     await resetBuildings(page);
     expect(deviceErrors).toEqual([]);
@@ -182,11 +247,12 @@ test.describe("개발자", () => {
     await expect(band(page, 2)).toBeVisible();
     await expect(levelRow(page, 3)).toHaveAttribute("data-band-from", "3");
     await expect(levelRow(page, 2)).toHaveAttribute("data-band-from", "2");
-    // 셋째 구간 재료: 판자 → 철 주괴(가공품), 수량 4 → Lv3 = round(4 × 9 × 0.8) = 29
+    // 셋째 구간 재료: 판자 → 철 주괴(가공품), 수량 4 → Lv3 = round(4 × 9 × 팩 배율)
+    const minePack = await packBuild(page, "mine");
     await band(page, 2).locator('.be-material[data-item="plank"] select').selectOption("iron_ingot");
     await band(page, 2).locator('.be-material[data-item="iron_ingot"] .be-material-qty input').fill("4");
     await expect(levelRow(page, 3)).toContainText(
-      message("ko", "dev_buildings_material_qty", { name: "철 주괴", qty: 29 }),
+      message("ko", "dev_buildings_material_qty", { name: "철 주괴", qty: levelQty(4, 3, minePack.mulPm) }),
     );
     await expect(stagebar(page)).toHaveAttribute("data-check", "ok", { timeout: 10_000 });
     // 셋째 구간 시작 레벨을 2로(앞 구간과 같음) → 검사 오류, [적용] 막힘
@@ -333,33 +399,44 @@ test.describe("구간 × 재료 표(묶음 바꾸기, 2026-11-10)", () => {
     const cell = (bandIndex: number, item: string) =>
       matrix.locator(`tr[data-band="${bandIndex}"] td[data-item="${item}"]`);
     const plank = (): Promise<number[]> => inputValues(matrix.locator('td[data-item="plank"] input'));
-    // 팩: Lv1 소나무 8, Lv2~5 판자 8 → 구간 둘
+    // 팩: Lv1 소나무, Lv2~5 판자 → 구간 둘(수량·배율은 팩에서 읽는다)
     await expect(matrix.locator("tbody tr")).toHaveCount(2);
-    // 합계 줄(모든 레벨): 판자 round(8 × L² × 0.8) = 26 + 58 + 102 + 160 = 346
+    const farmPack = await packBuild(page, "farm");
+    const plankPack = packQty(farmPack, 1, "plank");
+    const plankTotal = (perLevel: readonly number[]): number =>
+      perLevel.reduce((sum, qty, index) => sum + levelQty(qty, index + 2, farmPack.mulPm), 0);
+    // 합계 줄(모든 레벨): 판자 Σ round(팩 수량 × L² × 배율), L = 2~5
     const total = detail(page).locator(".be-level-total");
     await expect(total).toContainText(
-      message("ko", "dev_buildings_material_qty", { name: "판자", qty: 346 }),
+      message("ko", "dev_buildings_material_qty", {
+        name: "판자",
+        qty: plankTotal([plankPack, plankPack, plankPack, plankPack]),
+      }),
     );
     // [레벨마다 나누기] → 구간 다섯, 레벨 표는 그대로
     await matrix.locator(".be-split-levels").click();
     await expect(matrix.locator("tbody tr")).toHaveCount(5);
-    expect(await plank()).toEqual([8, 8, 8, 8]);
+    expect(await plank()).toEqual([plankPack, plankPack, plankPack, plankPack]);
     await expect(levelRow(page, 3)).toContainText(
-      message("ko", "dev_buildings_material_qty", { name: "판자", qty: 58 }),
+      message("ko", "dev_buildings_material_qty", {
+        name: "판자",
+        qty: levelQty(plankPack, 3, farmPack.mulPm),
+      }),
     );
-    // 끝 구간(Lv5)을 2로 치고, 머리로 판자 열을 골라 선형 채우기 → 8·6·4·2
+    // 첫 구간(Lv2)을 8, 끝 구간(Lv5)을 2로 치고(팩 값과 상관없이 고른 값), 머리로 판자 열을 골라 선형 채우기 → 8·6·4·2
+    await cell(1, "plank").locator("input").fill("8");
     await cell(4, "plank").locator("input").fill("2");
     await matrix.locator('th[data-item="plank"] .ce-col-pick').click();
     const bulk = matrix.locator(".ce-bulk");
     await expect(bulk).toHaveAttribute("data-count", "4");
     await bulk.locator(".ce-bulk-linear").click();
     expect(await plank()).toEqual([8, 6, 4, 2]);
-    // 레벨 표: Lv3 = round(6 × 9 × 0.8) = 43, 합계 = 26 + 43 + 51 + 40 = 160
+    // 레벨 표: Lv3 = round(6 × 9 × 배율), 합계 = Σ round(수량 × L² × 배율)
     await expect(levelRow(page, 3)).toContainText(
-      message("ko", "dev_buildings_material_qty", { name: "판자", qty: 43 }),
+      message("ko", "dev_buildings_material_qty", { name: "판자", qty: levelQty(6, 3, farmPack.mulPm) }),
     );
     await expect(total).toContainText(
-      message("ko", "dev_buildings_material_qty", { name: "판자", qty: 160 }),
+      message("ko", "dev_buildings_material_qty", { name: "판자", qty: plankTotal([8, 6, 4, 2]) }),
     );
     await expect(stagebar(page)).toHaveAttribute("data-count", "1");
     // 고르기를 풀고 Lv2 칸 모서리를 Lv4 칸까지 끌면 같은 값(8)으로 채운다

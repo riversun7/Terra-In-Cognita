@@ -13,7 +13,7 @@
 //   (질문 2410 가 — early.ts). 틱마다 지배 가문 반영·도시 지분 정리(shareFixups.ts — 2406·D-338·D-582). 독재가 끝나면 의결권 정지 표시를 지운다(질문 2405 가 확정).
 // - 바뀜(governance-3): 군사 쿠데타(coup.ts — 질문 2433 답·D-583), 지배 쪽 지분 따라가기·지분 과반을 사서 된 독재의 국고 지분 남기기(shareFixups.ts — 2432 나·(다)
 //   답 D-583), 빈자리 도시 독립 투표(cityVotes.ts — 2434 (가) 답 D-583), 국고 지분 팔기 안건(2438 답 D-583 — 독재는 지배 가문장 직권, 승인된 판매는 approvedShareSale
-//   고리로 넘긴다: 정부 지분 시장 줄기 TODO), 독재 지도자의 선전포고 직권(2440 나 — D-217 독재 = 지배 가문장이 정함).
+//   고리로 넘긴다 — 정부 지분 시장 cityShares/service.ts approvedSale이 국고 팔 주문을 건다, docs/adr/2026-11-21-share-market.md), 독재 지도자의 선전포고 직권(2440 나 — D-217 독재 = 지배 가문장이 정함).
 // 쓰기는 DB 바로(서버 하나라 이 서비스가 순서대로 쓴다). 한 번에 하나만 돈다(명령·틱이 같은 사슬).
 import {
   type AgendaKind,
@@ -54,7 +54,7 @@ export interface ProposeInput {
   readonly minPrice?: string | undefined;
 }
 
-/** 승인된 국고 지분 팔기(정부 지분 시장 줄기가 받는다 — TODO) */
+/** 승인된 국고 지분 팔기(정부 지분 시장 cityShares/service.ts approvedSale이 받는다 — D-583) */
 export interface ApprovedShareSale {
   readonly nationRowId: number;
   readonly agendaId: number;
@@ -630,7 +630,7 @@ export function createGovernanceService(o: {
         return;
       }
       case "treasury_share_sale": {
-        // 승인된 국고 지분 팔기(질문 2438 답 D-583): 정부 지분 시장 줄기에 넘긴다(TODO — 시장이 생기기 전에는 승인 기록만)
+        // 승인된 국고 지분 팔기(질문 2438 답 D-583): 정부 지분 시장에 넘긴다(cityShares — 국고 팔 주문, 고리가 없으면 승인 기록만)
         const { cityId, shares, minPrice } = agenda.payload;
         const valid =
           cityId !== undefined &&

@@ -6,8 +6,8 @@
 //   share_clear·share_refund). 1주 = 로트 1. 값을 매기는 화폐 = 사업장 금고 화폐(지금 서버 시험 화폐 [임시] — D-7010 "증권은 세력 화폐로만"은
 //   사업장 돈이 나라 화폐로 바뀔 때 함께 바꾼다). 회차 = 설정 칸 business_share_round_ms(UTC 0시 기준 같은 간격), 남은 주문은 회차 뒤 돌려준다.
 // - 주주(정산·대주주 판단) = 그 자산 잔고 + 걸어 둔 팔 주문의 주(에스크로에 있어도 그 사람 몫). 많은 주주 찾기는 바뀔 때마다 그 사업장만 다시 센다.
-// - 증권 거래소 건물(D-561)은 다른 줄기가 만든다. 이 모음이 사업장마다 시장을 들고 있고, 거래소 건물이 생기면 그 건물이 이 모음을 부른다
-//   (주문·회차·조회 함수는 건물을 모른다 — 사업장 ID만 받는다).
+// - 증권 거래소 건물(D-561·D-583): cityShares/view.ts 거래소 목록이 이 모음의 조회를 부른다(주문·회차·조회 함수는 건물을 모른다 — 사업장 ID만
+//   받는다). 조회에 호가창(값마다 걸린 주)·지금 닫으면 날 값을 더했다(D-583 "호가창처럼", docs/adr/2026-11-21-share-market.md).
 // - 쓰기는 월드 쓰기 대기열(원장 고리와 같은 묶음). 부팅 때 걸린 주문(seq 그대로)·지난 체결가로 시장을 다시 만든다.
 import {
   type ShareHolder,
@@ -17,11 +17,13 @@ import {
   businessShareIssueCode,
   parseBusinessShareAsset,
 } from "@terra/shared/businessBooks";
+import { shareBookLevels } from "@terra/shared/shareBook";
 import {
   type BusinessCoefficients,
   type FxMarket,
   type FxOrder,
   type Side,
+  clearCallAuction,
   createFxMarket,
 } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
@@ -406,7 +408,19 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
         else ask += order.lots;
       }
       const shown = (rounds.get(buildingId) ?? []).filter((round) => round.price !== undefined);
+      // 호가창·지금 닫으면 날 값(D-583 "호가창처럼" — 체결은 그대로 동시호가, docs/adr/2026-11-21-share-market.md)
+      const lastKnown = market?.lastPrice ?? loaded.lastPrice.get(buildingId);
+      const preview = clearCallAuction(
+        orders.filter((order) => order.side === "buy"),
+        orders.filter((order) => order.side === "sell"),
+        lastKnown,
+      );
       return {
+        book: shareBookLevels(orders),
+        expected:
+          preview.price === undefined || preview.lots <= 0n
+            ? null
+            : { price: String(preview.price), shares: String(preview.lots) },
         asset: deps.asset,
         issued: issued(buildingId) > 0n,
         total: String(total(buildingId)),

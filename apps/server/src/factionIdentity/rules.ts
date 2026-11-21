@@ -43,6 +43,8 @@ export interface HouseRules {
   readonly npcVaultReturn: { readonly minPm: number; readonly maxPm: number };
   /** 나라 의결 설정값(governance 칸 — 가문 게이트웨이와 한 소켓으로 묶어 같은 설정 고리로 읽는다, docs/adr/2026-11-21-governance.md) */
   readonly governance: GovernanceRules;
+  /** 도시(정부) 지분 시장 설정값(설정 칸 city_share_round_ms·city_share_order_max — D-583, docs/adr/2026-11-21-share-market.md) */
+  readonly cityShares: { readonly roundMs: number; readonly orderMax: number };
 }
 
 const whole = (value: number): number => (Number.isSafeInteger(value) && value > 0 ? value : 0);
@@ -78,6 +80,10 @@ export function houseRulesFrom(c: SocietyCoefficients): HouseRules {
     cityBuildDefault: h.cityBuildDefault !== 0,
     npcVaultReturn: { minPm: permille(h.npcVaultReturnMinPm), maxPm: permille(h.npcVaultReturnMaxPm) },
     governance: governanceRulesFrom(c),
+    cityShares: {
+      roundMs: Math.max(60_000, whole(c.business.cityShareRoundMs ?? c.business.shareRoundMs)),
+      orderMax: atLeastOne(c.business.cityShareOrderMax ?? c.business.shareOrderMax),
+    },
   };
 }
 

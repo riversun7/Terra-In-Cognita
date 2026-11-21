@@ -99,11 +99,15 @@ test.describe("건축 모드: 플레이어", () => {
     await openMap(page);
     const sheet = await openBuild(page);
     await expect(sheet).toHaveAttribute("data-phase", "list");
-    // 잠긴 거래소(D-561 — 증권 거래소는 출시 뒤)는 목록에 있되 고를 수 없고 까닭이 보인다
-    const locked = sheet.locator('.map-build-option[data-facility="stock_exchange"]');
+    // 잠긴 거래소(D-561 — 유닛 거래소는 경매 기능 전)는 목록에 있되 고를 수 없고 까닭이 보인다. 증권 거래소는 D-583으로 잠금이 풀렸다
+    const locked = sheet.locator('.map-build-option[data-facility="unit_exchange"]');
     await expect(locked).toHaveAttribute("aria-disabled", "true", { timeout: 20_000 });
     await expect(locked.locator('[data-part="build-locked"]')).toHaveText(
-      message("ko", "build_exchange_after_launch"),
+      message("ko", "build_exchange_not_ready"),
+    );
+    await expect(sheet.locator('.map-build-option[data-facility="stock_exchange"]')).not.toHaveAttribute(
+      "aria-disabled",
+      "true",
     );
     // aria-disabled는 Playwright가 누를 수 없는 것으로 본다 — 눌러도 고르지 않는지는 힘으로 누른다
     await locked.click({ force: true });

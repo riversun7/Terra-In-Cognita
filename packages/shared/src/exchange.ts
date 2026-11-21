@@ -1,7 +1,9 @@
 // 거래소 건물(기획 D-561 "거래소는 건물", D-560 시설 분류 상업, D-564 1628·D-569 1784 "거래소로 실어 나른 물건만") — 공용 이름·규칙.
 // docs/adr/2026-11-16-exchange-buildings.md. 팩 스키마(@terra/content facilities exchange 칸)·서버(apps/server/src/market)·화면이 같은 값을 쓴다.
 // - 거래소 종류(팩 시설 exchange 칸): goods = 물자 거래소(도시 × 물건 호가창, D-117·D-125), fx = 외환 거래소(나라 화폐 ↔ 기준 통화 동시호가),
-//   units = 유닛 거래소(D-242 — 경매 기능이 아직 없어 잠금), securities = 증권 거래소(D-393·D-409 출시 뒤 잠금).
+//   units = 유닛 거래소(D-242 — 경매 기능이 아직 없어 잠금), securities = 증권 거래소(D-393·D-409 출시 뒤 잠금이었다 — 바뀜 (D-583, 질문 2438 답
+//   "증권거래소 건물의 주기능 해당 도시나 국가의 정부 지분이나 사업장 지분 거래 가능"): 잠금을 풀었다. 주기능 = 도시 정부 지분·사업장 지분 호가창,
+//   docs/adr/2026-11-21-share-market.md).
 // - 도시마다 종류마다 하나(D-117 "도시마다 거래소"): 같은 도시에 같은 종류를 둘 짓지 않는다. 그 도시의 그 종류 거래소 = 다 지은(레벨 1 이상) 것
 //   가운데 건물 ID가 가장 작은 것 [임시].
 // - 주문 한도(D-148 "거래소에 배치한 유닛의 INT·WIS는 낼 수 있는 주문 수의 한도만 늘린다"): 기본 ORDER_BASE + 그 종류 거래소 건물의
@@ -19,7 +21,6 @@ export type ExchangeKind = (typeof EXCHANGE_KINDS)[number];
 /** 잠긴 거래소와 까닭: after_launch = 출시 뒤 연다(D-393·D-409), not_ready = 기능이 아직 없다(유닛 경매 D-242) */
 export const EXCHANGE_LOCKS: Readonly<Partial<Record<ExchangeKind, "after_launch" | "not_ready">>> = {
   units: "not_ready",
-  securities: "after_launch",
 };
 
 /** 잠긴 거래소인가(짓지 못한다) */

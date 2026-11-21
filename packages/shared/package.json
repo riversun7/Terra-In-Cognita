@@ -16,6 +16,8 @@
     "./battleReplay": "./src/battleReplay.ts",
     "./buildingEditor": "./src/buildingEditor.ts",
     "./businessBooks": "./src/businessBooks.ts",
+    "./cityShares": "./src/cityShares.ts",
+    "./shareBook": "./src/shareBook.ts",
     "./fairPrice": "./src/fairPrice.ts",
     "./buildStamp": "./src/buildStamp.ts",
     "./catchment": "./src/catchment.ts",

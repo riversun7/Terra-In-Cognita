@@ -171,6 +171,11 @@ export {
   type NationTaxResultCode,
 } from "./nationTax.ts";
 export {
+  CITY_SHARE_PROTOCOL_VERSION,
+  CITY_SHARE_RESULT_CODES,
+  type CityShareResultCode,
+} from "./cityShares.ts";
+export {
   HOSPITAL_PROTOCOL_VERSION,
   HOSPITAL_RESULT_CODES,
   type HospitalResultCode,

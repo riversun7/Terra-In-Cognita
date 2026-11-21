@@ -14,11 +14,11 @@ import {
 } from "./exchange.ts";
 
 describe("거래소 건물 규칙", () => {
-  it("유닛·증권 거래소는 잠기고 물자·외환은 열린다", () => {
+  it("유닛 거래소는 잠기고 물자·외환·증권은 열린다(증권 잠금은 D-583으로 풀림)", () => {
     expect(exchangeLocked("goods")).toBe(false);
     expect(exchangeLocked("fx")).toBe(false);
     expect(exchangeLocked("units")).toBe(true);
-    expect(exchangeLocked("securities")).toBe(true);
+    expect(exchangeLocked("securities")).toBe(false);
     expect(isExchangeKind("goods")).toBe(true);
     expect(isExchangeKind("shop")).toBe(false);
   });

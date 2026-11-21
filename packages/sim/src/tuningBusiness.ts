@@ -39,6 +39,19 @@ export const BUSINESS_TUNING_KEYS: readonly TuningKey[] = [
     "사업장 지분 회차당 주문 수(건)",
     "Business share orders per round (count)",
   ),
+  // 도시(정부) 지분 시장(D-583 — 서버 cityShares, docs/adr/2026-11-21-share-market.md)
+  k(
+    "city_share_round_ms",
+    "cityShareRoundMs",
+    "도시 지분 동시호가 주기(ms)",
+    "City share call-auction period (ms)",
+  ),
+  k(
+    "city_share_order_max",
+    "cityShareOrderMax",
+    "도시 지분 회차당 주문 수(건)",
+    "City share orders per round (count)",
+  ),
   k(
     "business_reserve_margin_pm",
     "reserveMarginPm",

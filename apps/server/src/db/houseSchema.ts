@@ -8,6 +8,7 @@ import {
   index,
   integer,
   pgTable,
+  smallint,
   text,
   uniqueIndex,
   uuid,
@@ -175,8 +176,16 @@ export const npcHouses = pgTable(
     cityId: bigint("city_id", { mode: "number" }).notNull(),
     name: text("name").notNull(),
     foundedAtMs: bigint("founded_at_ms", { mode: "number" }).notNull(),
+    /** 운영자·편집기 가문 7축 성향 덮어쓰기(docs/adr/2026-11-20-npc-autonomous-ai.md). null = 가문장·가문원 실시간 합성 */
+    traitsOverride: smallint("traits_override").array(),
   },
-  (table) => [index("npc_houses_city_idx").on(table.cityId)],
+  (table) => [
+    index("npc_houses_city_idx").on(table.cityId),
+    check(
+      "npc_houses_traits_override",
+      sql`${table.traitsOverride} is null or (cardinality(${table.traitsOverride}) = 7 and 0 <= all(${table.traitsOverride}) and 1000 >= all(${table.traitsOverride}))`,
+    ),
+  ],
 );
 
 /**

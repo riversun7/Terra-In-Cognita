@@ -50,6 +50,8 @@ export const WORLD_TABLES = {
       "held_by",
       // 타고 있는 배(docs/adr/2026-11-13-boats.md 4절)
       "aboard_id",
+      // 7축 성향(docs/adr/2026-11-20-npc-autonomous-ai.md)
+      "traits",
     ],
     key: ["id"],
   },

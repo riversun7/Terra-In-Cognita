@@ -55,6 +55,8 @@ const StarSystemScreen = lazy(() => import("../editor/starSystem/StarSystemScree
 const SecondMapLabScreen = lazy(() => import("../editor/secondMapLab/SecondMapLabScreen.tsx"));
 // 설정 칸 패널(틀 안): 조각 이름 TuningPanelScreen-*(미리 캐시 규칙 [Tt]uningPanel). 49 칸 목록 JSON도 이 조각에만 든다
 const TuningPanelScreen = lazy(() => import("../editor/tuning/TuningPanelScreen.tsx"));
+// NPC 자율행동 · AI 에디터(틀 안, docs/adr/2026-11-20-npc-autonomous-ai.md): 조각 이름 NpcAiEditorScreen-*(미리 캐시 규칙 [Nn]pcAi)
+const NpcAiEditorScreen = lazy(() => import("../editor/npcAi/NpcAiEditorScreen.tsx"));
 // 밸런스 화면(틀 안): 조각 이름 BalancePanelScreen-*(미리 캐시 규칙 [Bb]alancePanel)
 const BalancePanelScreen = lazy(() => import("../editor/balance/BalancePanelScreen.tsx"));
 // 2차 스탯 에디터(틀 안): 조각 이름 SecondaryStatsEditorScreen-*(미리 캐시 규칙 [Ss]econdaryStats)
@@ -128,6 +130,7 @@ export const ROUTE_TITLES = {
   dev_star_system: m.shell_route_dev_star_system,
   dev_second_map: m.shell_route_dev_second_map,
   dev_tuning: m.shell_route_dev_tuning,
+  dev_npc_ai: m.shell_route_dev_npc_ai,
   dev_balance: m.shell_route_dev_balance,
   dev_secondary_stats: m.shell_route_dev_secondary_stats,
   dev_exp_table: m.shell_route_dev_exp_table,
@@ -260,6 +263,8 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
       return <SecondMapLabScreen onClose={goBack} initialTab="lab" />;
     case "dev_tuning":
       return <TuningPanelScreen />;
+    case "dev_npc_ai":
+      return <NpcAiEditorScreen />;
     case "dev_balance":
       return <BalancePanelScreen />;
     case "dev_secondary_stats":

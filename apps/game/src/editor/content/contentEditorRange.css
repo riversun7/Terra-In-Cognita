@@ -1,0 +1,163 @@
+/*
+ * 구간(최소~최대) 조작 칸(편집기 공용) — docs/adr/2026-11-20-npc-autonomous-ai.md.
+ * 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast).
+ */
+.ce-range {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.ce-range-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.ce-range-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.ce-range-inputs {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.ce-range-input {
+  width: 8ch;
+  text-align: end;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.ce-range[data-live] .ce-range-input {
+  border-color: var(--color-focus);
+}
+
+.ce-range-tilde {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+.ce-range-unit {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
+.ce-range-box {
+  position: relative;
+  min-width: 0;
+  margin-inline: var(--space-2);
+}
+
+.ce-range-track {
+  position: relative;
+  display: block;
+  height: var(--dev-touch-tap);
+  cursor: pointer;
+  touch-action: pan-y;
+}
+
+.ce-range[data-disabled] .ce-range-track {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.ce-range-rail {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline: 0;
+  height: var(--stat-bar-lg);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  box-shadow: inset 0 0 0 var(--hairline) var(--color-border);
+  translate: 0 -50%;
+  pointer-events: none;
+}
+
+.ce-range-fill {
+  position: absolute;
+  inset-block-start: 50%;
+  height: var(--stat-bar-lg);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary);
+  translate: 0 -50%;
+  pointer-events: none;
+}
+
+.ce-range-pack {
+  position: absolute;
+  inset-block: var(--space-1);
+  inline-size: var(--border-w);
+  background-color: var(--color-warning);
+  translate: -50% 0;
+  pointer-events: none;
+}
+
+.ce-range-thumb {
+  position: absolute;
+  inset-block-start: 50%;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--dev-touch-tap);
+  block-size: var(--dev-touch-tap);
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+  box-shadow: none;
+  translate: -50% -50%;
+  cursor: ew-resize;
+  touch-action: pan-y;
+}
+
+.ce-range-thumb::before {
+  content: "";
+  inline-size: var(--switch-thumb);
+  block-size: var(--switch-thumb);
+  border: var(--border-w) solid var(--color-bg);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary);
+}
+
+.ce-range-thumb[data-active]::before,
+.ce-range-thumb:hover::before {
+  background-color: var(--color-focus);
+}
+
+.ce-range-thumb[data-active] {
+  z-index: 2;
+}
+
+.ce-range-thumb:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: 0;
+  border-radius: var(--radius-pill);
+}
+
+.ce-range-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-block-start: calc(var(--space-2) * -1);
+  padding-inline: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--line-height-tight);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  pointer-events: none;
+}

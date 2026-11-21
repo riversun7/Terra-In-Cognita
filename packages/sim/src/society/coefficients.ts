@@ -8,6 +8,7 @@ import { TERRITORY_DISPLAY_START, type WorldTerritoryDisplay } from "@terra/shar
 import { type LaborRules, OLD_LABOR_RULES } from "../economy/laborContract.ts";
 import { type GardenerCoefficients, TEST_GARDENER_COEFFICIENTS } from "../gardener/coefficients.ts";
 import { type NpcCoefficients, TEST_NPC_COEFFICIENTS } from "../npc/coefficients.ts";
+import { DEFAULT_NPC_AI_COEFFICIENTS, type NpcAiCoefficients } from "../npc/aiCoefficients.ts";
 import { type RankingCoefficients, TEST_RANKING_COEFFICIENTS } from "../ranking/coefficients.ts";
 import { type SystemSwitches, TEST_SYSTEM_SWITCHES } from "../tuningSwitches.ts";
 import type { CyborgTemperament } from "./cyborgStats.ts";
@@ -239,6 +240,8 @@ export interface SocietyCoefficients {
   readonly tributeEveryMs: number;
   /** NPC 판단 계수(docs/adr/2026-11-01-npc-brain-r5.md, 팩 tuning 경로 "npc.*") */
   readonly npc: NpcCoefficients;
+  /** NPC 자율행동·7축 성향·조직 합성·충성도 개입 계수(docs/adr/2026-11-20-npc-autonomous-ai.md, 팩 tuning 경로 "npcAi.*") */
+  readonly npcAi: NpcAiCoefficients;
   /** 오염·정원사 웨이브 계수(docs/adr/2026-11-01-gardener-r5b.md, 팩 tuning 경로 "gardener.*") */
   readonly gardener: GardenerCoefficients;
   /**
@@ -670,4 +673,5 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   vitals: { injuryRegenPm: [1000, 500, 250, 100], injuryPenaltyPm: [0, 150, 400, 500] },
   injury: START_INJURY_COEFFICIENTS,
   switches: { ...TEST_SYSTEM_SWITCHES },
+  npcAi: DEFAULT_NPC_AI_COEFFICIENTS,
 };

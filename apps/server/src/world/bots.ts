@@ -12,6 +12,14 @@
 //   localSolarHours, 2차맵 경도)이라 하늘이 밝아질 때 일터로 가고 어두워질 때 돌아온다. 출근·퇴근 때는 유닛마다 조금 흩는다(한꺼번에 길을 묻지 않게).
 import { createRng, type Rng } from "@terra/shared";
 import { localSolarHours, planetCalendarForDisplay } from "@terra/shared/planetCalendar";
+import type { UnitTraits } from "@terra/shared/unitTraits";
+import {
+  DEFAULT_NPC_AI_COEFFICIENTS,
+  type UnitAiState,
+  type UnitAiTimingRules,
+  type UnitBrainRole,
+  decideUnitState,
+} from "@terra/sim/npcAi";
 import {
   CAR_SPEED,
   PLACEMENT_SIZE,
@@ -142,6 +150,18 @@ export interface BotHome {
    * 창고 둘레)로 걸어가 산출을 내려놓는 모습. 보는 사람이 있는 2차맵에만 붙는다. 판정은 도시 경제의 시간 셈 그대로(모습만)
    */
   readonly haul?: HaulTrip | undefined;
+  /** 유닛 자율행동 8상태 FSM 직군(ADR 2026-11-20). 없으면 기존 단순 출퇴근 규칙 */
+  readonly role?: UnitBrainRole | undefined;
+  /** 개별 유닛 7축 성향(0~1000). aiEnabled와 함께 있을 때 8상태 FSM을 활성화한다 */
+  readonly traits?: UnitTraits | undefined;
+  /** 도시 시장·상업 구역 네모(consume 상태 목적지) */
+  readonly market?: TripArea | undefined;
+  /** 유닛 개별 자율행동 AI 스위치(npc_ai_unit_enabled = 1) */
+  readonly aiEnabled?: boolean | undefined;
+  /** 소속 도시가 전쟁 중인지(evade·patrol 점수에 반영) */
+  readonly cityAtWar?: boolean | undefined;
+  /** 유닛 FSM 주기·체류·순찰 계수(없으면 DEFAULT_NPC_AI_COEFFICIENTS) */
+  readonly aiRules?: UnitAiTimingRules | undefined;
 }
 
 /** 운반 일정 하나(보이는 모습만) */
@@ -195,12 +215,78 @@ export function atWork(shift: WorkShift, unitId: number, nowMs: number): boolean
   return inShift(t, shift.startPm, shift.endPm);
 }
 
-/** 지금 가려는 네모: 운반 중이면 창고 둘레, 일하는 때이고 일터가 있으면 일터, 아니면 집 둘레 */
+/** 8상태 FSM 기반 현재 상태 결정(aiEnabled && traits가 있을 때만 사용, 없으면 undefined) */
+export function resolveBotAiState(
+  home: BotHome,
+  unitId: number,
+  nowMs: number,
+): { readonly state: UnitAiState; readonly nextReevalMs: number } | undefined {
+  if (!home.aiEnabled || !home.traits) return undefined;
+  const shift = home.shift ?? DEFAULT_WORK_SHIFT;
+  const isWorkHours = atWork(shift, unitId, nowMs);
+  const hasHaulJob = hauling(home, nowMs);
+  const role: UnitBrainRole = home.role ?? (home.work ? "worker" : "citizen");
+  const ai = home.aiRules ?? DEFAULT_NPC_AI_COEFFICIENTS;
+  // 유닛 ID + 현재 재평가 구간으로 결정적 굴림 생성(매 호출마다 진동하지 않게 dwell 간격으로 양자화)
+  const bucket = Math.floor(nowMs / Math.max(1_000, ai.unitDwellMinMs));
+  const roll = mix32(Math.imul(unitId, 0x9e37_79b1) ^ Math.imul(bucket, 0x85eb_ca6b)) >>> 0;
+  // 시간대 기반 추정 피로도(일하는 때 300, 쉬는 때 650 — 2차맵 연출용)
+  const fatiguePm = isWorkHours ? 300 : 650;
+  const dec = decideUnitState(
+    {
+      unitId,
+      role,
+      traits: home.traits,
+      currentState: hasHaulJob ? "haul" : isWorkHours && home.work ? "work" : "rest",
+      stateEnteredAtMs: 0,
+      nowMs: Math.max(ai.unitDwellMaxMs + 1, nowMs),
+      isWorkHours,
+      hasWorkplace: home.work !== undefined,
+      hasHaulJob,
+      hasMarket: home.market !== undefined,
+      fatiguePm,
+      threatNear: false,
+      cityAtWar: home.cityAtWar === true,
+      ai,
+    },
+    roll,
+  );
+  return { state: dec.state, nextReevalMs: dec.nextReevalMs };
+}
+
+/** 지금 가려는 네모: FSM이 켜져 있으면 8상태 목적지, 아니면 기존 운반 → 일터 → 집 규칙 */
 function targetOf(home: BotHome, unitId: number, nowMs: number): TripArea {
+  const baseHome: TripArea = { x: home.x, y: home.y, radius: home.homeRadius ?? HOME_RADIUS_CELLS };
+  const fsm = resolveBotAiState(home, unitId, nowMs);
+  if (fsm) {
+    switch (fsm.state) {
+      case "haul":
+        if (home.haul) return home.haul.area;
+        return baseHome;
+      case "work":
+        return home.work ?? baseHome;
+      case "consume":
+        return home.market ?? baseHome;
+      case "patrol":
+        return baseHome;
+      case "evade":
+        return { x: home.x, y: home.y, radius: Math.max(2, Math.min(6, baseHome.radius)) };
+      case "gather":
+      case "travel":
+        return {
+          x: home.x,
+          y: home.y,
+          radius: Math.min(
+            TRIP_RADIUS_CELLS,
+            Math.max(baseHome.radius, Math.floor((baseHome.radius * 3) / 2)),
+          ),
+        };
+      case "rest":
+        return baseHome;
+    }
+  }
   if (home.haul && hauling(home, nowMs)) return home.haul.area;
-  return home.work && atWork(home.shift ?? DEFAULT_WORK_SHIFT, unitId, nowMs)
-    ? home.work
-    : { x: home.x, y: home.y, radius: home.homeRadius ?? HOME_RADIUS_CELLS };
+  return home.work && atWork(home.shift ?? DEFAULT_WORK_SHIFT, unitId, nowMs) ? home.work : baseHome;
 }
 
 /**
@@ -255,10 +341,12 @@ export function arrivalIdleMs(
   const target = targetOf(home, bot.id, nowMs);
   const here = anchorAt(at, bot.size);
   if (Math.max(Math.abs(target.x - here.x), Math.abs(target.y - here.y)) > target.radius) return idleMs(rng);
-  const rest =
+  const baseRest =
     target === home.work
       ? WORK_IDLE_MIN_MS + rng.nextInt(WORK_IDLE_SPREAD_MS + 1)
       : HOME_IDLE_MIN_MS + rng.nextInt(HOME_IDLE_SPREAD_MS + 1);
+  const fsm = resolveBotAiState(home, bot.id, nowMs);
+  const rest = fsm ? Math.max(HOME_IDLE_MIN_MS, fsm.nextReevalMs) : baseRest;
   // 운반 일정(D-570 1886): 창고에 닿으면 내려놓는 동안만 서 있고(일정 끝까지), 다가오는 일정이 있으면 그때 깨어 창고로 간다
   if (home.haul && target === home.haul.area) return Math.max(HAUL_IDLE_MIN_MS, home.haul.untilMs - nowMs);
   if (home.haul && nowMs < home.haul.fromMs)

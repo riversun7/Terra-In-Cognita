@@ -15,7 +15,6 @@ import {
   type BuildingWire,
   MAX_PATH_POINTS,
   MAX_UNIT_SPEED,
-  type UnitMotionWire,
   decodeTerrain,
   terrainPath,
 } from "@terra/protocol";
@@ -49,7 +48,6 @@ import {
 import type { Rng } from "@terra/shared";
 import type { WaterMask } from "@terra/shared/waterNearby";
 import {
-  type BotHome,
   arrivalIdleMs,
   HUMAN_SIZE,
   botPlan,
@@ -69,7 +67,14 @@ import type { PathOutcome, PathPriority } from "./pathService.ts";
 import { type Scheduler, createScheduler } from "./scheduler.ts";
 import { DEFAULT_WORLD_PLANET_ID, type WorldDomain } from "../db/schema.ts";
 import { HEALTHY, type UnitCondition, safePoint, unavailable } from "./unitCondition.ts";
-import { UNIT_KIND_BOAT, UNIT_KIND_BOT, UNIT_KIND_TEST, VEHICLE_MIN_SPEED, wireKindOf } from "./unitKinds.ts";
+import {
+  UNIT_KIND_BOAT,
+  UNIT_KIND_BOT,
+  UNIT_KIND_NPC_LEADER,
+  UNIT_KIND_TEST,
+  VEHICLE_MIN_SPEED,
+  wireKindOf,
+} from "./unitKinds.ts";
 import { createMapVision } from "./vision.ts";
 import { waterMaskOfTerrain } from "./waterMask.ts";
 import { type SizedEntry, buildingToWire, motionToWire, sized } from "./wire.ts";
@@ -86,38 +91,9 @@ export const MAX_BUILDINGS = 1_024;
 // 저장 행·직무 모양은 secondMapRows.ts, 2차맵 모양(SecondMap·옵션·읽기 모양)은 secondMapTypes.ts(이 파일 1,000줄 상한)
 export { type BuildingRow, type MapPersist, NO_JOB, type UnitJob, type UnitRow } from "./secondMapRows.ts";
 export type { CommandResult, MapLog, SecondMap, SecondMapOptions, UnitView } from "./secondMapTypes.ts";
-import type { CommandResult, SecondMap, SecondMapOptions, UnitView } from "./secondMapTypes.ts";
+import type { CommandResult, MapUnitState, SecondMap, SecondMapOptions, UnitView } from "./secondMapTypes.ts";
 
-interface UnitState {
-  readonly id: number;
-  /** NPC 사회 런타임이 도시 주인이 바뀔 때 바꾼다(setOwner) */
-  ownerId: number;
-  /** 사이보그 융합이 휴먼(4) → 사이보그 유닛(5)으로 바꾼다(setKind) */
-  kind: number;
-  readonly domain: WorldDomain;
-  /** NPC 휴먼이 되면 크기 1·걷기로 바뀐다(setHumanBody, D-534 — 1106 가. 걷기 = 탈것 빠르기 밑, 값은 실효 AGI D-540) */
-  size: SizeClass;
-  speed: number;
-  motion: Motion;
-  entry: SizedEntry<UnitMotionWire>;
-  /** 지금 가려는 곳(건물 때문에 다시 찾을 때 쓴다) */
-  destination: Point;
-  routeSeq: number;
-  planning: boolean;
-  /** 예약된 도착·쉬기 끝 이벤트 */
-  eventId: number | undefined;
-  /** 예약된 쉬기 끝 시각(저장한다). 도착 예약은 경로에서 다시 나오므로 저장하지 않는다 */
-  wakeAtMs: number | undefined;
-  /** 봇 판단 횟수(봇 난수 차례, 저장한다) */
-  aiStep: number;
-  job: UnitJob;
-  condition: UnitCondition;
-  readonly bot: boolean;
-  /** 봇의 집(NPC 휴먼 = 그 도시 시청 칸)·일터. 있으면 그 둘레에서 걷는다(bots.ts tripArea). 저장하지 않는다(NPC 사회 런타임이 다시 넣는다) */
-  home: BotHome | undefined;
-  /** 타고 있는 배의 유닛 ID(docs/adr/2026-11-13-boats.md 4절). 있으면 움직임 = 배 움직임, 따로 움직이지 않는다 */
-  aboard: number | undefined;
-}
+type UnitState = MapUnitState;
 
 /** 2차맵 예약: 같은 시각이면 (종류, 유닛 ID) 차례다(@terra/sim compareEventKeys, S3 ADR 1절) */
 type MapEvent = { kind: "arrive" | "wake"; subject: number };
@@ -375,7 +351,8 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     } else {
       waiter?.({ ok: false, code: failureCode(outcome.status) });
     }
-    if (unit.bot) scheduleEvent(unit, "wake", now() + retryMs(nextRng(unit)));
+    const autoRoam = unit.bot || (unit.kind === UNIT_KIND_NPC_LEADER && unit.home?.role === "leader");
+    if (autoRoam) scheduleEvent(unit, "wake", now() + retryMs(nextRng(unit)));
   };
 
   const onEvent = (event: MapEvent): void => {
@@ -383,8 +360,9 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     if (!unit) return;
     unit.eventId = undefined;
     if (event.kind === "wake") unit.wakeAtMs = undefined;
-    // 배에 탄 봇(NPC 배 어부 — boats/npcFleet.ts)은 스스로 걷지 않는다(내리면 다시 깨운다)
-    if (!unit.bot || unit.aboard !== undefined) return;
+    // 배에 탄 봇(NPC 배 어부 — boats/npcFleet.ts)은 스스로 걷지 않는다(내리면 다시 깨운다). 지도자도 순회 집이 있으면 걷는다
+    const autoRoam = unit.bot || (unit.kind === UNIT_KIND_NPC_LEADER && unit.home?.role === "leader");
+    if (!autoRoam || unit.aboard !== undefined) return;
     if (event.kind === "arrive") {
       const rest = arrivalIdleMs(nextRng(unit), unit, lastPoint(unit.motion), now());
       scheduleEvent(unit, "wake", now() + rest);
@@ -448,6 +426,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     job: UnitJob;
     condition?: UnitCondition;
     aboardId?: number | null | undefined;
+    traits?: readonly number[] | null | undefined;
   }): UnitState => {
     const unit: UnitState = {
       id: spec.id,
@@ -469,6 +448,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       bot: spec.kind === UNIT_KIND_BOT,
       home: undefined,
       aboard: spec.aboardId ?? undefined,
+      traits: spec.traits ?? undefined,
     };
     units.set(unit.id, unit);
     rev += 1;
@@ -506,6 +486,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     planning: unit.planning,
     hasEvent: unit.eventId !== undefined,
     aboard: unit.aboard,
+    traits: unit.traits,
   });
 
   /** 명령을 받을 유닛: 승객이면 같은 주인의 그 배(없으면 undefined), 아니면 그 유닛 */
@@ -622,7 +603,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
         scheduleEvent(unit, "wake", at + startDelayMs(nextRng(unit)));
       }
     },
-    addUnit({ id, size, speed, cellX, cellY, ownerId, kind }) {
+    addUnit({ id, size, speed, cellX, cellY, ownerId, kind, traits }) {
       if (units.has(id) || !Number.isInteger(id) || id < 1 || !isPassable(grid, cellX, cellY, size))
         return false;
       const unit = createUnit({
@@ -634,6 +615,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
         motion: standing(anchorCenter(cellX, cellY, size), speed),
         aiStep: 0,
         job: NO_JOB,
+        traits,
       });
       save(unit);
       return true;
@@ -711,8 +693,17 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     },
     setHome(unitId, home) {
       const unit = units.get(unitId);
-      if (!unit?.bot) return false;
+      if (!unit || (!unit.bot && unit.kind !== UNIT_KIND_NPC_LEADER)) return false;
       unit.home = home ?? undefined;
+      if (unit.kind === UNIT_KIND_NPC_LEADER && unit.home?.role === "leader" && unit.eventId === undefined)
+        scheduleEvent(unit, "wake", now() + startDelayMs(nextRng(unit)));
+      return true;
+    },
+    setTraits(unitId, traits) {
+      const unit = units.get(unitId);
+      if (!unit) return false;
+      unit.traits = traits ? [...traits] : undefined;
+      save(unit);
       return true;
     },
     setHumanBody(unitId) {

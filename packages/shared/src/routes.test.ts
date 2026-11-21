@@ -253,6 +253,8 @@ describe("주소 표", () => {
       dev_star_system: ["/dev/star-system", "dev", "hidden", "dev_admin", []],
       dev_second_map: ["/dev/second-map", "dev", "hidden", "dev_admin", []],
       dev_tuning: ["/dev/tuning", "dev", "shown", "dev_admin", []],
+      // NPC 자율행동 · AI 에디터(docs/adr/2026-11-20-npc-autonomous-ai.md)
+      dev_npc_ai: ["/dev/npc-ai", "dev", "shown", "dev_admin", []],
       // 밸런스 화면(docs/adr/2026-11-01-balance-screen.md 7절)
       dev_balance: ["/dev/balance", "dev", "shown", "dev_admin", []],
       // 2차 스탯 전용 편집·시뮬레이터 화면

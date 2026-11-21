@@ -14766,6 +14766,1194 @@
         "en": "In democracies and capitalist nations, if the leader changes any nation tax field by at least this much at once, a tax agenda (vote) opens instead of applying it. Smaller changes apply directly. Income tax is compared as basis points ÷ 10."
       },
       "source": "질문 2407 가 · D-5057 · ADR 2026-11-21-governance"
+    },
+    {
+      "id": "npc_ai_unit_trait_min",
+      "code": "",
+      "name": {
+        "ko": "유닛 7축 성향 생성 전역 최소",
+        "en": "Unit 7-axis trait global min"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "유닛 7축 성향 생성 전역 최소 — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Unit 7-axis trait global min — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_unit_trait_max",
+      "code": "",
+      "name": {
+        "ko": "유닛 7축 성향 생성 전역 최대",
+        "en": "Unit 7-axis trait global max"
+      },
+      "value": 900,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "유닛 7축 성향 생성 전역 최대 — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Unit 7-axis trait global max — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_unit_trait_spread",
+      "code": "",
+      "name": {
+        "ko": "소속 바탕 기준 유닛 성향 편차(±)",
+        "en": "Unit trait spread around home anchor (±)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "소속 바탕 기준 유닛 성향 편차(±) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Unit trait spread around home anchor (±) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_guard_belligerence_min",
+      "code": "",
+      "name": {
+        "ko": "경비대 호전성 생성 최소",
+        "en": "Guard belligerence min"
+      },
+      "value": 450,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "경비대 호전성 생성 최소 — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Guard belligerence min — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_guard_belligerence_max",
+      "code": "",
+      "name": {
+        "ko": "경비대 호전성 생성 최대",
+        "en": "Guard belligerence max"
+      },
+      "value": 950,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "경비대 호전성 생성 최대 — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Guard belligerence max — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_guard_boldness_min",
+      "code": "",
+      "name": {
+        "ko": "경비대 과감성 생성 최소",
+        "en": "Guard boldness min"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "경비대 과감성 생성 최소 — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Guard boldness min — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_guard_boldness_max",
+      "code": "",
+      "name": {
+        "ko": "경비대 과감성 생성 최대",
+        "en": "Guard boldness max"
+      },
+      "value": 950,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "경비대 과감성 생성 최대 — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Guard boldness max — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_guard_discipline_min",
+      "code": "",
+      "name": {
+        "ko": "경비대 규율성 생성 최소",
+        "en": "Guard discipline min"
+      },
+      "value": 450,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "경비대 규율성 생성 최소 — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Guard discipline min — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_guard_discipline_max",
+      "code": "",
+      "name": {
+        "ko": "경비대 규율성 생성 최대",
+        "en": "Guard discipline max"
+      },
+      "value": 950,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "경비대 규율성 생성 최대 — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Guard discipline max — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_leader_boldness_min",
+      "code": "",
+      "name": {
+        "ko": "지도자 과감성 생성 최소",
+        "en": "Leader boldness min"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "지도자 과감성 생성 최소 — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Leader boldness min — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_leader_boldness_max",
+      "code": "",
+      "name": {
+        "ko": "지도자 과감성 생성 최대",
+        "en": "Leader boldness max"
+      },
+      "value": 950,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "지도자 과감성 생성 최대 — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Leader boldness max — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_leader_autonomy_min",
+      "code": "",
+      "name": {
+        "ko": "지도자 자치성 생성 최소",
+        "en": "Leader autonomy min"
+      },
+      "value": 400,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "지도자 자치성 생성 최소 — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Leader autonomy min — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_leader_autonomy_max",
+      "code": "",
+      "name": {
+        "ko": "지도자 자치성 생성 최대",
+        "en": "Leader autonomy max"
+      },
+      "value": 950,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "지도자 자치성 생성 최대 — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Leader autonomy max — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_dict_dec_leader_pm",
+      "code": "",
+      "name": {
+        "ko": "독재 결단 축: 대장 비중(‰)",
+        "en": "Dictatorship decision: leader share (‰)"
+      },
+      "value": 750,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "독재 결단 축: 대장 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Dictatorship decision: leader share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_dict_dec_members_pm",
+      "code": "",
+      "name": {
+        "ko": "독재 결단 축: 가문장 비중(‰)",
+        "en": "Dictatorship decision: houses share (‰)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "독재 결단 축: 가문장 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Dictatorship decision: houses share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_dict_dec_base_pm",
+      "code": "",
+      "name": {
+        "ko": "독재 결단 축: 국가 바탕 비중(‰)",
+        "en": "Dictatorship decision: base share (‰)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "독재 결단 축: 국가 바탕 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Dictatorship decision: base share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_dict_cul_leader_pm",
+      "code": "",
+      "name": {
+        "ko": "독재 문화 축: 대장 비중(‰)",
+        "en": "Dictatorship culture: leader share (‰)"
+      },
+      "value": 550,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "독재 문화 축: 대장 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Dictatorship culture: leader share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_dict_cul_members_pm",
+      "code": "",
+      "name": {
+        "ko": "독재 문화 축: 가문장 비중(‰)",
+        "en": "Dictatorship culture: houses share (‰)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "독재 문화 축: 가문장 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Dictatorship culture: houses share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_dict_cul_base_pm",
+      "code": "",
+      "name": {
+        "ko": "독재 문화 축: 국가 바탕 비중(‰)",
+        "en": "Dictatorship culture: base share (‰)"
+      },
+      "value": 250,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "독재 문화 축: 국가 바탕 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Dictatorship culture: base share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_demo_dec_leader_pm",
+      "code": "",
+      "name": {
+        "ko": "민주 결단 축: 지도자 비중(‰)",
+        "en": "Democracy decision: leader share (‰)"
+      },
+      "value": 400,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "민주 결단 축: 지도자 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Democracy decision: leader share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_demo_dec_members_pm",
+      "code": "",
+      "name": {
+        "ko": "민주 결단 축: 가문장 비중(‰)",
+        "en": "Democracy decision: houses share (‰)"
+      },
+      "value": 400,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "민주 결단 축: 가문장 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Democracy decision: houses share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_demo_dec_base_pm",
+      "code": "",
+      "name": {
+        "ko": "민주 결단 축: 국가 바탕 비중(‰)",
+        "en": "Democracy decision: base share (‰)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "민주 결단 축: 국가 바탕 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Democracy decision: base share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_demo_cul_leader_pm",
+      "code": "",
+      "name": {
+        "ko": "민주 문화 축: 지도자 비중(‰)",
+        "en": "Democracy culture: leader share (‰)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "민주 문화 축: 지도자 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Democracy culture: leader share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_demo_cul_members_pm",
+      "code": "",
+      "name": {
+        "ko": "민주 문화 축: 가문장 비중(‰)",
+        "en": "Democracy culture: houses share (‰)"
+      },
+      "value": 550,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "민주 문화 축: 가문장 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Democracy culture: houses share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_demo_cul_base_pm",
+      "code": "",
+      "name": {
+        "ko": "민주 문화 축: 국가 바탕 비중(‰)",
+        "en": "Democracy culture: base share (‰)"
+      },
+      "value": 250,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "민주 문화 축: 국가 바탕 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Democracy culture: base share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_cap_dec_leader_pm",
+      "code": "",
+      "name": {
+        "ko": "자본 결단 축: 지도자 비중(‰)",
+        "en": "Capitalism decision: leader share (‰)"
+      },
+      "value": 350,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "자본 결단 축: 지도자 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Capitalism decision: leader share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_cap_dec_members_pm",
+      "code": "",
+      "name": {
+        "ko": "자본 결단 축: 지분 가문 비중(‰)",
+        "en": "Capitalism decision: share-weighted houses (‰)"
+      },
+      "value": 450,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "자본 결단 축: 지분 가문 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Capitalism decision: share-weighted houses (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_cap_dec_base_pm",
+      "code": "",
+      "name": {
+        "ko": "자본 결단 축: 국가 바탕 비중(‰)",
+        "en": "Capitalism decision: base share (‰)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "자본 결단 축: 국가 바탕 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Capitalism decision: base share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_cap_cul_leader_pm",
+      "code": "",
+      "name": {
+        "ko": "자본 문화 축: 지도자 비중(‰)",
+        "en": "Capitalism culture: leader share (‰)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "자본 문화 축: 지도자 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Capitalism culture: leader share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_cap_cul_members_pm",
+      "code": "",
+      "name": {
+        "ko": "자본 문화 축: 지분 가문 비중(‰)",
+        "en": "Capitalism culture: share-weighted houses (‰)"
+      },
+      "value": 550,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "자본 문화 축: 지분 가문 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Capitalism culture: share-weighted houses (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_cap_cul_base_pm",
+      "code": "",
+      "name": {
+        "ko": "자본 문화 축: 국가 바탕 비중(‰)",
+        "en": "Capitalism culture: base share (‰)"
+      },
+      "value": 250,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "자본 문화 축: 국가 바탕 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Capitalism culture: base share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_house_dec_leader_pm",
+      "code": "",
+      "name": {
+        "ko": "가문 결단 축: 가문장 비중(‰)",
+        "en": "House decision: head share (‰)"
+      },
+      "value": 800,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "가문 결단 축: 가문장 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "House decision: head share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_house_dec_members_pm",
+      "code": "",
+      "name": {
+        "ko": "가문 결단 축: 가문원 비중(‰)",
+        "en": "House decision: members share (‰)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "가문 결단 축: 가문원 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "House decision: members share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_house_cul_leader_pm",
+      "code": "",
+      "name": {
+        "ko": "가문 문화 축: 가문장 비중(‰)",
+        "en": "House culture: head share (‰)"
+      },
+      "value": 600,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "가문 문화 축: 가문장 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "House culture: head share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_house_cul_members_pm",
+      "code": "",
+      "name": {
+        "ko": "가문 문화 축: 가문원 비중(‰)",
+        "en": "House culture: members share (‰)"
+      },
+      "value": 400,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "가문 문화 축: 가문원 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "House culture: members share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_city_dec_mayor_pm",
+      "code": "",
+      "name": {
+        "ko": "도시 결단 축: 시장 비중(‰)",
+        "en": "City decision: mayor share (‰)"
+      },
+      "value": 650,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "도시 결단 축: 시장 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "City decision: mayor share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_city_dec_nation_pm",
+      "code": "",
+      "name": {
+        "ko": "도시 결단 축: 국가 비중(‰)",
+        "en": "City decision: nation share (‰)"
+      },
+      "value": 350,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "도시 결단 축: 국가 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "City decision: nation share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_city_cul_mayor_pm",
+      "code": "",
+      "name": {
+        "ko": "도시 문화 축: 시장 비중(‰)",
+        "en": "City culture: mayor share (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "도시 문화 축: 시장 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "City culture: mayor share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_city_cul_citizens_pm",
+      "code": "",
+      "name": {
+        "ko": "도시 문화 축: 시민 비중(‰)",
+        "en": "City culture: citizens share (‰)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "도시 문화 축: 시민 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "City culture: citizens share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_city_cul_nation_pm",
+      "code": "",
+      "name": {
+        "ko": "도시 문화 축: 국가 비중(‰)",
+        "en": "City culture: nation share (‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "도시 문화 축: 국가 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "City culture: nation share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_org_loyalty_floor",
+      "code": "",
+      "name": {
+        "ko": "조직 충성도 대장 비중 감쇠 시작점",
+        "en": "Org loyalty floor for leader weight decay"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100,
+      "desc": {
+        "ko": "조직 충성도 대장 비중 감쇠 시작점 — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Org loyalty floor for leader weight decay — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_org_loyalty_min_share_pm",
+      "code": "",
+      "name": {
+        "ko": "충성도 0일 때 남는 대장 비중 하한(‰)",
+        "en": "Min leader weight kept at 0 loyalty (‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "충성도 0일 때 남는 대장 비중 하한(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Min leader weight kept at 0 loyalty (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_loyalty_ov_100_pm",
+      "code": "",
+      "name": {
+        "ko": "충성도 100 개성 개입률(‰)",
+        "en": "Trait override at loyalty 100 (‰)"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "충성도 100 개성 개입률(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Trait override at loyalty 100 (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_loyalty_ov_80_pm",
+      "code": "",
+      "name": {
+        "ko": "충성도 80 개성 개입률(‰)",
+        "en": "Trait override at loyalty 80 (‰)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "충성도 80 개성 개입률(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Trait override at loyalty 80 (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_loyalty_ov_50_pm",
+      "code": "",
+      "name": {
+        "ko": "충성도 50 개성 개입률(‰)",
+        "en": "Trait override at loyalty 50 (‰)"
+      },
+      "value": 250,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "충성도 50 개성 개입률(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Trait override at loyalty 50 (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_loyalty_ov_20_pm",
+      "code": "",
+      "name": {
+        "ko": "충성도 20 개성 개입률(‰)",
+        "en": "Trait override at loyalty 20 (‰)"
+      },
+      "value": 600,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "충성도 20 개성 개입률(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Trait override at loyalty 20 (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_loyalty_ov_0_pm",
+      "code": "",
+      "name": {
+        "ko": "충성도 0 개성 개입률(‰)",
+        "en": "Trait override at loyalty 0 (‰)"
+      },
+      "value": 800,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "충성도 0 개성 개입률(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Trait override at loyalty 0 (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_loyalty_ov_min_pm",
+      "code": "",
+      "name": {
+        "ko": "개성 개입률 하한(‰)",
+        "en": "Trait override min floor (‰)"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "개성 개입률 하한(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Trait override min floor (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_loyalty_ov_max_pm",
+      "code": "",
+      "name": {
+        "ko": "개성 개입률 상한(‰)",
+        "en": "Trait override max cap (‰)"
+      },
+      "value": 800,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "개성 개입률 상한(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Trait override max cap (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_loyalty_autonomy_pm",
+      "code": "",
+      "name": {
+        "ko": "개입률 자치성(+) 보정 세기(‰)",
+        "en": "Override autonomy (+) weight (‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "개입률 자치성(+) 보정 세기(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Override autonomy (+) weight (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_loyalty_discipline_pm",
+      "code": "",
+      "name": {
+        "ko": "개입률 규율성(−) 보정 세기(‰)",
+        "en": "Override discipline (-) weight (‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "개입률 규율성(−) 보정 세기(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Override discipline (-) weight (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_loyalty_communalism_pm",
+      "code": "",
+      "name": {
+        "ko": "개입률 공동체(−) 보정 세기(‰)",
+        "en": "Override communalism (-) weight (‰)"
+      },
+      "value": 150,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "개입률 공동체(−) 보정 세기(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Override communalism (-) weight (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_creature_instinct_pm",
+      "code": "",
+      "name": {
+        "ko": "크리쳐 고정 야생 본능 개입률(‰)",
+        "en": "Creature wild instinct override (‰)"
+      },
+      "value": 350,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "크리쳐 고정 야생 본능 개입률(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Creature wild instinct override (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_commander_share_pm",
+      "code": "",
+      "name": {
+        "ko": "전투·조우 분대 지휘관 성향 비중(‰)",
+        "en": "Squad commander trait share (‰)"
+      },
+      "value": 400,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "전투·조우 분대 지휘관 성향 비중(‰) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Squad commander trait share (‰) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_decision_temp_pm",
+      "code": "",
+      "name": {
+        "ko": "전략 판단 탐색 온도(‰, 0=최고점 고정)",
+        "en": "Decision temperature (‰, 0=deterministic max)"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "전략 판단 탐색 온도(‰, 0=최고점 고정) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Decision temperature (‰, 0=deterministic max) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_unit_reeval_min_ms",
+      "code": "",
+      "name": {
+        "ko": "유닛 자율행동 재평가 주기 최소(ms)",
+        "en": "Unit AI re-eval min interval (ms)"
+      },
+      "value": 20000,
+      "structural": false,
+      "unit": "ms",
+      "min": 1000,
+      "max": 86400000,
+      "desc": {
+        "ko": "유닛 자율행동 재평가 주기 최소(ms) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Unit AI re-eval min interval (ms) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_unit_reeval_max_ms",
+      "code": "",
+      "name": {
+        "ko": "유닛 자율행동 재평가 주기 최대(ms)",
+        "en": "Unit AI re-eval max interval (ms)"
+      },
+      "value": 90000,
+      "structural": false,
+      "unit": "ms",
+      "min": 1000,
+      "max": 86400000,
+      "desc": {
+        "ko": "유닛 자율행동 재평가 주기 최대(ms) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Unit AI re-eval max interval (ms) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_unit_dwell_min_ms",
+      "code": "",
+      "name": {
+        "ko": "유닛 상태 최소 체류 시간 하한(ms)",
+        "en": "Unit state dwell min (ms)"
+      },
+      "value": 45000,
+      "structural": false,
+      "unit": "ms",
+      "min": 1000,
+      "max": 86400000,
+      "desc": {
+        "ko": "유닛 상태 최소 체류 시간 하한(ms) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Unit state dwell min (ms) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_unit_dwell_max_ms",
+      "code": "",
+      "name": {
+        "ko": "유닛 상태 최소 체류 시간 상한(ms)",
+        "en": "Unit state dwell max (ms)"
+      },
+      "value": 180000,
+      "structural": false,
+      "unit": "ms",
+      "min": 1000,
+      "max": 86400000,
+      "desc": {
+        "ko": "유닛 상태 최소 체류 시간 상한(ms) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Unit state dwell max (ms) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_guard_patrol_min_cells",
+      "code": "",
+      "name": {
+        "ko": "경비대 순찰 반경 최소(칸)",
+        "en": "Guard patrol radius min (cells)"
+      },
+      "value": 8,
+      "structural": false,
+      "unit": "cells",
+      "min": 0,
+      "max": 128,
+      "desc": {
+        "ko": "경비대 순찰 반경 최소(칸) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Guard patrol radius min (cells) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_guard_patrol_max_cells",
+      "code": "",
+      "name": {
+        "ko": "경비대 순찰 반경 최대(칸)",
+        "en": "Guard patrol radius max (cells)"
+      },
+      "value": 36,
+      "structural": false,
+      "unit": "cells",
+      "min": 0,
+      "max": 128,
+      "desc": {
+        "ko": "경비대 순찰 반경 최대(칸) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Guard patrol radius max (cells) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_leader_roam_cells",
+      "code": "",
+      "name": {
+        "ko": "지도자 수도 순회 반경(칸, 0=고정)",
+        "en": "Leader capital roam radius (cells, 0=fixed)"
+      },
+      "value": 18,
+      "structural": false,
+      "unit": "cells",
+      "min": 0,
+      "max": 128,
+      "desc": {
+        "ko": "지도자 수도 순회 반경(칸, 0=고정) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Leader capital roam radius (cells, 0=fixed) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_house_decide_min_ms",
+      "code": "",
+      "name": {
+        "ko": "NPC 가문 AI 판단 주기 최소(ms)",
+        "en": "NPC house AI decision min interval (ms)"
+      },
+      "value": 14400000,
+      "structural": false,
+      "unit": "ms",
+      "min": 1000,
+      "max": 86400000,
+      "desc": {
+        "ko": "NPC 가문 AI 판단 주기 최소(ms) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "NPC house AI decision min interval (ms) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_house_decide_max_ms",
+      "code": "",
+      "name": {
+        "ko": "NPC 가문 AI 판단 주기 최대(ms)",
+        "en": "NPC house AI decision max interval (ms)"
+      },
+      "value": 28800000,
+      "structural": false,
+      "unit": "ms",
+      "min": 1000,
+      "max": 86400000,
+      "desc": {
+        "ko": "NPC 가문 AI 판단 주기 최대(ms) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "NPC house AI decision max interval (ms) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_unit_enabled",
+      "code": "",
+      "name": {
+        "ko": "유닛 개별 자율행동 AI 스위치(0=끔, 1=켬)",
+        "en": "Unit autonomous AI switch (0=off, 1=on)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1,
+      "desc": {
+        "ko": "유닛 개별 자율행동 AI 스위치(0=끔, 1=켬) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "Unit autonomous AI switch (0=off, 1=on) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
+    },
+    {
+      "id": "npc_ai_house_enabled",
+      "code": "",
+      "name": {
+        "ko": "NPC 가문 AI 스위치(0=끔, 1=켬)",
+        "en": "NPC house AI switch (0=off, 1=on)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1,
+      "desc": {
+        "ko": "NPC 가문 AI 스위치(0=끔, 1=켬) — NPC 자율행동·7축 성향 에디터(/dev/npc-ai)에서 실시간 조절한다.",
+        "en": "NPC house AI switch (0=off, 1=on) — live-tunable in the NPC AI & Traits editor (/dev/npc-ai)."
+      },
+      "source": "ADR 2026-11-20-npc-autonomous-ai"
     }
   ]
 }

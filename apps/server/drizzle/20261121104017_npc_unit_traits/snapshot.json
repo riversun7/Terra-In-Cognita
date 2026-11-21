@@ -1,0 +1,139 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "1efb9fa9-ed6e-4dd2-b3e2-61b06f155345",
+  "prevIds": [
+    "13002149-32f1-42b0-b099-24026612317f"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_units",
+        "traits"
+      ],
+      "writes": [
+        "s|col|public.world_units.traits",
+        "n|col|public.world_units.traits",
+        "e|col|public.world_units.traits"
+      ],
+      "reads": [
+        "n|tbl|public.world_units",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "npc_houses",
+        "traits_override"
+      ],
+      "writes": [
+        "s|col|public.npc_houses.traits_override",
+        "n|col|public.npc_houses.traits_override",
+        "e|col|public.npc_houses.traits_override"
+      ],
+      "reads": [
+        "n|tbl|public.npc_houses",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_units"
+      ],
+      "writes": [
+        "s|ck|public.world_units.world_units_traits",
+        "n|ck|public.world_units.world_units_traits",
+        "e|ck|public.world_units.world_units_traits",
+        "n|con|public.world_units.world_units_traits"
+      ],
+      "reads": [
+        "n|tbl|public.world_units",
+        "n|sch|public",
+        "n|col|public.world_units.traits"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "npc_houses"
+      ],
+      "writes": [
+        "s|ck|public.npc_houses.npc_houses_traits_override",
+        "n|ck|public.npc_houses.npc_houses_traits_override",
+        "e|ck|public.npc_houses.npc_houses_traits_override",
+        "n|con|public.npc_houses.npc_houses_traits_override"
+      ],
+      "reads": [
+        "n|tbl|public.npc_houses",
+        "n|sch|public",
+        "n|col|public.npc_houses.traits_override"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "traits",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 1,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "npc_houses",
+        "name": "traits_override",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 1,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "world_units_traits",
+        "value": "\"traits\" is null or (cardinality(\"traits\") = 7 and 0 <= all(\"traits\") and 1000 >= all(\"traits\"))",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "npc_houses",
+        "name": "npc_houses_traits_override",
+        "value": "\"traits_override\" is null or (cardinality(\"traits_override\") = 7 and 0 <= all(\"traits_override\") and 1000 >= all(\"traits_override\"))",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

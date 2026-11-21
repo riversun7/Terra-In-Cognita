@@ -2,7 +2,19 @@
 // schema.ts가 1,000줄 상한에 닿아 나눴다.
 // 바꾼 뒤 `pnpm --filter @terra/server db:generate`로 마이그레이션을 만든다(schema.ts와 같은 규칙).
 import { sql } from "drizzle-orm";
-import { boolean, check, index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  boolean,
+  check,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  smallint,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { users } from "./schema.ts";
 
 /**
@@ -93,5 +105,48 @@ export const battleReports = pgTable(
     check("battle_reports_note_length", sql`char_length(${table.note}) <= 400`),
     check("battle_reports_runs_positive", sql`${table.runs} >= 1`),
     index("battle_reports_created_idx").on(table.createdAt),
+  ],
+);
+
+/** 세계 설정 칸 덮어쓰기(docs/adr/2026-11-01-dev-settings-panel.md) */
+export const tuningOverrides = pgTable(
+  "tuning_overrides",
+  {
+    /** 칸 ID(팩 tuning 항목 ID) 또는 가중치 표 칸 키 `<stat_rows 행 ID>.<칸>`(밸런스 화면, docs/adr/2026-11-01-balance-screen.md 1절) */
+    id: text("id").primaryKey(),
+    value: bigint("value", { mode: "number" }).notNull(),
+    /** 저장할 때의 팩 값·팩 판(core@N). 지금 팩 값과 다르면 화면이 "팩 값이 바뀜"을 보인다 */
+    packValue: bigint("pack_value", { mode: "number" }).notNull(),
+    /** 저장할 때의 단위(@terra/shared TUNING_UNITS, 모르면 null). 새 팩에서 단위가 바뀌면 켤 때 지운다 */
+    unit: text("unit"),
+    contentVersion: text("content_version").notNull(),
+    /** 메모(0~200 코드 포인트, @terra/shared TUNING_NOTE_MAX) */
+    note: text("note"),
+    updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check(
+      "tuning_overrides_id_format",
+      sql`${table.id} ~ '^[a-z][a-z0-9_]{1,47}(\\.(str|dex|agi|vit|int|wis|base|cap|half))?$'`,
+    ),
+    check("tuning_overrides_note_length", sql`${table.note} is null or char_length(${table.note}) <= 200`),
+  ],
+);
+
+/**
+ * 세계 설정 판 — 줄 하나(id = 1). 덮어쓰기를 바꾸는 트랜잭션마다 revision = revision + 1 where revision = 기대 판(두 관리자가 동시에
+ * 바꾸면 늦은 쪽이 충돌, docs/adr/2026-11-01-dev-settings-panel.md 4·8절). 줄은 서버가 켤 때 없으면 만든다
+ */
+export const tuningRevision = pgTable(
+  "tuning_revision",
+  {
+    id: smallint("id").primaryKey(),
+    revision: bigint("revision", { mode: "number" }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("tuning_revision_single", sql`${table.id} = 1`),
+    check("tuning_revision_nonnegative", sql`${table.revision} >= 0`),
   ],
 );

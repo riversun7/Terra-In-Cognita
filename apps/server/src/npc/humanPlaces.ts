@@ -21,7 +21,9 @@
 // 남는 일은 운반꾼 모습 없이 같은 시각에 닿는다).
 import { isCellKey } from "@terra/planet";
 import { cellCenter } from "@terra/planet/projection";
+import type { UnitTraits } from "@terra/shared/unitTraits";
 import { type BuildingPlacement, footprintRect } from "@terra/sim";
+import { type NpcAiCoefficients, guardPatrolRadiusCells } from "@terra/sim/npcAi";
 import {
   type BotHome,
   DEFAULT_WORK_SHIFT,
@@ -116,6 +118,14 @@ export function assignHumanPlaces(input: {
   readonly trips?: readonly CityTrip[] | undefined;
   /** 운반꾼을 정했다(열쇠, 유닛) — 화물 싣기(npcCarry.ts load) */
   readonly onCarrier?: ((key: string, unitId: number) => void) | undefined;
+  /** 유닛 7축 성향(있고 ai.unitAiEnabled=1이면 8상태 FSM·경비대 순찰 반경 적용, ADR 2026-11-20) */
+  readonly traitsOf?: ((unitId: number) => UnitTraits | undefined) | undefined;
+  /** 도시 시장·상업 구역 네모(consume 상태 목적지) */
+  readonly market?: TripArea | undefined;
+  /** 소속 도시가 전쟁 중인지 */
+  readonly cityAtWar?: boolean | undefined;
+  /** NPC 자율행동 AI 계수(unitAiEnabled·순찰 반경·체류·재평가 구간) */
+  readonly ai?: NpcAiCoefficients | undefined;
 }): Map<number, BotHome> {
   const shift = input.shift ?? DEFAULT_WORK_SHIFT;
   const out = new Map<number, BotHome>();
@@ -196,7 +206,31 @@ export function assignHumanPlaces(input: {
     });
     input.onCarrier?.(trip.key, unitId);
   }
-  for (const unitId of input.guards ?? []) out.set(unitId, { x: input.home.x, y: input.home.y });
+  const aiEnabled = input.ai?.unitAiEnabled === 1;
+  const withAi = (unitId: number, role: "citizen" | "worker" | "guard", base: BotHome): BotHome => {
+    if (!aiEnabled || !input.ai) return base;
+    const traits = input.traitsOf?.(unitId);
+    if (!traits) return base;
+    const patrolRadius = role === "guard" ? guardPatrolRadiusCells(traits, input.ai) : base.homeRadius;
+    return {
+      ...base,
+      ...(patrolRadius !== undefined ? { homeRadius: patrolRadius } : {}),
+      role,
+      traits,
+      aiEnabled: true,
+      ...(input.market ? { market: input.market } : {}),
+      ...(input.cityAtWar ? { cityAtWar: true } : {}),
+      aiRules: input.ai,
+    };
+  };
+  for (const unitId of input.guards ?? [])
+    out.set(unitId, withAi(unitId, "guard", { x: input.home.x, y: input.home.y }));
+  if (aiEnabled && input.ai && input.traitsOf) {
+    for (const [unitId, home] of out) {
+      if (home.role === "guard") continue;
+      out.set(unitId, withAi(unitId, home.work ? "worker" : "citizen", home));
+    }
+  }
   return out;
 }
 
@@ -244,6 +278,14 @@ export interface HumanPlacesInput {
   readonly restCycle?: ((worker: WorkerRest) => RestCycle | undefined) | undefined;
   /** NPC 운반꾼 화물(기획 대조 2052·2088, npcCarry.ts)과 지금 시각. 없으면 운반꾼을 알리지 않는다(모습만) */
   readonly carry?: { readonly board: Pick<CarryBoard, "load" | "idle">; readonly nowMs: number } | undefined;
+  /** 유닛 7축 성향 조회(ADR 2026-11-20) */
+  readonly traitsOf?: ((unitId: number) => UnitTraits | undefined) | undefined;
+  /** 도시 시장·상업 구역 건물 ID 조회 */
+  readonly marketOf?: ((cityId: number) => number | undefined) | undefined;
+  /** 도시 전쟁 여부 조회 */
+  readonly atWarOf?: ((cityId: number) => boolean) | undefined;
+  /** NPC 자율행동 AI 계수 */
+  readonly ai?: NpcAiCoefficients | undefined;
 }
 
 /** 운반꾼을 정하면 화물을 싣는다(이미 실었거나 끝난 일은 운반 일이 무시한다) */
@@ -325,6 +367,15 @@ export function createHumanPlaces(): { sync(input: HumanPlacesInput): number } {
           ...(watched && carry
             ? { trips: carry.board.idle(cityId, carry.nowMs), onCarrier: loadOf(carry) }
             : {}),
+          traitsOf: input.traitsOf,
+          market: (() => {
+            const marketBuildingId = input.marketOf?.(cityId);
+            return marketBuildingId === undefined
+              ? undefined
+              : areasOf(place.mapKey, map).get(marketBuildingId);
+          })(),
+          cityAtWar: input.atWarOf?.(cityId),
+          ai: input.ai,
         });
         for (const [unitId, home] of homes) {
           seen.add(unitId);

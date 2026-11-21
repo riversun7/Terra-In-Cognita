@@ -1,6 +1,7 @@
 // 나라 의결 메시지(프로토콜 56 — 줄기 판 94, docs/adr/2026-11-21-governance.md) 스키마 시험 — 왕복, 값 모양, 결과 코드
 import { describe, expect, it } from "vitest";
 import {
+  COUP_PROTOCOL_VERSION,
   GOVERNANCE_PROTOCOL_VERSION,
   GOVERNANCE_RESULT_CODES,
   PROTOCOL_VERSION,
@@ -52,6 +53,28 @@ describe("나라 의결 메시지", () => {
     const candidate = { t: "gov_candidate", id: 4, agendaId: 9 } as const;
     expect(decodeClientMessage(encodeMessage(candidate))).toEqual(candidate);
     expect(decodes(decodeClientMessage, { ...candidate, agendaId: 0 })).toBe(false);
+  });
+
+  it("쿠데타·국고 지분 팔기(줄기 governance-3 판 98 — 질문 2433·2438 답 D-583)", () => {
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(COUP_PROTOCOL_VERSION);
+    const coup = { t: "gov_coup", id: 5 } as const;
+    expect(decodeClientMessage(encodeMessage(coup))).toEqual(coup);
+    const join = { t: "gov_coup_join", id: 6, coupId: 3, side: "government" } as const;
+    expect(decodeClientMessage(encodeMessage(join))).toEqual(join);
+    expect(decodes(decodeClientMessage, { ...join, side: "neutral" })).toBe(false);
+    const sale = {
+      t: "gov_propose",
+      id: 7,
+      kind: "treasury_share_sale",
+      cityId: 4,
+      shares: "100",
+      minPrice: "0",
+    } as const;
+    expect(decodeClientMessage(encodeMessage(sale))).toEqual(sale);
+    expect(decodes(decodeClientMessage, { ...sale, shares: "0" })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...sale, minPrice: "-1" })).toBe(false);
+    const started = { t: "gov_result", id: 5, ok: true, agendaId: 3, action: "coup_started" } as const;
+    expect(decodeServerMessage(encodeMessage(started))).toEqual(started);
   });
 
   it("결과: 성공(한 일)·실패 코드", () => {

@@ -7,6 +7,9 @@ import {
   investCostPenalty,
   investCostSharePm,
   investGate,
+  investPays,
+  investReturnPenalty,
+  investReturnPm,
   investTemperPm,
   investTemperedChallengePm,
 } from "./invest.ts";
@@ -82,5 +85,50 @@ describe("투자 판단 넓히기(npc-invest-2, 질문 2508)", () => {
     expect(investGate(10n ** 9n, 1n, true, 999, 1000, c)).toBe(true);
     expect(investGate(1000n, 3000n, false, 199, 1000, c)).toBe(true);
     expect(investGate(1000n, 3000n, false, 200, 1000, c)).toBe(false);
+  });
+});
+
+describe("기대 수익·유지비(npc-fix-3, 질문 2566 나 + 다)", () => {
+  const days = c.investPaybackDays ?? 30;
+  it("기대 수익 몫 = ((하루 값 − 유지비) × 회수 기간 − 값) ÷ 값, −1000~1000에서 자른다", () => {
+    // 하루 남는 몫 10 × 30일 = 300, 값 200 → (300 − 200) ÷ 200 = 500‰
+    expect(investReturnPm(200n, { dailyValue: 15n, dailyUpkeep: 5n }, c)).toBe(
+      Math.trunc(((10 * days - 200) * 1000) / 200),
+    );
+    expect(investReturnPm(1n, { dailyValue: 15n, dailyUpkeep: 5n }, c)).toBe(1000);
+    expect(investReturnPm(200n, { dailyValue: 0n, dailyUpkeep: 50n }, c)).toBe(-1000);
+    // 값이 0이면 하루 남는 몫의 부호
+    expect(investReturnPm(0n, { dailyValue: 2n, dailyUpkeep: 1n }, c)).toBe(1000);
+    expect(investReturnPm(0n, { dailyValue: 1n, dailyUpkeep: 1n }, c)).toBe(0);
+    // 견줄 값(basis)이 있으면 그것으로 나눈다
+    expect(investReturnPm(10n ** 9n, { dailyValue: 10n, dailyUpkeep: 0n, basis: 150n }, c)).toBe(
+      Math.trunc(((10 * days - 150) * 1000) / 150),
+    );
+  });
+
+  it("점수 감점은 몫이 0 아래일 때만(가중치 ‰), 0 위는 0", () => {
+    expect(investReturnPenalty(200n, { dailyValue: 15n, dailyUpkeep: 5n }, c)).toBe(0);
+    expect(investReturnPenalty(200n, { dailyValue: 0n, dailyUpkeep: 50n }, c)).toBe(
+      c.investReturnWeightPm ?? 300,
+    );
+  });
+
+  it("경제 이득: 하루 값 > 유지비이고 몫 ≥ 문턱", () => {
+    expect(investPays(200n, { dailyValue: 15n, dailyUpkeep: 5n }, c)).toBe(true);
+    expect(investPays(200n, { dailyValue: 5n, dailyUpkeep: 5n }, c)).toBe(false);
+    // 하루 1 남지만 30일에 값 1000을 못 돌려받는다(문턱 0)
+    expect(investPays(1000n, { dailyValue: 6n, dailyUpkeep: 5n }, c)).toBe(false);
+    expect(investPays(1000n, { dailyValue: 6n, dailyUpkeep: 5n }, { ...c, investReturnMinPm: -1000 })).toBe(
+      true,
+    );
+  });
+
+  it("투자 문: 수요가 있으면 기대 수익을 보지 않고, 없으면 경제 이득이 있어야 굴림까지 간다", () => {
+    const loss = { dailyValue: 1n, dailyUpkeep: 5n };
+    const gain = { dailyValue: 500n, dailyUpkeep: 5n };
+    expect(investGate(1000n, 3000n, true, 999, 1000, c, loss)).toBe(true);
+    expect(investGate(1000n, 3000n, false, 0, 1000, c, loss)).toBe(false);
+    expect(investGate(1000n, 3000n, false, 199, 1000, c, gain)).toBe(true);
+    expect(investGate(1000n, 3000n, false, 200, 1000, c, gain)).toBe(false);
   });
 });

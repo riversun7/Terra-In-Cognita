@@ -23,8 +23,10 @@
 // 비용 몫을 점수에서 빼고(npc/invest.ts investCostPenalty), 수요 없이 앞서 가는 후보(이미 하나 있는 채집 시설을 더 짓기 — 배후지 몫이 기대 수익일
 // 뿐 지금 모자란 것이 아니다)는 도전 굴림(investGate — 성향 배율 = 상업 성향)을 넘을 때만 둔다. 주거·식량·나라 목표·첫 채집 시설은 수요라 굴리지
 // 않는다. 레벨 올리기의 문은 부르는 쪽(simulator/npcBuild.ts — upgradeDemand)이 같은 함수로 연다
+// 바뀜 (npc-fix-3, 질문 2566 나 + 다 — D-587 8 "재료나 소모비용, 기대 수익"): rules.invest.returnOf가 있으면 후보마다 하루 기대 산출 값·유지비(일꾼 임금)로
+// 기대 수익 몫(npc/invest.ts investReturnPm)을 셈해 0 아래면 점수에서 빼고(investReturnPenalty), 수요 없는 후보는 경제 이득(하루 값 > 유지비, 몫 ≥ 문턱)이 있을 때만 도전 굴림까지 간다
 import type { NpcCoefficients } from "./coefficients.ts";
-import { investCostPenalty, investGate } from "./invest.ts";
+import { type InvestReturn, investCostPenalty, investGate, investReturnPenalty } from "./invest.ts";
 import type { Traits } from "./traits.ts";
 
 /** 숙소 시설 ID(팩 content/core/facilities.json, 생활 단계) */
@@ -90,6 +92,11 @@ export interface BuildInvest {
   readonly roll: number;
   /** 성향 배율(‰ — investTemperPm(상업 성향)) */
   readonly temperPm: number;
+  /**
+   * 레벨 1 시설의 하루 기대 수익 입력(npc-fix-3, 질문 2566 — simulator/npcReturn.ts facilityReturn: 일꾼 자리만큼의 산출 값 − 먹는 재료, 일꾼 임금).
+   * 산출이 없는 시설(숙소)이면 undefined. 없으면 옛 판(기대 수익을 보지 않는다)
+   */
+  returnOf?(facility: string): InvestReturn | undefined;
 }
 
 /** 붐빔 숙소 점수를 성향으로 내리는 끝(농장 600·채집보다 위, 나라 목표 650 + 10 × 모자란 수와 다툰다) */
@@ -202,8 +209,11 @@ export function chooseCityBuild(
     const invest = rules.invest;
     if (invest) {
       const cost = invest.costOf(option.facility);
-      if (!investGate(cost, invest.capital, scored.demand, invest.roll, invest.temperPm, c)) continue;
+      const ret = invest.returnOf?.(option.facility);
+      if (!investGate(cost, invest.capital, scored.demand, invest.roll, invest.temperPm, c, ret)) continue;
       score -= investCostPenalty(cost, invest.capital, c);
+      // 기대 수익(npc-fix-3, 질문 2566 나): 회수 기간 안에 값을 못 돌려받는 시설(유지비·먹는 재료가 산출보다 큼 등)은 그만큼 점수가 내려간다
+      if (ret) score -= investReturnPenalty(cost, ret, c);
     }
     if (!best || score > best.score) best = { facility: option.facility, score };
   }

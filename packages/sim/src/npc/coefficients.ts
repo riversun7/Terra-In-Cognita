@@ -38,6 +38,13 @@ export interface NpcCoefficients {
   readonly investCostWeightPm: number;
   readonly investChallengeStepPm: number;
   readonly investChallengeMaxPm: number;
+  /**
+   * 기대 수익·유지비(npc/invest.ts investReturnPm — 질문 2566 나 + 다, npc-fix-3 [임시] 출발값): 회수 기간(일), 기대 수익 몫 점수 가중치(‰), 수요 없는
+   * 투자가 도전 굴림까지 가는 기대 수익 몫 문턱(‰, −1000~1000). 없으면 30·300·−1000
+   */
+  readonly investPaybackDays?: number | undefined;
+  readonly investReturnWeightPm?: number | undefined;
+  readonly investReturnMinPm?: number | undefined;
   /** 지분 팔기 기본 점수(국고가 모자랄 때만) */
   readonly shareSaleScore: number;
   /** 지분을 판 뒤에도 쥐고 있을 몫(‰) = 이 값 − 상업 성향 ÷ 10(독립 투표로 도시를 잃지 않게, D-300) */
@@ -195,6 +202,9 @@ export const TEST_NPC_COEFFICIENTS: NpcCoefficients = {
   investCostWeightPm: 400,
   investChallengeStepPm: 100,
   investChallengeMaxPm: 900,
+  investPaybackDays: 30,
+  investReturnWeightPm: 300,
+  investReturnMinPm: 0,
   shareSaleScore: 200,
   shareKeepPm: 600,
   peaceWearyScore: 400,

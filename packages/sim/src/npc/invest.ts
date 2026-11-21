@@ -80,15 +80,77 @@ export function investTemperedChallengePm(
   return Math.min(max, Math.floor((base * Math.max(0, Math.trunc(temperPm))) / 1000));
 }
 
-/** 투자 문: 수요가 있으면 열리고, 없으면 성향을 곱한 도전 굴림(0 이상 정수의 1000 나머지)이 확률보다 작을 때만 열린다 */
+// 바뀜 (npc-fix-3, 질문 2566 나 + 다 — D-587 8 "재료나 소모비용, 기대 수익. 수요 등 경제적 이점이 있을때"): 기대 수익과 유지비(소모 비용)를 값으로 셈해
+// 판단에 넣는다. 셈 꼴은 기술이 정한 것이다([임시] 출발값 — 칸 셋은 설정 칸):
+// - 기대 수익 몫(‰, −1000~1000) = ((하루 기대 산출 값 − 하루 유지비) × 회수 기간(일, npc_invest_payback_days) − 값) ÷ 값. 0 이상 = 회수 기간 안에 값을
+//   돌려받는다. 하루 산출 값·유지비는 부르는 쪽이 셈한다(시설 = 일꾼 자리만큼의 레시피 산출 − 먹는 재료를 그 도시 지난 값으로, 유지비 = 일꾼 하루 임금 —
+//   simulator/npcReturn.ts. 일꾼 구인 카드 = 그 카드 효율의 하루 임금 시세(D-431 임금 = 효율 × 단가)를 산출 값 대신, 유지비 = NPC 일꾼 하루 임금).
+// - 점수: 기대 수익 몫이 0 아래(회수 기간 안에 못 돌려받음)면 그 몫 × npc_invest_return_weight_pm ÷ 1000을 뺀다(짓기 후보 — 비용 몫 감점과 함께, 0 위는 더하지
+//   않는다 — investReturnPenalty).
+// - 문: 수요 없는 앞선 투자는 경제 이득이 있을 때만(하루 값 > 하루 유지비이고 기대 수익 몫 ≥ npc_invest_return_min_pm) 도전 굴림까지 간다. 수요가 있는
+//   투자(주거·식량·나라 목표 등)와 군사(경비대 카드 — "도시·국가는 군사력 증대를 위해 투자", 값으로 셈하는 산출이 없다)는 이 문을 거치지 않는다.
+
+type ReturnCoefficients = Pick<
+  NpcCoefficients,
+  "investPaybackDays" | "investReturnWeightPm" | "investReturnMinPm"
+>;
+
+/** 투자 하나의 기대 수익 입력(최소 단위, 하루) */
+export interface InvestReturn {
+  /** 하루 기대 산출 값(먹는 재료 값을 뺀 것 — 0 아래일 수 있다) */
+  readonly dailyValue: bigint;
+  /** 하루 유지비(일꾼 임금 등) */
+  readonly dailyUpkeep: bigint;
+  /** 기대 수익 몫을 견줄 값(없으면 투자 값). 더 좋은 구인 카드처럼 덧붙는 몫만 볼 때 그 값 차이 */
+  readonly basis?: bigint | undefined;
+}
+
+/** 회수 기간(일, 1 이상). 칸이 없으면 30 */
+const paybackDays = (c: Partial<ReturnCoefficients>): bigint =>
+  BigInt(Math.max(1, Math.trunc(c.investPaybackDays ?? 30)));
+
+/** 기대 수익 몫(‰, −1000~1000): ((하루 값 − 하루 유지비) × 회수 기간 − 값) ÷ 값(값 = r.basis가 있으면 그것). 값이 0 이하면 하루 남는 몫의 부호(±1000, 0) */
+export function investReturnPm(cost: bigint, r: InvestReturn, c: Partial<ReturnCoefficients>): number {
+  const net = r.dailyValue - r.dailyUpkeep;
+  const basis = r.basis ?? cost;
+  if (basis <= 0n) return net > 0n ? 1000 : net < 0n ? -1000 : 0;
+  const gain = net * paybackDays(c) - basis;
+  const pm = (gain * 1000n) / basis;
+  return pm > 1000n ? 1000 : pm < -1000n ? -1000 : Number(pm);
+}
+
+/**
+ * 점수에서 뺄 기대 수익 몫: 기대 수익 몫이 0 아래(회수 기간 안에 값을 못 돌려받음)면 그 몫 × 가중치 ÷ 1000(0 쪽으로 자름), 아니면 0. 칸이 없으면 가중치 300.
+ * 0 위는 더하지 않는다 — 짓기 점수(주거·식량·나라 목표·배후지)는 이미 "필요하면 짓는다"는 몫이고 숙소처럼 산출이 없는 후보와 견주므로, 돈을 버는
+ * 시설에 같은 몫을 얹으면 차례가 산출 시설 쪽으로 쏠린다(시뮬 30일: 모두 +1000 몫 → 새 건물 −2~−12%, 휴먼 −8~−24%. 작업 기록)
+ */
+export function investReturnPenalty(cost: bigint, r: InvestReturn, c: Partial<ReturnCoefficients>): number {
+  const pm = investReturnPm(cost, r, c);
+  if (pm >= 0) return 0;
+  const weight = Math.max(0, Math.trunc(c.investReturnWeightPm ?? 300));
+  return Math.trunc((-pm * weight) / 1000);
+}
+
+/** 경제 이득이 있나: 하루 값 > 하루 유지비이고 기대 수익 몫 ≥ 문턱(칸이 없으면 −1000 = 하루 남는 몫만 본다) */
+export function investPays(cost: bigint, r: InvestReturn, c: Partial<ReturnCoefficients>): boolean {
+  if (r.dailyValue <= r.dailyUpkeep) return false;
+  return investReturnPm(cost, r, c) >= Math.trunc(c.investReturnMinPm ?? -1000);
+}
+
+/**
+ * 투자 문: 수요가 있으면 열리고, 없으면 성향을 곱한 도전 굴림(0 이상 정수의 1000 나머지)이 확률보다 작을 때만 열린다.
+ * ret(npc-fix-3)이 있으면 수요 없는 투자는 경제 이득(investPays)이 있을 때만 굴린다. 없으면(값으로 셈하는 산출이 없는 투자) 옛 판처럼 굴림만
+ */
 export function investGate(
   cost: bigint,
   capital: bigint,
   demand: boolean,
   roll: number,
   temperPm: number,
-  c: InvestCoefficients,
+  c: InvestCoefficients & Partial<ReturnCoefficients>,
+  ret?: InvestReturn,
 ): boolean {
   if (demand) return true;
+  if (ret !== undefined && !investPays(cost, ret, c)) return false;
   return Math.abs(Math.trunc(roll)) % 1000 < investTemperedChallengePm(cost, capital, temperPm, c);
 }

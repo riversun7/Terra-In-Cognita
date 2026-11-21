@@ -4143,6 +4143,60 @@
       "source": "ADR 2026-11-21-npc-needs-drives · 질문 2465(D-587) [임시]"
     },
     {
+      "id": "npc_invest_payback_days",
+      "code": "",
+      "name": {
+        "ko": "NPC 투자 회수 기간(일)",
+        "en": "NPC investment payback horizon (days)"
+      },
+      "value": 30,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 3650,
+      "desc": {
+        "ko": "기대 수익 몫 = ((하루 기대 산출 값 − 하루 유지비) × 이 날 수 − 값) ÷ 값. 산출 값은 시설 일꾼 자리만큼의 레시피 산출 − 먹는 재료(그 도시 지난 값), 유지비는 일꾼 하루 임금이다. 더 좋은 일꾼 구인 카드는 늘어나는 효율의 임금 시세 대 늘어나는 값.",
+        "en": "Expected return share = ((daily expected output value − daily upkeep) × this many days − cost) ÷ cost. Output value is the recipe output of the facility's worker slots minus consumed inputs (city last prices); upkeep is the workers' daily wage. A better worker recruit card compares the extra efficiency's wage value with its extra cost."
+      },
+      "source": "ADR 2026-11-21-npc-needs-drives · 질문 2566(D-587 8) [임시]"
+    },
+    {
+      "id": "npc_invest_return_weight_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 투자 기대 수익 감점 가중치(‰)",
+        "en": "NPC investment return shortfall weight (‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "기대 수익 몫이 0 아래(회수 기간 안에 값을 못 돌려받음)인 짓기 후보의 점수에서 (−몫) × 이 값 ÷ 1000을 뺀다. 0 위는 더하지 않는다.",
+        "en": "A build candidate whose expected return share is below 0 (does not pay back within the horizon) loses (−share) × this ÷ 1000 points. Positive shares add nothing."
+      },
+      "source": "ADR 2026-11-21-npc-needs-drives · 질문 2566(D-587 8) [임시]"
+    },
+    {
+      "id": "npc_invest_return_min_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 앞선 투자의 기대 수익 문턱(‰)",
+        "en": "NPC ahead-of-need investment return threshold (‰)"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "pm",
+      "min": -1000,
+      "max": 1000,
+      "desc": {
+        "ko": "수요 없는 앞선 투자(같은 채집 시설 더 짓기, 처음 다다르는 레벨 올리기, 더 좋은 일꾼 카드)는 하루 산출 값이 유지비보다 크고 기대 수익 몫이 이 값 이상일 때만 도전 굴림을 한다. 0 = 회수 기간 안에 값을 돌려받아야 한다. 경비대 카드(군사)·수요 있는 투자는 보지 않는다.",
+        "en": "Ahead-of-need investments (another of the same gathering facility, a first-reached level, a better worker card) roll the challenge only when daily output value exceeds upkeep and the expected return share is at least this. 0 = must pay back within the horizon. Guard cards (military) and needed investments skip this."
+      },
+      "source": "ADR 2026-11-21-npc-needs-drives · 질문 2566(D-587 8) [임시]"
+    },
+    {
       "id": "npc_share_sale_score",
       "code": "",
       "name": {

@@ -4,7 +4,7 @@
 import type { Regime } from "../society/shares.ts";
 import type { WarCoefficients, WarOutcome } from "../society/warOutcomes.ts";
 import type { NpcCoefficients } from "./coefficients.ts";
-import { investGate } from "./invest.ts";
+import { type InvestReturn, investGate } from "./invest.ts";
 import type { Traits } from "./traits.ts";
 
 /**
@@ -138,6 +138,8 @@ export interface RecruitPick {
  * 카드 한 장마다 살 수 있는 카드 가운데 가장 싼 값의 카드와, 그보다 비싼 카드 가운데 도전 굴림(npc/invest.ts investGate — 값 ÷ 국고, 성향 배율:
  * 경비대 = 공격 성향, 일꾼 = 상업 성향)을 넘는 카드만 후보로 두고 그 가운데 토탈이 가장 높은 카드를 산다. 굴림 하나로 정하므로 값이 높을수록(확률이
  * 낮을수록) 먼저 빠진다. 수(경비대·주거 목표)는 그대로다 — 무엇을 살지만 바뀐다. invest가 없으면 옛 판(좋은 카드부터)
+ * 바뀜 (npc-fix-3, 질문 2566 나 — D-587 8 "기대 수익·소모 비용"): 더 비싼 일꾼 카드는 가장 싼 카드 대신 살 때 늘어나는 효율의 하루 임금 시세가 늘어나는
+ * 값을 회수 기간 안에 돌려받을 때(npc/invest.ts investPays — simulator/npcReturn.ts workerCardReturn)만 도전 굴림까지 간다. 경비대(군사)는 그대로
  */
 export function recruitPicks(
   input: {
@@ -157,7 +159,21 @@ export function recruitPicks(
     readonly growthBlocked?: boolean | undefined;
     /** 투자 판단(위 바뀜): 도전 굴림(0 이상 정수)과 성향 배율(‰ — npc/invest.ts investTemperPm). 없으면 옛 판 */
     readonly invest?:
-      | { readonly roll: number; readonly guardTemperPm: number; readonly workerTemperPm: number }
+      | {
+          readonly roll: number;
+          readonly guardTemperPm: number;
+          readonly workerTemperPm: number;
+          /**
+           * 일꾼 카드의 하루 기대 수익 입력(npc-fix-3, 질문 2566 — simulator/npcReturn.ts workerCardReturn). 있으면 가장 싼 카드보다 비싼 일꾼 카드는 경제
+           * 이득이 있을 때만 도전 굴림까지 간다. 경비대 카드는 군사 투자라 보지 않는다. 없으면 옛 판
+           */
+          readonly workerReturnOf?:
+            | ((
+                card: { readonly total: number; readonly cost: bigint },
+                base: { readonly total: number; readonly cost: bigint },
+              ) => InvestReturn)
+            | undefined;
+        }
       | undefined;
   },
   c: NpcCoefficients,
@@ -177,8 +193,9 @@ export function recruitPicks(
     const affordable = open.filter(
       (card) => left * 1000n >= card.cost * BigInt(c.recruitReservePm) && left >= card.cost,
     );
-    let cheapest: bigint | undefined;
-    for (const card of affordable) if (cheapest === undefined || card.cost < cheapest) cheapest = card.cost;
+    let base: (typeof affordable)[number] | undefined;
+    for (const card of affordable) if (base === undefined || card.cost < base.cost) base = card;
+    const cheapest = base?.cost;
     const card = invest
       ? affordable.find(
           (entry) =>
@@ -190,6 +207,7 @@ export function recruitPicks(
               invest.roll,
               guard ? invest.guardTemperPm : invest.workerTemperPm,
               c,
+              guard || base === undefined ? undefined : invest.workerReturnOf?.(entry, base),
             ),
         )
       : affordable[0];

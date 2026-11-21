@@ -46,9 +46,9 @@ export function wageWalletOf(
 }
 
 /**
- * 임금에 세금을 얹은 계약 계정 — 기획 D-578 차례(총 임금 → 소득세 → 가문세 → 세후 임금, 모두 임금 거래 하나 안에서):
+ * 임금에 세금을 얹은 계약 계정 — 기획 D-578·D-579(둘 다 총 임금에서 따로 센다 — 총 100, 소득세 2 + 가문세 10 → 지갑 88, 모두 임금 거래 하나 안에서):
  * ① 원천징수 소득세(사업장이 그 도시 나라 국고로 대신 냄, business/withhold.ts — 사업장 장부가 붙기 전이면 떼지 않는다)
- * ② 가문세(D-574 2150 — 소득세를 뗀 뒤 임금에서 일한 유닛의 가문 금고로 그 가문 세율만큼, factionIdentity/houseTax.ts — 가문 표가 붙기 전이면 떼지 않는다)
+ * ② 가문세(D-574 2150 — 총 임금에서 일한 유닛의 가문 금고로 그 가문 세율만큼, factionIdentity/houseTax.ts — 가문 표가 붙기 전이면 떼지 않는다)
  */
 export function withWageTaxes(ledger: object, accounts: LaborAccounts): LaborAccounts {
   return {

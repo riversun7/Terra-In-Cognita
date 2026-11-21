@@ -140,7 +140,7 @@ describe("노동 계약 — 임금형(옛 salary_engine·WAGE)", () => {
     ]);
   });
 
-  it("원천징수 소득세(incomeTax — D-578)는 총 임금에서, 가문세는 소득세 뗀 뒤 임금에서 같은 거래로 뗀다", () => {
+  it("원천징수 소득세(incomeTax — D-578)와 가문세는 따로 둘 다 총 임금에서 같은 거래로 뗀다(D-579)", () => {
     const { book, accounts } = world();
     const treasury = book.ownerAccount(99, CUR);
     const vault = book.systemAccount("vault:house:7:" + CUR, CUR);
@@ -154,8 +154,8 @@ describe("노동 계약 — 임금형(옛 salary_engine·WAGE)", () => {
       },
     };
     const c = open(book, taxed);
-    // 임금 20: 소득세 2 → 국고, 남은 18에서 가문세 3 → 금고, 세후 15 → 일꾼
-    expect(amounts).toEqual([18n]);
+    // 임금 20: 소득세 2(총 임금 × 10%) → 국고, 가문세 3(총 임금 ÷ 6) → 금고, 세후 15 → 일꾼
+    expect(amounts).toEqual([20n]);
     expect(book.balance(treasury)).toBe(2n);
     expect(book.balance(vault)).toBe(3n);
     expect(book.balanceOf(WORKER, CUR)).toBe(ISSUED + 15n);
@@ -166,6 +166,17 @@ describe("노동 계약 — 임금형(옛 salary_engine·WAGE)", () => {
     const d = open(book, greedy, { id: 8 });
     expect(d.paidTotal).toBe(20n);
     expect(book.balance(treasury)).toBe(2n);
+    // 둘의 합이 총 임금을 넘으면 가문세를 소득세 뒤 남은 만큼으로 줄인다(돈이 생기지 않는다)
+    const heavy = {
+      ...accounts,
+      incomeTax: () => ({ account: treasury, tax: 15n }),
+      wageTax: () => ({ account: vault, tax: 10n }),
+    };
+    const e = open(book, heavy, { id: 9 });
+    expect(e.paidTotal).toBe(20n);
+    expect(book.balance(treasury)).toBe(17n);
+    expect(book.balance(vault)).toBe(8n);
+    expect(checkLaborEscrow([c, d, e], book)).toEqual([]);
   });
 
   it("남은 보증금이 7일분 아래로 내려가면 경고(옛 DEPOSIT_WARNING_DAYS)", () => {

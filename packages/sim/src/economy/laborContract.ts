@@ -122,8 +122,8 @@ export interface LaborAccounts {
     amount: bigint,
   ): { readonly account: number; readonly tax: bigint } | undefined;
   /**
-   * 임금에서 뗄 몫(서버만 — 가문세 D-574 2150: 일한 유닛의 가문 금고 계정과 양). amount = 소득세를 뗀 뒤 임금(D-578 차례: 총 임금 → 소득세 →
-   * 가문세 → 세후 임금). 없거나 undefined면 남은 임금 모두 workerWallet로
+   * 임금에서 뗄 몫(서버만 — 가문세 D-574 2150: 일한 유닛의 가문 금고 계정과 양). amount = 총 임금(기획 D-579: 가문세와 소득세는 따로인 세금이라
+   * 둘 다 총 임금에서 따로 센다 — 총 100, 소득세 2 + 가문세 10 → 지갑 88). 없거나 undefined면 소득세 뒤 남은 임금 모두 workerWallet로
    */
   wageTax?(
     contract: LaborContract,
@@ -241,15 +241,17 @@ const cutOf = (cut: { readonly tax: bigint } | undefined, base: bigint): bigint 
   cut && cut.tax > 0n && cut.tax <= base ? cut.tax : 0n;
 
 /**
- * 임금 한 번의 원장 줄(거래 하나 — 합은 그대로): 에스크로(사업장이 묶어 둔 임금)에서 ① 원천징수 소득세 → 국고(D-578) ② 가문세(소득세 뗀 뒤 임금 기준)
- * → 가문 금고(D-574 2150) ③ 남은 세후 임금 → 받는 지갑. 유닛 쪽에서 세금을 따로 셈하지 않는다
+ * 임금 한 번의 원장 줄(거래 하나 — 합은 그대로): 에스크로(사업장이 묶어 둔 임금)에서 ① 원천징수 소득세 → 국고(D-578) ② 가문세 → 가문 금고
+ * (D-574 2150) ③ 남은 세후 임금 → 받는 지갑. 소득세와 가문세는 따로인 세금이라 둘 다 총 임금에서 센다(기획 D-579 — 차례로 잇지 않는다). 둘의 합이
+ * 총 임금을 넘으면 가문세를 남은 만큼으로 줄인다(돈이 생기지 않게). 유닛 쪽에서 세금을 따로 셈하지 않는다
  */
 function wageEntries(c: LaborContract, accounts: LaborAccounts): { account: number; amount: bigint }[] {
   const income = accounts.incomeTax?.(c, c.rate);
   const incomeTax = cutOf(income, c.rate);
   const afterIncome = c.rate - incomeTax;
-  const house = accounts.wageTax?.(c, afterIncome);
-  const houseTax = cutOf(house, afterIncome);
+  const house = accounts.wageTax?.(c, c.rate);
+  const houseCut = cutOf(house, c.rate);
+  const houseTax = houseCut < afterIncome ? houseCut : afterIncome;
   const entries = [{ account: accounts.escrow(c), amount: -c.rate }];
   if (afterIncome - houseTax > 0n)
     entries.push({ account: accounts.workerWallet(c), amount: afterIncome - houseTax });

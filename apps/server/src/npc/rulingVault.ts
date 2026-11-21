@@ -23,6 +23,7 @@ import { HOUSE_VAULT_PREFIX } from "../factionIdentity/houseVault.ts";
 import type { NpcCityHouses } from "./cityHouses.ts";
 import type { CityFacility } from "./economy.ts";
 import type { NpcBusiness } from "./npcDelivery.ts";
+import { withResidentProperty } from "./residentProperty.ts";
 import {
   type InvestVault,
   type RulingSpendRule,
@@ -228,7 +229,8 @@ export const npcRulingHooks = (
             business.invest(building, nation, asset, amount, atMs),
         }
       : undefined;
-  return withNpcRulingVault(base, {
+  // 주민세 재산 값(D-579, residentProperty.ts — 같은 도시 시설·사업장 장부를 빌린다)도 여기서 얹는다(runtime.ts 1,000줄 상한)
+  return withNpcRulingVault(withResidentProperty(base, o.economy), {
     ledger: o.ledger,
     rulingHouseOf: (owner) => o.cityHouses.rulingHouseOf(owner)?.id,
     rule: () => npcVaultRuleOf(o.rules()),

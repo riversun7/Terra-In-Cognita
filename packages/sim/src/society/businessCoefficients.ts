@@ -121,10 +121,18 @@ export interface BusinessCoefficients {
    */
   readonly wageWithholdMode?: number | undefined;
   /**
-   * [자리만] 주민세(기획 D-578 "주민세로 국가에서 걷어가는 세금도 존재" — 누가·얼마·언제는 기획 미정, 국가 세금 정책 D-128 안). 지금은 아무 코드도
-   * 읽지 않는다(걷는 코드 없음, 질문 2323). 0 = 안 걷음. 선택 칸 — 없으면 0
+   * 주민세율(‰, 기획 D-579 — 바탕 = 재산(주거·사업장 등, 임금 아님), 한 주기 몫 = ⌊재산 × 이 값 ÷ 1000⌋, society/residentTax.ts). 임금 원천징수와
+   * 따로인 세금이다(임금 거래에 자리가 없다). 0 = 안 걷음(주기 일을 돌리지 않는다). 나라마다 정하는 칸은 정부 세금 화면 줄기에서(질문 2322 나 —
+   * 그때 SimHooks.residentTaxOf가 나라 값을 준다). 선택 칸 — 없으면 0
    */
   readonly residentTaxPm?: number | undefined;
+  /** 주민세 주기(ms, D-579 "나라가 정함, 기본 후보 주 1회" — 하루 끝 단위로 내림, 1일 아래는 1일). 선택 칸 — 없으면 7일 */
+  readonly residentTaxEveryMs?: number | undefined;
+  /**
+   * 주민세 가운데 국세 몫(‰, D-579 "도시세 → 국세 2중 구조"). 나머지는 사는 도시의 세금 수입으로 도시 세금 정산(D-304 — 이자 소각 → 운영비 → 남은 이익을
+   * 체제대로)에 든다. 0 = 모두 도시세. 선택 칸 — 없으면 0
+   */
+  readonly residentTaxNationPm?: number | undefined;
 }
 
 export const START_BUSINESS: BusinessCoefficients = {
@@ -161,4 +169,6 @@ export const START_BUSINESS: BusinessCoefficients = {
   haulUnitCells: 10,
   wageWithholdMode: 1,
   residentTaxPm: 0,
+  residentTaxEveryMs: 7 * 86_400_000,
+  residentTaxNationPm: 0,
 };

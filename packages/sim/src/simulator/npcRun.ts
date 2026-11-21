@@ -20,6 +20,7 @@ import {
 import { nextTaxBp, occupationChoice, recruitPicks } from "../npc/policy.ts";
 import type { SocietyCoefficients } from "../society/coefficients.ts";
 import { cityHousingCap } from "../society/logistics.ts";
+import type { ResidentArrears } from "../society/residentTax.ts";
 import { shareAsset } from "../society/shares.ts";
 import { rebuildCost } from "../society/warOutcomes.ts";
 import { inTruce, recordFight } from "../society/wars.ts";
@@ -83,6 +84,21 @@ export interface SimHooks {
   moneyAssets?(): readonly string[];
   /** 도시 주인 바뀜 밖에서 휴먼의 주인이 바뀌었다(새 마을 등) — 지갑을 새 주인 밑으로 옮긴다 */
   unitsOwnerChanged?(unitIds: readonly number[], from: number, to: number, nowMs: number): void;
+  /**
+   * 주민세 과세 재산 값(D-579 — 주거·사업장 등, 임금 아님, society/residentTax.ts): 걷는 차례 한 번마다 불러 (주인, 도시, 국고 화폐) → 그 주인이 그 도시에
+   * 가진 재산 값(그 화폐 최소 단위)을 받는다. 없으면 주민세를 걷지 않는다(시뮬 — 재산 층이 없다)
+   */
+  residentProperty?(nowMs: number): ((payer: number, city: number, asset: string) => bigint) | undefined;
+  /**
+   * 그 나라가 정한 주민세(세율‰·주기 ms). 없거나 undefined면 설정 칸 값(business.residentTax*). TODO(정부 세금 화면 줄기, 질문 2322 나): 나라마다 저장한
+   * 값을 여기로 준다
+   */
+  residentTaxOf?(faction: SimFaction): { readonly ratePm: number; readonly everyMs: number } | undefined;
+  /**
+   * 주민세를 다 못 내 빚이 남은 주인들(빚은 원장 debt:resident:… 계정에 이미 적었다). TODO(신용 — 빈틈, 질문 2374): 신용 점수 체계(D-138 "신용에 따른
+   * 부분지급준비")가 생기면 여기서 신용을 깎는다. 지금은 아무도 붙이지 않는다
+   */
+  residentTaxArrears?(faction: SimFaction, arrears: readonly ResidentArrears[], nowMs: number): void;
   /** 세율(거래세 만분율): 지금 값·프리셋 기본값·바꾸기. 없으면 세율 규칙식이 돌지 않는다 */
   taxOf?(faction: SimFaction): number;
   baseTaxOf?(faction: SimFaction): number;

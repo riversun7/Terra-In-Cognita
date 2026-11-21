@@ -5,10 +5,11 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-22 02:55~ | 2026-11-22 묶음 1117b 합치기 (광산 무게 / 가문 연맹 바로잡기·NPC 투자 / 지분 시장 2 / 빈자리 계승·사는 곳 정원) + 미러 eb8960a — 리셋 필요 없음 | Claude Code | [22-0255-batch-1117b-merge](worklog/2026/11/22-0255-batch-1117b-merge.md) |
 | 2026-11-22 02:30 | 지분 시장 2 — NPC 주문·사업장 남는 주문·거래세와 증권 거래소 이용료·국고 주문 거두기·도시마다 독재 과반·국고 지분 사기 (D-587) | Claude Code | [22-0230-share-market-2](worklog/2026/11/22-0230-share-market-2.md) |
+| 2026-11-22 02:11 | 2026-11-22 governance-6 — 폐허 복원 빚·주민세 주기 목록·빈자리 자동 계승(후계자·서열)·독립 힘 비·사는 곳 정원·도시 운영비 몫·쉼 알림 | Claude Code | [22-0211-governance-6](worklog/2026/11/22-0211-governance-6.md) |
 | 2026-11-22 01:24 | 가문 연맹 바로잡기(조약)·NPC 투자 판단·비접속 관리인 늘 켬 (사용자 답 D-587) | Claude Code | [22-0124-league-fix](worklog/2026/11/22-0124-league-fix.md) |
 | 2026-11-22 01:22 | 광산 한 사이클 무게를 g 단위 바뀜 전으로 되돌림 (stone-balance) | Claude Code | [22-0122-stone-balance](worklog/2026/11/22-0122-stone-balance.md) |
-| 2026-11-22 02:11 | 2026-11-22 governance-6 — 폐허 복원 빚·주민세 주기 목록·빈자리 자동 계승(후계자·서열)·독립 힘 비·사는 곳 정원·도시 운영비 몫·쉼 알림 | Claude Code | [22-0211-governance-6](worklog/2026/11/22-0211-governance-6.md) |
 | 2026-11-22 01:10~ | 2026-11-22 묶음 1117a 합치기 (DB 시험 g 단위 / 나라 의결 5·한 점수 신용 / 사는 곳 고르기) — 리셋 필요 없음 | Claude Code | [22-0110-batch-1117a-merge](worklog/2026/11/22-0110-batch-1117a-merge.md) |
 | 2026-11-22 01:00 | DB 시험 고침: 광석 1g 기본 단위(팩 core@137) 뒤 시험 재료 수량 | Claude Code | [22-0100-dbtest-fix](worklog/2026/11/22-0100-dbtest-fix.md) |
 | 2026-11-21 23:58 | 광석 1g·10kg 묶음·g 단위 채집, 화석·이탄·소금 제거, 벽돌 가공품 이동 | Antigravity | [21-2355-ore-grams-and-cleanup](worklog/2026/11/21-2355-ore-grams-and-cleanup.md) |

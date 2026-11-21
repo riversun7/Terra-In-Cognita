@@ -245,8 +245,12 @@
  *    56판 이하 기기는 보내지 않는다. 다른 메시지 꼴은 그대로.
  * 58: (묶음 1116x) 줄기 governance-2(줄기 판 98) — 세율 크게 바꾸기 안건(질문 2407 가): gov_propose kind tax_change + taxes 칸, nation_tax_result(ok)에
  *    agendaId(바로 정하지 않고 안건을 열었을 때). 더하기만 했다. 57판 이하 기기는 tax_change를 보내지 않고, agendaId를 모른 채 받는다(정함으로 보인다).
+ * 98: (줄기 판 — 묶을 때 묶음 판으로) 줄기 governance-3 — 군사 쿠데타(질문 2433 답·D-583): gov_coup·gov_coup_join → gov_result(action coup_started·coup_joined,
+ *    결과 코드 coup_disabled·coup_cooldown·coup_open·unknown_coup·not_enough_shares), gov_propose kind treasury_share_sale + cityId·shares·minPrice(질문 2438 답
+ *    D-583), 안건 종류 city_independence(빈자리 도시 독립 투표 — 질문 2434 (가) 답 D-583, 서버가 연다). 더하기만 했다. 새 메시지·코드는 이 판 연결에만
+ *    간다(governance.ts COUP_PROTOCOL_VERSION).
  */
-export const PROTOCOL_VERSION = 58;
+export const PROTOCOL_VERSION = 98;
 
 /**
  * 서버가 받아주는 가장 낮은 기기 프로토콜 버전. 원칙은 현재 + 직전 1개 지원이다(ADR 7). 5부터 3판 기기는 인사에서
@@ -258,7 +262,7 @@ export const PROTOCOL_VERSION = 58;
  * 속성 분배 전 사이보그(elements null)는 이제 기기가 만들지 않는다(5판부터 만들기에 분배가 꼭 든다). 화면 시험의 legacy 계정은
  * 지금 판으로 만든 뒤 서버를 끄고 DB에서 속성값을 비워 다시 켠다(e2e/global-setup.ts).
  */
-export const MIN_SUPPORTED_PROTOCOL_VERSION = 57;
+export const MIN_SUPPORTED_PROTOCOL_VERSION = 97;
 
 /** WebSocket 메시지 1개의 최대 크기 (바이트) */
 export const MAX_MESSAGE_BYTES = 64 * 1024;

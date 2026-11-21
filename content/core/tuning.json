@@ -14766,6 +14766,186 @@
         "en": "In democracies and capitalist nations, if the leader changes any nation tax field by at least this much at once, a tax agenda (vote) opens instead of applying it. Smaller changes apply directly. Income tax is compared as basis points ÷ 10."
       },
       "source": "질문 2407 가 · D-5057 · ADR 2026-11-21-governance"
+    },
+    {
+      "id": "gov_coup_enabled",
+      "code": "",
+      "name": {
+        "ko": "군사 쿠데타 켬(1 = 켬)",
+        "en": "Military coups enabled (1 = on)"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1,
+      "desc": {
+        "ko": "1이면 지배 가문이 아닌 소속 가문의 장이 쿠데타를 일으킬 수 있고 NPC 가문도 성향 규칙식으로 일으킨다. 0이면 새 쿠데타가 없다(참가 받는 중인 쿠데타는 끝까지 간다).",
+        "en": "When 1, heads of member houses other than the ruling house can launch a coup, and NPC houses launch them by temperament rules. When 0, no new coups start (coups already taking sides still finish)."
+      },
+      "source": "질문 2433 답 · D-582 · D-583 · ADR 2026-11-21-governance"
+    },
+    {
+      "id": "gov_coup_cooldown_ms",
+      "code": "",
+      "name": {
+        "ko": "군사 쿠데타 쿨타임(ms)",
+        "en": "Military coup cooldown (ms)"
+      },
+      "value": 604800000,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 7776000000,
+      "desc": {
+        "ko": "한 가문이 쿠데타를 일으킨 뒤 다시 일으킬 수 있을 때까지의 시간.",
+        "en": "Time before the same house can launch another coup."
+      },
+      "source": "질문 2433 라 · ADR 2026-11-21-governance"
+    },
+    {
+      "id": "gov_coup_gather_ms",
+      "code": "",
+      "name": {
+        "ko": "군사 쿠데타 참가 받기(ms)",
+        "en": "Military coup sign-up window (ms)"
+      },
+      "value": 21600000,
+      "structural": false,
+      "unit": "ms",
+      "min": 60000,
+      "max": 604800000,
+      "desc": {
+        "ko": "쿠데타가 일어난 뒤 누구나 혁명군·정부군 편을 들 수 있는 시간. 끝나면 전투가 벌어진다.",
+        "en": "How long anyone can join the rebels or the government after a coup starts. The battle starts when it ends."
+      },
+      "source": "D-583 (질문 2433 나 가) · ADR 2026-11-21-governance"
+    },
+    {
+      "id": "gov_coup_fail_cost",
+      "code": "",
+      "name": {
+        "ko": "군사 쿠데타 실패 비용(나라 화폐)",
+        "en": "Failed coup cost (nation currency)"
+      },
+      "value": 50000,
+      "structural": false,
+      "unit": "minor",
+      "min": 0,
+      "max": 1000000000,
+      "desc": {
+        "ko": "쿠데타가 지면 일으킨 가문 금고에서 나라 국고로 내는 돈(나라 화폐 최소 단위, 금고에 있는 만큼).",
+        "en": "Money the instigating house vault pays the nation treasury when a coup fails (smallest nation currency unit, up to what the vault holds)."
+      },
+      "source": "질문 2433 다 · ADR 2026-11-21-governance"
+    },
+    {
+      "id": "gov_coup_fail_satisfaction_drop",
+      "code": "",
+      "name": {
+        "ko": "군사 쿠데타 실패 만족도 감소(점)",
+        "en": "Failed coup satisfaction drop (points)"
+      },
+      "value": 20,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100,
+      "desc": {
+        "ko": "쿠데타가 지면 일으킨 가문 유닛의 만족도가 이만큼 떨어진다.",
+        "en": "Satisfaction drop for the instigating house's units when a coup fails."
+      },
+      "source": "질문 2433 다 · ADR 2026-11-21-governance"
+    },
+    {
+      "id": "gov_coup_npc_score",
+      "code": "",
+      "name": {
+        "ko": "NPC 쿠데타: 성향 점수 문턱",
+        "en": "NPC coup: temperament score threshold"
+      },
+      "value": 40,
+      "structural": false,
+      "unit": "points",
+      "min": -200,
+      "max": 200,
+      "desc": {
+        "ko": "NPC 가문의 쿠데타 점수(그 가문 도시가 만족하지 않은 만큼 × 2 + 공격 − 신앙)가 이 값 이상이면 쿠데타를 일으키거나 혁명군에 들고, 음수 이 값 이하면 정부군에 든다.",
+        "en": "If an NPC house's coup score (dissatisfaction of its city × 2 + aggression − faith) reaches this value it launches or joins a coup as a rebel; at or below the negative value it joins the government."
+      },
+      "source": "질문 2433 마 · D-323 · D-555 1509 · ADR 2026-11-21-governance"
+    },
+    {
+      "id": "gov_coup_npc_power_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 쿠데타: 힘 비 문턱(‰)",
+        "en": "NPC coup: power ratio threshold (‰)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "NPC 가문은 자기 유닛 전투력이 정부군(지배 가문 + 수도 경비대) 전투력 × 이 값 ÷ 1000 이상일 때만 쿠데타를 일으킨다.",
+        "en": "An NPC house launches a coup only when its units' combat power is at least the government's (ruling house + capital guard) × this value ÷ 1000."
+      },
+      "source": "질문 2433 가·마 · D-576 · ADR 2026-11-21-governance"
+    },
+    {
+      "id": "gov_coup_battle_units",
+      "code": "",
+      "name": {
+        "ko": "군사 쿠데타 전투: 편마다 유닛 수",
+        "en": "Military coup battle: units per side"
+      },
+      "value": 30,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 200,
+      "desc": {
+        "ko": "쿠데타 전투(반란 전투 틀)에 편마다 나서는 유닛 수 상한.",
+        "en": "Maximum units per side in the coup battle (rebellion battle frame)."
+      },
+      "source": "D-583 (질문 2433 나 가) · D-256 · ADR 2026-11-21-governance"
+    },
+    {
+      "id": "gov_coup_merit_renown",
+      "code": "",
+      "name": {
+        "ko": "군사 쿠데타 이긴 편 공훈(명성)",
+        "en": "Military coup winners' merit (renown)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "쿠데타에서 이긴 편 플레이어 참가자가 그 나라에서 받는 명성.",
+        "en": "Renown in that nation for player participants on the winning side of a coup."
+      },
+      "source": "D-583 (질문 2433 나 가) · D-326 · ADR 2026-11-21-governance"
+    },
+    {
+      "id": "gov_coup_credit_reward",
+      "code": "",
+      "name": {
+        "ko": "군사 쿠데타 이긴 편 신용 보상",
+        "en": "Military coup winners' credit reward"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "쿠데타에서 이긴 편 플레이어 참가자의 신용 보상. 신용 체계가 아직 없어 지금은 쓰지 않는다.",
+        "en": "Credit reward for player participants on the winning side of a coup. The credit system does not exist yet, so this is unused."
+      },
+      "source": "D-583 (질문 2433 나 가) · D-581 · ADR 2026-11-21-governance"
     }
   ]
 }

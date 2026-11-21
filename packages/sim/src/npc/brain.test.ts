@@ -90,6 +90,32 @@ describe("판단 틀(D-323): 지표 → 후보 점수 → 가장 높은 행동",
     expect(action).toEqual({ kind: "attack", target: 2, declare: true });
   });
 
+  it("나라 단위 판단을 멈춘 나라(선출된 플레이어 지도자·빈자리 — 질문 2440 나·2434 나)는 새 선포·강화·봉신 독립을 하지 않는다", () => {
+    const locked = view({ traits: warlike, nationLocked: true });
+    // 새 선포는 후보에서 빠진다
+    expect(scoreActions(locked, [rival()], c).some((entry) => entry.action.kind === "attack")).toBe(false);
+    // 이미 하는 전쟁의 공격은 잇는다
+    expect(decideAction(locked, [rival({ atWar: true })], 0, c)).toEqual({
+      kind: "attack",
+      target: 2,
+      declare: false,
+    });
+    // 강화·봉신 독립 후보 없음
+    const weary = view({
+      traits: calm,
+      satisfaction: 10,
+      nationLocked: true,
+      overlord: { id: 9, strength: 1 },
+    });
+    const kinds = scoreActions(weary, [rival({ atWar: true, strength: 500 })], c).map(
+      (entry) => entry.action.kind,
+    );
+    expect(kinds).not.toContain("peace");
+    expect(kinds).not.toContain("break_vassal");
+    const free = scoreActions({ ...weary, nationLocked: false }, [rival({ atWar: true, strength: 500 })], c);
+    expect(free.map((entry) => entry.action.kind)).toContain("peace");
+  });
+
   it("공격 성향이 낮으면 같은 상황에서 치지 않는다", () => {
     expect(decideAction(view(), [rival()], 0, c).kind).not.toBe("attack");
   });

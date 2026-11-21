@@ -17,6 +17,10 @@ export const AGENDA_KINDS = [
   "regime_change",
   "war_declaration",
   "tax_change",
+  /** 빈자리 도시 독립 투표(질문 2434 (가) 답 D-583 — 빈자리가 설정 기간을 넘으면 서버가 시작 도시가 아닌 도시마다 연다, 투표권 = 그 도시) */
+  "city_independence",
+  /** 국고 지분 팔기(질문 2438 답 D-583 — "도시·영토 매각" 묶음, 독재는 지배 가문장 직권) */
+  "treasury_share_sale",
 ] as const;
 export type AgendaKind = (typeof AGENDA_KINDS)[number];
 
@@ -205,6 +209,10 @@ export interface GovernanceAgendaView {
   readonly targetRegime: GovernanceRegime | null;
   /** 세율 안건이 바꾸려는 나라 세금(세율 안건만 — 칸마다 null = 정하지 않음으로 되돌림) */
   readonly taxes: GovernanceTaxes | null;
+  /** 도시 독립 투표·국고 지분 팔기의 도시(세력 화면 도시 ID). 없으면 null */
+  readonly cityId: number | null;
+  /** 국고 지분 팔기: 주 수·한 주 가장 낮은 값(10진 글자). 아니면 null */
+  readonly shareSale: { readonly shares: string; readonly minPrice: string } | null;
   /** 선전포고 상대 나라(세력 행 ID·이름 — 선전포고만) */
   readonly targetNation: { readonly id: number; readonly name: GovernanceName | null } | null;
   /** 직권 결정(독재 지도자·지분 과반 — 투표 없음) */
@@ -242,6 +250,21 @@ export interface GovernanceAgendaView {
 
 export type GovernanceStatus = "ready" | "not_ready" | "no_nation";
 
+/** 군사 쿠데타 하나(질문 2433 답·D-583 — 참가 받는 중이거나 최근 끝남) */
+export interface GovernanceCoupView {
+  readonly id: number;
+  /** 일으킨 가문(혁명군) */
+  readonly house: GovernanceHouse;
+  readonly status: "gathering" | "won" | "lost" | "cancelled";
+  /** 참가 받기 끝 = 전투 시각 */
+  readonly gatherUntilMs: number;
+  /** 편마다 참가자 수(일으킨 가문·지배 가문 빼고) */
+  readonly rebels: number;
+  readonly government: number;
+  /** 보는 사람이 든 편(없으면 null) */
+  readonly mySide: "rebel" | "government" | null;
+}
+
 export interface GovernanceResponse {
   readonly status: GovernanceStatus;
   readonly nation: {
@@ -263,6 +286,10 @@ export interface GovernanceResponse {
   readonly leader: boolean;
   /** 열린 안건과 최근 끝난 안건(새것부터) */
   readonly agendas: readonly GovernanceAgendaView[];
+  /** 보는 사람이 쿠데타를 일으킬 수 있나(설정 칸 gov_coup_enabled·지배 가문이 아닌 소속 가문의 장) */
+  readonly canCoup: boolean;
+  /** 그 나라 쿠데타(참가 받는 중 + 최근 끝난 것) */
+  readonly coups: readonly GovernanceCoupView[];
   /** 선전포고 상대로 고를 수 있는 나라 */
   readonly warTargets: readonly { readonly id: number; readonly name: GovernanceName | null }[];
 }

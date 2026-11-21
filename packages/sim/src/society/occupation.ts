@@ -76,6 +76,9 @@ export function reissueHolders(occupier: ShareOccupier, c: SocietyCoefficients):
  * 지분 처리(③): keep = 옛 통치자 몫을 점령 세력의 주인에게(자본주의·민주주의 = 국고 D-298, 독재 = 지배 가문), delist = 모두
  * 소각 후 새 주식(delistReissueShares)을 체제대로(reissueHolders, D-444). 독재 점령국은 결과에서 지배 가문이 과반이 아니면
  * delist로 바꾼다(D-346)
+ * 바뀜(줄기 governance-3 — 질문 2431 나 답, D-293 "통치자 지분만 몰수"·D-346·D-298): 옛 통치자 몫 = 옛 통치자 국고 + 옛 통치자 지배 가문의 가문 지분 계정
+ * (rulerHouses — 서버 SimHooks.rulerShareHousesOf, 시뮬은 가문 계정이 없어 빈 목록)만. 다른 가문 계정(자본주의 세운 가문 D-582·알박기 설립자 D-575)은 남고,
+ * 독재 점령국의 과반 셈(D-346)에는 그 남은 몫도 든다
  */
 export function settleShares(
   book: LedgerBook,
@@ -85,15 +88,22 @@ export function settleShares(
   choice: ShareChoice,
   atMs: number,
   c: SocietyCoefficients,
+  rulerHouses: readonly string[] = [],
 ): ShareChoice {
   const holdings = holdingsOf(book, cityId);
-  // 가문 지분 계정(서버만 — 옛 나라 지배 가문의 사유 지분, D-338 "쫓겨나면 그 도시 지분은 잃는다")도 옛 통치자 몫으로 몰수한다 [임시 질문 2431]
-  const houses = houseHoldingsOf(book, cityId);
+  // 옛 통치자 지배 가문의 가문 지분 계정(서버만 — D-338 "쫓겨나면 그 도시 지분은 잃는다")만 몰수한다. 다른 가문 계정은 남는다(질문 2431 나)
+  const all = houseHoldingsOf(book, cityId);
+  const houses = all.filter((h) => rulerHouses.includes(h.house));
   const houseTotal = houses.reduce((sum, h) => sum + h.amount, 0n);
+  const kept = all.filter((h) => !rulerHouses.includes(h.house));
   const owner = shareOwnerOf(occupier);
   let decided = choice;
   if (decided === "keep" && occupier.regime === "dictatorship") {
-    const after = mergeHoldings(holdings, oldRuler, owner, houseTotal);
+    // 남은 가문 몫은 과반 셈의 합에 든다(주체 ID가 아닌 자리 — 음수 차례 번호)
+    const after = [
+      ...mergeHoldings(holdings, oldRuler, owner, houseTotal),
+      ...kept.map((h, index) => ({ owner: -1 - index, amount: h.amount })),
+    ];
     if (!rulerHasMajority(after, owner)) decided = "delist";
   }
   if (decided === "keep") {

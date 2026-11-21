@@ -42,6 +42,11 @@ export interface FactionView {
   readonly restores: readonly RestoreView[];
   /** 빈 2차맵 알박기 후보(부르는 쪽이 자리 모형·상한으로 고른 것). 없으면 빈 목록 */
   readonly claims: readonly ClaimView[];
+  /**
+   * 나라 단위 판단을 NPC가 하지 않는다(서버만 — 줄기 governance-3, 질문 2440 나·2434 나: 선출된 플레이어 지배 가문이 이끄는 나라·지도자 빈자리 나라). 참이면 새
+   * 선전포고(지금 전쟁이 아닌 상대 치기)·강화·봉신 독립을 후보에서 뺀다(이미 하는 전쟁의 공격은 잇는다). 세율은 부르는 쪽(npcRun.ts)이 멈춘다. 없으면 거짓
+   */
+  readonly nationLocked?: boolean | undefined;
 }
 
 /**
@@ -168,6 +173,7 @@ export function scoreActions(
   // 치기: 상대마다가 아니라 가장 좋은 상대 하나만 후보로(같은 점수면 작은 ID)
   let best: { r: RivalView; score: number } | undefined;
   for (const r of sorted) {
+    if (me.nationLocked && !r.atWar) continue;
     const score = attackScore(me, r, c);
     if (score !== undefined && (!best || score > best.score)) best = { r, score };
   }
@@ -192,14 +198,14 @@ export function scoreActions(
       score: c.shareSaleScore + Math.floor(me.traits.commerce / 4),
     });
   let peace: { r: RivalView; score: number } | undefined;
-  for (const r of sorted) {
+  for (const r of me.nationLocked ? [] : sorted) {
     // 반란 세력과는 강화하지 않는다(소탕, 46 §2.4). 교전이 없으면 백지 강화로 끝난다(S5)
     if (!r.atWar || r.rebel) continue;
     const score = peaceBase(me, r, c);
     if (!peace || score > peace.score) peace = { r, score };
   }
   if (peace) out.push({ action: { kind: "peace", target: peace.r.id }, score: peace.score });
-  if (me.overlord && me.strength * 1000 >= me.overlord.strength * c.breakRatioPm)
+  if (!me.nationLocked && me.overlord && me.strength * 1000 >= me.overlord.strength * c.breakRatioPm)
     out.push({ action: { kind: "break_vassal" }, score: Math.floor(me.traits.aggression / 2) + 100 });
   // 폐허 복원: 후보 가운데 가장 좋은 하나만(같은 점수면 목록 앞 = 작은 폐허 ID)
   let restore: { r: RestoreView; score: number } | undefined;

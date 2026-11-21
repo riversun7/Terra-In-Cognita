@@ -11,6 +11,9 @@
 // - 바뀜(governance-2): NPC 도전자도 성향 규칙식으로 선출에 나선다(질문 2404 나 — npcVote.ts npcChallengers). 해임 뒤 다시 뽑기가 실패하면 지도자 자리가 빈다
 //   (질문 2403 답 D-582 — governance_state.vacant_since_ms, 다음 선출로 채운다. 빈자리가 길어지면 나라가 갈라지는 절차는 빈틈). 결과가 정해진 안건은 일찍 닫는다
 //   (질문 2410 가 — early.ts). 틱마다 지배 가문 반영·도시 지분 정리(shareFixups.ts — 2406·D-338·D-582). 독재가 끝나면 의결권 정지 표시를 지운다(질문 2405 가 확정).
+// - 바뀜(governance-3): 군사 쿠데타(coup.ts — 질문 2433 답·D-583), 지배 쪽 지분 따라가기·지분 과반을 사서 된 독재의 국고 지분 남기기(shareFixups.ts — 2432 나·(다)
+//   답 D-583), 빈자리 도시 독립 투표(cityVotes.ts — 2434 (가) 답 D-583), 국고 지분 팔기 안건(2438 답 D-583 — 독재는 지배 가문장 직권, 승인된 판매는 approvedShareSale
+//   고리로 넘긴다: 정부 지분 시장 줄기 TODO), 독재 지도자의 선전포고 직권(2440 나 — D-217 독재 = 지배 가문장이 정함).
 // 쓰기는 DB 바로(서버 하나라 이 서비스가 순서대로 쓴다). 한 번에 하나만 돈다(명령·틱이 같은 사슬).
 import {
   type AgendaKind,
@@ -24,6 +27,9 @@ import {
 import type { GovernanceAction, GovernanceResultCode } from "@terra/protocol";
 import { writeAudit } from "../auth/store.ts";
 import type { Database } from "../db/client.ts";
+import { createCoupService } from "./coup.ts";
+import type { CoupSide, CoupStore } from "./coupStore.ts";
+import { cityElectorateNation, openCityVotes } from "./cityVotes.ts";
 import { electionDecided, motionDecided } from "./early.ts";
 import { type Electorate, type Ruling, createElectorate } from "./electorate.ts";
 import { npcChallengers, npcVoteChoice } from "./npcVote.ts";
@@ -42,6 +48,19 @@ export interface ProposeInput {
   readonly targetNationId?: number | undefined;
   /** 세율 안건 값(질문 2407 가) */
   readonly taxes?: GovernanceTaxes | undefined;
+  /** 국고 지분 팔기(질문 2438 답 D-583): 도시·주 수·한 주 가장 낮은 값 */
+  readonly cityId?: number | undefined;
+  readonly shares?: string | undefined;
+  readonly minPrice?: string | undefined;
+}
+
+/** 승인된 국고 지분 팔기(정부 지분 시장 줄기가 받는다 — TODO) */
+export interface ApprovedShareSale {
+  readonly nationRowId: number;
+  readonly agendaId: number;
+  readonly cityId: number;
+  readonly shares: bigint;
+  readonly minPrice: bigint;
 }
 
 const fail = (code: GovernanceResultCode): GovernanceResult => ({ ok: false, code });
@@ -85,6 +104,12 @@ export function createGovernanceService(o: {
   readonly applyTaxes?:
     | ((nationRowId: number, taxes: GovernanceTaxes, nowMs: number) => Promise<boolean>)
     | undefined;
+  /** 쿠데타·지배 쪽 지분 가문 표(coupStore.ts) */
+  readonly coups: CoupStore;
+  /** 승인된 국고 지분 팔기를 정부 지분 시장에 넘긴다(질문 2438 답 D-583 — 시장 줄기가 붙인다). 없으면 승인 기록만 남긴다 */
+  readonly approvedShareSale?: ((sale: ApprovedShareSale, nowMs: number) => Promise<void>) | undefined;
+  /** 쿠데타 이긴 편 신용 보상(D-583 — 신용 체계 줄기가 붙인다) */
+  readonly rewardCredit?: ((userId: string, amount: number, nowMs: number) => void) | undefined;
 }) {
   const tools = createElectorate(o);
   let chain: Promise<unknown> = Promise.resolve();
@@ -111,9 +136,22 @@ export function createGovernanceService(o: {
   const shareDeps = {
     port: o.port,
     store: o.store,
+    coups: o.coups,
     tools,
     audit: (action: string, after: Record<string, unknown>) => audit(null, action, after),
   };
+
+  const coup = createCoupService({
+    port: o.port,
+    store: o.store,
+    coups: o.coups,
+    tools,
+    rules: o.rules,
+    now: o.now,
+    standing: (userId) => standing(userId),
+    audit,
+    rewardCredit: o.rewardCredit,
+  });
 
   const standing = async (userId: string): Promise<Standing | undefined> => {
     const nationId = o.port.viewerNation(userId);
@@ -137,6 +175,15 @@ export function createGovernanceService(o: {
       power,
     };
   };
+
+  /** 안건의 투표권: 도시 독립 투표는 그 도시만(cityVotes.ts), 그 밖은 나라 전체 */
+  const electorateOf = (agenda: AgendaRow, nation: GovernanceNation): Promise<Electorate> =>
+    tools.electorate(cityElectorateNation(agenda, nation));
+  /** 안건의 가결 문턱(도시 독립 = 체제마다 — D-302, 그 밖은 종류마다) */
+  const thresholdFor = (agenda: AgendaRow): number =>
+    agenda.kind === "city_independence"
+      ? o.rules().cityIndependenceThresholdOf(agenda.regime)
+      : o.rules().thresholdOf(agenda.kind);
 
   /** 발의권(2351 가): 지도자는 늘, 민주주의 = 소속 가문장, 자본주의 = 의결권 몫 하한 이상 */
   const mayPropose = (s: Standing): boolean => {
@@ -223,6 +270,57 @@ export function createGovernanceService(o: {
     return { ok: true, agendaId: agenda.id, action: "decided" };
   };
 
+  /** 독재 지도자의 직권(선전포고·국고 지분 팔기 — 유예 없이 바로 집행, D-217) */
+  const decreeNow = async (
+    s: Standing,
+    userId: string,
+    kind: AgendaKind,
+    payload: AgendaPayload,
+    nowMs: number,
+  ): Promise<GovernanceResult> => {
+    const agenda = await o.store.insertAgenda({
+      nationId: s.nation.rowId,
+      kind,
+      regime: s.nation.regime,
+      proposerKey: s.ruling.key,
+      proposerUser: userId,
+      payload: { ...payload, byAuthority: true },
+      openedAtMs: nowMs,
+      registerUntilMs: null,
+      closesAtMs: nowMs,
+      status: "passed",
+      decidedAtMs: nowMs,
+      effectAtMs: nowMs,
+    });
+    await audit(userId, "governance.decree", {
+      nationId: s.nation.rowId,
+      agendaId: agenda.id,
+      kind,
+      payload,
+    });
+    await enact({ ...agenda, payload: { ...payload, byAuthority: true } }, s.nation, nowMs);
+    return { ok: true, agendaId: agenda.id, action: "decided" };
+  };
+
+  /** 국고 지분 팔기 안건 칸 검사(질문 2438 답 D-583) — 틀리면 실패 코드 */
+  const shareSalePayload = (
+    s: Standing,
+    input: ProposeInput,
+  ): AgendaPayload | Extract<GovernanceResult, { ok: false }> => {
+    const { cityId, shares, minPrice } = input;
+    if (
+      cityId === undefined ||
+      shares === undefined ||
+      minPrice === undefined ||
+      !s.nation.cities.includes(cityId)
+    )
+      return { ok: false, code: "invalid_choice" };
+    if (BigInt(shares) <= 0n) return { ok: false, code: "invalid_choice" };
+    if (o.port.treasuryShares(s.nation, cityId) < BigInt(shares))
+      return { ok: false, code: "not_enough_shares" };
+    return { cityId, shares, minPrice };
+  };
+
   const propose = async (userId: string, input: ProposeInput): Promise<GovernanceResult> => {
     if (!o.port.ready()) return fail("busy");
     const s = await standing(userId);
@@ -231,9 +329,21 @@ export function createGovernanceService(o: {
     const nowMs = o.now();
     const { nation } = s;
     if (input.kind === "war_declaration" && !rules.warAgenda) return fail("kind_disabled");
-    // 독재: 투표가 없다 — 지도자의 체제 전환 직권만(D-217·D-5057)
+    // 도시 독립 투표는 서버가 연다(질문 2434 (가) 답 D-583)
+    if (input.kind === "city_independence") return fail("kind_disabled");
+    // 독재: 투표가 없다 — 지도자의 직권만(D-217·D-5057): 체제 전환(유예), 선전포고(질문 2440 나 — 바로), 국고 지분 팔기(질문 2438 답 D-583 — 바로)
     if (nation.regime === "dictatorship") {
       if (!s.leader) return fail("dictatorship");
+      if (input.kind === "war_declaration") {
+        const target = input.targetNationId === undefined ? undefined : o.port.nation(input.targetNationId);
+        if (!target || target.rowId === nation.rowId) return fail("unknown_target");
+        if (o.port.atWar(nation, target)) return fail("already_at_war");
+        return decreeNow(s, userId, "war_declaration", { targetNationId: target.rowId }, nowMs);
+      }
+      if (input.kind === "treasury_share_sale") {
+        const payload = shareSalePayload(s, input);
+        return "ok" in payload ? payload : decreeNow(s, userId, "treasury_share_sale", payload, nowMs);
+      }
       if (input.kind !== "regime_change") return fail("dictatorship");
       if (!input.regime) return fail("invalid_choice");
       if (input.regime === nation.regime) return fail("same_regime");
@@ -267,6 +377,18 @@ export function createGovernanceService(o: {
           if (s.leader) return decideByAuthority(s, userId, "dictatorship", nowMs);
         }
         payload.regime = input.regime;
+        break;
+      }
+      case "treasury_share_sale": {
+        const checked = shareSalePayload(s, input);
+        if ("ok" in checked) return checked;
+        if (
+          open.some(
+            (agenda) => agenda.kind === "treasury_share_sale" && agenda.payload.cityId === checked.cityId,
+          )
+        )
+          return fail("already_open");
+        Object.assign(payload, checked);
         break;
       }
       case "tax_change":
@@ -329,7 +451,11 @@ export function createGovernanceService(o: {
     const found = await openAgendaFor(userId, agendaId);
     if ("ok" in found) return found;
     const { s, agenda } = found;
-    const mine = s.electorate.voters.filter((voter) => voter.userId === userId);
+    const voters =
+      agenda.kind === "city_independence"
+        ? (await electorateOf(agenda, s.nation)).voters
+        : s.electorate.voters;
+    const mine = voters.filter((voter) => voter.userId === userId);
     if (mine.length === 0) return fail(s.nation.regime === "dictatorship" ? "dictatorship" : "not_eligible");
     if (agenda.kind === "leader_election") {
       if (choice !== "abstain") {
@@ -385,7 +511,7 @@ export function createGovernanceService(o: {
     )
       return;
     const ruling = await tools.ruling(nation, state);
-    const electorate = await tools.electorate(nation);
+    const electorate = await electorateOf(agenda, nation);
     const npcVoters = electorate.voters.filter((voter) => voter.npc);
     if (npcVoters.length === 0) return;
     const cast = new Set((await o.store.votes([agenda.id])).map((row) => row.voterKey));
@@ -458,9 +584,12 @@ export function createGovernanceService(o: {
           },
           nowMs,
         );
-        // 독재: 국고 지분 → 지배 가문 계정(D-338 — 다음 틱을 기다리지 않는다)
-        if (dictatorship)
-          await dictatorshipShares(shareDeps, { ...nation, regime: target }, ruling.key, nowMs);
+        // 지분 과반을 사서 독재가 됐다(D-344 — 이 길뿐): 국고 지분은 국고에 남긴다(질문 2432 (다) 답 D-583 — 배당은 받고 의결권은 없다). 지배 쪽 지분 가문 기록
+        if (dictatorship && ruling.key) {
+          const record = { nationId: nation.rowId, houseKey: ruling.key, treasuryKept: true };
+          await o.coups.saveShareHouse(record, nowMs);
+          await dictatorshipShares(shareDeps, { ...nation, regime: target }, ruling.key, nowMs, record);
+        }
         await o.store.finish(agenda.id, { status: "enacted", enactedAtMs: nowMs });
         await audit(null, "governance.regime_enacted", {
           nationId: nation.rowId,
@@ -481,6 +610,52 @@ export function createGovernanceService(o: {
           await audit(null, "governance.war_declared", {
             nationId: nation.rowId,
             targetNationId: target?.rowId,
+          });
+        return;
+      }
+      case "city_independence": {
+        // 빈자리 도시 독립(질문 2434 (가) 답 D-583): 그 도시가 새 도시국가가 된다(시작 도시는 열 때 뺐다 — D-341)
+        const cityId = agenda.payload.cityId;
+        const child =
+          cityId !== undefined && nation.cities.includes(cityId)
+            ? await o.port.cityIndependence(nation, cityId, nowMs)
+            : undefined;
+        await o.store.finish(agenda.id, { status: child ? "enacted" : "cancelled", enactedAtMs: nowMs });
+        if (child)
+          await audit(null, "governance.city_independent", {
+            nationId: nation.rowId,
+            cityId,
+            newNationId: child,
+          });
+        return;
+      }
+      case "treasury_share_sale": {
+        // 승인된 국고 지분 팔기(질문 2438 답 D-583): 정부 지분 시장 줄기에 넘긴다(TODO — 시장이 생기기 전에는 승인 기록만)
+        const { cityId, shares, minPrice } = agenda.payload;
+        const valid =
+          cityId !== undefined &&
+          shares !== undefined &&
+          minPrice !== undefined &&
+          o.port.treasuryShares(nation, cityId) >= BigInt(shares);
+        if (valid && o.approvedShareSale)
+          await o.approvedShareSale(
+            {
+              nationRowId: nation.rowId,
+              agendaId: agenda.id,
+              cityId,
+              shares: BigInt(shares),
+              minPrice: BigInt(minPrice),
+            },
+            nowMs,
+          );
+        await o.store.finish(agenda.id, { status: valid ? "enacted" : "cancelled", enactedAtMs: nowMs });
+        if (valid)
+          await audit(null, "governance.share_sale_approved", {
+            nationId: nation.rowId,
+            agendaId: agenda.id,
+            cityId,
+            shares,
+            minPrice,
           });
         return;
       }
@@ -514,7 +689,7 @@ export function createGovernanceService(o: {
     const states = await o.store.states();
     const state = states.get(nation.rowId);
     const ruling = await tools.ruling(nation, state);
-    const electorate = await tools.electorate(nation);
+    const electorate = await electorateOf(agenda, nation);
     const weights = new Map(electorate.voters.map((voter) => [voter.key, voter.weight]));
     // 셈은 닫는 때의 투표권으로(그 사이 떠난 가문·판 지분은 빠진다)
     const votes = (await o.store.votes([agenda.id])).flatMap((row) => {
@@ -580,7 +755,7 @@ export function createGovernanceService(o: {
         });
       return;
     }
-    const thresholdPm = rules.thresholdOf(agenda.kind);
+    const thresholdPm = thresholdFor(agenda);
     const result = tallyMotion(votes, electorate.total, { quorumPm, thresholdPm });
     const row = {
       reason: result.reason,
@@ -613,7 +788,7 @@ export function createGovernanceService(o: {
     )
       return false;
     const rules = o.rules();
-    const electorate = await tools.electorate(nation);
+    const electorate = await electorateOf(agenda, nation);
     const weights = new Map(electorate.voters.map((voter) => [voter.key, voter.weight]));
     const votes = (await o.store.votes([agenda.id])).flatMap((row) => {
       const weight = weights.get(row.voterKey);
@@ -621,10 +796,7 @@ export function createGovernanceService(o: {
     });
     const quorumPm = rules.quorumOf(agenda.kind);
     if (agenda.kind !== "leader_election")
-      return motionDecided(votes, electorate.total, {
-        quorumPm,
-        thresholdPm: rules.thresholdOf(agenda.kind),
-      });
+      return motionDecided(votes, electorate.total, { quorumPm, thresholdPm: thresholdFor(agenda) });
     const state = (await o.store.states()).get(nation.rowId);
     const ruling = await tools.ruling(nation, state);
     const rows = (await o.store.candidates([agenda.id])).filter(
@@ -648,6 +820,15 @@ export function createGovernanceService(o: {
     // 지배 가문 반영(2406)·도시 지분 정리(D-338·D-582) — shareFixups.ts
     applyRulings(o.port, nations.values(), states);
     await runShareFixups(shareDeps, nations.values(), states, nowMs);
+    // 군사 쿠데타(coup.ts): 끝난 참가 받기 → 전투, NPC 참가·일으키기
+    await coup.tick(nations, states, nowMs);
+    // 빈자리 도시 독립 투표 열기(cityVotes.ts — 2434 (가) 답 D-583)
+    await openCityVotes(
+      { port: o.port, store: o.store, rules: o.rules, audit: (action, after) => audit(null, action, after) },
+      nations.values(),
+      await o.store.states(),
+      nowMs,
+    );
     let active = await o.store.activeAgendas();
     // 임기·자동 선출·독재 정리
     for (const nation of nations.values()) {
@@ -717,6 +898,8 @@ export function createGovernanceService(o: {
     propose: guarded(propose),
     vote: guarded(vote),
     register: guarded(register),
+    coup: guarded((userId: string) => coup.launch(userId)),
+    coupJoin: guarded((userId: string, coupId: number, side: CoupSide) => coup.join(userId, coupId, side)),
     tick: () =>
       serial(tick).catch((error: unknown) => {
         o.log?.error({ err: error }, "governance tick failed");
@@ -725,6 +908,9 @@ export function createGovernanceService(o: {
     standing,
     mayPropose,
     tools,
+    electorateOf,
+    thresholdFor,
+    coups: o.coups,
   };
 }
 

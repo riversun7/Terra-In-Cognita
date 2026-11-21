@@ -88,7 +88,7 @@ describe("가문 지분 계정", () => {
     expect(book.balanceOf(1, "coin")).toBe(900n);
   });
 
-  it("점령(지분 유지): 옛 나라 지배 가문 계정의 지분도 점령 세력 주인에게 간다", () => {
+  it("점령(지분 유지): 옛 통치자 지배 가문 계정만 몰수하고 다른 가문(세운 가문) 지분은 남긴다(질문 2431 나)", () => {
     const book = setup();
     issueShares(
       book,
@@ -99,7 +99,9 @@ describe("가문 지분 계정", () => {
       ],
       0,
     );
-    moveSharesToHouse(book, 7, 1, "npc:5:", 700n, 1);
+    // 옛 통치자 지배 가문 npc:5: 500주, 세운 가문 npc:6: 200주
+    moveSharesToHouse(book, 7, 1, "npc:5:", 500n, 1);
+    moveSharesToHouse(book, 7, 1, "npc:6:", 200n, 1);
     const decided = settleShares(
       book,
       7,
@@ -108,12 +110,52 @@ describe("가문 지분 계정", () => {
       "keep",
       2,
       TEST_SOCIETY_COEFFICIENTS,
+      ["npc:5:"],
     );
     expect(decided).toBe("keep");
-    expect(houseHoldingsOf(book, 7)).toEqual([]);
+    expect(houseHoldingsOf(book, 7).map((h) => [h.house, h.amount])).toEqual([["npc:6:", 200n]]);
     expect(holdingsOf(book, 7)).toEqual([
       { owner: 3, amount: 300n },
-      { owner: 9, amount: 700n },
+      { owner: 9, amount: 500n },
     ]);
+    expect(totalShares(book, 7)).toBe(1000n);
+  });
+
+  it("점령: 옛 통치자 가문을 모르면(시뮬) 가문 계정은 그대로 남는다", () => {
+    const book = setup();
+    issueShares(book, 7, [{ owner: 1, amount: 1000n }], 0);
+    moveSharesToHouse(book, 7, 1, "npc:5:", 400n, 1);
+    settleShares(
+      book,
+      7,
+      1,
+      { treasury: 9, regime: "democracy", rulingFamily: 9 },
+      "keep",
+      2,
+      TEST_SOCIETY_COEFFICIENTS,
+    );
+    expect(houseHoldingsOf(book, 7).map((h) => h.amount)).toEqual([400n]);
+    expect(holdingsOf(book, 7)).toEqual([{ owner: 9, amount: 600n }]);
+  });
+
+  it("독재 점령국: 남은 세운 가문 몫 때문에 과반이 안 되면 상장폐지(D-346)", () => {
+    const book = setup();
+    issueShares(book, 7, [{ owner: 1, amount: 1000n }], 0);
+    moveSharesToHouse(book, 7, 1, "npc:5:", 200n, 1);
+    moveSharesToHouse(book, 7, 1, "npc:6:", 600n, 1);
+    const decided = settleShares(
+      book,
+      7,
+      1,
+      { treasury: 9, regime: "dictatorship", rulingFamily: 9 },
+      "keep",
+      2,
+      TEST_SOCIETY_COEFFICIENTS,
+      ["npc:5:"],
+    );
+    // 몰수 = 국고 200 + 지배 가문 200 = 400 < 600(세운 가문) → 상장폐지 후 재발행(점령국 지배 가문)
+    expect(decided).toBe("delist");
+    expect(houseHoldingsOf(book, 7)).toEqual([]);
+    expect(holdingsOf(book, 7).map((h) => h.owner)).toEqual([9]);
   });
 });

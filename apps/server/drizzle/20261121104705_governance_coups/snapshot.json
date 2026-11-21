@@ -1,0 +1,738 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "b9fb6bef-3aee-436f-bc00-a317bd236d27",
+  "prevIds": [
+    "13002149-32f1-42b0-b099-24026612317f"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "governance_coup_sides"
+      ],
+      "writes": [
+        "s|tbl|public.governance_coup_sides",
+        "n|tbl|public.governance_coup_sides",
+        "e|tbl|public.governance_coup_sides",
+        "n|rel|public.governance_coup_sides",
+        "n|type|public.governance_coup_sides",
+        "n|rel|public.governance_coup_sides_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "governance_coups"
+      ],
+      "writes": [
+        "s|tbl|public.governance_coups",
+        "n|tbl|public.governance_coups",
+        "e|tbl|public.governance_coups",
+        "n|rel|public.governance_coups",
+        "n|type|public.governance_coups",
+        "n|rel|public.governance_coups_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "governance_share_houses"
+      ],
+      "writes": [
+        "s|tbl|public.governance_share_houses",
+        "n|tbl|public.governance_share_houses",
+        "e|tbl|public.governance_share_houses",
+        "n|rel|public.governance_share_houses",
+        "n|type|public.governance_share_houses",
+        "n|rel|public.governance_share_houses_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "governance_coups",
+        "governance_coups_nation_idx"
+      ],
+      "writes": [
+        "s|idx|public.governance_coups_nation_idx",
+        "n|idx|public.governance_coups_nation_idx",
+        "e|idx|public.governance_coups_nation_idx",
+        "n|rel|public.governance_coups_nation_idx"
+      ],
+      "reads": [
+        "n|tbl|public.governance_coups",
+        "n|sch|public",
+        "n|col|public.governance_coups.nation_id",
+        "n|col|public.governance_coups.status"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "governance_coups",
+        "governance_coups_house_idx"
+      ],
+      "writes": [
+        "s|idx|public.governance_coups_house_idx",
+        "n|idx|public.governance_coups_house_idx",
+        "e|idx|public.governance_coups_house_idx",
+        "n|rel|public.governance_coups_house_idx"
+      ],
+      "reads": [
+        "n|tbl|public.governance_coups",
+        "n|sch|public",
+        "n|col|public.governance_coups.house_key",
+        "n|col|public.governance_coups.opened_at_ms"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "governance_coup_sides"
+      ],
+      "writes": [
+        "s|fk|public.governance_coup_sides.governance_coup_sides_coup_id_governance_coups_id_fkey",
+        "n|fk|public.governance_coup_sides.governance_coup_sides_coup_id_governance_coups_id_fkey",
+        "e|fk|public.governance_coup_sides.governance_coup_sides_coup_id_governance_coups_id_fkey",
+        "n|con|public.governance_coup_sides.governance_coup_sides_coup_id_governance_coups_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.governance_coup_sides",
+        "n|sch|public",
+        "n|tbl|public.governance_coups",
+        "n|sch|public",
+        "n|col|public.governance_coup_sides.coup_id",
+        "n|col|public.governance_coups.id",
+        "e|uniqueness|public.governance_coups.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "governance_coups"
+      ],
+      "writes": [
+        "s|fk|public.governance_coups.governance_coups_nation_id_factions_id_fkey",
+        "n|fk|public.governance_coups.governance_coups_nation_id_factions_id_fkey",
+        "e|fk|public.governance_coups.governance_coups_nation_id_factions_id_fkey",
+        "n|con|public.governance_coups.governance_coups_nation_id_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.governance_coups",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.governance_coups.nation_id",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "governance_share_houses"
+      ],
+      "writes": [
+        "s|fk|public.governance_share_houses.governance_share_houses_nation_id_factions_id_fkey",
+        "n|fk|public.governance_share_houses.governance_share_houses_nation_id_factions_id_fkey",
+        "e|fk|public.governance_share_houses.governance_share_houses_nation_id_factions_id_fkey",
+        "n|con|public.governance_share_houses.governance_share_houses_nation_id_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.governance_share_houses",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.governance_share_houses.nation_id",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "alter_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "governance_agendas"
+      ],
+      "writes": [
+        "s|ck|public.governance_agendas.governance_agendas_kind"
+      ],
+      "reads": [
+        "n|tbl|public.governance_agendas",
+        "n|sch|public",
+        "n|col|public.governance_agendas.kind",
+        "e|col|public.governance_agendas.kind"
+      ],
+      "sqlHash": "c2ff0fdd3311a3d0"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "governance_coup_sides",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "governance_coups",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "governance_share_houses",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coup_sides",
+        "name": "coup_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coup_sides",
+        "name": "joiner_key",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coup_sides",
+        "name": "user_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coup_sides",
+        "name": "side",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coup_sides",
+        "name": "power",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coup_sides",
+        "name": "joined_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coups",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "governance_coups_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "9223372036854775807",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coups",
+        "name": "nation_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coups",
+        "name": "house_key",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coups",
+        "name": "user_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coups",
+        "name": "opened_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coups",
+        "name": "gather_until_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coups",
+        "name": "status",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'gathering'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coups",
+        "name": "result",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coups",
+        "name": "decided_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_share_houses",
+        "name": "nation_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_share_houses",
+        "name": "house_key",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_share_houses",
+        "name": "treasury_kept",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "false",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_share_houses",
+        "name": "updated_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coups",
+        "name": "governance_coups_nation_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "nation_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "status",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coups",
+        "name": "governance_coups_house_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "house_key",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "opened_at_ms",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coup_sides",
+        "name": "governance_coup_sides_coup_id_governance_coups_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "coup_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "governance_coups",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coups",
+        "name": "governance_coups_nation_id_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "nation_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_share_houses",
+        "name": "governance_share_houses_nation_id_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "nation_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coup_sides",
+        "name": "governance_coup_sides_pkey",
+        "columns": [
+          "coup_id",
+          "joiner_key"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coups",
+        "name": "governance_coups_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_share_houses",
+        "name": "governance_share_houses_pkey",
+        "columns": [
+          "nation_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coup_sides",
+        "name": "governance_coup_sides_side",
+        "value": "\"side\" in ('rebel', 'government')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coups",
+        "name": "governance_coups_status",
+        "value": "\"status\" in ('gathering', 'won', 'lost', 'cancelled')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coups",
+        "name": "governance_coups_house",
+        "value": "\"house_key\" ~ '^[pn]:[1-9][0-9]{0,15}$'",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "checks\u0000[\"public\",\"governance_agendas\",\"governance_agendas_kind\"]",
+      "set": {
+        "value": "\"kind\" in ('leader_election', 'leader_removal', 'regime_change', 'war_declaration', 'tax_change', 'city_independence', 'treasury_share_sale')"
+      }
+    }
+  ]
+}

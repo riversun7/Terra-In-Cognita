@@ -9,6 +9,11 @@ import { NATION_TAX_LIMITS } from "./nationTax.ts";
 
 /** 나라 의결 메시지에 필요한 가장 낮은 프로토콜 버전(묶음 1116v, 줄기 판 94) */
 export const GOVERNANCE_PROTOCOL_VERSION = 56;
+/**
+ * 군사 쿠데타 메시지(gov_coup·gov_coup_join)·국고 지분 팔기 안건(treasury_share_sale)·새 결과 코드에 필요한 가장 낮은 프로토콜 버전(줄기 governance-3 판 98 —
+ * 질문 2433 답·D-583). 묶을 때 묶음 판으로 바꾼다
+ */
+export const COUP_PROTOCOL_VERSION = 98;
 
 const requestId = z.number().int().nonnegative().max(0xffff_ffff);
 const rowId = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
@@ -22,6 +27,10 @@ export const GOVERNANCE_AGENDA_KINDS = [
   "war_declaration",
   /** 세율 크게 바꾸기(질문 2407 가 — 프로토콜 58(묶음 1116x, 줄기 판 98)부터, taxes 칸) */
   "tax_change",
+  /** 빈자리 도시 독립 투표(질문 2434 (가) 답 D-583 — 서버가 저절로 연다, 기기가 올리지 않는다. 프로토콜 COUP_PROTOCOL_VERSION부터 보인다) */
+  "city_independence",
+  /** 국고 지분 팔기(질문 2438 답 D-583 — cityId·shares·minPrice 칸, 프로토콜 COUP_PROTOCOL_VERSION부터) */
+  "treasury_share_sale",
 ] as const;
 export const GOVERNANCE_MESSAGE_REGIMES = ["dictatorship", "democracy", "capitalism"] as const;
 
@@ -44,6 +53,18 @@ export const govProposeMessage = z.object({
       residentNationPm: taxField(NATION_TAX_LIMITS.residentNationPm),
     })
     .optional(),
+  /** 국고 지분 팔기: 도시(그 나라 도시) — treasury_share_sale만 */
+  cityId: rowId.optional(),
+  /** 국고 지분 팔기: 주 수(10진 정수 글자, 1 이상) */
+  shares: z
+    .string()
+    .regex(/^[1-9][0-9]{0,17}$/)
+    .optional(),
+  /** 국고 지분 팔기: 한 주 가장 낮은 값(그 나라 화폐 최소 단위, 10진 정수 글자) */
+  minPrice: z
+    .string()
+    .regex(/^(0|[1-9][0-9]{0,24})$/)
+    .optional(),
 });
 
 export const govVoteMessage = z.object({
@@ -58,6 +79,20 @@ export const govCandidateMessage = z.object({
   t: z.literal("gov_candidate"),
   id: requestId,
   agendaId: rowId,
+});
+
+/** 군사 쿠데타를 일으킨다(내 가문 — 지배 가문이 아닌 그 나라 소속 플레이어 가문의 장, 질문 2433 답). 참가 받기를 연다 */
+export const govCoupMessage = z.object({
+  t: z.literal("gov_coup"),
+  id: requestId,
+});
+
+/** 열린 쿠데타에 편을 든다(D-583 2433 나 가 — 누구나 어느 편이든: rebel = 혁명군, government = 정부군) */
+export const govCoupJoinMessage = z.object({
+  t: z.literal("gov_coup_join"),
+  id: requestId,
+  coupId: rowId,
+  side: z.enum(["rebel", "government"]),
 });
 
 // ---------- 서버 → 기기 ----------
@@ -97,11 +132,30 @@ export const GOVERNANCE_RESULT_CODES = [
   "registration_closed",
   /** 해임된 가문은 다시 뽑기에 나설 수 없다 */
   "barred",
+  /** 쿠데타가 꺼져 있다(설정 칸 gov_coup_enabled — 프로토콜 COUP_PROTOCOL_VERSION부터) */
+  "coup_disabled",
+  /** 쿠데타 쿨타임 */
+  "coup_cooldown",
+  /** 그 나라에 참가 받는 중인 쿠데타가 이미 있다 */
+  "coup_open",
+  /** 없는 쿠데타이거나 참가 받기가 끝났다 */
+  "unknown_coup",
+  /** 국고 지분이 모자라다(국고 지분 팔기) */
+  "not_enough_shares",
 ] as const;
 export type GovernanceResultCode = (typeof GOVERNANCE_RESULT_CODES)[number];
 
 /** 한 일: proposed 투표 열림 · decided 직권 결정(유예 뒤 집행) · voted · registered */
-export const GOVERNANCE_ACTIONS = ["proposed", "decided", "voted", "registered"] as const;
+export const GOVERNANCE_ACTIONS = [
+  "proposed",
+  "decided",
+  "voted",
+  "registered",
+  /** 쿠데타를 일으켰다(agendaId = 쿠데타 ID — 프로토콜 COUP_PROTOCOL_VERSION부터) */
+  "coup_started",
+  /** 쿠데타 편을 들었다(agendaId = 쿠데타 ID) */
+  "coup_joined",
+] as const;
 export type GovernanceAction = (typeof GOVERNANCE_ACTIONS)[number];
 
 const govResultMessage = z.discriminatedUnion("ok", [
@@ -120,5 +174,11 @@ const govResultMessage = z.discriminatedUnion("ok", [
   }),
 ]);
 
-export const governanceClientMessages = [govProposeMessage, govVoteMessage, govCandidateMessage] as const;
+export const governanceClientMessages = [
+  govProposeMessage,
+  govVoteMessage,
+  govCandidateMessage,
+  govCoupMessage,
+  govCoupJoinMessage,
+] as const;
 export const governanceServerMessages = [govResultMessage] as const;

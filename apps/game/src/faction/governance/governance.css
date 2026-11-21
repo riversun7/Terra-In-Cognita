@@ -70,3 +70,8 @@
 .gov-field select {
   padding-inline-end: var(--space-8);
 }
+/* 군사 쿠데타 칸(CoupSection.tsx — 질문 2433 답·D-583) */
+.gov-coups {
+  display: grid;
+  gap: var(--space-2);
+}

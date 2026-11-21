@@ -28,6 +28,19 @@ export interface GovernanceRules {
   readonly coupSatisfactionDrop: number;
   /** 세율 안건이 되는 한 번 바꾸기 폭(‰ — 질문 2407 가) */
   readonly taxAgendaWidthPm: number;
+  /** 군사 쿠데타(질문 2433 답·D-583, 줄기 governance-3): 켬·쿨타임·참가 받기·실패 비용·실패 만족도·NPC 점수·NPC 힘 비·편마다 전투 유닛·보상 */
+  readonly coupEnabled: boolean;
+  readonly coupCooldownMs: number;
+  readonly coupGatherMs: number;
+  readonly coupFailCost: bigint;
+  readonly coupFailSatisfactionDrop: number;
+  readonly coupNpcScore: number;
+  readonly coupNpcPowerPm: number;
+  readonly coupBattleUnits: number;
+  readonly coupMeritRenown: number;
+  readonly coupCreditReward: number;
+  /** 도시 독립 투표 문턱(‰ — 자본주의 = 세력·사회 independencePassPm, 민주주의 = 과반 D-302) */
+  cityIndependenceThresholdOf(regime: "democracy" | "capitalism" | "dictatorship"): number;
 }
 
 const whole = (value: number): number => (Number.isSafeInteger(value) && value > 0 ? value : 0);
@@ -65,6 +78,18 @@ export function governanceRulesFrom(c: SocietyCoefficients): GovernanceRules {
     vacancySplitMs: period(g.vacancySplitMs),
     coupSatisfactionDrop: Math.min(100, whole(g.coupSatisfactionDrop)),
     taxAgendaWidthPm: Math.max(1, permille(g.taxAgendaWidthPm)),
+    coupEnabled: g.coupEnabled !== 0,
+    coupCooldownMs: whole(g.coupCooldownMs),
+    coupGatherMs: period(g.coupGatherMs),
+    coupFailCost: BigInt(whole(g.coupFailCost)),
+    coupFailSatisfactionDrop: Math.min(100, whole(g.coupFailSatisfactionDrop)),
+    coupNpcScore: Number.isSafeInteger(g.coupNpcScore) ? g.coupNpcScore : 40,
+    coupNpcPowerPm: whole(g.coupNpcPowerPm),
+    coupBattleUnits: Math.max(1, Math.min(200, whole(g.coupBattleUnits))),
+    coupMeritRenown: whole(g.coupMeritRenown),
+    coupCreditReward: whole(g.coupCreditReward),
+    cityIndependenceThresholdOf: (regime) =>
+      regime === "capitalism" ? Math.min(999, whole(c.independencePassPm)) : 500,
   };
 }
 

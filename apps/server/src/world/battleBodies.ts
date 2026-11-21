@@ -18,6 +18,7 @@ import {
   combatSpecOf,
   hasGear,
 } from "../roster/unitBody.ts";
+import { clashPower } from "../travel/clashDecide.ts";
 import type { SecondMap } from "./secondMap.ts";
 
 export interface BattleBodies {
@@ -28,6 +29,11 @@ export interface BattleBodies {
    * 건물 공격 전투(facilities/attack.ts)가 시작 자료를 만들 때 쓴다. base를 주면 그 바탕을 쓴다(수호신 = 저장된 스탯 몸, temple/cityDefense.ts)
    */
   build(unitId: number, place: SpecPlace, nowMs: number, base?: BodyBase): CombatUnitSpec | undefined;
+  /**
+   * 랭킹 전투력(house-9, D-576·D-7022 "버프 없는 기본 수치"): 걸린 효과·부상 불이익을 뺀 몸(바탕 + 입은 장비)의 조우 전력 식(clashPower, 최대 생명
+   * 수치). 띄운 2차맵에 없어도 센다. 유닛 화면 전투 자료가 없으면 0. 기본 몸에 입은 것이 없는 유닛은 한 값을 다시 쓴다(NPC 휴먼 수천)
+   */
+  basePower(unitId: number, nowMs: number): number;
 }
 
 /** 세계가 아는 몸 바탕(사이보그 = 저장된 본체, 그 밖 = [임시] 기본 몸). 걷기 속도(walkSpeed.ts)도 같은 바탕을 쓴다 */
@@ -54,7 +60,31 @@ export function createBattleBodies(input: {
     return false;
   };
   const baseOf = (unitId: number): BodyBase => worldBodyBase(input.cyborgs, unitId);
+  /** 기본 몸·입은 것 없음의 전투력(팩 자료가 바뀌면 다시 센다) */
+  let bare: { readonly catalog: RosterCatalog; readonly power: number } | undefined;
+  const POWER_PLACE: SpecPlace = {
+    id: 0,
+    side: 1,
+    party: 1,
+    x: 0,
+    y: 0,
+    moveIntervalMs: BATTLE_BASE_MOVE_MS,
+    buildingMulPm: 1000,
+  };
   return {
+    basePower(unitId, nowMs) {
+      const catalog = input.catalog?.();
+      if (!catalog) return 0;
+      const base = baseOf(unitId);
+      // 시간제 효과·부상 불이익은 뺀다(D-7022) — 입은 장비·인공장기만
+      const gear: UnitGear = { equipped: input.gearOf(unitId, nowMs).equipped, effects: [] };
+      if (base.kind === "baseline" && !hasGear(gear)) {
+        if (bare?.catalog !== catalog)
+          bare = { catalog, power: clashPower(combatSpecOf(catalog, base, gear, POWER_PLACE, nowMs)) };
+        return bare.power;
+      }
+      return clashPower(combatSpecOf(catalog, base, gear, { ...POWER_PLACE, id: unitId }, nowMs));
+    },
     build(unitId, place, nowMs, base) {
       const catalog = input.catalog?.();
       if (!catalog || !exists(unitId)) return undefined;

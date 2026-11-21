@@ -8,6 +8,7 @@
 // - 시설(facilities): 지은 사람(world_facilities.built_by)의 소유 주체에 Σ 레벨 × 상태(ppm), 다 지은 것(레벨 1 이상)만
 // - 세력 규모(세력 판): 사라지지 않은 세력마다 도시·발전도·휴먼(그 세력 도시에 사는)·국고(시험 화폐, 위치 없는 계정)·명성(정원사 2)
 // - 보호 레이드(D-500, gardener_waves.kind = protection) 전투는 랭킹 점수가 없다 → 전투 승리에서 뺀다
+// - 전투력(combat_power)·자산(assets): worth.ts가 집계 때 읽어 재고 지표에 싣는다(house-9, D-576 "전투력, 자산, 등")
 import { BUILDING_LOCATION_BASE } from "@terra/shared/goodsPlaces";
 import { citiesValue, facilitiesValue, productionValue, underdogPm } from "@terra/sim";
 
@@ -39,6 +40,9 @@ export interface OwnerStocks {
   cities: number;
   developmentSum: number;
   facilityLevelPpm: bigint;
+  /** 전투력 합·자산(기준 통화 최소 단위) — worth.ts(house-9, D-576). 없으면 0 */
+  combatPower?: bigint | undefined;
+  assets?: bigint | undefined;
 }
 
 /** 주체 하나의 지표 값(sim 변환: 로그 압축·언더독 합). 유닛 점수(unitScores.ts)도 같은 변환을 쓴다 */
@@ -49,6 +53,9 @@ export function measureValues(flows: OwnerFlows, stocks: OwnerStocks): Record<st
     cities_held: citiesValue(stocks.cities, stocks.developmentSum),
     production: productionValue(flows.production),
     facilities: facilitiesValue(stocks.facilityLevelPpm),
+    // 전투력·자산(D-576): 절대량 로그 압축(20 §8.2 — 산출과 같은 변환)
+    combat_power: productionValue(stocks.combatPower ?? 0n),
+    assets: productionValue(stocks.assets ?? 0n),
   };
 }
 

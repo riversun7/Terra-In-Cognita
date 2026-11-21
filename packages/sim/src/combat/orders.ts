@@ -9,6 +9,8 @@
 // - 다시 넣기 막기는 파티마다·편마다 따로 유닛 명령과 같은 시간(C5 commandLockMs)이다.
 // - 명령 순위(기획 D-574, 질문 2110): 파티 명령(소유주) 1순위, 군단 명령(군단장) 2순위. 파티 명령은 군단 명령을 언제든 덮어쓰고(뒤에 내린 쪽),
 //   파티 명령이 서 있는 동안 군단 명령은 그 파티를 건너뛴다(덮는 방식은 기술 기본값 — 질문 2263). 모든 대상 파티가 건너뛰어지면 거절.
+// - 군단장의 분대별 명령(기획 D-574, 질문 2265 나): 군단 입력에 party가 있으면 정원 안 그 파티 하나에만 군단 명령(2순위)을 준다. 같은 거르기를
+//   지나지 못하면(소유주 명령이 서 있음·정원 밖·퇴각 중) 거절. 다시 넣기 막기는 군단 명령과 같은 편 단위다.
 // - 진형 지키기(advance·목표가 안 보이는 attack): 같은 명령 묶음에서 가장 뒤처진 유닛보다 FORMATION_LEASH_CELLS 칸 넘게 앞선 유닛은 걷지
 //   않고 기다린다(치기·스킬은 한다). 틱 시작에 한 번 센다. 전개 방식·집결·따라가기는 기다리지 않는다.
 // - 집결·대형 고르기는 대형 자리(formation.ts)를 내릴 때 정하고, 따라가기는 틱마다 앞 파티 뒤 FOLLOW_GAP_CELLS 칸에 대형 자리를 다시 센다.
@@ -235,7 +237,8 @@ export function applyOrderInput(
       !party.retreating &&
       !side.uncommanded.includes(party.id) &&
       party.order?.legion !== false &&
-      party.id !== leader,
+      party.id !== leader &&
+      (input.party === undefined || party.id === input.party),
   );
   if (reached.length === 0 || side.commander === 0) return reject();
   side.orderMs = nowMs;

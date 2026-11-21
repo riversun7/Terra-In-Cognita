@@ -29,6 +29,8 @@ export const MEASURE_NAMES: Record<RankingMeasure, () => string> = {
   cities_held: m.ranking_measure_cities_held,
   production: m.ranking_measure_production,
   facilities: m.ranking_measure_facilities,
+  combat_power: m.ranking_measure_combat_power,
+  assets: m.ranking_measure_assets,
 };
 
 export const KIND_NAMES: Record<RankingSubjectKind, () => string> = {

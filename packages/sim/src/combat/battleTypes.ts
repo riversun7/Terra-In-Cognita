@@ -255,7 +255,17 @@ export type PartyOrder =
 export type BattleInput =
   | { readonly tick: number; readonly kind: "command"; readonly unit: number; readonly command: Command }
   | { readonly tick: number; readonly kind: "order"; readonly party: number; readonly order: PartyOrderInput }
-  | { readonly tick: number; readonly kind: "legion"; readonly side: number; readonly order: PartyOrderInput }
+  | {
+      readonly tick: number;
+      readonly kind: "legion";
+      readonly side: number;
+      readonly order: PartyOrderInput;
+      /**
+       * 군단장의 분대별 명령(기획 D-574 "군단소속이면 군단장 명령 가능하나 2순위" — 질문 2265 나): 있으면 정원 안 그 파티 하나에만 군단 명령(2순위)을
+       * 준다. 그 파티에 소유주 파티 명령이 서 있거나 정원 밖이면 거절. 없으면 정원 안 파티 모두(옛 꼴)
+       */
+      readonly party?: number | undefined;
+    }
   | {
       readonly tick: number;
       readonly kind: "join";

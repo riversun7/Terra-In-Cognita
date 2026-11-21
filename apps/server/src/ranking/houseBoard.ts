@@ -7,11 +7,13 @@
 // 경로 점수 주체(소유 주체)가 아니라 랭킹 집계가 유닛 점수(ranking_unit_scores — 그 유닛이 이긴 전투 등, unitScores.ts)를 따로 세고, 판은 그 합을
 // 읽는다(옛 대리값 "나라 점수 × 가문원 수 ÷ 그 나라 NPC 가문원 합"을 대신한다). 나라 = 가문 도시의 지금 주인(NPC 세력만), 폐허가 된 도시의 가문·
 // 가문원이 없는 가문·점수 0은 빠진다. 보상 대상을 좁히는 일은 따로(지금 가문 판 보상 코드는 없다).
+// 바뀜(house-9, D-576 "전투력, 자산, 등"): 줄마다 가문원 전투력·자산 합(값 표 ranking_worth — 플레이어 가문 = 가문원 사람, NPC 가문 = 가문원 유닛).
 import type { RankingBoardResponse, RankingRow, RankingTierCut } from "@terra/shared/ranking";
 import { RANKING_BOARD_ROWS } from "@terra/shared/ranking";
 import { tierPmOf } from "@terra/sim";
 import type { NationNames } from "./paths.ts";
 import type { Queryable } from "./measures.ts";
+import { worthOf } from "./worthRow.ts";
 
 /** 읽는 맥락(reads.ts RankingReadContext와 같은 모양 — 서로 가져오지 않게 필요한 것만) */
 export interface HouseBoardContext {
@@ -28,7 +30,11 @@ const num = (value: unknown): number => (typeof value === "number" ? value : Num
 const text = (value: unknown): string | null => (typeof value === "string" ? value : null);
 
 const HOUSE_SQL = `select m.faction_id, sum(s.score) as score, count(*)::int as members,
-         i.name as house_name, c.name as city_name, n.id as nation_id, n.code as nation_code
+         i.name as house_name, c.name as city_name, n.id as nation_id, n.code as nation_code,
+         (select sum(w.combat_power)::text from house_members m2 join world_owners o2 on o2.user_id = m2.user_id
+           join ranking_worth w on w.kind = 0 and w.subject_id = o2.id where m2.faction_id = m.faction_id) as worth_power,
+         (select sum(w.assets)::text from house_members m2 join world_owners o2 on o2.user_id = m2.user_id
+           join ranking_worth w on w.kind = 0 and w.subject_id = o2.id where m2.faction_id = m.faction_id) as worth_assets
     from ranking_path_scores s
     join world_owners o on o.id = s.owner_id
     join house_members m on m.user_id = o.user_id
@@ -43,12 +49,14 @@ const HOUSE_SQL = `select m.faction_id, sum(s.score) as score, count(*)::int as 
 
 /** NPC 도시 가문 줄(위 머리 주석 — 가문원 유닛 점수의 합, unitScores.ts). 점수 줄이 없는 가문원은 0 */
 const NPC_HOUSE_SQL = `select h.id, h.name as house_name, c.name as city_name, c.faction_id as nation_id, n.code as nation_code,
-         count(u.unit_id)::int as members, coalesce(sum(s.score), 0)::bigint as score
+         count(u.unit_id)::int as members, coalesce(sum(s.score), 0)::bigint as score,
+         sum(w.combat_power)::text as worth_power, sum(w.assets)::text as worth_assets
     from npc_houses h
     join world_cities c on c.id = h.city_id
     join factions n on n.id = c.faction_id and n.kind = 'npc'
     join npc_house_units u on u.house_id = h.id
     left join ranking_unit_scores s on s.unit_id = u.unit_id and s.path_id = $1
+    left join ranking_worth w on w.kind = 1 and w.subject_id = u.unit_id
    group by h.id, h.name, c.name, c.faction_id, n.code`;
 
 /** 판 한 줄로 바꾸기 전의 가문(플레이어·NPC 함께 차례를 정한다) */
@@ -61,6 +69,8 @@ interface HouseEntry {
   readonly score: number;
   readonly home: string | null;
   readonly members: number;
+  /** 가문원 전투력·자산 합(house-9, D-576) */
+  readonly worth: Pick<RankingRow, "worth">;
 }
 
 /** 가문 판 줄들(전부)과 내 가문 */
@@ -87,6 +97,7 @@ export async function readHouseBoard(
       score: num(row.score),
       home: text(row.city_name),
       members: num(row.members),
+      worth: worthOf(row),
     })),
     ...npcResult.rows.map((row) => ({
       npc: true,
@@ -97,6 +108,7 @@ export async function readHouseBoard(
       score: num(row.score),
       home: text(row.city_name),
       members: num(row.members),
+      worth: worthOf(row),
     })),
   ]
     .filter((entry) => entry.score > 0)
@@ -126,6 +138,7 @@ export async function readHouseBoard(
       home: entry.home,
       members: entry.members,
       ...(entry.npc ? { npc: true as const } : {}),
+      ...entry.worth,
     };
   });
   const tiers: RankingTierCut[] = tiersPm

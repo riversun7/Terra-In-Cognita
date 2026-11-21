@@ -371,6 +371,9 @@ export interface SocietyCoefficients {
    * - cityBuildDefault: 가문 도시가 같은 나라 다른 가문의 짓기를 정하지 않았을 때(D-574 2124): 1 = 허용, 0 = 막음. [임시] 출발값 1(질문 2251).
    * - npcVaultReturnMinPm·npcVaultReturnMaxPm: 독재 NPC 나라의 지배 가문 금고에 든 남은 이익 가운데 국고로 돌려보내는 몫(‰, 2223 고침 — 상업 성향
    *   가장 높음 = min, 가장 낮음 = max, npc/policy.ts npcRulingVaultReturnPm). [임시] 출발값 300·900.
+   * - npcVaultTakePm·npcSpendDividendPm·npcSpendInvestPm: NPC 지배 가문장이 금고에서 자기 지갑으로 꺼내는 몫(‰ — 국고로 돌려보낸 뒤 남은 금고, 기획
+   *   D-576 "가문장이 개인 지갑으로 꺼낼 수 있다"를 NPC에도 — D-555 1509·D-212)과 꺼낸 돈 가운데 가문원 배당·도시 건설 투자 몫(‰, 성향이 가운데일 때 —
+   *   신앙·상업 성향이 ±50% 바꾼다, 서버 npc/rulingSpend.ts). 나머지는 가문장 지갑에 남는다(사치·저축). [임시] 출발값 500·300·300(질문 2312).
    */
   readonly house: {
     readonly shortMin: number;
@@ -394,6 +397,9 @@ export interface SocietyCoefficients {
     readonly cityBuildDefault: number;
     readonly npcVaultReturnMinPm: number;
     readonly npcVaultReturnMaxPm: number;
+    readonly npcVaultTakePm: number;
+    readonly npcSpendDividendPm: number;
+    readonly npcSpendInvestPm: number;
   };
   /**
    * 장비·인공장기 수리(D-5031, 49 F11·F12): 수리 시설 Lv1~5의 최대 내구도 감소(%, 장인 실력 1000‰이면 반으로 줄어든다), 감소 하한(%),
@@ -635,6 +641,9 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     cityBuildDefault: 1,
     npcVaultReturnMinPm: 300,
     npcVaultReturnMaxPm: 900,
+    npcVaultTakePm: 500,
+    npcSpendDividendPm: 300,
+    npcSpendInvestPm: 300,
   },
   durability: {
     repairLossPct: [30, 25, 20, 15, 10],

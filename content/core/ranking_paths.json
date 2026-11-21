@@ -55,6 +55,21 @@
       "measures": []
     },
     {
+      "id": "strongest",
+      "name": {
+        "ko": "전투력",
+        "en": "Combat Power"
+      },
+      "area": "force",
+      "open": true,
+      "measures": [
+        {
+          "measure": "combat_power",
+          "weightPm": 1000
+        }
+      ]
+    },
+    {
       "id": "geneticist",
       "name": {
         "ko": "유전공학자",
@@ -128,6 +143,21 @@
       "area": "wealth",
       "open": false,
       "measures": []
+    },
+    {
+      "id": "wealthiest",
+      "name": {
+        "ko": "자산",
+        "en": "Wealth"
+      },
+      "area": "wealth",
+      "open": true,
+      "measures": [
+        {
+          "measure": "assets",
+          "weightPm": 1000
+        }
+      ]
     },
     {
       "id": "researcher",

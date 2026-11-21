@@ -689,9 +689,9 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     : undefined;
   econRef.current = econ;
   // 사회·판단 고리 = 경제 고리(태어날 때 부모는 규칙이 세력 칸 bornOf에 적는다 — 기획 답 620 나)
-  // + NPC 지배 가문 금고(2223 고침, rulingVault.ts — 독재 NPC 나라의 남은 이익을 지배 가문 금고로, 성향 몫은 국고로 돌려보냄)
+  // + NPC 지배 가문 금고(2223 고침·house-9, rulingVault.ts — 독재 NPC 나라의 남은 이익 → 지배 가문 금고 → 국고·가문장 지갑·배당·투자)
   const hooks: SimHooks | undefined =
-    econ && npcRulingHooks(econ.hooks, { ledger, cityHouses, rules: o.rules });
+    econ && npcRulingHooks(econ.hooks, { ledger, cityHouses, rules: o.rules, world });
   const ctx: NpcContext = {
     world,
     loop,

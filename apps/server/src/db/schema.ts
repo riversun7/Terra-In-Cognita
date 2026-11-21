@@ -966,8 +966,8 @@ export { battleLabPresets, battleReports, formulaOverrides } from "./devToolsSch
 export { laborContracts, laborPostings, laborRents, unitWork } from "./laborSchema.ts";
 /** 건물(시설) 상태·작업 표(docs/adr/2026-11-07-buildings-runtime.md) */
 export { claimCities, facilityJobs, worldFacilities } from "./facilitySchema.ts";
-/** 랭킹 집계 표(docs/adr/2026-11-07-ranking.md) */
-export { rankingFactionScores, rankingPathScores, rankingState, rankingUnitScores } from "./rankingSchema.ts";
+/** 랭킹 집계 표(docs/adr/2026-11-07-ranking.md — 유닛 점수·전투력·자산 값 표 포함) */
+export * from "./rankingSchema.ts";
 /** 신전·종교 표(docs/adr/2026-11-07-temple-religion.md) */
 export { templeDevotions, templeGuardians, unitFaith } from "./templeSchema.ts";
 /** 폐허·복원 사업 표(docs/adr/2026-11-07-ruins-restoration.md) */

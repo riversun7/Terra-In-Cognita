@@ -83,3 +83,23 @@ export const rankingUnitScores = pgTable(
     check("ranking_unit_scores_path_format", sql`${table.pathId} ~ '^[a-z][a-z0-9_]{1,47}$'`),
   ],
 );
+
+/**
+ * 전투력·자산 값 한 줄(house-9, 기획 D-576 "전투력, 자산, 등" — 질문 2258 다안). kind 0 = 소유 주체(경로 판 주체), 1 = 세계 유닛(NPC 가문원).
+ * combat_power = 버프·부상을 뺀 기본 수치 합(D-7022), assets = 기준 통화 최소 단위(D-555 1512 — 사업장 금고는 지분만큼). 판 줄의 전투력·자산 칸과
+ * 가문 판 합을 읽는다. 랭킹 집계가 같은 트랜잭션에서 통째로 바꾼다(ranking/worth.ts). 둘 다 0인 주체는 없다. 새 표라 직전 판 앱은 모른 채 돈다
+ */
+export const rankingWorth = pgTable(
+  "ranking_worth",
+  {
+    kind: smallint("kind").notNull(),
+    subjectId: bigint("subject_id", { mode: "number" }).notNull(),
+    combatPower: bigint("combat_power", { mode: "bigint" }).notNull(),
+    assets: bigint("assets", { mode: "bigint" }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.kind, table.subjectId] }),
+    check("ranking_worth_kind", sql`${table.kind} in (0, 1)`),
+    check("ranking_worth_values", sql`${table.combatPower} >= 0 and ${table.assets} >= 0`),
+  ],
+);

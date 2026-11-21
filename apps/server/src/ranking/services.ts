@@ -17,6 +17,7 @@ import type { NationNames } from "./paths.ts";
 import { previewBoard, previewMine } from "./preview.ts";
 import { type RankingReadContext, readBoard, readMine, readMyStandings, viewerSubjects } from "./reads.ts";
 import { type RankingPool, type SnapshotReport, runSnapshot } from "./snapshot.ts";
+import type { WorthSource } from "./worth.ts";
 
 export interface RankingServices {
   /** 판 하나. 경로를 비우면 고른다(resolveBoard) */
@@ -136,6 +137,8 @@ export function createRankingRuntime(options: {
   readonly coefficients: () => RankingCoefficients;
   readonly creditAsset: string;
   readonly now: () => number;
+  /** 전투력·자산 셈 출처(house-9 — worthSource.ts). 없으면 두 지표 0 */
+  readonly worth?: (() => WorthSource | undefined) | undefined;
   /** 월드가 준비됐는가(부팅 복구 전에는 세지 않는다) */
   readonly ready: () => boolean;
   /** 쓰기 대기열이 DB에 닿을 때까지(세계 바뀜을 다 본 뒤 센다) */
@@ -159,6 +162,7 @@ export function createRankingRuntime(options: {
       coefficients: options.coefficients(),
       creditAsset: options.creditAsset,
       nowMs: options.now(),
+      worth: options.worth,
     });
     if (report) options.log.info({ ...report, ms: Date.now() - started }, "ranking snapshot");
     return report;

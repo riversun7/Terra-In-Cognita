@@ -10652,6 +10652,60 @@
       "source": "D-338 · D-555 · D-554 · D-574 · 질문 2223 고침 · ADR 2026-11-11-faction-identity \"바뀜 (house-8, D-574)\""
     },
     {
+      "id": "house_npc_vault_take_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 지배 가문장 금고 꺼내기 몫(‰)",
+        "en": "NPC ruling house head vault withdrawal (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "독재 NPC 나라의 지배 가문 금고에서 국고로 돌려보낸 뒤 남은 돈 가운데 가문장(국가 지도자)이 배당 차례마다 자기 지갑으로 꺼내는 몫. 나머지는 금고에 남는다.",
+        "en": "Share of a dictatorship NPC nation's ruling house vault, after the treasury return, that the house head (the nation leader) takes into his own purse each payout round. The rest stays in the vault."
+      },
+      "source": "D-576 · D-555 · D-212 · D-554 · 질문 2255 다안 · ADR 2026-11-11-faction-identity \"바뀜 (house-9)\""
+    },
+    {
+      "id": "house_npc_spend_dividend_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 가문장 꺼낸 돈 → 가문원 배당 몫(‰)",
+        "en": "NPC house head withdrawal to member dividend (‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "NPC 가문장이 꺼낸 돈 가운데 지배 가문원 휴먼 지갑에 똑같이 나눠 주는 몫(신앙 성향이 가운데일 때). 신앙 성향이 가장 낮으면 반, 가장 높으면 1.5배.",
+        "en": "Share of the NPC house head's withdrawal split evenly into ruling house members' purses (at a middle faith trait). Lowest faith halves it, highest faith makes it 1.5 times."
+      },
+      "source": "D-576 · D-555 · D-212 · D-554 · 질문 2255 다안 · ADR 2026-11-11-faction-identity \"바뀜 (house-9)\""
+    },
+    {
+      "id": "house_npc_spend_invest_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 가문장 꺼낸 돈 → 도시 건설 투자 몫(‰)",
+        "en": "NPC house head withdrawal to city building (‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "NPC 가문장이 꺼낸 돈 가운데 나라 국고에 건설 자금으로 넣는 몫(상업 성향이 가운데일 때 — NPC 증축은 국고로 짓는다). 상업 성향이 가장 낮으면 반, 가장 높으면 1.5배. 배당·투자 뒤 남은 돈은 가문장 지갑에 남는다.",
+        "en": "Share of the NPC house head's withdrawal put into the nation treasury as building funds (at a middle commerce trait — NPC expansion builds from the treasury). Lowest commerce halves it, highest makes it 1.5 times. What is left after dividends and investment stays in the head's purse."
+      },
+      "source": "D-576 · D-555 · D-212 · D-554 · 질문 2255 다안 · ADR 2026-11-11-faction-identity \"바뀜 (house-9)\""
+    },
+    {
       "id": "house_npc_city_houses_l1",
       "code": "",
       "name": {

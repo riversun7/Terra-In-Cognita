@@ -5,7 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
-| 2026-11-21 09:20~ (KST). 합치기는 11-17에 시작해 사용량 제한으로 멈췄다가 이어서 했다. | 2026-11-21 묶음 1116q 합치기 (서버 메모리 누수 고침 · NPC 휴먼 임금·생활비 + 새 main 3d66465) — 리셋 필요 없음 | Claude Code | [21-0920-batch-1116q-merge](worklog/2026/11/21-0920-batch-1116q-merge.md) |
+| 2026-11-21 09:20 (KST) — 2026-11-17 00:40에 바탕 `0efec8a4a7`에서 끝내고(사용량 제한으로 멈춤) 11-21에 커밋·새 main 합치기 | 가문 9 — 랭킹 전투력·자산 지표(2258 다안·D-576)·NPC 지배 가문장 꺼내기·쓰기(2255 다안)·군단장 분대별 명령(2265 나)·지도자 [임시] 표시(2254) | Claude Code | [21-0920-house-9](worklog/2026/11/21-0920-house-9.md) |
 | 2026-11-20 15:20 | 홈 대시보드 테라 인코그니타 독자 비대칭 커맨드 벤토 개편 및 VIT·DEX 스탯 색상 분리 | Antigravity | [20-1520-dashboard-original-bento-and-stat-colors](worklog/2026/11/20-1520-dashboard-original-bento-and-stat-colors.md) |
 | 2026-11-20 13:55 | 건물 티어별 재료 2의 제곱수 밸런스 · 유닛 공통 경험치 테이블 및 시각화 에디터 | Antigravity | [20-1355-balance-buildings-exp-table](worklog/2026/11/20-1355-balance-buildings-exp-table.md) |
 | 2026-11-20 13:00 | 홈 대시보드 프로 터미널 개편 및 전역 타이포그래피·사이드바 정돈 | Antigravity | [20-1300-pro-dashboard-and-shell-overhaul](worklog/2026/11/20-1300-pro-dashboard-and-shell-overhaul.md) |
@@ -20,8 +20,6 @@
 | 2026-11-18 23:20 | 영토 비콘(`territory_beacon`) 전용 3D 모델 추가 | Antigravity | [18-2320-beacon-3d-model](worklog/2026/11/18-2320-beacon-3d-model.md) |
 | 2026-11-18 17:25 | CI 경량화: 검증은 작업 PC 훅으로, 실행 점검·되돌림 훈련은 NAS로 | Antigravity | [18-1725-ci-local-and-nas](worklog/2026/11/18-1725-ci-local-and-nas.md) |
 | 2026-11-18 16:25 | 문서만 바뀐 푸시는 CI를 시작하지 않음 (GitHub Actions 사용량 0) | Antigravity | [18-1625-ci-docs-zero-usage](worklog/2026/11/18-1625-ci-docs-zero-usage.md) |
-| 2026-11-17 00:40 | 2026-11-17 npc-wage — NPC 휴먼 일꾼 임금·생필품 값·숙박비를 휴먼 지갑으로 (빈틈 2236) | Claude Code | [17-0040-npc-wage](worklog/2026/11/17-0040-npc-wage.md) |
-| 2026-11-17 00:15 | 운영 서버 RSS 증가 원인 — NPC 거래 판단이 읽기만 해도 도시 × 물건 거래소를 모두 만듦 | Claude Code | [17-0015-leak-hunt](worklog/2026/11/17-0015-leak-hunt.md) |
 | 2026-11-16 22:10 | 2026-11-16 fixes-1116o — [기다림] 계정 저장(2237)·1인 가문 이름 붙이기(2242)·짓는 중 귀속 고르기 바꾸기·가문 단위 독립(D-577)·빈틈 일정(2236·2243) | Claude Code | [16-2210-fixes-1116o](worklog/2026/11/16-2210-fixes-1116o.md) |
 | 2026-11-16 22:10~ | 2026-11-16 묶음 1116p 합치기 (가문 8 · 기타 D-574 · 기획 미러 D-577 · 물류센터 · 1116o 고침) — 리셋 필요 없음 | Claude Code | [16-2210-batch-1116p-merge](worklog/2026/11/16-2210-batch-1116p-merge.md) |
 | 2026-11-16 22:00 | 물류센터(운반 대행 사업장): 시설·요금·고른 물류센터 운반·자동 맡기기 (D-576 2213) | Claude Code | [16-2200-logistics](worklog/2026/11/16-2200-logistics.md) |

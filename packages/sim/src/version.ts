@@ -276,8 +276,11 @@
  *    (모자란 몫 = 주인 현물 부양, 굶기지 않는다). 지갑은 도시 주인 바뀜·새 마을 때 새 주인 밑으로 옮기고 떠나면(사망·신격화) 상속(inheritPurse).
  *    원장 거래(npc_living·purse_move)가 늘어 원장 해시가 바뀐다. 출발값에서는 임금 < 생활비라 임금이 그날 국고로 돌아와 판정 결과(인구·도시·세력·건물·
  *    만족도·국고)는 끈 판과 같다(econ16 시드 1·2·3 × 30일). business_npc_wage_mode 0이면 옛 판. 출력 형식 22(living 칸)
+ * 65: (묶음 1116r 합친 판, 줄기 house-9의 98) 군단장의 분대별 명령(기획 D-574 "군단소속이면 군단장 명령 가능하나 2순위", 질문 2265 나,
+ *    docs/adr/2026-10-31-combat-core.md "바뀜 (house-9)"): 군단 입력(kind "legion")에 선택 칸 party가 있으면 정원 안 그 파티 하나에만 군단 명령을
+ *    준다(combat/orders.ts applyOrderInput — 소유주 명령이 서 있거나 정원 밖이면 거절). party 없는 입력·명령 없는 전투는 그대로다
  */
-export const SIM_VERSION = 64;
+export const SIM_VERSION = 65;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

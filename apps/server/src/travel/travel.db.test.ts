@@ -169,7 +169,7 @@ async function setup(world: World, name: string, x: number, y: number) {
 async function buildAt(world: World, userId: string, facility: string, x: number) {
   const service = persistence(world).facilities.service;
   const mapKey = mapAt(world, 0).mapKey;
-  for (const [item, qty] of Object.entries({ pine_log: 30, stone: 20 }))
+  for (const [item, qty] of Object.entries({ pine_log: 30, stone: 20_000 }))
     expect(await service.devFacilityGrant(userId, item, qty, { mapKey, x, y: x })).toEqual({ ok: true });
   const built = await service.build(userId, { mapKey, facility, x, y: x, rotation: 0 });
   if (!built.ok || built.buildingId === undefined) throw new Error(`build failed: ${JSON.stringify(built)}`);

@@ -170,7 +170,7 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 생산(서버)", () => {
     const world = await boot();
     const p = persistence(world);
     const a = await setup(world, "lumber", 30);
-    const camp = await buildAt(world, a.userId, "lumber_camp", 50, { pine_log: 30, stone: 20 });
+    const camp = await buildAt(world, a.userId, "lumber_camp", 50, { pine_log: 30, stone: 20_000 });
     const yard = await buildAt(world, a.userId, "stockpile", 70, { pine_log: 5 });
     const cityId = p.facilities.service.facilities.get(camp)?.cityId ?? null;
     expect(cityId).not.toBeNull();
@@ -278,7 +278,7 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 생산(서버)", () => {
     const world = await boot(2);
     const p = persistence(world);
     const a = await setup(world, "walker", 30);
-    const camp = await buildAt(world, a.userId, "lumber_camp", 50, { pine_log: 30, stone: 20 });
+    const camp = await buildAt(world, a.userId, "lumber_camp", 50, { pine_log: 30, stone: 20_000 });
     // 같은 주인의 유닛 하나를 다른 2차맵에 둔다
     const other = [...world.maps.values()][1];
     if (!other) throw new Error("no second map");
@@ -329,7 +329,7 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 생산(서버)", () => {
     const p = persistence(world);
     const boss = await setup(world, "landlord", 30);
     const tenant = await setup(world, "tenant", 34);
-    const camp = await buildAt(world, boss.userId, "lumber_camp", 50, { pine_log: 30, stone: 20 });
+    const camp = await buildAt(world, boss.userId, "lumber_camp", 50, { pine_log: 30, stone: 20_000 });
     expect(await p.labor.setRent(boss.userId, camp, 1n)).toEqual({ ok: true });
     const made = await p.labor.create(tenant.userId, {
       kind: "lease",
@@ -389,7 +389,7 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 생산(서버)", () => {
     const world = await boot();
     const p = persistence(world);
     const boss = await setup(world, "boss", 30);
-    const camp = await buildAt(world, boss.userId, "lumber_camp", 50, { pine_log: 30, stone: 20 });
+    const camp = await buildAt(world, boss.userId, "lumber_camp", 50, { pine_log: 30, stone: 20_000 });
     fundTestVault(p.ledger, boss.ownerId, camp, 1_000n, clock);
     const made = await p.labor.create(boss.userId, { kind: "wage", buildingId: camp, unitId: boss.unitId });
     expect(made.ok).toBe(true);

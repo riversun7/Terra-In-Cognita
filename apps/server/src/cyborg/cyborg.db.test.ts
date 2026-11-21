@@ -604,10 +604,10 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
     // 발행 계정은 그대로(국고에서 옮겼다)
     expect(issued()).toBe(issuedBefore);
     expect(service.record(first)?.startGrant).toBe(108n);
-    // 시작 재료(WP3 플레이어 생산, 설정 칸 [임시] 원목 20·석재 10): 그 시작 도시의 내 도시 창고(위치 = 도시 ID)로, 생산원에서
+    // 시작 재료(WP3 플레이어 생산, 설정 칸 [임시] 원목 20·석재 10,000g): 그 시작 도시의 내 도시 창고(위치 = 도시 ID)로, 생산원에서
     const startCity = service.record(first)?.startCityId ?? 0;
     expect(persistence.ledger.balanceOf(owner, "item:pine_log", cityLocation(startCity))).toBe(20n);
-    expect(persistence.ledger.balanceOf(owner, "item:stone", cityLocation(startCity))).toBe(10n);
+    expect(persistence.ledger.balanceOf(owner, "item:stone", cityLocation(startCity))).toBe(10_000n);
     const goods = await rows<{ idempotency_key: string }>(
       test.db,
       `select idempotency_key from ledger_transactions where kind = 'start_goods'`,

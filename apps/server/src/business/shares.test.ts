@@ -96,6 +96,13 @@ describe("생산시설 지분 시장", () => {
     const buy = shares.place(BUYER, SHOP, "buy", 6n, 300n, T0 + 20);
     expect(buy.ok).toBe(true);
     expect(ledger.balanceOf(BUYER, ASSET)).toBe(10_000n - 1800n);
+    // 호가창(D-583 "호가창처럼"): 값마다 걸린 주, 지금 닫으면 날 값
+    const before = shares.view(SHOP, BUYER, T0 + 25);
+    expect(before.book).toEqual({
+      bids: [{ price: "6", shares: "300", orders: 1 }],
+      asks: [{ price: "5", shares: "400", orders: 1 }],
+    });
+    expect(before.expected).toEqual({ price: "5", shares: "300" });
     // 회차 경계 전에는 체결하지 않는다
     expect(shares.tick(T0 + 30)).toBe(0);
     expect(shares.tick(advance(ROUND))).toBe(1);

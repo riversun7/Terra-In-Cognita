@@ -8,23 +8,24 @@ import {
   registerResidenceBook,
   residenceBookOf,
 } from "./book.ts";
+import { sweepResidencePauses } from "./attach.ts";
 import { createResidenceService } from "./service.ts";
 
 /** 건물 표·유닛 주인·숙소 배정을 바꿀 수 있는 가짜 세계 */
 function fakeWorld() {
   const buildings = new Map<number, ResidenceBuildingFacts>([
     // 주인 10의 집(도시 5)
-    [100, { cityId: 5, level: 1, living: true, ownerId: 10 }],
+    [100, { cityId: 5, level: 1, living: true, ownerId: 10, capacity: 4 }],
     // 주인 10의 집(도시 6)
-    [101, { cityId: 6, level: 2, living: true, ownerId: 10 }],
+    [101, { cityId: 6, level: 2, living: true, ownerId: 10, capacity: 4 }],
     // 남의 숙소(도시 6, 주인 20)
-    [200, { cityId: 6, level: 1, living: true, ownerId: 20 }],
+    [200, { cityId: 6, level: 1, living: true, ownerId: 20, capacity: 4 }],
     // 주인 10의 창고(주거 아님)
-    [300, { cityId: 5, level: 1, living: false, ownerId: 10 }],
+    [300, { cityId: 5, level: 1, living: false, ownerId: 10, capacity: 4 }],
     // 도시 밖 집
-    [400, { cityId: null, level: 1, living: true, ownerId: 10 }],
+    [400, { cityId: null, level: 1, living: true, ownerId: 10, capacity: 4 }],
     // 다 짓지 않은 집
-    [500, { cityId: 5, level: 0, living: true, ownerId: 10 }],
+    [500, { cityId: 5, level: 0, living: true, ownerId: 10, capacity: 4 }],
   ]);
   const owners = new Map<number, number>([
     [1, 10],
@@ -56,6 +57,40 @@ describe("사는 곳 장부(D-585 1)", () => {
     expect(book.blockOf(2, 10, 200)).toBeNull();
   });
 
+  it("정원(질문 2481 가): 고른 차례로 앞에서 정원까지만 산다 — 다 차면 full, 정원이 줄면 뒤에 고른 유닛부터 쉰다", () => {
+    const { world, buildings, owners } = fakeWorld();
+    owners.set(4, 10);
+    buildings.set(100, { cityId: 5, level: 1, living: true, ownerId: 10, capacity: 2 });
+    const book = createResidenceBook(world);
+    book.put({ unitId: 1, ownerId: 10, buildingId: 100, chosenAtMs: 1 });
+    book.put({ unitId: 2, ownerId: 10, buildingId: 100, chosenAtMs: 2 });
+    expect(book.blockOf(4, 10, 100)).toBe("full");
+    // 이미 고른 유닛은 그대로 산다(자기 자리를 세지 않는다)
+    expect(book.blockOf(2, 10, 100)).toBeNull();
+    // 층(레벨)이 올라 정원이 늘면 고를 수 있다
+    buildings.set(100, { cityId: 5, level: 2, living: true, ownerId: 10, capacity: 4 });
+    expect(book.blockOf(4, 10, 100)).toBeNull();
+    // 정원이 1로 줄면 나중에 고른 유닛 2가 쉰다
+    buildings.set(100, { cityId: 5, level: 1, living: true, ownerId: 10, capacity: 1 });
+    expect(book.chosenPlace(1)).toEqual({ buildingId: 100, cityId: 5 });
+    expect(book.chosenPlace(2)).toBeUndefined();
+  });
+
+  it("쉼 훑기(질문 2485 가): 쓸 수 없게 되면 쉰 시각을 적고(처리할 일), 다시 쓸 수 있으면 지운다", async () => {
+    const { world, buildings } = fakeWorld();
+    const book = createResidenceBook(world);
+    book.put({ unitId: 1, ownerId: 10, buildingId: 100, chosenAtMs: 1 });
+    expect(await sweepResidencePauses(book, undefined, 50)).toBe(0);
+    buildings.set(100, { cityId: 5, level: 1, living: true, ownerId: 99, capacity: 4 });
+    expect(await sweepResidencePauses(book, undefined, 60)).toBe(1);
+    expect(book.choiceOf(1)?.pausedSinceMs).toBe(60);
+    // 같은 쉼은 다시 적지 않는다
+    expect(await sweepResidencePauses(book, undefined, 70)).toBe(0);
+    buildings.set(100, { cityId: 5, level: 1, living: true, ownerId: 10, capacity: 4 });
+    expect(await sweepResidencePauses(book, undefined, 80)).toBe(1);
+    expect(book.choiceOf(1)?.pausedSinceMs).toBeNull();
+  });
+
   it("고른 집이 있으면 그 집, 없거나 쉬면 숙소 배정(옛 길), 둘 다 없으면 없음", () => {
     const { world, buildings, owners } = fakeWorld();
     const book = createResidenceBook(world);
@@ -65,9 +100,9 @@ describe("사는 곳 장부(D-585 1)", () => {
     expect(book.residenceOf(2)).toEqual({ buildingId: 100, cityId: 5, source: "chosen" });
     expect(book.residenceCityOf(2)).toBe(5);
     // 집을 잃으면 고른 것이 쉰다 → 숙소 배정
-    buildings.set(100, { cityId: 5, level: 1, living: true, ownerId: 99 });
+    buildings.set(100, { cityId: 5, level: 1, living: true, ownerId: 99, capacity: 4 });
     expect(book.residenceOf(2)).toEqual({ buildingId: 200, cityId: 6, source: "lodging" });
-    buildings.set(100, { cityId: 5, level: 1, living: true, ownerId: 10 });
+    buildings.set(100, { cityId: 5, level: 1, living: true, ownerId: 10, capacity: 4 });
     // 유닛 주인이 바뀌어도 쉰다
     owners.set(2, 30);
     expect(book.chosenPlace(2)).toBeUndefined();

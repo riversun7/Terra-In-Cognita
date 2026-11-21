@@ -9,8 +9,10 @@
 import {
   type ClientMessageOf,
   type GatherResultCode,
+  PROTOCOL_VERSION,
   type ResidenceResultCode,
   encodeMessage,
+  legacyResidenceCode,
 } from "@terra/protocol";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
@@ -33,6 +35,8 @@ export interface GatherLink {
   observing?(): boolean;
   /** 이 연결의 운영자 배율(기본 1 — 기획 D-560 1246, world/operatorPace.ts). 없으면 1 */
   operatorPace?: OperatorPaceLink | undefined;
+  /** 연결이 인사한 프로토콜 판(없으면 지금 판 — 시험). 사는 곳 결과 코드 full은 111판부터(legacyResidenceCode) */
+  readonly protocolVersion?: number | undefined;
 }
 
 export interface GatherSocket {
@@ -52,7 +56,7 @@ function resultText(id: number, result: GatherCommandResult): string {
 
 const fail = (code: GatherResultCode): GatherCommandResult => ({ ok: false, code });
 
-function residenceText(id: number, result: ResidenceCommandResult): string {
+function residenceText(id: number, result: ResidenceCommandResult, protocolVersion: number): string {
   return result.ok
     ? encodeMessage({
         t: "residence_result",
@@ -62,7 +66,12 @@ function residenceText(id: number, result: ResidenceCommandResult): string {
         buildingId: result.buildingId,
         cityId: result.cityId,
       })
-    : encodeMessage({ t: "residence_result", id, ok: false, code: result.code });
+    : encodeMessage({
+        t: "residence_result",
+        id,
+        ok: false,
+        code: legacyResidenceCode(result.code, protocolVersion),
+      });
 }
 
 const residenceFail = (code: ResidenceResultCode): ResidenceCommandResult => ({ ok: false, code });
@@ -104,7 +113,7 @@ export function createGatherGateway(options: {
         if (!closed) link.send(resultText(id, result));
       };
       const replyResidence = (id: number, result: ResidenceCommandResult): void => {
-        if (!closed) link.send(residenceText(id, result));
+        if (!closed) link.send(residenceText(id, result, link.protocolVersion ?? PROTOCOL_VERSION));
       };
       /** 실패 코드(둘 다 있는 코드만 — sign_in_required·busy·rate_limited·internal_error) */
       const reply = (

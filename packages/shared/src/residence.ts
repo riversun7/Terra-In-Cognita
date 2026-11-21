@@ -15,8 +15,8 @@ export interface ResidencePlace {
   readonly source: ResidenceSource;
 }
 
-/** 이 건물을 사는 곳으로 고를 수 없는 까닭(고를 수 있으면 null) */
-export type ResidenceBlock = "not_housing" | "no_city" | "not_eligible" | "unknown_building";
+/** 이 건물을 사는 곳으로 고를 수 없는 까닭(고를 수 있으면 null). full = 정원이 다 참(질문 2481 가 — 레벨(층) × 설정 칸, 줄기 governance-6) */
+export type ResidenceBlock = "not_housing" | "no_city" | "not_eligible" | "unknown_building" | "full";
 
 export interface ResidenceResponse {
   readonly status: ResidenceStatus;

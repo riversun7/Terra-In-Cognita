@@ -5,6 +5,8 @@
 // - 고를 수 있는 집: 다 지은(레벨 1 이상) 주거 건물(생활 단계 시설)이 도시에 서 있고, 그 유닛 주인이 가진 집이거나 그 유닛이 지금 배정받은 숙소(D-581 2372 —
 //   지금 플레이어 일꾼이 사는 길)일 때. 고른 뒤 그 조건이 깨지면(집을 잃음·숙소 배정이 바뀜·건물이 사라짐) 고른 것은 쉰다 — 옛 길(숙소 배정)로 돌아간다.
 //   표의 줄은 지우지 않는다(조건이 돌아오면 다시 쓴다).
+// - 바뀜(governance-6, 질문 2481 가): 집마다 정원(레벨(층) × 설정 칸 — ResidenceBuildingFacts.capacity)이 있다. 고른 차례(고른 시각, 유닛 ID)로 앞에서 정원까지만
+//   그 집에 산다 — 다 찼으면 새로 고를 수 없고(full), 레벨이 내려 정원이 줄면 뒤에 고른 유닛부터 쉰다.
 // - 고른 것이 없으면 옛 길: 숙소 배정이 있는 일꾼은 그 숙소가 사는 곳(lodgingOf). NPC 휴먼은 고르지 않는다(사는 도시 SimUnit.city — npc/residentProperty.ts).
 // - 조회 함수 residenceCityOf(유닛)·ownerResidenceCities(주인): 신용(apps/server/src/credit/ — governance-5 줄기가 다시 만든다)이 나중에 이것을 쓴다(지금은
 //   잇지 않았다 — 신용 셈은 빚 계정의 도시를 그대로 쓴다).
@@ -17,6 +19,8 @@ export interface ResidenceChoice {
   readonly ownerId: number;
   readonly buildingId: number;
   readonly chosenAtMs: number;
+  /** 고른 집을 쓸 수 없게 된 시각(질문 2485 가 — 처리할 일). 쓸 수 있거나 모르면 없음·null */
+  readonly pausedSinceMs?: number | null | undefined;
 }
 
 /** 건물 사실(장부가 읽는다) */
@@ -28,6 +32,8 @@ export interface ResidenceBuildingFacts {
   readonly living: boolean;
   /** 건물 주인(소유 주체, 없으면 null) */
   readonly ownerId: number | null;
+  /** 사는 곳으로 고를 수 있는 유닛 수(정원 — 레벨(층) × 설정 칸 residence_capacity_per_level, 질문 2481 가) */
+  readonly capacity: number;
 }
 
 /** 세계 몫(attach.ts가 2차맵·건물 서비스·일꾼 쉼터로 만든다) */
@@ -52,6 +58,8 @@ export interface ResidenceBook {
   load(rows: readonly ResidenceChoice[]): void;
   /** 고른 것(쉬는 것 포함 — 표 그대로) */
   choiceOf(unitId: number): ResidenceChoice | undefined;
+  /** 고른 것 모두(유닛 ID 차례 — 쉼 훑기, attach.ts) */
+  all(): ResidenceChoice[];
   /** 적는다(서비스가 DB에 쓴 뒤) */
   put(choice: ResidenceChoice): void;
   /** 지운다(서비스가 DB에서 지운 뒤) */
@@ -73,13 +81,33 @@ export interface ResidenceBook {
 export function createResidenceBook(world: ResidenceWorld): ResidenceBook {
   const choices = new Map<number, ResidenceChoice>();
 
-  const blockOf = (unitId: number, ownerId: number, buildingId: number): ResidenceBlock | null => {
+  /** 정원 말고 다른 조건(건물·주거·도시·내 집 또는 내 숙소) */
+  const eligibility = (unitId: number, ownerId: number, buildingId: number): ResidenceBlock | null => {
     const facts = world.building(buildingId);
     if (!facts || facts.level < 1) return "unknown_building";
     if (!facts.living) return "not_housing";
     if (facts.cityId === null) return "no_city";
     if (facts.ownerId === ownerId) return null;
     return world.lodgingOf(unitId)?.buildingId === buildingId ? null : "not_eligible";
+  };
+
+  const blockOf = (unitId: number, ownerId: number, buildingId: number): ResidenceBlock | null => {
+    const block = eligibility(unitId, ownerId, buildingId);
+    if (block !== null) return block;
+    // 정원(질문 2481 가): 그 집을 고른(다른 조건이 맞는) 유닛을 고른 차례로 세워 이 유닛이 정원 안에 드나 본다. 아직 고르지 않았으면 맨 뒤
+    const capacity = world.building(buildingId)?.capacity ?? 0;
+    const mine = choices.get(unitId);
+    const ahead = [...choices.values()].filter(
+      (choice) =>
+        choice.unitId !== unitId &&
+        choice.buildingId === buildingId &&
+        world.unitOwner(choice.unitId) === choice.ownerId &&
+        eligibility(choice.unitId, choice.ownerId, buildingId) === null &&
+        (mine?.buildingId !== buildingId ||
+          choice.chosenAtMs < mine.chosenAtMs ||
+          (choice.chosenAtMs === mine.chosenAtMs && choice.unitId < unitId)),
+    ).length;
+    return ahead < capacity ? null : "full";
   };
 
   const chosenPlace = (unitId: number): { buildingId: number; cityId: number } | undefined => {
@@ -105,6 +133,7 @@ export function createResidenceBook(world: ResidenceWorld): ResidenceBook {
       for (const row of rows) choices.set(row.unitId, row);
     },
     choiceOf: (unitId) => choices.get(unitId),
+    all: () => [...choices.values()].toSorted((a, b) => a.unitId - b.unitId),
     put(choice) {
       choices.set(choice.unitId, choice);
     },

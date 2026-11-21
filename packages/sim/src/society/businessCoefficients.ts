@@ -139,10 +139,15 @@ export interface BusinessCoefficients {
    */
   readonly residentTaxEveryMs?: number | undefined;
   /**
-   * 주민세 가운데 국세 몫(‰, D-579 "도시세 → 국세 2중 구조"). 나머지는 사는 도시의 세금 수입으로 도시 세금 정산(D-304 — 이자 소각 → 운영비 → 남은 이익을
-   * 체제대로)에 든다 — [임시] 이 나눔은 사용자 답이 없다(D-585 3, 질문 2484). 0 = 모두 도시세. 선택 칸 — 없으면 0
+   * 주민세 가운데 국세 몫(‰, D-579 "도시세 → 국세 2중 구조"). 나머지는 사는 도시의 운영비로만 쓴다(질문 2484 다 — D-304 이익 나눔에
+   * 넣지 않는다). 0 = 모두 도시세. 선택 칸 — 없으면 0
    */
   readonly residentTaxNationPm?: number | undefined;
+  /**
+   * 사는 곳 정원(질문 2481 가 — 사용자 답 "집마다 살 수 있는 수 상한, 층을 올리면 는다", 줄기 governance-6): 주거 건물 하나에 사는 곳으로 고를 수 있는 유닛 수 =
+   * 건물 레벨(층 [임시] — 따로 층 자료가 없어 레벨로 읽는다, 질문 2535) × 이 값. 서버만 읽는다(apps/server/src/residence/). 기술 기본값 [임시]. 선택 칸 — 없으면 4
+   */
+  readonly residenceCapacityPerLevel?: number | undefined;
   /**
    * NPC 나라 주민세율 규칙식의 아래·위(‰, 질문 2373 가 — D-323 성향 프리셋 + 규칙식, npc/policy.ts npcResidentTaxPm): 상업 성향이 가장 높으면 min, 가장 낮으면
    * max. 나라 값을 정하지 않은 NPC 나라에 서버가 쓴다. 선택 칸 — 없으면 0(걷지 않음)
@@ -222,6 +227,7 @@ export const START_BUSINESS: BusinessCoefficients = {
   residentTaxPm: 0,
   residentTaxEveryMs: 7 * 86_400_000,
   residentTaxNationPm: 0,
+  residenceCapacityPerLevel: 4,
   npcResidentTaxMinPm: 0,
   npcResidentTaxMaxPm: 0,
   residentBuildingValuePm: 1000,

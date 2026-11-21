@@ -259,8 +259,11 @@
  *    - residence_set(유닛·숙소 건물 | null = 고른 것 풀기) → residence_result(residence.ts RESIDENCE_PROTOCOL_VERSION, 결과 코드 10개). 더하기만 했다.
  *    - nation_tax_result에 새 실패 코드 invalid_period(주기가 목록 밖 — @terra/shared/government RESIDENT_TAX_PERIOD_DAYS). 이 판 연결에만 가고 더 낮은 판은
  *      internal_error를 받는다(nationTax.ts NATION_TAX_PERIOD_PROTOCOL_VERSION). 다른 메시지 꼴은 그대로.
+ * 111: (줄기 governance-6 — 합칠 때 묶음 판으로 다시 붙인다) 사용자 결정 D-588 5·질문 2481 가:
+ *    - 가문 후계자 지정 house_heir(userId | null) → house_member_result(한 일 heir_set — house.ts HOUSE_HEIR_PROTOCOL_VERSION). 더하기만 했다. 110판 아래 기기는 보내지 않는다.
+ *    - residence_result에 새 실패 코드 full(집 정원이 다 참). 이 판 연결에만 가고 더 낮은 판은 not_eligible(residence.ts RESIDENCE_FULL_PROTOCOL_VERSION).
  */
-export const PROTOCOL_VERSION = 61;
+export const PROTOCOL_VERSION = 111;
 
 /**
  * 서버가 받아주는 가장 낮은 기기 프로토콜 버전. 원칙은 현재 + 직전 1개 지원이다(ADR 7). 5부터 3판 기기는 인사에서
@@ -272,7 +275,7 @@ export const PROTOCOL_VERSION = 61;
  * 속성 분배 전 사이보그(elements null)는 이제 기기가 만들지 않는다(5판부터 만들기에 분배가 꼭 든다). 화면 시험의 legacy 계정은
  * 지금 판으로 만든 뒤 서버를 끄고 DB에서 속성값을 비워 다시 켠다(e2e/global-setup.ts).
  */
-export const MIN_SUPPORTED_PROTOCOL_VERSION = 60;
+export const MIN_SUPPORTED_PROTOCOL_VERSION = 110;
 
 /** WebSocket 메시지 1개의 최대 크기 (바이트) */
 export const MAX_MESSAGE_BYTES = 64 * 1024;

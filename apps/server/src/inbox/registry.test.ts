@@ -60,6 +60,7 @@ describe("처리할 일 등록부", () => {
       "boat_in_dock",
       "boat_homeless",
       "labor_paused",
+      "residence_paused",
     ]);
     const list = await collectInbox(providers, ACCOUNT, NOW, false);
     expect(list.items.map((item) => [item.id, item.category, item.deadlineAt])).toEqual([

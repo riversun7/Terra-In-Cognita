@@ -1,7 +1,7 @@
 // 정부 판의 [나라 세금] 칸 — 기획 D-128("세율은 정부가 정한다", 시스템 상한 없음)·D-579(주민세 주기·세율은 나라가 정함), 질문 2322 나·2373 가(줄기 tax-2).
 // - 모두에게: 소득세(사업장 수입·임금 원천징수 같은 율)·주민세(재산 ‰)·주기(날)·국세 몫(‰)과 정한 곳(지도자 / NPC 규칙식 / 기본값).
 // - 정할 수 있는 사람(서버가 canSet으로 알려 준다 — 그 나라 지도자 = 독립 나라 가문장): 칸 넷(빈칸 = 기본값) → WebSocket nation_tax(프로토콜 57).
-//   주민세 주기는 고르기 목록(하루·한 주 — @terra/shared/government RESIDENT_TAX_PERIOD_DAYS, 사용자 답 D-585 2)에서 고른다(빈 고르기 = 기본값).
+//   주민세 주기는 고르기 목록(1·3·7·14·30일 — @terra/shared/government RESIDENT_TAX_PERIOD_DAYS, 사용자 답 D-585 2)에서 고른다(빈 고르기 = 기본값).
 //   판정은 서버가 다시 한다. 투표 체제의 안건 절차는 governance 줄기 몫이다(지금은 지도자가 바로 정한다).
 import type { GovernmentTaxes } from "@terra/shared/government";
 import { useId, useState } from "react";
@@ -16,6 +16,7 @@ import {
   nationTaxErrorText,
   parseNationTaxDraft,
   periodChoices,
+  periodLabel,
   permilleText,
   taxSourceText,
 } from "./nationTaxData.ts";
@@ -86,7 +87,7 @@ function PeriodSelect(props: {
         <option value="">{m.government_tax_period_default()}</option>
         {periodChoices(props.value).map((days) => (
           <option key={days} value={String(days)}>
-            {m.government_tax_days({ days })}
+            {periodLabel(days)}
           </option>
         ))}
       </select>
@@ -152,7 +153,7 @@ export function NationTaxPolicy({ taxes }: { taxes: GovernmentTaxes }) {
         <TaxRow
           part="government-tax-every"
           label={m.government_tax_every()}
-          value={m.government_tax_days({ days: shown.residentEveryDays.value })}
+          value={periodLabel(shown.residentEveryDays.value)}
           note={taxSourceText(shown.residentEveryDays.source)}
         />
         <TaxRow

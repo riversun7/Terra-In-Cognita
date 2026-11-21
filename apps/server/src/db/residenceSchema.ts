@@ -15,6 +15,11 @@ export const unitResidences = pgTable(
     ownerId: bigint("owner_id", { mode: "number" }).notNull(),
     buildingId: bigint("building_id", { mode: "number" }).notNull(),
     chosenAtMs: bigint("chosen_at_ms", { mode: "number" }).notNull(),
+    /**
+     * 고른 집을 쓸 수 없게 된 시각(질문 2485 가 — 쉬면 옛 길(숙소 배정)로 돌아가고 주인에게 처리할 일 residence_paused를 보인다, 줄기 governance-6). 다시 쓸 수
+     * 있으면 null. 직전 판 앱은 읽지 않는다
+     */
+    pausedSinceMs: bigint("paused_since_ms", { mode: "number" }),
   },
   (table) => [
     index("unit_residences_owner_idx").on(table.ownerId),

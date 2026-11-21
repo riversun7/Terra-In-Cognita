@@ -10,6 +10,14 @@ import { z } from "zod";
 /** 이 파일의 메시지에 필요한 가장 낮은 프로토콜 버전(더 낮게 인사한 연결이 보내면 invalid_message) */
 export const RESIDENCE_PROTOCOL_VERSION = 61;
 
+/** 정원이 다 참(full)을 받는 가장 낮은 판(질문 2481 가 — 줄기 governance-6) */
+export const RESIDENCE_FULL_PROTOCOL_VERSION = 111;
+
+/** 그 연결 판이 모르는 코드(full)를 not_eligible로 낮춘다 */
+export function legacyResidenceCode(code: ResidenceResultCode, protocolVersion: number): ResidenceResultCode {
+  return code === "full" && protocolVersion < RESIDENCE_FULL_PROTOCOL_VERSION ? "not_eligible" : code;
+}
+
 const requestId = z.number().int().nonnegative().max(0xffff_ffff);
 const rowId = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 const buildingId = z.number().int().positive().max(0xffff_ffff);
@@ -41,6 +49,8 @@ export const RESIDENCE_RESULT_CODES = [
   "not_eligible",
   /** 이미 그 집이 사는 곳이다(풀기면 고른 것이 없다) */
   "unchanged",
+  /** 111판부터(RESIDENCE_FULL_PROTOCOL_VERSION): 그 집에 살 수 있는 수가 다 찼다(질문 2481 가 — 정원 = 레벨(층) × 설정 칸). 더 낮은 판은 not_eligible */
+  "full",
 ] as const;
 export type ResidenceResultCode = (typeof RESIDENCE_RESULT_CODES)[number];
 

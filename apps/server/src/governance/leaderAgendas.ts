@@ -10,6 +10,10 @@
 // - 가문 독립 선언(2454, D-300 "한 가문이 그 도시 지분 50% 이상이면 투표 없이 독립 선언"): 자본주의 나라의 시작 도시가 아닌 도시(D-341). 그 도시가 새 도시국가가 되고 선언한
 //   가문이 지배 가문(선출 기록 자리), 체제 = 옛 나라 체제 [임시 2459]. 플레이어 = gov_propose house_independence(그 가문의 장), NPC 가문 = 성향 규칙식(쿠데타 점수와 같은 식 ≥
 //   gov_house_independence_npc_score — D-323) + 옛 나라와 힘 비(가문 힘 × 1000 ≥ 옛 나라 군대 힘 × gov_house_independence_power_pm — D-585) [임시 식].
+//   바뀜(governance-6 — 질문 2500): 힘 비 대상 = 기술 기본값 "옛 나라 세력 유닛 전체에서 그 가문 유닛을 뺀 것"(독립한 뒤 옛 나라에 남는 군대 — 가문 유닛이 옛 나라 군대에
+//   들어 있어 전체와 견주면 가문이 결코 넘지 못했다). D-585 2 "독립함으로써 기존 국가와 적대관계": 거울 세계·시뮬에 세력 쌍 관계(적대·중립)를 담는 상태가 없고
+//   (전쟁 wars·불가침 truces만 — 세력 쌍 호감 D-255는 화면 시안뿐) 적대를 전쟁으로 바꿔 읽지 않는다(사용자 답 — 전쟁 아님). 그래서 독립 뒤 옛 나라와의 관계는
+//   그대로 둔다 [임시 — 질문 2531].
 // - 지도자 신임도(D-585 — approval.ts): 지배 가문이 바뀌면 시작값(플레이어 낮게·NPC), 해임 문턱·반란 문턱 고리. 오르내림 규칙은 질문 2493.
 import type { HouseKey, MonetaryMode } from "@terra/shared/governance";
 import { rebellionShiftOf, removalThresholdWithApproval } from "./approval.ts";
@@ -34,6 +38,13 @@ export interface LeaderDeps {
   readonly tools: Pick<ElectorateTools, "ruling">;
   readonly rules: () => GovernanceRules;
   readonly audit: (userId: string | null, action: string, after: Record<string, unknown>) => Promise<void>;
+}
+
+/**
+ * NPC 가문 독립 힘 비(D-585, 질문 2500 — 기술 기본값): 가문 힘 × 1000 ≥ 옛 나라에 남는 군대 힘(세력 유닛 − 그 가문 유닛) × 문턱‰. 넘으면 true
+ */
+export function independencePowerOk(housePower: number, remainingArmy: number, powerPm: number): boolean {
+  return housePower * 1000 >= remainingArmy * powerPm;
 }
 
 /** 플레이어가 이끄는 나라인가(플레이어 가문 나라·선출된 플레이어 지배 가문) */
@@ -146,7 +157,7 @@ export function createLeaderAgendas(d: LeaderDeps) {
   ): Promise<void> => {
     if (nation.regime !== "capitalism") return;
     const rules = d.rules();
-    const army = d.port.powerOf(d.port.armyUnits(nation), nowMs);
+    const army = d.port.armyUnits(nation);
     for (const house of d.port.npcHousesOf(nation)) {
       const key: HouseKey = `n:${house.id}`;
       if (key === ruling || d.port.isStartCity(house.cityId) || !majorityHolder(house.cityId, key)) continue;
@@ -155,8 +166,14 @@ export function createLeaderAgendas(d: LeaderDeps) {
         rules,
       );
       if (score < rules.houseIndependenceNpcScore) continue;
-      const power = d.port.powerOf(d.port.houseUnits(nation, key), nowMs);
-      if (power * 1000 < army * rules.houseIndependencePowerPm) continue;
+      const own = d.port.houseUnits(nation, key);
+      const mine = new Set(own);
+      const remaining = d.port.powerOf(
+        army.filter((unit) => !mine.has(unit)),
+        nowMs,
+      );
+      if (!independencePowerOk(d.port.powerOf(own, nowMs), remaining, rules.houseIndependencePowerPm))
+        continue;
       // 한 틱에 나라마다 하나(도시가 빠지면 나라 모양이 바뀐다)
       if ((await declare(nation, key, house.cityId, null, nowMs)) !== undefined) return;
     }

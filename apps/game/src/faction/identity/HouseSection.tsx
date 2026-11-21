@@ -216,10 +216,35 @@ function MyHouse({
                 </span>
                 <span className="faction-muted">
                   {member.role === "leader" ? m.fid_house_role_leader() : m.fid_house_role_member()}
+                  {house.heirUserId === member.userId ? ` · ${m.fid_house_heir_badge()}` : null}
                 </span>
               </span>
               {leader && member.role === "member" ? (
                 <span className="fid-house-actions">
+                  {/* 후계자(질문 2491 — D-588 5): 지배 가문이면 가문장 자리가 빌 때 먼저 잇는다. 옛 서버(heirUserId 없음)는 그리지 않는다 */}
+                  {house.heirUserId === undefined ? null : house.heirUserId === member.userId ? (
+                    <button
+                      type="button"
+                      className="button-small"
+                      aria-disabled={busy}
+                      onClick={() => {
+                        if (!busy) void run({ t: "house_heir", userId: null });
+                      }}
+                    >
+                      {m.fid_house_heir_clear()}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="button-small"
+                      aria-disabled={busy}
+                      onClick={() => {
+                        if (!busy) void run({ t: "house_heir", userId: member.userId });
+                      }}
+                    >
+                      {m.fid_house_heir_set()}
+                    </button>
+                  )}
                   <ConfirmButton
                     label={m.fid_house_handover()}
                     question={m.fid_house_handover_confirm({ name: member.name ?? m.fid_house_someone() })}

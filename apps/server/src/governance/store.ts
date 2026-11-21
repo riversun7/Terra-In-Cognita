@@ -30,6 +30,8 @@ export interface AgendaPayload {
   readonly targetNationId?: number;
   /** 해임 뒤 다시 뽑기에서 후보가 못 되는 가문 */
   readonly barred?: HouseKey;
+  /** 해임된 지도자(사람 — 줄기 governance-6: 빈자리 후임이 못 된다, succession.ts). NPC 지도자면 없음 */
+  readonly barredUser?: string;
   /** 직권 결정(투표 없음 — 독재 지도자, 지분 과반 지도자의 독재 전환) */
   readonly byAuthority?: boolean;
   /** 세율 안건이 바꾸려는 나라 세금(질문 2407 가) */
@@ -133,6 +135,13 @@ export interface StateRow {
   readonly vacantSinceMs: number | null;
 }
 
+/** 가문원 한 사람(빈자리 후임 고르기 — succession.ts) */
+export interface HouseMemberRow {
+  readonly userId: string;
+  readonly role: "leader" | "member";
+  readonly joinedAtMs: number;
+}
+
 /** 플레이어 가문(그 나라 소속 — 가문장) */
 export interface PlayerHouseRow {
   readonly id: number;
@@ -157,6 +166,7 @@ function payloadOf(value: unknown): AgendaPayload {
   const regime = GOVERNANCE_REGIMES.find((entry) => entry === value.regime);
   const target = typeof value.targetNationId === "number" ? value.targetNationId : undefined;
   const barred = typeof value.barred === "string" && isHouseKey(value.barred) ? value.barred : undefined;
+  const barredUser = typeof value.barredUser === "string" ? value.barredUser : undefined;
   const taxes = taxesOf(value.taxes);
   const cityId = typeof value.cityId === "number" ? value.cityId : undefined;
   const shares = digits(value.shares);
@@ -170,6 +180,7 @@ function payloadOf(value: unknown): AgendaPayload {
     ...(regime ? { regime } : {}),
     ...(target !== undefined ? { targetNationId: target } : {}),
     ...(barred ? { barred } : {}),
+    ...(barredUser !== undefined ? { barredUser } : {}),
     ...(value.byAuthority === true ? { byAuthority: true } : {}),
     ...(taxes ? { taxes } : {}),
     ...(cityId !== undefined ? { cityId } : {}),
@@ -458,6 +469,24 @@ export function createGovernanceStore(pool: GovernanceQueryable) {
         head: String(row.user_id),
         name: typeof row.name === "string" ? row.name : null,
       }));
+    },
+    /** 가문원 모두(들어온 차례, 해산한 가문이면 빈 목록 — 빈자리 후임 고르기, succession.ts) */
+    async houseMembersOf(houseRow: number): Promise<HouseMemberRow[]> {
+      const { rows } = await pool.query(
+        `select m.user_id, m.role, m.joined_at_ms from house_members m join factions f on f.id = m.faction_id
+          where m.faction_id = $1 and f.dissolved_at_ms is null order by m.joined_at_ms, m.user_id`,
+        [houseRow],
+      );
+      return rows.map((row) => ({
+        userId: String(row.user_id),
+        role: row.role === "leader" ? "leader" : "member",
+        joinedAtMs: num(row.joined_at_ms),
+      }));
+    },
+    /** 가문장이 미리 정한 후계자(질문 2491 — D-588 5, 표 house_heirs). 없으면 undefined */
+    async heirOf(houseRow: number): Promise<string | undefined> {
+      const { rows } = await pool.query("select user_id from house_heirs where faction_id = $1", [houseRow]);
+      return rows[0] ? String(rows[0].user_id) : undefined;
     },
     /** 플레이어 가문의 가문장(해산하지 않은 가문) */
     async headOf(houseRow: number): Promise<string | undefined> {

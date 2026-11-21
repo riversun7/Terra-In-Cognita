@@ -40,6 +40,7 @@ export type HouseMemberClientMessage = ClientMessageOf<
   | "house_leave"
   | "house_kick"
   | "house_handover"
+  | "house_heir"
   | "house_dissolve"
   | "house_home"
   | "house_entry_policy"
@@ -196,6 +197,8 @@ function runMember(
       return home ? home.set(userId, message.cityId) : Promise.resolve(memberFail("busy"));
     case "house_handover":
       return succession ? succession.handover(userId, message.userId) : Promise.resolve(memberFail("busy"));
+    case "house_heir":
+      return succession ? succession.heir(userId, message.userId) : Promise.resolve(memberFail("busy"));
     case "house_dissolve":
       return succession ? dissolveWithVault(succession, policy, userId) : Promise.resolve(memberFail("busy"));
     case "house_invite":

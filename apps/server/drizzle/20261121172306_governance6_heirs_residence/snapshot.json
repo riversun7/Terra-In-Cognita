@@ -1,0 +1,224 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "9ef728d3-faa7-4b70-bef5-a67d304631b3",
+  "prevIds": [
+    "8ccb7e3f-9488-45bf-8137-a0bfbba826db",
+    "e44a1520-def3-4dd0-85f2-a97fe6a8e2fb",
+    "90e99c42-2912-427e-b53e-b00329f24354"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "house_heirs"
+      ],
+      "writes": [
+        "s|tbl|public.house_heirs",
+        "n|tbl|public.house_heirs",
+        "e|tbl|public.house_heirs",
+        "n|rel|public.house_heirs",
+        "n|type|public.house_heirs",
+        "n|rel|public.house_heirs_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "unit_residences",
+        "paused_since_ms"
+      ],
+      "writes": [
+        "s|col|public.unit_residences.paused_since_ms",
+        "n|col|public.unit_residences.paused_since_ms",
+        "e|col|public.unit_residences.paused_since_ms"
+      ],
+      "reads": [
+        "n|tbl|public.unit_residences",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "house_heirs"
+      ],
+      "writes": [
+        "s|fk|public.house_heirs.house_heirs_faction_id_factions_id_fkey",
+        "n|fk|public.house_heirs.house_heirs_faction_id_factions_id_fkey",
+        "e|fk|public.house_heirs.house_heirs_faction_id_factions_id_fkey",
+        "n|con|public.house_heirs.house_heirs_faction_id_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.house_heirs",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.house_heirs.faction_id",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "house_heirs"
+      ],
+      "writes": [
+        "s|fk|public.house_heirs.house_heirs_user_id_users_id_fkey",
+        "n|fk|public.house_heirs.house_heirs_user_id_users_id_fkey",
+        "e|fk|public.house_heirs.house_heirs_user_id_users_id_fkey",
+        "n|con|public.house_heirs.house_heirs_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.house_heirs",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.house_heirs.user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "house_heirs",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_residences",
+        "name": "paused_since_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_heirs",
+        "name": "faction_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_heirs",
+        "name": "user_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_heirs",
+        "name": "designated_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_heirs",
+        "name": "house_heirs_faction_id_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "faction_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_heirs",
+        "name": "house_heirs_user_id_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "user_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_heirs",
+        "name": "house_heirs_pkey",
+        "columns": [
+          "faction_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    }
+  ]
+}

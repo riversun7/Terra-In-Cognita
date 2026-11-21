@@ -93,6 +93,8 @@ export function residenceBlockText(block: ResidenceBlock): string {
       return m.residence_block_not_eligible();
     case "unknown_building":
       return m.residence_block_unknown_building();
+    case "full":
+      return m.residence_block_full();
     default: {
       const unknown: never = block;
       return unknown;
@@ -107,6 +109,7 @@ export function residenceErrorText(code: ResidenceResultCode | "offline" | "time
     case "no_city":
     case "not_eligible":
     case "unknown_building":
+    case "full":
       return residenceBlockText(code);
     case "unknown_unit":
       return m.residence_error_unit();

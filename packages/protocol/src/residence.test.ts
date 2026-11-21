@@ -1,14 +1,17 @@
 // 사는 곳 고르기 메시지(프로토콜 61, D-585 1) 스키마 시험 — 왕복, null = 풀기, 결과 코드, 판
 import { describe, expect, it } from "vitest";
 import {
+  HOUSE_HEIR_PROTOCOL_VERSION,
   MIN_SUPPORTED_PROTOCOL_VERSION,
   PROTOCOL_VERSION,
   ProtocolError,
+  RESIDENCE_FULL_PROTOCOL_VERSION,
   RESIDENCE_PROTOCOL_VERSION,
   RESIDENCE_RESULT_CODES,
   decodeClientMessage,
   decodeServerMessage,
   encodeMessage,
+  legacyResidenceCode,
 } from "./index.ts";
 
 function decodes(decode: (text: string) => unknown, message: unknown): boolean {
@@ -55,5 +58,34 @@ describe("사는 곳 고르기 메시지(프로토콜 61)", () => {
     expect(decodes(decodeServerMessage, { t: "residence_result", id: 3, ok: false, code: "nope" })).toBe(
       false,
     );
+  });
+});
+
+describe("사는 곳 정원·가문 후계자(줄기 governance-6 — 판 111)", () => {
+  it("full은 111판부터, 더 낮은 판은 not_eligible로 낮춘다", () => {
+    expect(RESIDENCE_RESULT_CODES).toContain("full");
+    expect(legacyResidenceCode("full", RESIDENCE_FULL_PROTOCOL_VERSION)).toBe("full");
+    expect(legacyResidenceCode("full", RESIDENCE_FULL_PROTOCOL_VERSION - 1)).toBe("not_eligible");
+    expect(legacyResidenceCode("unchanged", 60)).toBe("unchanged");
+    expect(decodes(decodeServerMessage, { t: "residence_result", id: 1, ok: false, code: "full" })).toBe(
+      true,
+    );
+  });
+
+  it("house_heir: 가문원 ID 또는 null(풀기), 결과 한 일 heir_set", () => {
+    expect(HOUSE_HEIR_PROTOCOL_VERSION).toBeLessThanOrEqual(PROTOCOL_VERSION);
+    const user = "0190a0b0-0000-7000-8000-000000000001";
+    expect(decodes(decodeClientMessage, { t: "house_heir", id: 1, userId: user })).toBe(true);
+    expect(decodes(decodeClientMessage, { t: "house_heir", id: 1, userId: null })).toBe(true);
+    expect(decodes(decodeClientMessage, { t: "house_heir", id: 1, userId: "x" })).toBe(false);
+    expect(
+      decodes(decodeServerMessage, {
+        t: "house_member_result",
+        id: 1,
+        ok: true,
+        action: "heir_set",
+        factionId: 3,
+      }),
+    ).toBe(true);
   });
 });

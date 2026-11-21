@@ -36,6 +36,8 @@ export type HouseMemberRequest =
   | { readonly t: "house_kick"; readonly userId: string }
   // 프로토콜 24(질문 1003 가)
   | { readonly t: "house_handover"; readonly userId: string }
+  // 프로토콜 111(질문 2491 — D-588 5): 가문장이 후계자를 정하거나(userId) 푼다(null)
+  | { readonly t: "house_heir"; readonly userId: string | null }
   | { readonly t: "house_dissolve" }
   // 프로토콜 39(D-565): 가문장이 소속 도시를 바꾼다
   | { readonly t: "house_home"; readonly cityId: number }

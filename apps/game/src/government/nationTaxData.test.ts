@@ -6,7 +6,9 @@ import {
   parseIncomePercent,
   parseNationTaxDraft,
   periodChoices,
+  periodLabel,
 } from "./nationTaxData.ts";
+import { m } from "../paraglide/messages.js";
 
 const field = (value: number, own: number | null) => ({ value, own, source: "leader" as const });
 
@@ -72,10 +74,16 @@ describe("나라 세금 입력(tax-2)", () => {
     expect(cleared.taxes.incomeTaxBp.source).toBe("default");
   });
 
-  it("주기 고르기 줄 = 목록(하루·한 주, D-585 2) + 전에 정해 둔 목록 밖 값", () => {
-    expect(periodChoices("")).toEqual([1, 7]);
-    expect(periodChoices("7")).toEqual([1, 7]);
-    expect(periodChoices("3")).toEqual([1, 3, 7]);
-    expect(periodChoices("abc")).toEqual([1, 7]);
+  it("주기 고르기 줄 = 목록(1·3·7·14·30일, D-585 2·질문 2482 답) + 전에 정해 둔 목록 밖 값", () => {
+    expect(periodChoices("")).toEqual([1, 3, 7, 14, 30]);
+    expect(periodChoices("7")).toEqual([1, 3, 7, 14, 30]);
+    expect(periodChoices("5")).toEqual([1, 3, 5, 7, 14, 30]);
+    expect(periodChoices("abc")).toEqual([1, 3, 7, 14, 30]);
+  });
+
+  it("주기 이름: 1일 = 매일, 7일 = 매주, 그 밖 = N일마다", () => {
+    expect(periodLabel(1)).toBe(m.government_tax_period_daily());
+    expect(periodLabel(7)).toBe(m.government_tax_period_weekly());
+    expect(periodLabel(14)).toBe(m.government_tax_days({ days: 14 }));
   });
 });

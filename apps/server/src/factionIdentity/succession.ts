@@ -12,6 +12,7 @@
 import { houseResetName, houseResetShort } from "@terra/shared/house";
 import { writeAudit } from "../auth/store.ts";
 import type { Database } from "../db/client.ts";
+import { createHouseHeir } from "./heir.ts";
 import { RENAME_FREE } from "./house.ts";
 import {
   type HouseMemberResult,
@@ -26,6 +27,8 @@ import type { IdentityQueryable } from "./store.ts";
 
 export interface HouseSuccession {
   handover(leaderId: string, targetId: string): Promise<HouseMemberResult>;
+  /** 후계자 지정·풀기(house_heir — 질문 2491, heir.ts) */
+  heir(leaderId: string, targetId: string | null): Promise<HouseMemberResult>;
   dissolve(leaderId: string): Promise<HouseMemberResult>;
 }
 
@@ -48,6 +51,97 @@ async function freeShortOf(q: IdentityQueryable, factionId: number): Promise<str
   return `H${String(factionId % 10_000)}`.slice(0, 5);
 }
 
+/**
+ * 가문장을 넘긴다(한 트랜잭션 안 — 가문 행은 잠근 뒤): 옛 가문장(있으면) → 가문원, 받는 사람 → 가문장, 가문 정체성 줄을 새 가문장에게, 소식. 넘기기(house_handover)와
+ * 지배 가문 빈자리 자동 계승(succeedHouseHead — 질문 2491 D-588 5)이 같이 쓴다. 옛 가문장이 없으면(계정이 지워짐 등) from = null
+ */
+async function transferHead(
+  q: IdentityQueryable,
+  house: { readonly id: number; readonly name: string },
+  fromId: string | null,
+  targetId: string,
+  now: number,
+): Promise<void> {
+  if (fromId !== null)
+    await q.query("update house_members set role = 'member' where user_id = $1 and faction_id = $2", [
+      fromId,
+      house.id,
+    ]);
+  await q.query("update house_members set role = 'leader' where user_id = $1 and faction_id = $2", [
+    targetId,
+    house.id,
+  ]);
+  // 가문 정체성 줄을 새 가문장에게(그 사람의 창설 전 초안은 지운다 — 계정마다 한 줄)
+  await q.query("delete from faction_identities where user_id = $1 and faction_id is null", [targetId]);
+  await q.query("update faction_identities set user_id = $1, updated_at_ms = $3 where faction_id = $2", [
+    targetId,
+    house.id,
+    now,
+  ]);
+  // 후계자로 정해 두었던 사람이 가문장이 되면 후계자 줄을 지운다(질문 2491 — house_heirs)
+  await q.query("delete from house_heirs where faction_id = $1 and user_id = $2", [house.id, targetId]);
+  const oldName = fromId === null ? null : await cyborgNameOf(q, fromId);
+  const newName = await cyborgNameOf(q, targetId);
+  await notify(q, {
+    userId: targetId,
+    factionId: house.id,
+    kind: "leader_given",
+    houseName: house.name,
+    other: oldName,
+    nowMs: now,
+  });
+  const { rows } = await q.query<{ user_id: string }>(
+    "select user_id from house_members where faction_id = $1 and user_id <> $2 and user_id is distinct from $3",
+    [house.id, targetId, fromId],
+  );
+  for (const row of rows)
+    await notify(q, {
+      userId: row.user_id,
+      factionId: house.id,
+      kind: "leader_changed",
+      houseName: house.name,
+      other: newName,
+      nowMs: now,
+    });
+}
+
+/**
+ * 지배 가문 빈자리 자동 계승(질문 2491 — 사용자 결정 D-588 5 "국가 지도자 = 지배 가문의 가문장, 빈자리는 서열·미리 지정한 후계자로 자동 계승"): 시스템이
+ * 그 가문의 가문원 한 명을 가문장으로 세운다(지금 가문장이 있으면 가문원으로). 넘겼으면 true(가문이 없거나 그 사람이 가문원이 아니면 false). 감사 기록
+ * faction.house_succession
+ */
+export async function succeedHouseHead(
+  o: { readonly pool: HouseTxPool; readonly db?: Database | undefined },
+  factionId: number,
+  targetId: string,
+  now: number,
+): Promise<boolean> {
+  const done = await inTransaction(o.pool, async (q): Promise<{ from: string | null } | null> => {
+    const house = await lockHouse(q, factionId);
+    if (!house) return null;
+    const target = await membershipOf(q, targetId);
+    if (target?.factionId !== house.id) return null;
+    if (target.role === "leader") return { from: targetId };
+    const head = await q.query<{ user_id: string }>(
+      "select user_id from house_members where faction_id = $1 and role = 'leader'",
+      [house.id],
+    );
+    const from = head.rows[0]?.user_id ?? null;
+    await transferHead(q, house, from, targetId, now);
+    return { from };
+  });
+  if (!done) return false;
+  if (o.db && done.from !== targetId)
+    await writeAudit(o.db, {
+      actor: { kind: "system", id: null, ip: null },
+      action: "faction.house_succession",
+      targetId,
+      before: { factionId, head: done.from },
+      after: { factionId, head: targetId },
+    });
+  return true;
+}
+
 export function createHouseSuccession(o: {
   readonly pool: HouseTxPool;
   readonly db?: Database | undefined;
@@ -64,7 +158,9 @@ export function createHouseSuccession(o: {
       });
   };
 
+  const heirs = createHouseHeir(o);
   return {
+    heir: (leaderId, targetId) => heirs.set(leaderId, targetId),
     async handover(leaderId, targetId) {
       if (leaderId === targetId) return { ok: false, code: "self" };
       const now = o.now();
@@ -75,43 +171,7 @@ export function createHouseSuccession(o: {
         if (!house) return { ok: false, code: "not_found" };
         const target = await membershipOf(q, targetId);
         if (target?.factionId !== house.id) return { ok: false, code: "not_found" };
-        await q.query("update house_members set role = 'member' where user_id = $1 and faction_id = $2", [
-          leaderId,
-          house.id,
-        ]);
-        await q.query("update house_members set role = 'leader' where user_id = $1 and faction_id = $2", [
-          targetId,
-          house.id,
-        ]);
-        // 가문 정체성 줄을 새 가문장에게(그 사람의 창설 전 초안은 지운다 — 계정마다 한 줄)
-        await q.query("delete from faction_identities where user_id = $1 and faction_id is null", [targetId]);
-        await q.query(
-          "update faction_identities set user_id = $1, updated_at_ms = $3 where faction_id = $2",
-          [targetId, house.id, now],
-        );
-        const oldName = await cyborgNameOf(q, leaderId);
-        const newName = await cyborgNameOf(q, targetId);
-        await notify(q, {
-          userId: targetId,
-          factionId: house.id,
-          kind: "leader_given",
-          houseName: house.name,
-          other: oldName,
-          nowMs: now,
-        });
-        const { rows } = await q.query<{ user_id: string }>(
-          "select user_id from house_members where faction_id = $1 and user_id <> $2 and user_id <> $3",
-          [house.id, leaderId, targetId],
-        );
-        for (const row of rows)
-          await notify(q, {
-            userId: row.user_id,
-            factionId: house.id,
-            kind: "leader_changed",
-            houseName: house.name,
-            other: newName,
-            nowMs: now,
-          });
+        await transferHead(q, house, leaderId, targetId, now);
         return { ok: true, action: "handed_over", factionId: house.id };
       });
       if (result.ok)

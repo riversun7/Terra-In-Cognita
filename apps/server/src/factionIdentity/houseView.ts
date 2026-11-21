@@ -231,7 +231,7 @@ export async function readHouseView(
         : { rows: [] };
     const bornOf = nation.rows[0]?.born_of;
     // 가문 금고(houseVault.ts — 국고와 따로). 보기 값이라 DB 계정 줄을 읽는다(쓰기 대기열이 곧 맞춘다), 없으면 0
-    const [vault, policy, vaultLog] = await Promise.all([
+    const [vault, policy, vaultLog, heir] = await Promise.all([
       q.query<{ balance: string }>(
         "select balance::text as balance from ledger_accounts where system_code = $1",
         [houseVaultCode(mine.factionId, ASSET_CREDIT)],
@@ -246,6 +246,8 @@ export async function readHouseView(
         mine.factionId,
         HOUSE_VAULT_LOG_LIMIT,
       ]),
+      // 미리 정한 후계자(질문 2491 — D-588 5, house_heirs)
+      q.query<{ user_id: string }>("select user_id from house_heirs where faction_id = $1", [mine.factionId]),
     ]);
     const taxMaxPm = input.rules.taxMaxPm;
     return {
@@ -271,6 +273,7 @@ export async function readHouseView(
               who: row.who,
             })),
             tax: { ratePm: Math.min(taxMaxPm, policy.rows[0]?.tax_pm ?? 0), maxPm: taxMaxPm },
+            heirUserId: heir.rows[0]?.user_id ?? null,
             requests: requests.rows.map(
               (row): HouseRequestRow => ({
                 id: Number(row.id),

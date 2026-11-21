@@ -181,3 +181,10 @@
   `nation_taxes.trade_tax_bp`·`governance_coup_sides.units` + 검사 넓히기 둘(안건 종류 `peace`·`currency_stage`·`house_independence`, 신용 종류). 직전 판 앱 그대로 — 되돌리면 새 종류
   안건을 모르는 종류로 읽는다, Assumed 해 없음), 프로토콜 61(묶음 1117a, 줄기 판 99 — 받는 가장 낮은 판 60, `GOVERNANCE5_PROTOCOL_VERSION`, 더하기만, 낮은 판에는 새 결과 코드 대신 not_eligible), 팩 core@139(묶음 1117a, 줄기 판 176 —
   설정 칸 더하기 19·빼기 3), SIM_VERSION 그대로(시뮬은 새 고리 둘 — `bankOverride`·`rebellionThresholdShift` — 을 붙이지 않는다).
+
+## 바뀜 (diplomacy, 2026-11-21 — 사용자 결정 D-588, 제안 상태라 이 ADR을 고친다)
+- 근거: 질문 2497 답 "가,나 외교파트"·2498 답 "알아서"(D-588). 자세한 결정은 ADR `2026-11-21-diplomacy-treaties.md`.
+- 위 "바뀜 (governance-5)"의 "받는 쪽이 플레이어가 이끄는 나라·빈자리면 그쪽도 `gov_peace_offer_ms` 안에 같은 강화를 정해야 맺는다 [임시 2497]"·"동맹·보호 조약은 … 만들지 않았다(질문 2498)"를
+  아래가 보탠다: 외교 서비스(`apps/server/src/diplomacy/`)가 붙어 있으면 플레이어가 이끄는 상대에게 강화 안건은 휴전·강화 조약 제안이 되고(상대가 먼저 낸 휴전·강화 조약이 있으면 그것을 받아 맺음),
+  옛 길(서로 같은 강화를 정함)도 남는다. 안건 종류 `treaty`(조약 비준 — 외교 서비스만 연다, `gov_propose`로는 kind_disabled)를 더했고, 가결된 비준 안건은 `leaderAgendas.enactTreaty`가 외교 서비스에
+  넘긴다(`TreatyHooks`). 의결 서비스는 외교 명령·틱을 같은 사슬에서 돌리는 `run`을 내보낸다. NPC 표(npcVote.ts) — 비준 = 만족하면 찬성 [임시]. 동맹·보호는 조약 카드로 만들었다(효과 = 질문 2559).

@@ -5,8 +5,15 @@ import type {
   GovernanceRegime,
   GovernanceTaxes,
   HouseKey,
+  MonetaryMode,
 } from "@terra/shared/governance";
-import { AGENDA_KINDS, AGENDA_STATUSES, GOVERNANCE_REGIMES, isHouseKey } from "@terra/shared/governance";
+import {
+  AGENDA_KINDS,
+  AGENDA_STATUSES,
+  GOVERNANCE_REGIMES,
+  MONETARY_MODES,
+  isHouseKey,
+} from "@terra/shared/governance";
 
 export interface GovernanceQueryable {
   query(
@@ -32,6 +39,9 @@ export interface AgendaPayload {
   /** 국고 지분 팔기: 주 수·한 주 가장 낮은 값(10진 글자) */
   readonly shares?: string;
   readonly minPrice?: string;
+  /** 화폐 단계 전환: 목표 단계·하루 조절 만분율(질문 2453 — 줄기 governance-5) */
+  readonly monetaryMode?: MonetaryMode;
+  readonly monetaryRateBp?: number;
 }
 
 /** jsonb → 세율 안건 값(칸마다 정수 또는 null). 꼴이 틀리면 undefined */
@@ -53,7 +63,15 @@ function taxesOf(value: unknown): GovernanceTaxes | undefined {
     residentNationPm === undefined
   )
     return undefined;
-  return { incomeTaxBp, residentTaxPm, residentEveryDays, residentNationPm };
+  // 거래세(줄기 governance-5 — 질문 2460): 칸이 없으면(옛 안건) 바꾸지 않는다
+  const tradeTaxBp = field("tradeTaxBp");
+  return {
+    incomeTaxBp,
+    residentTaxPm,
+    residentEveryDays,
+    residentNationPm,
+    ...(tradeTaxBp === undefined ? {} : { tradeTaxBp }),
+  };
 }
 
 /** 셈 결과(jsonb — 무게는 10진 문자열) */
@@ -143,6 +161,11 @@ function payloadOf(value: unknown): AgendaPayload {
   const cityId = typeof value.cityId === "number" ? value.cityId : undefined;
   const shares = digits(value.shares);
   const minPrice = digits(value.minPrice);
+  const monetaryMode = MONETARY_MODES.find((entry) => entry === value.monetaryMode);
+  const monetaryRateBp =
+    typeof value.monetaryRateBp === "number" && Number.isSafeInteger(value.monetaryRateBp)
+      ? value.monetaryRateBp
+      : undefined;
   return {
     ...(regime ? { regime } : {}),
     ...(target !== undefined ? { targetNationId: target } : {}),
@@ -152,6 +175,8 @@ function payloadOf(value: unknown): AgendaPayload {
     ...(cityId !== undefined ? { cityId } : {}),
     ...(shares !== undefined ? { shares } : {}),
     ...(minPrice !== undefined ? { minPrice } : {}),
+    ...(monetaryMode ? { monetaryMode } : {}),
+    ...(monetaryRateBp !== undefined ? { monetaryRateBp } : {}),
   };
 }
 

@@ -806,7 +806,10 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
         const parent = world.factions.get(city.owner);
         const units = byCity.get(city.id) ?? [];
         if (!parent?.alive || nowMs < city.nextRebellionMs) continue;
-        const rebels = new Set(rebelsOf(units, c));
+        const shift = Math.trunc(o.hooks?.rebellionThresholdShift?.(parent) ?? 0); // 신임도 보정(서버 고리 — D-585)
+        const rebels = new Set(
+          rebelsOf(units, shift === 0 ? c : { ...c, rebellionThreshold: c.rebellionThreshold + shift }),
+        );
         if (rebels.size === 0) continue;
         city.nextRebellionMs = nowMs + s.rebellionCooldownDays * DAY_MS;
         const rebelUnits = units.filter((u) => rebels.has(u.id));

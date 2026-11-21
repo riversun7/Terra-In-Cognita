@@ -491,6 +491,7 @@ export {
 export {
   TEST_CENTRAL_BANK_RULE,
   centralBankStep,
+  manualBankStep,
   initialMint,
   type CentralBankInput,
   type CentralBankRule,

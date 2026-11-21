@@ -160,12 +160,25 @@ export interface BusinessCoefficients {
   readonly creditMin?: number | undefined;
   readonly creditMax?: number | undefined;
   readonly creditStart?: number | undefined;
-  /** 주민세를 다 못 낸 주기마다 깎는 점수(도시 신용·나라 신용). 갚으면(빚 계정 0) 그 빚으로 깎은 몫을 바로 되돌린다. 선택 칸 — 없으면 0 */
-  readonly creditResidentCity?: number | undefined;
+  /** 주민세를 다 못 낸 주기마다 깎는 점수. 다 갚으면(빚 계정 0) 그 빚으로 깎은 몫을 바로 되돌린다(일부만 갚으면 그대로 — 2443 가). 선택 칸 — 없으면 0 */
   readonly creditResidentNation?: number | undefined;
-  /** 사업장 적자(debt:business — D-555 1504)가 생길 때 한 번 깎는 점수(건물 주인의 그 도시·그 나라 신용). 다 갚으면 되돌린다. 선택 칸 — 없으면 0 */
-  readonly creditBusinessCity?: number | undefined;
+  /** 사업장 적자(debt:business — D-555 1504)가 생길 때 한 번 깎는 점수. 다 갚으면 되돌린다. 선택 칸 — 없으면 0 */
   readonly creditBusinessNation?: number | undefined;
+  /**
+   * 바뀜(줄기 governance-5 — 사용자 결정 D-584 "신용은 한 점수"): 점수는 그 사람이 속한 나라에 대한 신용 하나다(도시·나라 따로가 아니다). 시작값(creditStart)은 낮게 두고
+   * 소속 기간마다 저절로 오르며(상한까지), 사업장을 돌리면 오르고, 빚·체납·쿠데타 가담·같은 나라 유저 공격으로 내린다. 크기는 모두 설정 칸 [임시 출발값].
+   * creditResidentNation·creditBusinessNation = 그 빚이 깎는 점수(도시 몫 칸은 뺐다). 선택 칸 — 없으면 0
+   * - creditUpkeep: 유지비 체납(D-150 — 질문 2447 나) 못 낸 정산 경계(1시간)마다
+   * - creditTenurePerDay·creditTenureCap: 소속 하루마다 오르는 점수·소속 기간으로 오르는 몫의 상한
+   * - creditBusinessDaily: 돌아가는(멈추지 않은) 사업장 하나마다 하루에 오르는 점수
+   * - creditCoupJoin·creditSameNationAttack: 쿠데타 가담(혁명군)·같은 나라 유저 공격 한 번마다 내리는 점수
+   */
+  readonly creditUpkeep?: number | undefined;
+  readonly creditTenurePerDay?: number | undefined;
+  readonly creditTenureCap?: number | undefined;
+  readonly creditBusinessDaily?: number | undefined;
+  readonly creditCoupJoin?: number | undefined;
+  readonly creditSameNationAttack?: number | undefined;
 }
 
 export const START_BUSINESS: BusinessCoefficients = {
@@ -213,9 +226,13 @@ export const START_BUSINESS: BusinessCoefficients = {
   residentBuildingFloorPm: 300,
   creditMin: 0,
   creditMax: 1000,
-  creditStart: 1000,
-  creditResidentCity: 50,
+  creditStart: 100,
   creditResidentNation: 20,
-  creditBusinessCity: 30,
   creditBusinessNation: 10,
+  creditUpkeep: 2,
+  creditTenurePerDay: 10,
+  creditTenureCap: 300,
+  creditBusinessDaily: 2,
+  creditCoupJoin: 100,
+  creditSameNationAttack: 50,
 };

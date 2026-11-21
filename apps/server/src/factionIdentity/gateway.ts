@@ -368,12 +368,14 @@ export function createHouseGateway(options: {
         const service = options.nationTax?.();
         if (!service) return replyTax(message.id, taxFail("busy"));
         if (!memberLimiter.take(viewer.id)) return replyTax(message.id, taxFail("rate_limited"));
-        const { incomeTaxBp, residentTaxPm, residentEveryDays, residentNationPm } = message;
+        const { incomeTaxBp, residentTaxPm, residentEveryDays, residentNationPm, tradeTaxBp } = message;
+        // 거래세(줄기 governance-5 — 질문 2460): 칸이 없으면(옛 기기) 바꾸지 않는다
         const result = await service.set(viewer.id, {
           incomeTaxBp,
           residentTaxPm,
           residentEveryDays,
           residentNationPm,
+          ...(tradeTaxBp === undefined ? {} : { tradeTaxBp }),
         });
         if (result.ok)
           options.log.info(

@@ -27,10 +27,31 @@ export const creditMarks = pgTable(
   },
   (table) => [
     index("credit_marks_owner_idx").on(table.ownerId),
-    check("credit_marks_kind", sql`${table.kind} in ('resident', 'business')`),
+    check(
+      "credit_marks_kind",
+      sql`${table.kind} in ('resident', 'business', 'upkeep', 'coup_join', 'same_nation_attack')`,
+    ),
     check(
       "credit_marks_points",
       sql`${table.cityPoints} >= 0 and ${table.nationPoints} >= 0 and ${table.count} >= 1`,
     ),
   ],
+);
+
+/**
+ * 신용 소속(줄기 governance-5 — 사용자 결정 D-584 "신용은 그 사람이 속한 나라에 대한 점수 하나, 소속 기간·사업장으로 오른다"): 주인마다 지금 속한 나라 한 줄.
+ * since_ms = 그 나라에 속한 것을 처음 본 때(소속 기간 오름), rise = 쌓인 오른 몫(사업장 운영 하루마다·쿠데타 보상), rose_day = 사업장 몫을 마지막으로 더한 날.
+ * 나라를 옮기면 줄을 바꾼다(처음부터). 외래 키 없음(주체가 사라져도 남는다 — 읽을 때 무시)
+ */
+export const creditStandings = pgTable(
+  "credit_standings",
+  {
+    ownerId: bigint("owner_id", { mode: "number" }).primaryKey(),
+    nationId: bigint("nation_id", { mode: "number" }).notNull(),
+    sinceMs: bigint("since_ms", { mode: "number" }).notNull(),
+    rise: integer("rise").notNull().default(0),
+    roseDay: integer("rose_day").notNull(),
+    updatedAtMs: bigint("updated_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [check("credit_standings_rise", sql`${table.rise} >= 0`)],
 );

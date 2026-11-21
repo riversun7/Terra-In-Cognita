@@ -23,6 +23,8 @@ export const NATION_TAX_LIMITS = {
   residentEveryDays: { min: 1, max: 365 },
   /** 주민세 국세 몫(‰) */
   residentNationPm: { min: 0, max: 1000 },
+  /** 거래세(만분율 — 줄기 governance-5, 질문 2460) */
+  tradeTaxBp: { min: 0, max: 10_000 },
 } as const;
 
 const intIn = (range: { readonly min: number; readonly max: number }) =>
@@ -36,6 +38,8 @@ export const nationTaxMessage = z.object({
   residentTaxPm: intIn(NATION_TAX_LIMITS.residentTaxPm),
   residentEveryDays: intIn(NATION_TAX_LIMITS.residentEveryDays),
   residentNationPm: intIn(NATION_TAX_LIMITS.residentNationPm),
+  /** 거래세(만분율 — 줄기 governance-5, 질문 2460, 프로토콜 61(묶음 1117a, 줄기 판 99)부터). 없으면 바꾸지 않는다(옛 기기), null = 정하지 않음 */
+  tradeTaxBp: intIn(NATION_TAX_LIMITS.tradeTaxBp).optional(),
 });
 
 /** 결과 코드. 화면 문구는 기기가 코드로 고른다 */

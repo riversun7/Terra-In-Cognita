@@ -1,0 +1,47 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "6429529b-49e0-4cd0-ab48-8bf2fd73fba0",
+  "prevIds": [
+    "2d53a6a4-006b-4ecb-8057-b0b0330ff694"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "factions",
+        "next_decide_ms"
+      ],
+      "writes": [
+        "s|col|public.factions.next_decide_ms",
+        "n|col|public.factions.next_decide_ms",
+        "e|col|public.factions.next_decide_ms"
+      ],
+      "reads": [
+        "n|tbl|public.factions",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "next_decide_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

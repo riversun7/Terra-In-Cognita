@@ -8665,8 +8665,8 @@
   "dev_npc_ai_lab_run": "다시 계산",
   "dev_npc_ai_lab_running": "계산 중...",
   "dev_npc_ai_lab_error": "서버 판단 미리보기를 불러오지 못했습니다.",
-  "dev_npc_ai_schedule_title": "가상 유닛 24시간 8상태 일과 미리보기",
-  "dev_npc_ai_schedule_desc": "직군과 7축 성향을 조절해 서버 8상태 FSM이 하루 동안 어떤 일과(근무·채집·소비·순찰·휴식·이동)를 선택하는지 바로 확인합니다.",
+  "dev_npc_ai_schedule_title": "가상 유닛 24시간 일과 미리보기",
+  "dev_npc_ai_schedule_desc": "직군·7축 성향·만족도·식사 몫을 바꿔 서버 5상태 FSM이 하루 동안 무엇을 고르는지(일·욕구·휴식·순찰·회피)와 2차 지수를 바로 봅니다.",
   "gov_kind_city_independence": "도시 독립 투표",
   "gov_kind_treasury_share_sale": "국고 지분 팔기",
   "gov_err_coup_disabled": "지금은 쿠데타를 일으킬 수 없습니다.",
@@ -8690,5 +8690,7 @@
   "gov_coup_status_gathering": "참가 받는 중",
   "gov_coup_status_won": "혁명군 승리",
   "gov_coup_status_lost": "정부군 승리",
-  "gov_coup_status_cancelled": "취소됨"
+  "gov_coup_status_cancelled": "취소됨",
+  "dev_npc_ai_house_orders_title": "2차 지수 · 가문 일 지시 · 가문 금고",
+  "dev_npc_ai_house_orders_desc": "가문 상태 점검 주기와 깃발 문턱, 지시 불복 문턱, 가문세와 돌봄 배당 몫을 조절합니다. 스위치는 위의 NPC 가문 자율 AI입니다."
 }

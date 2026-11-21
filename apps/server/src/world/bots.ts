@@ -18,6 +18,7 @@ import {
   type UnitAiState,
   type UnitAiTimingRules,
   type UnitBrainRole,
+  type UnitJobKind,
   decideUnitState,
 } from "@terra/sim/npcAi";
 import {
@@ -150,14 +151,18 @@ export interface BotHome {
    * 창고 둘레)로 걸어가 산출을 내려놓는 모습. 보는 사람이 있는 2차맵에만 붙는다. 판정은 도시 경제의 시간 셈 그대로(모습만)
    */
   readonly haul?: HaulTrip | undefined;
-  /** 유닛 자율행동 8상태 FSM 직군(ADR 2026-11-20). 없으면 기존 단순 출퇴근 규칙 */
+  /** 유닛 자율행동 5상태 FSM 직군(ADR 2026-11-21-npc-needs-drives). 없으면 기존 단순 출퇴근 규칙 */
   readonly role?: UnitBrainRole | undefined;
-  /** 개별 유닛 7축 성향(0~1000). aiEnabled와 함께 있을 때 8상태 FSM을 활성화한다 */
+  /** 개별 유닛 7축 성향(0~1000). aiEnabled와 함께 있을 때 5상태 FSM을 활성화한다 */
   readonly traits?: UnitTraits | undefined;
-  /** 도시 시장·상업 구역 네모(consume 상태 목적지) */
+  /** 도시 시장·상업 구역 네모(욕구 해결 need 상태 목적지) */
   readonly market?: TripArea | undefined;
   /** 유닛 개별 자율행동 AI 스위치(npc_ai_unit_enabled = 1) */
   readonly aiEnabled?: boolean | undefined;
+  /** 그날 받은 생필품 몫(‰, 거울 세계 SimUnit.fedPm — 하루 끝마다 바뀐다). 없으면 가득으로 본다 */
+  readonly fedPm?: number | undefined;
+  /** 만족도(밀리점, 점 단위로 내림 — 거울 세계 휴먼). 없으면 세지 않은 것으로 본다 */
+  readonly satisfactionMilli?: number | undefined;
   /** 소속 도시가 전쟁 중인지(evade·patrol 점수에 반영) */
   readonly cityAtWar?: boolean | undefined;
   /** 유닛 FSM 주기·체류·순찰 계수(없으면 DEFAULT_NPC_AI_COEFFICIENTS) */
@@ -215,12 +220,42 @@ export function atWork(shift: WorkShift, unitId: number, nowMs: number): boolean
   return inShift(t, shift.startPm, shift.endPm);
 }
 
-/** 8상태 FSM 기반 현재 상태 결정(aiEnabled && traits가 있을 때만 사용, 없으면 undefined) */
+/** [임시] 일하는 때가 끝날 무렵의 어림 피로(‰). 쉬는 동안 0으로 내려간다 */
+const SHIFT_FATIGUE_PEAK_PM = 600;
+
+/** 일하는 몫 동안 0 → 꼭대기로 오르고 나머지 동안 0으로 내린다 */
+function fatigueRamp(pos: number, work: number, total: number): number {
+  if (work <= 0 || total <= work) return 0;
+  const pm =
+    pos < work ? Math.floor((pos * 1000) / work) : 1000 - Math.floor(((pos - work) * 1000) / (total - work));
+  return Math.floor((Math.max(0, Math.min(1000, pm)) * SHIFT_FATIGUE_PEAK_PM) / 1000);
+}
+
+/**
+ * 어림 피로(‰, 보이는 움직임용 — 판정의 피로는 도시 경제의 쉼터 셈 그대로): 일하는 때 동안 0 → 꼭대기로 오르고 쉬는 때 동안 0으로 내린다.
+ * 피로 바퀴(shift.cycle)가 있으면 그 바퀴, 없으면 지역 시각의 낮·밤
+ */
+export function shiftFatiguePm(shift: WorkShift, unitId: number, nowMs: number): number {
+  const cycle = shift.cycle;
+  if (cycle && cycle.periodMs > 0) {
+    const offset = (mix32(Math.imul(unitId, 0x2545_f491)) >>> 0) % cycle.periodMs;
+    const pos = (((nowMs + offset) % cycle.periodMs) + cycle.periodMs) % cycle.periodMs;
+    return fatigueRamp(pos, cycle.workMs, cycle.periodMs);
+  }
+  const jitter = (mix32(Math.imul(unitId, 0x2545_f491)) >>> 0) % (WORK_JITTER_PM + 1);
+  const t = (localDayPm(nowMs, shift.lonDeg) - jitter + 1000) % 1000;
+  const work = (shift.endPm - shift.startPm + 1000) % 1000;
+  return fatigueRamp((t - shift.startPm + 1000) % 1000, work, 1000);
+}
+
+/** 5상태 FSM 기반 현재 상태 결정(aiEnabled && traits가 있을 때만 사용, 없으면 undefined) */
 export function resolveBotAiState(
   home: BotHome,
   unitId: number,
   nowMs: number,
-): { readonly state: UnitAiState; readonly nextReevalMs: number } | undefined {
+):
+  | { readonly state: UnitAiState; readonly job: UnitJobKind | null; readonly nextReevalMs: number }
+  | undefined {
   if (!home.aiEnabled || !home.traits) return undefined;
   const shift = home.shift ?? DEFAULT_WORK_SHIFT;
   const isWorkHours = atWork(shift, unitId, nowMs);
@@ -230,14 +265,14 @@ export function resolveBotAiState(
   // 유닛 ID + 현재 재평가 구간으로 결정적 굴림 생성(매 호출마다 진동하지 않게 dwell 간격으로 양자화)
   const bucket = Math.floor(nowMs / Math.max(1_000, ai.unitDwellMinMs));
   const roll = mix32(Math.imul(unitId, 0x9e37_79b1) ^ Math.imul(bucket, 0x85eb_ca6b)) >>> 0;
-  // 시간대 기반 추정 피로도(일하는 때 300, 쉬는 때 650 — 2차맵 연출용)
-  const fatiguePm = isWorkHours ? 300 : 650;
+  // 피로: 일하는 때 동안 오르고 쉬는 때 동안 내리는 어림값(예전: 일하는 때 300·쉬는 때 650 고정)
+  const fatiguePm = shiftFatiguePm(shift, unitId, nowMs);
   const dec = decideUnitState(
     {
       unitId,
       role,
       traits: home.traits,
-      currentState: hasHaulJob ? "haul" : isWorkHours && home.work ? "work" : "rest",
+      currentState: hasHaulJob || (isWorkHours && home.work) ? "work" : "rest",
       stateEnteredAtMs: 0,
       nowMs: Math.max(ai.unitDwellMaxMs + 1, nowMs),
       isWorkHours,
@@ -245,34 +280,27 @@ export function resolveBotAiState(
       hasHaulJob,
       hasMarket: home.market !== undefined,
       fatiguePm,
+      fedPm: home.fedPm ?? null,
+      satisfactionMilli: home.satisfactionMilli ?? null,
       threatNear: false,
       cityAtWar: home.cityAtWar === true,
       ai,
     },
     roll,
   );
-  return { state: dec.state, nextReevalMs: dec.nextReevalMs };
+  return { state: dec.state, job: dec.job, nextReevalMs: dec.nextReevalMs };
 }
 
-/** 지금 가려는 네모: FSM이 켜져 있으면 8상태 목적지, 아니면 기존 운반 → 일터 → 집 규칙 */
+/** 지금 가려는 네모: FSM이 켜져 있으면 5상태 목적지(일은 일감에 따라), 아니면 기존 운반 → 일터 → 집 규칙 */
 function targetOf(home: BotHome, unitId: number, nowMs: number): TripArea {
   const baseHome: TripArea = { x: home.x, y: home.y, radius: home.homeRadius ?? HOME_RADIUS_CELLS };
   const fsm = resolveBotAiState(home, unitId, nowMs);
   if (fsm) {
     switch (fsm.state) {
-      case "haul":
-        if (home.haul) return home.haul.area;
-        return baseHome;
       case "work":
-        return home.work ?? baseHome;
-      case "consume":
-        return home.market ?? baseHome;
-      case "patrol":
-        return baseHome;
-      case "evade":
-        return { x: home.x, y: home.y, radius: Math.max(2, Math.min(6, baseHome.radius)) };
-      case "gather":
-      case "travel":
+        if (fsm.job === "haul") return home.haul?.area ?? baseHome;
+        if (fsm.job === "post") return home.work ?? baseHome;
+        // 둘레 채집(일터 없는 시민): 집 둘레보다 조금 넓게
         return {
           x: home.x,
           y: home.y,
@@ -281,6 +309,11 @@ function targetOf(home: BotHome, unitId: number, nowMs: number): TripArea {
             Math.max(baseHome.radius, Math.floor((baseHome.radius * 3) / 2)),
           ),
         };
+      case "need":
+        return home.market ?? baseHome;
+      case "evade":
+        return { x: home.x, y: home.y, radius: Math.max(2, Math.min(6, baseHome.radius)) };
+      case "patrol":
       case "rest":
         return baseHome;
     }

@@ -3,7 +3,10 @@
 export * from "./aiCoefficients.ts";
 export * from "./effectiveTraits.ts";
 export * from "./unitBrain.ts";
+export * from "./unitDrives.ts";
 export * from "./houseBrain.ts";
+export * from "./houseOrders.ts";
+export * from "./leagueBrain.ts";
 export * from "./diplomacyAi.ts";
 export { chooseCombatTacticFromTraits, moveSkillAllowed, wantsRun } from "../combat/moveAi.ts";
 export { NPC_AI_TUNING_KEYS } from "../tuningNpcAi.ts";

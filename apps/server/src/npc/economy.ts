@@ -483,12 +483,16 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
 
   /** 도시마다 경비대 수(일꾼으로 세지 않는다 — 생필품은 다른 휴먼처럼 쓴다) */
   const cityGuards = new Map<number, number>();
+  /** 도시마다 그날 가문 지시를 따르지 않는 휴먼 수(npc/laborOrders.ts — 일꾼으로 세지 않는다, 경비대는 불복이 없다) */
+  const cityStrikes = new Map<number, number>();
   const recount = (): void => {
     economy.cityUnits.clear();
     cityGuards.clear();
+    cityStrikes.clear();
     for (const unit of world.units.values()) {
       economy.cityUnits.set(unit.city, (economy.cityUnits.get(unit.city) ?? 0) + 1);
       if (unit.guard === true) cityGuards.set(unit.city, (cityGuards.get(unit.city) ?? 0) + 1);
+      else if (unit.onStrike === true) cityStrikes.set(unit.city, (cityStrikes.get(unit.city) ?? 0) + 1);
     }
   };
   recount();
@@ -617,7 +621,10 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     }
     const workers = assignCityWorkers(
       slots,
-      Math.max(0, (economy.cityUnits.get(cityId) ?? 0) - (cityGuards.get(cityId) ?? 0)),
+      Math.max(
+        0,
+        (economy.cityUnits.get(cityId) ?? 0) - (cityGuards.get(cityId) ?? 0) - (cityStrikes.get(cityId) ?? 0),
+      ),
       catalog.necessities,
     );
     // 쉼터·옮김(질문 1047 다·1050 가): 일꾼이 쉬는 숙소·집과 채집소 → 창고 칸 → 생산 속도 배율·옮김 칸

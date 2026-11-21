@@ -8665,8 +8665,8 @@
   "dev_npc_ai_lab_run": "Recompute",
   "dev_npc_ai_lab_running": "Computing...",
   "dev_npc_ai_lab_error": "Failed to load server decision preview.",
-  "dev_npc_ai_schedule_title": "Virtual Unit 24-Hour 8-State Schedule Preview",
-  "dev_npc_ai_schedule_desc": "Adjust unit role and 7-axis traits to preview the server 8-state FSM hourly schedule (work, gather, shop, patrol, rest, travel).",
+  "dev_npc_ai_schedule_title": "Virtual Unit 24-Hour Schedule Preview",
+  "dev_npc_ai_schedule_desc": "Adjust role, 7-axis traits, satisfaction and food share to preview the server 5-state FSM hourly schedule (work, needs, rest, patrol, evade) and the derived drives.",
   "gov_kind_city_independence": "City independence vote",
   "gov_kind_treasury_share_sale": "Treasury share sale",
   "gov_err_coup_disabled": "Coups are not possible right now.",
@@ -8690,5 +8690,7 @@
   "gov_coup_status_gathering": "Taking sides",
   "gov_coup_status_won": "Rebels won",
   "gov_coup_status_lost": "Government won",
-  "gov_coup_status_cancelled": "Cancelled"
+  "gov_coup_status_cancelled": "Cancelled",
+  "dev_npc_ai_house_orders_title": "Drives · House Work Orders · House Vault",
+  "dev_npc_ai_house_orders_desc": "Tune the house status check interval and flag thresholds, the order refusal threshold, and the house tax and care payout shares. Gated by the NPC House AI switch above."
 }

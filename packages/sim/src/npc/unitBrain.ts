@@ -1,23 +1,25 @@
-// 2차맵·일상 유닛 자율행동 8상태 예약 상태기계(FSM) — docs/adr/2026-11-20-npc-autonomous-ai.md 3·4절
+// 2차맵·일상 유닛 자율행동 5상태 예약 상태기계(FSM) — docs/adr/2026-11-21-npc-needs-drives.md(8상태 → 5상태),
+// docs/adr/2026-11-20-npc-autonomous-ai.md 3·4절(매 틱 굴림 금지·최소 체류·기회당 1회).
 // 매 틱 확률 굴림 금지: 행동 완료(arrive)·재평가 시각(wake)·위협 사건 때만 1회 점수를 계산한다.
+// 상태 = 일(work)·욕구 해결(need)·휴식(rest)·순찰(patrol)·회피(evade). 일의 종류(운반·일터·둘레 채집)는 상태가 아니라 일감(job)이다 —
+// 일감은 받은 지시·배정이 정한다(운반 일정 → 일터 → 일터 없는 시민의 둘레 채집).
+// 점수는 2차 지수(unitDrives.ts — 근로 의욕·위험 감수·소비 성향)와 욕구(그날 식사 몫·피로)·상황만 읽는다. 7축은 지수를 거쳐서만 든다
+// (체류·재평가·순찰 반경 같은 시간·거리 셈은 성향을 바로 읽는다).
 // 상태 진입 시 최소 체류 시간([unitDwellMinMs, unitDwellMaxMs]) + 히스테리시스 보너스로 상태 진동(떨림)을 막고,
-// 긴급 대피(evade)·할당된 운반(haul)은 체류 시간을 뚫고 즉시 전환할 수 있다.
-import type { UnitTraits } from "@terra/shared/unitTraits";
+// 긴급 대피(evade)·배정된 운반은 체류 시간을 뚫고 즉시 전환할 수 있다.
+import type { LoyaltyOverrideRules, UnitTraits } from "@terra/shared/unitTraits";
 import type { NpcAiCoefficients } from "./aiCoefficients.ts";
+import { type UnitDrives, deriveUnitDrives, driveRulesFromAi } from "./unitDrives.ts";
 
-/** 8개 일상 자율행동 상태 */
-export const UNIT_AI_STATES = [
-  "work",
-  "gather",
-  "haul",
-  "rest",
-  "consume",
-  "patrol",
-  "evade",
-  "travel",
-] as const;
+/** 5개 일상 자율행동 상태 */
+export const UNIT_AI_STATES = ["work", "need", "rest", "patrol", "evade"] as const;
 
 export type UnitAiState = (typeof UNIT_AI_STATES)[number];
+
+/** 일(work) 상태의 일감: 운반 일정 · 배정된 일터 · 일터 없는 시민의 둘레 채집 */
+export const UNIT_JOB_KINDS = ["haul", "post", "forage"] as const;
+
+export type UnitJobKind = (typeof UNIT_JOB_KINDS)[number];
 
 /** 2차맵 유닛 자율행동 직군 */
 export type UnitBrainRole = "citizen" | "worker" | "guard" | "leader";
@@ -33,6 +35,8 @@ export type UnitAiTimingRules = Pick<
   | "guardPatrolMaxCells"
   | "leaderRoamRadiusCells"
   | "decisionTempPm"
+  | "driveWorkMoodFloorPm"
+  | "driveWorkHungerFloorPm"
 >;
 
 /** 상태 평가 입력(순수 값, 시계·외부 상태 참조 없음) */
@@ -49,15 +53,21 @@ export interface UnitBrainContext {
   readonly hasWorkplace: boolean;
   /** 현재 활성 운반 일정이 있는지 */
   readonly hasHaulJob: boolean;
-  /** 도시 내 시장/상업 구역이 있는지 */
+  /** 도시 내 시장/상업 구역이 있는지(없으면 욕구는 집에서 푼다 — 여가로 시장을 찾지는 않는다) */
   readonly hasMarket: boolean;
   /** 피로도 천분율(0~1000, 높을수록 피곤) */
   readonly fatiguePm: number;
+  /** 그날 받은 생필품 몫(‰). null = 모름(가득으로 본다) */
+  readonly fedPm: number | null;
+  /** 만족도 밀리점(0~100,000). null = 아직 세지 않음 */
+  readonly satisfactionMilli: number | null;
   /** 주변 위협(적 유닛 접근·공격 중) */
   readonly threatNear: boolean;
   /** 소속 도시가 전쟁 중인지 */
   readonly cityAtWar: boolean;
   readonly ai: UnitAiTimingRules;
+  /** 충성도 개입 곡선(복종도 지수). 없으면 출발값 */
+  readonly loyaltyRules?: LoyaltyOverrideRules | undefined;
 }
 
 /** 상태별 점수 + 요인 분해(에디터·시험 검증용) */
@@ -69,11 +79,14 @@ export interface ExplainedUnitState {
 
 export interface UnitStateDecision {
   readonly state: UnitAiState;
+  /** 일 상태일 때의 일감(그 밖의 상태는 null) */
+  readonly job: UnitJobKind | null;
   readonly changed: boolean;
   /** 긴급 전환(위협 대피·운반)으로 최소 체류 시간을 조기 해제했는지 */
   readonly interrupted: boolean;
   readonly nextReevalMs: number;
   readonly dwellUntilMs: number;
+  readonly drives: UnitDrives;
   readonly scores: readonly ExplainedUnitState[];
 }
 
@@ -140,12 +153,38 @@ export function guardPatrolRadiusCells(
   return lo + Math.floor(((hi - lo) * reach + 500) / 1000);
 }
 
-/** 8상태 유틸리티 점수 + 요인 분해표 */
-export function scoreUnitStates(ctx: UnitBrainContext): ExplainedUnitState[] {
-  const t = ctx.traits;
+/** 지금 할 수 있는 일감(받은 차례대로: 운반 일정 → 일터 → 일터 없는 시민의 둘레 채집). 없으면 null */
+export function unitJobOf(
+  ctx: Pick<UnitBrainContext, "role" | "hasHaulJob" | "hasWorkplace">,
+): UnitJobKind | null {
+  if (ctx.hasHaulJob) return "haul";
+  if (ctx.role === "guard" || ctx.role === "leader") return null;
+  if (ctx.hasWorkplace) return "post";
+  return ctx.role === "citizen" ? "forage" : null;
+}
+
+/** 그 입력의 2차 지수 */
+export function unitDrivesOf(
+  ctx: Pick<UnitBrainContext, "traits" | "satisfactionMilli" | "fedPm" | "loyaltyRules" | "ai">,
+): UnitDrives {
+  return deriveUnitDrives({
+    traits: ctx.traits,
+    satisfactionMilli: ctx.satisfactionMilli,
+    fedPm: ctx.fedPm,
+    loyaltyRules: ctx.loyaltyRules,
+    rules: driveRulesFromAi(ctx.ai),
+  });
+}
+
+/** 5상태 유틸리티 점수 + 요인 분해표(2차 지수·욕구·상황만 읽는다) */
+export function scoreUnitStates(
+  ctx: UnitBrainContext,
+  drives: UnitDrives = unitDrivesOf(ctx),
+): ExplainedUnitState[] {
   const fatigue = clampInt(ctx.fatiguePm, 0, 1000);
+  const hunger = 1000 - clampInt(ctx.fedPm ?? 1000, 0, 1000);
   const elapsed = Math.max(0, ctx.nowMs - ctx.stateEnteredAtMs);
-  const dwellMs = dwellDurationMs(t, ctx.role, ctx.ai);
+  const dwellMs = dwellDurationMs(ctx.traits, ctx.role, ctx.ai);
   const inDwell = elapsed < dwellMs;
   const hyst = (state: UnitAiState): number =>
     ctx.currentState === state ? (inDwell ? HYSTERESIS_IN_DWELL : HYSTERESIS_AFTER_DWELL) : 0;
@@ -155,7 +194,8 @@ export function scoreUnitStates(ctx: UnitBrainContext): ExplainedUnitState[] {
     rawFactors: readonly { readonly key: string; readonly delta: number }[],
   ): ExplainedUnitState => {
     const h = hyst(state);
-    const factors = h > 0 ? [...rawFactors, { key: "hysteresis", delta: h }] : [...rawFactors];
+    const factors = rawFactors.filter((f) => f.delta !== 0);
+    if (h > 0) factors.push({ key: "hysteresis", delta: h });
     let score = 0;
     for (const f of factors) score += f.delta;
     return { state, score, factors };
@@ -163,116 +203,75 @@ export function scoreUnitStates(ctx: UnitBrainContext): ExplainedUnitState[] {
 
   const out: ExplainedUnitState[] = [];
 
-  // 1. haul(운반): 배정된 운반 일정이 활성화 중이면 최우선
-  if (ctx.hasHaulJob) {
-    out.push(
-      build("haul", [
-        { key: "haul_assigned", delta: 920 },
-        { key: "discipline", delta: Math.floor(t.discipline / 10) },
-      ]),
-    );
-  }
-
-  // 2. evade(회피·대피): 위협 감지 시 과감성·호전성이 낮을수록 강하게 대피
-  if (ctx.threatNear || ctx.cityAtWar) {
-    const threatBase = ctx.threatNear ? 680 : 120;
-    const caution = Math.floor(((1000 - t.boldness) * 3 + (1000 - t.belligerence) * 2) / 10);
-    const rolePenalty = ctx.role === "guard" ? -380 : ctx.role === "leader" ? -120 : 0;
-    out.push(
-      build("evade", [
-        { key: ctx.threatNear ? "threat_near" : "city_at_war", delta: threatBase },
-        { key: "caution", delta: caution },
-        ...(rolePenalty !== 0 ? [{ key: "role_duty", delta: rolePenalty }] : []),
-      ]),
-    );
-  }
-
-  // 3. work(근무): 일터가 있는 일꾼의 주 행동(근무 시간 + 규율성 − 피로)
-  if (ctx.hasWorkplace && ctx.role !== "guard" && ctx.role !== "leader") {
-    const shiftScore = ctx.isWorkHours ? 480 : 80;
-    const discScore = Math.floor(t.discipline / 4);
-    const fatiguePen = -Math.floor(fatigue / 3);
+  // 1. 일: 일감에 따라 — 운반 일정은 최우선, 일터는 근무 시간 + 근로 의욕 − 피로, 둘레 채집은 낮 + 근로 의욕·위험 감수 − 피로
+  const job = unitJobOf(ctx);
+  if (job === "haul") {
     out.push(
       build("work", [
-        { key: ctx.isWorkHours ? "work_hours" : "off_hours", delta: shiftScore },
-        { key: "discipline", delta: discScore },
-        ...(fatiguePen !== 0 ? [{ key: "fatigue", delta: fatiguePen }] : []),
+        { key: "haul_assigned", delta: 920 },
+        { key: "work_drive", delta: Math.floor(drives.work / 10) },
+      ]),
+    );
+  } else if (job === "post") {
+    out.push(
+      build("work", [
+        { key: ctx.isWorkHours ? "work_hours" : "off_hours", delta: ctx.isWorkHours ? 480 : 80 },
+        { key: "work_drive", delta: Math.floor(drives.work / 4) },
+        { key: "fatigue", delta: -Math.floor(fatigue / 3) },
+      ]),
+    );
+  } else if (job === "forage") {
+    out.push(
+      build("work", [
+        { key: ctx.isWorkHours ? "day_forage" : "night_forage", delta: ctx.isWorkHours ? 310 : 70 },
+        { key: "work_drive", delta: Math.floor(drives.work / 8) },
+        { key: "risk", delta: Math.floor(drives.risk / 8) },
+        { key: "fatigue", delta: -Math.floor(fatigue / 3) },
       ]),
     );
   }
 
-  // 4. patrol(순찰): 경비대·지도자 주 행동 + 호전성·규율성 높은 시민 보조
+  // 2. 욕구 해결: 배고픔(그날 식사 몫이 모자란 만큼)이 주, 시장이 있으면 여가로도 찾는다(소비 성향)
+  {
+    const leisure = ctx.hasMarket ? (ctx.isWorkHours ? 120 : 200) + Math.floor(drives.spend / 6) : 0;
+    out.push(
+      build("need", [
+        { key: "hunger", delta: Math.floor((hunger * 7) / 10) },
+        { key: "market_leisure", delta: leisure },
+        { key: "fatigue", delta: -Math.floor(fatigue / 5) },
+      ]),
+    );
+  }
+
+  // 3. 휴식: 피로·밤, 근로 의욕이 낮을수록 더 쉰다(태업)
+  out.push(
+    build("rest", [
+      { key: ctx.isWorkHours ? "day_rest" : "night_rest", delta: ctx.isWorkHours ? 110 : 410 },
+      { key: "fatigue", delta: Math.floor((fatigue * 6) / 10) },
+      { key: "idleness", delta: Math.floor((1000 - drives.work) / 8) },
+      { key: "guard_alert", delta: ctx.role === "guard" && ctx.threatNear ? -300 : 0 },
+    ]),
+  );
+
+  // 4. 순찰: 경비대·지도자의 주 행동, 전쟁 중이면 시민도 보조
   if (ctx.role === "guard" || ctx.role === "leader" || ctx.cityAtWar) {
-    const roleBase = ctx.role === "guard" ? 560 : ctx.role === "leader" ? 420 : 160;
-    const combatTilt = Math.floor((t.belligerence * 2 + t.discipline * 2) / 10);
-    const warBonus = ctx.cityAtWar ? 180 : 0;
-    const threatBonus = ctx.threatNear && ctx.role === "guard" ? 260 : 0;
     out.push(
       build("patrol", [
-        { key: "role_patrol", delta: roleBase },
-        { key: "combat_discipline", delta: combatTilt },
-        ...(warBonus > 0 ? [{ key: "city_at_war", delta: warBonus }] : []),
-        ...(threatBonus > 0 ? [{ key: "guard_intercept", delta: threatBonus }] : []),
+        { key: "role_patrol", delta: ctx.role === "guard" ? 560 : ctx.role === "leader" ? 420 : 160 },
+        { key: "risk_duty", delta: Math.floor((drives.risk + drives.work) / 5) },
+        { key: "city_at_war", delta: ctx.cityAtWar ? 180 : 0 },
+        { key: "guard_intercept", delta: ctx.threatNear && ctx.role === "guard" ? 260 : 0 },
       ]),
     );
   }
 
-  // 5. rest(휴식): 피로도·야간·낮은 과감성에 비례
-  {
-    const nightBonus = ctx.isWorkHours ? 110 : 410;
-    const fatigueScore = Math.floor((fatigue * 6) / 10);
-    const calmScore = Math.floor((1000 - t.boldness) / 10);
-    const guardShiftPen = ctx.role === "guard" && ctx.threatNear ? -300 : 0;
+  // 5. 회피·대피: 위협이 있을 때, 위험 감수가 낮을수록 강하게
+  if (ctx.threatNear || ctx.cityAtWar) {
     out.push(
-      build("rest", [
-        { key: ctx.isWorkHours ? "day_rest" : "night_rest", delta: nightBonus },
-        { key: "fatigue", delta: fatigueScore },
-        { key: "calm", delta: calmScore },
-        ...(guardShiftPen !== 0 ? [{ key: "guard_alert", delta: guardShiftPen }] : []),
-      ]),
-    );
-  }
-
-  // 6. consume(소비·시장 교류): 시장이 있고 여유 시간일 때 이윤욕·개방성·공동체 반영
-  if (ctx.hasMarket) {
-    const marketBase = ctx.isWorkHours ? 220 : 280;
-    const social = Math.floor((t.greed * 2 + t.openness * 2 + t.communalism) / 15);
-    const fatiguePen = -Math.floor(fatigue / 5);
-    out.push(
-      build("consume", [
-        { key: "market_visit", delta: marketBase },
-        { key: "greed_openness", delta: social },
-        ...(fatiguePen !== 0 ? [{ key: "fatigue", delta: fatiguePen }] : []),
-      ]),
-    );
-  }
-
-  // 7. gather(현장 채집·자율 활동): 일터 없는 시민이나 자유도 높은 유닛의 야외 활동
-  if (ctx.role === "citizen" || !ctx.hasWorkplace) {
-    const dayBonus = ctx.isWorkHours ? 310 : 70;
-    const drive = Math.floor((t.greed * 2 + t.boldness * 2 + t.autonomy) / 15);
-    const fatiguePen = -Math.floor(fatigue / 3);
-    out.push(
-      build("gather", [
-        { key: ctx.isWorkHours ? "day_gather" : "night_gather", delta: dayBonus },
-        { key: "autonomy_boldness", delta: drive },
-        ...(fatiguePen !== 0 ? [{ key: "fatigue", delta: fatiguePen }] : []),
-      ]),
-    );
-  }
-
-  // 8. travel(외출·교류 이동): 개방성·자치성·과감성이 높은 유닛의 원거리 이동/시찰
-  {
-    const base = ctx.role === "leader" ? 240 : 140;
-    const wander = Math.floor((t.openness * 3 + t.autonomy * 2 + t.boldness * 2) / 20);
-    const fatiguePen = -Math.floor(fatigue / 3);
-    const nightPen = ctx.isWorkHours ? 0 : -140;
-    out.push(
-      build("travel", [
-        { key: "roam_base", delta: base },
-        { key: "openness_autonomy", delta: wander },
-        ...(fatiguePen !== 0 ? [{ key: "fatigue", delta: fatiguePen }] : []),
-        ...(nightPen !== 0 ? [{ key: "night_penalty", delta: nightPen }] : []),
+      build("evade", [
+        { key: ctx.threatNear ? "threat_near" : "city_at_war", delta: ctx.threatNear ? 680 : 120 },
+        { key: "caution", delta: Math.floor((1000 - drives.risk) / 2) },
+        { key: "role_duty", delta: ctx.role === "guard" ? -380 : ctx.role === "leader" ? -120 : 0 },
       ]),
     );
   }
@@ -281,30 +280,35 @@ export function scoreUnitStates(ctx: UnitBrainContext): ExplainedUnitState[] {
 }
 
 /**
- * 유닛 8상태 FSM 전이 판정(결정적 정수 함수).
- * - 최소 체류 시간(dwellMs)이 남아 있으면 긴급 상태(haul·threatNear evade)가 아닌 한 현재 상태를 유지한다.
+ * 유닛 5상태 FSM 전이 판정(결정적 정수 함수).
+ * - 최소 체류 시간(dwellMs)이 남아 있으면 긴급 상태(배정된 운반·threatNear evade)가 아닌 한 현재 상태를 유지한다.
  * - 탐색 온도(decisionTempPm > 0)이면 최고점과 temp 이내 후보를 점수 차 비례 가중치로 1회 시드 선택한다.
  */
 export function decideUnitState(ctx: UnitBrainContext, roll: number): UnitStateDecision {
-  const scores = scoreUnitStates(ctx);
+  const drives = unitDrivesOf(ctx);
+  const scores = scoreUnitStates(ctx, drives);
+  const job = unitJobOf(ctx);
   const dwellMs = dwellDurationMs(ctx.traits, ctx.role, ctx.ai);
   const reevalMs = reevalIntervalMs(ctx.traits, roll, ctx.ai);
   const elapsed = Math.max(0, ctx.nowMs - ctx.stateEnteredAtMs);
   const inDwell = elapsed < dwellMs;
+  const jobOf = (state: UnitAiState): UnitJobKind | null => (state === "work" ? job : null);
 
-  // 긴급 인터럽트: 활성 운반 일정 또는 즉시 위협 대피(최고점이 evade)
+  // 긴급 인터럽트: 배정된 운반 일정 또는 즉시 위협 대피(최고점이 evade)
   const topItem = scores.reduce((best, item) => (item.score > best.score ? item : best), scores[0]!);
+  const haulInterrupt = job === "haul" && ctx.currentState !== "work";
   const emergencyInterrupt =
-    (ctx.hasHaulJob && ctx.currentState !== "haul") ||
-    (ctx.threatNear && topItem.state === "evade" && ctx.currentState !== "evade");
+    haulInterrupt || (ctx.threatNear && topItem.state === "evade" && ctx.currentState !== "evade");
 
   if (inDwell && !emergencyInterrupt) {
     return {
       state: ctx.currentState,
+      job: jobOf(ctx.currentState),
       changed: false,
       interrupted: false,
       nextReevalMs: Math.min(reevalMs, Math.max(1_000, dwellMs - elapsed)),
       dwellUntilMs: ctx.stateEnteredAtMs + dwellMs,
+      drives,
       scores,
     };
   }
@@ -329,8 +333,8 @@ export function decideUnitState(ctx: UnitBrainContext, roll: number): UnitStateD
         left -= item.weight;
       }
     }
-  } else if (ctx.hasHaulJob) {
-    chosen = "haul";
+  } else if (haulInterrupt) {
+    chosen = "work";
   } else {
     chosen = "evade";
   }
@@ -338,10 +342,12 @@ export function decideUnitState(ctx: UnitBrainContext, roll: number): UnitStateD
   const changed = chosen !== ctx.currentState;
   return {
     state: chosen,
+    job: jobOf(chosen),
     changed,
     interrupted: inDwell && emergencyInterrupt && changed,
     nextReevalMs: reevalMs,
     dwellUntilMs: changed ? ctx.nowMs + dwellMs : ctx.stateEnteredAtMs + dwellMs,
+    drives,
     scores,
   };
 }
@@ -350,8 +356,18 @@ export function decideUnitState(ctx: UnitBrainContext, roll: number): UnitStateD
 export interface HourlyScheduleSlot {
   readonly hour: number;
   readonly state: UnitAiState;
+  readonly job: UnitJobKind | null;
   readonly fatiguePm: number;
 }
+
+/** [임시] 상태마다 한 시간의 피로 변화(‰): 일·순찰 +65, 회피 +35, 욕구 해결 +10, 휴식 −140 */
+const HOURLY_FATIGUE: Readonly<Record<UnitAiState, number>> = {
+  work: 65,
+  patrol: 65,
+  evade: 35,
+  need: 10,
+  rest: -140,
+};
 
 export function simulateDailySchedule(input: {
   readonly traits: UnitTraits;
@@ -360,7 +376,12 @@ export function simulateDailySchedule(input: {
   readonly hasMarket: boolean;
   readonly workStartHour?: number;
   readonly workEndHour?: number;
+  /** 만족도 밀리점(없으면 세지 않음) */
+  readonly satisfactionMilli?: number | null;
+  /** 그날 식사 몫 ‰(없으면 가득) */
+  readonly fedPm?: number | null;
   readonly ai: UnitAiTimingRules;
+  readonly loyaltyRules?: LoyaltyOverrideRules | undefined;
 }): HourlyScheduleSlot[] {
   const workStart = input.workStartHour ?? 6;
   const workEnd = input.workEndHour ?? 18;
@@ -385,9 +406,12 @@ export function simulateDailySchedule(input: {
         hasHaulJob: false,
         hasMarket: input.hasMarket,
         fatiguePm,
+        fedPm: input.fedPm ?? null,
+        satisfactionMilli: input.satisfactionMilli ?? null,
         threatNear: false,
         cityAtWar: false,
         ai: input.ai,
+        loyaltyRules: input.loyaltyRules,
       },
       hour * 17,
     );
@@ -395,17 +419,8 @@ export function simulateDailySchedule(input: {
       state = dec.state;
       enteredAtMs = nowMs;
     }
-    slots.push({ hour, state, fatiguePm });
-    // 시간당 피로 변화(근무·채집·순찰 +65, 이동 +35, 소비 +10, 휴식 −140)
-    const delta =
-      state === "work" || state === "gather" || state === "patrol"
-        ? 65
-        : state === "travel"
-          ? 35
-          : state === "consume"
-            ? 10
-            : -140;
-    fatiguePm = clampInt(fatiguePm + delta, 0, 1000);
+    slots.push({ hour, state, job: dec.job, fatiguePm });
+    fatiguePm = clampInt(fatiguePm + HOURLY_FATIGUE[state], 0, 1000);
   }
   return slots;
 }

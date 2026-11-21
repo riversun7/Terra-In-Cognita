@@ -1,12 +1,25 @@
 // NPC 자율행동 런타임 브리지(aiBridge.ts) — docs/adr/2026-11-20-npc-autonomous-ai.md 3단계
-// runtime.ts(1,000줄 상한)를 부풀리지 않고 개별 유닛 7축 성향 레지스트리 · 2차맵 8상태 FSM 연결 ·
+// runtime.ts(1,000줄 상한)를 부풀리지 않고 개별 유닛 7축 성향 레지스트리 · 2차맵 5상태 FSM 연결 ·
 // NPC 가문 자율 AI · 지배 가문 7축 금고 환류를 한곳에서 묶는다.
 import { type TraitRole, type UnitTraits, upgradeLegacyTraits } from "@terra/shared/unitTraits";
-import type { SimCity, SimFaction, SimUnit, SocietyCoefficients } from "@terra/sim";
+import {
+  type NpcContext,
+  type SimCity,
+  type SimFaction,
+  type SimUnit,
+  type SocietyCoefficients,
+  npcBaseDailyWage,
+  npcDailyWage,
+} from "@terra/sim";
+import type { Ledger } from "../economy/ledger.ts";
+import type { NpcCityHouses } from "./cityHouses.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { restCycleOf } from "./cityRest.ts";
 import type { ServerEconomy } from "./economy.ts";
 import { type HumanPlacesInput, createHumanPlaces } from "./humanPlaces.ts";
+import { type HouseCareDay, createHouseCare } from "./houseCare.ts";
+import { type HouseLeagueDay, createHouseLeague, emptyLeagueDay } from "./houseLeague.ts";
+import { type LaborOrders, createLaborOrders } from "./laborOrders.ts";
 import { type NpcHouseAiService, createNpcHouseAi } from "./npcHouseAi.ts";
 import type { CityPlace } from "./persist.ts";
 import { type UnitTraitStore, createUnitTraitRegistry } from "./unitTraitRegistry.ts";
@@ -14,13 +27,19 @@ import { type UnitTraitStore, createUnitTraitRegistry } from "./unitTraitRegistr
 export interface NpcAiBridge {
   readonly traits: UnitTraitStore;
   readonly houseAi: NpcHouseAiService;
-  /** humanPlaces.sync에 덧붙이는 8상태 FSM · 경비대 순찰 반경 옵션 */
-  humanPlacesOptions(): Pick<HumanPlacesInput, "traitsOf" | "atWarOf" | "ai">;
+  /** 가문 일 지시(일꾼 차례·지시 불복, laborOrders.ts) */
+  readonly labor: LaborOrders;
+  /** 하루 끝 가문세·돌봄 배당(임금·생활비 다음, 만족도 앞 — houseCare.ts) */
+  houseDay(nowMs: number): HouseCareDay & { readonly league: HouseLeagueDay };
+  /** 가문 일 지시 점검: 바뀐 도시의 일꾼 수를 도시 경제에 다시 세게 하고 바뀐 도시 수를 돌려준다 */
+  laborTick(nowMs: number, econ?: Pick<ServerEconomy, "refreshCity">): number;
+  /** humanPlaces.sync에 덧붙이는 5상태 FSM · 경비대 순찰 반경 옵션 */
+  humanPlacesOptions(): Pick<HumanPlacesInput, "traitsOf" | "needsOf" | "atWarOf" | "ai">;
   /** 특정 세력(소유 주체 ID)의 7축 바탕 성향 */
   factionBaseTraits(ownerId: number): UnitTraits | undefined;
   /** 사망·제거된 유닛의 성향 캐시를 정리한다 */
   pruneDeadUnits(): void;
-  /** 2차맵 휴먼 자리 + 8상태 FSM 동기화(runtime.ts에서 분리) */
+  /** 2차맵 휴먼 자리 + 5상태 FSM 동기화(runtime.ts에서 분리) */
   syncHumanPlaces(input: {
     readonly places: ReadonlyMap<number, CityPlace>;
     readonly econ?: ServerEconomy | undefined;
@@ -33,16 +52,37 @@ export function createNpcAiBridge(o: {
   readonly worldSeed: number;
   readonly rules: () => SocietyCoefficients;
   readonly factions: ReadonlyMap<number, Pick<SimFaction, "id" | "traits" | "wars">>;
-  readonly cities: ReadonlyMap<number, Pick<SimCity, "id" | "owner">>;
+  readonly cities: ReadonlyMap<number, Pick<SimCity, "id" | "owner" | "housing" | "researchLevel">>;
   readonly units: ReadonlyMap<
     number,
-    Pick<SimUnit, "id" | "owner" | "city"> & { readonly guard?: boolean | undefined }
+    Pick<SimUnit, "id" | "owner" | "city"> & {
+      readonly guard?: boolean | undefined;
+      readonly fedPm?: number | undefined;
+      satisfactionMilli: number;
+      paidToday?: number | undefined;
+      laborRank?: number | undefined;
+      onStrike?: boolean | undefined;
+    }
   >;
   readonly maps: ReadonlyMap<
     number,
     Pick<SecondMap, "forEachBuilding" | "unitInfo" | "setHome" | "setTraits" | "stream">
   >;
   readonly mapKeyOfCity: (cityId: number) => number | undefined;
+  /**
+   * 가문 고리(가문 일 지시·가문 금고): NPC 도시 가문 표, 지금 날(불복 굴림은 하루에 한 번), 원장, 세력 화폐(임금 화폐 — 경제가 없으면 undefined).
+   * 없으면 모두 가문 없는 휴먼으로 보고 가문 금고는 돌지 않는다
+   */
+  readonly ties?:
+    | {
+        readonly cityHouses: Pick<NpcCityHouses, "of" | "housesOfCity" | "membersOf" | "headOf">;
+        readonly society: { currentDay(): number };
+        readonly ledger: Pick<Ledger, "systemAccount" | "ownerAccount" | "balance" | "post">;
+        readonly currencyOf: (owner: number) => string | undefined;
+        /** NPC 판단 맥락(가문 연맹의 구인·연구 집행). 아직 없으면 undefined */
+        readonly npc: () => Pick<NpcContext, "world" | "society" | "settings"> | undefined;
+      }
+    | undefined;
 }): NpcAiBridge {
   const traits = createUnitTraitRegistry(o.worldSeed);
   const houseAi = createNpcHouseAi({ worldSeed: o.worldSeed, rules: o.rules });
@@ -68,6 +108,61 @@ export function createNpcAiBridge(o: {
     });
   };
 
+  const labor = createLaborOrders({
+    worldSeed: o.worldSeed,
+    rules: o.rules,
+    units: o.units,
+    cities: o.cities,
+    traitsOf: (unitId) => traitsOf(unitId),
+    houseOf: (unitId) => o.ties?.cityHouses.of(unitId)?.id,
+    day: () => o.ties?.society.currentDay() ?? 0,
+  });
+  const ties = o.ties;
+  const care = ties
+    ? createHouseCare({
+        ledger: ties.ledger,
+        rules: o.rules,
+        units: o.units,
+        cities: o.cities,
+        currencyOf: ties.currencyOf,
+        dailyWage: () => {
+          const c = o.rules();
+          return npcDailyWage({
+            wageMode: c.business.npcWageMode,
+            wagePm: c.business.npcWagePm,
+            baseDailyWage: npcBaseDailyWage(c),
+            foodEfficiency: c.foodEfficiency,
+          });
+        },
+        housesOfCity: (cityId) => ties.cityHouses.housesOfCity(cityId),
+        membersOf: (houseId) => ties.cityHouses.membersOf(houseId),
+        headOf: (houseId) => ties.cityHouses.headOf(houseId),
+        traitsOf: (unitId) => traitsOf(unitId),
+        flagsOf: (cityId, houseId) => labor.planOf(cityId)?.houses.get(houseId)?.flags ?? [],
+      })
+    : undefined;
+  const league = ties
+    ? createHouseLeague({
+        ledger: ties.ledger,
+        rules: o.rules,
+        units: o.units,
+        cities: o.cities,
+        currencyOf: ties.currencyOf,
+        housesOfCity: (cityId) => ties.cityHouses.housesOfCity(cityId),
+        membersOf: (houseId) => ties.cityHouses.membersOf(houseId),
+        headOf: (houseId) => ties.cityHouses.headOf(houseId),
+        traitsOf: (unitId) => traitsOf(unitId),
+        npc: ties.npc,
+      })
+    : undefined;
+  const laborOf = (unitId: number) => o.units.get(unitId);
+
+  // 욕구·만족도(1차 값): 거울 세계 휴먼의 그날 식사 몫·만족도를 그대로 읽는다
+  const needsOf = (unitId: number) => {
+    const u = o.units.get(unitId);
+    return u ? { fedPm: u.fedPm, satisfactionMilli: u.satisfactionMilli } : undefined;
+  };
+
   const atWarOf = (cityId: number): boolean => {
     const city = o.cities.get(cityId);
     if (!city) return false;
@@ -78,10 +173,22 @@ export function createNpcAiBridge(o: {
   return {
     traits,
     houseAi,
+    labor,
+    houseDay(nowMs) {
+      // 가문세·돌봄 배당 → 연맹 분담금·투자(금고를 돌봄에 먼저 쓴다)
+      const day = care?.day(nowMs) ?? { taxed: 0, cared: 0 };
+      return { ...day, league: league?.day(nowMs) ?? emptyLeagueDay() };
+    },
+    laborTick(nowMs, econ) {
+      const changed = labor.tick(nowMs);
+      for (const cityId of changed) econ?.refreshCity(cityId, nowMs);
+      return changed.length;
+    },
 
     humanPlacesOptions() {
       return {
         traitsOf,
+        needsOf,
         atWarOf,
         ai: o.rules().npcAi,
       };
@@ -111,6 +218,8 @@ export function createNpcAiBridge(o: {
         restCycle: restCycleOf(rules),
         carry: econ ? { board: econ.carry, nowMs: input.nowMs } : undefined,
         traitsOf,
+        needsOf,
+        laborOf,
         atWarOf,
         ai: rules.npcAi,
       });
@@ -121,5 +230,22 @@ export function createNpcAiBridge(o: {
       }
       return changed;
     },
+  };
+}
+
+/** 런타임이 가문 고리를 한 줄로 묶어 넘긴다(runtime.ts 줄 수 상한) */
+export function bridgeTies(
+  cityHouses: Pick<NpcCityHouses, "of" | "housesOfCity" | "membersOf" | "headOf">,
+  society: { currentDay(): number },
+  ledger: Pick<Ledger, "systemAccount" | "ownerAccount" | "balance" | "post">,
+  econ: { readonly economy: { readonly currencyOf: ReadonlyMap<number, string> } } | undefined,
+  ctxRef: { readonly ctx?: Pick<NpcContext, "world" | "society" | "settings"> | undefined },
+): NonNullable<Parameters<typeof createNpcAiBridge>[0]["ties"]> {
+  return {
+    cityHouses,
+    society,
+    ledger,
+    currencyOf: (owner) => econ?.economy.currencyOf.get(owner),
+    npc: () => ctxRef.ctx,
   };
 }

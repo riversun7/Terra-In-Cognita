@@ -6,8 +6,8 @@
 // 결과는 house_league_result 하나(id = 요청 id). 조회는 tRPC factionIdentity.leagues다. 이 꾸러미는 다른 내부 꾸러미를 가져오지 않는다.
 import { z } from "zod";
 
-/** 가문 연맹 메시지에 필요한 가장 낮은 프로토콜 버전(줄기 npc-invest-2 판 103 — 묶음이 다시 매긴다) */
-export const HOUSE_LEAGUE_PROTOCOL_VERSION = 103;
+/** 가문 연맹 메시지에 필요한 가장 낮은 프로토콜 버전(묶음 1117d 64 — 줄기 npc-invest-2 판 103) */
+export const HOUSE_LEAGUE_PROTOCOL_VERSION = 64;
 
 const requestId = z.number().int().nonnegative().max(0xffff_ffff);
 const rowId = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);

@@ -34,6 +34,7 @@ import type { BusinessCoefficients } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import { type BusinessLaborHook, type ReservePlan, planReserve } from "./reserve.ts";
+import { type WageWithhold, attachWageWithhold, createWageWithhold } from "./withhold.ts";
 import type { LoadedBusiness } from "./store.ts";
 
 /** 사업장 하나의 상태 줄(business_states) */
@@ -106,6 +107,8 @@ export interface BusinessCore {
   receive(input: IncomeInput): boolean;
   /** 그 사업장 수입의 소득세 만분율(세금이 없으면 0) */
   taxRateOf(buildingId: number, ownerId: number): number;
+  /** 임금 소득세 원천징수(D-578, withhold.ts — 임금형 계약 임금을 줄 때 국고로 낼 몫). 원장에도 붙는다(wageWithholdOf) */
+  readonly withhold: WageWithhold;
   /** 이미 금고에 든 수입의 소득세(공용 함수가 넣은 임대료 등). 낸 세금 */
   taxIncome(buildingId: number, ownerId: number, asset: string, gross: bigint, atMs: number): bigint;
   /** 금고가 needed보다 모자라면 모자란 만큼 적자로 미리 넣는다(1504). 미리 넣은 양 */
@@ -237,6 +240,15 @@ export function createBusinessCore(deps: BusinessDeps): BusinessCore {
     });
     return pay;
   };
+
+  // 임금 소득세 원천징수(D-578): 노동 계약 임금 거래가 원장으로 찾아 쓴다(labor/wagePurse.ts)
+  const withhold = createWageWithhold({
+    ledger,
+    mode: () => deps.rules().wageWithholdMode ?? 0,
+    cityOf: (buildingId) => deps.place(buildingId)?.cityId ?? null,
+    tax: (cityId) => deps.tax(cityId),
+  });
+  attachWageWithhold(ledger, withhold);
 
   const receive = (input: IncomeInput): boolean => {
     const ownerId = deps.place(input.buildingId)?.ownerId ?? null;
@@ -452,6 +464,7 @@ export function createBusinessCore(deps: BusinessDeps): BusinessCore {
 
   return {
     vault,
+    withhold,
     taxRateOf(buildingId, ownerId) {
       const cityId = deps.place(buildingId)?.cityId ?? null;
       const tax = cityId === null ? undefined : deps.tax(cityId);

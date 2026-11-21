@@ -202,6 +202,39 @@ export function planCityRest(input: CityRestInput): CityRestPlan {
   };
 }
 
+/**
+ * 숙박비를 다 못 낸 일꾼(빈틈 2293 — 기획 D-555 1508 "유닛은 사유재산이 있어 당연히 자기가 내고 없으면 피로도 회복이 제대로 되지 않겠지"·1509 "NPC만으로도
+ * 그대로 똑같이")의 생산 속도 배율을 다시 센다: 플레이어 일꾼(labor/workerRest.ts — 다 못 내면 노숙 회복 [임시])과 같이 그 일꾼의 회복을 노숙으로 친다.
+ * 쉼터 자리·침대·오감 칸·숙박비 바퀴(restPeriodMs)는 그대로 — 플레이어 일꾼도 회복 배율만 떨어진다. unpaid = 일꾼 열쇠 "시설ID:시설 안 차례"(plan.workers의
+ * 시설 안 차례). 없거나 비면 plan 그대로
+ */
+export function withUnpaidRest(
+  plan: CityRestPlan,
+  unpaid: ReadonlySet<string> | undefined,
+  rules: SocietyCoefficients,
+): CityRestPlan {
+  if (!unpaid || unpaid.size === 0) return plan;
+  const next = new Map<number, number>();
+  const duty = new Map<number, { sum: number; n: number; hit: boolean }>();
+  for (const rest of plan.workers) {
+    const index = next.get(rest.facilityId) ?? 0;
+    next.set(rest.facilityId, index + 1);
+    const hit = unpaid.has(`${rest.facilityId}:${index}`);
+    const entry = duty.get(rest.facilityId) ?? { sum: 0, n: 0, hit: false };
+    entry.sum += restDutyPm(hit ? { kind: "homeless" } : rest.place, rest.commuteCells, rules);
+    entry.n += 1;
+    entry.hit ||= hit;
+    duty.set(rest.facilityId, entry);
+  }
+  const facilities = new Map(plan.facilities);
+  for (const [facilityId, entry] of duty) {
+    const found = facilities.get(facilityId);
+    if (!entry.hit || !found || entry.n === 0) continue;
+    facilities.set(facilityId, { ...found, dutyPm: Math.floor(entry.sum / entry.n) });
+  }
+  return { ...plan, facilities };
+}
+
 /** 플레이어 일꾼 하나(직무 배치·노동 계약)와 그 일터 건물 */
 export interface PlayerWorker {
   readonly unitId: number;

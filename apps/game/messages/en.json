@@ -8149,6 +8149,7 @@
   "dev_lab_tier_n": "Tier {n}",
   "dev_lab_rank_hint": "The commander cap (parties) is the title table plus the rebirth bonus, 3 to 10 (D-571 — title only). The tier (combat ranking) only orders who takes temporary command after the title when the commander falls or retreats.",
   "books_col_materials": "Materials",
+  "books_col_withholding": "Income tax withheld from wages (already in costs)",
   "reserve_floor": "Always kept (next wages) {amount}",
   "books_stop_scheduled": "The vault has no money for wages, so only one last cycle runs on a deficit. The business stops at {at} and restarts once the deficit is repaid and the next wages are in the vault.",
   "fair_price_line": "Fair price ≈ {price} (materials {materials} · labor {labor} · fee {fee} · tax {tax})",

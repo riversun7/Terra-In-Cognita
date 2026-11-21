@@ -162,3 +162,9 @@
 - 임대형 임차인 몫(일한 구간) 산출은 그 건물 창고(원장 위치 = 건물, `@terra/shared/goodsPlaces`)에 쌓인다. 유예 동안 임차인이 `storage_move out`(프로토콜 12)으로 그 도시의 내 도시 창고로 꺼내 가고, 유예가 끝나면(정산 뒤 고리) 남은 몫이 같은 건물 창고의 시설 주인 계정으로 옮겨진다(kind `labor_leftovers`, 옛 `StorageUtils.expireGraceStorage`). `leftoversMovedAtMs`는 그 시각 그대로다. 임금형은 예전처럼 고용주 기본 창고.
 - 건물 작업(짓기·레벨업·수리·장비 수리)에 묶인 유닛은 계약·구인 받기가 `unit_busy`다(D-516 364, 작업 동안 직무 산출이 없다).
 - 자세한 것: ADR `2026-11-07-buildings-runtime.md` "바뀜 (창고·직무)".
+
+## 바뀜 (2026-11-21, D-578 임금 소득세 원천징수 — 줄기 tax-withhold)
+
+- 임금형 임금 한 번(`labor_wage` 거래 하나)의 줄: 에스크로 −총 임금, 국고 +원천징수 소득세(선택 고리 `LaborAccounts.incomeTax` — 서버만), 가문 금고 +가문세(`wageTax`, 바탕 = 소득세 뗀 뒤
+  임금), 받는 지갑 +세후 임금. 보증금·`paidTotal`·에스크로 불변 조건은 총 임금 그대로다(합은 같다). 세율·누적 내림은 ADR `2026-11-15-business-ledger.md` "바뀜 (D-578 …)". 시뮬은 노동 계약을
+  돌리지 않아 판정이 바뀌지 않는다.

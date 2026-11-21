@@ -24,8 +24,10 @@ import {
   businessLocation,
   countsForProfit,
   majorHolders,
+  WITHHOLDING_COLUMN,
   sharePm,
 } from "@terra/shared/businessBooks";
+import { laborEscrowCode } from "@terra/sim";
 import { fairPriceView } from "@terra/shared/fairPrice";
 import type { Ledger } from "../economy/ledger.ts";
 import type { FacilityCatalog } from "../facilities/catalog.ts";
@@ -41,6 +43,8 @@ const DAY_MS = 86_400_000;
 /** 최근 거래 목록 길이 */
 const RECENT = 30;
 export const BOOK_DAYS = [1, 7, 30] as const;
+/** 노동 계약 에스크로 시스템 계정 코드 앞머리(@terra/sim laborEscrowCode — "escrow:labor:<계약 ID>") */
+const ESCROW_PREFIX = laborEscrowCode(0).slice(0, -1);
 
 export interface BooksSource {
   readonly pool: QueryPool;
@@ -145,6 +149,29 @@ export async function readBusinessBooks(
         else day.spend -= amount;
         daily.set(key, day);
       }
+    }
+    // 원천징수 소득세(D-578, withhold.ts): 이 사업장 계약 에스크로가 낸 임금 거래의 국고 줄(세력 주체의 위치 없는 계정 — 일꾼 지갑·가문 금고는 빠진다).
+    // 금고 줄이 아니라 따로 읽는다. 임금 칸(보증금)에 이미 든 돈이라 이익 밖 칸이다(countsForProfit)
+    const withheld = await source.pool.query(
+      `select a.asset, sum(e2.amount)::text as amount
+         from labor_contracts c
+         join ledger_accounts a on a.system_code = $3 || c.id::text
+         join ledger_entries e on e.account_id = a.id
+         join ledger_transactions t on t.id = e.tx_id and t.kind = 'labor_wage' and t.at_ms >= $2
+         join ledger_entries e2 on e2.tx_id = t.id and e2.account_id <> a.id
+         join ledger_accounts b on b.id = e2.account_id
+         join world_owners o on o.id = b.owner_id and o.faction_id is not null
+        where c.building_id = $1 and b.location is null and b.owner_id <> c.worker_owner_id
+        group by a.asset`,
+      [buildingId, fromMs, ESCROW_PREFIX],
+    );
+    for (const row of withheld.rows) {
+      const asset = String(row.asset);
+      const amount = BigInt(String(row.amount));
+      if (amount === 0n) continue;
+      const byColumn = sums.get(asset) ?? new Map<BookColumn, bigint>();
+      byColumn.set(WITHHOLDING_COLUMN, (byColumn.get(WITHHOLDING_COLUMN) ?? 0n) - amount);
+      sums.set(asset, byColumn);
     }
     const recent = await source.pool.query(
       `select t.id, t.kind, t.at_ms, e.account_id, e.amount::text as amount

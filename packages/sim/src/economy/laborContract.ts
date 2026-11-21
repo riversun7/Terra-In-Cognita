@@ -1,7 +1,8 @@
 // 노동 계약(임금형·임대형) — docs/adr/2026-11-03-labor-contracts.md, 기획 D-479(분배형 없음)·49 N48(옛 규칙 = 출발값, D-507)
 // 서버(apps/server/src/labor/)와 시뮬레이터가 같은 함수를 쓴다(D-013). 돈은 원장 장부로만 옮긴다(만들거나 없애지 않는다).
 // - 임금형: 고용주(시설 주인)가 계약할 때 보증금(임금 × N48 날수, 옛 salary_engine.js DEPOSIT_DAYS 30)을 에스크로
-//   escrow:labor:<계약 ID>에 넣는다. 임금 주기마다 그 주기 몫을 먼저(선불) 보증금에서 일꾼 지갑으로 낸다.
+//   escrow:labor:<계약 ID>에 넣는다. 임금 주기마다 그 주기 몫을 먼저(선불) 보증금에서 일꾼 지갑으로 낸다(서버: 같은 거래에서 원천징수 소득세·가문세를
+//   떼고 세후 임금만 — 기획 D-578, wageEntries).
 //   한 번 임금에 모자라면(0이어도) 일시 중지(옛 ContractDistributor.js INSUFFICIENT_WAGE_BUDGET). 채우면 바로 다시 일한다(옛
 //   ProductionRepository 자동 재개). 바뀜 (기획 D-570 1789 "적자는 기본적으로 멈춰야한다 … 재정안정될때까지 운영중단 원칙" — 자동 해고는 사용자
 //   결정이 아니다): 보증금이 0이 되어도 자동 해고(옛 salary_engine.js processPayroll "보증금 소진 → 자동 해고")하지 않고 일시 중지로 둔다.
@@ -113,8 +114,16 @@ export interface LaborAccounts {
   workerWallet(contract: LaborContract): number;
   escrow(contract: LaborContract): number;
   /**
-   * 임금에서 뗄 몫(서버만 — 가문세 D-574 2150: 일한 유닛의 가문 금고 계정과 양). 없거나 undefined면 임금 모두 workerWallet로. 시뮬은 노동 계약을
-   * 돌리지 않는다
+   * 임금 소득세 원천징수(서버만 — 기획 D-578 "임금제공시 유닛에 대한 소득세 납부, 유닛은 이미 세금이 납부된 정산한 임금을 받음"): 총 임금(amount)에서
+   * 사업장이 대신 내는 소득세 — 받는 계정(그 사업장 도시 나라 국고)과 양. 없거나 undefined면 떼지 않는다. 시뮬은 노동 계약을 돌리지 않는다
+   */
+  incomeTax?(
+    contract: LaborContract,
+    amount: bigint,
+  ): { readonly account: number; readonly tax: bigint } | undefined;
+  /**
+   * 임금에서 뗄 몫(서버만 — 가문세 D-574 2150: 일한 유닛의 가문 금고 계정과 양). amount = 소득세를 뗀 뒤 임금(D-578 차례: 총 임금 → 소득세 →
+   * 가문세 → 세후 임금). 없거나 undefined면 남은 임금 모두 workerWallet로
    */
   wageTax?(
     contract: LaborContract,
@@ -227,13 +236,25 @@ function enterGrace(c: LaborContract, atMs: number, reason: LaborEndReason, rule
   c.endReason = reason;
 }
 
-/** 임금 한 번의 원장 줄: 에스크로 → 받는 지갑(가문세가 있으면 그 몫은 가문 금고로 — 합은 그대로) */
+/** 뗄 몫을 0~base 안으로(넘거나 0 이하면 0) */
+const cutOf = (cut: { readonly tax: bigint } | undefined, base: bigint): bigint =>
+  cut && cut.tax > 0n && cut.tax <= base ? cut.tax : 0n;
+
+/**
+ * 임금 한 번의 원장 줄(거래 하나 — 합은 그대로): 에스크로(사업장이 묶어 둔 임금)에서 ① 원천징수 소득세 → 국고(D-578) ② 가문세(소득세 뗀 뒤 임금 기준)
+ * → 가문 금고(D-574 2150) ③ 남은 세후 임금 → 받는 지갑. 유닛 쪽에서 세금을 따로 셈하지 않는다
+ */
 function wageEntries(c: LaborContract, accounts: LaborAccounts): { account: number; amount: bigint }[] {
-  const cut = accounts.wageTax?.(c, c.rate);
-  const tax = cut && cut.tax > 0n && cut.tax <= c.rate ? cut.tax : 0n;
+  const income = accounts.incomeTax?.(c, c.rate);
+  const incomeTax = cutOf(income, c.rate);
+  const afterIncome = c.rate - incomeTax;
+  const house = accounts.wageTax?.(c, afterIncome);
+  const houseTax = cutOf(house, afterIncome);
   const entries = [{ account: accounts.escrow(c), amount: -c.rate }];
-  if (c.rate - tax > 0n) entries.push({ account: accounts.workerWallet(c), amount: c.rate - tax });
-  if (cut && tax > 0n) entries.push({ account: cut.account, amount: tax });
+  if (afterIncome - houseTax > 0n)
+    entries.push({ account: accounts.workerWallet(c), amount: afterIncome - houseTax });
+  if (income && incomeTax > 0n) entries.push({ account: income.account, amount: incomeTax });
+  if (house && houseTax > 0n) entries.push({ account: house.account, amount: houseTax });
   return entries;
 }
 

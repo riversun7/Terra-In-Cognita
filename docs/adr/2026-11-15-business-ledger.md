@@ -429,3 +429,25 @@ WP1~WP4는 답 없이도 [임시] 추천안으로 갈 수 있다(돈이 사라�
 
 - 시뮬: 판정 그대로 — econ16 시드 1·2 × 30일 출력이 팩 판·해시(`content`·`linesHash`) 밖에서 같다(Verified, 바꾼 것 뺀 md5 같음). 시뮬은 노동 계약을 돌리지 않아 가문세 차례 바뀜도 닿지 않는다. SIM_VERSION 그대로(66).
 - 팩 core@130(묶음 1116u — 줄기 판도 130, 설정 칸 둘 더함·하나 설명 고침). 프로토콜·DB 표·마이그레이션 없음(빚은 원장 시스템 계정). 감사 표(`economyRun.ts systemRule`)에 `debt`·`claim` 앞머리 + `resident_tax` 종류.
+
+## 바뀜 (tax-2 — 나라 세금 칸·주민세 재산 = 건물 값·집 몫/사업장 몫·빚 탕감, 2026-11-21 — 기획 대조 2371 나·2373 가·2322 나·2325 나, D-581)
+
+기획 대조 답(질문 2371 나·2373 가 — `docs/questions/2026-11-21-resident-tax.md`, 2322 나·2325 나 — `docs/questions/2026-11-21-tax-withhold.md`)과 D-581(2372 "둘 다"·
+2375 다·2374 다음 줄기)을 코드로 옮긴다. 기본값은 옛 판 그대로라 배포 뒤 바뀌는 돈은 없다(주민세 0, 소득세 = 거래세율).
+
+| 무엇 | 정한 것 |
+|---|---|
+| 나라 세금 저장(2373 가 + 2322 나, D-128 "정부가 세율 지정") | 새 표 `nation_taxes`(나라 세력 행마다 한 줄 — 소득세 만분율·주민세 ‰·주기 날·국세 몫 ‰, 칸마다 null = 정하지 않음, 마이그레이션 `20261121061433_nation_taxes`). 메모리 표는 원장마다 하나(`government/nationTax.ts` — WeakMap, 세계가 준비되면 `factionIdentity/attach.ts`가 붙이고 읽는다) |
+| 정하는 사람 | 그 나라 지도자 = 독립 나라 가문장(D-217·질문 2012 답 — `houseEntryPolicy.ts ruledBy`). WebSocket `nation_tax` → `nation_tax_result`(가문 게이트웨이가 받아 `government/nationTaxPolicy.ts`로), 감사 기록 `faction.nation_tax`. 투표 체제의 안건 절차는 governance 줄기 몫 — 고리 `taxChangeRule`(지금 늘 지도자, 질문 2421) |
+| 보이기 | 정부 판(tRPC `world.government`) `taxes` 칸 — 모두에게 값·정한 곳(지도자 / NPC 규칙식 / 기본값), 지도자면 정하기(`apps/game/src/government/NationTaxPolicy.tsx`) |
+| 소득세 실효 값 | 나라 값 → 없으면 그 나라 거래세율(옛 판). 사업장 수입 소득세와 임금 원천징수가 같은 율(사업장 장부 `tax` 고리 — `facilities/world.ts nationIncomeTaxBp`, 질문 2425) |
+| 주민세 실효 값 | 세율 = 나라 값 → NPC 나라는 D-323 규칙식(성향 프리셋 상업 축 → `npc_resident_tax_min_pm`~`max_pm`, `@terra/sim npcResidentTaxPm`, 기본 0·0) → 설정 칸 `nation_resident_tax_pm`. 주기·국세 몫 = 나라 값 → 설정 칸(질문 2423). 고리 `SimHooks.residentTaxOf`(국세 몫 칸 더함 — `npc/rulingVault.ts`가 얹는다) |
+| 재산 값(2371 나) | 건물 값 = 지은 값 × `resident_building_value_pm` ÷ 1000 × 감가 max(`resident_building_floor_pm`, 1000 − 날 수 × `resident_building_depreciation_pm`) ÷ 1000(기본 1000·300·1). 지은 값 = 레벨 1~지금 레벨 짓기 재료(`buildCostAt`) × 그 도시 거래소 시세(그 나라 화폐 마지막 체결가, 없으면 팩 시작 시세 — `@terra/sim necessityCost`, 읽기만·거래소를 만들지 않는다). 짓기 돈은 지금 없다(D-171). 옛 [임시] 사업장 금고 잔고는 뺐다(화폐 자산) |
+| 내는 쪽(D-581 2372) | **집 몫**: 그 도시에 사는 유닛마다 사는 숙소 값 ÷ 그 숙소에 사는 사람 수, 유닛 지갑에서(빚 계정 `debt:resident:<나라>:<도시>:<주인>:u<유닛>:<화폐>`). **사업장 몫**: 사는 유닛이 있는 주인이 그 도시에 가진 주거 아닌 건물 값, 주인 지갑에서. 숙소 건물은 집 몫으로만(질문 2422). 같은 주머니(그 나라 자신)는 둘 다 없음 |
+| 거주(D-581) | 주민만 낸다 — 떠도는 사람·외국인은 없음. NPC 휴먼 = 사는 도시 + 쉼터 계획 숙소(일꾼), 플레이어 유닛 = 일꾼 숙소 배정(`labor/workerRest.ts`가 원장에 `registerPlayerHomes`). 고리 `SimHooks.residentHomes`(없으면 시뮬 세계 사는 도시, 집 값 0 — 시뮬). 질문 2424 |
+| 빚 탕감(D-581 2375 다) | 도시가 다른 나라로 넘어가면 그 도시의 옛 나라 빚을 지운다(`society.ts moveCity → societyPayouts.cityMoved → cancelResidentDebts`, 거래 `resident_tax_cancel` — 빚 계정·받을 돈 짝을 되돌림, 감사 표에 종류 더함). 폐허는 그대로(질문 2427). 주민세 고리가 없으면(시뮬) 훑지 않는다 |
+| 신용(D-581 2374) | 다음 줄기 — 빚 기록과 고리 `residentTaxArrears`(유닛 몫이면 `arrears.unit`)만 |
+| 계약 화면(2325 나) | 임금형 계약 줄(경제 화면·건물 노동 칸)에 다음 지급 세후 임금 = 총 임금 − 소득세(누적 내림) − 가문세(`labor/wagePurse.ts wageNetView`, 응답 칸 `net` — 옛 기기는 무시) |
+
+- 시뮬: 판정 그대로 — econ16 시드 1·2·3 × 30일 출력이 팩 판·해시(`content`·`linesHash`) 밖에서 같다(작업 기록 표). 시뮬은 재산·집 고리가 없어 주민세를 걷지 않고, 빚이 없어 탕감도 훑지 않는다. SIM_VERSION 그대로.
+- 판(줄기 판 — 묶음 때 다시 붙인다): 팩 core@170(설정 칸 다섯 더함·넷 설명 고침), 프로토콜 95(최소 94 — 현재 − 1), 마이그레이션 `20261121061433_nation_taxes`(prevIds `2d53a6a4`). 리셋 필요 없음.

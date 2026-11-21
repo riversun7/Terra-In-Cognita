@@ -398,7 +398,11 @@ export function GovernancePanel({ now }: { now: number }) {
             </Fact>
             <Fact label={m.gov_term_ends()}>
               {view.nation.termEndsAtMs === null ? (
-                m.gov_term_none()
+                view.nation.regime === "dictatorship" ? (
+                  m.gov_term_none()
+                ) : (
+                  "—"
+                )
               ) : (
                 <time
                   dateTime={new Date(view.nation.termEndsAtMs).toISOString()}

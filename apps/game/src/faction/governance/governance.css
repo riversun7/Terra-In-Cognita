@@ -66,3 +66,7 @@
 .gov-status-error {
   color: var(--color-danger);
 }
+/* 고르기 칸: 펼침 화살표가 긴 글자(영어 "Leader election")에 겹치지 않게 오른쪽 여백 */
+.gov-field select {
+  padding-inline-end: var(--space-8);
+}

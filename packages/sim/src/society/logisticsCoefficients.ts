@@ -19,10 +19,11 @@ export interface LogisticsCoefficients {
   readonly restCycleMode: number;
   /**
    * [임시] NPC 물류센터 증축(house-10, 기획 대조 2301 — 성향 가중): 그 도시에서 운반꾼을 기다리는 NPC 운반 일이 이만큼(상업 성향 배율 500~1500‰을 곱한
-   * 값)이 되면 물류센터 하나를 증축 목표에 넣는다. 서버 npc/npcLogistics.ts(시뮬 도시는 물류센터가 없어 판정에 쓰지 않는다)
+   * 값)이 되면 물류센터 하나를 증축 목표에 넣는다. 서버 npc/npcLogistics.ts(시뮬 도시는 물류센터가 없어 판정에 쓰지 않는다).
+   * 바뀜(fixes-1116t, 2348 다): k개가 있으면 이 값 × (k + 1)에서 하나 더(centerTarget)
    */
   readonly npcBuildWaits: number;
-  /** [임시] NPC 물류센터 증축에 필요한 그 도시 휴먼 수(경비대 포함 — 도시 경제 휴먼 수). 이보다 적으면 짓지 않는다 */
+  /** [임시] NPC 물류센터 증축에 필요한 그 도시 휴먼 수(경비대 포함 — 도시 경제 휴먼 수). 이보다 적으면 짓지 않는다. k개가 있으면 × (k + 1) */
   readonly npcBuildHumans: number;
 }
 

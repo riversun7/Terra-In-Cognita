@@ -10592,10 +10592,10 @@
       "min": 1,
       "max": 1000,
       "desc": {
-        "ko": "NPC 도시에서 운반꾼을 기다리는 NPC 운반 일 수 × 그 나라 상업 성향 배율(가장 낮음 0.5배 ~ 가장 높음 1.5배)이 이 값 이상이면 그 도시 증축 목표에 물류센터 하나를 넣는다. 지은 물류센터는 그 도시 일 없는 휴먼이 운반꾼으로 일한다.",
-        "en": "When the NPC haul jobs waiting for a carrier in an NPC city, times the nation's commerce trait scale (0.5 at the lowest to 1.5 at the highest), reach this value, one logistics center joins that city's build targets. Idle humans of the city work there as carriers."
+        "ko": "NPC 도시에서 운반꾼을 기다리는 NPC 운반 일 수 × 그 나라 상업 성향 배율(가장 낮음 0.5배 ~ 가장 높음 1.5배)이 이 값 × (그 도시 물류센터 수 + 1) 이상이면 그 도시 증축 목표에 물류센터 하나를 더 넣는다(수요가 계속 크면 둘째·셋째). 지은 물류센터는 그 도시 일 없는 휴먼이 운반꾼으로 일하고 하루 임금을 받는다.",
+        "en": "When the NPC haul jobs waiting for a carrier in an NPC city, times the nation's commerce trait scale (0.5 at the lowest to 1.5 at the highest), reach this value times (the city's logistics centers + 1), one more logistics center joins that city's build targets (a second or third if demand stays high). Idle humans of the city work there as carriers and earn a daily wage."
       },
-      "source": "D-555 1505·1509 · D-554 · 질문 2301(기획 대조) · ADR 2026-11-16-logistics-center \"바뀜 (house-10)\" [임시]"
+      "source": "D-555 1505·1509 · D-554 · 질문 2301·2348 다(기획 대조) · ADR 2026-11-16-logistics-center \"바뀜 (house-10)\"·\"바뀜 (fixes-1116t)\" [임시]"
     },
     {
       "id": "logistics_npc_build_humans",
@@ -10610,10 +10610,10 @@
       "min": 0,
       "max": 100000,
       "desc": {
-        "ko": "이보다 휴먼이 적은 NPC 도시는 물류센터를 증축하지 않는다(운반꾼으로 세울 사람이 모자라다).",
-        "en": "NPC cities with fewer humans than this don't build a logistics center (not enough people to staff it as carriers)."
+        "ko": "NPC 도시가 물류센터를 하나 더 지으려면 휴먼이 이 값 × (그 도시 물류센터 수 + 1) 이상이어야 한다(운반꾼으로 세울 사람이 모자라다).",
+        "en": "An NPC city builds one more logistics center only with at least this many humans times (the city's logistics centers + 1) (otherwise not enough people to staff it as carriers)."
       },
-      "source": "질문 2301(기획 대조) · ADR 2026-11-16-logistics-center \"바뀜 (house-10)\" [임시]"
+      "source": "질문 2301·2348 다(기획 대조) · ADR 2026-11-16-logistics-center \"바뀜 (house-10)\"·\"바뀜 (fixes-1116t)\" [임시]"
     },
     {
       "id": "s20_short_min",

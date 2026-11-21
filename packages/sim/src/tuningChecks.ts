@@ -18,6 +18,11 @@ const PRIMARY_VAR_NAMES = ["STR", "DEX", "AGI", "VIT", "INT", "WIS"];
 const ascending = (values: readonly number[]): boolean =>
   values.every((value, index) => index === 0 || (values[index - 1] ?? value) <= value);
 
+/** NPC 조직 성향 합성 비율 합 = 1000‰(모든 항 ≥ 0) */
+function blendOk(...parts: number[]): boolean {
+  return parts.every((p) => p >= 0) && parts.reduce((sum, p) => sum + p, 0) === 1000;
+}
+
 /** 세력·사회 계수표(팩 값 + 덮어쓰기를 얹은 것)의 여러 칸 문제. 없으면 빈 목록. 차례는 TUNING_PROBLEMS 차례 */
 export function tuningProblems(c: SocietyCoefficients): TuningProblem[] {
   const problems: TuningProblem[] = [];
@@ -97,6 +102,36 @@ export function tuningProblems(c: SocietyCoefficients): TuningProblem[] {
     c.condition.cap < 0
   )
     problems.push("stat_sum_cap");
+  // NPC 자율행동·7축 성향 구간 순서(ADR 2026-11-20): 모든 min ≤ max
+  const ai = c.npcAi;
+  if (
+    ai.unitTraitMin > ai.unitTraitMax ||
+    ai.guardBelligerenceMin > ai.guardBelligerenceMax ||
+    ai.guardBoldnessMin > ai.guardBoldnessMax ||
+    ai.guardDisciplineMin > ai.guardDisciplineMax ||
+    ai.leaderBoldnessMin > ai.leaderBoldnessMax ||
+    ai.leaderAutonomyMin > ai.leaderAutonomyMax ||
+    ai.loyaltyOverrideMinPm > ai.loyaltyOverrideMaxPm ||
+    ai.unitReevalMinMs > ai.unitReevalMaxMs ||
+    ai.unitDwellMinMs > ai.unitDwellMaxMs ||
+    ai.guardPatrolMinCells > ai.guardPatrolMaxCells ||
+    ai.houseDecideMinMs > ai.houseDecideMaxMs
+  )
+    problems.push("ai_range_order");
+  // NPC 조직 성향 합성 비율 합 = 1000‰(모든 항 ≥ 0)
+  if (
+    !blendOk(ai.dictDecLeaderPm, ai.dictDecMembersPm, ai.dictDecBasePm) ||
+    !blendOk(ai.dictCulLeaderPm, ai.dictCulMembersPm, ai.dictCulBasePm) ||
+    !blendOk(ai.demoDecLeaderPm, ai.demoDecMembersPm, ai.demoDecBasePm) ||
+    !blendOk(ai.demoCulLeaderPm, ai.demoCulMembersPm, ai.demoCulBasePm) ||
+    !blendOk(ai.capDecLeaderPm, ai.capDecMembersPm, ai.capDecBasePm) ||
+    !blendOk(ai.capCulLeaderPm, ai.capCulMembersPm, ai.capCulBasePm) ||
+    !blendOk(ai.houseDecLeaderPm, ai.houseDecMembersPm) ||
+    !blendOk(ai.houseCulLeaderPm, ai.houseCulMembersPm) ||
+    !blendOk(ai.cityDecMayorPm, ai.cityDecNationPm) ||
+    !blendOk(ai.cityCulMayorPm, ai.cityCulCitizensPm, ai.cityCulNationPm)
+  )
+    problems.push("ai_blend_sum");
   return problems;
 }
 

@@ -501,8 +501,10 @@ function makeBattle(
     gone: ReadonlySet<number>,
   ): void => {
     const nowMs = state.tick * c.tickMs;
-    // 달리기는 AI 고리가 정한다(지금 = 명령의 run 칸, moveAi.ts). 바뀔 때만 상태가 바뀐다
-    if (wantsRun(unit) !== (unit.running === true)) setRunning(unit, !unit.running, c, trace);
+    const myParty = state.parties.find((entry) => entry.id === unit.party);
+    // 달리기는 AI 고리가 정한다(명령 run 또는 aiTactics 슬라이더, moveAi.ts). 바뀔 때만 상태가 바뀐다
+    if (wantsRun(unit, { retreating: myParty?.retreating === true }) !== (unit.running === true))
+      setRunning(unit, !unit.running, c, trace);
     if (hasStatus(unit, "stun")) return;
     // 자동 물약(D-510): 스태미나·행동 시각을 쓰지 않는다(D-509). 시전·이동·공격과 같은 틱에 함께 한다
     if (unit.potions) {

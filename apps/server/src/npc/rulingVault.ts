@@ -19,6 +19,7 @@
 // - 바뀜(governance-2, 질문 2406): 지배 가문은 의결이 정한 값(cityHouses.ts setRuling)을 따른다. NPC 나라의 지배 가문이 선출로 플레이어 가문이 되면 남은 이익의
 //   국고 몫은 그 플레이어 가문 금고(vault:house:<가문 행>:<자산>)로 가고, 돌려보내기·가문장 꺼내기(NPC 행동)는 하지 않는다(가문장이 house_vault_take로 꺼낸다).
 import { unitPurseLocation } from "@terra/shared/businessBooks";
+import type { UnitTraits } from "@terra/shared/unitTraits";
 import {
   type SimFaction,
   type SimHooks,
@@ -26,6 +27,7 @@ import {
   type SocietyCoefficients,
   npcRulingVaultReturnPm,
 } from "@terra/sim";
+import { npcRulingVaultReturnPm7 } from "@terra/sim/npcAi";
 import type { Ledger } from "../economy/ledger.ts";
 import { HOUSE_VAULT_PREFIX, houseVaultCode } from "../factionIdentity/houseVault.ts";
 import type { NpcCityHouses } from "./cityHouses.ts";
@@ -168,6 +170,8 @@ export function withNpcRulingVault(
     readonly spendRule?: (() => RulingSpendRule) | undefined;
     /** 투자 받을 사업장 금고(house-10, 2312 나). 없으면 국고에 남긴다 */
     readonly invest?: InvestTargets | undefined;
+    /** 그 나라 지배 가문의 7축 실효 성향(있으면 7축 공식 npcRulingVaultReturnPm7 사용, ADR 2026-11-20) */
+    readonly rulingTraitsOf?: ((owner: number) => UnitTraits | undefined) | undefined;
   },
 ): SimHooks {
   const npcVault = (faction: SimFaction, asset: string): number | undefined => {
@@ -191,7 +195,10 @@ export function withNpcRulingVault(
       if (account === undefined) return;
       const balance = o.ledger.balance(account);
       const rule = o.rule();
-      const pm = npcRulingVaultReturnPm(faction.traits.commerce, rule, rule);
+      const traits7 = o.rulingTraitsOf?.(faction.id);
+      const pm = traits7
+        ? npcRulingVaultReturnPm7(traits7, rule)
+        : npcRulingVaultReturnPm(faction.traits.commerce, rule, rule);
       const back = balance > 0n ? (balance * BigInt(pm)) / 1000n : 0n;
       if (back > 0n)
         o.ledger.post({
@@ -234,6 +241,8 @@ export const npcRulingHooks = (
       | undefined;
     /** 도시 경제(주민세 건물 값의 재료 시세 — 읽기만, 일꾼 숙소 배정). 없으면 주민세 재산 값이 없다 */
     readonly econ?: ResidentEconomy | undefined;
+    /** 그 나라 지배 가문의 7축 실효 성향(ADR 2026-11-20) */
+    readonly rulingTraitsOf?: ((owner: number) => UnitTraits | undefined) | undefined;
   },
 ): SimHooks => {
   const ownerOf = (unitId: number): number | undefined => o.world?.units.get(unitId)?.owner;
@@ -287,5 +296,6 @@ export const npcRulingHooks = (
     },
     spendRule: () => npcSpendRuleOf(o.rules()),
     invest,
+    rulingTraitsOf: o.rulingTraitsOf,
   });
 };

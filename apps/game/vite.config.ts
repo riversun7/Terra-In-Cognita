@@ -165,6 +165,7 @@ export default defineConfig({
           "assets/[Ss]tarSystem*.{js,css}",
           "assets/[Ss]econdMapLab*.{js,css}",
           "assets/[Tt]uningPanel*.{js,css}",
+          "assets/[Nn]pcAi*.{js,css}",
           "assets/[Bb]alancePanel*.{js,css}",
           "assets/[Ss]econdaryStats*.{js,css}",
           "assets/[Ee]xpTable*.{js,css}",

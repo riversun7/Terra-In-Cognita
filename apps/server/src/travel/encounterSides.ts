@@ -11,6 +11,15 @@
 // - 전투 몸이 있으면(띄운 2차맵) 전력·남은 HP %를 몸으로, 아니면 유닛 수(한 명 = 1,000)로 센다.
 // - 빠르기 = 편에서 가장 느린 유닛의 걷기 빠르기(실효 AGI·이동 버프, world/walkSpeed.ts — 2차맵이 마지막 이동 때 잰 값·좌표 유닛 행 값).
 import { type AiTactics, DEFAULT_PLAYER_PRESET, npcPresetOf, presetTactics } from "@terra/shared/aiTactics";
+import {
+  type LoyaltyUnitKind,
+  type UnitTraits,
+  blendTacticsByLoyalty,
+  loyaltyOverridePm,
+  tacticsFromUnitTraits,
+} from "@terra/shared/unitTraits";
+import { type NpcAiCoefficients, loyaltyRulesFromAi } from "@terra/sim/npcAi";
+import { UNIT_KIND_CYBORG, UNIT_KIND_CYBORG_UNIT } from "../world/unitKinds.ts";
 import type { ClashGroupView, ClashSideView } from "./clashDecide.ts";
 
 /** 판단 앞의 한 편 유닛 */
@@ -39,13 +48,62 @@ export interface SideSources {
   aggressionOf(ownerId: number, nation: number): number;
   /** 저장한 작전(없으면 undefined) */
   tacticsOf(unitId: number): AiTactics | undefined;
+  /** 개별 유닛 7축 성향(ADR 2026-11-20 4단계). 없으면 기존 공격 성향·플레이어 프리셋 그대로 */
+  readonly traitsOf?: ((unitId: number) => UnitTraits | undefined) | undefined;
+  /** 플레이어 유닛 만족도 밀리점(0~100,000, 미집계면 null/undefined → 개입률 0‰) */
+  readonly loyaltyMilliOf?: ((unitId: number) => number | null | undefined) | undefined;
+  /** 충성도 연동 유닛 종류(생략 시 kind 기반 추론: 사이보그 본체=cyborg_main, 사이보그 유닛=android, 그 외=human) */
+  readonly loyaltyKindOf?: ((unit: SideUnit) => LoyaltyUnitKind) | undefined;
+  /** 분대/국가 지휘관 7축 성향(있으면 commanderSharePm 비율로 합성) */
+  readonly commanderTraitsOf?: ((nation: number) => UnitTraits | undefined) | undefined;
+  /** 실시간 NPC AI 계수(충성도 곡선·지휘관 비중) */
+  readonly aiRules?: (() => NpcAiCoefficients) | undefined;
 }
 
-/** 판단 유닛 하나의 작전 */
+function defaultLoyaltyKind(unit: SideUnit): LoyaltyUnitKind {
+  if (unit.kind === UNIT_KIND_CYBORG) return "cyborg_main";
+  if (unit.kind === UNIT_KIND_CYBORG_UNIT) return "android";
+  return "human";
+}
+
+/** 판단 유닛 하나의 실효 작전(플레이어 = 충성도 연동 개성 개입, NPC = 7축 성향 + 지휘관 비중) */
 export function unitTactics(unit: SideUnit, nation: number, sources: SideSources): AiTactics {
-  if (sources.playerOwned(unit.ownerId))
-    return sources.tacticsOf(unit.unitId) ?? presetTactics(DEFAULT_PLAYER_PRESET);
+  const ai = sources.aiRules?.();
+  const traits = sources.traitsOf?.(unit.unitId);
+  const commanderTraits = sources.commanderTraitsOf?.(nation);
+  const commander =
+    commanderTraits && (ai?.commanderSharePm ?? 300) > 0
+      ? { traits: commanderTraits, sharePm: ai?.commanderSharePm ?? 300 }
+      : undefined;
+
+  if (sources.playerOwned(unit.ownerId)) {
+    const player = sources.tacticsOf(unit.unitId) ?? presetTactics(DEFAULT_PLAYER_PRESET);
+    if (!traits) return player;
+    const loyaltyMilli = sources.loyaltyMilliOf?.(unit.unitId);
+    const kind = sources.loyaltyKindOf ? sources.loyaltyKindOf(unit) : defaultLoyaltyKind(unit);
+    const overridePm = loyaltyOverridePm({
+      kind,
+      loyaltyMilli,
+      traits,
+      rules: ai ? loyaltyRulesFromAi(ai) : undefined,
+    });
+    if (overridePm <= 0) return player;
+    return blendTacticsByLoyalty(player, tacticsFromUnitTraits(traits, commander), overridePm);
+  }
+  if (traits) return tacticsFromUnitTraits(traits, commander);
   return presetTactics(npcPresetOf(sources.aggressionOf(unit.ownerId, nation)));
+}
+
+/** 편별 실효 AI 작전 맵(전투 시작 시 CombatUnitSpec.aiTactics 주입용) */
+export function sideCombatTactics(
+  sides: readonly (readonly SideUnit[])[],
+  nations: readonly number[],
+  sources: SideSources,
+): Map<number, AiTactics> {
+  const out = new Map<number, AiTactics>();
+  for (const [index, side] of sides.entries())
+    for (const unit of side) out.set(unit.unitId, unitTactics(unit, nations[index] ?? 0, sources));
+  return out;
 }
 
 /** 편 하나의 판단 값. bodies = 유닛 ID → 몸 값(없으면 유닛 수로 센다) */

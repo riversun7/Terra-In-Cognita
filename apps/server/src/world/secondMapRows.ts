@@ -52,6 +52,8 @@ export interface UnitRow {
   condition: UnitCondition;
   /** 타고 있는 배의 유닛 ID(docs/adr/2026-11-13-boats.md 4절). 없으면 null·없음 */
   aboardId?: number | null | undefined;
+  /** 개별 유닛 7축 성향(0~1000 길이 7, docs/adr/2026-11-20-npc-autonomous-ai.md). 없으면 null·없음 */
+  traits?: readonly number[] | null | undefined;
 }
 
 /**
@@ -93,6 +95,7 @@ export function unitRowOf(
     readonly aiStep: number;
     readonly job: UnitJob;
     readonly condition: UnitCondition;
+    readonly traits?: readonly number[] | null | undefined;
   },
   mapKey: number,
   planetId: string,
@@ -116,6 +119,7 @@ export function unitRowOf(
     aiStep: unit.aiStep,
     job: unit.job,
     condition: unit.condition,
+    traits: unit.traits ? [...unit.traits] : null,
   };
 }
 
@@ -178,5 +182,6 @@ export function unitColumnsOf(row: UnitRow): Record<string, unknown> {
     job_progress_ms: row.job.progressMs,
     fatigue: row.job.fatigue,
     ...conditionColumns(row.condition, row.aboardId),
+    traits: row.traits ? [...row.traits] : null,
   };
 }

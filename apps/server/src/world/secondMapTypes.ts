@@ -1,5 +1,5 @@
 // 2차맵 하나의 서버 상태 모양(secondMap.ts에서 나눔 — 그 파일 1,000줄 상한, 배 B1 docs/adr/2026-11-13-boats.md). secondMap.ts가 다시 내보낸다
-import type { ResultCode } from "@terra/protocol";
+import type { ResultCode, UnitMotionWire } from "@terra/protocol";
 import type { BuildingPlacement, CellRect, Motion, Point, SizeClass } from "@terra/sim";
 import type { WaterMask } from "@terra/shared/waterNearby";
 import type { BotHome } from "./bots.ts";
@@ -12,8 +12,33 @@ import type { BuildingRow, MapPersist, TransferRow, UnitJob, UnitRow } from "./s
 import type { UnitCondition } from "./unitCondition.ts";
 import type { ExploredStore, MapVision } from "./vision.ts";
 import type { WalkUnit } from "./walkSpeed.ts";
+import type { SizedEntry } from "./wire.ts";
 import type { WorldStats } from "./worldStats.ts";
 import type { WorldDomain } from "../db/schema.ts";
+
+/** 2차맵 내부 유닛 상태(secondMap.ts에서 분리 — 1,000줄 상한) */
+export interface MapUnitState {
+  readonly id: number;
+  ownerId: number;
+  kind: number;
+  readonly domain: WorldDomain;
+  size: SizeClass;
+  speed: number;
+  motion: Motion;
+  entry: SizedEntry<UnitMotionWire>;
+  destination: Point;
+  routeSeq: number;
+  planning: boolean;
+  eventId: number | undefined;
+  wakeAtMs: number | undefined;
+  aiStep: number;
+  job: UnitJob;
+  condition: UnitCondition;
+  readonly bot: boolean;
+  home: BotHome | undefined;
+  aboard: number | undefined;
+  traits: readonly number[] | undefined;
+}
 
 export type CommandResult = { ok: true; buildingId?: number } | { ok: false; code: ResultCode };
 
@@ -29,6 +54,8 @@ export interface UnitView {
   readonly hasEvent: boolean;
   /** 타고 있는 배(docs/adr/2026-11-13-boats.md). 없으면 undefined */
   readonly aboard?: number | undefined;
+  /** 개별 유닛 7축 성향(0~1000 길이 7). 없으면 undefined */
+  readonly traits?: readonly number[] | undefined;
 }
 
 export interface MapLog {
@@ -95,6 +122,7 @@ export interface SecondMap {
     cellY: number;
     ownerId?: number;
     kind?: number;
+    traits?: readonly number[] | null | undefined;
   }): boolean;
   /** 저장된 건물·유닛을 다시 놓고 예약을 다시 건다(부팅 복구). 놓지 못한 것의 ID를 돌려준다 */
   restore(
@@ -119,6 +147,8 @@ export interface SecondMap {
   ): boolean;
   /** 봇의 집(도시 시청 칸)·일터(null = 없음 — 지금 자리 둘레를 걷는다)를 정한다. 봇이 아니거나 없으면 false */
   setHome(unitId: number, home: BotHome | null): boolean;
+  /** 유닛 7축 성향 배열(길이 7, 0~1000)을 저장한다. 없으면 false */
+  setTraits?(unitId: number, traits: readonly number[] | null): boolean;
   /** 봇을 NPC 휴먼 몸(크기 1·걷기, D-534 — 1106 가)으로 바꾼다: 하던 이동을 지금 자리에서 멈추고 다시 깬다. 바꿨으면 true */
   setHumanBody(unitId: number): boolean;
   /** 유닛 주인을 바꾸고 저장한다(도시 주인이 바뀜). 없으면 false */

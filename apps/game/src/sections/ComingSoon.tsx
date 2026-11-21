@@ -32,6 +32,7 @@ type ComingSoonRoute = Exclude<
   | "dev_star_system"
   | "dev_second_map"
   | "dev_tuning"
+  | "dev_npc_ai"
   | "dev_balance"
   | "dev_secondary_stats"
   | "dev_exp_table"

@@ -129,6 +129,10 @@ export const TUNING_PROBLEMS = [
   "stat_primary_unused",
   // 초기 스탯 합 상한(D-534): 사이보그 합 N9·휴먼·크리쳐 최대 ≤ 100, 구인 카드 토탈·유전자 총합 상한 ≤ 휴먼 최대, 컨디션 상한 ≥ 0
   "stat_sum_cap",
+  // NPC 자율행동·성향 구간(ADR 2026-11-20-npc-autonomous-ai): 모든 최소 ≤ 최대 구간 순서
+  "ai_range_order",
+  // NPC 조직 성향 합성 비율(ADR 2026-11-20-npc-autonomous-ai): 각 체제·조직별 합성 비율 합 = 1000‰
+  "ai_blend_sum",
 ] as const;
 export type TuningProblem = (typeof TUNING_PROBLEMS)[number];
 

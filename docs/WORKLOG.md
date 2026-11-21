@@ -6,6 +6,9 @@
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
 | 2026-11-21 20:00 | 화면 시험 실패 고치기: 작은 단추 38px → 44px, 작은 창 첫 줄 선택자 | Claude Code | [21-2000-e2e-tap-size-peek-line](worklog/2026/11/21-2000-e2e-tap-size-peek-line.md) |
+| 2026-11-21 19:34 | NPC 자율행동 · AI 5단계 완료(외교 호감 · 자동 의뢰 · 1차맵 임무 · 180일/1만 유닛 검증 · 전체 회귀 통과) | Antigravity | [21-1934-npc-ai-phase5](worklog/2026/11/21-1934-npc-ai-phase5.md) |
+| 2026-11-21 19:30 | NPC 자율행동 · AI 4단계 구현(전투 이동 AI `moveAi.ts` 완성 · 7축/충성도 조우 작전 연결 · `/dev/npc-ai` 탭 4 확장) | Antigravity | [21-1930-npc-ai-phase4](worklog/2026/11/21-1930-npc-ai-phase4.md) |
+| 2026-11-21 19:22 | NPC 자율행동 · AI 3단계 구현(유닛 8상태 FSM · NPC 가문 AI · 지도자 순회 · 2차맵 영속화) | Antigravity | [21-1922-npc-ai-phase3](worklog/2026/11/21-1922-npc-ai-phase3.md) |
 | 2026-11-21 19:00 | 2차맵 강 폭 넓히기·폭 출렁임·여울(생성기 2판) | Claude Code | [21-1900-wide-rivers-fords](worklog/2026/11/21-1900-wide-rivers-fords.md) |
 | 2026-11-21 18:42~ | 2026-11-21 묶음 1116x 합치기 (지배 가문 지분 계정·국고 지분 과반 제외·NPC 도전자·빈자리·세율 안건) — 리셋 필요 없음 | Claude Code | [21-1842-batch-1116x-merge](worklog/2026/11/21-1842-batch-1116x-merge.md) |
 | 2026-11-21 18:00 | 회색 2차맵(지형 404)·건물 들어가기 자리·상태 메시지 정리 | Claude Code | [21-1800-grey-maps-enter-messages](worklog/2026/11/21-1800-grey-maps-enter-messages.md) |
@@ -29,6 +32,8 @@
 | 2026-11-17 00:20 ~ 2026-11-21 09:25 (KST, 사용량 제한으로 멈췄다가 이어서 끝냄) | 물류센터 2차: 요금 나라 화폐·꺼내기·사업장 판매 맡기기·계정 자동 맡기기·NPC 맡기기 (기획 대조 2272·2273·2274·2277) | Claude Code | [21-0925-haul-2](worklog/2026/11/21-0925-haul-2.md) |
 | 2026-11-21 09:20 (KST) — 2026-11-17 00:40에 바탕 `0efec8a4a7`에서 끝내고(사용량 제한으로 멈춤) 11-21에 커밋·새 main 합치기 | 가문 9 — 랭킹 전투력·자산 지표(2258 다안·D-576)·NPC 지배 가문장 꺼내기·쓰기(2255 다안)·군단장 분대별 명령(2265 나)·지도자 [임시] 표시(2254) | Claude Code | [21-0920-house-9](worklog/2026/11/21-0920-house-9.md) |
 | 2026-11-21 09:20~ (KST). 합치기는 11-17에 시작해 사용량 제한으로 멈췄다가 이어서 했다. | 2026-11-21 묶음 1116q 합치기 (서버 메모리 누수 고침 · NPC 휴먼 임금·생활비 + 새 main 3d66465) — 리셋 필요 없음 | Claude Code | [21-0920-batch-1116q-merge](worklog/2026/11/21-0920-batch-1116q-merge.md) |
+| 2026-11-20 22:25 | NPC 자율행동 · AI 1~2단계 구현(7축 성향·조직 합성·충성도 곡선·`/dev/npc-ai` 에디터) | Antigravity | [20-2225-npc-ai-phase1-2](worklog/2026/11/20-2225-npc-ai-phase1-2.md) |
+| 2026-11-20 20:40 | NPC 자율행동·인공지능 통합 설계 재검토 및 공식 ADR 작성 | Antigravity | [20-2040-npc-ai-design-plan](worklog/2026/11/20-2040-npc-ai-design-plan.md) |
 | 2026-11-20 15:20 | 홈 대시보드 테라 인코그니타 독자 비대칭 커맨드 벤토 개편 및 VIT·DEX 스탯 색상 분리 | Antigravity | [20-1520-dashboard-original-bento-and-stat-colors](worklog/2026/11/20-1520-dashboard-original-bento-and-stat-colors.md) |
 | 2026-11-20 13:55 | 건물 티어별 재료 2의 제곱수 밸런스 · 유닛 공통 경험치 테이블 및 시각화 에디터 | Antigravity | [20-1355-balance-buildings-exp-table](worklog/2026/11/20-1355-balance-buildings-exp-table.md) |
 | 2026-11-20 13:00 | 홈 대시보드 프로 터미널 개편 및 전역 타이포그래피·사이드바 정돈 | Antigravity | [20-1300-pro-dashboard-and-shell-overhaul](worklog/2026/11/20-1300-pro-dashboard-and-shell-overhaul.md) |

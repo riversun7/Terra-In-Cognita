@@ -34,7 +34,7 @@ export async function loadMarkets(pool: QueryPool, nowMs: number): Promise<Loade
     `select id, city_id, item, currency, created_at_ms from market_books order by id`,
   );
   const open = await pool.query(
-    `select id, market_id, owner_id, side, price, qty, remaining, seq, placed_at_ms, expires_at_ms
+    `select id, market_id, owner_id, side, price, qty, remaining, locked, seq, placed_at_ms, expires_at_ms
      from market_orders where state = 'open' order by id`,
   );
   // 유저의 끝난 주문(주인마다 최근 DONE_KEEP개)
@@ -69,6 +69,7 @@ export async function loadMarkets(pool: QueryPool, nowMs: number): Promise<Loade
     open: open.rows.map((row) => ({
       marketId: Number(row.market_id),
       qty: BigInt(String(row.qty)),
+      locked: BigInt(String(row.locked)),
       placedAtMs: Number(row.placed_at_ms),
       order: {
         id: Number(row.id),

@@ -397,6 +397,7 @@ export {
   type GoodsMarketConfig,
   type PlaceResult,
   createGoodsMarket,
+  goodsEscrowCode,
 } from "./economy/goodsMarket.ts";
 export { type AuctionOrder, type AuctionResult, clearCallAuction } from "./economy/callAuction.ts";
 export * from "./economy/fxMarket.ts";

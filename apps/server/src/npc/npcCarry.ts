@@ -99,6 +99,8 @@ export interface CarryBoard {
   readonly pending: () => number;
   /** 기다리는 일 수(지표·시험) */
   readonly waiting: () => number;
+  /** 그 도시에서 운반꾼을 기다리는 일 수(NPC 물류센터 증축 — house-10 2301, npcLogistics.ts) */
+  waitingIn(cityId: number): number;
 }
 
 /** 운반꾼 줄: 일꾼 운반은 시설마다, 빈 일꾼 운반은 도시마다, 물류센터에 맡긴 일은 일마다(도시 휴먼 자리를 쓰지 않는다) */
@@ -305,6 +307,7 @@ export function createCarryBoard(ledger: LedgerBook, options: CarryBoardOptions 
     },
     pending: () => jobs.size + queue.length,
     waiting: () => queue.length,
+    waitingIn: (cityId) => queue.reduce((count, request) => count + Number(request.cityId === cityId), 0),
   };
 }
 

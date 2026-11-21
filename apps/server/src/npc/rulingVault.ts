@@ -12,13 +12,25 @@
 //   같은 계정 꼴)으로 꺼내고(npc_house_vault_take), 꺼낸 돈에서 가문원 배당(신앙 성향 — 지배 가문원 휴먼 지갑에 똑같이, npc_house_dividend)·도시
 //   건설 투자(상업 성향 — 나라 국고에 건설 자금으로, NPC 증축은 국고로 짓는다, npc_house_invest)를 낸다. 나머지는 가문장 지갑에 남는다(사치·저축).
 //   규칙식은 rulingSpend.ts. 가문장이 없으면 꺼내지 않는다(옛 동작).
+// - 바뀜(house-10, 기획 대조 2312 나 — D-555 1510): 도시 건설 투자는 그 지배 가문 도시(수도)의 그 나라 사업장 금고로(국고를 거쳐 business invest — 적자가
+//   있으면 먼저 갚는다). 나누기는 금고가 가장 모자란 곳부터 고르게(rulingSpend.ts splitInvest). NPC 사업장 장부(business_npc_books)가 꺼져 있거나 그 도시에
+//   사업장이 없으면 국고에 남는다(옛 길).
 // - 플레이어 가문 나라는 그대로(factionIdentity/houseVault.ts rulingVaultOf — 그 가문 금고).
 import { unitPurseLocation } from "@terra/shared/businessBooks";
 import { type SimFaction, type SimHooks, type SocietyCoefficients, npcRulingVaultReturnPm } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import { HOUSE_VAULT_PREFIX } from "../factionIdentity/houseVault.ts";
 import type { NpcCityHouses } from "./cityHouses.ts";
-import { type RulingSpendRule, rulingSpendShares, rulingTakeOf, splitDividend } from "./rulingSpend.ts";
+import type { CityFacility } from "./economy.ts";
+import type { NpcBusiness } from "./npcDelivery.ts";
+import {
+  type InvestVault,
+  type RulingSpendRule,
+  rulingSpendShares,
+  rulingTakeOf,
+  splitDividend,
+  splitInvest,
+} from "./rulingSpend.ts";
 
 /** NPC 지배 가문 금고 시스템 계정 코드 */
 export const npcHouseVaultCode = (npcHouseId: number, asset: string): string =>
@@ -57,6 +69,13 @@ export interface RulingHead {
 
 type VaultLedger = Pick<Ledger, "systemAccount" | "balance" | "ownerAccount" | "post">;
 
+/** 투자 받을 사업장 금고(house-10, 2312 나): 그 나라·화폐의 금고 목록과 넣기(국고 → 금고). 없으면 국고에 남긴다 */
+export interface InvestTargets {
+  vaults(nation: number, asset: string): readonly InvestVault[];
+  /** 국고 → 그 사업장 금고(business invest). 넣었으면 true */
+  put(building: number, nation: number, asset: string, amount: bigint, atMs: number): boolean;
+}
+
 /** 가문장 꺼내기·쓰기(위 머리 주석 바뀜 house-9). 금고 계정·화폐·나라를 받는다 */
 function headSpend(
   ledger: VaultLedger,
@@ -66,6 +85,7 @@ function headSpend(
   head: RulingHead,
   rule: RulingSpendRule,
   nowMs: number,
+  targets?: InvestTargets,
 ): void {
   const take = rulingTakeOf(ledger.balance(account), rule);
   if (take <= 0n) return;
@@ -103,15 +123,19 @@ function headSpend(
       ],
     });
   const invest = (take * BigInt(shares.investPm)) / 1000n;
-  if (invest > 0n)
-    ledger.post({
-      kind: "npc_house_invest",
-      atMs: nowMs,
-      entries: [
-        { account: purse, amount: -invest },
-        { account: ledger.ownerAccount(faction.id, asset), amount: invest },
-      ],
-    });
+  if (invest <= 0n) return;
+  ledger.post({
+    kind: "npc_house_invest",
+    atMs: nowMs,
+    entries: [
+      { account: purse, amount: -invest },
+      { account: ledger.ownerAccount(faction.id, asset), amount: invest },
+    ],
+  });
+  // 국고에 든 투자를 그 도시 사업장 금고로(2312 나) — 넣지 못한 몫은 국고에 남는다
+  if (!targets) return;
+  for (const part of splitInvest(invest, targets.vaults(faction.id, asset)))
+    targets.put(part.building, faction.id, asset, part.amount, nowMs);
 }
 
 /** 경제 고리에 NPC 지배 가문 금고를 얹는다(플레이어 가문 나라·다른 고리는 그대로) */
@@ -125,6 +149,8 @@ export function withNpcRulingVault(
     /** 그 나라(nation) 지배 가문의 가문장·가문원(house-9). 없으면 가문장 꺼내기를 하지 않는다 */
     readonly headOf?: ((houseId: number, nation: number) => RulingHead | undefined) | undefined;
     readonly spendRule?: (() => RulingSpendRule) | undefined;
+    /** 투자 받을 사업장 금고(house-10, 2312 나). 없으면 국고에 남긴다 */
+    readonly invest?: InvestTargets | undefined;
   },
 ): SimHooks {
   const npcVault = (faction: SimFaction, asset: string): number | undefined => {
@@ -155,7 +181,8 @@ export function withNpcRulingVault(
       // 가문장 꺼내기·쓰기(house-9) — 돌려보낸 뒤 남은 금고에서
       const house = o.rulingHouseOf(faction.id);
       const head = house === undefined ? undefined : o.headOf?.(house, faction.id);
-      if (head && o.spendRule) headSpend(o.ledger, faction, asset, account, head, o.spendRule(), nowMs);
+      if (head && o.spendRule)
+        headSpend(o.ledger, faction, asset, account, head, o.spendRule(), nowMs, o.invest);
     },
   };
 }
@@ -169,9 +196,38 @@ export const npcRulingHooks = (
     readonly rules: () => SocietyCoefficients;
     /** 유닛 주인(지갑 계정 주인)을 읽는 시뮬 세계. 모르는 유닛 — 가문원은 배당에서 빠지고 가문장은 그 나라 것으로 본다 */
     readonly world?: { readonly units: ReadonlyMap<number, { readonly owner: number }> } | undefined;
+    /** 도시 시설·사업장 장부(house-10 — 투자를 사업장 금고로). 없으면 투자는 국고에 남는다 */
+    readonly economy?:
+      | {
+          readonly business?: Pick<NpcBusiness, "vaultBalance" | "invest"> | undefined;
+          facilitiesIn(cityId: number): readonly CityFacility[];
+        }
+      | undefined;
   },
 ): SimHooks => {
   const ownerOf = (unitId: number): number | undefined => o.world?.units.get(unitId)?.owner;
+  const business = o.economy?.business;
+  const economy = o.economy;
+  /** 그 나라 지배 가문 도시(수도)의 그 나라 사업장(다 지은 것) — NPC 사업장 장부가 켜졌을 때만 */
+  const invest: InvestTargets | undefined =
+    business && economy
+      ? {
+          vaults(nation, asset) {
+            if (Math.trunc(o.rules().business.npcBooks) !== 1) return [];
+            const cityId = o.cityHouses.rulingHouseOf(nation)?.cityId;
+            if (cityId === undefined) return [];
+            return economy
+              .facilitiesIn(cityId)
+              .filter((entry) => entry.ownerId === nation && entry.level >= 1)
+              .map((entry) => ({
+                building: entry.buildingId,
+                balance: business.vaultBalance(entry.buildingId, nation, asset),
+              }));
+          },
+          put: (building, nation, asset, amount, atMs) =>
+            business.invest(building, nation, asset, amount, atMs),
+        }
+      : undefined;
   return withNpcRulingVault(base, {
     ledger: o.ledger,
     rulingHouseOf: (owner) => o.cityHouses.rulingHouseOf(owner)?.id,
@@ -189,5 +245,6 @@ export const npcRulingHooks = (
       };
     },
     spendRule: () => npcSpendRuleOf(o.rules()),
+    invest,
   });
 };

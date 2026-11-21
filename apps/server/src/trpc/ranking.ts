@@ -2,6 +2,7 @@
 // 화면 메뉴는 따로 없다(D-6010: 사이보그·세력 화면 안). 시안 자료(preview)는 권한 home: preview(dev·admin)가 있어야 한다(홈과 같은 스위치).
 // 오류(error.data.code): UNAUTHORIZED(로그인 안 함·정지), FORBIDDEN(시안 자료를 권한 없이 요청), BAD_REQUEST(입력 형식)
 import { ID_PATTERN } from "@terra/content";
+import { RANKING_UNIT_MEASURES } from "@terra/shared/ranking";
 import { z } from "zod";
 import { createRankingServices } from "../ranking/services.ts";
 import { router, signedInProcedure } from "./init.ts";
@@ -14,6 +15,8 @@ const boardInput = z.strictObject({
     z.strictObject({ kind: z.literal("faction") }),
     // 가문 판(D-569 1746): 경로 하나의 가문원 점수 합
     z.strictObject({ kind: z.literal("house"), path: z.string().regex(ID_PATTERN).nullable() }),
+    // 유닛 판(house-10, D-569 1746): 지표 하나(전투력·자산)의 유닛마다 순위
+    z.strictObject({ kind: z.literal("unit"), measure: z.enum(RANKING_UNIT_MEASURES) }),
   ]),
   preview: previewField,
 });

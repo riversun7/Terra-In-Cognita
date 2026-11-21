@@ -7,6 +7,8 @@
 // - NPC 도시 가문원 유닛 점수(ranking_unit_scores, unitScores.ts — 가문 판의 NPC 가문 점수 = 가문원 실제 점수의 합)도 같은 트랜잭션에서 바꾼다.
 // - 바뀜(house-9, D-576 "전투력, 자산, 등"): 전투력·자산(worth.ts)을 집계 때 한 번 읽어 소유 주체·가문원 재고 지표에 싣고, 값 표(ranking_worth —
 //   판 줄의 전투력·자산 칸)를 같은 트랜잭션에서 바꾼다.
+// - 바뀜(house-10, 기획 대조 2313·2316): 값 표에 모든 유닛(유닛 판)·가문 금고·NPC 가문장 몫도 싣는다(worth.ts). 유닛 재고 지표는 모든 유닛에 싣지만
+//   유닛 점수는 가문원만 센다(computeUnitScores가 members로 거른다).
 import type { RankingPathInfo } from "@terra/shared/ranking";
 import {
   type RankingCoefficients,
@@ -238,7 +240,7 @@ export async function runSnapshot(
     unitFlows,
   );
   // 전투력·자산(D-576) — 소유 주체·가문원 재고 지표에 싣는다
-  const worth = await readWorth(pool, options.worth?.(), members);
+  const worth = await readWorth(pool, options.worth?.(), options.creditAsset);
   addWorth(stocks, worth.owners);
   addWorth(unitStocks, worth.units);
   const unitRows = computeUnitScores({

@@ -8,6 +8,8 @@
 // 읽는다(옛 대리값 "나라 점수 × 가문원 수 ÷ 그 나라 NPC 가문원 합"을 대신한다). 나라 = 가문 도시의 지금 주인(NPC 세력만), 폐허가 된 도시의 가문·
 // 가문원이 없는 가문·점수 0은 빠진다. 보상 대상을 좁히는 일은 따로(지금 가문 판 보상 코드는 없다).
 // 바뀜(house-9, D-576 "전투력, 자산, 등"): 줄마다 가문원 전투력·자산 합(값 표 ranking_worth — 플레이어 가문 = 가문원 사람, NPC 가문 = 가문원 유닛).
+// 바뀜(house-10, 기획 대조 2313 — D-576·D-338 "가문 금고·지도자 지갑은 가문 재산"): 전투력·자산 칸에 가문 금고(값 표 kind 2 = 플레이어 가문, 3 = NPC
+// 가문)와 NPC 지배 가문장(국가 지도자)의 지갑·전투력(kind 3)을 더한다. 점수(경로 점수 합)는 그대로다(질문 2341).
 import type { RankingBoardResponse, RankingRow, RankingTierCut } from "@terra/shared/ranking";
 import { RANKING_BOARD_ROWS } from "@terra/shared/ranking";
 import { tierPmOf } from "@terra/sim";
@@ -31,10 +33,12 @@ const text = (value: unknown): string | null => (typeof value === "string" ? val
 
 const HOUSE_SQL = `select m.faction_id, sum(s.score) as score, count(*)::int as members,
          i.name as house_name, c.name as city_name, n.id as nation_id, n.code as nation_code,
-         (select sum(w.combat_power)::text from house_members m2 join world_owners o2 on o2.user_id = m2.user_id
-           join ranking_worth w on w.kind = 0 and w.subject_id = o2.id where m2.faction_id = m.faction_id) as worth_power,
-         (select sum(w.assets)::text from house_members m2 join world_owners o2 on o2.user_id = m2.user_id
-           join ranking_worth w on w.kind = 0 and w.subject_id = o2.id where m2.faction_id = m.faction_id) as worth_assets
+         (select sum(x.p)::text from (select w.combat_power as p from house_members m2 join world_owners o2 on o2.user_id = m2.user_id
+           join ranking_worth w on w.kind = 0 and w.subject_id = o2.id where m2.faction_id = m.faction_id
+           union all select w.combat_power from ranking_worth w where w.kind = 2 and w.subject_id = m.faction_id) x) as worth_power,
+         (select sum(x.a)::text from (select w.assets as a from house_members m2 join world_owners o2 on o2.user_id = m2.user_id
+           join ranking_worth w on w.kind = 0 and w.subject_id = o2.id where m2.faction_id = m.faction_id
+           union all select w.assets from ranking_worth w where w.kind = 2 and w.subject_id = m.faction_id) x) as worth_assets
     from ranking_path_scores s
     join world_owners o on o.id = s.owner_id
     join house_members m on m.user_id = o.user_id
@@ -50,13 +54,17 @@ const HOUSE_SQL = `select m.faction_id, sum(s.score) as score, count(*)::int as 
 /** NPC 도시 가문 줄(위 머리 주석 — 가문원 유닛 점수의 합, unitScores.ts). 점수 줄이 없는 가문원은 0 */
 const NPC_HOUSE_SQL = `select h.id, h.name as house_name, c.name as city_name, c.faction_id as nation_id, n.code as nation_code,
          count(u.unit_id)::int as members, coalesce(sum(s.score), 0)::bigint as score,
-         sum(w.combat_power)::text as worth_power, sum(w.assets)::text as worth_assets
+         case when count(w.kind) = 0 and max(hw.kind) is null then null
+              else (coalesce(sum(w.combat_power), 0) + coalesce(max(hw.combat_power), 0))::text end as worth_power,
+         case when count(w.kind) = 0 and max(hw.kind) is null then null
+              else (coalesce(sum(w.assets), 0) + coalesce(max(hw.assets), 0))::text end as worth_assets
     from npc_houses h
     join world_cities c on c.id = h.city_id
     join factions n on n.id = c.faction_id and n.kind = 'npc'
     join npc_house_units u on u.house_id = h.id
     left join ranking_unit_scores s on s.unit_id = u.unit_id and s.path_id = $1
     left join ranking_worth w on w.kind = 1 and w.subject_id = u.unit_id
+    left join ranking_worth hw on hw.kind = 3 and hw.subject_id = h.id
    group by h.id, h.name, c.name, c.faction_id, n.code`;
 
 /** 판 한 줄로 바꾸기 전의 가문(플레이어·NPC 함께 차례를 정한다) */

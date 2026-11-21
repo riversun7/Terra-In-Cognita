@@ -3,6 +3,7 @@
 // - 전투력: 세계 전투 몸(world/battleBodies.ts basePower — 버프·부상 뺀 몸).
 // - 값 매기기(createAssetPricer): 기준 통화 = 그대로, 나라 화폐 = 양 × 지난 환전 체결가 ÷ 로트(없으면 1:1), 물건 = 양 × 묶음 값 ÷ 묶음 크기 — 묶음 값 =
 //   거래소마다 마지막 체결가(그 거래소 화폐 → 기준 통화)의 평균, 체결이 없으면 팩 시작 시세. 그 밖(지분·모르는 자산) = 0.
+// - 바뀜(house-10, 기획 대조 2313·2316): NPC 지배 가문장(rulingHeads)·유닛 이름(nameOf — NPC 휴먼 이름)도 빌려 준다.
 // 금액은 BigInt 정수로만 센다.
 import type { World } from "../world/world.ts";
 import type { WorthSource } from "./worth.ts";
@@ -86,9 +87,17 @@ export function worldWorthSource(world: World | undefined, base: string, now: ()
       startPrice: (asset) => econ?.economy.catalog.startPrice.get(asset),
       lotSize: (asset) => econ?.economy.catalog.lotSize.get(asset) ?? 1n,
     });
+    const npc = world.npc;
     return {
       valueOf,
       ...(bodies ? { powerOf: (unitId: number) => bodies.basePower(unitId, at) } : {}),
+      // 지배 가문장(국가 지도자) 지갑은 가문 재산(house-10, 2313)·유닛 판 이름(2316 — NPC 휴먼 이름)
+      ...(npc
+        ? {
+            rulingHeads: () => npc.cityHouses.rulingHeads(),
+            nameOf: (unitId: number) => npc.humanName(unitId),
+          }
+        : {}),
     };
   };
 }

@@ -10,6 +10,7 @@ import {
   nameText,
   pathsByArea,
   rankChange,
+  rowName,
   tierPercent,
 } from "./rankingText.ts";
 
@@ -60,6 +61,21 @@ describe("랭킹 화면 글", () => {
     // 가문 판(D-569 1746): 세력 주소 + ?house=<경로>
     const house = { id: "faction_ranking", params: {}, search: { house: "mercenary" } } as RouteMatch;
     expect(boardRequestOf(house)).toEqual({ kind: "house", path: "mercenary" });
+  });
+
+  it("유닛 판(house-10, D-569 1746): 고르기 값·주소 ?unit=, 모르는 지표는 경로 판, 이름 없는 유닛은 #ID", () => {
+    for (const measure of ["combat_power", "assets"] as const) {
+      const board = { kind: "unit", measure } as const;
+      expect(boardFromValue(boardValue(board))).toEqual(board);
+      expect(boardTarget(board)).toEqual({ route: "cyborg_ranking", search: { unit: measure } });
+      const match = { id: "cyborg_ranking", params: {}, search: { unit: measure } } as RouteMatch;
+      expect(boardRequestOf(match)).toEqual(board);
+    }
+    expect(boardFromValue("unit:war_wins")).toBeNull();
+    const odd = { id: "cyborg_ranking", params: {}, search: { unit: "x", path: "p" } } as RouteMatch;
+    expect(boardRequestOf(odd)).toEqual({ kind: "path", path: "p" });
+    expect(rowName({ kind: "unit", name: null, unitId: 42 })).toContain("42");
+    expect(rowName({ kind: "unit", name: { ko: "가람", en: "Garam" }, unitId: 42 })).not.toContain("42");
   });
 
   it("영역마다 묶기(팩 차례 그대로), 이름은 지금 언어, 등급 퍼센트", () => {

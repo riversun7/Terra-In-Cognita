@@ -3,6 +3,7 @@
 //   서버 코드·번호([임시] 세력 이름 칸이 아직 없다 — 세력 화면과 같다, src/factionScreen/overview.ts).
 // - 판 줄 = 위 RANKING_BOARD_ROWS줄 + 내 줄. 등급 문턱 점수는 같은 표에서 센다.
 // - 바뀜(house-9, D-576): 경로 판 줄에 그 주체의 전투력·자산(마지막 집계 값 표 ranking_worth)을 싣는다.
+// - 바뀜(house-10, 기획 대조 2316 — D-569 1746): 유닛 판(unitBoard.ts).
 import type { LocalizedName } from "@terra/shared/faction";
 import {
   RANKING_BOARD_ROWS,
@@ -21,6 +22,7 @@ import type { RankingCoefficients } from "@terra/sim";
 import type { NationNames } from "./paths.ts";
 import type { Queryable } from "./measures.ts";
 import { readHouseBoard } from "./houseBoard.ts";
+import { readUnitBoard } from "./unitBoard.ts";
 import { worthOf } from "./worthRow.ts";
 import { MIN_PERIOD_MS, readSnapshotState } from "./snapshot.ts";
 
@@ -194,7 +196,10 @@ function factionRow(
   return out;
 }
 
-async function countOf(db: Queryable, board: Exclude<RankingBoardKey, { kind: "house" }>): Promise<number> {
+async function countOf(
+  db: Queryable,
+  board: Exclude<RankingBoardKey, { kind: "house" } | { kind: "unit" }>,
+): Promise<number> {
   const result =
     board.kind === "path"
       ? await db.query(`select count(*)::int as n from ranking_path_scores where path_id = $1`, [board.path])
@@ -219,6 +224,11 @@ export async function readBoard(
     me: null,
     tiers: tiers.toSorted((a, b) => a - b).map((tierPm) => ({ tierPm, minScore: null })),
   };
+  // 유닛 판(house-10, 2316): 지표 하나의 마지막 집계 값 순위(경로와 상관없다)
+  if (board.kind === "unit") {
+    const me = await viewerSubjects(ctx.db, userId);
+    return { ...base, status: "ready", ...(await readUnitBoard(ctx, me.ownerId, board.measure)) };
+  }
   if (board.kind !== "faction") {
     const path = ctx.paths.find((entry) => entry.id === board.path);
     if (path === undefined) return { ...base, status: "unknown", ...empty };

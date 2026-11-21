@@ -10580,6 +10580,42 @@
       "source": "ADR 2026-11-11-city-building-layout \"바뀜 (2026-11-12 2차)\" · 질문 1095 가(D-534) [임시]"
     },
     {
+      "id": "logistics_npc_build_waits",
+      "code": "",
+      "name": {
+        "ko": "NPC 물류센터 증축: 기다리는 운반 일 수(상업 성향 배율 곱)",
+        "en": "NPC logistics center build: waiting haul jobs (times commerce trait scale)"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 1000,
+      "desc": {
+        "ko": "NPC 도시에서 운반꾼을 기다리는 NPC 운반 일 수 × 그 나라 상업 성향 배율(가장 낮음 0.5배 ~ 가장 높음 1.5배)이 이 값 이상이면 그 도시 증축 목표에 물류센터 하나를 넣는다. 지은 물류센터는 그 도시 일 없는 휴먼이 운반꾼으로 일한다.",
+        "en": "When the NPC haul jobs waiting for a carrier in an NPC city, times the nation's commerce trait scale (0.5 at the lowest to 1.5 at the highest), reach this value, one logistics center joins that city's build targets. Idle humans of the city work there as carriers."
+      },
+      "source": "D-555 1505·1509 · D-554 · 질문 2301(기획 대조) · ADR 2026-11-16-logistics-center \"바뀜 (house-10)\" [임시]"
+    },
+    {
+      "id": "logistics_npc_build_humans",
+      "code": "",
+      "name": {
+        "ko": "NPC 물류센터 증축: 도시 휴먼 수 하한",
+        "en": "NPC logistics center build: minimum city humans"
+      },
+      "value": 30,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "이보다 휴먼이 적은 NPC 도시는 물류센터를 증축하지 않는다(운반꾼으로 세울 사람이 모자라다).",
+        "en": "NPC cities with fewer humans than this don't build a logistics center (not enough people to staff it as carriers)."
+      },
+      "source": "질문 2301(기획 대조) · ADR 2026-11-16-logistics-center \"바뀜 (house-10)\" [임시]"
+    },
+    {
       "id": "s20_short_min",
       "code": "S20",
       "name": {
@@ -10961,8 +10997,8 @@
       "id": "house_npc_spend_invest_pm",
       "code": "",
       "name": {
-        "ko": "NPC 가문장 꺼낸 돈 → 도시 건설 투자 몫(‰)",
-        "en": "NPC house head withdrawal to city building (‰)"
+        "ko": "NPC 가문장 꺼낸 돈 → 도시 사업장 투자 몫(‰)",
+        "en": "NPC house head withdrawal to city businesses (‰)"
       },
       "value": 300,
       "structural": false,
@@ -10970,10 +11006,10 @@
       "min": 0,
       "max": 1000,
       "desc": {
-        "ko": "NPC 가문장이 꺼낸 돈 가운데 나라 국고에 건설 자금으로 넣는 몫(상업 성향이 가운데일 때 — NPC 증축은 국고로 짓는다). 상업 성향이 가장 낮으면 반, 가장 높으면 1.5배. 배당·투자 뒤 남은 돈은 가문장 지갑에 남는다.",
-        "en": "Share of the NPC house head's withdrawal put into the nation treasury as building funds (at a middle commerce trait — NPC expansion builds from the treasury). Lowest commerce halves it, highest makes it 1.5 times. What is left after dividends and investment stays in the head's purse."
+        "ko": "NPC 가문장이 꺼낸 돈 가운데 그 나라 수도의 사업장 금고에 운영 자금으로 넣는 몫(상업 성향이 가운데일 때 — 금고가 가장 모자란 사업장부터 고르게, 사업장이 없으면 나라 국고). 상업 성향이 가장 낮으면 반, 가장 높으면 1.5배. 배당·투자 뒤 남은 돈은 가문장 지갑에 남는다.",
+        "en": "Share of the NPC house head's withdrawal put into the business vaults of the nation's capital as operating funds (at a middle commerce trait — the emptiest vaults are filled first and evenly; with no business it goes to the nation treasury). Lowest commerce halves it, highest makes it 1.5 times. What is left after dividends and investment stays in the head's purse."
       },
-      "source": "D-576 · D-555 · D-212 · D-554 · 질문 2255 다안 · ADR 2026-11-11-faction-identity \"바뀜 (house-9)\""
+      "source": "D-576 · D-555 · D-212 · D-554 · 질문 2255 다안 · ADR 2026-11-11-faction-identity \"바뀜 (house-9)\" · 질문 2312 나(기획 대조) · \"바뀜 (house-10)\""
     },
     {
       "id": "house_npc_city_houses_l1",

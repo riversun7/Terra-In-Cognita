@@ -16,6 +16,8 @@
 // 짓지 않는다(시뮬 판정은 그대로 — SIM_VERSION 그대로).
 // 바뀜 (2026-11-16, 기획 D-561 — docs/adr/2026-11-16-exchange-buildings.md): 목표에 물자·외환 거래소 하나씩을 더한다(서버만 — 시뮬 도시는 거래소 건물이
 // 없다. SIM_VERSION 그대로).
+// 바뀜 (house-10, 기획 대조 2301 — D-555 1505·1509·D-554): 그 도시 운반 수요가 크면(기다리는 NPC 운반 일 × 상업 성향 배율 ≥ 설정 칸, 도시 휴먼 ≥ 설정 칸)
+// 목표에 물류센터 하나(npcLogistics.ts wantsCenter — 서버만, SIM_VERSION 그대로).
 import type { CityCell } from "@terra/shared/goodsPlaces";
 import type {
   Economy,
@@ -36,6 +38,8 @@ import type { FacilityService, NpcJobInput } from "../facilities/service.ts";
 import type { GatherKind } from "../gather/kinds.ts";
 import { isBerth, isShipyard } from "../boats/rules.ts";
 import type { SecondMap } from "../world/secondMap.ts";
+import type { LogisticsCoefficients } from "@terra/sim";
+import { wantsCenter } from "./npcLogistics.ts";
 
 /** 월드가 넘기는 짓기 입력(market/worldInput.ts — NPC 도시 경제 입력의 build 칸) */
 export interface NpcBuildWorld {
@@ -265,6 +269,8 @@ export function npcBuildRunOf(o: {
         readonly economy: Economy;
         refreshCity(cityId: number, nowMs: number): void;
         restPlan(cityId: number): { readonly bedTotal: number } | undefined;
+        /** NPC 운반 일 판(물류센터 증축 수요 — house-10 2301). 없으면 물류센터를 목표에 넣지 않는다 */
+        readonly carry?: { waitingIn(cityId: number): number } | undefined;
       }
     | undefined;
   /** 나라 성격 목표(질문 1142 다). 없으면 목표 없음 */
@@ -272,7 +278,12 @@ export function npcBuildRunOf(o: {
   readonly world: NpcBuildWorld | undefined;
   readonly ledger: Ledger;
   readonly places: ServerNpcBuilderOptions["places"];
-  readonly rules: () => { readonly worldSeed: WorldSeedCoefficients };
+  readonly rules: () => {
+    readonly worldSeed: WorldSeedCoefficients;
+    /** 물류센터 증축 문턱(house-10 2301). 없으면 물류센터를 목표에 넣지 않는다 */
+    readonly logistics?: LogisticsCoefficients | undefined;
+    readonly npc?: { readonly traitMin: number; readonly traitMax: number } | undefined;
+  };
   readonly log: ServerNpcBuilderOptions["log"];
 }): NpcBuildRun | undefined {
   const { econ, world } = o;
@@ -302,9 +313,29 @@ export function npcBuildRunOf(o: {
         berth === undefined ? undefined : coast.shipyard(),
       );
       for (const exchange of exchangeTargets(world)) targets = withCoastalDock(targets, exchange);
+      // 물류센터(2301): 운반 수요가 크고 상업 성향이 받쳐 줄 때 하나
+      const rules = o.rules();
+      const center = logisticsTarget(world);
+      if (center !== undefined && rules.logistics && rules.npc && econ.carry)
+        if (
+          wantsCenter(
+            {
+              waiting: econ.carry.waitingIn(cityId),
+              humans: econ.economy.cityUnits.get(cityId) ?? 0,
+              commerce: faction.traits.commerce,
+            },
+            { ...rules.npc, ...rules.logistics },
+          )
+        )
+          targets = withCoastalDock(targets, center);
       return targets;
     },
   };
+}
+
+/** NPC 증축 목표에 넣는 물류센터 시설(팩에 있고 지을 수 있는 첫 물류센터, docs/adr/2026-11-16-logistics-center.md). 없으면 undefined */
+function logisticsTarget(world: NpcBuildWorld): string | undefined {
+  return world.catalog().facilities.find((def) => def.logistics === true && def.build && def.footprint)?.id;
 }
 
 /** NPC 증축 목표에 넣는 거래소 시설(팩에 있고 지을 수 있고 잠기지 않은 물자·외환 거래소, docs/adr/2026-11-16-exchange-buildings.md) */

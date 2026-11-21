@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { type SimFaction, type SimHooks, createLedgerBook, newFaction } from "@terra/sim";
 import { unitPurseLocation } from "@terra/shared/businessBooks";
 import { npcHouseVaultCode, withNpcRulingVault } from "./rulingVault.ts";
-import { rulingSpendShares, splitDividend, traitScalePm } from "./rulingSpend.ts";
+import { rulingSpendShares, splitDividend, splitInvest, traitScalePm } from "./rulingSpend.ts";
 
 const ASSET = "credit";
 
@@ -147,5 +147,107 @@ describe("NPC 지배 가문장 꺼내기·쓰기(house-9 — D-576 꺼내기를 
     expect(book.balanceOf(5, ASSET, unitPurseLocation(70))).toBe(160n);
     expect(book.balanceOf(5, ASSET, unitPurseLocation(71))).toBe(60n);
     expect(book.balanceOf(5, ASSET, unitPurseLocation(72))).toBe(60n);
+  });
+});
+
+describe("도시 건설 투자 → 사업장 금고(house-10 — 기획 대조 2312 나, D-555 1510)", () => {
+  it("splitInvest: 가장 모자란 금고부터 같은 높이로, 나머지는 낮은 차례로 1씩, 합 = 투자", () => {
+    expect(
+      splitInvest(100n, [
+        { building: 9, balance: 50n },
+        { building: 3, balance: 0n },
+        { building: 4, balance: 10n },
+      ]),
+    ).toEqual([
+      // 높이 53(= (0 + 10 + 50 + 100) ÷ 3) — 나머지 1은 가장 낮은 금고 3에
+      { building: 3, amount: 54n },
+      { building: 4, amount: 43n },
+      { building: 9, amount: 3n },
+    ]);
+    // 높은 금고는 높이에 닿지 않으면 받지 않는다
+    expect(
+      splitInvest(20n, [
+        { building: 1, balance: 0n },
+        { building: 2, balance: 100n },
+      ]),
+    ).toEqual([{ building: 1, amount: 20n }]);
+    // 모두 같은 높이까지 채우고 나머지 1은 앞 차례(잔고·건물 ID)
+    const even = splitInvest(31n, [
+      { building: 2, balance: 0n },
+      { building: 1, balance: 0n },
+      { building: 5, balance: 1n },
+    ]);
+    expect(even).toEqual([
+      { building: 1, amount: 11n },
+      { building: 2, amount: 11n },
+      { building: 5, amount: 9n },
+    ]);
+    expect(even.reduce((sum, entry) => sum + entry.amount, 0n)).toBe(31n);
+    expect(splitInvest(5n, [])).toEqual([]);
+    expect(splitInvest(0n, [{ building: 1, balance: 0n }])).toEqual([]);
+  });
+
+  it("투자 몫은 국고를 거쳐 사업장 금고로 — 금고가 없으면 국고에 남는다", () => {
+    let accountId = 0;
+    let txId = 0;
+    const book = createLedgerBook({ nextAccountId: () => ++accountId, nextTxId: () => ++txId });
+    const base: SimHooks = {
+      treasuryAsset: () => ASSET,
+      beforeCityTransfer: () => {},
+      factionBorn: () => {},
+      factionDied: () => {},
+    };
+    const vaults = new Map<number, bigint>([
+      [81, 0n],
+      [82, 40n],
+    ]);
+    const put: [number, bigint][] = [];
+    const hooks = withNpcRulingVault(base, {
+      ledger: book,
+      rulingHouseOf: (owner) => (owner === 5 ? 42 : undefined),
+      rule: () => ({ traitMin: 0, traitMax: 1000, minPm: 300, maxPm: 900 }),
+      headOf: () => ({ leader: { unit: 70, owner: 5 }, members: [] }),
+      spendRule: () => ({ traitMin: 0, traitMax: 1000, takePm: 500, dividendPm: 0, investPm: 300 }),
+      invest: {
+        vaults: () => [...vaults].map(([building, balance]) => ({ building, balance })),
+        put: (building, nation, asset, amount) => {
+          // 국고 → 금고(시험: 국고에서 빼기만)
+          book.post({
+            kind: "business_invest",
+            atMs: 10,
+            entries: [
+              { account: book.ownerAccount(nation, asset), amount: -amount },
+              { account: book.systemAccount(`vault:test:${String(building)}`, asset), amount },
+            ],
+          });
+          put.push([building, amount]);
+          return true;
+        },
+      },
+    });
+    const faction = newFaction(5, "fake_nation", {
+      fixed: true,
+      tech: 0,
+      regime: "dictatorship",
+      settledAtMs: 0,
+      traits: { aggression: 500, commerce: 500, faith: 500, station: 500 },
+    });
+    const account = hooks.rulingVaultOf?.(faction, ASSET) ?? 0;
+    const issue = book.systemAccount("issue:test", ASSET);
+    book.post({
+      kind: "issue",
+      atMs: 0,
+      entries: [
+        { account: issue, amount: -2000n },
+        { account, amount: 2000n },
+      ],
+    });
+    hooks.rulingVaultPaid?.(faction, ASSET, 10);
+    // 돌려보내기 1200 → 남은 800 × 500‰ = 400 → 투자 300‰ = 120 → 금고 81(0)·82(40): 높이 80 → 81에 80, 82에 40
+    expect(put).toEqual([
+      [81, 80n],
+      [82, 40n],
+    ]);
+    expect(book.balanceOf(5, ASSET)).toBe(1200n);
   });
 });

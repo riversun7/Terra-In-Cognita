@@ -68,6 +68,7 @@ import {
   buildingOfLocation,
   buildingPlace,
   cityAt,
+  cityToFill,
   isStorage,
   materialScope,
 } from "./places.ts";
@@ -272,11 +273,11 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
     return place.ownerId === me ? [buildingLocation(buildingId), ...rest] : rest;
   };
   /** 시설 줄에 도시가 없으면(직전 판 앱이 넣은 줄) 건물 칸에서 정해 적는다 */
+  // 비어 있는 시설 줄 도시를 칸으로 채운다. 알박기 중(도시 없는 행정 건물)은 채우지 않는다(places.ts cityToFill)
   const fillCity = (record: FacilityRecord): void => {
-    if (record.cityId !== null) return;
-    const place = buildingPlace(places, record.buildingId);
-    if (!place || place.cityId === null) return;
-    record.cityId = place.cityId;
+    const cityId = cityToFill(places, record);
+    if (cityId === null) return;
+    record.cityId = cityId;
     saveFacility(record);
   };
 
@@ -392,7 +393,6 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
   const myFacility = (
     me: number,
     buildingId: number,
-    fill = true,
   ): { record: FacilityRecord; def: FacilityDef } | FacilityResultCode => {
     const building = buildingAt(buildingId);
     if (!building) return "unknown_building";
@@ -401,7 +401,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
     if (!record) return "not_facility";
     const def = options.catalog().facility(record.facilityId);
     if (!def) return "unknown_facility";
-    if (fill) fillCity(record);
+    fillCity(record);
     return { record, def };
   };
 
@@ -732,12 +732,12 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
 
     npcJob(input) {
       const at = now();
-      const found = myFacility(input.ownerId, input.buildingId, input.kind !== "build");
+      const found = myFacility(input.ownerId, input.buildingId);
       if (typeof found === "string") return fail(found);
       const { record, def } = found;
       if (jobOn((job) => job.buildingId === input.buildingId && job.kind !== "equipment"))
         return fail("job_running");
-      // NPC 알박기 짓기(npc-claim-3, npc/npcClaims.ts): 레벨 0·도시 없는 행정 건물, 재료 = 날라 온 그 건물 창고, 도시는 채우지 않음(fill 끔)
+      // NPC 알박기 짓기(npc-claim-3, npc/npcClaims.ts): 레벨 0·도시 없는 행정 건물, 재료 = 날라 온 그 건물 창고, 도시는 채우지 않음(cityToFill)
       const claim = input.kind === "build";
       if (claim && (record.level >= 1 || record.cityId !== null || def.stage !== "government"))
         return fail("not_buildable");

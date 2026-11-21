@@ -101,8 +101,11 @@ export interface NpcBuildInput {
  * buildPolicy가 플레이어와 같은 식으로 셈해 넘긴다. 건물 주인 = ownerId여야 한다
  */
 export interface NpcJobInput {
-  /** plot = 면적 모듈 붙이기(기획 D-569 1768 — NPC도 모듈) */
-  readonly kind: "upgrade" | "repair" | "plot";
+  /**
+   * plot = 면적 모듈 붙이기(기획 D-569 1768 — NPC도 모듈). build = NPC 알박기 짓기 시작(npc-claim-3 — 레벨 0·도시 없는 행정 건물, 재료 자리 =
+   * 그 건물 창고: 운반꾼이 날라 온 재료)
+   */
+  readonly kind: "upgrade" | "repair" | "plot" | "build";
   readonly ownerId: number;
   readonly buildingId: number;
   readonly materials: readonly JobMaterial[];

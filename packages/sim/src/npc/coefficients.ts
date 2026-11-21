@@ -87,8 +87,9 @@ export interface NpcCoefficients {
    * [임시] 빈 2차맵 알박기(빈틈 2243 — 기획 D-212·D-555 1509·D-554·D-572·D-574, npc/brain.ts claimScore·simulator/npcClaim.ts). 점수: 기본·상업
    * 성향 몫(축 끝에서 이 점수)·공격 성향 몫(축 끝에서 빼는 점수)·가진 도시마다 빼기·바깥 전쟁마다 빼기·붐빔 더하기·남이 짓는 중 빼기.
    * 상한·조건: 세력마다 동시에 짓는 수(0 = 알박기 끔)·이 도시 수부터 더 짓지 않음·세계 도시 수(도시 + 폐허 + 짓는 중, 0 = 상한 없음)·한 곳을
-   * 시작한 뒤 쉬는 날·도시마다 있어야 할 휴먼(지금 도시 + 1 × 이 값 ≤ 휴먼)·자리 반경(내 도시 자리에서 체비쇼프 칸). 값: 정부 짓기 국고 값(최소
-   * 단위, 소각)·짓는 시간(시간 — 시뮬에 경제가 없을 때만, 경제가 있으면 팩 행정 건물 레벨 1 짓는 시간)
+   * 시작한 뒤 쉬는 날·도시마다 있어야 할 휴먼(지금 도시 + 1 × 이 값 ≤ 휴먼)·자리 반경(내 도시 자리에서 체비쇼프 칸). 재료·시간은 팩 행정 건물
+   * 레벨 1(simulator/claimRules.ts — 바뀜 npc-claim-3: 국고 값·경제 없을 때 짓는 시간 칸을 없앴다). 서버 켬(0 = 끔, 1 = 켬 — npc/npcClaims.ts)·
+   * 플레이어 자리 피하기(0 = 안 피함 — 질문 2332 가, 1 = 플레이어가 정부를 짓는 중이거나 유닛이 있는 2차맵을 고르지 않음)
    */
   readonly claimScore: number;
   readonly claimCommerce: number;
@@ -103,8 +104,8 @@ export interface NpcCoefficients {
   readonly claimCooldownDays: number;
   readonly claimHumansPerCity: number;
   readonly claimRadius: number;
-  readonly claimCost: number;
-  readonly claimBuildHours: number;
+  readonly claimServer: number;
+  readonly claimAvoidPlayers: number;
   /**
    * [임시] NPC 도시 증축(기획 D-534 — 질문 1101 나, npc/build.ts·simulator/npcBuild.ts, 질문 1141~1144): 도시 하나의 건물 수 상한(행정 건물·
    * 성벽 빼고, 0 = 증축 끔), 채집 시설 한 종류의 목표 수 상한, 농장 하나가 먹이는 휴먼 수, 짓기를 돕는 일 없는 휴먼 수 상한
@@ -236,8 +237,8 @@ export const TEST_NPC_COEFFICIENTS: NpcCoefficients = {
   claimCooldownDays: 10,
   claimHumansPerCity: 12,
   claimRadius: 1,
-  claimCost: 5000,
-  claimBuildHours: 24,
+  claimServer: 0,
+  claimAvoidPlayers: 0,
   gatherTierCommercePm: 600,
   gatherTierAggressionPm: 300,
   gatherTierFaithPm: 300,

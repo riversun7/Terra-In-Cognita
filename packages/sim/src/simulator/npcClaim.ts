@@ -3,53 +3,70 @@
 // 건설되면 해당 정부가 영토소유 알박기처럼 가능 … 자원과 시간만 날릴수있음", D-574 NPC = 그 세력 도시(귀속 기본).
 // 자리 모형(시뮬 세계에는 2차맵이 없어 최소 모형): 합성 격자 칸 하나 = 2차맵 하나(simGrid.ts). 빈 2차맵 = 도시·폐허·자리 칸(앞으로 생길 도시
 // ID의 칸)이 아닌 칸. 인접 = 내 도시 칸에서 체비쇼프 반경(설정 칸 npc_claim_radius) 안.
-// 1) 후보(options): 상한·조건을 모두 넘은 세력에게 가장 좋은 빈 2차맵 하나(남이 짓는 중이 아닌 것 → 가까운 것 → 내 도시 ID 차례 → 칸 열쇠
-//    차례). 상한·조건(설정 칸 npc_claim_*): 동시에 짓는 수(0 = 끔), 이 도시 수부터 멈춤, 세계 도시 + 폐허 + 짓는 중 상한, 시작 뒤 쉬는 날,
-//    (도시 + 1) × 도시마다 휴먼 ≤ 휴먼. 점수(성향 가중)·국고 예비금은 판단 틀(npc/brain.ts claimScore)이 본다.
-// 2) 짓기 시작(act): 정부 짓기 값(npc_claim_cost)을 국고에서 소각하고(재료 = 국고 [임시] — 서버는 도시 창고 재료, 질문 2331) 짓는 중 정부를
-//    둔다. 짓는 시간 = 팩 행정 건물(단계 government) 레벨 1 짓는 시간(경제가 있으면 — 가장 가까운 내 도시의 일 없는 휴먼이 돕는다, NPC 증축과
-//    같은 식), 경제가 없으면 npc_claim_build_hours. 끝 시각에 예약 하나(EVENT_CLAIM).
-// 3) 다 지음(complete): 그 칸이 아직 비었으면 새 도시 — 가문 마을 모양(서버 npc/houseRuntime.ts foundVillage와 같은 값: 행정 Lv1·연구 0·휴먼
-//    없음·주거 = 설정 칸 house_village_housing·지분 1,000주를 그 세력 국고에). 그 칸의 다른 편 짓는 중 정부는 멈춘다(재료 돌려주지 않음 — 2194,
-//    서버 haltBuild와 같은 규칙). 짓는 동안 세력이 사라지면 잃는다.
-// 같은 입력이면 같은 결과(정수·정해진 차례). 서버는 이 모듈을 쓰지 않는다(서버 자리 = 실제 2차맵, 다 지음 = ruins/landClaim.ts foundPending).
-import { buildTimeAt } from "@terra/shared/facilityBuild";
-import { withBuilders } from "@terra/shared/facilityRuntime";
+// 1) 후보(options): 상한·조건(claimRules.ts claimGate + 세계 상한 npc_claim_world_cities)을 모두 넘은 세력에게 가장 좋은 빈 2차맵 하나(남이
+//    짓는 중이 아닌 것 → 가까운 것 → 내 도시 ID 차례 → 칸 열쇠 차례). 그 칸에서 가장 가까운 내 도시 창고에 재료가 모두 있어야 후보다
+//    (아래 2). 점수(성향 가중)·국고 예비금(재료 값)은 판단 틀(npc/brain.ts claimScore)이 본다.
+// 2) 짓기 시작(act): 바뀜 (npc-claim-3, 질문 2331 가·2333 가 — D-555 1505·1509·D-564 1626): 예전 국고 값 소각([임시])을 재료로 바꿨다.
+//    재료 = 팩 행정 건물 레벨 1 짓기 재료(유저 알박기와 같다), 그 칸에서 가장 가까운 내 도시 창고에서 뺀다(감사 규칙 facility_build — 증축과
+//    같은 소각). 창고에 모자라면 후보가 아니고, 판단 끝(prepare)에 그 도시 목표 재고에 넣어 거래 판단이 도시 거래소에서 산다(증축과 같은 길 —
+//    국고가 재료 값 × 예비 ‰을 덮을 때만, 2331 가 "모자라면 NPC 증축처럼 도시 거래소에서 산다"). 다 사면 다음 판단의 후보다. 시뮬에는 보이는
+//    운반꾼이 없어 재료는 시간 셈으로 옮긴다(D-564 1626): 짓기는 운반 시간(claimRules.ts claimHaulMs) 뒤에 시작하고, 끝 = 지금 + 운반 +
+//    짓는 시간(claimBuildMs — 그 도시 일 없는 휴먼이 나르고 돕는다). 끝 시각에 예약 하나(EVENT_CLAIM). 나르는 동안 그 칸에 도시가 서면 늦은 쪽
+//    — 재료는 돌려주지 않는다(D-572 "자원과 시간만 날릴수있음").
+//    경제가 없는 시나리오(war16·stub16)는 창고·재료가 없어 알박기 후보가 없다(supply 없음 — 증축도 경제가 있을 때만 돈다, 질문 2381).
+// 3) 다 지음(complete): 그 칸이 아직 비었으면 새 도시 — 가문 마을 모양(서버 npc/houseRuntime.ts foundVillage와 같은 값: 행정 Lv1·연구 0·주거 =
+//    설정 칸 house_village_housing). 바뀜 (D-580 — 질문 2335 나, npc-claim-3): 알박기는 NPC 가문이 짓는다 — 다 지으면 그 가문이 새 세력이 되고
+//    (봉신 | 독립 + 체제는 가문 성향 규칙식 — 마을 세우기와 같은 foundingChoice), 재료를 낸 도시의 휴먼 가운데 가문원(founders명)이 옮기고, 지분
+//    1,000주는 그 가문(최초 설립자, D-575)이다(society.ts claimHouse). 예전: 늘 그 세력 도시·지분은 그 세력 국고. 그 칸의 다른 편 짓는 중 정부는
+//    멈춘다(재료 돌려주지 않음 — 2194, 서버 haltBuild와 같은 규칙). 짓는 동안 세력이 사라지면 잃는다.
+// 같은 입력이면 같은 결과(정수·정해진 차례). 서버는 이 모듈을 쓰지 않는다(서버 자리 = 실제 2차맵, 다 지음 = ruins/landClaim.ts foundPending —
+// 재료·시간 규칙은 claimRules.ts를 같이 쓴다).
+import type { BuildStackJson } from "@terra/shared/facilityBuild";
 import type { SocietyCoefficients } from "../society/coefficients.ts";
 import { issueShares } from "../society/shares.ts";
+import { itemAsset } from "./catalog.ts";
+import {
+  claimBuildMs,
+  claimGate,
+  claimHaulMs,
+  claimHelpers,
+  claimMaterialPlan,
+  claimMaterialsOf,
+  claimValue,
+  claimWeightG,
+} from "./claimRules.ts";
 import type { Economy } from "./economy.ts";
-import { DAY_MS } from "./metrics.ts";
-import { idleHumans, lotWeightOf } from "./npcBuild.ts";
 import type { NpcClaimRun, SimHooks } from "./npcRun.ts";
+import type { SocietyRun } from "./societyTypes.ts";
 import { type GridXY, SIM_GRID_SIZE, type SimSites, gridKey, gridXYOf, isSlot } from "./simGrid.ts";
 import type { SimCity, SimFaction, SimWorld } from "./world.ts";
 
 /** 알박기 정부 짓기가 끝나는 예약 종류 */
 export const EVENT_CLAIM = "claim_done";
 
-const HOUR_MS = 3_600_000;
-
-/** 짓는 중 정부 하나 */
+/** 짓는 중 정부 하나(나르는 중 포함) */
 export interface SimClaim {
   readonly id: number;
   readonly faction: number;
   /** 자리 칸 열쇠(simGrid.ts gridKey) */
   readonly site: number;
+  /** 재료를 낸 내 도시 */
+  readonly source: number;
   readonly startedAtMs: number;
+  /** 재료가 닿아 짓기를 시작하는 시각 */
+  readonly arriveAtMs: number;
   readonly doneAtMs: number;
-  readonly cost: bigint;
-  readonly asset: string;
   readonly eventId: number;
 }
 
 export interface ClaimSummary {
-  /** 짓기 시작·새 도시가 된·늦어 멈춘·세력이 사라져 잃은 수, 끝에 짓는 중인 수 */
+  /** 짓기 시작·새 도시가 된·늦어 멈춘·세력이 사라져 잃은 수, 끝에 짓는 중(나르는 중 포함)인 수 */
   readonly started: number;
   readonly founded: number;
   readonly halted: number;
   readonly lost: number;
   readonly pending: number;
-  /** 국고에서 소각한 정부 짓기 값(자산 → 최소 단위) */
+  /** 도시 창고에서 뺀 재료(자산 → 기본 단위 수, 바뀜 npc-claim-3 — 예전 국고 값) */
   readonly spent: Record<string, string>;
 }
 
@@ -60,14 +77,34 @@ export interface SimClaims extends NpcClaimRun {
   summary(): ClaimSummary;
 }
 
+/** 알박기 재료 자리(도시 창고)·시간 — 경제가 있을 때만(simClaimSupply). 시험은 가짜를 넣는다 */
+export interface ClaimSupply {
+  /** 행정 건물 레벨 1 재료. 없으면(팩에 행정 건물 없음) 알박기 없음 */
+  readonly materials: readonly BuildStackJson[] | undefined;
+  /** 꺼낼 아이템별 수량(그 세력 그 도시 창고). 모자라면 undefined */
+  plan(faction: SimFaction, cityId: number): Map<string, bigint> | undefined;
+  /** 재료 값(국고 예비금 판단) */
+  value(cityId: number): bigint;
+  /** 운반 시간(ms) — 그 도시에서 거리(2차맵 수) */
+  haulMs(faction: SimFaction, cityId: number, mapDistance: number): number;
+  /** 짓는 시간(ms) — 그 도시 사람이 돕는다 */
+  buildMs(faction: SimFaction, cityId: number): number;
+  /**
+   * 그 도시 목표 재고의 알박기 재료를 정한다(재료를 사게 — 증축 buildWants와 같은 길, 질문 2331 가). want = true면 넣고(국고가 재료 값 × 예비
+   * ‰을 덮을 때만), false면 뺀다. 넣었나
+   */
+  want(faction: SimFaction, cityId: number, want: boolean): boolean;
+}
+
 export interface SimClaimOptions {
   readonly world: SimWorld;
   readonly c: SocietyCoefficients;
   readonly hooks: SimHooks | undefined;
-  readonly treasuryAsset: (faction: SimFaction) => string;
   readonly sites: SimSites;
-  /** 짓는 시간(ms) — 세력·도와줄 내 도시 */
-  readonly buildMs: (faction: SimFaction, sourceCity: number) => number;
+  /** 재료 자리·시간. 없으면(경제 없는 시나리오) 후보가 없다 */
+  readonly supply: ClaimSupply | undefined;
+  /** 다 지으면 그 도시를 받는 NPC 가문을 세운다(D-580, society.ts claimHouse). 없으면(시험) 그 세력 도시 */
+  readonly house?: SocietyRun["claimHouse"] | undefined;
   readonly schedule: (atMs: number, claimId: number) => number;
   readonly cancel: (eventId: number) => void;
 }
@@ -75,49 +112,47 @@ export interface SimClaimOptions {
 /** 체비쇼프 거리 */
 const chebyshev = (a: GridXY, b: GridXY): number => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 
-/**
- * 경제가 있는 시뮬의 짓는 시간: 팩 행정 건물(단계 government, 짓기 재료가 있는 첫 시설) 레벨 1 짓는 시간(무게 × M14) → 그 도시 일 없는 휴먼
- * (npc_build_builders_max까지)이 돕는다(simulator/npcBuild.ts buildPolicy와 같은 식). 행정 건물이 없으면 fallback
- */
-export function claimBuildMsOf(
-  economy: Economy,
-  world: SimWorld,
-  c: SocietyCoefficients,
-  fallbackMs: number,
-): (faction: SimFaction, sourceCity: number) => number {
-  let build: Parameters<typeof buildTimeAt>[0] | undefined;
-  for (const spec of economy.catalog.facilities.values())
-    if (spec.stage === "government" && spec.build) {
-      build = spec.build;
-      break;
-    }
-  return (faction, sourceCity) => {
-    if (!build) return fallbackMs;
-    let guards = 0;
-    for (const unitId of faction.units) {
-      const unit = world.units.get(unitId);
-      if (unit?.city === sourceCity && unit.guard === true) guards += 1;
-    }
-    const helpers = Math.min(
-      Math.max(0, c.npc.buildBuildersMax),
-      idleHumans(economy, world, sourceCity, guards),
-    );
-    const base = buildTimeAt(build, 1, (item) => lotWeightOf(economy, item), c.facilityBuild).ms;
-    return withBuilders(base, helpers, c.facilityRuntime);
+/** 경제가 있는 시뮬의 재료 자리·시간(claimRules.ts — 서버와 같은 함수) */
+export function simClaimSupply(economy: Economy, world: SimWorld, c: SocietyCoefficients): ClaimSupply {
+  const materials = claimMaterialsOf(economy);
+  const weight = materials ? claimWeightG(economy, materials) : 0n;
+  return {
+    materials,
+    plan: (faction, cityId) =>
+      materials
+        ? claimMaterialPlan(economy, materials, (item) =>
+            world.book.balanceOf(faction.id, itemAsset(item), cityId),
+          )
+        : undefined,
+    value: (cityId) => (materials ? claimValue(economy, cityId, materials) : 0n),
+    haulMs: (faction, cityId, distance) =>
+      claimHaulMs(weight, distance, claimHelpers(economy, world, faction, cityId, c), c),
+    buildMs: (faction, cityId) => claimBuildMs(economy, c, claimHelpers(economy, world, faction, cityId, c)),
+    want(faction, cityId, want) {
+      const wants = (economy.claimWants ??= new Map());
+      wants.delete(cityId);
+      if (!want || !materials) return false;
+      const asset = economy.currencyOf.get(faction.id) ?? economy.base;
+      const funds = world.book.balanceOf(faction.id, asset);
+      if (funds * 1000n < claimValue(economy, cityId, materials) * BigInt(c.npc.reservePm)) return false;
+      const need = new Map<string, bigint>();
+      for (const stack of materials)
+        need.set(itemAsset(stack.item), (need.get(itemAsset(stack.item)) ?? 0n) + BigInt(stack.qty));
+      wants.set(cityId, need);
+      return true;
+    },
   };
 }
 
-/** 경제가 없을 때 짓는 시간(설정 칸 npc_claim_build_hours) */
-export const claimFallbackMs = (c: SocietyCoefficients): number =>
-  Math.max(0, Math.trunc(c.npc.claimBuildHours)) * HOUR_MS;
-
 export function createSimClaims(o: SimClaimOptions): SimClaims {
-  const { world, c, sites } = o;
+  const { world, c, sites, supply } = o;
   const book = world.book;
   /** 짓는 중(알박기 ID 차례) */
   const pending = new Map<number, SimClaim>();
   /** 세력 → 마지막으로 짓기를 시작한 시각(쉬는 날) */
   const lastStart = new Map<number, number>();
+  /** 세력 → 알박기 재료를 사려고 목표 재고에 넣은 도시(prepare) */
+  const wanted = new Map<number, number>();
   const counts = { started: 0, founded: 0, halted: 0, lost: 0 };
   const spent = new Map<string, bigint>();
   let nextId = 0;
@@ -137,25 +172,18 @@ export function createSimClaims(o: SimClaimOptions): SimClaims {
     return n;
   };
 
-  /** 상한·조건을 넘었나(점수·국고 예비금은 판단 틀이 본다) */
+  /** 상한·조건을 넘었나(점수·국고 예비금은 판단 틀이 본다). 재료 자리가 없으면(경제 없음) 늘 아니다 */
   const allowed = (faction: SimFaction, nowMs: number): boolean => {
-    const n = c.npc;
-    const max = Math.max(0, Math.trunc(n.claimMaxActive));
-    if (max === 0 || !faction.alive || faction.cities.size === 0) return false;
-    if (faction.cities.size >= Math.max(1, Math.trunc(n.claimMaxCities))) return false;
-    if (pendingOf(faction.id) >= max) return false;
-    const cap = Math.max(0, Math.trunc(n.claimWorldCities));
-    if (cap > 0 && world.cities.size + world.ruins.size + pending.size >= cap) return false;
-    const last = lastStart.get(faction.id);
-    if (last !== undefined && nowMs < last + Math.max(0, Math.trunc(n.claimCooldownDays)) * DAY_MS)
-      return false;
-    return faction.units.size >= (faction.cities.size + 1) * Math.max(0, Math.trunc(n.claimHumansPerCity));
+    if (!supply?.materials) return false;
+    if (!claimGate(faction, nowMs, pendingOf(faction.id), lastStart.get(faction.id), c)) return false;
+    const cap = Math.max(0, Math.trunc(c.npc.claimWorldCities));
+    return cap === 0 || world.cities.size + world.ruins.size + pending.size < cap;
   };
 
-  /** 그 세력의 가장 좋은 빈 2차맵(+ 도와줄 내 도시). 없으면 undefined */
+  /** 그 세력의 가장 좋은 빈 2차맵(+ 재료를 낼 내 도시 = 그 칸에서 가장 가까운 내 도시). 없으면 undefined */
   const bestSite = (
     faction: SimFaction,
-  ): { site: number; source: number; contested: boolean } | undefined => {
+  ): { site: number; source: number; contested: boolean; d: number } | undefined => {
     const radius = Math.min(8, Math.max(1, Math.trunc(c.npc.claimRadius)));
     const taken = settled();
     const mine = new Set<number>();
@@ -184,7 +212,10 @@ export function createSimClaims(o: SimClaimOptions): SimClaims {
             best = { site, source: cityId, contested, d };
         }
     }
-    return best;
+    // 재료를 내는 도시 = 그 칸에서 가장 가까운 내 도시(같으면 작은 ID — 처음 찾은 도시와 다를 수 있다)
+    if (!best) return undefined;
+    const source = sourceOf(faction, best.site);
+    return source === undefined ? undefined : { ...best, ...source };
   };
 
   /** 그 칸이 지금 그 세력이 지을 수 있는 빈 2차맵인가(내 도시 반경 안·자리 칸 아님·도시·폐허 없음·내가 짓는 중 아님) */
@@ -201,18 +232,18 @@ export function createSimClaims(o: SimClaimOptions): SimClaims {
     return false;
   };
 
-  /** 그 칸에서 가장 가까운 내 도시(같으면 작은 ID) */
-  const sourceOf = (faction: SimFaction, site: number): number | undefined => {
+  /** 그 칸에서 가장 가까운 내 도시와 거리(같으면 작은 ID) */
+  function sourceOf(faction: SimFaction, site: number): { source: number; d: number } | undefined {
     const at = gridXYOf(site);
-    let best: { id: number; d: number } | undefined;
+    let best: { source: number; d: number } | undefined;
     for (const cityId of [...faction.cities].toSorted((a, b) => a - b)) {
       const xy = sites.xyOf(cityId);
       if (!xy) continue;
       const d = chebyshev(xy, at);
-      if (!best || d < best.d) best = { id: cityId, d };
+      if (!best || d < best.d) best = { source: cityId, d };
     }
-    return best?.id;
-  };
+    return best;
+  }
 
   const halt = (claim: SimClaim): void => {
     pending.delete(claim.id);
@@ -222,40 +253,61 @@ export function createSimClaims(o: SimClaimOptions): SimClaims {
 
   return {
     options(faction, nowMs) {
-      if (!allowed(faction, nowMs)) return [];
+      if (!supply || !allowed(faction, nowMs)) return [];
       const best = bestSite(faction);
-      return best ? [{ site: best.site, cost: BigInt(c.npc.claimCost), contested: best.contested }] : [];
+      // 재료가 그 도시 창고에 모두 있어야 후보(모자라면 prepare가 산다)
+      if (!best || !supply.plan(faction, best.source)) return [];
+      return [{ site: best.site, cost: supply.value(best.source), contested: best.contested }];
+    },
+
+    prepare(faction, nowMs) {
+      if (!supply) return;
+      const before = wanted.get(faction.id);
+      wanted.delete(faction.id);
+      // 상한·자리를 넘었고 재료를 낼 도시 창고에 모자랄 때만 산다(재료가 있으면 다음 판단의 후보다)
+      const best = allowed(faction, nowMs) ? bestSite(faction) : undefined;
+      const buy = best !== undefined && supply.plan(faction, best.source) === undefined;
+      if (before !== undefined && (!buy || before !== best?.source)) supply.want(faction, before, false);
+      if (buy && best && supply.want(faction, best.source, true)) wanted.set(faction.id, best.source);
     },
 
     act(faction, site, nowMs) {
       // 판단 뒤 바뀌었을 수 있다: 조건을 다시 보고, 그 칸이 아직 지을 수 있는 빈 2차맵일 때만(남이 짓는 중이어도 된다 — 먼저 다 지은 쪽이 도시)
-      if (!allowed(faction, nowMs) || !valid(faction, site)) return false;
-      const source = sourceOf(faction, site);
-      if (source === undefined) return false;
-      const asset = o.treasuryAsset(faction);
-      const cost = BigInt(Math.max(0, Math.trunc(c.npc.claimCost)));
-      if (book.balanceOf(faction.id, asset) < cost) return false;
-      if (cost > 0n) {
-        book.post({
-          kind: "burn",
-          atMs: nowMs,
-          entries: [
-            { account: book.ownerAccount(faction.id, asset), amount: -cost },
-            { account: book.systemAccount(`sink:${asset}`, asset), amount: cost },
-          ],
-        });
-        spent.set(asset, (spent.get(asset) ?? 0n) + cost);
+      if (!supply || !allowed(faction, nowMs) || !valid(faction, site)) return false;
+      const from = sourceOf(faction, site);
+      if (!from) return false;
+      const plan = supply.plan(faction, from.source);
+      if (!plan) return false;
+      // 시간은 재료를 빼기 전 그 도시 사람으로 셈한다(빼기는 사람 수를 바꾸지 않는다)
+      const haul = Math.max(0, Math.trunc(supply.haulMs(faction, from.source, from.d)));
+      const build = Math.max(0, Math.trunc(supply.buildMs(faction, from.source)));
+      // 재료를 도시 창고에서 뺀다(감사 규칙 facility_build — 증축과 같은 소각, 나르는 동안 수레에 실린 재료)
+      const entries: { account: number; amount: bigint }[] = [];
+      for (const [item, qty] of plan) {
+        if (qty <= 0n) continue;
+        const asset = itemAsset(item);
+        entries.push({ account: book.ownerAccount(faction.id, asset, from.source), amount: -qty });
+        entries.push({ account: book.systemAccount(`sink:${asset}`, asset), amount: qty });
+        spent.set(asset, (spent.get(asset) ?? 0n) + qty);
+      }
+      if (entries.length > 0) book.post({ kind: "facility_build", atMs: nowMs, entries });
+      // 다 샀다: 그 도시 목표 재고의 알박기 재료를 뺀다
+      const wantedCity = wanted.get(faction.id);
+      if (wantedCity !== undefined) {
+        supply.want(faction, wantedCity, false);
+        wanted.delete(faction.id);
       }
       nextId += 1;
-      const doneAtMs = nowMs + Math.max(0, Math.trunc(o.buildMs(faction, source)));
+      const arriveAtMs = nowMs + haul;
+      const doneAtMs = arriveAtMs + build;
       const claim: SimClaim = {
         id: nextId,
         faction: faction.id,
         site,
+        source: from.source,
         startedAtMs: nowMs,
+        arriveAtMs,
         doneAtMs,
-        cost,
-        asset,
         eventId: o.schedule(doneAtMs, nextId),
       };
       pending.set(claim.id, claim);
@@ -278,24 +330,33 @@ export function createSimClaims(o: SimClaimOptions): SimClaims {
         counts.halted += 1;
         return;
       }
-      const city: SimCity = {
-        id: world.nextCityId(),
-        owner: faction.id,
-        start: false,
-        // 가문 마을 모양(서버 foundVillage): 주거 = house_village_housing, 행정 Lv1, 연구 0, 휴먼 없음(구인 카드로)
-        housing: Math.max(1, Math.trunc(c.house.villageHousing)),
-        researchLevel: 0,
-        adminLevel: 1,
-        recruitDraw: null,
-        development: 0,
-        nextRebellionMs: nowMs,
+      // 가문 마을 모양(서버 foundVillage): 주거 = house_village_housing, 행정 Lv1, 연구 0
+      const settle = (owner: SimFaction): number => {
+        const city: SimCity = {
+          id: world.nextCityId(),
+          owner: owner.id,
+          start: false,
+          housing: Math.max(1, Math.trunc(c.house.villageHousing)),
+          researchLevel: 0,
+          adminLevel: 1,
+          recruitDraw: null,
+          development: 0,
+          nextRebellionMs: nowMs,
+        };
+        sites.place(city.id, gridXYOf(claim.site));
+        world.cities.set(city.id, city);
+        return city.id;
       };
-      sites.place(city.id, gridXYOf(claim.site));
-      world.cities.set(city.id, city);
-      faction.cities.add(city.id);
-      o.hooks?.cityFounded?.(city.id, 0, nowMs);
-      // 지분 1,000주는 최초 설립자(그 세력) 국고(D-575)
-      issueShares(book, city.id, [{ owner: faction.id, amount: BigInt(c.sharesPerCity) }], nowMs);
+      if (o.house) {
+        // D-580(질문 2335 나): 지은 NPC 가문이 새 세력 — 봉신 | 독립은 가문 성향 규칙식, 지분은 그 가문(society.ts claimHouse)
+        o.house(faction, claim.source, nowMs, settle);
+      } else {
+        // 사회 규칙이 없을 때(시험): 그 세력 도시, 지분은 그 세력 국고(옛 규칙)
+        const cityId = settle(faction);
+        faction.cities.add(cityId);
+        o.hooks?.cityFounded?.(cityId, 0, nowMs);
+        issueShares(book, cityId, [{ owner: faction.id, amount: BigInt(c.sharesPerCity) }], nowMs);
+      }
       counts.founded += 1;
       // 그 칸의 다른 편 짓는 중 정부는 멈춘다(2194 → D-572 "적대세력은 아예 건설불가", 재료 돌려주지 않음)
       for (const other of pending.values()) if (other.site === claim.site) halt(other);

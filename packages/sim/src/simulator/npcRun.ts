@@ -141,6 +141,11 @@ export interface NpcClaimRun {
   options(faction: SimFaction, nowMs: number): ClaimView[];
   /** 정부 짓기를 시작한다. 시작했나 */
   act(faction: SimFaction, site: number, nowMs: number): boolean;
+  /**
+   * 판단 끝(증축 다음)에 한 번: 상한·자리는 넘었는데 재료를 낼 도시 창고에 재료가 모자라면 그 도시 목표 재고에 넣어 거래 판단이 사게 한다
+   * (npc-claim-3, 질문 2331 가 — 증축과 같은 길). 없으면 사지 않는다
+   */
+  prepare?(faction: SimFaction, nowMs: number): void;
 }
 
 export interface NpcContext {
@@ -509,6 +514,7 @@ export function decide(ctx: NpcContext, factionId: number, nowMs: number): void 
   if (faction.alive) taxPolicy(ctx, faction, view, nowMs);
   if (faction.alive) recruitPolicy(ctx, faction, nowMs);
   if (faction.alive && ctx.build) buildPolicy(ctx, ctx.build, faction, nowMs);
+  if (faction.alive) ctx.claims?.prepare?.(faction, nowMs);
   if (ctx.combat && rng.nextInt(1000) < (ctx.encounterPerMille ?? 0) && faction.alive)
     ctx.combat.encounter(faction, rng.nextInt(0x1_0000), nowMs);
   // 판단 난수는 차례 2k, 다음 시각 난수는 2k+1(k = 판단 횟수)이라 겹치지 않는다

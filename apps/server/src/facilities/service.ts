@@ -392,6 +392,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
   const myFacility = (
     me: number,
     buildingId: number,
+    fill = true,
   ): { record: FacilityRecord; def: FacilityDef } | FacilityResultCode => {
     const building = buildingAt(buildingId);
     if (!building) return "unknown_building";
@@ -400,7 +401,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
     if (!record) return "not_facility";
     const def = options.catalog().facility(record.facilityId);
     if (!def) return "unknown_facility";
-    fillCity(record);
+    if (fill) fillCity(record);
     return { record, def };
   };
 
@@ -731,12 +732,16 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
 
     npcJob(input) {
       const at = now();
-      const found = myFacility(input.ownerId, input.buildingId);
+      const found = myFacility(input.ownerId, input.buildingId, input.kind !== "build");
       if (typeof found === "string") return fail(found);
       const { record, def } = found;
       if (jobOn((job) => job.buildingId === input.buildingId && job.kind !== "equipment"))
         return fail("job_running");
-      if (record.level < 1) return fail("under_construction");
+      // NPC 알박기 짓기(npc-claim-3, npc/npcClaims.ts): 레벨 0·도시 없는 행정 건물, 재료 = 날라 온 그 건물 창고, 도시는 채우지 않음(fill 끔)
+      const claim = input.kind === "build";
+      if (claim && (record.level >= 1 || record.cityId !== null || def.stage !== "government"))
+        return fail("not_buildable");
+      if (!claim && record.level < 1) return fail("under_construction");
       if (input.kind === "upgrade" && (record.level >= def.maxLevel || !def.build)) return fail("max_level");
       // 면적 모듈(기획 D-569 1768 — 플레이어와 같은 자리 규칙)
       const closed = input.kind === "plot" ? plotOpen(record, def, options.rules().buildingGather) : null;
@@ -752,9 +757,14 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       }
       // 재료 자리: 그 건물이 선 도시의 도시 창고·그 도시의 NPC 창고 시설(유닛 화물은 보지 않는다 — npcBuild와 같다)
       const place = buildingPlace(places, input.buildingId);
-      const scope = place ? materialScope(places, input.ownerId, place.mapKey, place.cityId, false) : [];
-      const reason =
-        input.kind === "upgrade"
+      const scope = claim
+        ? [buildingLocation(input.buildingId)]
+        : place
+          ? materialScope(places, input.ownerId, place.mapKey, place.cityId, false)
+          : [];
+      const reason = claim
+        ? "facility_build"
+        : input.kind === "upgrade"
           ? "facility_upgrade"
           : input.kind === "plot"
             ? "facility_plot"
@@ -768,7 +778,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
         buildingId: input.buildingId,
         beaconId: null,
         holdingId: null,
-        targetLevel: input.kind === "upgrade" ? record.level + 1 : null,
+        targetLevel: input.kind === "upgrade" ? record.level + 1 : claim ? 1 : null,
         restorePpm: input.kind === "repair" ? restore : null,
         unitIds: [],
         materials: [...input.materials],

@@ -197,6 +197,11 @@ export interface Economy {
    * 거래 판단이 도시 매입 호가·수입·내 도시끼리 나누기로 채운다. 판단마다 다시 정한다(저장하지 않는다)
    */
   buildWants?: Map<number, Map<string, bigint>> | undefined;
+  /**
+   * NPC 알박기 재료(npc-claim-3, 질문 2331 가 — simulator/npcClaim.ts·서버 npc/npcClaims.ts): 도시 → 행정 건물 레벨 1 재료(자산 → 기본 단위).
+   * 증축 재료처럼 도시 목표 재고에 더한다. 판단마다 다시 정한다(저장하지 않는다)
+   */
+  claimWants?: Map<number, Map<string, bigint>> | undefined;
   nextOrderId(): number;
   nextCargoId(): number;
   /** 오늘 센 값(하루 줄에 쓰고 비운다) */

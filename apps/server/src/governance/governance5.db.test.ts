@@ -229,8 +229,8 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 5(governance-5)", () => {
       }),
     ).toMatchObject({ ok: true, action: "decided" });
     await gov.service.tick();
-    const economy = npc.economy?.economy;
-    expect(economy?.bankOverride?.(owner)).toBe(50);
+    const live = npc.economy?.economy;
+    expect(live?.bankOverride?.(owner)).toBe(50);
     expect(
       await gov.service.propose(head.userId, {
         kind: "currency_stage",
@@ -239,14 +239,14 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 5(governance-5)", () => {
       }),
     ).toMatchObject({ ok: true, action: "decided" });
     await gov.service.tick();
-    expect(economy?.bankOverride?.(owner)).toBe(-20);
+    expect(live?.bankOverride?.(owner)).toBe(-20);
     expect(
       await gov.service.propose(head.userId, { kind: "currency_stage", monetaryMode: "formula" }),
     ).toMatchObject({
       ok: true,
     });
     await gov.service.tick();
-    expect(economy?.bankOverride).toBeUndefined();
+    expect(live?.bankOverride).toBeUndefined();
     // 거래세: 지도자가 정한 값(nation_taxes.trade_tax_bp)을 지도자 나라 거래소에 건다
     await test.db.$client.query(
       "insert into nation_taxes (faction_id, trade_tax_bp, set_at_ms) values ($1, 777, $2)",
@@ -259,7 +259,7 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 5(governance-5)", () => {
     });
     await table.reload();
     await gov.service.tick();
-    expect(economy?.taxOf.get(owner)).toBe(777);
+    expect(live?.taxOf.get(owner)).toBe(777);
     gov.stop();
   }, 180_000);
 

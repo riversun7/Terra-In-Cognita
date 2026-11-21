@@ -406,7 +406,8 @@ test.describe("유닛 조종: 플레이어", () => {
     page,
     deviceErrors,
   }) => {
-    test.setTimeout(90_000);
+    // 헤드리스 소프트웨어 WebGL은 동작마다 1~4초 — 땅 자리 앞 몇 개가 건물에 걸리는 시작 자리에서 90초가 모자랐다(2026-11-22, 아래 땅 누르기)
+    test.setTimeout(150_000);
     // 내 사이보그를 남의 유닛처럼: 시야 전송의 내 유닛 표시(own)를 지우고 내 유닛 목록을 이 맵에 없는 가짜 유닛 하나로 바꾼다
     // (목록이 비면 들어갈 수 없다 — WP-1)
     const sentMoves: string[] = [];
@@ -442,7 +443,7 @@ test.describe("유닛 조종: 플레이어", () => {
     // 카메라는 내 사이보그 둘레(가짜 목록 유닛의 칸 = 사이보그 칸의 카메라 범위)에 열린다(D-6017) → 가운데를 누르면 둘레 유닛을 누른다.
     // 2차맵은 최대 확대(6/6)로 열려(사용자 지적 2026-11-09) 카메라 목표와 유닛 사이가 화면에서 멀다: 두 단계 줄여 옛 처음 거리쯤(4/6)에서 누른다
     await expect(screen).toHaveAttribute("data-focus", /\d+/);
-    const grounds = (await groundOffsets(page)).slice(0, 6);
+    const grounds = (await groundOffsets(page)).slice(0, 10);
     await page.waitForTimeout(1_200);
     await page.locator(".zoom-ladder-out").click();
     await expect(page.locator(".zoom-ladder")).toHaveAttribute("data-stage", "5");
@@ -476,7 +477,11 @@ test.describe("유닛 조종: 플레이어", () => {
     await expect(screen).not.toHaveAttribute("data-selected", peeked);
     await expect(page.locator(".map-unit-stop")).toHaveCount(0);
     expect(cyborg).toMatch(/^\d+$/);
-    // 빈 땅을 누른다: 판이 닫히고, 명령 유닛(가짜 목록 유닛)은 이 맵에 없어 보내지 않는다(view_only)
+    // 빈 땅을 누른다: 판이 닫히고, 명령 유닛(가짜 목록 유닛)은 이 맵에 없어 보내지 않는다(view_only).
+    // 시험 세계의 시작 자리(내 사이보그)는 도시 성벽·숙소 옆이라 앞 자리 몇 개가 건물에 걸린다(2026-11-22 unit-control-fix: 이 시험만 돌리면 성벽 셋·숙소 하나
+    // 다음 다섯째 자리에서야 땅 — 2026-11-21 938601280c에서도 같았다. 파일 전체로 돌리면 앞 시험이 사이보그를 옮겨 자리가 달라진다).
+    // 건물 판이 뜨면 닫고(판이 아래 자리를 가리지 않게 닫힐 때까지 본다) 다음 자리를 누른다. 자리는 6개에서 10개로 늘렸다
+    const sheet = page.locator(".gather-sheet");
     let viewOnly = false;
     for (const ground of grounds) {
       await touchMap(page, ground.dx, ground.dy);
@@ -485,8 +490,14 @@ test.describe("유닛 조종: 플레이어", () => {
         viewOnly = true;
         break;
       } catch {
+        // 헤드리스 소프트웨어 WebGL에서 click 동작 검사가 몇 초씩 걸려(시험 시간이 여기서 끝났다) 이벤트를 바로 보낸다 — 위 [멈추기]와 같다
         const close = page.locator(".gather-sheet-close");
-        if (await close.count()) await close.first().click();
+        if (await close.count())
+          await close
+            .first()
+            .dispatchEvent("click", undefined, { timeout: 3_000 })
+            .catch(() => undefined);
+        await expect(sheet).toHaveCount(0, { timeout: 5_000 });
       }
     }
     expect(viewOnly).toBe(true);

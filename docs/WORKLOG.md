@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-22 07:40 | 화면 시험 "내 유닛이 이 맵에 없으면 땅을 눌러도 보내지 않는다" 시간 초과 고침(시험만) | Claude Code | [22-0740-unit-control-fix](worklog/2026/11/22-0740-unit-control-fix.md) |
 | 2026-11-22 06:00~ | 2026-11-22 묶음 1117d 합치기 (NPC 투자·가문 연맹 / NPC 계승·쿠데타 고침 / 유닛 일부러 치기·조약 어긴 나라 / 거래소 보증금 손질) — 리셋 필요 없음 | Claude Code | [22-0600-batch-1117d-merge](worklog/2026/11/22-0600-batch-1117d-merge.md) |
 | 2026-11-22 05:20 | 거래소 물건 보증금 불일치("market escrow differs after restore") 원인과 부팅 손질 (escrow-fix) | Claude Code | [22-0520-escrow-fix](worklog/2026/11/22-0520-escrow-fix.md) |
 | 2026-11-22 05:00 | 2026-11-22 fixes-1117c — 같은 나라 유저 유닛을 일부러 치기(2543)·조약 어긴 나라·세력 신뢰·제재 명분(2558) | Claude Code | [22-0500-fixes-1117c](worklog/2026/11/22-0500-fixes-1117c.md) |

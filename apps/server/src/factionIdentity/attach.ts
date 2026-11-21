@@ -9,7 +9,7 @@ import type { Database } from "../db/client.ts";
 import type { NationPreset } from "../npc/nations.ts";
 import type { World } from "../world/world.ts";
 import { adoptUnfoundedIdentities, createHouseFounder, nationFromDb } from "./found.ts";
-import { type HouseGateway, createHouseGateway } from "./gateway.ts";
+import { createHouseGateway } from "./gateway.ts";
 import { type HouseCityService, createHouseCity } from "./houseCity.ts";
 import { createHouseEntryPolicy } from "./houseEntryPolicy.ts";
 import { createHouseHome } from "./houseHome.ts";
@@ -21,6 +21,8 @@ import { createHouseMembers } from "./members.ts";
 import { createHouseSuccession } from "./succession.ts";
 import { houseTiesOf } from "../world/houseTies.ts";
 import type { HouseRules } from "./rules.ts";
+import { type GovernanceAttached, attachGovernance } from "../governance/attach.ts";
+import { type HouseGovernanceGateway, withGovernance } from "../governance/gateway.ts";
 
 type HouseWorld = Pick<World, "status" | "persistence" | "npc" | "maps">;
 
@@ -40,7 +42,10 @@ export function attachHouses(options: {
     error(obj: object, message: string): void;
   };
 }): {
-  gateway: HouseGateway;
+  /** 가문 + 나라 의결(gov_*) 소켓(docs/adr/2026-11-21-governance.md) */
+  gateway: HouseGovernanceGateway;
+  /** 나라 의결 서비스·조회 */
+  governance: GovernanceAttached;
   /** 가문 도시(조회 — 세력 화면 "내 가문" 칸) */
   city: HouseCityService;
   /** 공고 옮기기 타이머를 멈춘다(앱을 닫을 때) */
@@ -141,12 +146,23 @@ export function attachHouses(options: {
     now: options.now,
     log: options.log,
   });
+  // 나라 의결(안건·투표·선출·체제 전환 — governance/attach.ts): 같은 소켓으로 받고 1분 틱을 돈다
+  const governance = attachGovernance({
+    db: options.db,
+    world: () => options.world,
+    rules: () => options.rules().governance,
+    presets: options.presets,
+    now: options.now,
+    log: options.log,
+  });
   return {
-    gateway,
+    gateway: withGovernance(gateway, governance.gateway),
+    governance,
     city,
     stop: () => {
       clearInterval(moveTimer);
       clearInterval(taxTimer);
+      governance.stop();
     },
   };
 }

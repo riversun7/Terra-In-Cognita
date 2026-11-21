@@ -29,6 +29,7 @@ import { recruitRouter } from "./recruit.ts";
 import { fusionRouter } from "./fusion.ts";
 import { gatherRouter } from "./gather.ts";
 import { templeRouter } from "./temple.ts";
+import { governanceRouter } from "./governance.ts";
 import { hospitalRouter } from "./hospital.ts";
 import { ruinsRouter } from "./ruins.ts";
 import { cyborgRouter, unitsRouter } from "./roster.ts";
@@ -91,6 +92,8 @@ export const appRouter = router({
   fusion: fusionRouter,
   // 신전·종교(조회만 — 명령은 WebSocket temple_*, docs/adr/2026-11-07-temple-religion.md)
   temple: templeRouter,
+  // 나라 의결(조회만 — 명령은 WebSocket gov_*, docs/adr/2026-11-21-governance.md)
+  governance: governanceRouter,
   // 부상·병원(조회만 — 명령은 WebSocket hospital_treat·dev_injure_unit, docs/adr/2026-11-08-injury.md)
   hospital: hospitalRouter,
   // 폐허 복원(조회만 — 명령은 WebSocket restoration_*·행정 건물 facility_build, docs/adr/2026-11-07-ruins-restoration.md)

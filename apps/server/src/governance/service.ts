@@ -1,0 +1,618 @@
+// 나라 의결 서비스(서버 권위) — docs/adr/2026-11-21-governance.md, 질문 2351~2365 답(D-580·기획 대조), 기획 D-217·D-5057·D-131·D-344·D-349·D-574 10.
+// - 명령(WebSocket gov_*): 안건 올리기·표 던지기·후보 등록. 조회는 view.ts.
+// - 틱(1분마다, attach.ts): 임기(민주주의·자본주의 — 처음 보는 나라는 지금부터 임기를 센다, 끝나기 투표 기간 전에 선출 자동으로 열기), NPC 표(D-323
+//   점수 고르기 — npcVote.ts, 선출은 후보 등록 기간 뒤), 닫기(셈 — @terra/shared/governance), 집행(유예가 지난 가결 안건).
+// - 독재: 투표가 없다. 지도자(지배 가문의 장)가 체제 전환을 직권으로 정하고 유예(D-131 7일) 뒤 집행(D-217, 2362 가). 독재가 되면 열린 투표는 취소.
+// - 독재로 가는 길(2363 가 — D-344·D-349): 지배 쪽 지분이 과반이어야 한다. 과반이면 지도자가 직권으로 정한다(유예 뒤). 나머지 지분은 남고 의결권만
+//   잃는다(governance_state.share_votes_suspended — 몰수 아님). 군사 쿠데타 길은 조건·절차가 정해지지 않아 만들지 않았다(질문 2401).
+// - 선출(2358 가): 이긴 가문이 지배 가문이 된다(다른 가문이면 지배 가문이 바뀐다). 그 가문의 장이 지도자. 임기 = 닫은 때 + 임기 칸.
+// - 해임 가결: 바로 다시 뽑기(선출 안건)를 연다. 해임된 가문은 그 선출에 나서지 못한다. 결과까지 해임된 가문이 임시로 남는다 [임시 질문 2403].
+// - 선전포고 가결: 바로 전쟁(세력·사회 declareWar — NPC와 같은 길, 2364 "전쟁 즉시").
+// 쓰기는 DB 바로(서버 하나라 이 서비스가 순서대로 쓴다). 한 번에 하나만 돈다(명령·틱이 같은 사슬).
+import {
+  type AgendaKind,
+  type GovernanceRegime,
+  type HouseKey,
+  isHouseKey,
+  tallyElection,
+  tallyMotion,
+} from "@terra/shared/governance";
+import type { GovernanceAction, GovernanceResultCode } from "@terra/protocol";
+import { writeAudit } from "../auth/store.ts";
+import type { Database } from "../db/client.ts";
+import { type Electorate, type Ruling, createElectorate } from "./electorate.ts";
+import { npcVoteChoice } from "./npcVote.ts";
+import type { GovernanceNation, GovernancePort } from "./port.ts";
+import type { GovernanceRules } from "./rules.ts";
+import { type AgendaPayload, type AgendaRow, type GovernanceStore, type StateRow } from "./store.ts";
+
+export type GovernanceResult =
+  | { readonly ok: true; readonly agendaId: number; readonly action: GovernanceAction }
+  | { readonly ok: false; readonly code: GovernanceResultCode };
+
+export interface ProposeInput {
+  readonly kind: AgendaKind;
+  readonly regime?: GovernanceRegime | undefined;
+  readonly targetNationId?: number | undefined;
+}
+
+const fail = (code: GovernanceResultCode): GovernanceResult => ({ ok: false, code });
+
+const blankState = (nation: GovernanceNation): StateRow => ({
+  nationId: nation.rowId,
+  rulingHouseKey: null,
+  electedAtMs: null,
+  termEndsAtMs: null,
+  shareVotesSuspended: false,
+});
+
+/** 보는 사람이 나라 안에서 가진 자격 */
+export interface Standing {
+  readonly nation: GovernanceNation;
+  readonly state: StateRow | undefined;
+  readonly ruling: Ruling;
+  readonly electorate: Electorate;
+  readonly leader: boolean;
+  /** 이끄는 가문(그 나라 소속 플레이어 가문의 장이면) */
+  readonly ownHouse: HouseKey | null;
+  /** 내 표 무게(내가 던지는 투표자 열쇠 합) */
+  readonly power: bigint;
+}
+
+/** 그 사람이 올린 안건으로 적을 열쇠 */
+const proposerKeyOf = (s: Standing, userId: string): string | null =>
+  s.leader
+    ? s.ruling.key
+    : (s.ownHouse ?? s.electorate.voters.find((voter) => voter.userId === userId)?.key ?? null);
+
+export function createGovernanceService(o: {
+  readonly port: GovernancePort;
+  readonly store: GovernanceStore;
+  readonly rules: () => GovernanceRules;
+  readonly now: () => number;
+  readonly db?: Database | undefined;
+  readonly log?: { error(obj: object, message: string): void } | undefined;
+}) {
+  const tools = createElectorate(o);
+  let chain: Promise<unknown> = Promise.resolve();
+  /** 명령·틱을 한 줄로 세운다(같은 안건에 두 처리가 겹치지 않게) */
+  const serial = <T>(work: () => Promise<T>): Promise<T> => {
+    const next = chain.then(work, work);
+    chain = next.catch(() => undefined);
+    return next;
+  };
+  const audit = async (
+    userId: string | null,
+    action: string,
+    after: Record<string, unknown>,
+  ): Promise<void> => {
+    if (!o.db) return;
+    await writeAudit(o.db, {
+      actor: { kind: userId ? "user" : "system", id: userId, ip: null },
+      action,
+      targetId: userId,
+      after,
+    });
+  };
+
+  const standing = async (userId: string): Promise<Standing | undefined> => {
+    const nationId = o.port.viewerNation(userId);
+    const nation = nationId === undefined ? undefined : o.port.nation(nationId);
+    if (!nation) return undefined;
+    const state = (await o.store.states()).get(nation.rowId);
+    const ruling = await tools.ruling(nation, state);
+    const electorate = await tools.electorate(nation);
+    const houses = await o.store.playerHousesOf(nation.rowId);
+    const own = houses.find((house) => house.head === userId);
+    const power = electorate.voters
+      .filter((voter) => voter.userId === userId)
+      .reduce((sum, voter) => sum + voter.weight, 0n);
+    return {
+      nation,
+      state,
+      ruling,
+      electorate,
+      leader: ruling.leaderUser === userId,
+      ownHouse: own ? `p:${own.id}` : null,
+      power,
+    };
+  };
+
+  /** 발의권(2351 가): 지도자는 늘, 민주주의 = 소속 가문장, 자본주의 = 의결권 몫 하한 이상 */
+  const mayPropose = (s: Standing): boolean => {
+    if (s.leader) return true;
+    if (s.nation.regime === "democracy") return s.ownHouse !== null;
+    if (s.nation.regime === "capitalism")
+      return (
+        s.electorate.total > 0n && s.power * 1000n >= BigInt(o.rules().proposeSharePm) * s.electorate.total
+      );
+    return false;
+  };
+
+  /** 열린 선출 안건 하나 열기(시스템·해임 뒤·사람) */
+  const openElection = async (
+    nation: GovernanceNation,
+    proposer: { key: string | null; user: string | null },
+    nowMs: number,
+    payload: AgendaPayload,
+    incumbent: HouseKey | null,
+  ): Promise<AgendaRow> => {
+    const rules = o.rules();
+    const closesAtMs = nowMs + rules.periodOf("leader_election");
+    const agenda = await o.store.insertAgenda({
+      nationId: nation.rowId,
+      kind: "leader_election",
+      regime: nation.regime,
+      proposerKey: proposer.key,
+      proposerUser: proposer.user,
+      payload,
+      openedAtMs: nowMs,
+      registerUntilMs: Math.min(closesAtMs, nowMs + rules.registerMs),
+      closesAtMs,
+    });
+    // NPC 지배 가문은 스스로 후보로 나선다(NPC 행동 — 해임된 가문은 빼고) [임시 질문 2404]
+    if (incumbent?.startsWith("n:") && incumbent !== payload.barred)
+      await o.store.register(agenda.id, incumbent, null, nowMs);
+    return agenda;
+  };
+
+  const decideByAuthority = async (
+    s: Standing,
+    userId: string,
+    target: GovernanceRegime,
+    nowMs: number,
+  ): Promise<GovernanceResult> => {
+    const agenda = await o.store.insertAgenda({
+      nationId: s.nation.rowId,
+      kind: "regime_change",
+      regime: s.nation.regime,
+      proposerKey: s.ruling.key,
+      proposerUser: userId,
+      payload: { regime: target, byAuthority: true },
+      openedAtMs: nowMs,
+      registerUntilMs: null,
+      closesAtMs: nowMs,
+      status: "passed",
+      decidedAtMs: nowMs,
+      effectAtMs: nowMs + o.rules().graceRegimeMs,
+    });
+    await audit(userId, "governance.regime_decree", {
+      nationId: s.nation.rowId,
+      agendaId: agenda.id,
+      target,
+    });
+    return { ok: true, agendaId: agenda.id, action: "decided" };
+  };
+
+  const propose = async (userId: string, input: ProposeInput): Promise<GovernanceResult> => {
+    if (!o.port.ready()) return fail("busy");
+    const s = await standing(userId);
+    if (!s) return fail("no_nation");
+    const rules = o.rules();
+    const nowMs = o.now();
+    const { nation } = s;
+    if (input.kind === "war_declaration" && !rules.warAgenda) return fail("kind_disabled");
+    // 독재: 투표가 없다 — 지도자의 체제 전환 직권만(D-217·D-5057)
+    if (nation.regime === "dictatorship") {
+      if (!s.leader) return fail("dictatorship");
+      if (input.kind !== "regime_change") return fail("dictatorship");
+      if (!input.regime) return fail("invalid_choice");
+      if (input.regime === nation.regime) return fail("same_regime");
+      return decideByAuthority(s, userId, input.regime, nowMs);
+    }
+    if (!mayPropose(s)) return fail("not_eligible");
+    const active = (await o.store.activeAgendas()).filter((agenda) => agenda.nationId === nation.rowId);
+    const open = active.filter((agenda) => agenda.status === "open");
+    const proposerKey = proposerKeyOf(s, userId);
+    if (open.filter((agenda) => agenda.proposerKey === proposerKey).length >= rules.openPerProposer)
+      return fail("limit");
+    const payload: { -readonly [K in keyof AgendaPayload]: AgendaPayload[K] } = {};
+    switch (input.kind) {
+      case "leader_election":
+        if (open.some((agenda) => agenda.kind === "leader_election")) return fail("already_open");
+        break;
+      case "leader_removal":
+        if (s.ruling.key === null) return fail("not_eligible");
+        if (open.some((agenda) => agenda.kind === "leader_removal" || agenda.kind === "leader_election"))
+          return fail("already_open");
+        payload.barred = s.ruling.key;
+        break;
+      case "regime_change": {
+        if (!input.regime) return fail("invalid_choice");
+        if (input.regime === nation.regime) return fail("same_regime");
+        if (active.some((agenda) => agenda.kind === "regime_change")) return fail("already_open");
+        if (input.regime === "dictatorship") {
+          // D-344: 독재는 지배 가문이 지분 과반 — 과반이면 지도자 직권(2363 가)
+          if (tools.rulingSharePm(nation, s.ruling.key) <= 500) return fail("no_majority");
+          if (s.leader) return decideByAuthority(s, userId, "dictatorship", nowMs);
+        }
+        payload.regime = input.regime;
+        break;
+      }
+      case "war_declaration": {
+        const target = input.targetNationId === undefined ? undefined : o.port.nation(input.targetNationId);
+        if (!target || target.rowId === nation.rowId) return fail("unknown_target");
+        if (o.port.atWar(nation, target)) return fail("already_at_war");
+        if (
+          open.some(
+            (agenda) => agenda.kind === "war_declaration" && agenda.payload.targetNationId === target.rowId,
+          )
+        )
+          return fail("already_open");
+        payload.targetNationId = target.rowId;
+        break;
+      }
+    }
+    const agenda =
+      input.kind === "leader_election"
+        ? await openElection(nation, { key: proposerKey, user: userId }, nowMs, payload, s.ruling.key)
+        : await o.store.insertAgenda({
+            nationId: nation.rowId,
+            kind: input.kind,
+            regime: nation.regime,
+            proposerKey,
+            proposerUser: userId,
+            payload,
+            openedAtMs: nowMs,
+            registerUntilMs: null,
+            closesAtMs: nowMs + rules.periodOf(input.kind),
+          });
+    await audit(userId, "governance.propose", {
+      nationId: nation.rowId,
+      agendaId: agenda.id,
+      kind: input.kind,
+      payload,
+    });
+    return { ok: true, agendaId: agenda.id, action: "proposed" };
+  };
+
+  /** 안건과 보는 사람의 자격(내 나라의 열린 안건만) */
+  const openAgendaFor = async (
+    userId: string,
+    agendaId: number,
+  ): Promise<{ s: Standing; agenda: AgendaRow } | GovernanceResult> => {
+    if (!o.port.ready()) return fail("busy");
+    const s = await standing(userId);
+    if (!s) return fail("no_nation");
+    const agenda = await o.store.agenda(agendaId);
+    if (!agenda || agenda.nationId !== s.nation.rowId) return fail("unknown_agenda");
+    if (agenda.status !== "open" || agenda.closesAtMs <= o.now()) return fail("not_open");
+    return { s, agenda };
+  };
+
+  const vote = async (userId: string, agendaId: number, choice: string): Promise<GovernanceResult> => {
+    const found = await openAgendaFor(userId, agendaId);
+    if ("ok" in found) return found;
+    const { s, agenda } = found;
+    const mine = s.electorate.voters.filter((voter) => voter.userId === userId);
+    if (mine.length === 0) return fail(s.nation.regime === "dictatorship" ? "dictatorship" : "not_eligible");
+    if (agenda.kind === "leader_election") {
+      if (choice !== "abstain") {
+        if (!isHouseKey(choice)) return fail("invalid_choice");
+        const candidates = await o.store.candidates([agenda.id]);
+        if (!candidates.some((row) => row.houseKey === choice) || choice === agenda.payload.barred)
+          return fail("invalid_choice");
+      }
+    } else if (choice !== "yes" && choice !== "no" && choice !== "abstain") return fail("invalid_choice");
+    const nowMs = o.now();
+    for (const voter of mine)
+      await o.store.castVote({
+        agendaId,
+        voterKey: voter.key,
+        userId,
+        npc: false,
+        choice,
+        weight: voter.weight,
+        castAtMs: nowMs,
+      });
+    return { ok: true, agendaId, action: "voted" };
+  };
+
+  const register = async (userId: string, agendaId: number): Promise<GovernanceResult> => {
+    const found = await openAgendaFor(userId, agendaId);
+    if ("ok" in found) return found;
+    const { s, agenda } = found;
+    if (agenda.kind !== "leader_election") return fail("invalid_choice");
+    const nowMs = o.now();
+    if (agenda.registerUntilMs !== null && nowMs >= agenda.registerUntilMs)
+      return fail("registration_closed");
+    if (s.ownHouse === null) return fail("not_eligible");
+    if (s.ownHouse === agenda.payload.barred) return fail("barred");
+    if (
+      s.nation.regime === "capitalism" &&
+      !(s.electorate.total > 0n && s.power * 1000n >= BigInt(o.rules().proposeSharePm) * s.electorate.total)
+    )
+      return fail("not_eligible");
+    await o.store.register(agenda.id, s.ownHouse, userId, nowMs);
+    return { ok: true, agendaId, action: "registered" };
+  };
+
+  // ---------- 틱 ----------
+
+  const saveState = async (state: StateRow, nowMs: number): Promise<void> => o.store.saveState(state, nowMs);
+
+  const castNpcVotes = async (agenda: AgendaRow, nation: GovernanceNation, state: StateRow | undefined) => {
+    const nowMs = o.now();
+    if (
+      agenda.kind === "leader_election" &&
+      agenda.registerUntilMs !== null &&
+      nowMs < agenda.registerUntilMs
+    )
+      return;
+    const ruling = await tools.ruling(nation, state);
+    const electorate = await tools.electorate(nation);
+    const npcVoters = electorate.voters.filter((voter) => voter.npc);
+    if (npcVoters.length === 0) return;
+    const cast = new Set((await o.store.votes([agenda.id])).map((row) => row.voterKey));
+    const candidates =
+      agenda.kind === "leader_election"
+        ? (await o.store.candidates([agenda.id])).map((row) => row.houseKey)
+        : [];
+    const rules = o.rules();
+    for (const voter of npcVoters) {
+      if (cast.has(voter.key)) continue;
+      const choice = npcVoteChoice(
+        {
+          kind: agenda.kind,
+          incumbent: ruling.key,
+          self: voter.self,
+          candidates,
+          barred: agenda.payload.barred ?? null,
+          satisfaction: voter.satisfaction,
+          traits: voter.traits,
+          targetRegime: agenda.payload.regime,
+          loyal: voter.loyal,
+        },
+        rules,
+      );
+      await o.store.castVote({
+        agendaId: agenda.id,
+        voterKey: voter.key,
+        userId: null,
+        npc: true,
+        choice,
+        weight: voter.weight,
+        castAtMs: nowMs,
+      });
+    }
+  };
+
+  const enact = async (
+    agenda: AgendaRow,
+    nation: GovernanceNation | undefined,
+    nowMs: number,
+  ): Promise<void> => {
+    if (!nation) return o.store.finish(agenda.id, { status: "cancelled", enactedAtMs: nowMs });
+    const states = await o.store.states();
+    const state = states.get(nation.rowId) ?? blankState(nation);
+    switch (agenda.kind) {
+      case "leader_removal": {
+        await o.store.finish(agenda.id, { status: "enacted", enactedAtMs: nowMs });
+        const ruling = await tools.ruling(nation, state);
+        const barred = agenda.payload.barred ?? ruling.key;
+        await openElection(nation, { key: null, user: null }, nowMs, barred ? { barred } : {}, ruling.key);
+        return;
+      }
+      case "regime_change": {
+        const target = agenda.payload.regime;
+        const ruling = await tools.ruling(nation, state);
+        const valid =
+          target !== undefined &&
+          target !== nation.regime &&
+          (target !== "dictatorship" || tools.rulingSharePm(nation, ruling.key) > 500);
+        if (!valid) return o.store.finish(agenda.id, { status: "cancelled", enactedAtMs: nowMs });
+        o.port.setRegime(nation, target);
+        const dictatorship = target === "dictatorship";
+        await saveState(
+          {
+            ...state,
+            termEndsAtMs: dictatorship ? null : nowMs + o.rules().termMs,
+            // D-349: 독재가 되면 지배 쪽이 아닌 지분은 의결권을 잃는다(몰수 아님). 독재가 끝나면 되찾는다 [임시 질문 2405]
+            shareVotesSuspended: dictatorship && tools.rulingSharePm(nation, ruling.key) < 1000,
+          },
+          nowMs,
+        );
+        await o.store.finish(agenda.id, { status: "enacted", enactedAtMs: nowMs });
+        await audit(null, "governance.regime_enacted", {
+          nationId: nation.rowId,
+          agendaId: agenda.id,
+          from: nation.regime,
+          to: target,
+        });
+        return;
+      }
+      case "war_declaration": {
+        const target =
+          agenda.payload.targetNationId === undefined
+            ? undefined
+            : o.port.nation(agenda.payload.targetNationId);
+        const declared = target ? await o.port.declareWar(nation, target, nowMs) : false;
+        await o.store.finish(agenda.id, { status: declared ? "enacted" : "cancelled", enactedAtMs: nowMs });
+        if (declared)
+          await audit(null, "governance.war_declared", {
+            nationId: nation.rowId,
+            targetNationId: target?.rowId,
+          });
+        return;
+      }
+      default:
+        return o.store.finish(agenda.id, { status: "enacted", enactedAtMs: nowMs });
+    }
+  };
+
+  const close = async (
+    agenda: AgendaRow,
+    nation: GovernanceNation | undefined,
+    nowMs: number,
+  ): Promise<void> => {
+    // 나라가 사라졌거나 투표 중에 체제가 바뀌었으면 취소(투표권의 뜻이 바뀐다)
+    if (!nation || nation.regime !== agenda.regime)
+      return o.store.finish(agenda.id, {
+        status: "cancelled",
+        decidedAtMs: nowMs,
+        result: { reason: "regime", abstain: "0", cast: "0", electorate: "0", quorumPm: 0, thresholdPm: 0 },
+      });
+    const rules = o.rules();
+    const states = await o.store.states();
+    const state = states.get(nation.rowId);
+    const ruling = await tools.ruling(nation, state);
+    const electorate = await tools.electorate(nation);
+    const weights = new Map(electorate.voters.map((voter) => [voter.key, voter.weight]));
+    // 셈은 닫는 때의 투표권으로(그 사이 떠난 가문·판 지분은 빠진다)
+    const votes = (await o.store.votes([agenda.id])).flatMap((row) => {
+      const weight = weights.get(row.voterKey);
+      return weight === undefined ? [] : [{ choice: row.choice, weight }];
+    });
+    const quorumPm = rules.quorumOf(agenda.kind);
+    if (agenda.kind === "leader_election") {
+      const candidateRows = (await o.store.candidates([agenda.id])).filter(
+        (row) => row.houseKey !== agenda.payload.barred,
+      );
+      const scores = await o.store.boardScores(candidateRows.map((row) => row.houseKey));
+      const result = tallyElection(
+        votes,
+        candidateRows.map((row) => ({
+          key: row.houseKey,
+          registeredAtMs: row.registeredAtMs,
+          boardScore: scores.get(row.houseKey) ?? 0,
+        })),
+        electorate.total,
+        quorumPm,
+        ruling.key,
+      );
+      const current = state ?? blankState(nation);
+      await saveState(
+        {
+          ...current,
+          rulingHouseKey: result.winner ?? current.rulingHouseKey,
+          electedAtMs: result.winner ? nowMs : current.electedAtMs,
+          termEndsAtMs: nowMs + rules.termMs,
+        },
+        nowMs,
+      );
+      await o.store.finish(agenda.id, {
+        status: result.winner ? "enacted" : "failed",
+        decidedAtMs: nowMs,
+        enactedAtMs: result.winner ? nowMs : null,
+        result: {
+          reason: result.reason,
+          abstain: result.abstain.toString(),
+          cast: result.cast.toString(),
+          electorate: result.electorate.toString(),
+          quorumPm,
+          thresholdPm: 0,
+          winner: result.winner,
+          counts: result.counts.map((row) => ({ key: row.key, votes: row.votes.toString() })),
+        },
+      });
+      if (result.winner && result.winner !== ruling.key)
+        await audit(null, "governance.ruling_house", {
+          nationId: nation.rowId,
+          from: ruling.key,
+          to: result.winner,
+        });
+      return;
+    }
+    const thresholdPm = rules.thresholdOf(agenda.kind);
+    const result = tallyMotion(votes, electorate.total, { quorumPm, thresholdPm });
+    const row = {
+      reason: result.reason,
+      yes: result.yes.toString(),
+      no: result.no.toString(),
+      abstain: result.abstain.toString(),
+      cast: result.cast.toString(),
+      electorate: result.electorate.toString(),
+      quorumPm,
+      thresholdPm,
+    };
+    if (!result.passed)
+      return o.store.finish(agenda.id, { status: "failed", decidedAtMs: nowMs, result: row });
+    // 체제 전환만 유예(D-131), 해임·선전포고는 바로(2364)
+    const effectAtMs = nowMs + (agenda.kind === "regime_change" ? rules.graceRegimeMs : 0);
+    await o.store.finish(agenda.id, { status: "passed", decidedAtMs: nowMs, effectAtMs, result: row });
+    if (effectAtMs <= nowMs) await enact({ ...agenda, status: "passed", effectAtMs }, nation, nowMs);
+  };
+
+  const tick = async (): Promise<void> => {
+    if (!o.port.ready()) return;
+    const nowMs = o.now();
+    const rules = o.rules();
+    const nations = new Map(o.port.nations().map((nation) => [nation.rowId, nation]));
+    const states = await o.store.states();
+    let active = await o.store.activeAgendas();
+    // 임기·자동 선출·독재 정리
+    for (const nation of nations.values()) {
+      const state = states.get(nation.rowId);
+      const mine = active.filter((agenda) => agenda.nationId === nation.rowId);
+      if (nation.regime === "dictatorship") {
+        if (state && state.termEndsAtMs !== null) await saveState({ ...state, termEndsAtMs: null }, nowMs);
+        for (const agenda of mine.filter((row) => row.status === "open"))
+          await o.store.finish(agenda.id, {
+            status: "cancelled",
+            decidedAtMs: nowMs,
+            result: {
+              reason: "regime",
+              abstain: "0",
+              cast: "0",
+              electorate: "0",
+              quorumPm: 0,
+              thresholdPm: 0,
+            },
+          });
+        continue;
+      }
+      if (!state || state.termEndsAtMs === null) {
+        await saveState({ ...(state ?? blankState(nation)), termEndsAtMs: nowMs + rules.termMs }, nowMs);
+        continue;
+      }
+      const electing = mine.some(
+        (agenda) =>
+          agenda.status === "open" && (agenda.kind === "leader_election" || agenda.kind === "leader_removal"),
+      );
+      if (
+        rules.autoElections &&
+        !electing &&
+        nowMs >= state.termEndsAtMs - rules.periodOf("leader_election")
+      ) {
+        const ruling = await tools.ruling(nation, state);
+        await openElection(nation, { key: null, user: null }, nowMs, {}, ruling.key);
+      }
+    }
+    active = await o.store.activeAgendas();
+    const freshStates = await o.store.states();
+    for (const agenda of active) {
+      const nation = nations.get(agenda.nationId);
+      if (agenda.status === "open") {
+        if (agenda.closesAtMs <= nowMs) await close(agenda, nation, nowMs);
+        else if (nation && nation.regime !== "dictatorship")
+          await castNpcVotes(agenda, nation, freshStates.get(nation.rowId));
+      } else if (agenda.status === "passed" && agenda.effectAtMs !== null && agenda.effectAtMs <= nowMs) {
+        await enact(agenda, nation, nowMs);
+      }
+    }
+  };
+
+  const guarded =
+    <A extends unknown[]>(work: (...args: A) => Promise<GovernanceResult>) =>
+    (...args: A): Promise<GovernanceResult> =>
+      serial(() => work(...args)).catch((error: unknown) => {
+        o.log?.error({ err: error }, "governance command failed");
+        return fail("internal_error");
+      });
+
+  return {
+    propose: guarded(propose),
+    vote: guarded(vote),
+    register: guarded(register),
+    tick: () =>
+      serial(tick).catch((error: unknown) => {
+        o.log?.error({ err: error }, "governance tick failed");
+      }),
+    /** 조회(view.ts)가 같은 자격 셈을 쓴다 */
+    standing,
+    mayPropose,
+    tools,
+  };
+}
+
+export type GovernanceService = ReturnType<typeof createGovernanceService>;

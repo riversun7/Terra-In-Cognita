@@ -15,6 +15,7 @@ import { CYBORG_TUNING_KEYS } from "./tuningCyborg.ts";
 import { GARDENER_TUNING_KEYS } from "./tuningGardener.ts";
 import { BUILDING_GATHER_TUNING_KEYS, GATHER_OBJECT_TUNING_KEYS } from "./tuningGather.ts";
 import { HOUSE_TUNING_KEYS } from "./tuningHouse.ts";
+import { GOVERNANCE_TUNING_KEYS } from "./tuningGovernance.ts";
 import { LABOR_TUNING_KEYS } from "./tuningLabor.ts";
 import { NPC_TUNING_KEYS } from "./tuningNpc.ts";
 import { RANKING_TUNING_KEYS } from "./tuningRanking.ts";
@@ -664,6 +665,8 @@ export const TUNING_KEYS: readonly TuningKey[] = [
   ...BUSINESS_TUNING_KEYS,
   // 플레이어 가문(49 S20, 질문 926~935 답): tuningHouse.ts
   ...HOUSE_TUNING_KEYS,
+  // 나라 의결(49 S34, D-5057·질문 2351~2365 답): tuningGovernance.ts
+  ...GOVERNANCE_TUNING_KEYS,
   // 컨디션·초기 스탯 합 상한(49 N43·N9, D-534): tuningCondition.ts
   ...CONDITION_TUNING_KEYS,
   // 유닛 조우(49에 칸 없음 [임시], 기획 D-564 1641·D-570·질문 1905): tuningEncounter.ts

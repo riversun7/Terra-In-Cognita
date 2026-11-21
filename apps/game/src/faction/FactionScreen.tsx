@@ -30,6 +30,7 @@ import { FactionDiplomacy, FactionTreatyOffers } from "./FactionDiplomacy.tsx";
 import { FactionOccupations, FactionShares } from "./FactionShares.tsx";
 import { FactionSide } from "./FactionSide.tsx";
 import { FactionVotes } from "./FactionVotes.tsx";
+import { GovernancePanel } from "./governance/GovernancePanel.tsx";
 import { FactionWars } from "./FactionWars.tsx";
 import { loadFactionOverview } from "./factionQueries.ts";
 import { TAB_NAMES } from "./factionText.ts";
@@ -107,6 +108,8 @@ function TabBody({ tab, view }: { tab: FactionTab; view: FactionOverviewResponse
             preview={sectionKind(section) === "preview"}
             end={canPropose ? <SoonButton label={m.faction_vote_propose()} /> : undefined}
           />
+          {/* 나라 의결(실제 안건·투표 — docs/adr/2026-11-21-governance.md): 시안 자료가 아닐 때 */}
+          {sectionKind(section) === "preview" ? null : <GovernancePanel now={now} />}
           {section.status === "ready" ? <FactionVotes regime={section.data} now={now} /> : <SoonPanel />}
         </>
       );

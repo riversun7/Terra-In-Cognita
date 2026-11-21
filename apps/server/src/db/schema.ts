@@ -967,6 +967,8 @@ export { nationalityChanges, userNationRenown, userNationStandings } from "./cit
 export { currencyProfiles, factionIdentities, factionProfiles, opsGrants, opsSwitches } from "./opsSchema.ts";
 // 플레이어 가문 구성원·신고(docs/adr/2026-11-11-faction-identity.md "바뀜 (926~935 답)")
 export * from "./houseSchema.ts";
+// 나라 의결 표(docs/adr/2026-11-21-governance.md)
+export * from "./governanceSchema.ts";
 // 고정 NPC 국가 자리(D-528 세계 배치 화면): worldPlacementSchema.ts
 export { worldCityLayoutRequests, worldNationPlacements, worldTierRequests } from "./worldPlacementSchema.ts";
 

@@ -90,6 +90,7 @@ export * from "./grid/waterGrid.ts";
 export { type BoatCoefficients, START_BOATS } from "./society/boatCoefficients.ts";
 export { type EncounterCoefficients, START_ENCOUNTER } from "./society/encounterCoefficients.ts";
 export { type BusinessCoefficients, START_BUSINESS } from "./society/businessCoefficients.ts";
+export { type GovernanceCoefficients, START_GOVERNANCE } from "./society/governanceCoefficients.ts";
 export {
   CLIFF_RELIEF_CM,
   ROCK_RELIEF_CM,

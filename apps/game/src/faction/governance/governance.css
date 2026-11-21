@@ -1,0 +1,72 @@
+/*
+ * 나라 의결 칸(세력 화면 투표 탭, docs/adr/2026-11-21-governance.md) — 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 안건 카드는 세력 화면의 .faction-item·.faction-vote-*를 그대로 쓰고, 여기는 올리기 칸·후보 줄·던진 표만 둔다(모바일 390 기준 한 줄로 쌓는다).
+ */
+.gov-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.gov-sub {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-tight);
+}
+.gov-propose {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2) var(--space-3);
+}
+.gov-propose > .gov-sub {
+  flex-basis: 100%;
+}
+.gov-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.gov-candidates,
+.gov-ballot-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gov-candidate,
+.gov-ballot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+.gov-candidate-name {
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.gov-ballots summary {
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.gov-ballots[open] summary {
+  margin-block-end: var(--space-2);
+}
+.gov-status {
+  font-size: var(--font-size-sm);
+  color: var(--color-success);
+}
+.gov-status-error {
+  color: var(--color-danger);
+}
+/* 고르기 칸: 펼침 화살표가 긴 글자(영어 "Leader election")에 겹치지 않게 오른쪽 여백 */
+.gov-field select {
+  padding-inline-end: var(--space-8);
+}

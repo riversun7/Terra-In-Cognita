@@ -72,6 +72,12 @@ export const FX_FEE_ITEM = "service:fx_fee";
 export const EXCHANGE_FEE_ITEM = "service:exchange_fee";
 
 /**
+ * 증권 거래소 이용료 요율 줄의 값 칸 이름(기획 D-587 질문 2474 다 — 지분 체결에 거래세 + 거래소 주인이 정한 이용료). 값 = 만분율, 줄이 없으면 적정 요율
+ * (설정 칸 exchange_share_fee_bp, 한도로 자름)
+ */
+export const SHARE_FEE_ITEM = "service:share_fee";
+
+/**
  * 물류센터 운반 대행 요금 줄의 값 칸 이름(기획 D-576·D-570 1822, docs/adr/2026-11-16-logistics-center.md). 값 = 운반 한 단위(설정 칸 무게 × 칸 수 —
  * 질문 2213 요금 단위 나)마다 요금(주인이 정한다, 0 = 받지 않음), 줄이 없으면 적정가
  */
@@ -134,6 +140,8 @@ const COLUMN_OF: Readonly<Record<string, BookColumn>> = {
   exchange_fee: "income",
   exchange_locker: "income",
   fx_fee: "income",
+  // 증권 거래소 이용료(지분 체결 — 기획 D-587 질문 2474 다)
+  share_fee: "income",
   // 물류센터 운반 대행 요금(기획 D-576, docs/adr/2026-11-16-logistics-center.md)
   haul_service: "income",
   // 판매(사업장 창고에서 판 것 — 주인이 꺼낼 때도 값을 낸다, D-555 1507). NPC 시설 산출을 그 도시(나라)가 사들인 것도(D-570 1887)
@@ -477,6 +485,8 @@ export type BusinessBooksResponse =
       readonly fxFee?: FxFeeView | undefined;
       /** 물자 거래소 이용료(물자 거래소만, D-574 질문 2085). 옛 응답에는 없다 */
       readonly exchangeFee?: FeeRateView | undefined;
+      /** 증권 거래소 이용료(증권 거래소만, D-587 질문 2474 다). 옛 응답에는 없다 */
+      readonly shareFee?: FeeRateView | undefined;
       /** 운반 대행(물류센터만, D-576). 옛 응답에는 없다 */
       readonly haulService?: HaulServiceView | undefined;
       readonly vault: readonly BookBalance[];

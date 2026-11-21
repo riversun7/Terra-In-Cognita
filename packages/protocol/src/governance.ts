@@ -19,6 +19,11 @@ export const COUP_PROTOCOL_VERSION = 59;
  * 더 낮은 판 연결에는 새 결과 코드 대신 not_eligible을 보낸다(governance/gateway.ts)
  */
 export const GOVERNANCE5_PROTOCOL_VERSION = 61;
+/**
+ * 국고 지분 사기 안건(treasury_share_buy + maxPrice)·결과 코드 not_enough_funds에 필요한 가장 낮은 프로토콜 버전(줄기 share-market-2 판 101 — 합칠 때 맞춤,
+ * 기획 D-587 질문 2479 나). 더 낮은 판 기기는 이 안건을 보내지 않아 새 코드를 받지 않는다
+ */
+export const SHARE_BUY_PROTOCOL_VERSION = 101;
 
 const requestId = z.number().int().nonnegative().max(0xffff_ffff);
 const rowId = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
@@ -42,6 +47,8 @@ export const GOVERNANCE_AGENDA_KINDS = [
   "currency_stage",
   /** 가문 독립 선언(질문 2454 — cityId 칸, GOVERNANCE5_PROTOCOL_VERSION부터, 투표 없이 바로) */
   "house_independence",
+  /** 국고 지분 사기(D-587 질문 2479 나 — cityId·shares·maxPrice 칸, 제 나라·남의 나라 도시, SHARE_BUY_PROTOCOL_VERSION부터) */
+  "treasury_share_buy",
 ] as const;
 /** 화폐 단계(formula = 중앙은행 공식, manual = 지도자 하루 조절) */
 export const GOVERNANCE_MONETARY_MODES = ["formula", "manual"] as const;
@@ -83,6 +90,11 @@ export const govProposeMessage = z.object({
   minPrice: z
     .string()
     .regex(/^(0|[1-9][0-9]{0,24})$/)
+    .optional(),
+  /** 국고 지분 사기: 한 주 가장 높은 값(그 도시 주인 나라 화폐 최소 단위, 1 이상 — treasury_share_buy만, SHARE_BUY_PROTOCOL_VERSION부터) */
+  maxPrice: z
+    .string()
+    .regex(/^[1-9][0-9]{0,17}$/)
     .optional(),
 });
 
@@ -172,6 +184,8 @@ export const GOVERNANCE_RESULT_CODES = [
   "coup_protected",
   /** 그 도시 지분 50% 이상을 가진 가문이 아니다(가문 독립 선언 — D-300) */
   "not_majority_holder",
+  /** 국고 돈이 모자라다(국고 지분 사기 — 그 도시 화폐로 주 수 × 값, SHARE_BUY_PROTOCOL_VERSION부터) */
+  "not_enough_funds",
 ] as const;
 export type GovernanceResultCode = (typeof GOVERNANCE_RESULT_CODES)[number];
 

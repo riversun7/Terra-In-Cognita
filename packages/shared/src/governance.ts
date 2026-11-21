@@ -33,6 +33,11 @@ export const AGENDA_KINDS = [
    * NPC 가문은 성향 규칙식(D-323)과 옛 나라와의 힘 비(D-585)로 고른다
    */
   "house_independence",
+  /**
+   * 국고 지분 사기(D-587 질문 2479 나 — 줄기 share-market-2): 국고가 제 나라 도시(되사기)·남의 나라 도시 지분을 정부 지분 시장에서 산다(주 수·한 주 가장 높은
+   * 값). 투표 묶음·문턱은 국고 지분 팔기와 같다 [임시], 독재 = 지배 가문장 직권
+   */
+  "treasury_share_buy",
 ] as const;
 export type AgendaKind = (typeof AGENDA_KINDS)[number];
 
@@ -232,6 +237,8 @@ export interface GovernanceAgendaView {
   readonly cityId: number | null;
   /** 국고 지분 팔기: 주 수·한 주 가장 낮은 값(10진 글자). 아니면 null */
   readonly shareSale: { readonly shares: string; readonly minPrice: string } | null;
+  /** 국고 지분 사기(D-587 질문 2479 나): 주 수·한 주 가장 높은 값(10진 글자). 아니면 null. 옛 응답에는 없다 */
+  readonly shareBuy?: { readonly shares: string; readonly maxPrice: string } | null | undefined;
   /** 선전포고·강화 상대 나라(세력 행 ID·이름 — 선전포고·강화만) */
   readonly targetNation: { readonly id: number; readonly name: GovernanceName | null } | null;
   /** 화폐 단계 전환의 목표 단계·하루 조절(만분율 — 화폐 단계 안건만) */

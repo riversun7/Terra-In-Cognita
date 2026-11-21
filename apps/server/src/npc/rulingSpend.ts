@@ -5,6 +5,8 @@
 // - 쓰기(꺼낸 돈에서, 배당 차례마다 한 번): 가문원 배당 = 몫 × 신앙 성향 배율, 도시 건설 투자 = 몫 × 상업 성향 배율. 배율 = 성향이 가장 낮으면
 //   500‰, 가장 높으면 1500‰(가운데 1000‰, 선형). 두 몫 합이 1000‰을 넘으면 비율대로 줄인다. 나머지는 가문장 지갑에 남는다(사치·저축 — 그 돈은
 //   가문장 자산 랭킹에 든다). 공격 성향은 국고 지원 쪽(국고로 돌려보내는 몫은 지금 규칙 그대로 상업 성향 — @terra/sim npcRulingVaultReturnPm).
+// 바뀜(house-10, 기획 대조 2312 나 — D-555 1510 "요금은 사업장 운영에", npc-wage 시설 금고 임금): 도시 건설 투자는 나라 국고가 아니라 그 지배 가문
+// 도시(수도)의 그 나라 사업장 금고로 간다. 나누기 = 금고가 가장 모자란 곳부터 고르게 채운다(splitInvest — 물 채우기, 기술 기본값). 사업장이 없으면 국고(옛 길).
 // 정수만 쓴다(정수 나눗셈 — 결정적).
 
 /** 성향 범위와 몫(설정 칸) */
@@ -64,4 +66,44 @@ export function splitDividend(total: bigint, members: readonly number[]): { unit
   const each = total / BigInt(members.length);
   if (each <= 0n) return [];
   return members.map((unit) => ({ unit, amount: each }));
+}
+
+/** 투자 받을 사업장 금고 하나(건물 ID·지금 잔고) */
+export interface InvestVault {
+  readonly building: number;
+  readonly balance: bigint;
+}
+
+/**
+ * 투자를 사업장 금고에 나눈다: 잔고가 가장 적은 금고부터 같은 높이가 되게 채운다(물 채우기). 나머지(나눠떨어지지 않는 몇 단위)는 낮은 차례로 1씩.
+ * 같은 잔고는 건물 ID 차례. 0인 몫은 빼고, 나눈 합 = total(금고가 없으면 빈 목록)
+ */
+export function splitInvest(
+  total: bigint,
+  vaults: readonly InvestVault[],
+): { building: number; amount: bigint }[] {
+  if (total <= 0n || vaults.length === 0) return [];
+  const sorted = vaults
+    .map((vault) => ({ building: vault.building, balance: vault.balance > 0n ? vault.balance : 0n }))
+    .toSorted((a, b) => (a.balance < b.balance ? -1 : a.balance > b.balance ? 1 : a.building - b.building));
+  let count = 0;
+  let sum = 0n;
+  let level = 0n;
+  for (const vault of sorted) {
+    count += 1;
+    sum += vault.balance;
+    level = (sum + total) / BigInt(count);
+    const next = sorted[count];
+    if (next === undefined || level <= next.balance) break;
+  }
+  const filled = sorted
+    .slice(0, count)
+    .map((vault) => ({ building: vault.building, amount: level - vault.balance }));
+  let rest = total - filled.reduce((acc, entry) => acc + entry.amount, 0n);
+  for (const entry of filled) {
+    if (rest <= 0n) break;
+    entry.amount += 1n;
+    rest -= 1n;
+  }
+  return filled.filter((entry) => entry.amount > 0n).toSorted((a, b) => a.building - b.building);
 }

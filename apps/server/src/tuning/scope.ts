@@ -393,6 +393,17 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "governance.vacancySplitMs",
   "governance.coupSatisfactionDrop",
   "governance.taxAgendaWidthPm",
+  // 군사 쿠데타(governance/coup.ts — 줄기 governance-3)
+  "governance.coupEnabled",
+  "governance.coupCooldownMs",
+  "governance.coupGatherMs",
+  "governance.coupFailCost",
+  "governance.coupFailSatisfactionDrop",
+  "governance.coupNpcScore",
+  "governance.coupNpcPowerPm",
+  "governance.coupBattleUnits",
+  "governance.coupMeritRenown",
+  "governance.coupCreditReward",
 ];
 
 const LIVE = new Set(SERVER_LIVE_PATHS);

@@ -13952,10 +13952,10 @@
       "min": 86400000,
       "max": 31536000000,
       "desc": {
-        "ko": "주민세를 걷는 간격(하루 끝 단위로 내림). 기획 D-579는 나라가 정한다 — 정부 세금 칸에서 정하지 않은 나라(NPC 나라 포함)가 이 값을 쓴다(기본 주 1회).",
-        "en": "How often resident tax is collected (rounded down to whole days at day end). Design D-579 lets each nation set it — nations that have not set one in the government tax panel (NPC nations included) use this value (default weekly)."
+        "ko": "주민세를 걷는 간격(하루 끝 단위로 내림). 정해진 기본 규칙은 없고 정부가 고르기 목록(하루·한 주)에서 정한다(D-585). 정부 세금 칸에서 고르지 않은 나라(NPC 나라 포함)가 이 값을 쓴다 — [임시] 기본값(주 1회).",
+        "en": "How often resident tax is collected (rounded down to whole days at day end). There is no fixed default rule — each government picks one from a list (daily, weekly) (D-585). Nations that have not picked one in the government tax panel (NPC nations included) use this value — [temporary] default (weekly)."
       },
-      "source": "D-579 \"나라가 정함, 기본 후보 주 1회\"(기획 해석) · 줄기 resident-tax"
+      "source": "D-579 \"나라가 정함\" · D-585 2 \"정부가 정책으로 고름(하루·주 등)\" — 고르지 않은 나라의 기본값은 [임시] · 줄기 resident-tax·residence"
     },
     {
       "id": "nation_resident_tax_nation_pm",
@@ -13970,8 +13970,8 @@
       "min": 0,
       "max": 1000,
       "desc": {
-        "ko": "걷은 주민세 가운데 국세로 국고에 남는 몫. 나머지는 사는 도시의 세금 수입으로 도시 세금 정산(발행 이자 소각 → 도시 운영비 → 남은 이익을 체제대로, D-304)에 든다. 0 = 모두 도시세. 정부 세금 칸에서 정하지 않은 나라가 쓴다.",
-        "en": "Share of collected resident tax kept in the treasury as national tax. The rest counts as the residence city's tax revenue in the city tax settlement (issue interest burn → city upkeep → remaining profit by regime, D-304). 0 = all city tax. Used by nations that have not set one in the government tax panel."
+        "ko": "걷은 주민세 가운데 국세로 국고에 남는 몫. 나머지는 사는 도시의 세금 수입으로 도시 세금 정산(발행 이자 소각 → 도시 운영비 → 남은 이익을 체제대로, D-304)에 든다 — [임시] 이 나눔은 사용자 답이 없다(질문 2484). 0 = 모두 도시세. 정부 세금 칸에서 정하지 않은 나라가 쓴다.",
+        "en": "Share of collected resident tax kept in the treasury as national tax. The rest counts as the residence city's tax revenue in the city tax settlement (issue interest burn → city upkeep → remaining profit by regime, D-304) — [temporary] this split has no user answer yet (question 2484). 0 = all city tax. Used by nations that have not set one in the government tax panel."
       },
       "source": "D-579 \"도시세 → 국세 2중 구조\"(기획 해석) · 줄기 resident-tax"
     },

@@ -14,6 +14,7 @@ import {
   encodeMessage,
   legacyHouseMemberAction,
   legacyHouseMemberCode,
+  NATION_TAX_PERIOD_PROTOCOL_VERSION,
 } from "@terra/protocol";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
@@ -126,7 +127,7 @@ function recruitText(id: number, result: HouseRecruitResult): string {
     : encodeMessage({ t: "house_recruit_result", id, ok: false, code: result.code });
 }
 
-function nationTaxText(id: number, result: NationTaxResult): string {
+function nationTaxText(id: number, result: NationTaxResult, protocolVersion: number): string {
   return result.ok
     ? encodeMessage({
         t: "nation_tax_result",
@@ -136,7 +137,16 @@ function nationTaxText(id: number, result: NationTaxResult): string {
         // 세율 안건을 열었으면(질문 2407 가 — 58판(묶음 1116x, 줄기 판 98)부터, 더 낮은 판은 모른 채 받는다)
         ...(result.agendaId === undefined ? {} : { agendaId: result.agendaId }),
       })
-    : encodeMessage({ t: "nation_tax_result", id, ok: false, code: result.code });
+    : encodeMessage({
+        t: "nation_tax_result",
+        id,
+        ok: false,
+        // 주기 목록 밖(invalid_period)은 줄기 판 99부터 — 더 낮은 판은 internal_error(D-585 2)
+        code:
+          result.code === "invalid_period" && protocolVersion < NATION_TAX_PERIOD_PROTOCOL_VERSION
+            ? "internal_error"
+            : result.code,
+      });
 }
 
 const recruitFail = (code: HouseRecruitResultCode): HouseRecruitResult => ({ ok: false, code });
@@ -252,7 +262,7 @@ export function createHouseGateway(options: {
         if (!closed) link.send(recruitText(id, result));
       };
       const replyTax = (id: number, result: NationTaxResult): void => {
-        if (!closed) link.send(nationTaxText(id, result));
+        if (!closed) link.send(nationTaxText(id, result, link.protocolVersion ?? PROTOCOL_VERSION));
       };
       const answer = (
         message: HouseClientMessage,

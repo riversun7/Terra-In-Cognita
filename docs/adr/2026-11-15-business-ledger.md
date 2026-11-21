@@ -451,3 +451,21 @@ WP1~WP4는 답 없이도 [임시] 추천안으로 갈 수 있다(돈이 사라�
 
 - 시뮬: 판정 그대로 — econ16 시드 1·2·3 × 30일 출력이 팩 판·해시(`content`·`linesHash`) 밖에서 같다(작업 기록 표). 시뮬은 재산·집 고리가 없어 주민세를 걷지 않고, 빚이 없어 탕감도 훑지 않는다. SIM_VERSION 그대로.
 - 판(묶음 1116w, 줄기 판 core@170·프로토콜 95): 팩 core@132(설정 칸 다섯 더함·넷 설명 고침), 프로토콜 57(최소 56 — 현재 − 1), 마이그레이션 `20261121061433_nation_taxes`(prevIds `2d53a6a4`). 리셋 필요 없음.
+
+## 바뀜 (residence — 사는 곳 하나 고르기·주민세 주기 목록·폐허 빚 남김, 2026-11-21 — 사용자 답 D-585)
+
+사용자 답 D-585(코디네이터 전달)를 코드로 옮긴다. 정해지지 않은 모양은 [임시]·가장 작게 두었다(D-584) — 새 질문 2481~2486(`docs/questions/2026-11-21-residence.md`).
+
+| 무엇 | 정한 것 |
+|---|---|
+| 사는 곳(D-585 1) | 집을 여럿 가져도 사는 곳은 **하나**를 고른다. 고르는 쪽 = 유닛(집 몫을 내는 쪽 — D-581 2372, 플레이어 자신 = 사이보그 본체, 질문 2481). 새 표 `unit_residences`(유닛마다 한 줄 — 주인·건물·시각, 외래 키 없음, 마이그레이션 `20261121131627_unit_residences`). 장부 `apps/server/src/residence/book.ts`(원장마다 하나 — `residenceBookOf`) |
+| 고를 수 있는 집 | 다 지은 주거 건물(생활 단계 시설)이 도시에 서 있고, 그 유닛 주인이 가진 집이거나 그 유닛이 지금 배정받은 숙소(지금 플레이어 일꾼이 사는 길). 결과 코드 `not_housing`·`no_city`·`not_eligible`·`unknown_building`·`unchanged`·`unknown_unit` |
+| 고르기·보기 | WebSocket `residence_set { unitId, buildingId | null }` → `residence_result`(줄기 판 99 — 채집 게이트웨이가 함께 받는다, app.ts 줄 수), tRPC `gather.residence { unitId, buildingId? }`. 건물 판 개요(주거 건물)에 [사는 곳] 카드(`apps/game/src/map/building/ResidenceCard.tsx`) |
+| 주민세 거주 | 고른 곳이 쓸 수 있으면 그 유닛은 그 집 도시에서만 산다(집 몫 = 그 집 값 ÷ 그 집에 사는 사람 수, `npc/residentProperty.ts residentsIn`). 숙소 배정·NPC 사는 도시로는 세지 않는다. 고른 것이 없거나 쉬면(집을 잃음·배정이 바뀜·주인 바뀜 — 질문 2485) 옛 길 그대로. 사업장 몫 규칙(사는 유닛이 있는 도시의 주인)은 그대로 |
+| 신용 조회 | `residenceCityOf(유닛)`·`ownerResidenceCities(주인)`(장부 함수). 신용은 governance-5 줄기가 다시 만들어 아직 잇지 않았다(신용 셈은 빚 계정의 도시를 그대로) |
+| 주민세 주기(D-585 2) | 정해진 기본 "주 1회"는 없고 정부가 고르기 목록(`@terra/shared/government RESIDENT_TAX_PERIOD_DAYS` — 하루·한 주 [임시], 질문 2482)에서 고른다. 정부 판 주기 칸 = 고르기. 서버는 목록 밖 값으로 **바꾸는** 것을 막는다(`nation_tax_result` `invalid_period`, 판 99 — 더 낮은 판은 `internal_error`). 주기만 바꾸면 폭 셈에 들지 않아 지도자가 바로 정한다(세율 안건 폭은 세율 칸만). 고르지 않은 나라는 설정 칸 `nation_resident_tax_every_ms`([임시] 기본값 7일) |
+| 도시 몫(D-585 3) | 국세 몫을 뺀 나머지 → D-304 도시 세금 정산 나눔은 사용자 답이 없어 **[임시]** 표시만(코드 주석·설정 칸 설명, 질문 2484). 바뀜 없음 |
+| 폐허 빚(D-585 4) | 2427 나를 되돌림: 도시가 **폐허가 되어도 주민세 빚은 남는다**(복원되어도 그대로 — 질문 2483). 빚은 도시의 나라가 바뀔 때만 사라진다(D-581 E — `moveCity → cityMoved(…, from, now) → cancelResidentDebts`). 폐허 길은 `cityMoved(도시)`(정산 기준점만 다시 잡음) |
+
+- 시뮬: 판정 그대로 — 시뮬은 주민세 고리가 없어 폐허 길의 탕감을 훑지 않았고(바뀐 줄은 고리가 있을 때만 닿는다), 사는 곳은 서버만 갖는다. SIM_VERSION 그대로(68). 전·후 출력 비교는 작업 기록.
+- 판(줄기 판 — 묶음 때 다시 붙인다): 프로토콜 99(최소 98), 팩 core@177(설정 칸 설명 둘 — [임시] 표시), 마이그레이션 `20261121131627_unit_residences`(prevIds `ee4d36aa`·`ace6aeb5`). 리셋 필요 없음.

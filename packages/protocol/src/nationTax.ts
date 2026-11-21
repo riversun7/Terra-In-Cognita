@@ -10,6 +10,11 @@ import { z } from "zod";
 
 /** 이 파일의 메시지에 필요한 가장 낮은 프로토콜 버전(더 낮게 인사한 연결이 보내면 invalid_message) */
 export const NATION_TAX_PROTOCOL_VERSION = 57;
+/**
+ * 결과 코드 invalid_period(주민세 주기가 고르기 목록 밖 — D-585 2, @terra/shared/government RESIDENT_TAX_PERIOD_DAYS)가 가는 가장 낮은 판(줄기 판 99 — 묶음 때
+ * 다시 붙인다). 더 낮은 판 연결은 internal_error를 받는다(그 판 화면은 목록 밖 값도 보낼 수 있었다)
+ */
+export const NATION_TAX_PERIOD_PROTOCOL_VERSION = 99;
 
 const requestId = z.number().int().nonnegative().max(0xffff_ffff);
 
@@ -19,7 +24,7 @@ export const NATION_TAX_LIMITS = {
   incomeTaxBp: { min: 0, max: 10_000 },
   /** 주민세(재산 ‰, 주기마다) */
   residentTaxPm: { min: 0, max: 1000 },
-  /** 주민세 주기(날) */
+  /** 주민세 주기(날). 서버는 고르기 목록(@terra/shared/government RESIDENT_TAX_PERIOD_DAYS) 안의 값만 받는다(D-585 2 — invalid_period) */
   residentEveryDays: { min: 1, max: 365 },
   /** 주민세 국세 몫(‰) */
   residentNationPm: { min: 0, max: 1000 },
@@ -51,6 +56,8 @@ export const NATION_TAX_RESULT_CODES = [
   "not_leader",
   /** 내 가문이 나라가 아니다(도시를 가진 독립 가문이 아님 — 봉신·도시 없는 가문) */
   "not_ruler",
+  /** 주민세 주기(날)가 고르기 목록 밖(D-585 2 — 판 99부터, 더 낮은 판은 internal_error) */
+  "invalid_period",
 ] as const;
 export type NationTaxResultCode = (typeof NATION_TAX_RESULT_CODES)[number];
 

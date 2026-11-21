@@ -951,6 +951,8 @@ export * from "./governanceSchema.ts";
 export { nationTaxes } from "./nationTaxSchema.ts";
 // 신용 점수 깎은 몫(D-581 — docs/adr/2026-11-21-credit.md): creditSchema.ts
 export { creditMarks } from "./creditSchema.ts";
+// 사는 곳(D-585 — docs/adr/2026-11-15-business-ledger.md "바뀜 (residence …)"): residenceSchema.ts
+export { unitResidences } from "./residenceSchema.ts";
 // 고정 NPC 국가 자리(D-528 세계 배치 화면): worldPlacementSchema.ts
 export { worldCityLayoutRequests, worldNationPlacements, worldTierRequests } from "./worldPlacementSchema.ts";
 

@@ -1,7 +1,14 @@
 // 정부 판 나라 세금 칸의 글자·입력 셈(순수 함수 — NationTaxPolicy.tsx가 쓴다). 줄기 tax-2(질문 2322 나·2373 가).
 // 소득세는 만분율(화면은 %, 소수 둘째 자리까지), 주민세·국세 몫은 ‰, 주기는 날. 빈칸 = 정하지 않음(기본값을 따른다). 범위는 프로토콜과 같다(NATION_TAX_LIMITS).
-import type { GovernmentTaxField, GovernmentTaxSource, GovernmentTaxes } from "@terra/shared/government";
-import { NATION_TAX_LIMITS } from "@terra/protocol";
+// 주기는 고르기 목록(RESIDENT_TAX_PERIOD_DAYS — 사용자 답 D-585 2)에서 고른다. 목록 밖 옛 값(전에 정해 둔 것)은 그대로 둘 수 있게 고르기에 함께 보인다.
+import {
+  type GovernmentTaxField,
+  type GovernmentTaxSource,
+  type GovernmentTaxes,
+  RESIDENT_TAX_PERIOD_DAYS,
+} from "@terra/shared/government";
+import { NATION_TAX_LIMITS, type NationTaxResultCode } from "@terra/protocol";
+import { HOUSE_MEMBER_ERROR_TEXT } from "../faction/identity/houseText.ts";
 import { m } from "../paraglide/messages.js";
 import { type Locale, getLocale } from "../paraglide/runtime.js";
 
@@ -107,4 +114,17 @@ export function applySavedTaxes(
     residentNationPm: pick(before.residentNationPm, body.residentNationPm),
   };
   return { taxes, stale };
+}
+
+/** 주기 고르기 줄(날, 차례대로): 목록 + 지금 고른 값이 목록 밖이면 그 값(전에 정해 둔 옛 값 — 서버가 그대로 두는 것은 받는다) */
+export function periodChoices(current: string): number[] {
+  const days = new Set(RESIDENT_TAX_PERIOD_DAYS);
+  const now = Number(current);
+  if (current.trim() !== "" && Number.isInteger(now) && now > 0) days.add(now);
+  return [...days].toSorted((a, b) => a - b);
+}
+
+/** 나라 세금 실패 코드 → 문구(가문 문구 표 + 주기 목록 밖) */
+export function nationTaxErrorText(code: NationTaxResultCode | "offline" | "timeout"): string {
+  return code === "invalid_period" ? m.government_tax_invalid_period() : HOUSE_MEMBER_ERROR_TEXT[code]();
 }

@@ -487,6 +487,8 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
       message.t === "gov_result" ||
       // 나라 세금 결과(프로토콜 57)는 정부 판 세금 칸(government/nationTaxCommands.ts)이 받는다
       message.t === "nation_tax_result" ||
+      // 사는 곳 고르기 결과(줄기 판 99)는 건물 판 사는 곳 카드(map/building/residenceData.ts)가 받는다
+      message.t === "residence_result" ||
       // 배 결과(프로토콜 27)는 배 단추(boats/boatCommands.ts)가 받는다
       message.t === "boat_result" ||
       // 사업장 장부 결과(프로토콜 34)는 장부 칸(business/businessCommands.ts)이 받는다

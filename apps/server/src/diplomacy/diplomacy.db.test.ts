@@ -267,6 +267,7 @@ describe.skipIf(!TEST_DATABASE_URL)("지도자끼리 조약(diplomacy)", () => {
       await gov.service.propose(me.userId, { kind: "war_declaration", targetNationId: enemy.id }),
     ).toMatchObject({ ok: true });
     const ctx = npc.houseRecruit.context();
+    if (!ctx) throw new Error("npc context");
     const mine = factionView(ctx, targetFaction, clock).strength;
     const theirs = factionView(ctx, enemyFaction, clock).strength;
     const asked = await dip.service.requestWar(me.userId, { treatyId: made.ref, enemyNationId: enemy.id });

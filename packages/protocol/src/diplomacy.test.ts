@@ -23,12 +23,15 @@ function decodes(decode: (text: string) => unknown, message: unknown): boolean {
 }
 
 const propose = {
-  t: "dip_propose",
+  t: "dip_propose" as const,
   id: 3,
   targetNationId: 12,
-  clauses: [{ kind: "alliance" }, { kind: "protection", protector: "them", tributePm: 30 }],
+  clauses: [
+    { kind: "alliance" as const },
+    { kind: "protection" as const, protector: "them" as const, tributePm: 30 },
+  ],
   days: 14,
-} as const;
+};
 
 describe("조약 메시지", () => {
   it("판: 지금 판 안, 받는 가장 낮은 판 = 지금 − 1", () => {
@@ -39,12 +42,12 @@ describe("조약 메시지", () => {
   it("왕복: 제안·맞제안·답·참전 요청·참전 답", () => {
     expect(decodeClientMessage(encodeMessage(propose))).toEqual(propose);
     const counter = {
-      t: "dip_counter",
+      t: "dip_counter" as const,
       id: 4,
       treatyId: 9,
-      clauses: [{ kind: "non_aggression" }],
+      clauses: [{ kind: "non_aggression" as const }],
       days: 7,
-    } as const;
+    };
     expect(decodeClientMessage(encodeMessage(counter))).toEqual(counter);
     const respond = { t: "dip_respond", id: 5, treatyId: 9, accept: false } as const;
     expect(decodeClientMessage(encodeMessage(respond))).toEqual(respond);

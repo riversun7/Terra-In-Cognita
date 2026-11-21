@@ -7,6 +7,11 @@
 // - 거리는 정수 차이(|Δ|, 대각선은 |외적| ÷ √2)라 면 틀이 돌아가 있어도 같다. 반지름 밖은 2차맵마다 자기 물길(직선 토막 + 휘는 곡선)이다.
 //   물길의 직선 토막(STUB) 길이가 반지름 + 물길 반폭보다 길어 반지름 경계에서 두 규칙이 같은 값을 낸다.
 // 폭·깊이는 하천 등급(Strahler)의 [임시] 표다(기획 질문 126 답 뒤 Step 5 설정값). 실수 계산은 사칙연산·Math.sqrt만 쓴다(명세가 정한 함수).
+// 바뀜(2차맵 생성기 2판, 사용자 지적 2026-11-21 "강 지형이 너무 똑같이 생겼다 강의 폭을 더 다양하게 넓게", 답 "넓히되 얕은 여울 자리 둠"):
+// - 등급별 폭을 넓혔다(CHANNEL_BY_ORDER). 건너는 자리(변)마다 폭 배율을 두 칸 번호의 해시로 정해(edgeWidthPm — 맞닿은 2차맵도 같은 값)
+//   건너는 자리·곧은 토막은 그 폭, 안쪽 굽은 물길은 모이는 점의 칸 배율(joinWidthPm)까지 폭이 고르게 바뀐다. 꼭짓점(대각선)은 배율 1.
+// - 깊은 강(등급 3 이상)의 안쪽 굽은 물길마다 여울(fords) 하나: 그 둘레 원 안의 물길은 얕게(FORD_DEPTH_CM) 깎고 등급 1로 적는다
+//   → 지표가 얕은 물(걸어서 건넘)이 된다. 여울은 경계에서 STUB_LENGTH 넘게 안쪽이라 이음매에 닿지 않는다.
 import { mix32 } from "../generator/random.ts";
 import { NEIGHBOR_DI, NEIGHBOR_DJ } from "../generator/grid.ts";
 import { WATER_RIVER } from "../tiles/fields.ts";
@@ -18,20 +23,32 @@ import { NO_RECEIVER, type PlanetValues } from "./planetValues.ts";
 /** 건너는 자리 둘레에서 직선 거리를 쓰는 반지름(꼭짓점 단위) */
 export const ZONE_RADIUS = 8;
 /** 변 건너는 자리를 변 끝에서 띄우는 거리(꼭짓점) — 꼭짓점 둘레 반지름과 겹치지 않게 */
-export const CROSSING_MARGIN = 16;
-/** 경계에서 안쪽으로 곧게 들어가는 길이(꼭짓점, ZONE_RADIUS + 최대 반폭보다 길다) */
-export const STUB_LENGTH = 12;
+export const CROSSING_MARGIN = 20;
+/** 경계에서 안쪽으로 곧게 들어가는 길이(꼭짓점, ZONE_RADIUS + 건너는 자리 최대 반폭보다 길다) */
+export const STUB_LENGTH = 18;
 /** 흐름을 받기만 하는 칸(호수·바다·마른 분지)에서 물길이 얕아지며 끝나는 길이(꼭짓점) */
 export const FADE_LENGTH = 24;
 
-/** [임시] 하천 등급 → 반폭(꼭짓점 = 지형 칸 약 11.7m)·깊이(cm). 등급 5 이상은 마지막 값 */
+/** [임시] 하천 등급 → 반폭(꼭짓점 = 지형 칸 약 11.7m)·깊이(cm). 등급 5 이상은 마지막 값 (2판: 반폭 약 2~2.6배) */
 const CHANNEL_BY_ORDER: readonly { readonly halfWidth: number; readonly depthCm: number }[] = [
-  { halfWidth: 0.6, depthCm: 100 },
-  { halfWidth: 0.9, depthCm: 150 },
-  { halfWidth: 1.4, depthCm: 250 },
-  { halfWidth: 2.0, depthCm: 350 },
-  { halfWidth: 2.5, depthCm: 500 },
+  { halfWidth: 1.2, depthCm: 100 },
+  { halfWidth: 2.0, depthCm: 150 },
+  { halfWidth: 3.2, depthCm: 250 },
+  { halfWidth: 4.8, depthCm: 350 },
+  { halfWidth: 6.5, depthCm: 500 },
 ];
+/** 건너는 자리 폭 배율(천분율) 범위 [EDGE_WIDTH_MIN_PM, EDGE_WIDTH_MIN_PM + EDGE_WIDTH_SPAN_PM) */
+const EDGE_WIDTH_MIN_PM = 800;
+const EDGE_WIDTH_SPAN_PM = 500;
+/** 모이는 점(칸 안 가운데) 폭 배율 범위 */
+const JOIN_WIDTH_MIN_PM = 700;
+const JOIN_WIDTH_SPAN_PM = 800;
+/** 여울: 깎는 깊이(cm, 걸어서 건너는 얕은 물), 원 반지름 = 물길 반폭 × FORD_RADIUS_PM ÷ 1000 + FORD_RADIUS_EXTRA */
+export const FORD_DEPTH_CM = 80;
+const FORD_RADIUS_PM = 1300;
+const FORD_RADIUS_EXTRA = 2;
+/** 여울을 두는 하천 등급(이 등급부터 깊은 물) */
+const FORD_MIN_ORDER = 3;
 
 export function channelSize(order: number): { readonly halfWidth: number; readonly depthCm: number } {
   const index = Math.min(CHANNEL_BY_ORDER.length, Math.max(1, order)) - 1;
@@ -46,6 +63,15 @@ export interface ChannelZone {
   readonly dx: number;
   readonly dy: number;
   readonly order: number;
+  /** 반폭(꼭짓점) — 등급 반폭 × 건너는 자리 배율 */
+  readonly halfWidth: number;
+}
+
+/** 여울: 이 원 안의 물길은 얕게 깎고 등급 1(얕은 물)로 적는다 */
+export interface ChannelFord {
+  readonly x: number;
+  readonly y: number;
+  readonly radius: number;
 }
 
 /** 물길 토막(꼭짓점 좌표, x = 열 c, y = 행 r). 깊이는 a에서 b로 이어진다 */
@@ -57,11 +83,29 @@ export interface ChannelSegment {
   readonly order: number;
   readonly depthA: number;
   readonly depthB: number;
+  /** 반폭(꼭짓점) — a에서 b로 고르게 바뀐다 */
+  readonly halfA: number;
+  readonly halfB: number;
 }
 
 export interface RiverLayout {
   readonly zones: readonly ChannelZone[];
   readonly segments: readonly ChannelSegment[];
+  readonly fords: readonly ChannelFord[];
+}
+
+/** 건너는 자리(변) 폭 배율(천분율): 두 칸 번호를 정렬한 열쇠의 해시 — 맞닿은 2차맵도 같은 값 */
+export function edgeWidthPm(me: number, other: number, salt: number): number {
+  const low = Math.min(me, other);
+  const high = Math.max(me, other);
+  const hash = mix32((mix32((salt ^ 0x5bd1e995 ^ high) >>> 0) ^ Math.imul(low + 1, 0x27d4eb2d)) >>> 0);
+  return EDGE_WIDTH_MIN_PM + (hash % EDGE_WIDTH_SPAN_PM);
+}
+
+/** 모이는 점 폭 배율(천분율, 칸 번호 해시) */
+function joinWidthPm(cell: number, salt: number): number {
+  const hash = mix32((salt ^ 0x68e31da4 ^ Math.imul(cell + 1, 0x165667b1)) >>> 0);
+  return JOIN_WIDTH_MIN_PM + (hash % JOIN_WIDTH_SPAN_PM);
 }
 
 const isRiverCell = (values: PlanetValues, cell: number): boolean =>
@@ -154,6 +198,8 @@ function bezierSegments(
   b: readonly [number, number],
   order: number,
   depth: number,
+  halfFrom: number,
+  halfTo: number,
 ): void {
   const length =
     distance2d(control[0] - a[0], control[1] - a[1]) + distance2d(b[0] - control[0], b[1] - control[1]);
@@ -165,7 +211,9 @@ function bezierSegments(
     const u = 1 - t;
     const x = u * u * a[0] + 2 * u * t * control[0] + t * t * b[0];
     const y = u * u * a[1] + 2 * u * t * control[1] + t * t * b[1];
-    out.push({ ax: px, ay: py, bx: x, by: y, order, depthA: depth, depthB: depth });
+    const halfA = halfFrom + ((halfTo - halfFrom) * (k - 1)) / steps;
+    const halfB = halfFrom + ((halfTo - halfFrom) * k) / steps;
+    out.push({ ax: px, ay: py, bx: x, by: y, order, depthA: depth, depthB: depth, halfA, halfB });
     px = x;
     py = y;
   }
@@ -178,12 +226,21 @@ function bezierSegments(
 export function riverLayout(values: PlanetValues, map: MapCoords, nb: Int32Array, salt: number): RiverLayout {
   const zones: ChannelZone[] = [];
   const segments: ChannelSegment[] = [];
+  const fords: ChannelFord[] = [];
   const me = nb[4] ?? -1;
   const at = (di: number, dj: number): number => nb[(dj + 1) * 3 + (di + 1)] ?? -1;
   const ownRiver = isRiverCell(values, me);
   const ownOrder = values.river[me] ?? 0;
-  /** 이 칸의 들어오는·나가는 자리: 경계 점, 안쪽 방향(정수), 등급 */
-  const ends: { x: number; y: number; dx: number; dy: number; order: number; outflow: boolean }[] = [];
+  /** 이 칸의 들어오는·나가는 자리: 경계 점, 안쪽 방향(정수), 등급, 반폭 */
+  const ends: {
+    x: number;
+    y: number;
+    dx: number;
+    dy: number;
+    order: number;
+    outflow: boolean;
+    half: number;
+  }[] = [];
 
   // 4이웃 변: 나에게 흘러들거나 내가 흘러가면 건너는 자리
   for (const [di, dj] of [
@@ -201,8 +258,9 @@ export function riverLayout(values: PlanetValues, map: MapCoords, nb: Int32Array
     // 직선 방향: 변에 수직(열 방향이면 (1, 0), 행 방향이면 (0, 1)). 안쪽 = 이웃 반대쪽(행은 J와 반대)
     const lineX = di !== 0 ? 1 : 0;
     const lineY = di !== 0 ? 0 : 1;
-    zones.push({ x: crossing.x, y: crossing.y, dx: lineX, dy: lineY, order });
-    ends.push({ x: crossing.x, y: crossing.y, dx: -di, dy: dj, order, outflow });
+    const half = (channelSize(order).halfWidth * edgeWidthPm(me, other, salt)) / 1000;
+    zones.push({ x: crossing.x, y: crossing.y, dx: lineX, dy: lineY, order, halfWidth: half });
+    ends.push({ x: crossing.x, y: crossing.y, dx: -di, dy: dj, order, outflow, half });
   }
 
   // 꼭짓점: 두 대각 짝 (나, 대각 칸)·(옆 칸 둘)의 흐름. 정육면체 꼭짓점(대각 칸 없음)은 건너뛴다
@@ -222,21 +280,30 @@ export function riverLayout(values: PlanetValues, map: MapCoords, nb: Int32Array
     if (ownIn || ownOut) {
       const order = ownOut ? ownOrder : (values.river[diagonal] ?? 1);
       // 나 ↔ 대각 칸 직선: 면 (I, J) 방향 (di, dj) → 2차맵 (열, 행) 방향 (di, −dj)
-      zones.push({ x: corner.x, y: corner.y, dx: di, dy: -dj, order });
-      ends.push({ x: corner.x, y: corner.y, dx: -di, dy: dj, order, outflow: ownOut });
+      const half = channelSize(order).halfWidth;
+      zones.push({ x: corner.x, y: corner.y, dx: di, dy: -dj, order, halfWidth: half });
+      ends.push({ x: corner.x, y: corner.y, dx: -di, dy: dj, order, outflow: ownOut, half });
     }
     const crossAB = flowsInto(values, sideA, sideB);
     const crossBA = flowsInto(values, sideB, sideA);
     if (crossAB || crossBA) {
       const order = values.river[crossAB ? sideA : sideB] ?? 1;
       // 옆 칸 둘을 잇는 직선: 면 방향 (−di, dj) → 2차맵 (−di, −dj)
-      zones.push({ x: corner.x, y: corner.y, dx: -di, dy: -dj, order });
+      zones.push({
+        x: corner.x,
+        y: corner.y,
+        dx: -di,
+        dy: -dj,
+        order,
+        halfWidth: channelSize(order).halfWidth,
+      });
     }
   }
 
   // 자기 물길: 들어오는 자리마다 → 모이는 점 → 나가는 자리. 강 칸이 아니면(호수·바다 등) 들어오는 토막만 얕아지며 끝난다
   const join = joinPoint(me, salt);
-  for (const end of ends) {
+  const joinPm = joinWidthPm(me, salt);
+  for (const [endIndex, end] of ends.entries()) {
     const { depthCm } = channelSize(end.order);
     const norm = distance2d(end.dx, end.dy);
     const ux = end.dx / norm;
@@ -252,6 +319,8 @@ export function riverLayout(values: PlanetValues, map: MapCoords, nb: Int32Array
         order: end.order,
         depthA: depthCm,
         depthB: depthCm,
+        halfA: end.half,
+        halfB: end.half,
       });
       segments.push({
         ax: stubEnd[0],
@@ -261,6 +330,8 @@ export function riverLayout(values: PlanetValues, map: MapCoords, nb: Int32Array
         order: end.order,
         depthA: depthCm,
         depthB: 0,
+        halfA: end.half,
+        halfB: end.half,
       });
       continue;
     }
@@ -272,12 +343,25 @@ export function riverLayout(values: PlanetValues, map: MapCoords, nb: Int32Array
       order: end.order,
       depthA: depthCm,
       depthB: depthCm,
+      halfA: end.half,
+      halfB: end.half,
     });
     const control: [number, number] = [stubEnd[0] + ux * 16, stubEnd[1] + uy * 16];
-    bezierSegments(segments, stubEnd, control, [join.x, join.y], end.order, depthCm);
+    const joinHalf = (channelSize(end.order).halfWidth * joinPm) / 1000;
+    bezierSegments(segments, stubEnd, control, [join.x, join.y], end.order, depthCm, end.half, joinHalf);
+    // 깊은 강: 굽은 물길 가운데쯤(t 0.35 ~ 0.65)에 여울 하나 — 경계에서 STUB_LENGTH 넘게 안쪽이다
+    if (end.order >= FORD_MIN_ORDER) {
+      const hash = mix32((salt ^ 0x3c6ef372 ^ Math.imul(me + 1, 0x7feb352d) ^ (endIndex + 1)) >>> 0);
+      const t = 0.35 + (hash % 31) / 100;
+      const u = 1 - t;
+      const fx = u * u * stubEnd[0] + 2 * u * t * control[0] + t * t * join.x;
+      const fy = u * u * stubEnd[1] + 2 * u * t * control[1] + t * t * join.y;
+      const half = end.half + (joinHalf - end.half) * t;
+      fords.push({ x: fx, y: fy, radius: (half * FORD_RADIUS_PM) / 1000 + FORD_RADIUS_EXTRA });
+    }
   }
   // 샘(들어오는 물 없이 시작하는 강 칸)은 모이는 점에서 시작한다 — 나가는 토막만 있다(위 반복에 포함)
-  return { zones, segments };
+  return { zones, segments, fords };
 }
 
 /** 물길 단면: 반폭 안에서 포물선(가운데 깊이 1, 반폭에서 0) */
@@ -310,7 +394,8 @@ export function rasterizeChannels(layout: RiverLayout): ChannelRaster {
   };
   const r2 = ZONE_RADIUS * ZONE_RADIUS;
   for (const zone of layout.zones) {
-    const { halfWidth, depthCm } = channelSize(zone.order);
+    const { depthCm } = channelSize(zone.order);
+    const halfWidth = zone.halfWidth;
     const diagonal = zone.dx !== 0 && zone.dy !== 0;
     for (let y = Math.max(0, zone.y - ZONE_RADIUS); y <= Math.min(SM_TERRAIN, zone.y + ZONE_RADIUS); y++) {
       for (let x = Math.max(0, zone.x - ZONE_RADIUS); x <= Math.min(SM_TERRAIN, zone.x + ZONE_RADIUS); x++) {
@@ -328,7 +413,7 @@ export function rasterizeChannels(layout: RiverLayout): ChannelRaster {
     }
   }
   for (const segment of layout.segments) {
-    const { halfWidth } = channelSize(segment.order);
+    const halfWidth = Math.max(segment.halfA, segment.halfB);
     const minX = Math.max(0, Math.floor(Math.min(segment.ax, segment.bx) - halfWidth));
     const maxX = Math.min(SM_TERRAIN, Math.ceil(Math.max(segment.ax, segment.bx) + halfWidth));
     const minY = Math.max(0, Math.floor(Math.min(segment.ay, segment.by) - halfWidth));
@@ -347,10 +432,33 @@ export function rasterizeChannels(layout: RiverLayout): ChannelRaster {
         const px = segment.ax + sx * t - x;
         const py = segment.ay + sy * t - y;
         const depthHere = segment.depthA + (segment.depthB - segment.depthA) * t;
-        const depth = Math.floor(depthHere * profile(Math.sqrt(px * px + py * py), halfWidth));
+        const halfHere = segment.halfA + (segment.halfB - segment.halfA) * t;
+        const depth = Math.floor(depthHere * profile(Math.sqrt(px * px + py * py), halfHere));
         if (depth > 0) apply(index, depth, segment.order);
       }
     }
+  }
+  // 여울: 원 안의 물길(건너는 자리 반지름 밖)은 얕게, 등급 1(얕은 물 지표)로
+  for (const ford of layout.fords) {
+    const r2f = ford.radius * ford.radius;
+    for (
+      let y = Math.max(0, Math.floor(ford.y - ford.radius));
+      y <= Math.min(SM_TERRAIN, Math.ceil(ford.y + ford.radius));
+      y++
+    )
+      for (
+        let x = Math.max(0, Math.floor(ford.x - ford.radius));
+        x <= Math.min(SM_TERRAIN, Math.ceil(ford.x + ford.radius));
+        x++
+      ) {
+        const index = y * SM_VERTICES + x;
+        if (inZone[index] || (carveCm[index] ?? 0) <= 0) continue;
+        const ox = x - ford.x;
+        const oy = y - ford.y;
+        if (ox * ox + oy * oy > r2f) continue;
+        carveCm[index] = Math.min(carveCm[index] ?? 0, FORD_DEPTH_CM);
+        order[index] = 1;
+      }
   }
   return { carveCm, order };
 }

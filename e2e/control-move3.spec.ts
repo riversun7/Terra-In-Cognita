@@ -185,7 +185,9 @@ test.describe("기획 답 630~637: 플레이어", () => {
       await page.locator('.map-nearby-row[data-kind="unit"][data-mine="false"]').first().click();
       await expect(peek).toBeVisible({ timeout: 5_000 });
     }
-    await expect(peek.locator(".map-peek-line")).toContainText("시험 나라", { timeout: 10_000 });
+    await expect(peek.locator(".map-peek-line:not(.map-peek-owner)")).toContainText("시험 나라", {
+      timeout: 10_000,
+    });
     await expect(peek.locator(".map-peek-title")).toContainText(message("ko", "roster_type_human"));
 
     await openNearby(page, "units");

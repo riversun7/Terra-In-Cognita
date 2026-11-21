@@ -11,6 +11,7 @@ import { buildingsRouter } from "./buildings.ts";
 import { creaturesRouter } from "./creatures.ts";
 import { expTableRouter } from "./expTable.ts";
 import { nationsRouter } from "./nations.ts";
+import { npcAiRouter } from "./npcAi.ts";
 import { formulasRouter } from "./formulas.ts";
 import { holdingsRouter } from "./holdings.ts";
 import { vitalsRouter } from "./vitals.ts";
@@ -70,6 +71,8 @@ export const appRouter = router({
   creatures: creaturesRouter,
   // 개발자 시작 국가 설정 편집기(/dev/nations, docs/adr/2026-11-10-nation-editor.md)
   nations: nationsRouter,
+  // 개발자 NPC 자율행동·성향 에디터 판단 실험실(/dev/npc-ai, docs/adr/2026-11-20-npc-autonomous-ai.md)
+  npcAi: npcAiRouter,
   // 개발자 유닛 공통 경험치 테이블 편집기(/dev/exp-table)
   expTable: expTableRouter,
   // 개발자 전투 실험실(같은 화면의 [전투 실험실] 탭, 같은 ADR "바뀜 (2026-11-01, 전투 실험실)")

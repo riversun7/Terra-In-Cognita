@@ -146,6 +146,6 @@
 - 화면: 의결 칸에 쿠데타 칸(`apps/game/src/faction/governance/CoupSection.tsx` — 일으키기·편 들기·결과), 안건 종류 둘·결과 코드 다섯 문구, 도시·지분 팔기 줄(문구 24개 ko·en).
 - 7축 성향(main 290241aa68 — NPC 가문 7축 실효 성향 `npcHouseAi.ts`)은 아직 의결(NPC 표·후보·쿠데타)에 잇지 않았다: 의결 NPC 규칙식은 governance-2와 같은 나라 4축 성향 + 도시 만족도다(TODO —
   가문 7축 성향으로 바꾸는 줄기).
-- 판: 마이그레이션 `MIGRATION_ID`(새 표 셋 + 안건 종류 검사 넓히기 — 직전 판 앱 그대로. 되돌리면 새 종류 안건을 모르는 종류로 읽는다 — Assumed 해 없음), 프로토콜 98(줄기 판 — 받는 가장 낮은
+- 판: 마이그레이션 `20261121112634_governance_coups`(prevIds = main 끝 `1efb9fa9`(npc_unit_traits))(새 표 셋 + 안건 종류 검사 넓히기 — 직전 판 앱 그대로. 되돌리면 새 종류 안건을 모르는 종류로 읽는다 — Assumed 해 없음), 프로토콜 98(줄기 판 — 받는 가장 낮은
   판 97, `gov_coup`·`gov_coup_join`·결과 코드 5·행동 2·`treasury_share_sale` 칸, 더하기만, `COUP_PROTOCOL_VERSION`), 팩 core@173(줄기 판 — 설정 칸 10개 `gov_coup_*`), SIM_VERSION 그대로
   (econ16·war16 시드 1~3 30일 출력이 머리 줄의 팩 판·해시 말고 같다).

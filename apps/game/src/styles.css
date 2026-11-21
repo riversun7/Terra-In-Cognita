@@ -239,13 +239,13 @@ button[aria-disabled="true"] {
   background-color: var(--color-primary);
   color: var(--color-on-primary);
 }
-/* 작은 버튼(계정 줄, 새 버전 배너, 쪽 넘기기) — 누르는 영역은 그대로 44px */
+/* 작은 버튼(계정 줄, 새 버전 배너, 쪽 넘기기) — 누르는 영역 최소는 --tap-min */
 .button-small {
   min-height: var(--control-h-sm);
   padding: var(--space-1) var(--space-4);
   font-size: var(--font-size-sm);
 }
-/* 글자만 있는 버튼(링크 모양). 누르는 영역은 44px */
+/* 글자만 있는 버튼(링크 모양). 누르는 영역 최소는 --tap-min */
 .button-text {
   --button-lip: transparent;
   --button-press: 0px;

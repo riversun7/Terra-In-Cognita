@@ -67,8 +67,10 @@
   --control-h-sm: 38px;
   /* 나란한 버튼의 기본 너비(글자 크기 기준) */
   --button-basis: 8em;
-  /* 누르는 영역의 최소 크기(가로·세로) */
+  /* 누르는 영역의 권장 크기(가로·세로). 배치 값(위 띠 높이 등)에 쓴다 */
   --tap-size: 44px;
+  /* 누르는 영역의 최소 크기 — WCAG 2.2 AA 2.5.8(24px). 화면 시험 smallTapTargets가 본다(ADR 2026-11-21-tap-target-relax) */
+  --tap-min: 24px;
   /* 가는 선(미리 보기 테두리, 칩), 읽기 프로그램 전용 글의 크기 */
   --hairline: 1px;
   --border-w: 1px;

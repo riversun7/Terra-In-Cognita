@@ -1,4 +1,5 @@
 // 전투 판정 타입 — battle.ts가 쓰는 사양·상태·결과 모양(직렬화할 수 있는 값만). docs/adr/2026-10-31-combat-core.md
+import type { AiTactics } from "@terra/shared/aiTactics";
 import type { BattleMapInput } from "./battleMap.ts";
 import type { CommandRank } from "./command.ts";
 import type { ActiveEffect, ModifierStat } from "./effects.ts";
@@ -164,6 +165,11 @@ export interface CombatUnitSpec {
   readonly displaceSizePm?: number | undefined;
   /** 쓸 수 있는 스킬(고유 + 장비, 슬롯 수 안, D-426·D-427). 목록 차례가 AI 우선순위다([임시]) */
   readonly skills: readonly CombatSkill[];
+  /**
+   * 실효 AI 작전 슬라이더(D-5040 · ADR 2026-11-20 4단계 WP-4).
+   * 없으면 옛 판정 그대로(moveAi.ts 기본값 유지 — 기존 리플레이·골든 해시 100% 호환)
+   */
+  readonly aiTactics?: AiTactics | undefined;
 }
 
 export interface BattleSideSpec {

@@ -18,6 +18,7 @@ import { HOUSE_TUNING_KEYS } from "./tuningHouse.ts";
 import { GOVERNANCE_TUNING_KEYS } from "./tuningGovernance.ts";
 import { LABOR_TUNING_KEYS } from "./tuningLabor.ts";
 import { NPC_TUNING_KEYS } from "./tuningNpc.ts";
+import { NPC_AI_TUNING_KEYS } from "./tuningNpcAi.ts";
 import { RANKING_TUNING_KEYS } from "./tuningRanking.ts";
 import { SWITCH_TUNING_KEYS } from "./tuningSwitches.ts";
 import { TERRITORY_TUNING_KEYS } from "./tuningTerritory.ts";
@@ -671,6 +672,8 @@ export const TUNING_KEYS: readonly TuningKey[] = [
   ...CONDITION_TUNING_KEYS,
   // 유닛 조우(49에 칸 없음 [임시], 기획 D-564 1641·D-570·질문 1905): tuningEncounter.ts
   ...ENCOUNTER_TUNING_KEYS,
+  // NPC 자율행동·7축 성향·조직 합성·충성도 개입(docs/adr/2026-11-20-npc-autonomous-ai.md): tuningNpcAi.ts
+  ...NPC_AI_TUNING_KEYS,
 ];
 
 function getPath(root: unknown, path: string): number {

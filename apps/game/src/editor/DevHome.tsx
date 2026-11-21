@@ -87,6 +87,15 @@ const DEV_TOOLS = {
     tagEn: "LIVE CONFIG · 49 N53",
     ready: true,
   },
+  // NPC 자율행동 · AI 에디터(docs/adr/2026-11-20-npc-autonomous-ai.md): 7축 성향 범위·조직 합성·충성도 곡선·전략·전투·판단 실험실
+  dev_npc_ai: {
+    name: m.shell_route_dev_npc_ai,
+    desc: m.dev_tool_npc_ai_desc,
+    mark: <SlidersIcon />,
+    tagKo: "LIVE AI · 7축·충성도",
+    tagEn: "LIVE AI · 7-Axis & Loyalty",
+    ready: true,
+  },
   // 밸런스·전투 보고서(docs/adr/2026-11-14-battle-report.md): 팀·유닛 편집 + 실제 판정 N판 보고서·기록
   dev_balance: {
     name: m.shell_route_dev_balance,
@@ -287,7 +296,14 @@ const DEV_SECTIONS: readonly DevSection[] = [
       "2차 스탯 가중치·계산식, 실제 판정 N회 전투 보고서(공성·A/B·피해 흐름), 49 설정 칸(N53 스위치 포함), 6v6 3D 전투 다시보기를 다룹니다.",
     subEn:
       "Secondary stat weights and formulas, N-run battle reports from the real engine (siege, A/B, damage flow), 49 settings cells (including N53 switches), and 6v6 3D battle replays.",
-    routes: ["dev_exp_table", "dev_secondary_stats", "dev_balance", "dev_tuning", "dev_battle_replay"],
+    routes: [
+      "dev_exp_table",
+      "dev_secondary_stats",
+      "dev_balance",
+      "dev_npc_ai",
+      "dev_tuning",
+      "dev_battle_replay",
+    ],
   },
   {
     id: "world",

@@ -8,7 +8,9 @@
 //   서 있으면 수도 행정 건물 곁으로 옮긴다(멱등). 실행 중에 수도가 바뀌면(하루 끝) moveLeaderToCapital이 옮긴다(D-528 "수도를 따라간다").
 //   스스로 걷지 않는다(봇이 아니다 — 수도가 바뀌면 바로 옮겨 선다 [임시, 질문 865]). 판단·대사·교체는 아직 없다(질문 742).
 // - 이름은 저장하지 않는다: 팩 국가 프리셋 leaderName(nations.ts nationLeaderName)을 화면마다 읽는다.
-import { WALK_SPEED } from "@terra/sim";
+import { createRng } from "@terra/shared";
+import { DEFAULT_ROLE_TRAIT_RANGES, rollUnitTraits, unitTraitsToArray } from "@terra/shared/unitTraits";
+import { WALK_SPEED, mix32 } from "@terra/sim";
 import { spiralCells } from "../cyborg/service.ts";
 import { type NpcSeedResult, seedNpcFacilitiesAtBoot } from "../facilities/npcSeed.ts";
 import type { CityRow } from "../world/cities.ts";
@@ -160,6 +162,12 @@ export function seedNationLeaders(input: LeaderSeedInput): LeaderSeedResult {
     }
     const at = hallCell(map, capital.id, input.facilities) ?? { x: capital.cellX, y: capital.cellY };
     const id = input.nextUnitId();
+    const leaderTraits = unitTraitsToArray(
+      rollUnitTraits(
+        createRng(mix32(Math.imul(id, 0x9e37_79b1) ^ Math.imul(capital.factionId, 0x85eb_ca6b))),
+        DEFAULT_ROLE_TRAIT_RANGES.leader,
+      ),
+    );
     let done = false;
     for (const cell of spiralCells(at.x, at.y, PLACE_RADIUS)) {
       if (
@@ -171,6 +179,7 @@ export function seedNationLeaders(input: LeaderSeedInput): LeaderSeedResult {
           cellY: cell.y,
           ownerId,
           kind: UNIT_KIND_NPC_LEADER,
+          traits: leaderTraits,
         })
       ) {
         done = true;

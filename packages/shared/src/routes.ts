@@ -243,6 +243,14 @@ export const ROUTES = {
     frame: "shown",
     access: "dev_admin",
   },
+  // NPC 자율행동 · AI 에디터(docs/adr/2026-11-20-npc-autonomous-ai.md): 7축 성향 범위·조직 합성·충성도 곡선·전략·전투·판단 실험실
+  dev_npc_ai: {
+    path: "/dev/npc-ai",
+    search: [],
+    parent: "dev",
+    frame: "shown",
+    access: "dev_admin",
+  },
   // 밸런스 화면(docs/adr/2026-11-01-balance-screen.md 7절): 틀 안 빽빽한 표. 가중치 칸을 바꾸면 그 세계에 바로 든다
   dev_balance: {
     path: "/dev/balance",

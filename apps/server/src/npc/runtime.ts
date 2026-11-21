@@ -79,8 +79,6 @@ import { gardenerRulesOf, gardenerWavesEnabled } from "./gardenerSwitch.ts";
 import { humanFamilyOf, humanNameOf } from "./humanNames.ts";
 import { type HouseRecruit, createHouseRecruit } from "./houseRecruit.ts";
 import { type NpcHouses, attachNpcHouses } from "./houseRuntime.ts";
-import { restCycleOf } from "./cityRest.ts";
-import { createHumanPlaces } from "./humanPlaces.ts";
 import { nationBuildTargets, npcBuildRunOf } from "./cityBuild.ts";
 import { npcClaimsOf } from "./npcClaims.ts";
 import { createDecideClock, resumeDecides } from "./decideSchedule.ts";
@@ -93,6 +91,7 @@ import { territoryOf } from "./townSites.ts";
 import { type NpcRuinsInput, liftGovernments, ruinedGoodsHomeOf, syncAdminLevels } from "./ruinsRuntime.ts";
 import { ruinsOf } from "./ruinsState.ts";
 import { npcRulingHooks } from "./rulingVault.ts";
+import { createNpcAiBridge } from "./aiBridge.ts";
 import { loadNpcState, recruitOf } from "./state.ts";
 import { createWarOutcomePersist, loadWarOutcomes } from "./warOutcomes.ts";
 
@@ -857,23 +856,22 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   reviewCapitals();
   const first = await persist.flush(society.currentDay());
   warPersist.flush(o.now());
-  // 집·일터(740 나)·시장(744 나): 저장(구인·사망·처음 인구의 봇 세우기)이 2차맵을 맞춘 뒤에
-  const humanPlaces = createHumanPlaces();
+  // 집·일터(740 나)·시장(744 나)·개별 유닛 7축 자율행동(ADR 2026-11-20): 저장이 2차맵을 맞춘 뒤에
+  const aiBridge = createNpcAiBridge({
+    worldSeed: world.seed,
+    rules: o.rules,
+    factions,
+    cities,
+    units,
+    maps,
+    mapKeyOfCity: (cityId) => persist.places.get(cityId)?.mapKey,
+  });
   const syncPeople = (): void => {
-    const seedRules = o.rules().worldSeed;
-    humanPlaces.sync({
-      units: world.units,
+    aiBridge.syncHumanPlaces({
       places: persist.places,
-      maps,
-      // 일하는 때(770 나): 설정 칸 실효 값(개발자 패널에서 바꾸면 다음 맞추기부터)
-      workHours: { startPm: seedRules.workStartPm, endPm: seedRules.workEndPm },
-      // 시설 일꾼 + 보이는 운반 일정(D-570 1886 — 보는 2차맵에만, humanPlaces.ts)
-      facilitiesOf: econ ? (cityId) => econ.workFacilities(cityId) : undefined,
+      econ,
       lodgingsOf: o.economy?.lodgingsIn,
-      // 쉼터 계획(질문 1047 다): 도시 경제가 생산 속도 배율을 셈한 같은 계획
-      restOf: econ ? (cityId) => econ.restPlan(cityId) : undefined,
-      restCycle: restCycleOf(o.rules()), // 피로 바퀴로 일터 ↔ 쉼터(질문 1095 가)
-      carry: econ ? { board: econ.carry, nowMs: o.now() } : undefined, // 운반꾼 화물(2052·2088)
+      nowMs: o.now(),
     });
     people.sync();
     people.flush();

@@ -262,7 +262,8 @@ const TOOL_SCOPES = [
   ["/dev/territory", "planet"],
   ["/dev/recruit", "planet"],
   ["/dev/second-map", "planet"],
-  ["/dev/terrain-objects", "common"],
+  // 지형 오브젝트는 2차맵 시험 화면과 한 화면(c7b69b1967, initialTab "objects")이라 범위도 2차맵 시험과 같다(scopeRoutes dev_terrain_objects)
+  ["/dev/terrain-objects", "planet"],
   ["/dev/gather-objects", "common"],
   ["/dev/planet-editor", "library"],
   ["/dev/star-system", "system"],

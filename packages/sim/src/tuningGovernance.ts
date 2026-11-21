@@ -249,7 +249,7 @@ export const GOVERNANCE_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 가문 독립 선언: 옛 나라와 힘 비 문턱(‰)",
     "NPC house independence: power ratio against the old nation (‰)",
   ),
-  // 지도자 신임도(사용자 답 D-585 — 오르내림 규칙은 질문 2493)
+  // 지도자 신임도(사용자 답 D-585 — 오르내림은 아래 gov-coup 칸, D-588 2493)
   k(
     "gov_approval_player_start",
     "",
@@ -277,5 +277,83 @@ export const GOVERNANCE_TUNING_KEYS: readonly TuningKey[] = [
     "governance.approvalRebellionEase",
     "낮은 신임도: 반란 문턱 올리는 폭(만족도 점)",
     "Low approval: rebellion threshold ease (satisfaction points)",
+  ),
+  // 줄기 gov-coup(사용자 결정 D-588 2493 신임도 오르내림·2499 목표 물가 상한)
+  k(
+    "gov_approval_neutral_pm",
+    "",
+    "governance.approvalNeutralPm",
+    "신임도 보정 기준점(‰)",
+    "Approval ease pivot (‰)",
+  ),
+  k(
+    "gov_approval_tax_per_pm",
+    "",
+    "governance.approvalTaxPerPm",
+    "신임도: 세금 1‰ 바뀜마다(점)",
+    "Approval: per 1‰ tax change (points)",
+  ),
+  k(
+    "gov_approval_war_start",
+    "",
+    "governance.approvalWarStart",
+    "신임도: 새 전쟁마다 내림(점)",
+    "Approval: drop per new war (points)",
+  ),
+  k(
+    "gov_approval_war_daily",
+    "",
+    "governance.approvalWarDaily",
+    "신임도: 전쟁 하루마다 내림(점, 전쟁 하나당)",
+    "Approval: daily drop per war (points)",
+  ),
+  k(
+    "gov_approval_peace",
+    "",
+    "governance.approvalPeace",
+    "신임도: 끝난 전쟁마다 오름(점)",
+    "Approval: rise per war ended (points)",
+  ),
+  k(
+    "gov_approval_city_won",
+    "",
+    "governance.approvalCityWon",
+    "신임도: 얻은 도시마다 오름(점)",
+    "Approval: rise per city gained (points)",
+  ),
+  k(
+    "gov_approval_city_lost",
+    "",
+    "governance.approvalCityLost",
+    "신임도: 잃은 도시마다 내림(점)",
+    "Approval: drop per city lost (points)",
+  ),
+  k(
+    "gov_approval_satisfaction_pull_pm",
+    "",
+    "governance.approvalSatisfactionPullPm",
+    "신임도: 하루마다 만족도 쪽으로 다가가는 몫(‰)",
+    "Approval: daily pull toward satisfaction (‰)",
+  ),
+  k(
+    "gov_monetary_cap_milli",
+    "",
+    "governance.monetaryCapMilli",
+    "손 조절 목표 물가 상한 출발값(천분율)",
+    "Manual money: default price cap (‰ of start price)",
+  ),
+  k(
+    "gov_monetary_cap_min_milli",
+    "",
+    "governance.monetaryCapMinMilli",
+    "손 조절 목표 물가 상한: 지도자가 고를 수 있는 아래 끝",
+    "Manual money: lowest price cap a leader can set",
+  ),
+  k(
+    "gov_monetary_cap_max_milli",
+    "",
+    "governance.monetaryCapMaxMilli",
+    "손 조절 목표 물가 상한: 지도자가 고를 수 있는 위 끝",
+    "Manual money: highest price cap a leader can set",
   ),
 ];

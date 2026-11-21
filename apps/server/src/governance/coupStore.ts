@@ -21,6 +21,8 @@ export interface CoupRow {
   readonly userId: string | null;
   readonly openedAtMs: number;
   readonly gatherUntilMs: number;
+  /** 쿠데타 전투를 하는 도시(줄기 gov-coup — D-588 2492 가 "모든 도시에서"). null = 옛 줄(수도에서 싸웠다) */
+  readonly cityId: number | null;
   readonly status: CoupStatus;
   readonly result: Record<string, unknown> | null;
   readonly decidedAtMs: number | null;
@@ -55,6 +57,7 @@ function coupOf(row: Record<string, unknown>): CoupRow | undefined {
     userId: typeof row.user_id === "string" ? row.user_id : null,
     openedAtMs: num(row.opened_at_ms),
     gatherUntilMs: num(row.gather_until_ms),
+    cityId: numOrNull(row.city_id),
     status: STATUSES.find((entry) => entry === row.status) ?? "cancelled",
     result: isRecord(row.result) ? row.result : null,
     decidedAtMs: numOrNull(row.decided_at_ms),
@@ -62,7 +65,7 @@ function coupOf(row: Record<string, unknown>): CoupRow | undefined {
 }
 
 const COUP_COLUMNS =
-  "id, nation_id, house_key, user_id, opened_at_ms, gather_until_ms, status, result, decided_at_ms";
+  "id, nation_id, house_key, user_id, opened_at_ms, gather_until_ms, city_id, status, result, decided_at_ms";
 
 export function createCoupStore(pool: GovernanceQueryable) {
   return {
@@ -94,11 +97,12 @@ export function createCoupStore(pool: GovernanceQueryable) {
       userId: string | null;
       openedAtMs: number;
       gatherUntilMs: number;
+      cityId: number | null;
     }): Promise<CoupRow> {
       const { rows } = await pool.query(
-        `insert into governance_coups (nation_id, house_key, user_id, opened_at_ms, gather_until_ms)
-         values ($1, $2, $3, $4, $5) returning ${COUP_COLUMNS}`,
-        [input.nationId, input.houseKey, input.userId, input.openedAtMs, input.gatherUntilMs],
+        `insert into governance_coups (nation_id, house_key, user_id, opened_at_ms, gather_until_ms, city_id)
+         values ($1, $2, $3, $4, $5, $6) returning ${COUP_COLUMNS}`,
+        [input.nationId, input.houseKey, input.userId, input.openedAtMs, input.gatherUntilMs, input.cityId],
       );
       const row = rows[0] ? coupOf(rows[0]) : undefined;
       if (!row) throw new Error("coup insert");

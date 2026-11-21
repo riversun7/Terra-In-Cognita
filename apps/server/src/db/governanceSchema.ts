@@ -165,6 +165,8 @@ export const governanceCoups = pgTable(
     openedAtMs: bigint("opened_at_ms", { mode: "number" }).notNull(),
     /** 참가 받기 끝 = 전투 시각 */
     gatherUntilMs: bigint("gather_until_ms", { mode: "number" }).notNull(),
+    /** 쿠데타 전투를 하는 도시(줄기 gov-coup — D-588 2492 가 "모든 도시에서 누구나"). null = 옛 줄(수도) */
+    cityId: bigint("city_id", { mode: "number" }),
     status: text("status").notNull().default("gathering"),
     result: jsonb("result"),
     decidedAtMs: bigint("decided_at_ms", { mode: "number" }),
@@ -218,18 +220,28 @@ export const nationMonetary = pgTable(
       .references(() => factions.id, { onDelete: "cascade" }),
     mode: text("mode").notNull(),
     rateBp: integer("rate_bp").notNull().default(0),
+    /**
+     * 목표 물가 상한(천분율 — 줄기 gov-coup, D-588 2499 · D-131): 물가 지수가 이 값 이상이면 손 조절 발행을 막는다(소각은 그대로). null = 설정 칸 출발값
+     * gov_monetary_cap_milli. 지도자가 설정 칸 범위 안에서 정한다
+     */
+    priceCapMilli: integer("price_cap_milli"),
     setAtMs: bigint("set_at_ms", { mode: "number" }).notNull(),
     setBy: uuid("set_by"),
   },
   (table) => [
     check("nation_monetary_mode", sql`${table.mode} in ('formula', 'manual')`),
     check("nation_monetary_rate", sql`${table.rateBp} between -10000 and 10000`),
+    check(
+      "nation_monetary_cap",
+      sql`${table.priceCapMilli} is null or ${table.priceCapMilli} between 1 and 1000000`,
+    ),
   ],
 );
 
 /**
  * 지도자 신임도(줄기 governance-5 — 사용자 답 D-585, governance/approval.ts): 나라마다 지금 지배 가문의 신임도(0~1000) 한 줄. 지배 가문이 바뀌면 시작값으로 다시 적는다.
- * 오르내림 규칙은 정해지지 않았다(질문 2493)
+ * 바뀜(줄기 gov-coup — D-588 2493 "알아서"): 오르내림(governance/approvalFactors.ts)이 지난 틱에 본 값을 칸 넷에 남긴다 — 세금 수준(‰)·도시 수·전쟁 수·마지막 하루 셈 시각.
+ * null = 아직 보지 않음(처음 보는 틱은 기준만 적고 바꾸지 않는다)
  */
 export const governanceApproval = pgTable(
   "governance_approval",
@@ -239,6 +251,10 @@ export const governanceApproval = pgTable(
       .references(() => factions.id, { onDelete: "cascade" }),
     houseKey: text("house_key"),
     approval: integer("approval").notNull(),
+    taxLevelPm: integer("tax_level_pm"),
+    cities: integer("cities"),
+    wars: integer("wars"),
+    dayAtMs: bigint("day_at_ms", { mode: "number" }),
     setAtMs: bigint("set_at_ms", { mode: "number" }).notNull(),
   },
   (table) => [check("governance_approval_range", sql`${table.approval} between 0 and 1000`)],

@@ -414,6 +414,18 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "governance.approvalNpcStart",
   "governance.approvalRemovalEasePm",
   "governance.approvalRebellionEase",
+  // 줄기 gov-coup(신임도 오르내림·목표 물가 상한 — D-588)
+  "governance.approvalNeutralPm",
+  "governance.approvalTaxPerPm",
+  "governance.approvalWarStart",
+  "governance.approvalWarDaily",
+  "governance.approvalPeace",
+  "governance.approvalCityWon",
+  "governance.approvalCityLost",
+  "governance.approvalSatisfactionPullPm",
+  "governance.monetaryCapMilli",
+  "governance.monetaryCapMinMilli",
+  "governance.monetaryCapMaxMilli",
   // NPC 자율행동·7축 성향·조직 합성·충성도 개입(docs/adr/2026-11-20-npc-autonomous-ai.md): 조회·판단마다 읽는다
   "npcAi.unitTraitMin",
   "npcAi.unitTraitMax",

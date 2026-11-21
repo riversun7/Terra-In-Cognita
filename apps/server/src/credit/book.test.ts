@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 import { createLedger } from "../economy/ledger.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import { type CreditMark, attachCreditBook, creditBookOf } from "./book.ts";
-import { withCredit } from "./hooks.ts";
+import { creditUnitAttack, withCredit } from "./hooks.ts";
 import { creditLines } from "./view.ts";
 
 const CUR = "cur_test";
@@ -248,6 +248,28 @@ describe("신용 점수 장부(D-581 · D-584 한 점수)", () => {
     expect(w.book.score(ownerSubject, 12, T0 + 2)).toBe(540);
     expect(w.book.score(ownerSubject, NATION, T0 + 2)).toBe(350);
     expect(w.book.check()).toEqual([]);
+  });
+
+  it("같은 나라 유저 유닛 공격(D-588 2496 가): 먼저 건 편 주인만, 전투마다 한 번, 다른 나라·소속 모름은 그대로", () => {
+    const w = world({ rules: { creditStart: 500 } });
+    const OTHER = 41;
+    const FOREIGN = 42;
+    w.book.sweep(
+      T0,
+      new Map([
+        [PLAYER, NATION],
+        [OTHER, NATION],
+        [FOREIGN, 9],
+      ]),
+    );
+    // 다른 나라 수비 편 → 벌점 없음
+    expect(creditUnitAttack(w.ledger, [PLAYER], [FOREIGN], T0)).toBe(0);
+    // 같은 나라 수비 편(유닛 여럿이라도 주인마다 한 번)
+    expect(creditUnitAttack(w.ledger, [PLAYER, PLAYER], [FOREIGN, OTHER, OTHER], T0)).toBe(1);
+    expect(w.book.score(ownerSubject, NATION, T0)).toBe(450);
+    // 수비 편은 내리지 않는다, 소속 모르는 공격자는 그대로
+    expect(w.book.score({ ownerId: OTHER, unitId: null }, NATION, T0)).toBe(500);
+    expect(creditUnitAttack(w.ledger, [77], [OTHER], T0)).toBe(0);
   });
 
   it("점수는 설정 칸 범위로 자른다", () => {

@@ -291,6 +291,8 @@ export interface GovernanceCoupView {
   readonly government: number;
   /** 보는 사람이 든 편(없으면 null) */
   readonly mySide: "rebel" | "government" | null;
+  /** 쿠데타 전투 도시(줄기 gov-coup — D-588 2492 가 "모든 도시에서"). 옛 줄·모르면 null */
+  readonly city?: { readonly id: number; readonly name: string | null } | null | undefined;
 }
 
 export interface GovernanceResponse {
@@ -307,6 +309,8 @@ export interface GovernanceResponse {
     readonly shareVotesSuspended: boolean;
     /** 지배 쪽 지분 몫(‰ — D-344 과반 길) */
     readonly rulingSharePm: number;
+    /** 지도자 신임도(0~1000 — D-585, 오르내림 D-588 2493). 지배 가문이 없거나 아직 셈하지 않았으면 null */
+    readonly approval?: number | null | undefined;
   } | null;
   /** 보는 사람이 올릴 수 있는 안건(체제·자격 — 2351 가) */
   readonly canPropose: readonly AgendaKind[];
@@ -318,6 +322,8 @@ export interface GovernanceResponse {
   readonly canCoup: boolean;
   /** 그 나라 쿠데타(참가 받는 중 + 최근 끝난 것) */
   readonly coups: readonly GovernanceCoupView[];
+  /** 쿠데타를 일으킬 수 있는 도시(그 나라 도시 — 줄기 gov-coup, D-588 2492 가). canCoup이 아니면 빈 목록 */
+  readonly coupCities?: readonly { readonly id: number; readonly name: string | null }[] | undefined;
   /** 선전포고 상대로 고를 수 있는 나라 */
   readonly warTargets: readonly { readonly id: number; readonly name: GovernanceName | null }[];
 }

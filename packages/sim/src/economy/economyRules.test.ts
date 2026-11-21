@@ -135,4 +135,14 @@ describe("지도자 손 조절(서버만 — 줄기 governance-5, 질문 2453)",
     expect(step.interestBurn).toBe(centralBankStep(poor, TEST_CENTRAL_BANK_RULE).interestBurn);
     expect(manualBankStep(input, TEST_CENTRAL_BANK_RULE, 0)).toMatchObject({ issue: 0n, burn: 0n });
   });
+
+  it("손 조절 목표 물가 상한(줄기 gov-coup — D-588 2499): 지수가 상한 이상이면 발행 0, 소각은 그대로, 지수 모름이면 막지 않음", () => {
+    const input = { outstanding: 1_000_000n, indexMilli: 1300, treasury: 100_000n, interestOwed: 0n };
+    expect(manualBankStep(input, TEST_CENTRAL_BANK_RULE, 100, 1300).issue).toBe(0n);
+    expect(manualBankStep(input, TEST_CENTRAL_BANK_RULE, 100, 1301).issue).toBe(9000n);
+    expect(manualBankStep(input, TEST_CENTRAL_BANK_RULE, -100, 1000).burn).toBeGreaterThan(0n);
+    expect(manualBankStep({ ...input, indexMilli: undefined }, TEST_CENTRAL_BANK_RULE, 100, 1000).issue).toBe(
+      9000n,
+    );
+  });
 });

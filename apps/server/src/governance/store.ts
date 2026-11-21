@@ -46,6 +46,8 @@ export interface AgendaPayload {
   /** 화폐 단계 전환: 목표 단계·하루 조절 만분율(질문 2453 — 줄기 governance-5) */
   readonly monetaryMode?: MonetaryMode;
   readonly monetaryRateBp?: number;
+  /** 화폐 단계 전환: 손 조절 목표 물가 상한(천분율 — 줄기 gov-coup, D-588 2499). 없으면 앞 값 */
+  readonly monetaryCapMilli?: number;
 }
 
 /** jsonb → 세율 안건 값(칸마다 정수 또는 null). 꼴이 틀리면 undefined */
@@ -179,6 +181,10 @@ function payloadOf(value: unknown): AgendaPayload {
     typeof value.monetaryRateBp === "number" && Number.isSafeInteger(value.monetaryRateBp)
       ? value.monetaryRateBp
       : undefined;
+  const monetaryCapMilli =
+    typeof value.monetaryCapMilli === "number" && Number.isSafeInteger(value.monetaryCapMilli)
+      ? value.monetaryCapMilli
+      : undefined;
   return {
     ...(regime ? { regime } : {}),
     ...(target !== undefined ? { targetNationId: target } : {}),
@@ -192,6 +198,7 @@ function payloadOf(value: unknown): AgendaPayload {
     ...(maxPrice !== undefined ? { maxPrice } : {}),
     ...(monetaryMode ? { monetaryMode } : {}),
     ...(monetaryRateBp !== undefined ? { monetaryRateBp } : {}),
+    ...(monetaryCapMilli !== undefined ? { monetaryCapMilli } : {}),
   };
 }
 

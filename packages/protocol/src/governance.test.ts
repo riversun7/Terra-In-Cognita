@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   COUP_PROTOCOL_VERSION,
   GOVERNANCE5_PROTOCOL_VERSION,
+  GOV_COUP_PROTOCOL_VERSION,
   MIN_SUPPORTED_PROTOCOL_VERSION,
   GOVERNANCE_PROTOCOL_VERSION,
   GOVERNANCE_RESULT_CODES,
@@ -123,6 +124,24 @@ describe("나라 의결 메시지", () => {
     } as const;
     expect(decodeClientMessage(encodeMessage(nationTax))).toEqual(nationTax);
     expect(decodes(decodeClientMessage, { ...nationTax, tradeTaxBp: 10_001 })).toBe(false);
+  });
+
+  it("쿠데타 도시·손 조절 목표 물가 상한(프로토콜 63 — 묶음 1117c, 줄기 gov-coup 판 121, 사용자 결정 D-588 2492·2499)", () => {
+    expect(GOV_COUP_PROTOCOL_VERSION).toBe(63);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(GOV_COUP_PROTOCOL_VERSION);
+    const coup = { t: "gov_coup", id: 14, cityId: 7 } as const;
+    expect(decodeClientMessage(encodeMessage(coup))).toEqual(coup);
+    expect(decodes(decodeClientMessage, { ...coup, cityId: 0 })).toBe(false);
+    const money = {
+      t: "gov_propose",
+      id: 15,
+      kind: "currency_stage",
+      monetaryMode: "manual",
+      monetaryRateBp: 40,
+      monetaryCapMilli: 1300,
+    } as const;
+    expect(decodeClientMessage(encodeMessage(money))).toEqual(money);
+    expect(decodes(decodeClientMessage, { ...money, monetaryCapMilli: 0 })).toBe(false);
   });
 
   it("결과: 성공(한 일)·실패 코드", () => {

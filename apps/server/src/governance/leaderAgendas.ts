@@ -14,13 +14,17 @@
 //   들어 있어 전체와 견주면 가문이 결코 넘지 못했다). D-585 2 "독립함으로써 기존 국가와 적대관계": 거울 세계·시뮬에 세력 쌍 관계(적대·중립)를 담는 상태가 없고
 //   (전쟁 wars·불가침 truces만 — 세력 쌍 호감 D-255는 화면 시안뿐) 적대를 전쟁으로 바꿔 읽지 않는다(사용자 답 — 전쟁 아님). 그래서 독립 뒤 옛 나라와의 관계는
 //   그대로 둔다 [임시 — 질문 2531].
-// - 지도자 신임도(D-585 — approval.ts): 지배 가문이 바뀌면 시작값(플레이어 낮게·NPC), 해임 문턱·반란 문턱 고리. 오르내림 규칙은 질문 2493.
+// - 지도자 신임도(D-585 — approval.ts): 지배 가문이 바뀌면 시작값(플레이어 낮게·NPC), 해임 문턱·반란 문턱 고리(기준점 아래에서만 — 줄기 gov-coup).
+// 바뀜(줄기 gov-coup — 사용자 결정 D-588): 신임도 오르내림(2493 "알아서" — approvalFactors.ts: 세금·전쟁·도시·만족도, 틱마다 기준값과 견줌), 손 조절 목표 물가 상한(2499 — D-131:
+// 지도자가 설정 칸 범위 안에서 정하고, 물가 지수가 상한 이상이면 손 조절 발행이 멈춘다. 같은 단계에서 상한만 바꾸는 것도 지도자 바로).
 import type { HouseKey, MonetaryMode } from "@terra/shared/governance";
 import { rebellionShiftOf, removalThresholdWithApproval } from "./approval.ts";
+import { type ApprovalSnapshot, sameSnapshot, stepApproval } from "./approvalFactors.ts";
 import type { ElectorateTools } from "./electorate.ts";
-import type { LeaderStore } from "./leaderStore.ts";
+import type { ApprovalRow, LeaderStore } from "./leaderStore.ts";
 import { npcRunScore } from "./npcVote.ts";
 import type { GovernanceNation, GovernancePort } from "./port.ts";
+import type { ManualMoney } from "./portLeader.ts";
 import type { GovernanceRules } from "./rules.ts";
 import type { AgendaPayload, AgendaRow, GovernanceStore, StateRow } from "./store.ts";
 
@@ -66,17 +70,38 @@ export function createLeaderAgendas(d: LeaderDeps) {
     return { targetNationId: target.rowId };
   };
 
-  /** 화폐 단계 칸 검사: 같은 단계의 조절량만 바꾸면 direct(지도자 바로) */
+  /** 목표 물가 상한을 설정 칸 범위로 자른다(D-588 2499) */
+  const clampCap = (capMilli: number): number => {
+    const rules = d.rules();
+    return Math.min(rules.monetaryCapMaxMilli, Math.max(rules.monetaryCapMinMilli, Math.trunc(capMilli)));
+  };
+
+  /** 화폐 단계 칸 검사: 같은 단계의 조절량·목표 물가 상한만 바꾸면 direct(지도자 바로) */
   const currencyPayload = async (
     nation: GovernanceNation,
-    mode: MonetaryMode | undefined,
-    rateBp: number | undefined,
+    input: {
+      readonly monetaryMode?: MonetaryMode | undefined;
+      readonly monetaryRateBp?: number | undefined;
+      readonly monetaryCapMilli?: number | undefined;
+    },
   ): Promise<{ payload: AgendaPayload; direct: boolean } | LeaderFail> => {
+    const mode = input.monetaryMode;
     if (!mode) return "invalid_choice";
     const current = (await d.leader.monetary()).get(nation.rowId)?.mode ?? "formula";
-    const rate = mode === "manual" ? Math.trunc(rateBp ?? 0) : 0;
+    const rate = mode === "manual" ? Math.trunc(input.monetaryRateBp ?? 0) : 0;
     if (mode === current && mode === "formula") return "invalid_choice";
-    return { payload: { monetaryMode: mode, monetaryRateBp: rate }, direct: mode === current };
+    const cap =
+      mode === "manual" && input.monetaryCapMilli !== undefined
+        ? clampCap(input.monetaryCapMilli)
+        : undefined;
+    return {
+      payload: {
+        monetaryMode: mode,
+        monetaryRateBp: rate,
+        ...(cap === undefined ? {} : { monetaryCapMilli: cap }),
+      },
+      direct: mode === current,
+    };
   };
 
   /** 그 도시에서 그 가문이 지분 50% 이상인가(D-300) */
@@ -218,17 +243,69 @@ export function createLeaderAgendas(d: LeaderDeps) {
     if (!mode) return d.store.finish(agenda.id, { status: "cancelled", enactedAtMs: nowMs });
     const rateBp =
       mode === "manual" ? Math.max(-10_000, Math.min(10_000, agenda.payload.monetaryRateBp ?? 0)) : 0;
-    await d.leader.saveMonetary({ nationId: nation.rowId, mode, rateBp }, null, nowMs);
+    // 상한: 안건에 없으면 앞 값(처음이면 null = 설정 칸 출발값)
+    const before = (await d.leader.monetary()).get(nation.rowId)?.priceCapMilli ?? null;
+    const capMilli =
+      agenda.payload.monetaryCapMilli === undefined ? before : clampCap(agenda.payload.monetaryCapMilli);
+    await d.leader.saveMonetary(
+      { nationId: nation.rowId, mode, rateBp, priceCapMilli: capMilli },
+      null,
+      nowMs,
+    );
     await d.store.finish(agenda.id, { status: "enacted", enactedAtMs: nowMs });
     await d.audit(null, "governance.currency_stage", {
       nationId: nation.rowId,
       agendaId: agenda.id,
       mode,
       rateBp,
+      capMilli,
     });
   };
 
-  /** 틱: 지도자 나라의 거래세·화폐 단계 걸기, 신임도 줄·고리, NPC 가문 독립 */
+  /** 신임도 한 나라: 지배 가문이 바뀌면 시작값 + 기준값 새로, 아니면 오르내림(approvalFactors.ts). 바뀐 것이 있을 때만 쓴다 */
+  const approvalOf = async (
+    nation: GovernanceNation,
+    ruling: HouseKey,
+    row: ApprovalRow | undefined,
+    nowMs: number,
+  ): Promise<number> => {
+    const rules = d.rules();
+    const seen = {
+      taxLevelPm: d.port.taxLevelOf(nation),
+      cities: nation.cities.length,
+      wars: d.port.warCount(nation),
+      satisfaction: d.port.ownerInfo(nation.ownerId)?.satisfaction,
+    };
+    if (row?.houseKey !== ruling) {
+      const fresh: ApprovalSnapshot = {
+        taxLevelPm: seen.taxLevelPm ?? null,
+        cities: seen.cities,
+        wars: seen.wars,
+        dayAtMs: nowMs,
+      };
+      const approval = ruling.startsWith("p:") ? rules.approvalPlayerStart : rules.approvalNpcStart;
+      await d.leader.saveApproval(
+        { nationId: nation.rowId, houseKey: ruling, approval, snapshot: fresh },
+        nowMs,
+      );
+      return approval;
+    }
+    const before: ApprovalSnapshot = row.snapshot ?? {
+      taxLevelPm: null,
+      cities: null,
+      wars: null,
+      dayAtMs: null,
+    };
+    const step = stepApproval(row.approval, before, seen, rules.approval, nowMs);
+    if (step.approval !== row.approval || !sameSnapshot(step.snapshot, before))
+      await d.leader.saveApproval(
+        { nationId: nation.rowId, houseKey: ruling, approval: step.approval, snapshot: step.snapshot },
+        nowMs,
+      );
+    return step.approval;
+  };
+
+  /** 틱: 지도자 나라의 거래세·화폐 단계 걸기, 신임도 오르내림·고리, NPC 가문 독립 */
   const tick = async (
     nations: ReadonlyMap<number, GovernanceNation>,
     states: ReadonlyMap<number, StateRow>,
@@ -237,7 +314,7 @@ export function createLeaderAgendas(d: LeaderDeps) {
     const rules = d.rules();
     const monetary = await d.leader.monetary();
     const approvals = await d.leader.approvals();
-    const manual = new Map<number, number>();
+    const manual = new Map<number, ManualMoney>();
     const shifts = new Map<number, number>();
     const cache = new Map<number, number>();
     for (const nation of nations.values()) {
@@ -247,20 +324,16 @@ export function createLeaderAgendas(d: LeaderDeps) {
         const want = d.port.leaderTradeTaxOf(nation);
         if (want !== undefined && want !== d.port.tradeTaxOf(nation)) d.port.setTradeTax(nation, want, nowMs);
         const money = monetary.get(nation.rowId);
-        if (money?.mode === "manual") manual.set(nation.ownerId, money.rateBp);
+        if (money?.mode === "manual")
+          manual.set(nation.ownerId, {
+            rateBp: money.rateBp,
+            capMilli: clampCap(money.priceCapMilli ?? rules.monetaryCapMilli),
+          });
       }
       if (ruling !== null) {
-        let row = approvals.get(nation.rowId);
-        if (row?.houseKey !== ruling) {
-          row = {
-            nationId: nation.rowId,
-            houseKey: ruling,
-            approval: ruling.startsWith("p:") ? rules.approvalPlayerStart : rules.approvalNpcStart,
-          };
-          await d.leader.saveApproval(row, nowMs);
-        }
-        cache.set(nation.rowId, row.approval);
-        const shift = rebellionShiftOf(row.approval, rules.approvalRebellionEase);
+        const approval = await approvalOf(nation, ruling, approvals.get(nation.rowId), nowMs);
+        cache.set(nation.rowId, approval);
+        const shift = rebellionShiftOf(approval, rules.approvalRebellionEase, rules.approval.neutralPm);
         if (shift > 0) shifts.set(nation.ownerId, shift);
       }
     }
@@ -280,7 +353,14 @@ export function createLeaderAgendas(d: LeaderDeps) {
     tick,
     /** 해임 가결 문턱(신임도 고리 — 칸 출발값 0 = 그대로) */
     removalThreshold: (nationRow: number, basePm: number): number =>
-      removalThresholdWithApproval(basePm, approvalCache.get(nationRow), d.rules().approvalRemovalEasePm),
+      removalThresholdWithApproval(
+        basePm,
+        approvalCache.get(nationRow),
+        d.rules().approvalRemovalEasePm,
+        d.rules().approval.neutralPm,
+      ),
+    /** 그 나라 지금 신임도(조회 — 틱이 채운다, 지배 가문이 없으면 undefined) */
+    approvalOf: (nationRow: number): number | undefined => approvalCache.get(nationRow),
   };
 }
 

@@ -412,6 +412,14 @@ export interface SocietyCoefficients {
     /** NPC 가문 연맹 만들기·들기 문턱(0~1000 — 가문장 성향 점수, apps/server/src/factionIdentity/npcLeague.ts, npc-invest-2 [임시]). 없으면 750·550 */
     readonly npcLeagueFoundScore?: number | undefined;
     readonly npcLeagueJoinScore?: number | undefined;
+    /**
+     * NPC 가문 연맹 나가기·투표 열기 문턱(0~1000 — 대표와의 성향 친밀도, npcLeague.ts, npc-fix-3 [임시])과 연맹 대표 투표 기간(ms)·정족수(‰)(houseLeague.ts,
+     * 기술 기본값). 없으면 300·400·259,200,000·500
+     */
+    readonly npcLeagueLeaveScore?: number | undefined;
+    readonly npcLeagueVoteStartScore?: number | undefined;
+    readonly leagueVotePeriodMs?: number | undefined;
+    readonly leagueVoteQuorumPm?: number | undefined;
   };
   /**
    * 장비·인공장기 수리(D-5031, 49 F11·F12): 수리 시설 Lv1~5의 최대 내구도 감소(%, 장인 실력 1000‰이면 반으로 줄어든다), 감소 하한(%),
@@ -659,6 +667,10 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     npcSpendInvestPm: 300,
     npcLeagueFoundScore: 750,
     npcLeagueJoinScore: 550,
+    npcLeagueLeaveScore: 300,
+    npcLeagueVoteStartScore: 400,
+    leagueVotePeriodMs: 259_200_000,
+    leagueVoteQuorumPm: 500,
   },
   durability: {
     repairLossPct: [30, 25, 20, 15, 10],

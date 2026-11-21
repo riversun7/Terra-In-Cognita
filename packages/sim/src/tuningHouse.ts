@@ -184,6 +184,35 @@ export const HOUSE_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 가문 연맹 들기 문턱(성향 점수)",
     "NPC house league joining threshold (trait score)",
   ),
+  // NPC 가문 연맹 나가기·투표 열기 문턱, 연맹 대표 투표 기간·정족수(npc-fix-3 — 질문 2562 라·2563 다, factionIdentity/npcLeague.ts·houseLeague.ts) [임시]
+  k(
+    "house_npc_league_leave_score",
+    "",
+    "house.npcLeagueLeaveScore",
+    "NPC 가문 연맹 나가기 문턱(대표와의 성향 친밀도)",
+    "NPC house league leaving threshold (affinity with representative)",
+  ),
+  k(
+    "house_npc_league_vote_start_score",
+    "",
+    "house.npcLeagueVoteStartScore",
+    "NPC 가문 연맹 투표 열기 문턱(대표와의 성향 친밀도)",
+    "NPC house league vote-opening threshold (affinity with representative)",
+  ),
+  k(
+    "house_league_vote_period_ms",
+    "",
+    "house.leagueVotePeriodMs",
+    "가문 연맹 대표 투표 기간(ms)",
+    "House league representative vote period (ms)",
+  ),
+  k(
+    "house_league_vote_quorum_pm",
+    "",
+    "house.leagueVoteQuorumPm",
+    "가문 연맹 대표 투표 정족수(‰)",
+    "House league representative vote quorum (‰)",
+  ),
   // NPC 도시의 가문 수(D-573 — 도시 등급마다)
   ...CITY_GRADES.map(([ko, en], index) =>
     k(

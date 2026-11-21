@@ -19,6 +19,8 @@ export interface LeagueVoteRow {
   readonly leagueId: number;
   readonly voterKey: string;
   readonly candidateKey: string;
+  /** 표를 던진 때(투표 기간 — npc-fix-3) */
+  readonly atMs: number;
 }
 
 /** 끝나지 않은 연맹과 표 */
@@ -35,7 +37,7 @@ export async function loadLeagues(
       order by m.league_id, m.joined_at_ms, m.house_key`,
   );
   const votes = await pool.query(
-    `select v.league_id::text, v.voter_key, v.candidate_key from house_league_votes v
+    `select v.league_id::text, v.voter_key, v.candidate_key, v.at_ms::text from house_league_votes v
        join house_leagues l on l.id = v.league_id and l.ended_at_ms is null
       order by v.league_id, v.voter_key`,
   );
@@ -58,6 +60,7 @@ export async function loadLeagues(
       leagueId: Number(row.league_id),
       voterKey: String(row.voter_key),
       candidateKey: String(row.candidate_key),
+      atMs: Number(row.at_ms),
     })),
   };
 }
@@ -132,4 +135,14 @@ export async function upsertVote(
 /** 표를 모두 지운다(지금 대표에게 과반이 모였을 때) */
 export async function clearVotes(pool: QueryPool, leagueId: number): Promise<void> {
   await pool.query("delete from house_league_votes where league_id = $1", [leagueId]);
+}
+
+/** 살아 있는 플레이어 가문(해산하지 않은 세력 행 — npc-fix-3, 사라진 가문 빼기) */
+export async function livePlayerHouses(pool: QueryPool, ids: readonly number[]): Promise<Set<number>> {
+  if (ids.length === 0) return new Set();
+  const result = await pool.query(
+    "select id::text from factions where id = any($1::bigint[]) and kind = 'player' and dissolved_at_ms is null",
+    [ids.map(String)],
+  );
+  return new Set(result.rows.map((row) => Number(row.id)));
 }

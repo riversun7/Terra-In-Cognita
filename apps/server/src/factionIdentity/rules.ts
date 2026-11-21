@@ -5,6 +5,7 @@ import type { CityShareRules } from "../cityShares/market.ts";
 import { type FactionShortRange, clampShortRange } from "@terra/shared/factionIdentity";
 import { type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
 import { type GovernanceRules, governanceRulesFrom } from "../governance/rules.ts";
+import type { HouseLeagueVoteRules } from "./houseLeague.ts";
 import type { NpcLeagueRules } from "./npcLeague.ts";
 
 export interface HouseRules {
@@ -43,8 +44,10 @@ export interface HouseRules {
   readonly cityBuildDefault: boolean;
   /** 독재 NPC 나라 지배 가문 금고 → 국고 몫(‰, 상업 성향 높음 = minPm·낮음 = maxPm — 2223 고침, @terra/sim npcRulingVaultReturnPm) */
   readonly npcVaultReturn: { readonly minPm: number; readonly maxPm: number };
-  /** NPC 가문 연맹 만들기·들기 문턱(npc-invest-2 — npcLeague.ts, 1001이면 하지 않는다) */
+  /** NPC 가문 연맹 만들기·들기 문턱(npc-invest-2 — npcLeague.ts, 1001이면 하지 않는다), 나가기·투표 열기 문턱(npc-fix-3, 0이면 하지 않는다) */
   readonly npcLeague: NpcLeagueRules;
+  /** 가문 연맹 대표 투표 기간·정족수(npc-fix-3 — houseLeague.ts, 설정 칸 house_league_vote_*) */
+  readonly leagueVote: HouseLeagueVoteRules;
   /** 나라 의결 설정값(governance 칸 — 가문 게이트웨이와 한 소켓으로 묶어 같은 설정 고리로 읽는다, docs/adr/2026-11-21-governance.md) */
   readonly governance: GovernanceRules;
   /** 도시(정부) 지분 시장 설정값(설정 칸 city_share_round_ms·city_share_order_max — D-583, docs/adr/2026-11-21-share-market.md) */
@@ -87,6 +90,14 @@ export function houseRulesFrom(c: SocietyCoefficients): HouseRules {
     npcLeague: {
       foundScore: Math.min(1001, whole(h.npcLeagueFoundScore ?? 750)),
       joinScore: Math.min(1001, whole(h.npcLeagueJoinScore ?? 550)),
+      // 나가기·투표 열기 문턱(npc-fix-3 — 2563 다·2562 라) [임시]
+      leaveScore: Math.min(1001, whole(h.npcLeagueLeaveScore ?? 300)),
+      voteStartScore: Math.min(1001, whole(h.npcLeagueVoteStartScore ?? 400)),
+    },
+    // 대표 투표 기간·정족수(npc-fix-3 — 기술 기본값)
+    leagueVote: {
+      periodMs: whole(h.leagueVotePeriodMs ?? 259_200_000),
+      quorumPm: permille(h.leagueVoteQuorumPm ?? 500),
     },
     governance: governanceRulesFrom(c),
     cityShares: {

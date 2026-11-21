@@ -2,7 +2,17 @@
 // 모두 세계 표라 시험 세계 새로 시작(reset-world)에서 지운다(남길 표 목록에 넣지 않는다). 새 표만 더해서 직전 판 앱은 모른 채 돈다.
 // 쓰는 곳은 apps/server/src/diplomacy/store.ts 하나다(서버가 하나라 외교 서비스가 의결 서비스와 같은 사슬에서 순서대로 쓴다).
 import { sql } from "drizzle-orm";
-import { bigint, boolean, check, index, integer, jsonb, pgTable, text } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  boolean,
+  check,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+} from "drizzle-orm/pg-core";
 import { factions } from "./schema.ts";
 import { governanceAgendas } from "./governanceSchema.ts";
 
@@ -81,5 +91,32 @@ export const diplomacyWarJoins = pgTable(
     index("diplomacy_war_joins_treaty_idx").on(table.treatyId, table.state),
     index("diplomacy_war_joins_joiner_idx").on(table.joinerNation, table.state),
     check("diplomacy_war_joins_state", sql`${table.state} in ('requested', 'joined', 'declined', 'lapsed')`),
+  ],
+);
+
+/**
+ * 선전포고 기록(줄기 gov-fix-3 — 질문 2582: 조약 위반 장부의 선포 기록이 메모리라 서버를 다시 켜면 어긴 나라를 몰랐다). 세력 행 쌍(nation_a < nation_b)마다 가장 최근
+ * 선포 하나(declarer = 선포한 나라, at_ms = 서버 ms). 선포 길 셋(NPC 판단·의결 선전포고·참전 수락)이 위반 장부에 알릴 때 바로 쓰고, 장부를 켤 때 읽는다
+ * (diplomacy/breaches.ts·service.ts). 쌍마다 한 줄이라 커지지 않는다
+ */
+export const diplomacyDeclarations = pgTable(
+  "diplomacy_declarations",
+  {
+    nationA: bigint("nation_a", { mode: "number" })
+      .notNull()
+      .references(() => factions.id, { onDelete: "cascade" }),
+    nationB: bigint("nation_b", { mode: "number" })
+      .notNull()
+      .references(() => factions.id, { onDelete: "cascade" }),
+    declarer: bigint("declarer", { mode: "number" }).notNull(),
+    atMs: bigint("at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.nationA, table.nationB] }),
+    check("diplomacy_declarations_order", sql`${table.nationA} < ${table.nationB}`),
+    check(
+      "diplomacy_declarations_declarer",
+      sql`${table.declarer} = ${table.nationA} or ${table.declarer} = ${table.nationB}`,
+    ),
   ],
 );

@@ -214,10 +214,43 @@ describe("NPC 지배 가문 계승(gov-fix-2 — 질문 2532 (3), D-588 5 NPC �
     expect(await gone.succession.tick(DEMOCRACY, NPC_STATE, false, 200)).toBe(NPC_STATE);
   });
 
-  it("선출로 지배 가문이 바뀌면 계승 기록을 지운다", async () => {
-    const { succession } = npcFake();
+  it("선출은 계승 기록을 지우지 않는다(gov-fix-3 — 2574: 해임된 국가 지도자 유닛이 다시 가문장이 되지 않게)", async () => {
+    const { succession, applied } = npcFake();
+    // 같은 가문이 다시 뽑혀도, 다른 가문이 뽑혀도 기록 그대로(다른 NPC 가문은 서열 첫 사람이 이끈다 — 런타임 headOf·다음 틱)
+    expect(
+      await succession.afterElection(DEMOCRACY, { ...NPC_STATE, npcHeadUnit: 12 }, {}, "n:3", 100, 500),
+    ).toMatchObject({ rulingHouseKey: "n:3", npcHeadUnit: 12 });
     expect(
       await succession.afterElection(DEMOCRACY, { ...NPC_STATE, npcHeadUnit: 12 }, {}, "n:4", 100, 500),
-    ).toMatchObject({ rulingHouseKey: "n:4", npcHeadUnit: null });
+    ).toMatchObject({ rulingHouseKey: "n:4", npcHeadUnit: 12 });
+    expect(applied).toEqual([]);
+  });
+
+  it("해임 뒤 다시 뽑기에서 다른 NPC 가문이 이기면 해임된 가문장 유닛을 빼고 그 가문 서열 첫 사람을 세운다(gov-fix-3)", async () => {
+    const { succession, applied } = npcFake([900, 21, 22]);
+    expect(
+      await succession.afterElection(
+        DEMOCRACY,
+        NPC_STATE,
+        { barred: "n:3", barredUnit: 900 },
+        "n:4",
+        100,
+        500,
+      ),
+    ).toMatchObject({ rulingHouseKey: "n:4", npcHeadUnit: 21, vacantSinceMs: null });
+    expect(applied).toEqual([21]);
+    // 플레이어 가문이 이기면 세우지 않는다(NPC 가문장 칸은 NPC 가문에만)
+    const player = npcFake([900, 21]);
+    const won = await player.succession.afterElection(
+      DEMOCRACY,
+      NPC_STATE,
+      { barred: "n:3", barredUnit: 900 },
+      "p:7",
+      100,
+      500,
+    );
+    expect(won.rulingHouseKey).toBe("p:7");
+    expect(won.npcHeadUnit ?? null).toBeNull();
+    expect(player.applied).toEqual([]);
   });
 });

@@ -8907,5 +8907,6 @@
   "unit_attack_started": "전투가 열렸습니다.",
   "unit_attack_out_of_reach": "대상이 너무 멉니다. 더 가까이 가서 다시 해 보세요.",
   "unit_attack_own_target": "내 유닛은 칠 수 없습니다.",
-  "unit_attack_safe_zone": "시가지(안전지대) 안에서는 싸울 수 없습니다."
+  "unit_attack_safe_zone": "시가지(안전지대) 안에서는 싸울 수 없습니다.",
+  "unit_attack_escaped": "상대가 싸우지 않고 빠져나갔습니다(더 빨랐습니다)."
 }

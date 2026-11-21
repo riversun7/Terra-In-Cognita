@@ -200,3 +200,13 @@
   수비 편은 회피 판단을 하지 않는다(D-573 빠져나가기 없음). 그다음은 조우 전투와 같은 길(`open` — 시가지면 `safe_zone`, 멈추기·전투맵·결과까지 붙잡기·1908 다시 판단·신용 고리). 다른 나라 유닛도 칠 수
   있다 [임시 2581]. 게이트웨이는 이동 서비스에 붙은 함수(`encounterStrikeOf`)로 찾는다(app.ts를 키우지 않음). 화면: 2차맵 남의 유닛 작은 창(PeekCard)에 [공격](`map/UnitAttack.tsx`, 문구 7개 ko·en).
 - `open`은 이제 결과를 "ok"·"safe"·"failed"로 돌려준다(조우 틱은 "ok"만 센다 — 동작 그대로).
+
+## 바뀜 (gov-fix-3 — 일부러 치기의 수비 편 회피, 2026-11-22 — 질문 2581 (3) 사용자 답)
+- 사용자 답: D-570 1904 "무조건 전투가 아니라 현재 전투세팅상태나 전력차, 성향에 따라 판정"·D-573 2022 나 "더 빠르면 전투 없이 빠져나간다"를 일부러 치기(`unit_attack`)의 수비 편에도 — 같은 나라
+  수비 편도. 바뀜(`travel/clashDecide.ts resolveStrike`, `encounterWorld.ts strike`): 공격 편은 이미 걸었고(전쟁이면 전쟁 전투, 아니면 약탈), 수비 편은 조우와 같은 판단(`decideClash` — 작전 ① 교전 굴림·⑦ 퇴각 기준·
+  전력 비·성향·접속, 약탈 맞불은 공격 편이 짐을 졌을 때)을 한다. 회피를 골랐고(판단 유닛이 있는 편) 공격 편보다 빠르면 전투 없이 빠져나간다 → 결과 코드 **`escaped`**(지표 `encounterEscaped`).
+  느리면 전투가 열리고 수비 편 파티는 시작 틱에 퇴각을 시도한다(조우의 `flee`와 같다). 수비 편이 걸면(맞불) 그대로 싸운다.
+- 프로토콜 114(줄기 판, 최소 113 — `UNIT_ATTACK_ESCAPE_PROTOCOL_VERSION`): `travel_result` 새 코드 `escaped`는 114판 연결에만 가고 낮은 판은 `out_of_reach`를 받는다(`travel/gateway.ts`, 연결 판은
+  `session.ts`가 넘긴다). 화면: 결과 줄 문구 1개(`unit_attack_escaped` ko·en, `map/travelData.ts`).
+- 빠져나간 뒤 바로 다시 치는 것을 막는 쉬는 시간은 없다(다시 칠 때마다 수비 편이 새로 굴린다) [임시 — 질문 2611].
+- 시험: `encounterWorld.test.ts` +2(같은 나라 수비 편이 빠르면 escaped·느리면 전투 + 퇴각 명령, 맞불이면 퇴각 없음), protocol `travel.test.ts` +1.

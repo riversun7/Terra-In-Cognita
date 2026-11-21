@@ -87,8 +87,11 @@ export interface SocietyRun {
     nowMs: number,
     settle: (house: SimFaction) => number,
   ): SimFaction;
-  /** 선전포고(무명분 비용, 질문 196 가). 이미 전쟁이면 아무것도 안 한다 */
-  declareWar(attacker: SimFaction, target: SimFaction, nowMs: number): void;
+  /**
+   * 선전포고(무명분 비용, 질문 196 가). 이미 전쟁이면 아무것도 안 한다. caused = 명분이 있다(D-290 — 서버가 제재 명분 등을 보고 준다, 질문 2585 gov-fix-3):
+   * 선포 비용을 내지 않는다. 시뮬은 주지 않는다(판정 그대로)
+   */
+  declareWar(attacker: SimFaction, target: SimFaction, nowMs: number, caused?: boolean): void;
   /** 강화 조약(백지 + 불가침, 질문 195 가). 받는지는 부르는 쪽(판단)이 정했다 */
   makePeace(a: SimFaction, b: SimFaction, nowMs: number): void;
   /**

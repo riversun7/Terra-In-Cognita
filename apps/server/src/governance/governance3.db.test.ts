@@ -210,6 +210,12 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 3(governance-3)", () => {
         throw new Error("no split");
       expect(faction.cities.has(coupCity)).toBe(false);
       expect(faction.regime).toBe("democracy");
+      // 떨어져 나간 도시는 시작 도시 표시를 잃는다(gov-fix-3 — 질문 2572 나, D-341·D-528), 저장도 그렇다
+      expect(npc.world.cities.get(coupCity)?.start).toBe(false);
+      await parts(world).persistence.writer.durable();
+      expect(await rows(test.db, "select start from world_cities where id = $1", [coupCity])).toEqual([
+        { start: false },
+      ]);
       expect(
         await rows(test.db, "select ruling_house_key from governance_state where nation_id = $1", [child]),
       ).toEqual([{ ruling_house_key: key }]);

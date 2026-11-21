@@ -159,6 +159,11 @@ export interface SimHooks {
    * 서버가 위반 기록·설정 칸으로 준다. 시뮬은 붙이지 않는다(판정 그대로)
    */
   causeBonus?(attacker: SimFaction, target: SimFaction, nowMs: number): number;
+  /**
+   * 선포 명분이 있나(D-290 명분 목록 — 지금은 제재, 질문 2585 gov-fix-3 사용자 답 "명분이 있으면 선포 비용·관계 하락 없음"). true면 선포 비용을 내지 않는다.
+   * 서버가 위반 기록으로 준다. 시뮬은 붙이지 않는다(판정 그대로)
+   */
+  warCause?(attacker: SimFaction, target: SimFaction, nowMs: number): boolean;
 }
 
 /** 판단 실행 횟수(요약 npc 칸) */
@@ -577,7 +582,7 @@ export function decide(ctx: NpcContext, factionId: number, nowMs: number): void 
     case "attack": {
       const target = ctx.world.factions.get(action.target);
       if (action.declare && target) {
-        society?.declareWar(faction, target, nowMs);
+        society?.declareWar(faction, target, nowMs, ctx.hooks?.warCause?.(faction, target, nowMs) === true);
         if (faction.wars.has(target.id)) ctx.hooks?.warDeclared?.(faction, target, nowMs);
       }
       attack(ctx, faction, action.target, rolls[1] ?? 0, rolls[2] ?? 0, nowMs);

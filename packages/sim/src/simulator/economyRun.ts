@@ -77,7 +77,9 @@ const SYSTEM_KINDS: Readonly<Record<string, readonly string[]>> = {
   debt: ["resident_tax", "resident_tax_cancel"],
   claim: ["resident_tax", "resident_tax_cancel"],
   // 도시 운영비 금고(cityfund:<나라>:<도시>:<화폐> — 주민세 도시 몫, gov-fix-2 질문 2537): 넣기·운영비 메우기·옛 나라에 돌려주기
-  cityfund: ["city_fund", "city_fund_draw", "city_fund_refund"],
+  // 바뀜(gov-fix-3, 질문 2576 다): 나라 화폐가 바뀌면 옛 화폐 금고 → 바꿈 창구(cityfund_fx:<화폐>) → 새 화폐 금고(city_fund_convert)
+  cityfund: ["city_fund", "city_fund_draw", "city_fund_refund", "city_fund_convert"],
+  cityfund_fx: ["city_fund_convert"],
 };
 
 /** 감사의 시스템 계정 규칙. S3 시험 자산(유지비 → sink, 산출 ← reserve)도 같은 표로 본다 */

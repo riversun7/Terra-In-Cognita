@@ -9,7 +9,7 @@
 // - 틱(의결 틱 뒤 1분마다): 비준 투표 부결·취소, 답 기한 지남, 기간 끝(expired), 맺은 동안 두 나라가 전쟁 상태가 됨(broken — 조약은 공격을 막지 않는다, D-329 86),
 //   불가침 다시 걸기(켤 때), 공물, 보호 저절로 참전 요청, 참전 요청 기한 지남.
 //   바뀜(fixes-1117c — D-255 "어기면 모두가 보는 신뢰가 떨어진다"·D-290 "조약 위반 기록"): broken이면 맺은 뒤 상대에게 선포한 나라를 어긴 나라로 적는다(broken_by,
-//   위반 장부 breaches.ts — 세력 신뢰·제재 명분). 모르면 null [임시 2582].
+//   위반 장부 breaches.ts — 세력 신뢰·제재 명분). 모르면 null [임시 2582]. 바뀜(gov-fix-3): 선포 기록을 표 diplomacy_declarations에 써 다시 켜도 안다.
 // 쓰기는 DB 바로. 명령·틱은 의결 사슬(governance service.run)에서 돈다 — 의결 틱의 조약 비준 집행(enact)과 겹치지 않는다.
 import { DAY_MS } from "@terra/sim";
 import type { DiplomacyAction, DiplomacyResultCode } from "@terra/protocol";
@@ -139,10 +139,31 @@ export function createDiplomacyService(o: {
     });
   };
 
-  /** 위반 장부를 켤 때 한 번 DB 위반 기록으로 채운다(어긴 나라 세력 행 → 거울 세계 세력 ID) */
+  /** 거울 세계 세력 ID → 나라 세력 행(살아 있는 나라만) */
+  const rowOfOwner = (owner: number): number | undefined =>
+    o.port.nations().find((nation) => nation.ownerId === owner)?.rowId;
+
+  /**
+   * 위반 장부를 켤 때 한 번 DB 위반 기록·선포 기록으로 채운다(세력 행 → 거울 세계 세력 ID). 선포 쓰기를 붙인다(바뀜 gov-fix-3 — 질문 2582: 다시 켜도 어긴 나라를 안다)
+   */
   const breachBook = async () => {
     const book = o.port.breaches();
     if (!book || book.loaded()) return book;
+    book.persistWith(async (declaration) => {
+      const declarer = rowOfOwner(declaration.attacker);
+      const target = rowOfOwner(declaration.target);
+      if (declarer === undefined || target === undefined) return;
+      try {
+        await o.store.saveDeclaration(declarer, target, declaration.atMs);
+      } catch (error) {
+        o.log?.error({ err: error, declarer, target }, "diplomacy: declaration save failed");
+      }
+    });
+    for (const row of await o.store.declarations()) {
+      const attacker = o.port.nation(row.declarer)?.ownerId;
+      const target = o.port.nation(row.target)?.ownerId;
+      if (attacker !== undefined && target !== undefined) book.restoreDeclaration(attacker, target, row.atMs);
+    }
     for (const row of await o.store.breaches()) {
       const owner = o.port.nation(row.nationId)?.ownerId;
       if (owner !== undefined) book.record(owner, row.atMs);

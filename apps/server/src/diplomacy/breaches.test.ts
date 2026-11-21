@@ -1,7 +1,15 @@
 // 조약 위반 장부 시험(줄기 fixes-1117c — 기획 D-255·D-290·D-329 86): 어긴 나라 찾기·세력 신뢰·제재 명분·NPC 고리
 import type { SimFaction, SimHooks } from "@terra/sim";
 import { describe, expect, it } from "vitest";
-import { attachBreachBook, breachBookOf, createBreachBook, trustOf, withTreatyHooks } from "./breaches.ts";
+import {
+  type Declaration,
+  attachBreachBook,
+  breachBookOf,
+  createBreachBook,
+  trustOf,
+  warCauseOf,
+  withTreatyHooks,
+} from "./breaches.ts";
 
 const RULES = { breachTrustPenalty: 30, sanctionWindowMs: 1_000, sanctionCauseBonus: 150 };
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- 시험: 고리는 세력 ID만 읽는다
@@ -59,5 +67,51 @@ describe("조약 위반 장부", () => {
     expect(hooks.causeBonus?.(faction(3), faction(1), 30)).toBe(0);
     book.markLoaded();
     expect(hooks.causeBonus?.(faction(3), faction(1), 30)).toBe(150);
+  });
+
+  it("선포 기록 쓰기(gov-fix-3 — 2582): 붙기 전 선포는 붙을 때 쓰고, 켤 때 읽은 선포는 더 최근 것을 덮지 않는다", async () => {
+    const book = createBreachBook(() => RULES);
+    const saved: Declaration[] = [];
+    book.declared(1, 2, 100);
+    book.persistWith(async (declaration) => {
+      saved.push(declaration);
+    });
+    book.declared(3, 4, 200);
+    await book.settle();
+    expect(saved).toEqual([
+      { attacker: 1, target: 2, atMs: 100 },
+      { attacker: 3, target: 4, atMs: 200 },
+    ]);
+    // 켤 때 읽은 옛 선포(4 → 3, 150)는 더 최근 선포(3 → 4, 200)를 덮지 않고, 없는 쌍은 채운다(쓰지 않는다)
+    book.restoreDeclaration(4, 3, 150);
+    book.restoreDeclaration(5, 6, 50);
+    expect(book.declarerSince(3, 4, 0)).toBe(3);
+    expect(book.declarerSince(5, 6, 0)).toBe(5);
+    expect(saved).toHaveLength(2);
+  });
+
+  it("명분(2585 gov-fix-3): 몫 설정 칸이 0이어도 위반 기록이 기간 안이면 명분이 있다 — 장부를 다 읽은 뒤에만(NPC 고리 warCause·의결 warCauseOf)", () => {
+    const ledger = {};
+    const rules = { ...RULES, sanctionCauseBonus: 0 };
+    const hooks = withTreatyHooks(
+      {
+        treasuryAsset: () => "credit",
+        beforeCityTransfer: () => undefined,
+        factionBorn: () => undefined,
+        factionDied: () => undefined,
+      },
+      { ledger },
+    );
+    expect(hooks.warCause?.(faction(3), faction(1), 30)).toBe(false);
+    const book = attachBreachBook(ledger, () => rules);
+    book.record(1, 20);
+    expect(warCauseOf(ledger, 3, 1, 30)).toBe(false);
+    book.markLoaded();
+    expect(book.causeBonus(3, 1, 30)).toBe(0);
+    expect(book.hasCause(3, 1, 30)).toBe(true);
+    expect(hooks.warCause?.(faction(3), faction(1), 30)).toBe(true);
+    expect(warCauseOf(ledger, 3, 1, 30)).toBe(true);
+    expect(warCauseOf(ledger, 1, 3, 30)).toBe(false);
+    expect(warCauseOf(ledger, 3, 1, 20 + rules.sanctionWindowMs + 1)).toBe(false);
   });
 });

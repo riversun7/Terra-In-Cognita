@@ -8,6 +8,7 @@ import {
   TRAVEL_PROTOCOL_VERSION,
   TRAVEL_RESULT_CODES,
   UNIT_ATTACK_MAX_UNITS,
+  UNIT_ATTACK_ESCAPE_PROTOCOL_VERSION,
   UNIT_ATTACK_PROTOCOL_VERSION,
   UNIT_TACTICS_PRESETS,
   UNIT_TACTICS_PROTOCOL_VERSION,
@@ -106,5 +107,14 @@ describe("2차맵 사이 이동 메시지(프로토콜 16)", () => {
     expect(decodes(decodeClientMessage, { ...message, targetUnitId: 0 })).toBe(false);
     for (const code of ["out_of_reach", "own_target", "safe_zone"] as const)
       expect(TRAVEL_RESULT_CODES).toContain(code);
+  });
+
+  it("유닛 공격 수비 편 회피(줄기 gov-fix-3 판 114 — 2581 (3)): 새 결과 코드 escaped", () => {
+    expect(UNIT_ATTACK_ESCAPE_PROTOCOL_VERSION).toBe(114);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(UNIT_ATTACK_ESCAPE_PROTOCOL_VERSION);
+    expect(TRAVEL_RESULT_CODES).toContain("escaped");
+    expect(
+      decodeServerMessage(encodeMessage({ t: "travel_result", id: 3, ok: false, code: "escaped" })),
+    ).toEqual({ t: "travel_result", id: 3, ok: false, code: "escaped" });
   });
 });

@@ -7,6 +7,9 @@
 // - 숙박비(lodgingDue·chargeLodgingFees): 하루 끝 뒤(afterDay) 일꾼마다 하룻밤 요금 × 하루 쉬는 번 수를 그 휴먼 지갑(유닛 주인, 화폐, unitPurseLocation)에서
 //   그 숙소 사업장 금고로 낸다(숙소마다 거래 하나 + 소득세). 지갑이 모자라면 있는 만큼만(국고가 대신 내지 않는다 — 다 못 낸 일꾼 수를 기록, 질문 2293).
 //   생필품 값을 낼 때 이 몫은 지갑에 남긴다(lodgingDue). 도시 주인 세력의 숙소도 낸다(사업장 장부가 있을 때, D-555 1509 — 금고 돈은 자동 정산으로 국고에).
+//   바뀜 (빈틈 2293 — 기획 대조 D-555 1508·1509): 다 못 낸 일꾼은 다음 숙박비를 낼 때까지 회복이 노숙으로 떨어진다 — 플레이어 일꾼(labor/workerRest.ts)과
+//   같다. 쉼터 계획의 그 시설 생산 속도 배율을 다시 센다(restPlan → cityRest.ts withUnpaidRest). 못 낸 일꾼 표는 메모리(다시 켜면 비어 시작) [임시].
+//   임금을 받으면 숙박비 몫을 먼저 남기므로 임금을 못 받은 일꾼(금고·국고가 빈 나라)만 걸린다. 끈 판(국고가 냄)은 옛 판 그대로 불이익 없음.
 // - business_npc_wage_mode 0이면 옛 판: 임금 없음, 숙박비는 도시 주인 국고가 낸다(숙소마다 합).
 // 일꾼 ↔ 휴먼 = @terra/sim cityWorkerUnits(npc/humanPlaces.ts와 같은 나눔), 쉼터 = 그 시설 안 차례의 쉼터 계획(cityRest.ts plan.workers).
 // 정수·BigInt만 쓴다.
@@ -25,7 +28,7 @@ import {
   restsPerDay,
 } from "@terra/sim";
 import type { BusinessCore } from "../business/core.ts";
-import type { CityRestPlan, WorkerRest } from "./cityRest.ts";
+import { type CityRestPlan, type WorkerRest, withUnpaidRest } from "./cityRest.ts";
 
 export interface NpcWagesDeps {
   readonly book: LedgerBook;
@@ -75,10 +78,14 @@ export function createNpcWages(deps: NpcWagesDeps): {
   readonly living: LivingOptions;
   /** 하루 끝 뒤 숙박비(afterDay) */
   chargeLodgingFees(nowMs: number): LodgingFees;
+  /** 새 쉼터 계획에 숙박비를 다 못 낸 일꾼의 회복 불이익을 얹는다(빈틈 2293 — 없으면 plan 그대로) */
+  restPlan(cityId: number, plan: CityRestPlan): CityRestPlan;
 } {
   const { book, world, economy } = deps;
   const wagesOn = (): boolean => Math.trunc(deps.rules().business.npcWageMode) === 1;
   const fee = (): bigint => BigInt(Math.max(0, Math.trunc(deps.rules().logistics.lodgingFeePerNight)));
+  /** 도시 → 지난 숙박비를 다 못 낸 일꾼 휴먼(유닛 ID). 숙박비를 걷을 때마다 새로 센다 */
+  const unpaid = new Map<number, Set<number>>();
 
   /** 그 도시 일꾼마다 낼 숙박비(남의 숙소 — 장부가 있으면 도시 주인 숙소도) */
   const dueOf = (
@@ -135,6 +142,7 @@ export function createNpcWages(deps: NpcWagesDeps): {
     let lodgings = 0;
     let short = 0;
     const purses = wagesOn();
+    unpaid.clear();
     for (const cityId of [...deps.restPlans.keys()].toSorted((a, b) => a - b)) {
       const city = world.cities.get(cityId);
       if (!city) continue;
@@ -156,7 +164,15 @@ export function createNpcWages(deps: NpcWagesDeps): {
           have = book.balance(from);
         }
         const pay = have < due.amount ? have : due.amount;
-        if (pay < due.amount) short += 1;
+        if (pay < due.amount) {
+          short += 1;
+          // 휴먼 지갑이 모자라면 회복이 떨어진다(빈틈 2293). 끈 판(국고가 냄)은 옛 판 — 불이익 없음
+          if (purses) {
+            const set = unpaid.get(cityId) ?? new Set<number>();
+            set.add(due.worker.unitId);
+            unpaid.set(cityId, set);
+          }
+        }
         if (pay <= 0n) continue;
         if (!purses) treasuryLeft -= pay;
         const entry = byLodging.get(due.lodgingId) ?? { owner: due.owner, entries: [], total: 0n };
@@ -183,5 +199,21 @@ export function createNpcWages(deps: NpcWagesDeps): {
     return { paid, lodgings, short };
   };
 
-  return { living, chargeLodgingFees };
+  const restPlan = (cityId: number, plan: CityRestPlan): CityRestPlan => {
+    const units = unpaid.get(cityId);
+    if (!units || units.size === 0) return plan;
+    // 새 계획의 일꾼 자리(시설 ID 차례 × 일꾼 수)에 앉는 휴먼 = cityWorkerUnits(같은 나눔) — 못 낸 휴먼이 앉은 자리만 고른다
+    const facilities = new Map<number, { id: number; city: number; workers: number }>();
+    for (const rest of plan.workers) {
+      const found = facilities.get(rest.facilityId) ?? { id: rest.facilityId, city: cityId, workers: 0 };
+      found.workers += 1;
+      facilities.set(rest.facilityId, found);
+    }
+    const slots = new Set<string>();
+    for (const worker of cityWorkerUnits(world, { facilities }, cityId))
+      if (units.has(worker.unitId)) slots.add(workerKey(worker));
+    return withUnpaidRest(plan, slots, deps.rules());
+  };
+
+  return { living, chargeLodgingFees, restPlan };
 }

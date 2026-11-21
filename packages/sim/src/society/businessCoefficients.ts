@@ -114,6 +114,17 @@ export interface BusinessCoefficients {
   readonly haulUnitG: number;
   /** [임시] 물류센터 운반 대행 요금 한 단위의 칸 수(체비셰프 배치 칸) */
   readonly haulUnitCells: number;
+  /**
+   * [임시] 임금 소득세 원천징수(기획 D-578 "임금제공시(유닛에 대한 소득세 납부). 유닛은 이미 세금이 납부된 정산한 임금을 받음"): 1이면 임금형 계약 임금을
+   * 줄 때 사업장이 그 유닛의 소득세(총 임금 × 그 사업장 도시 나라 소득세율, 사업장 수입 소득세와 같은 율 — 내림)를 같은 거래에서 국고로 내고 유닛은
+   * 세후 임금을 받는다. 같은 주머니(사업장 주인 = 그 나라)면 떼지 않는다. 0이면 옛 판(떼지 않음). 서버만 읽는다. 선택 칸 — 없으면 0
+   */
+  readonly wageWithholdMode?: number | undefined;
+  /**
+   * [자리만] 주민세(기획 D-578 "주민세로 국가에서 걷어가는 세금도 존재" — 누가·얼마·언제는 기획 미정, 국가 세금 정책 D-128 안). 지금은 아무 코드도
+   * 읽지 않는다(걷는 코드 없음, 질문 2323). 0 = 안 걷음. 선택 칸 — 없으면 0
+   */
+  readonly residentTaxPm?: number | undefined;
 }
 
 export const START_BUSINESS: BusinessCoefficients = {
@@ -148,4 +159,6 @@ export const START_BUSINESS: BusinessCoefficients = {
   exchangeNpcDeskRentPm: 1000,
   haulUnitG: 100_000,
   haulUnitCells: 10,
+  wageWithholdMode: 1,
+  residentTaxPm: 0,
 };

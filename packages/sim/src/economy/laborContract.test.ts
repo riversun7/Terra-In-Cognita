@@ -140,6 +140,34 @@ describe("노동 계약 — 임금형(옛 salary_engine·WAGE)", () => {
     ]);
   });
 
+  it("원천징수 소득세(incomeTax — D-578)는 총 임금에서, 가문세는 소득세 뗀 뒤 임금에서 같은 거래로 뗀다", () => {
+    const { book, accounts } = world();
+    const treasury = book.ownerAccount(99, CUR);
+    const vault = book.systemAccount("vault:house:7:" + CUR, CUR);
+    const amounts: bigint[] = [];
+    const taxed = {
+      ...accounts,
+      incomeTax: (_c: unknown, amount: bigint) => ({ account: treasury, tax: amount / 10n }),
+      wageTax: (_c: unknown, amount: bigint) => {
+        amounts.push(amount);
+        return { account: vault, tax: amount / 6n };
+      },
+    };
+    const c = open(book, taxed);
+    // 임금 20: 소득세 2 → 국고, 남은 18에서 가문세 3 → 금고, 세후 15 → 일꾼
+    expect(amounts).toEqual([18n]);
+    expect(book.balance(treasury)).toBe(2n);
+    expect(book.balance(vault)).toBe(3n);
+    expect(book.balanceOf(WORKER, CUR)).toBe(ISSUED + 15n);
+    expect(c.paidTotal).toBe(20n);
+    expect(checkLaborEscrow([c], book)).toEqual([]);
+    // 넘는 몫(임금보다 큼)은 떼지 않는다
+    const greedy = { ...accounts, incomeTax: () => ({ account: treasury, tax: 999n }) };
+    const d = open(book, greedy, { id: 8 });
+    expect(d.paidTotal).toBe(20n);
+    expect(book.balance(treasury)).toBe(2n);
+  });
+
   it("남은 보증금이 7일분 아래로 내려가면 경고(옛 DEPOSIT_WARNING_DAYS)", () => {
     const { book, accounts } = world();
     const c = open(book, accounts);

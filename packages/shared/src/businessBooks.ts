@@ -102,8 +102,16 @@ export const BOOK_COLUMNS = [
   "invest",
   "goods",
   "other",
+  "withholding",
 ] as const;
 export type BookColumn = (typeof BOOK_COLUMNS)[number];
+
+/**
+ * 원천징수 소득세 칸(기획 D-578 — 임금을 줄 때 사업장이 유닛 대신 낸 소득세). 금고 줄이 아니라 그 사업장 계약 에스크로가 낸 임금 거래(labor_wage)의 국고
+ * 줄을 모은다(서버 business/books.ts). 임금 칸(보증금 = 총 임금을 묶은 돈)에 이미 든 돈이라 이익에는 넣지 않는다(countsForProfit) — "임금 가운데 세금"
+ * 을 보이는 칸이다. 원장 거래 종류로 고르지 않으므로 bookColumnOf가 내지 않는다
+ */
+export const WITHHOLDING_COLUMN: BookColumn = "withholding";
 
 /** 고정 종류 → 칸 */
 const COLUMN_OF: Readonly<Record<string, BookColumn>> = {

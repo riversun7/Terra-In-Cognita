@@ -142,6 +142,15 @@ export function IncomeStatement({ books }: { readonly books: BooksOk }) {
                   <td>{signedAmount(total.columns[column] ?? "0", locale)}</td>
                 </tr>
               ))}
+              {/* 원천징수 소득세(D-578): 임금 칸에 이미 든 돈이라 비용 합·이익에 다시 더하지 않는 덧줄 */}
+              {total.columns.withholding === undefined ? null : (
+                <tr data-part="books-withholding">
+                  <th scope="row" className="bp-muted">
+                    {COLUMN_TEXT.withholding()}
+                  </th>
+                  <td className="bp-muted">{signedAmount(total.columns.withholding, locale)}</td>
+                </tr>
+              )}
               <tr className="bp-table-sum">
                 <th scope="row">{m.books_costs()}</th>
                 <td>{signedAmount(String(costs), locale)}</td>

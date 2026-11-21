@@ -603,7 +603,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     );
     // 쉼터·옮김(질문 1047 다·1050 가): 일꾼이 쉬는 숙소·집과 채집소 → 창고 칸 → 생산 속도 배율·옮김 칸
     const rules = o.rules();
-    const plan =
+    const planned =
       city && o.input.cityRest
         ? o.input.cityRest(
             cityId,
@@ -619,6 +619,8 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
             rules,
           )
         : undefined;
+    // 숙박비를 다 못 낸 NPC 일꾼은 회복이 떨어진다(빈틈 2293, npcWages.ts restPlan)
+    const plan = planned && wagesRef.current ? wagesRef.current.restPlan(cityId, planned) : planned;
     if (plan) restPlans.set(cityId, plan);
     else restPlans.delete(cityId);
     // 인구 상한 = 주거 + 씨앗 뒤 숙소 침대(질문 1089 나·1131 나, @terra/sim cityHousingCap): 구인 규칙식·붐빔·만족도 주거가 본다

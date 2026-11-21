@@ -19,6 +19,7 @@ export const COLUMN_TEXT: Readonly<Record<BookColumn, () => string>> = {
   invest: m.books_col_invest,
   goods: m.books_col_goods,
   other: m.books_col_other,
+  withholding: m.books_col_withholding,
 };
 
 export const OWNER_TEXT: Readonly<Record<BookOwnerKind, () => string>> = {

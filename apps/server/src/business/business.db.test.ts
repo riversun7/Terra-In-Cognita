@@ -2,7 +2,7 @@
 // 남이 내 신전에 낸 헌금이 사업장 금고로 들고(소득세는 그 도시 나라 국고로), 장부 조회가 수입·세금·정산 칸을 보이고, 손 정산·자동 정산이 지분대로
 // 주인 지갑에 나누는지, 주인이 사업장 창고 물건을 꺼낼 때 값을 내는지, 다시 켜도 상태가 이어지는지 본다.
 import { loadContentPack } from "@terra/content/node";
-import { businessLocation, reserveKeep, unitPurseLocation } from "@terra/shared/businessBooks";
+import { businessLocation, incomeTaxOf, reserveKeep, unitPurseLocation } from "@terra/shared/businessBooks";
 import { CELL_UNITS, DAY_MS, START_BUSINESS, positionAt } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
@@ -377,6 +377,56 @@ describe.skipIf(!TEST_DATABASE_URL)("사업장 장부(D-548·D-555)", () => {
     });
     expect(q.ledger.balanceOf(buyer.ownerId, ASSET_CREDIT) - before).toBe(600n);
     expect(await second.checkInvariants()).toEqual([]);
+  });
+
+  it("임금 소득세 원천징수(D-578): 임금 거래 안에서 소득세는 도시 나라 국고로, 유닛 지갑은 세후 임금, 장부에 원천징수 칸", async () => {
+    const world = await boot();
+    const p = persistenceOf(world);
+    const { ledger } = p;
+    const shop = await withHumans(world, "WithholdOwner");
+    const [builder, worker] = shop.units;
+    if (builder === undefined || worker === undefined) throw new Error("unit");
+    const templeId = await buildNear(world, shop.userId, builder, "temple");
+    const service = p.facilities.service;
+    expect(
+      await service.businessCommand(shop.userId, {
+        kind: "invest",
+        buildingId: templeId,
+        asset: ASSET_CREDIT,
+        amount: 10_000n,
+      }),
+    ).toMatchObject({ ok: true });
+    const hired = await p.labor.create(shop.userId, { kind: "wage", buildingId: templeId, unitId: worker });
+    if (!hired.ok || hired.contractId === undefined) throw new Error(`hire ${JSON.stringify(hired)}`);
+    const contract = p.labor.contracts.get(hired.contractId);
+    if (!contract) throw new Error("contract");
+    // NPC 도시 안이라 그 나라 소득세율(거래세 [임시])이 있다. 임금이 작아도 계약마다 모아서 내린다(누적 내림)
+    const taxBp = p.facilities.business.taxRateOf(templeId, shop.ownerId);
+    expect(taxBp).toBeGreaterThan(0);
+    clock += 9 * DAY_MS;
+    p.settlement.settleOwner(shop.ownerId, clock);
+    const gross = contract.paidTotal;
+    expect(gross).toBe(contract.rate * 10n);
+    const withheld = incomeTaxOf(gross, taxBp);
+    expect(withheld).toBeGreaterThan(0n);
+    await p.writer.durable();
+    const purse = ledger.ownerAccount(shop.ownerId, ASSET_CREDIT, unitPurseLocation(worker));
+    const sums = await rows<{ purse: string; others: string }>(
+      test.db,
+      `select coalesce(sum(e.amount) filter (where e.account_id = $1), 0)::text as purse,
+              coalesce(sum(e.amount) filter (where e.account_id <> $1 and e.amount > 0), 0)::text as others
+         from ledger_entries e join ledger_transactions t on t.id = e.tx_id where t.kind = 'labor_wage'`,
+      [purse],
+    );
+    // 지갑은 세후 임금만, 나머지(국고 — 가문세율 0이라 가문 금고 줄 없음)는 원천징수 세금
+    expect(sums).toEqual([{ purse: String(gross - withheld), others: String(withheld) }]);
+    const source = facilityScreenSourceOf(world);
+    if (!source) throw new Error("screen");
+    const books = await source.books(shop.userId, templeId, 30, clock);
+    if (books.status !== "ok") throw new Error(books.status);
+    // 장부 "원천징수 소득세" 칸(이익 밖 — 보증금으로 임금 칸에 이미 든 돈)
+    expect(books.totals[0]?.columns.withholding).toBe(String(-withheld));
+    expect(await world.checkInvariants()).toEqual([]);
   });
 
   it("지급준비금(D-564 1623·1624·D-570 1783·1789): 빈 금고 고용은 막고, 정산은 필요액 × 여유 × 비율(0%여도 다음 임금)을 남겨 보증금부터 채우고 나머지를 나눈다", async () => {

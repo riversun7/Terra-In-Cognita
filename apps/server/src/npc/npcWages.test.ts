@@ -6,6 +6,7 @@ import {
   type SocietyCoefficients,
   createLedgerBook,
   humanPurseAccount,
+  restDutyPm,
   restsPerDay,
 } from "@terra/sim";
 import { describe, expect, it } from "vitest";
@@ -90,7 +91,7 @@ function setup(options: { treasury?: bigint; mode?: number } = {}) {
     rules: () => rules,
   });
   const nights = BigInt(restsPerDay(place, 0, rules));
-  return { book, business, wages, nights };
+  return { book, business, wages, nights, rules };
 }
 
 describe("NPC 일꾼 숙박비(휴먼 지갑에서)", () => {
@@ -122,6 +123,44 @@ describe("NPC 일꾼 숙박비(휴먼 지갑에서)", () => {
     expect(business.vaultBalance(LODGING, NATION, CUR)).toBe(0n);
     expect(book.balanceOf(NATION, CUR)).toBe(treasury);
     expect(book.balanceOf(NATION, CUR, unitPurseLocation(101))).toBe(0n);
+  });
+
+  it("다 못 낸 일꾼은 회복이 노숙으로 떨어져 그 시설 생산 속도 배율이 준다(빈틈 2293 — 플레이어 일꾼과 같다), 다 내면 풀린다", () => {
+    const { book, wages, rules } = setup();
+    const plan: CityRestPlan = {
+      workers: [
+        { facilityId: FARM, lodgingId: LODGING, place: { kind: "lodging", level: 1 }, commuteCells: 0 },
+        { facilityId: FARM, lodgingId: null, place: { kind: "home" }, commuteCells: 0 },
+      ],
+      facilities: new Map([[FARM, { dutyPm: 1100, haulCells: 4 }]]),
+      occupancy: new Map(),
+      beds: new Map(),
+      owners: new Map(),
+      bedTotal: 0,
+      capBeds: 0,
+    };
+    // 아직 걷지 않았으면 그대로
+    expect(wages.restPlan(CITY, plan)).toBe(plan);
+    expect(wages.chargeLodgingFees(1).short).toBe(1);
+    const hit = wages.restPlan(CITY, plan);
+    const lodging = restDutyPm({ kind: "lodging", level: 1 }, 0, rules);
+    const homeless = restDutyPm({ kind: "homeless" }, 0, rules);
+    const home = restDutyPm({ kind: "home" }, 0, rules);
+    expect(homeless).toBeLessThan(lodging);
+    // 숙소 일꾼(101 — 첫 자리)만 노숙 회복으로, 집 일꾼은 그대로. 옮김 칸은 그대로
+    expect(hit.facilities.get(FARM)).toEqual({ dutyPm: Math.floor((homeless + home) / 2), haulCells: 4 });
+    expect(hit.workers).toBe(plan.workers);
+    // 지갑을 채워 다 내면 풀린다
+    book.post({
+      kind: "grant",
+      atMs: 0,
+      entries: [
+        { account: book.ownerAccount(NATION, CUR), amount: -100n },
+        { account: humanPurseAccount(book, NATION, CUR, 101), amount: 100n },
+      ],
+    });
+    expect(wages.chargeLodgingFees(2).short).toBe(0);
+    expect(wages.restPlan(CITY, plan)).toBe(plan);
   });
 
   it("끈 판(business_npc_wage_mode 0)은 옛 길: 국고가 숙박비를 낸다", () => {

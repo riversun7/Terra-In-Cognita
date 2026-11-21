@@ -11,6 +11,7 @@
 // 나눴다 — [다스리는 사람](나라·지도자·시장, 역할 색 사람 줄 PersonFact.tsx)과 [도시 현황](거래세·행정 레벨·휴먼, 큰 숫자 칸). 하루 값은 막대.
 // 바뀜(질문 2012·2018 답): 지도자 덧말에 지배 가문, 하루 값 아래 가문 이동 정책 칸(HouseEntryPolicy.tsx — 도시 주인·독립 나라 가문장이 정한다).
 // 바뀜(D-574): 지도자 덧말에 나라를 이끄는 방식(체제 — 10), 가문 도시면 다른 가문 짓기 정책 칸(HouseBuildPolicy.tsx — 2124).
+// 바뀜(tax-2, 질문 2322 나·2373 가): 하루 값 아래 나라 세금 칸(NationTaxPolicy.tsx — 모두 보고 지도자가 정한다).
 import type { GovernmentResponse } from "@terra/shared/government";
 import { useEffect, useId, useRef } from "react";
 import { RecruitPanel } from "../economy/RecruitPanel.tsx";
@@ -31,6 +32,7 @@ import {
 } from "./governmentData.ts";
 import { HouseBuildPolicy } from "./HouseBuildPolicy.tsx";
 import { HouseEntryPolicy } from "./HouseEntryPolicy.tsx";
+import { NationTaxPolicy } from "./NationTaxPolicy.tsx";
 import { MayorFact } from "./MayorFact.tsx";
 import { PersonFact } from "./PersonFact.tsx";
 import "../economy/economy.css";
@@ -169,6 +171,7 @@ export default function GovernmentDialog({ government, onClose, via = "building"
           </dl>
         </section>
         <GovernmentDay day={city.day} />
+        {government.taxes ? <NationTaxPolicy taxes={government.taxes} /> : null}
         {government.houseEntry ? <HouseEntryPolicy cityId={city.id} policy={government.houseEntry} /> : null}
         {government.houseEntry?.build ? (
           <HouseBuildPolicy

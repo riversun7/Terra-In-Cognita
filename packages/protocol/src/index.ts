@@ -156,6 +156,12 @@ export {
 } from "./houseRecruit.ts";
 export { HOUSE_POLICY_PROTOCOL_VERSION } from "./housePolicy.ts";
 export {
+  NATION_TAX_LIMITS,
+  NATION_TAX_PROTOCOL_VERSION,
+  NATION_TAX_RESULT_CODES,
+  type NationTaxResultCode,
+} from "./nationTax.ts";
+export {
   HOSPITAL_PROTOCOL_VERSION,
   HOSPITAL_RESULT_CODES,
   type HospitalResultCode,

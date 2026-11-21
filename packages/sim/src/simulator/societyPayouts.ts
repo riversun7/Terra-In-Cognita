@@ -7,10 +7,16 @@
 // - [임시] 가문이 없어 지배 가문 금고 = 세력 국고 주체(world.ts rulingFamilyOf, 독재 국고 몫은 국고에 남는다). 서버는 고리 rulingVaultOf로 가문
 //   금고 계정을 준다(D-338, apps/server/src/factionIdentity/houseVault.ts — 플레이어 가문 나라).
 // - 공물 = 봉신 국고 × tributePm ÷ 1000(D-443 설정값, 기획 값 없음).
-// - 주민세(D-579, society/residentTax.ts): 나라마다 주기 날 끝에 그 도시에 사는 유닛의 주인이 그 도시 재산 값(고리 residentProperty)으로 국고에 낸다.
-//   국세 몫을 뺀 나머지는 그 도시 세금 수입으로 다음 도시 세금 정산(기간 세금)에 더한다. 세율 0(설정 칸·나라 값 모두)이면 아무것도 하지 않는다.
+// - 주민세(D-579·D-581, society/residentTax.ts): 나라마다 주기 날 끝에 그 도시에 사는 유닛이 집 몫(고리 residentHomes)을, 사는 유닛이 있는 주인이 그 도시
+//   사업장 몫(고리 residentProperty)을 국고에 낸다. 국세 몫을 뺀 나머지는 그 도시 세금 수입으로 다음 도시 세금 정산(기간 세금)에 더한다. 세율 0(설정 칸·
+//   나라 값 모두)이면 아무것도 하지 않는다. 도시가 넘어가면 그 도시의 옛 나라 빚을 지운다(cityMoved — 2375 다).
 import { type CityRevenue, payCityProfit, profitRecipient, settleCityTaxes } from "../society/dividends.ts";
-import { collectResidentTax, residentAssessments } from "../society/residentTax.ts";
+import {
+  type ResidentHome,
+  cancelResidentDebts,
+  collectResidentTax,
+  residentAssessments,
+} from "../society/residentTax.ts";
 import type { SocietyCoefficients } from "../society/coefficients.ts";
 import type { SimHooks } from "./npcRun.ts";
 import { type SimFaction, type SimWorld, rulingFamilyOf } from "./world.ts";
@@ -29,8 +35,8 @@ export interface PayoutCounts {
 
 export interface SocietyPayouts {
   readonly counts: PayoutCounts;
-  /** 도시 주인이 바뀐 바로 뒤 */
-  cityMoved(cityId: number): void;
+  /** 도시 주인이 바뀐 바로 뒤(from = 옛 나라 — 그 도시의 옛 나라 주민세 빚을 지운다, D-581 2375 다) */
+  cityMoved(cityId: number, from?: SimFaction, nowMs?: number): void;
   /** 그 도시에 쓴 운영비(연구 시설 짓기 값) */
   spent(cityId: number, amount: bigint): void;
   settleDividends(nowMs: number): void;
@@ -57,10 +63,13 @@ export function createSocietyPayouts(
 
   return {
     counts,
-    cityMoved(cityId) {
+    cityMoved(cityId, from, nowMs) {
       taxMark.set(cityId, taxOf(cityId));
       operating.delete(cityId);
       residentRevenue.delete(cityId);
+      // 주민세 빚은 도시가 넘어가면 사라진다(D-581 2375 다). 빚이 없으면 거래를 만들지 않는다(주민세를 걷지 않으면 원장 그대로)
+      if (from && nowMs !== undefined && (hooks?.residentProperty || hooks?.residentHomes))
+        cancelResidentDebts(book, from.id, cityId, nowMs);
     },
     spent(cityId, amount) {
       operating.set(cityId, (operating.get(cityId) ?? 0n) + amount);
@@ -116,30 +125,39 @@ export function createSocietyPayouts(
       if (Math.trunc(b.residentTaxPm ?? 0) <= 0 && !hooks?.residentTaxOf) return;
       const propertyOf = hooks?.residentProperty?.(nowMs);
       if (!propertyOf) return;
-      let residents: Map<number, Set<number>> | undefined;
+      const homesHook = hooks?.residentHomes?.(nowMs);
+      // 고리가 없으면(시뮬) 시뮬 세계 유닛의 사는 도시 — 집 값 0
+      let fallback: Map<number, ResidentHome[]> | undefined;
+      const homesOf = (city: number, asset: string): readonly ResidentHome[] => {
+        if (homesHook) return homesHook(city, asset);
+        if (!fallback) {
+          fallback = new Map();
+          for (const unit of world.units.values()) {
+            const list = fallback.get(unit.city) ?? [];
+            list.push({ unit: unit.id, owner: unit.owner, housing: 0n });
+            fallback.set(unit.city, list);
+          }
+        }
+        return fallback.get(city) ?? [];
+      };
       for (const faction of sortedFactions()) {
         if (!faction.alive || faction.cities.size === 0) continue;
         const own = hooks?.residentTaxOf?.(faction);
         const ratePm = own?.ratePm ?? b.residentTaxPm ?? 0;
         const everyMs = own?.everyMs ?? b.residentTaxEveryMs ?? 7 * DAY_MS;
         if (Math.trunc(ratePm) <= 0 || day % Math.max(1, Math.floor(everyMs / DAY_MS)) !== 0) continue;
-        if (!residents) {
-          residents = new Map();
-          for (const unit of world.units.values()) {
-            const owners = residents.get(unit.city) ?? new Set<number>();
-            owners.add(unit.owner);
-            residents.set(unit.city, owners);
-          }
-        }
         const asset = treasuryAsset(faction);
         const result = collectResidentTax(book, {
           nation: faction.id,
           asset,
-          assessments: residentAssessments(faction.id, faction.cities, residents, (payer, city) =>
-            propertyOf(payer, city, asset),
+          assessments: residentAssessments(
+            faction.id,
+            faction.cities,
+            (city) => homesOf(city, asset),
+            (payer, city) => propertyOf(payer, city, asset),
           ),
           ratePm,
-          nationSharePm: b.residentTaxNationPm ?? 0,
+          nationSharePm: own?.nationSharePm ?? b.residentTaxNationPm ?? 0,
           atMs: nowMs,
         });
         // 도시 몫은 지금 그 나라 도시일 때만 도시 세금 수입으로(넘어간 도시의 옛 빚 갚은 몫은 국고에 남는다 — 질문 2375)

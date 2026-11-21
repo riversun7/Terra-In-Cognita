@@ -74,7 +74,7 @@ import { type JobBoardFilter, type LaborPostInput, createJobBoard } from "./jobB
 import { wageRulesOf } from "./rules.ts";
 import { npcQuits } from "./npcWait.ts";
 import { fundDueWages } from "./wageFunding.ts";
-import { wageWalletOf, withWageTaxes } from "./wagePurse.ts";
+import { wageNetView, wageWalletOf, withWageTaxes } from "./wagePurse.ts";
 import { type LaborWorkerEntry, contractEntry } from "./workerEntry.ts";
 import { deskRentOf, npcDeskRentOf } from "./deskRent.ts";
 import { KEEP_ENDED_MS, type LoadedLabor, type RentRow, contractRow, rentRow } from "./store.ts";
@@ -817,6 +817,7 @@ export function createLaborService(options: {
             endsAt: c.endsAtMs,
             paidTotal: String(c.paidTotal),
             role: worker && boss ? "both" : worker ? "worker" : boss ? "owner" : "none",
+            ...wageNetView(ledger, c),
           };
         });
       const site = workplaceOf(buildingId);
@@ -878,6 +879,7 @@ export function createLaborService(options: {
         paidTotal: String(c.paidTotal),
         settledAt: c.settledAtMs,
         leftoversMovedAt: c.leftoversMovedAtMs,
+        ...wageNetView(ledger, c),
       });
       const list =
         me === undefined

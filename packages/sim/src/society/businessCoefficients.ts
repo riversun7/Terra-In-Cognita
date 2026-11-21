@@ -133,6 +133,19 @@ export interface BusinessCoefficients {
    * 체제대로)에 든다. 0 = 모두 도시세. 선택 칸 — 없으면 0
    */
   readonly residentTaxNationPm?: number | undefined;
+  /**
+   * NPC 나라 주민세율 규칙식의 아래·위(‰, 질문 2373 가 — D-323 성향 프리셋 + 규칙식, npc/policy.ts npcResidentTaxPm): 상업 성향이 가장 높으면 min, 가장 낮으면
+   * max. 나라 값을 정하지 않은 NPC 나라에 서버가 쓴다. 선택 칸 — 없으면 0(걷지 않음)
+   */
+  readonly npcResidentTaxMinPm?: number | undefined;
+  readonly npcResidentTaxMaxPm?: number | undefined;
+  /**
+   * 주민세 재산의 건물 값(질문 2371 나 — 지은 값 = 재료 시세 + 돈, 서버 npc/residentProperty.ts만 읽는다): 값 = 지은 값 × 이 ‰ ÷ 1000 × 감가 ‰ ÷ 1000.
+   * 감가 ‰ = max(바닥, 1000 − 지은 뒤 날 수 × 하루 감가). 선택 칸 — 없으면 1000·0·0(감가 없음)
+   */
+  readonly residentBuildingValuePm?: number | undefined;
+  readonly residentBuildingDepreciationPm?: number | undefined;
+  readonly residentBuildingFloorPm?: number | undefined;
 }
 
 export const START_BUSINESS: BusinessCoefficients = {
@@ -171,4 +184,9 @@ export const START_BUSINESS: BusinessCoefficients = {
   residentTaxPm: 0,
   residentTaxEveryMs: 7 * 86_400_000,
   residentTaxNationPm: 0,
+  npcResidentTaxMinPm: 0,
+  npcResidentTaxMaxPm: 0,
+  residentBuildingValuePm: 1000,
+  residentBuildingDepreciationPm: 1,
+  residentBuildingFloorPm: 300,
 };

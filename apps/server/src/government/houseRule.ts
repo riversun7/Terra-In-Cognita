@@ -2,8 +2,10 @@
 // docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-16, 2011·2012·2014·2017·2018 답)". 읽기만 한다(정하기는 WebSocket house_entry_policy).
 // - 플레이어 가문 나라(도시를 가진 가문 — 소유 주체가 있는 가문 세력 행)의 지도자 = 그 가문장: 사이보그 본체 유닛·이름·가문 이름(세력 정체성).
 // - 가문 이동 정책 칸: factionIdentity/houseEntryPolicy.ts readHouseEntryPolicy(보는 사람이 정할 수 있는지 포함).
+// - 나라 세금 칸(tax-2): nationTaxPolicy.ts readNationTaxes(지도자면 정하기).
 import { readHouseEntryPolicy } from "../factionIdentity/houseEntryPolicy.ts";
-import type { SocietyCoefficients } from "@terra/sim";
+import { type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
+import { readNationTaxes } from "./nationTaxPolicy.ts";
 import { TEST_HOUSE_RULES, houseRulesFrom } from "../factionIdentity/rules.ts";
 import type { IdentityQueryable } from "../factionIdentity/store.ts";
 import type { World } from "../world/world.ts";
@@ -14,7 +16,7 @@ export function houseGovernmentSources(
   pool: IdentityQueryable,
   /** 설정 칸 실효 값(없으면 시험 계수표 — 팩 없이 띄운 서버) */
   tuning: { society(): SocietyCoefficients } | undefined,
-): Required<Pick<GovernmentSource, "houseLeader" | "houseEntry">> {
+): Required<Pick<GovernmentSource, "houseLeader" | "houseEntry" | "nationTaxes">> {
   return {
     async houseLeader(factionRow) {
       const { rows } = await pool.query<{ user_id: string; cyborg: string | null; house: string | null }>(
@@ -36,6 +38,13 @@ export function houseGovernmentSources(
         cityId,
         viewerId: viewer.id,
         rules: tuning ? houseRulesFrom(tuning.society()) : TEST_HOUSE_RULES,
+      }),
+    // 나라 세금 칸(tax-2 — nationTaxPolicy.ts): 설정 칸 실효 값(없으면 시험 계수표)
+    nationTaxes: (viewer, nation) =>
+      readNationTaxes(pool, {
+        ...nation,
+        viewerId: viewer.id,
+        rules: tuning?.society() ?? TEST_SOCIETY_COEFFICIENTS,
       }),
   };
 }

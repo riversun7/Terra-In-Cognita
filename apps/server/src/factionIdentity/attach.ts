@@ -20,6 +20,8 @@ import { createHouseRecruitService } from "./houseRecruit.ts";
 import { createHouseMembers } from "./members.ts";
 import { createHouseSuccession } from "./succession.ts";
 import { houseTiesOf } from "../world/houseTies.ts";
+import { attachNationTaxes, nationTaxesOf } from "../government/nationTax.ts";
+import { createNationTaxPolicy } from "../government/nationTaxPolicy.ts";
 import type { HouseRules } from "./rules.ts";
 
 type HouseWorld = Pick<World, "status" | "persistence" | "npc" | "maps">;
@@ -101,11 +103,25 @@ export function attachHouses(options: {
     now: options.now,
     persistence,
   });
+  const nationTax = createNationTaxPolicy({
+    pool,
+    db: options.db,
+    now: options.now,
+    table: () => {
+      const ledger = options.world?.persistence?.ledger;
+      return ledger ? nationTaxesOf(ledger) : undefined;
+    },
+  });
   // 가문세 표(houseTax.ts — 배당·임금이 원장으로 찾는다): 세계가 준비되면 원장에 붙이고 세율을 읽는다(5초마다 보고, 붙으면 멈춘다)
   const taxTimer = setInterval(() => {
     const p = options.world?.status().state === "ready" ? options.world.persistence : undefined;
     if (!p) return;
     clearInterval(taxTimer);
+    // 나라 세금 표(질문 2322 나·2373 가 — government/nationTax.ts): 사업장 소득세·하루 끝 주민세가 원장으로 찾는다
+    if (!nationTaxesOf(p.ledger))
+      attachNationTaxes({ pool, ledger: p.ledger, owners: p.owners })
+        .reload()
+        .catch((error: unknown) => options.log.error({ err: error }, "nation tax rates load failed"));
     if (houseTaxerOf(p.ledger)) return;
     const taxer = attachHouseTax({
       pool,
@@ -135,6 +151,8 @@ export function attachHouses(options: {
     home: () => home,
     entryPolicy: () => entryPolicy,
     policy: () => policy,
+    // 나라 세금 정하기(독립 나라 가문장 — government/nationTaxPolicy.ts). 메모리 표는 세계가 준비된 뒤 붙는다
+    nationTax: () => nationTax,
     afterMembership: async () => {
       await houseTiesOf(options.world?.persistence)?.reload();
     },

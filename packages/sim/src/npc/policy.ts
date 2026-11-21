@@ -200,6 +200,19 @@ export function npcHouseEntryFee(
 const clampPm = (value: number): number => Math.min(1000, Math.max(0, Math.trunc(value)));
 
 /**
+ * NPC 나라의 주민세율(‰) — 기획 D-579(주기·세율은 나라가 정함)·D-128(NPC 세력의 세율은 세력 AI가 정함 → D-323 규칙식: 성향 프리셋 + 규칙식), 질문 2373 가.
+ * 상업 성향(D-327)이 낮을수록 재산에 세금을 더 매기고(가장 낮음 = maxPm), 높을수록 덜 매긴다(가장 높음 = minPm). 둘 사이는 선형(npcRulingVaultReturnPm과 같은
+ * 꼴). 기본 설정 칸은 둘 다 0이라 옛 판처럼 걷지 않는다. 서버가 나라 값을 정하지 않은 NPC 나라에 쓴다(시뮬은 재산 층이 없어 부르지 않는다)
+ */
+export function npcResidentTaxPm(
+  commerce: number,
+  c: Pick<NpcCoefficients, "traitMin" | "traitMax">,
+  limits: { readonly minPm: number; readonly maxPm: number },
+): number {
+  return npcRulingVaultReturnPm(commerce, c, limits);
+}
+
+/**
  * NPC 지배 가문 금고에서 국고로 돌려보내는 몫(‰) — 기획 대조 2223 고침(D-338 "도시 세금의 남은 이익은 지배 가문 금고로"·D-555 1509 "NPC만으로도
  * 똑같이"·D-574 지배 가문 = 수도의 첫 가문·D-554 "세력 성향마다 다양한 변수"). 상업 성향(D-327)이 낮을수록 금고 돈을 국고 지원으로 더 돌려보내고
  * (가장 낮음 = maxPm), 높을수록 가문 금고에 더 쌓는다(가장 높음 = minPm). 둘 사이는 선형. 서버가 독재 NPC 나라의 남은 이익을 금고에 넣은 뒤 쓴다

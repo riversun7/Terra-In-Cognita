@@ -17,13 +17,25 @@
 //   사업장이 없으면 국고에 남는다(옛 길).
 // - 플레이어 가문 나라는 그대로(factionIdentity/houseVault.ts rulingVaultOf — 그 가문 금고).
 import { unitPurseLocation } from "@terra/shared/businessBooks";
-import { type SimFaction, type SimHooks, type SocietyCoefficients, npcRulingVaultReturnPm } from "@terra/sim";
+import {
+  type SimFaction,
+  type SimHooks,
+  type SimUnit,
+  type SocietyCoefficients,
+  npcRulingVaultReturnPm,
+} from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import { HOUSE_VAULT_PREFIX } from "../factionIdentity/houseVault.ts";
 import type { NpcCityHouses } from "./cityHouses.ts";
 import type { CityFacility } from "./economy.ts";
 import type { NpcBusiness } from "./npcDelivery.ts";
-import { withResidentProperty } from "./residentProperty.ts";
+import {
+  type ResidentEconomy,
+  type ResidentWorld,
+  residentSourceOf,
+  withResidentProperty,
+} from "./residentProperty.ts";
+import { withNationTaxes } from "../government/nationTax.ts";
 import {
   type InvestVault,
   type RulingSpendRule,
@@ -196,14 +208,20 @@ export const npcRulingHooks = (
     readonly cityHouses: Pick<NpcCityHouses, "rulingHouseOf" | "headOf" | "membersOf">;
     readonly rules: () => SocietyCoefficients;
     /** 유닛 주인(지갑 계정 주인)을 읽는 시뮬 세계. 모르는 유닛 — 가문원은 배당에서 빠지고 가문장은 그 나라 것으로 본다 */
-    readonly world?: { readonly units: ReadonlyMap<number, { readonly owner: number }> } | undefined;
+    readonly world?:
+      | { readonly units: ReadonlyMap<number, Pick<SimUnit, "id" | "owner" | "city" | "guard">> }
+      | undefined;
     /** 도시 시설·사업장 장부(house-10 — 투자를 사업장 금고로). 없으면 투자는 국고에 남는다 */
     readonly economy?:
       | {
           readonly business?: Pick<NpcBusiness, "vaultBalance" | "invest"> | undefined;
           facilitiesIn(cityId: number): readonly CityFacility[];
+          /** 건물 서비스·2차맵(주민세 건물 값 — residentProperty.ts) */
+          readonly build?: ResidentWorld | undefined;
         }
       | undefined;
+    /** 도시 경제(주민세 건물 값의 재료 시세 — 읽기만, 일꾼 숙소 배정). 없으면 주민세 재산 값이 없다 */
+    readonly econ?: ResidentEconomy | undefined;
   },
 ): SimHooks => {
   const ownerOf = (unitId: number): number | undefined => o.world?.units.get(unitId)?.owner;
@@ -229,8 +247,16 @@ export const npcRulingHooks = (
             business.invest(building, nation, asset, amount, atMs),
         }
       : undefined;
-  // 주민세 재산 값(D-579, residentProperty.ts — 같은 도시 시설·사업장 장부를 빌린다)도 여기서 얹는다(runtime.ts 1,000줄 상한)
-  return withNpcRulingVault(withResidentProperty(base, o.economy), {
+  // 주민세 재산 값(D-579·2371 나, residentProperty.ts — 그 도시 건물 지은 값)과 나라 세금(2373 가, government/nationTax.ts — 나라 세율·주기·국세 몫)도
+  // 여기서 얹는다(runtime.ts 1,000줄 상한)
+  const taxed = withNationTaxes(
+    withResidentProperty(
+      base,
+      residentSourceOf(o.economy?.build, o.econ, o.rules, { sim: o.world, ledger: o.ledger }),
+    ),
+    { ledger: o.ledger, rules: o.rules },
+  );
+  return withNpcRulingVault(taxed, {
     ledger: o.ledger,
     rulingHouseOf: (owner) => o.cityHouses.rulingHouseOf(owner)?.id,
     rule: () => npcVaultRuleOf(o.rules()),

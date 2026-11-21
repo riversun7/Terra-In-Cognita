@@ -447,11 +447,13 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   if (economy.catchment && o.catchmentSaved) restoreCatchment(economy.catchment, o.catchmentSaved, world);
   // NPC 휴먼 일꾼 임금·숙박비(질문 2236, npcWages.ts) — restPlans·runs는 아래에서 만든다(부를 때 읽는다)
   const wagesRef: { current?: ReturnType<typeof createNpcWages> } = {};
+  const fed = new Map<number, number>(); // 그날 휴먼 포만감 배율(운반꾼 임금 — 2391 나, npcLogistics.ts)
   const run = runEconomy(economy, world, loop, o.rules().npc, o.goodsHome, {
     rules: () =>
       wagesRef.current?.living.rules() ?? { wageMode: 0, wagePm: 0, baseDailyWage: 0n, foodEfficiency: [] },
     wageSource: (input) => wagesRef.current?.living.wageSource?.(input),
     lodgingDue: (cityId) => wagesRef.current?.living.lodgingDue?.(cityId),
+    foodPm: (_cityId, unitId, pm) => fed.set(unitId, pm),
   });
   // 처음 발행(E6): 찍는 나라마다 한 번
   for (const [currency, amount] of mintNationCurrencies({
@@ -905,10 +907,12 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
           logistics: centers,
           currencyOf: (owner) => currencyOf.get(owner) ?? ASSET_CREDIT,
           rules: o.rules,
+          foodPm: (unitId) => fed.get(unitId),
         },
         nowMs,
       );
-      if (haul.paidHaulers + haul.unpaidHaulers > 0)
+      fed.clear();
+      if (haul.paidHaulers + haul.unpaidHaulers + haul.hungryHaulers > 0)
         o.log.info({ npcHaulWages: { day, ...haul, paid: String(haul.paid) } }, "npc haul wages");
       syncAll(nowMs);
     },

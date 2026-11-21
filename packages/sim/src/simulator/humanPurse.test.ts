@@ -116,6 +116,17 @@ describe("NPC 휴먼 지갑(humanPurse.ts)", () => {
     expect(hungry.wages.size).toBe(0);
   });
 
+  it("포만감 배율 고리(foodPm — 서버 운반꾼 임금, 2391 나): 일꾼이 아닌 휴먼까지 휴먼마다 알리고, 판정은 그대로", () => {
+    const { world, economy, units } = setup();
+    feed(economy, world.cities.keys(), 0);
+    const seen = new Map<number, number>();
+    const hungry = livingDay(economy, world, DAY, RULES, {
+      foodPm: (_city, unitId, pm) => seen.set(unitId, pm),
+    });
+    expect(hungry.paidWorkers).toBe(0);
+    for (const unit of units) expect(seen.get(unit.id)).toBe(0);
+  });
+
   it("임금이 생활비보다 크면 남는 돈은 지갑에 남고, 다음 숙박비 몫은 생필품에 쓰지 않는다", () => {
     const { world, economy, faction, cityId, currency } = setup();
     feed(economy, world.cities.keys(), 100);

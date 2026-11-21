@@ -187,7 +187,7 @@ describe("NPC 물류센터 운반꾼 임금(2347 나)", () => {
     expect(wage).toBeGreaterThan(0n);
     const { book, business, deps } = setup({ treasury: wage * 10n });
     const result = payCenterHaulers(deps, 1_000);
-    expect(result).toEqual({ paid: wage * 2n, paidHaulers: 2, unpaidHaulers: 0 });
+    expect(result).toEqual({ paid: wage * 2n, paidHaulers: 2, unpaidHaulers: 0, hungryHaulers: 0 });
     expect(purse(book, 101)).toBe(wage);
     expect(purse(book, 102)).toBe(wage);
     // 국고 → 금고(넣기) → 지갑: 국고가 두 몫만큼 줄고 금고는 빈다
@@ -197,19 +197,47 @@ describe("NPC 물류센터 운반꾼 임금(2347 나)", () => {
 
   it("국고도 모자라면 넣지 않아 받지 못하고(시설 일꾼과 같은 길), 장부를 끄면 국고에서(모자라면 앞 운반꾼만), 임금 판을 끄면 없다", () => {
     const short = setup({ treasury: wage + 1n });
-    expect(payCenterHaulers(short.deps, 1_000)).toEqual({ paid: 0n, paidHaulers: 0, unpaidHaulers: 2 });
+    expect(payCenterHaulers(short.deps, 1_000)).toEqual({
+      paid: 0n,
+      paidHaulers: 0,
+      unpaidHaulers: 2,
+      hungryHaulers: 0,
+    });
     expect(purse(short.book, 101)).toBe(0n);
     const shortTreasury = setup({ treasury: wage + 1n, books: false });
     expect(payCenterHaulers(shortTreasury.deps, 1_000)).toEqual({
       paid: wage,
       paidHaulers: 1,
       unpaidHaulers: 1,
+      hungryHaulers: 0,
     });
     expect(purse(shortTreasury.book, 102)).toBe(0n);
     const noBooks = setup({ treasury: wage * 3n, books: false });
     expect(payCenterHaulers(noBooks.deps, 1_000).paidHaulers).toBe(2);
     expect(noBooks.book.balance(noBooks.book.ownerAccount(NATION, CUR))).toBe(wage);
     const off = setup({ treasury: wage * 3n, mode: 0 });
-    expect(payCenterHaulers(off.deps, 1_000)).toEqual({ paid: 0n, paidHaulers: 0, unpaidHaulers: 0 });
+    expect(payCenterHaulers(off.deps, 1_000)).toEqual({
+      paid: 0n,
+      paidHaulers: 0,
+      unpaidHaulers: 0,
+      hungryHaulers: 0,
+    });
+  });
+
+  it("포만감 효율 배율(2391 나 — 시설 일꾼과 같은 셈): 반만 먹으면 그 구간 ‰, 굶으면 0", () => {
+    const { book, deps } = setup({ treasury: wage * 10n });
+    const fed = new Map([
+      [101, 500],
+      [102, 0],
+    ]);
+    const result = payCenterHaulers({ ...deps, foodPm: (unitId) => fed.get(unitId) }, 1_000);
+    expect(result).toEqual({
+      paid: (wage * 500n) / 1000n,
+      paidHaulers: 1,
+      unpaidHaulers: 0,
+      hungryHaulers: 1,
+    });
+    expect(purse(book, 101)).toBe((wage * 500n) / 1000n);
+    expect(purse(book, 102)).toBe(0n);
   });
 });

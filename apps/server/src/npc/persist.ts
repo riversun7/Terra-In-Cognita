@@ -42,7 +42,7 @@ export interface CityPlace {
 const RECRUIT_RADII_CELLS = [8, 24, 48] as const;
 
 /** 세력 하나의 저장 모습(바뀌었는지 견줄 때) */
-function factionSig(f: SimFaction): string {
+function factionSig(f: SimFaction, nextDecideMs: number | null): string {
   return JSON.stringify([
     f.alive,
     f.code,
@@ -55,6 +55,7 @@ function factionSig(f: SimFaction): string {
     f.aiStep,
     f.rebelOf,
     f.bornOf,
+    nextDecideMs,
   ]);
 }
 
@@ -68,6 +69,8 @@ export interface NpcPersistOptions {
   readonly now: () => number;
   readonly log: { warn(obj: object, message: string): void; error(obj: object, message: string): void };
   readonly seed: number;
+  /** 그 세력에 걸린 다음 판단 시각(세력 행 next_decide_ms, decideSchedule.ts — 다시 켜도 이어 건다). 없으면 저장하지 않는다(null) */
+  readonly nextDecideMs?: ((f: SimFaction) => number | null) | undefined;
   /** 칸 오염·웨이브의 행성 */
   readonly planetId: string;
   /** 정원사(런타임이 사회 규칙 뒤에 붙인다) */
@@ -519,7 +522,8 @@ export function createNpcPersist(
   const saveFaction = (f: SimFaction, nowMs: number): number => {
     const rowId = rowOf.get(f.id);
     if (rowId === undefined) return 0;
-    const sig = factionSig(f);
+    const nextDecide = o.nextDecideMs?.(f) ?? null;
+    const sig = factionSig(f, nextDecide);
     if (savedFactions.get(f.id) === sig) return 0;
     const common = {
       id: rowId,
@@ -530,6 +534,7 @@ export function createNpcPersist(
       research_progress: f.research.progress,
       traits: traitsToArray(f.traits),
       ai_step: f.aiStep,
+      next_decide_ms: nextDecide,
     };
     if (f.player) writer.upsert("houseFactionState", common);
     else {
@@ -582,7 +587,8 @@ export function createNpcPersist(
       savedFactions.delete(id);
     },
     markSaved(day) {
-      for (const f of world.factions.values()) savedFactions.set(f.id, factionSig(f));
+      for (const f of world.factions.values())
+        savedFactions.set(f.id, factionSig(f, o.nextDecideMs?.(f) ?? null));
       for (const [id, city] of world.cities) {
         savedCities.set(id, citySig(id));
         savedDraws.set(id, drawSig(id));

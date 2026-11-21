@@ -391,6 +391,11 @@ export const factions = pgTable(
     /** NPC 성향 4축(공격·상업·신앙·정거장, D-327, 칸마다 0~1000, null = 아직 — 서버가 굴려 채운다)·NPC 판단 횟수(판단 난수의 차례) */
     traits: smallint("traits").array(),
     aiStep: integer("ai_step").notNull().default(0),
+    /**
+     * 걸린 다음 NPC 판단 시각(서버 런타임이 다시 켜도 이어 건다 — src/npc/decideSchedule.ts, ADR 2026-11-01-npc-brain-r5 "바뀜 (2026-11-21)").
+     * null = 아직(켤 때 [0, 판단 간격) 안 시드 점에 건다)
+     */
+    nextDecideMs: bigint("next_decide_ms", { mode: "number" }),
     /** 사라진 시각(유동 세력, D-294). 고정 세력은 사라지지 않는다 */
     dissolvedAtMs: bigint("dissolved_at_ms", { mode: "number" }),
     /** 반란으로 생긴 세력이면 되찾으려는 원래 세력(46 §2.4) */

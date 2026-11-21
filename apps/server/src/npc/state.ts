@@ -18,6 +18,8 @@ export interface NpcFactionRow {
   readonly researchProgress: number;
   readonly traits: number[] | null;
   readonly aiStep: number;
+  /** 걸린 다음 판단 시각(decideSchedule.ts). null = 아직 저장 안 됨(옛 행) */
+  readonly nextDecideMs: number | null;
   readonly rebelOfRowId: number | null;
   /** 태어날 때 부모 세력 행(기획 답 620 나). 사라진 부모도 행은 남는다 */
   readonly bornOfRowId: number | null;
@@ -158,7 +160,7 @@ export async function loadNpcState(pool: QueryPool, planetId: string): Promise<N
     await Promise.all([
       pool.query(
         `select f.id, o.id as owner_id, f.code, f.regime, f.fixed, f.parent_id, f.tech_level, f.tech_blueprint,
-              f.research_progress, f.traits, f.ai_step, f.rebel_of, f.born_of, f.capital_city_id, f.kind,
+              f.research_progress, f.traits, f.ai_step, f.next_decide_ms, f.rebel_of, f.born_of, f.capital_city_id, f.kind,
               f.recruit_auto
        from factions f join world_owners o on o.faction_id = f.id
        where f.dissolved_at_ms is null and ((f.kind = 'npc' and f.code is not null) or f.kind = 'player')
@@ -211,6 +213,7 @@ export async function loadNpcState(pool: QueryPool, planetId: string): Promise<N
       researchProgress: num(row.research_progress),
       traits: Array.isArray(row.traits) ? row.traits.map(num) : null,
       aiStep: num(row.ai_step),
+      nextDecideMs: numOrNull(row.next_decide_ms),
       rebelOfRowId: numOrNull(row.rebel_of),
       bornOfRowId: numOrNull(row.born_of),
       capitalCityId: numOrNull(row.capital_city_id),

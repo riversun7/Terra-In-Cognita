@@ -82,6 +82,7 @@ import { type NpcHouses, attachNpcHouses } from "./houseRuntime.ts";
 import { restCycleOf } from "./cityRest.ts";
 import { createHumanPlaces } from "./humanPlaces.ts";
 import { nationBuildTargets, npcBuildRunOf } from "./cityBuild.ts";
+import { createDecideClock, resumeDecides } from "./decideSchedule.ts";
 import { type ServerGardener, attachServerGardener } from "./gardener.ts";
 import { type WaveRewardItems, grantWaveReward } from "./waveRewards.ts";
 import { type NationPreset, nationPresetOf, nationStartOf, presetOfCode } from "./nations.ts";
@@ -104,6 +105,19 @@ const ADOPT_SATISFACTION = 60_000;
 const EVENT_DAY = "npc_day";
 /** 걸어 둔 거래소 주문의 만료를 거두는 간격(ms) */
 const EXPIRE_EVERY_MS = 60_000;
+/** 1분 지표 누적 칸(지표를 내면 0으로 되돌린다) */
+const zeroMetrics = () => ({
+  decisions: 0,
+  decideMs: 0,
+  dayMs: 0,
+  persistMs: 0,
+  recruited: 0,
+  deaths: 0,
+  days: 0,
+  gardenerMs: 0,
+  waveResults: 0,
+  catchmentRows: 0,
+});
 
 export interface NpcRuntimeOptions {
   readonly pool: QueryPool;
@@ -419,8 +433,10 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   // 휴먼 이름 조각(773 나): 그 세력이 따르는 나라의 목록(도시 이름과 같은 길)
   const namesOf = (ownerId: number) =>
     nationPresetOf(ownerId, nationLinkOf, o.presets ?? presets)?.humanNames;
+  const decideClock = createDecideClock(); // 걸린 다음 판단 시각(세력 행 next_decide_ms로 저장)
   const persist = createNpcPersist(
     {
+      nextDecideMs: decideClock.nextOf,
       world,
       pool: o.pool,
       writer,
@@ -597,18 +613,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     });
   }
   await persist.refillSpares(SPARE_FACTIONS);
-  const metrics = {
-    decisions: 0,
-    decideMs: 0,
-    dayMs: 0,
-    persistMs: 0,
-    recruited: 0,
-    deaths: 0,
-    days: 0,
-    gardenerMs: 0,
-    waveResults: 0,
-    catchmentRows: 0,
-  };
+  let metrics = zeroMetrics();
   // 기록기는 "N일째"를 시작 시각 + N × 24시간으로 센다 → 이어 돈 날 수와 UTC 0시 하루 끝에 맞춘 시작 시각을 준다
   // (하루를 줄인 측정 실행에서는 줄의 시각이 실제와 다르다)
   const restoredDay = state.society?.day ?? 0;
@@ -694,7 +699,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     econ && npcRulingHooks(econ.hooks, { ledger, cityHouses, rules: o.rules, world, economy: o.economy });
   const ctx: NpcContext = {
     world,
-    loop,
+    loop: decideClock.wrap(loop),
     recorder,
     c,
     decideEveryMs: c.npc.decideEveryMs,
@@ -843,7 +848,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       tech: faction.tech,
     })),
   );
-  for (const faction of world.factions.values()) if (faction.alive) scheduleDecide(ctx, faction, startMs);
+  resumeDecides(ctx, state.factions, startMs); // 저장된 다음 판단 시각으로(decideSchedule.ts — 켤 때마다 4.5~7.5시간 밀리지 않게)
   loop.schedule(nextDayEnd(startMs, dayMs), { kind: EVENT_DAY, subject: 0 });
   reviewCapitals();
   const first = await persist.flush(society.currentDay());
@@ -967,6 +972,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         npcDeaths: metrics.deaths,
         npcHumans: world.units.size,
         npcFactions: [...world.factions.values()].filter((f) => f.alive).length,
+        npcNextDecideMin: decideClock.minutesUntilNext(world.factions.values(), o.now()),
         gardenerMs: Math.round(metrics.gardenerMs * 10) / 10,
         gardenerWaves: gardener.run.waves.size,
         gardenerWaveResults: metrics.waveResults,
@@ -975,16 +981,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         catchmentCells: catchmentState?.stock.size ?? 0,
         ...econ?.takeMetrics(),
       };
-      metrics.decisions = 0;
-      metrics.decideMs = 0;
-      metrics.dayMs = 0;
-      metrics.persistMs = 0;
-      metrics.recruited = 0;
-      metrics.deaths = 0;
-      metrics.days = 0;
-      metrics.gardenerMs = 0;
-      metrics.waveResults = 0;
-      metrics.catchmentRows = 0;
+      metrics = zeroMetrics();
       return out;
     },
     stop() {

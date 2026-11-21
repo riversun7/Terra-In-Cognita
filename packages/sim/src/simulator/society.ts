@@ -580,8 +580,9 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
 
     sellShares(seller, cityId, nowMs) {
       if (!seller.cities.has(cityId)) return;
-      // 독재 나라: 지배 가문 계정이 판다(서버 고리 — 질문 2439 나)
+      // 독재 나라: 지배 가문 계정이 판다(서버 고리 — 질문 2439 나). 서버는 시장 팔 주문으로 낸다(D-587 2471 다 — 시뮬은 고리 없음)
       const house = o.hooks?.shareSellerOf?.(seller);
+      if (o.hooks?.marketShareSale?.(seller, house, cityId, nowMs)) return;
       if (house !== undefined) {
         sellHouseShares(seller, house, cityId, nowMs);
         return;

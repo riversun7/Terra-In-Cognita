@@ -13430,8 +13430,8 @@
       "min": 60000,
       "max": 86400000,
       "desc": {
-        "ko": "생산시설 지분 주문을 모아 한꺼번에 체결하는 간격(UTC 0시 기준). 체결되지 않은 주문은 회차 뒤 돌려준다.",
-        "en": "Interval at which business share orders are collected and matched at once (aligned to UTC midnight). Unmatched orders are returned after the round."
+        "ko": "생산시설 지분 주문을 모아 한꺼번에 체결하는 간격(UTC 0시 기준). 체결되지 않은 몫은 거둘 때까지 다음 회차에도 걸려 있다(D-587 질문 2472 나).",
+        "en": "Interval at which business share orders are collected and matched at once (aligned to UTC midnight). Unmatched parts stay on the book for later rounds until withdrawn."
       },
       "source": "ADR 2026-11-15-building-screen · D-125 기존 주식 주기 30분 [임시]"
     },
@@ -13466,8 +13466,8 @@
       "min": 60000,
       "max": 86400000,
       "desc": {
-        "ko": "도시(정부) 지분 주문을 모아 한꺼번에 체결하는 간격(UTC 0시 기준). 체결되지 않은 주문은 회차 뒤 돌려준다. 정부 건물·증권 거래소의 호가창이 다음 회차까지 남은 시간을 보인다.",
-        "en": "Interval at which city (government) share orders are collected and matched at once (aligned to UTC midnight). Unmatched orders are returned after the round. The order book in the government building and stock exchange shows the time left until the next round."
+        "ko": "도시(정부) 지분 주문을 모아 한꺼번에 체결하는 간격(UTC 0시 기준). 체결되지 않은 몫은 거둘 때까지 다음 회차에도 걸려 있다. 정부 건물·증권 거래소의 호가창이 다음 회차까지 남은 시간을 보인다.",
+        "en": "Interval at which city (government) share orders are collected and matched at once (aligned to UTC midnight). Unmatched parts stay on the book for later rounds until withdrawn. The order book in the government building and stock exchange shows the time left until the next round."
       },
       "source": "ADR 2026-11-21-share-market · D-583 질문 2438 답(동시호가 그대로) · 사업장 지분 주기와 같은 값 [임시]"
     },
@@ -13488,6 +13488,96 @@
         "en": "How many city share orders one player (or the house they lead) may have open in a round (across all cities)."
       },
       "source": "ADR 2026-11-21-share-market · 사업장 지분 주문 한도와 같은 값 [임시]"
+    },
+    {
+      "id": "exchange_share_fee_bp",
+      "code": "",
+      "name": {
+        "ko": "증권 거래소 이용료 적정 요율(만분율)",
+        "en": "Fair stock exchange usage fee (bp)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "bp",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "도시·사업장 지분이 체결될 때마다 판 쪽이 그 도시 증권 거래소 금고에 내는 이용료. 거래소 주인이 정하지 않으면 이 값(아래·위 끝으로 자름). 그 도시에 일하는 증권 거래소가 없으면 받지 않는다.",
+        "en": "Usage fee the seller pays into the vault of that city's stock exchange each time city or business shares are matched. Used when the exchange owner has not set a rate (clamped to the floor and limit). Not charged when the city has no working stock exchange."
+      },
+      "source": "ADR 2026-11-21-share-market-2 · D-587 질문 2474 다 [임시]"
+    },
+    {
+      "id": "exchange_share_fee_min_bp",
+      "code": "",
+      "name": {
+        "ko": "증권 거래소 이용료 아래 끝(만분율)",
+        "en": "Stock exchange usage fee floor (bp)"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "bp",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "증권 거래소 주인이 정할 수 있는 이용료의 아래 끝.",
+        "en": "Lowest usage fee a stock exchange owner may set."
+      },
+      "source": "ADR 2026-11-21-share-market-2 · D-587 질문 2474 다 [임시] — 입력 한도"
+    },
+    {
+      "id": "exchange_share_fee_max_bp",
+      "code": "",
+      "name": {
+        "ko": "증권 거래소 이용료 위 끝(만분율)",
+        "en": "Stock exchange usage fee limit (bp)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "bp",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "증권 거래소 주인이 정할 수 있는 이용료의 위 끝.",
+        "en": "Highest usage fee a stock exchange owner may set."
+      },
+      "source": "ADR 2026-11-21-share-market-2 · D-587 질문 2474 다 [임시] — 입력 한도"
+    },
+    {
+      "id": "city_share_npc_buy_budget_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 나라 지분 사기 예산(국고 ‰)",
+        "en": "NPC nation share-buying budget (‰ of treasury)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "회차마다 NPC 나라가 지분 사기 주문에 묶는 돈의 위 끝(국고 × 이 값 ÷ 1000 × 상업 성향 배율). 지난 체결가(없으면 NPC 지분 팔기 값) 이하로 걸린 팔 주문만 산다. 0이면 NPC는 사지 않는다.",
+        "en": "Upper bound on the money an NPC nation commits to share buy orders each round (treasury × this ÷ 1000 × commerce trait scale). It only buys sell orders resting at or below the last clearing price (or the NPC share sale price when none). 0 disables NPC buying."
+      },
+      "source": "ADR 2026-11-21-share-market-2 · D-587 질문 2471 다 · D-323 성향 규칙식 [임시]"
+    },
+    {
+      "id": "city_share_npc_exchange_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 증권 거래소 짓기 상업 성향 문턱(배율 ‰)",
+        "en": "NPC stock exchange build commerce threshold (scale ‰)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 500,
+      "max": 1501,
+      "desc": {
+        "ko": "NPC 나라의 상업 성향 배율(가장 낮음 500 ~ 가장 높음 1500)이 이 값 이상이면 도시마다 증권 거래소 하나를 증축 목표에 넣는다. 1501이면 NPC는 짓지 않는다.",
+        "en": "When an NPC nation's commerce trait scale (lowest 500 to highest 1500) is at least this, each of its cities adds one stock exchange to its build targets. 1501 means NPCs never build one."
+      },
+      "source": "ADR 2026-11-21-share-market-2 · D-587 질문 2474 다 [임시]"
     },
     {
       "id": "business_reserve_margin_pm",

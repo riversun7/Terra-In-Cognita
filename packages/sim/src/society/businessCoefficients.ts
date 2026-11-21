@@ -28,6 +28,23 @@ export interface BusinessCoefficients {
   /** [임시] 한 사람(또는 가문)이 한 회차에 걸어 둘 수 있는 도시 지분 주문 수(모든 도시 합). 선택 칸 — 없으면 shareOrderMax */
   readonly cityShareOrderMax?: number | undefined;
   /**
+   * [임시] 증권 거래소 이용료 적정 요율·아래 끝·위 끝(만분율 — 기획 D-587 질문 2474 다 "거래세 + 증권 거래소 주인이 정한 이용료", 물자 거래소 이용료와 같은
+   * 꼴, 서버 cityShares 줄기 share-market-2). 지분(도시·사업장) 체결마다 판 쪽이 그 도시 증권 거래소 금고에 낸다. 선택 칸 — 없으면 50·0·1000. 시뮬은 쓰지 않는다
+   */
+  readonly exchangeShareFeeBp?: number | undefined;
+  readonly exchangeShareFeeMinBp?: number | undefined;
+  readonly exchangeShareFeeMaxBp?: number | undefined;
+  /**
+   * [임시] NPC 나라 지분 사기 예산(‰ — 기획 D-587 질문 2471 다 "NPC도 같은 동시호가로 싼 지분을 산다", D-323 성향 규칙식). 회차마다 국고 × 이 값 ÷ 1000 ×
+   * 상업 성향 배율 안에서 지난 체결가 이하로 걸린 팔 주문을 산다. 0이면 NPC는 사지 않는다. 선택 칸 — 없으면 50. 시뮬은 쓰지 않는다
+   */
+  readonly cityShareNpcBuyBudgetPm?: number | undefined;
+  /**
+   * [임시] NPC가 증권 거래소를 짓는 상업 성향 문턱(성향 배율 ‰ — 500~1500, 기획 D-587 질문 2474 다 "NPC는 성향에 따라 증권 거래소를 짓는다"). 그 나라
+   * 상업 성향 배율이 이 값 이상이면 도시마다 증권 거래소 하나를 목표에 넣는다. 1501 이상이면 짓지 않는다. 선택 칸 — 없으면 1000. 시뮬은 쓰지 않는다
+   */
+  readonly cityShareNpcExchangePm?: number | undefined;
+  /**
    * [임시] 지급준비금 임금 상승 여유(‰, 기획 D-564 1623 "임금이 상승할 경우도 고려하여 여유 있게"). 정산 때 자동 계산한 필요액(다음 정산
    * 주기까지 임금 + 한 달치 보증금 모자람)에 (1000 + 이 값)/1000을 곱한다
    */
@@ -193,6 +210,11 @@ export const START_BUSINESS: BusinessCoefficients = {
   shareOrderMax: 10,
   cityShareRoundMs: 1_800_000,
   cityShareOrderMax: 10,
+  exchangeShareFeeBp: 50,
+  exchangeShareFeeMinBp: 0,
+  exchangeShareFeeMaxBp: 1000,
+  cityShareNpcBuyBudgetPm: 50,
+  cityShareNpcExchangePm: 1000,
   reserveMarginPm: 200,
   reserveDefaultPm: 1000,
   serviceFeePm: 200,

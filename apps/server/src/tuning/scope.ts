@@ -460,6 +460,20 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "npcAi.houseDecideMaxMs",
   "npcAi.unitAiEnabled",
   "npcAi.houseAiEnabled",
+  "npcAi.driveWorkMoodFloorPm",
+  "npcAi.driveWorkHungerFloorPm",
+  "npcAi.houseCheckMs",
+  "npcAi.houseUnfedBelowPm",
+  "npcAi.houseFoodShortSharePm",
+  "npcAi.houseMoraleLowBelow",
+  "npcAi.houseRefuseBelowPm",
+  "npcAi.houseTaxPm",
+  "npcAi.houseCareMinPm",
+  "npcAi.houseCareMaxPm",
+  "npcAi.leagueDuesPm",
+  "npcAi.leagueLot",
+  "npcAi.offlineStewardEnabled",
+  "npcAi.offlineStewardAfterMs",
 ];
 
 const LIVE = new Set(SERVER_LIVE_PATHS);

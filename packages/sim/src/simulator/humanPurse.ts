@@ -33,6 +33,12 @@ export interface NpcLivingRules {
   readonly baseDailyWage: bigint;
   /** 포만감 효율 배율 구간(N33 — 세력·사회 계수표 foodEfficiency). 그날 굶은 일꾼은 효율이 떨어져 임금도 준다(D-431 임금 = 효율 × 단가) */
   readonly foodEfficiency: readonly { readonly atMost: number; readonly pm: number }[];
+  /**
+   * 건설 도우미 임금(판 70, docs/adr/2026-11-21-npc-needs-drives.md "바뀜 (임금·가문 금고)"): 그날 짓고 있던 도시의 일 없는 휴먼(경비대·지시 불복
+   * 제외, 일꾼 차례) 가운데 이 수(설정 칸 npc_build_builders_max — 짓는 시간을 줄이는 도우미 수와 같다)까지 도시 주인 국고가 일꾼과 같은 임금을
+   * 준다. 없거나 0이면 주지 않는다
+   */
+  readonly buildersMax?: number | undefined;
 }
 
 /** 서버가 붙이는 고리(시뮬은 없다) */
@@ -60,6 +66,8 @@ export interface NpcLivingHooks {
 
 /** 하루 끝 셈(하루 줄 living 칸) */
 export interface LivingDay {
+  /** 임금을 받은 건설 도우미 수(일 없는 휴먼 — 그 임금은 wages 합에 든다) */
+  paidBuilders: number;
   /** 받은 일꾼 수·낼 곳이 모자라 받지 못한 일꾼 수·굶어 효율 0이라 임금이 0인 일꾼 수 */
   paidWorkers: number;
   unpaidWorkers: number;
@@ -73,6 +81,7 @@ export interface LivingDay {
 }
 
 export const emptyLivingDay = (): LivingDay => ({
+  paidBuilders: 0,
   paidWorkers: 0,
   unpaidWorkers: 0,
   hungryWorkers: 0,
@@ -134,7 +143,15 @@ export interface CityWorker {
 }
 
 /** 일꾼 나누기가 보는 휴먼 칸 */
-type WorkerUnit = Pick<SimUnit, "id" | "city" | "guard">;
+type WorkerUnit = Pick<SimUnit, "id" | "city" | "guard"> & Partial<Pick<SimUnit, "laborRank" | "onStrike">>;
+
+/** 일꾼 자리를 채우는 휴먼 차례: 경비대·지시 불복을 빼고, 가문 일 지시 차례(laborRank)가 있으면 그 차례 먼저, 나머지는 유닛 ID 차례 */
+export function laborOrderOf<U extends WorkerUnit>(units: readonly U[]): U[] {
+  const humans = units.filter((unit) => unit.guard !== true && unit.onStrike !== true);
+  if (!humans.some((unit) => unit.laborRank !== undefined)) return humans;
+  const rank = (unit: U): number => unit.laborRank ?? Number.MAX_SAFE_INTEGER;
+  return humans.toSorted((a, b) => rank(a) - rank(b) || a.id - b.id);
+}
 
 /** 그 도시 휴먼 차례: 경비대가 아닌 휴먼(유닛 ID 차례) 다음 경비대(유닛 ID 차례) */
 export function cityUnitOrder<U extends WorkerUnit>(
@@ -148,7 +165,8 @@ export function cityUnitOrder<U extends WorkerUnit>(
 }
 
 /**
- * 그 도시 일꾼(서버 npc/humanPlaces.ts와 같은 나눔): 경비대가 아닌 휴먼을 유닛 ID 차례로, 시설 ID 차례로 앞에서부터 그 시설 일꾼 수만큼.
+ * 그 도시 일꾼(서버 npc/humanPlaces.ts와 같은 나눔): 경비대가 아닌 휴먼을 일꾼 차례(laborOrderOf — 가문 일 지시가 없으면 유닛 ID 차례)로,
+ * 시설 ID 차례로 앞에서부터 그 시설 일꾼 수만큼.
  * units = cityUnitOrder 결과(없으면 새로 센다)
  */
 export function cityWorkerUnits(
@@ -157,7 +175,7 @@ export function cityWorkerUnits(
   cityId: number,
   units: readonly WorkerUnit[] = cityUnitOrder(world, cityId),
 ): CityWorker[] {
-  const humans = units.filter((unit) => unit.guard !== true);
+  const humans = laborOrderOf(units);
   const facilities = [...economy.facilities.values()]
     .filter((facility) => facility.city === cityId)
     .toSorted((a, b) => a.id - b.id);
@@ -244,7 +262,16 @@ export function livingDay(
   const out = emptyLivingDay();
   const served = economy.today.served;
   economy.today.served = undefined;
-  if (Math.trunc(rules.wageMode) !== 1) return out;
+  const building = economy.today.building;
+  economy.today.building = undefined;
+  if (Math.trunc(rules.wageMode) !== 1) {
+    // 끈 판: 지난 값이 남지 않게 비운다(만족도는 도시 평균을 보고 임금 요소가 없다)
+    for (const unit of world.units.values()) {
+      unit.fedPm = undefined;
+      unit.paidToday = undefined;
+    }
+    return out;
+  }
   const { book } = world;
   for (const city of [...world.cities.values()].toSorted((a, b) => a.id - b.id)) {
     const owner = city.owner;
@@ -282,6 +309,14 @@ export function livingDay(
     };
     const purseDelta = new Map<SimUnit, bigint>();
     const byUnit = new Map(workers.map((worker) => [worker.unitId, worker]));
+    // 건설 도우미(판 70): 그날 짓고 있던 도시의 일 없는 휴먼, 일꾼 차례로 buildersMax명까지
+    const builders = new Set<number>();
+    const buildersMax = building?.has(city.id) ? Math.max(0, Math.trunc(rules.buildersMax ?? 0)) : 0;
+    if (buildersMax > 0)
+      for (const unit of laborOrderOf(units)) {
+        if (builders.size >= buildersMax) break;
+        if (!byUnit.has(unit.id)) builders.add(unit.id);
+      }
     const cityServed = served?.get(city.id);
     units.forEach((unit, order) => {
       // 지갑 주인 = 유닛 주인(보통 도시 주인과 같다), 화폐 = 도시 주인 화폐(임금·생필품 값을 그 화폐로 주고받는다)
@@ -301,9 +336,13 @@ export function livingDay(
       let change = 0n;
       // 포만감 효율 배율(N33): 받은 경계 몫(0~100) → 구간 ‰. 고리가 있으면 일꾼이 아닌 휴먼도 알린다(운반꾼 임금 — 질문 2391 나)
       const foodPm = foodPmOf(due === 0 ? 100 : Math.floor((fed * 100) / due), rules.foodEfficiency);
+      // 그날 그 휴먼이 받은 생필품 몫(‰) — 하루 끝 만족도가 도시 평균 대신 이 값을 본다(society.ts, 판 69). 받을 것이 없던 날은 비운다
+      unit.fedPm = due === 0 ? undefined : Math.floor((fed * 1000) / due);
       hooks.foodPm?.(city.id, unit.id, foodPm);
       // ① 임금(일꾼만) — 포만감 효율 배율(N33)을 곱한다
       const worker = byUnit.get(unit.id);
+      // 그날 받은 임금(하루 끝 만족도의 임금 요소 — society.ts, 판 70). 경비대는 임금 틀 밖이라 비운다
+      let paid = 0n;
       if (worker) {
         const pay = (wage * BigInt(foodPm)) / 1000n;
         const source = sourceOf.get(worker.facilityId) ?? treasury;
@@ -311,11 +350,24 @@ export function livingDay(
           shift(source, -pay);
           change += pay;
           purse += pay;
+          paid = pay;
           out.paidWorkers += 1;
           bump(out.wages, currency, pay);
         } else if (pay > 0n) out.unpaidWorkers += 1;
         else if (wage > 0n) out.hungryWorkers += 1;
+      } else if (builders.has(unit.id)) {
+        // 건설 도우미: 도시 주인 국고가 같은 임금을 준다(모자라면 못 받는다)
+        const pay = (wage * BigInt(foodPm)) / 1000n;
+        if (pay > 0n && balanceOf(treasury) >= pay) {
+          shift(treasury, -pay);
+          change += pay;
+          purse += pay;
+          paid = pay;
+          out.paidBuilders += 1;
+          bump(out.wages, currency, pay);
+        }
       }
+      unit.paidToday = unit.guard === true ? undefined : Number(paid);
       if (eaten > 0n) {
         // 다음 숙박비 몫은 남긴다(서버가 하루 끝 뒤에 지갑에서 낸다)
         const keep = worker ? (lodging?.get(`${worker.facilityId}:${worker.index}`) ?? 0n) : 0n;

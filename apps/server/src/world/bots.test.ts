@@ -12,6 +12,7 @@ import {
   type WorkShift,
   arrivalIdleMs,
   atWork,
+  shiftFatiguePm,
   homeArea,
   idleMs,
   localDayPm,
@@ -100,6 +101,27 @@ describe("낮밤 일(WP-NPC4, 770 나)", () => {
     }
     const starts = Array.from({ length: 30 }, (_, i) => atWork({ ...shift(0), cycle }, i + 1, 0));
     expect(new Set(starts).size).toBe(2);
+  });
+
+  it("어림 피로: 일하는 때 동안 오르고 쉬는 때 동안 내린다(피로 바퀴·낮밤 모두)", () => {
+    const cycle = { workMs: 2 * 3_600_000, periodMs: 6 * 3_600_000 };
+    for (const unitId of [1, 2, 77]) {
+      let peak = 0;
+      let low = 1000;
+      for (let t = 0; t < cycle.periodMs; t += 60_000) {
+        const pm = shiftFatiguePm({ ...shift(0), cycle }, unitId, t);
+        peak = Math.max(peak, pm);
+        low = Math.min(low, pm);
+      }
+      expect(peak).toBeGreaterThan(550);
+      expect(peak).toBeLessThanOrEqual(600);
+      expect(low).toBeLessThan(20);
+    }
+    // 낮밤: 퇴근 무렵이 아침보다 피곤하고, 새벽에는 거의 풀린다
+    expect(shiftFatiguePm(shift(0), 5, timeAtLocalHour(0, 17))).toBeGreaterThan(
+      shiftFatiguePm(shift(0), 5, timeAtLocalHour(0, 8)),
+    );
+    expect(shiftFatiguePm(shift(0), 5, timeAtLocalHour(0, 5))).toBeLessThan(100);
   });
 
   it("낮(06:00~18:00 + 휴먼마다 흩은 출근·퇴근)에 일터, 밤에 집 — 같은 시각이라도 경도가 다르면 다르다", () => {

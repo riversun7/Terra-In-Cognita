@@ -298,6 +298,7 @@ export function runSimulation(options: RunOptions): RunSummary {
               wagePm: societyCoefficients.business.npcWagePm,
               baseDailyWage: npcBaseDailyWage(societyCoefficients),
               foodEfficiency: societyCoefficients.foodEfficiency,
+              buildersMax: societyCoefficients.npc.buildBuildersMax,
             }),
           },
         )

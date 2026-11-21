@@ -209,7 +209,7 @@ describe("NPC AI 5단계 장기 시뮬레이션 · 결정성 · 대규모 성능
     expect(patrolHours).toBeGreaterThan(200);
   });
 
-  it("10,000명 유닛 성향 생성 + 8상태 FSM + 충성도 개입 계산이 빠르게 완료된다(ADR 27 예산)", () => {
+  it("10,000명 유닛 성향 생성 + 5상태 FSM + 충성도 개입 계산이 빠르게 완료된다(ADR 27 예산)", () => {
     const rng = createRng(2026);
     const ai = DEFAULT_NPC_AI_COEFFICIENTS;
     const loyaltyRules = loyaltyRulesFromAi(ai);
@@ -230,6 +230,8 @@ describe("NPC AI 5단계 장기 시뮬레이션 · 결정성 · 대규모 성능
           hasHaulJob: false,
           hasMarket: true,
           fatiguePm: (i * 37) % 1000,
+          fedPm: (i * 53) % 1001,
+          satisfactionMilli: ((i * 13) % 101) * 1000,
           threatNear: false,
           cityAtWar: false,
           ai,

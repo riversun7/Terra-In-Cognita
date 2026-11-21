@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { type FactionView, scoreActions } from "./brain.ts";
 import { TEST_NPC_COEFFICIENTS as c } from "./coefficients.ts";
-import { investChallengePm, investChallenges, investCostPenalty, investCostSharePm } from "./invest.ts";
+import {
+  investChallengePm,
+  investChallenges,
+  investCostPenalty,
+  investCostSharePm,
+  investGate,
+  investTemperPm,
+  investTemperedChallengePm,
+} from "./invest.ts";
 
 const researchOf = (me: FactionView, roll: number): number | undefined =>
   scoreActions(me, [], c, roll).find((entry) => entry.action.kind === "research")?.score;
@@ -55,5 +63,24 @@ describe("NPC 투자 판단(invest.ts, D-587 질문 2465)", () => {
     expect(researchOf(me(5000n, false), roll)).toBe(
       c.researchScore + 100 - investCostPenalty(1000n, 5000n, c),
     );
+  });
+});
+
+describe("투자 판단 넓히기(npc-invest-2, 질문 2508)", () => {
+  it("성향 배율: 가장 낮으면 500‰, 가장 높으면 1500‰", () => {
+    expect(investTemperPm(c.traitMin, c)).toBe(500);
+    expect(investTemperPm(c.traitMax, c)).toBe(1500);
+    expect(investTemperPm(Math.floor((c.traitMin + c.traitMax) / 2), c)).toBe(1000);
+  });
+
+  it("성향을 곱한 도전 확률은 상한에서 자른다", () => {
+    expect(investTemperedChallengePm(1000n, 3000n, 500, c)).toBe(c.investChallengeStepPm);
+    expect(investTemperedChallengePm(1000n, 10n ** 12n, 1500, c)).toBe(c.investChallengeMaxPm);
+  });
+
+  it("수요가 있으면 굴리지 않고, 없으면 굴림이 확률보다 작을 때만 연다", () => {
+    expect(investGate(10n ** 9n, 1n, true, 999, 1000, c)).toBe(true);
+    expect(investGate(1000n, 3000n, false, 199, 1000, c)).toBe(true);
+    expect(investGate(1000n, 3000n, false, 200, 1000, c)).toBe(false);
   });
 });

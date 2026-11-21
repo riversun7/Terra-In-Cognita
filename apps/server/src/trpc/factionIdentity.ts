@@ -50,6 +50,8 @@ export const factionIdentityRouter = router({
    * 초대·신청·받기·나가기·내보내기는 WebSocket 명령이다(프로토콜 23)
    */
   house: identityProcedure.query(({ ctx }) => ctx.identity.house(ctx.identityViewer)),
+  /** 가문 연맹(조약) 목록(npc-invest-2 — 가문 열쇠 p:/n:, 든 차례) */
+  leagues: identityProcedure.query(({ ctx }) => ctx.identity.leagues()),
   /** 가문 소식을 확인했다(ids가 없으면 모두). 게임 상태가 아니라 읽음 표시라 tRPC다 */
   dismissHouseNotices: identityProcedure
     .input(

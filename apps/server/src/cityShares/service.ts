@@ -333,7 +333,16 @@ export function createCityShareService(o: {
       if (boundary === undefined) return 0;
       // NPC 나라 사기 주문(D-587 질문 2471 다): 체결 전에 다시 고른다
       const npc = o.rules().npc;
-      if (npc) npcBuyOrders(m, o.port.npcNations(), (cityId) => o.port.currencyOf(cityId), npc, boundary);
+      // NPC 가문도 가문 금고로 산다(질문 2522 나 — npc-invest-2)
+      if (npc)
+        npcBuyOrders(
+          m,
+          o.port.npcNations(),
+          (cityId) => o.port.currencyOf(cityId),
+          npc,
+          boundary,
+          o.port.npcHouses?.() ?? [],
+        );
       // 도시마다 한 예산(질문 2477 나 — 그 도시 지분으로 과반 끝)
       const budgets = new Map<number, { ruling: bigint; treasury: bigint; sides: RulingSides }>();
       for (const cityId of m.cities()) {

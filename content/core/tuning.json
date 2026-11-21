@@ -11066,6 +11066,42 @@
       "source": "D-576 · D-555 · D-212 · D-554 · 질문 2255 다안 · ADR 2026-11-11-faction-identity \"바뀜 (house-9)\" · 질문 2312 나(기획 대조) · \"바뀜 (house-10)\""
     },
     {
+      "id": "house_npc_league_found_score",
+      "code": "",
+      "name": {
+        "ko": "NPC 가문 연맹 만들기 문턱(성향 점수)",
+        "en": "NPC house league founding threshold (trait score)"
+      },
+      "value": 750,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1001,
+      "desc": {
+        "ko": "아직 연맹에 들지 않은 NPC 가문은 가문장 성향의 만들기 점수((개방 + 자치 + 과감) ÷ 3, 0~1000)가 이 값 이상이면 연맹을 만든다(들기 점수가 같거나 높으면 들기가 먼저). 1001이면 NPC는 연맹을 만들지 않는다.",
+        "en": "An NPC house not yet in a league founds one when its head's founding score ((openness + autonomy + boldness) ÷ 3, 0-1000) is at least this (joining wins when its score is equal or higher). 1001 means NPCs never found leagues."
+      },
+      "source": "ADR 2026-11-21-npc-needs-drives \"바뀜 (npc-invest-2)\" · D-587 4·5 · 질문 2502 · D-323 성향 규칙식 [임시]"
+    },
+    {
+      "id": "house_npc_league_join_score",
+      "code": "",
+      "name": {
+        "ko": "NPC 가문 연맹 들기 문턱(성향 점수)",
+        "en": "NPC house league joining threshold (trait score)"
+      },
+      "value": 550,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1001,
+      "desc": {
+        "ko": "아직 연맹에 들지 않은 NPC 가문은 가문장 성향의 들기 점수((개방 + 공동체) ÷ 2, 0~1000)가 이 값 이상이면 든 가문이 가장 많은 연맹에 스스로 든다. NPC 가문은 연맹 하나만 든다. 1001이면 NPC는 연맹에 들지 않는다.",
+        "en": "An NPC house not yet in a league joins the league with the most member houses on its own when its head's joining score ((openness + communalism) ÷ 2, 0-1000) is at least this. NPC houses join one league only. 1001 means NPCs never join."
+      },
+      "source": "ADR 2026-11-21-npc-needs-drives \"바뀜 (npc-invest-2)\" · D-587 4·5 · 질문 2502 · D-323 성향 규칙식 [임시]"
+    },
+    {
       "id": "house_npc_city_houses_l1",
       "code": "",
       "name": {

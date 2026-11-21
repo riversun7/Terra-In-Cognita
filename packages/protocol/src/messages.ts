@@ -21,6 +21,7 @@ import { governanceClientMessages, governanceServerMessages } from "./governance
 import { housePolicyClientMessages } from "./housePolicy.ts";
 import { nationTaxClientMessages, nationTaxServerMessages } from "./nationTax.ts";
 import { cityShareClientMessages, cityShareServerMessages } from "./cityShares.ts";
+import { houseLeagueClientMessages, houseLeagueServerMessages } from "./league.ts";
 import { residenceClientMessages, residenceServerMessages } from "./residence.ts";
 import { diplomacyClientMessages, diplomacyServerMessages } from "./diplomacy.ts";
 import { itemClientMessages, itemServerMessages } from "./items.ts";
@@ -80,6 +81,7 @@ export const clientMessageSchema = z.discriminatedUnion("t", [
   ...governanceClientMessages,
   ...nationTaxClientMessages,
   ...cityShareClientMessages,
+  ...houseLeagueClientMessages,
   ...residenceClientMessages,
   ...diplomacyClientMessages,
   ...boatClientMessages,
@@ -136,6 +138,7 @@ export const serverMessageSchema = z.discriminatedUnion("t", [
   ...governanceServerMessages,
   ...nationTaxServerMessages,
   ...cityShareServerMessages,
+  ...houseLeagueServerMessages,
   ...residenceServerMessages,
   ...diplomacyServerMessages,
   ...boatServerMessages,

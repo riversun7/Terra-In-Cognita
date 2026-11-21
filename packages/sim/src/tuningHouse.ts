@@ -169,6 +169,21 @@ export const HOUSE_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 가문장 꺼낸 돈 → 도시 건설 투자 몫(‰)",
     "NPC house head withdrawal to city building (‰)",
   ),
+  // NPC 가문 연맹 판단 문턱(npc-invest-2 — 질문 2502, apps/server/src/factionIdentity/npcLeague.ts) [임시]
+  k(
+    "house_npc_league_found_score",
+    "",
+    "house.npcLeagueFoundScore",
+    "NPC 가문 연맹 만들기 문턱(성향 점수)",
+    "NPC house league founding threshold (trait score)",
+  ),
+  k(
+    "house_npc_league_join_score",
+    "",
+    "house.npcLeagueJoinScore",
+    "NPC 가문 연맹 들기 문턱(성향 점수)",
+    "NPC house league joining threshold (trait score)",
+  ),
   // NPC 도시의 가문 수(D-573 — 도시 등급마다)
   ...CITY_GRADES.map(([ko, en], index) =>
     k(

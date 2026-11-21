@@ -7,7 +7,11 @@
 // - 사기(npcBuyOrders — 회차마다 체결 전에): NPC가 이끄는 살아 있는 나라마다 지난 회차의 제 사기 주문을 거두고, 그 나라 국고 화폐로 값을 매기는 도시들
 //   가운데 지난 체결가(없으면 d_share_sale_price) 이하로 걸린 남의 팔 주문이 있는 도시 하나를 고른다(가장 싼 값 ÷ 기준가가 작은 곳, 같으면 작은 도시 ID).
 //   기준가에 산다. 수량 = d_share_sale_amount·걸린 싼 팔 주 합·예산 ÷ 기준가 가운데 작은 것. 예산 = 국고 × 설정 칸 city_share_npc_buy_budget_pm ÷ 1000 ×
-//   상업 성향 배율(500~1500‰ — npc/rulingSpend.ts traitScalePm) ÷ 1000 [임시]. NPC 가문(가문 금고)은 사지 않는다 [임시 — 질문 2522].
+//   상업 성향 배율(500~1500‰ — npc/rulingSpend.ts traitScalePm) ÷ 1000 [임시].
+// - 바뀜 (npc-invest-2, 질문 2522 나 — D-555 1509 "NPC만으로도 똑같이"): NPC 가문도 가문 금고(vault:house:npc:<ID>:<화폐>)로 같은 동시호가에서 산다. 나라 다음에
+//   가문 ID 차례로 같은 규칙: 화폐 = 그 가문 도시 주인 나라 화폐, 예산 = 가문 금고 × 같은 예산 ‰ × 이윤 성향(가문장 7축 greed, 0~1000) 배율, holder =
+//   가문 계정(houseHolder("npc:<ID>:")). 기술 기본값(2522 다·라 — 기획이 정하지 않은 꼴): 제 나라 도시를 먼저 고르지 않는다(나라와 같은 "가장 싼 곳"),
+//   예산·기준가 꼴은 나라와 같다. 주문 수 한도도 같다(질문 2530 가).
 // 정수 연산만 쓴다. 시뮬 판정은 바뀌지 않는다(시뮬은 고리를 붙이지 않는다 — SIM_VERSION 그대로).
 import { traitScalePm } from "../npc/rulingSpend.ts";
 import { type CityShareMarket, houseHolder, ownerHolder } from "./market.ts";
@@ -42,6 +46,19 @@ export interface NpcShareRules {
   readonly traitMin: number;
   readonly traitMax: number;
 }
+
+/** NPC 가문 하나(사기 — 위 바뀜 npc-invest-2) */
+export interface NpcShareHouse {
+  /** NPC 가문 ID(npc_city_houses) */
+  readonly houseId: number;
+  /** 가문 금고 화폐(가문 도시 주인 나라 화폐) */
+  readonly asset: string;
+  /** 가문장 이윤 성향(7축 greed, 0~1000 — 없으면 500) */
+  readonly greed: number;
+}
+
+/** 가문 성향 범위(7축 0~1000) */
+const HOUSE_TRAIT_RANGE = { traitMin: 0, traitMax: 1000 } as const;
 
 /** NPC가 이끄는 살아 있는 나라 하나(사기) */
 export interface NpcShareNation {
@@ -90,27 +107,44 @@ export function placeNpcSale(
   });
 }
 
-/** 회차마다 NPC 나라 사기 주문(위 머리 주석). currencyOf = 그 도시 지금 값 화폐. 건 주문 수 */
+/** 회차마다 NPC 나라·NPC 가문 사기 주문(위 머리 주석). currencyOf = 그 도시 지금 값 화폐. 건 주문 수 */
 export function npcBuyOrders(
   m: CityShareMarket,
   nations: readonly NpcShareNation[],
   currencyOf: (cityId: number) => string | undefined,
   rules: NpcShareRules,
   nowMs: number,
+  houses: readonly NpcShareHouse[] = [],
 ): number {
+  const buyers = [
+    ...nations
+      .toSorted((a, b) => a.ownerId - b.ownerId)
+      .map((nation) => ({
+        holder: ownerHolder(nation.ownerId),
+        asset: nation.asset,
+        scalePm: traitScalePm(nation.commerce, rules),
+      })),
+    ...houses
+      .toSorted((a, b) => a.houseId - b.houseId)
+      .map((house) => ({
+        holder: houseHolder(`npc:${house.houseId}:`),
+        asset: house.asset,
+        scalePm: traitScalePm(house.greed, { ...rules, ...HOUSE_TRAIT_RANGE }),
+      })),
+  ];
   let placed = 0;
-  for (const nation of nations.toSorted((a, b) => a.ownerId - b.ownerId)) {
-    const holder = ownerHolder(nation.ownerId);
+  for (const buyer of buyers) {
+    const holder = buyer.holder;
     // 지난 회차의 제 사기 주문(안건 주문은 빼고)을 거두고 다시 고른다
     for (const order of m.ordersOf([holder]))
       if (order.side === "buy" && order.agendaId === null) m.cancel([holder], order.id, nowMs);
     if (rules.budgetPm <= 0 || rules.lot <= 0n) continue;
-    const cash = m.cashBalance(holder, nation.asset);
-    const scale = BigInt(traitScalePm(nation.commerce, rules));
+    const cash = m.cashBalance(holder, buyer.asset);
+    const scale = BigInt(buyer.scalePm);
     const budget = (cash * BigInt(Math.trunc(rules.budgetPm)) * scale) / 1_000_000n;
     let best: { cityId: number; ref: bigint; cheap: bigint; low: bigint } | undefined;
     for (const cityId of m.cities()) {
-      if (currencyOf(cityId) !== nation.asset) continue;
+      if (currencyOf(cityId) !== buyer.asset) continue;
       const ref = refPrice(m, cityId, rules);
       let cheap = 0n;
       let low: bigint | undefined;

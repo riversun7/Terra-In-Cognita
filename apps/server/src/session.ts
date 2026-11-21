@@ -61,6 +61,7 @@ import {
   COUP_PROTOCOL_VERSION,
   GOVERNANCE_PROTOCOL_VERSION,
   CITY_SHARE_PROTOCOL_VERSION,
+  HOUSE_LEAGUE_PROTOCOL_VERSION,
   DIPLOMACY_PROTOCOL_VERSION,
   BOAT_PROTOCOL_VERSION,
   GEAR_PROTOCOL_VERSION,
@@ -91,7 +92,7 @@ import type { GatherGateway, GatherSocket } from "./gather/gateway.ts";
 import type { BoatGateway, BoatSocket } from "./boats/gateway.ts";
 import type { HospitalGateway, HospitalSocket } from "./hospital/gateway.ts";
 import type { CitizenshipGateway, CitizenshipSocket } from "./citizenship/gateway.ts";
-import type { HouseDiplomacyGateway } from "./diplomacy/gateway.ts";
+import type { HouseLeagueGateway } from "./factionIdentity/leagueGateway.ts";
 import type { WorldGateway, WorldSocket } from "./world/gateway.ts";
 import { createOperatorPace } from "./world/operatorPace.ts";
 
@@ -135,7 +136,7 @@ export interface SessionContext {
   citizenship?: CitizenshipGateway | undefined;
   /** 가문 창설(프로토콜 22, docs/adr/2026-11-11-faction-identity.md "바뀜 (926~935 답)"). 없으면 busy */
   /** 가문 + 나라 의결(gov_*, governance/gateway.ts withGovernance) */
-  house?: HouseDiplomacyGateway | undefined;
+  house?: HouseLeagueGateway | undefined;
   /** 이 연결의 로그인 사용자(쿠키). 로그인하지 않았거나 인증이 꺼져 있으면 null */
   viewer?: (() => Promise<Viewer | null>) | undefined;
   /**
@@ -179,7 +180,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
   let boatSocket: BoatSocket | undefined;
   let hospitalSocket: HospitalSocket | undefined;
   let citizenshipSocket: CitizenshipSocket | undefined;
-  let houseSocket: ReturnType<HouseDiplomacyGateway["open"]> | undefined;
+  let houseSocket: ReturnType<HouseLeagueGateway["open"]> | undefined;
   let releasePresence: (() => void) | undefined;
   // 이 연결의 운영자 배율(기획 D-560 1246~1248, world/operatorPace.ts): 2차맵 게이트웨이가 바꾸고 유닛 명령 게이트웨이들이 같이 본다
   const operatorPace = createOperatorPace();
@@ -903,20 +904,28 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       }
       case "city_share_order":
       case "city_share_cancel":
+      case "house_league":
       case "dip_propose":
       case "dip_counter":
       case "dip_respond":
       case "dip_war_request":
       case "dip_war_respond": {
         // 도시(정부) 지분 주문(docs/adr/2026-11-21-share-market.md)은 CITY_SHARE_PROTOCOL_VERSION, 지도자끼리 조약(2026-11-21-diplomacy-treaties.md)은
-        // DIPLOMACY_PROTOCOL_VERSION의 메시지다. 가문 소켓이 함께 받는다
+        // DIPLOMACY_PROTOCOL_VERSION, 가문 연맹(npc-invest-2)은 HOUSE_LEAGUE_PROTOCOL_VERSION의 메시지다. 가문 소켓이 함께 받는다
         const dip = message.t.startsWith("dip_");
-        if (protocolVersion < (dip ? DIPLOMACY_PROTOCOL_VERSION : CITY_SHARE_PROTOCOL_VERSION)) {
+        const league = message.t === "house_league";
+        const need = dip
+          ? DIPLOMACY_PROTOCOL_VERSION
+          : league
+            ? HOUSE_LEAGUE_PROTOCOL_VERSION
+            : CITY_SHARE_PROTOCOL_VERSION;
+        if (protocolVersion < need) {
           reject("invalid_message");
           return;
         }
         if (!context.house) {
           if (dip) send({ t: "dip_result", id: message.id, ok: false, code: "busy" });
+          else if (league) send({ t: "house_league_result", id: message.id, ok: false, code: "busy" });
           else send({ t: "city_share_result", id: message.id, ok: false, code: "busy" });
           return;
         }

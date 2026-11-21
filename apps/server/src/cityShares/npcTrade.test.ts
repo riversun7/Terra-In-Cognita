@@ -1,5 +1,5 @@
 // NPC 지분 주문 시험 — 기획 D-587(질문 2471 다: NPC도 같은 동시호가로 사고판다, D-323 성향 규칙식), docs/adr/2026-11-21-share-market-2.md
-import { createLedgerBook, houseShareCode, shareAsset } from "@terra/sim";
+import { createLedgerBook, houseMoneyCode, houseShareCode, shareAsset } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import { EMPTY_CITY_SHARES, createCityShareMarket, houseHolder, ownerHolder } from "./market.ts";
@@ -107,6 +107,30 @@ describe("NPC 지분 주문(D-587 2471 다)", () => {
     expect(npcBuyOrders(market, [{ ownerId: 4, asset: OTHER_CUR, commerce: 0 }], currencyOf, RULES, T0)).toBe(
       0,
     );
+    expect(market.check()).toEqual([]);
+  });
+
+  it("사기: NPC 가문도 가문 금고로 같은 규칙에 산다(질문 2522 나 — 나라 다음, 이윤 성향 배율)", () => {
+    const { ledger, market, grant } = setup();
+    grant(ledger.ownerAccount(PLAYER, shareAsset(CITY)), shareAsset(CITY), 300n);
+    grant(ledger.systemAccount(houseMoneyCode(HOUSE, CUR), CUR), CUR, 2_000n);
+    market.place({
+      holder: ownerHolder(PLAYER),
+      cityId: CITY,
+      side: "sell",
+      price: 9n,
+      shares: 80n,
+      atMs: T0,
+    });
+    // 예산 = 2000 × 100‰ × 이윤 0(배율 500‰) = 100 → 기준가 10에 10주
+    expect(npcBuyOrders(market, [], currencyOf, RULES, T0, [{ houseId: 7, asset: CUR, greed: 0 }])).toBe(1);
+    expect(
+      market
+        .orders(CITY)
+        .filter((o) => o.side === "buy")
+        .map((o) => [o.holder, o.price, o.shares]),
+    ).toEqual([[houseHolder(HOUSE), 10n, 10n]]);
+    expect(ledger.balance(ledger.systemAccount(houseMoneyCode(HOUSE, CUR), CUR))).toBe(2_000n - 100n);
     expect(market.check()).toEqual([]);
   });
 });

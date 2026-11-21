@@ -4,6 +4,7 @@
 import type { Regime } from "../society/shares.ts";
 import type { WarCoefficients, WarOutcome } from "../society/warOutcomes.ts";
 import type { NpcCoefficients } from "./coefficients.ts";
+import { investGate } from "./invest.ts";
 import type { Traits } from "./traits.ts";
 
 /**
@@ -133,6 +134,10 @@ export interface RecruitPick {
  * (guardTarget)보다 적으면 모자란 수만큼 먼저(좋은 카드부터) 경비대로 산다. 값·예비금은 같은 카드 규칙이고, 경비대도 휴먼이라 산 만큼 휴먼
  * 목표의 모자람도 준다(경비대 채우기는 주거 목표와 따로 — 주거가 차 있어도 등급 값까지 채운다). population은 경비대를 포함한 그 도시 휴먼 수.
  * 산 차례대로 돌려준다. 사람(유저 세력)이면 이 자리에 유저 명령이 들어간다
+ * 바뀜 (npc-invest-2, 질문 2508 다 — D-586 "좋은 아이템·스킬일수록 투자 비용이 높다"·D-587 8 "자본이 많으면 도전적 시도 확률 증가"): invest가 있으면
+ * 카드 한 장마다 살 수 있는 카드 가운데 가장 싼 값의 카드와, 그보다 비싼 카드 가운데 도전 굴림(npc/invest.ts investGate — 값 ÷ 국고, 성향 배율:
+ * 경비대 = 공격 성향, 일꾼 = 상업 성향)을 넘는 카드만 후보로 두고 그 가운데 토탈이 가장 높은 카드를 산다. 굴림 하나로 정하므로 값이 높을수록(확률이
+ * 낮을수록) 먼저 빠진다. 수(경비대·주거 목표)는 그대로다 — 무엇을 살지만 바뀐다. invest가 없으면 옛 판(좋은 카드부터)
  */
 export function recruitPicks(
   input: {
@@ -150,6 +155,10 @@ export function recruitPicks(
      * 다시 채우기는 그대로 — 지키는 사람은 늘리는 것이 아니라 메우는 것)
      */
     readonly growthBlocked?: boolean | undefined;
+    /** 투자 판단(위 바뀜): 도전 굴림(0 이상 정수)과 성향 배율(‰ — npc/invest.ts investTemperPm). 없으면 옛 판 */
+    readonly invest?:
+      | { readonly roll: number; readonly guardTemperPm: number; readonly workerTemperPm: number }
+      | undefined;
   },
   c: NpcCoefficients,
 ): RecruitPick[] {
@@ -161,10 +170,31 @@ export function recruitPicks(
   const open = input.cards
     .filter((card) => (input.taken & (1 << card.slot)) === 0)
     .toSorted((a, b) => b.total - a.total || (a.cost < b.cost ? -1 : a.cost > b.cost ? 1 : a.slot - b.slot));
-  for (const card of open) {
-    if (gap <= 0 && guardGap <= 0) break;
-    if (treasury * 1000n < card.cost * BigInt(c.recruitReservePm) || treasury < card.cost) continue;
+  const invest = input.invest;
+  while (gap > 0 || guardGap > 0) {
     const guard = guardGap > 0;
+    const left = treasury;
+    const affordable = open.filter(
+      (card) => left * 1000n >= card.cost * BigInt(c.recruitReservePm) && left >= card.cost,
+    );
+    let cheapest: bigint | undefined;
+    for (const card of affordable) if (cheapest === undefined || card.cost < cheapest) cheapest = card.cost;
+    const card = invest
+      ? affordable.find(
+          (entry) =>
+            entry.cost <= (cheapest ?? 0n) ||
+            investGate(
+              entry.cost,
+              left,
+              false,
+              invest.roll,
+              guard ? invest.guardTemperPm : invest.workerTemperPm,
+              c,
+            ),
+        )
+      : affordable[0];
+    if (!card) break;
+    open.splice(open.indexOf(card), 1);
     picks.push({ slot: card.slot, guard });
     treasury -= card.cost;
     gap -= 1;

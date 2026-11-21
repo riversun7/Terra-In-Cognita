@@ -3,6 +3,7 @@
 //   창설은 무료다(기획 D-565 — 옛 창설 비용·국고 이체를 지웠다).
 // - 서버를 켤 때 옛 정체성(가문 없는 줄)을 한 번 가문으로 옮긴다(found.ts adoptUnfoundedIdentities, 뒤에서 — 실패해도 서버는 뜬다).
 // - 공고한 소속 도시 옮기기(D-570, houseMoves.ts)는 1분 타이머가 한다.
+// - 세계가 준비되면 옛 도시 연맹 기금을 낸 가문 금고로 한 번 되돌린다(질문 2505 나, leagueRefund.ts).
 // - 가문 가입(질문 985 다, members.ts)·소속 도시 바꾸기(D-565, houseHome.ts)도 같은 게이트웨이가 받는다. 명령 뒤 가문 표를 다시 읽어
 //   가문원 시민권·내 도시를 가문 소속 도시에 맞춘다(D-569 "나라는 하나", world/houseTies.ts). 가문원은 귀화하지 못한다(citizenship in_house).
 import type { Database } from "../db/client.ts";
@@ -17,6 +18,9 @@ import { createHouseMoves } from "./houseMoves.ts";
 import { createHousePolicy } from "./housePolicy.ts";
 import { attachHouseTax, houseTaxerOf } from "./houseTax.ts";
 import { createHouseRecruitService } from "./houseRecruit.ts";
+import { refundOldLeagueFunds } from "./leagueRefund.ts";
+import { type HouseLeagueGateway, createHouseLeagueSocket, withLeagues } from "./leagueGateway.ts";
+import { type HouseLeagueService, type NpcLeagueHouse, createHouseLeagueService } from "./leagueService.ts";
 import { createHouseMembers } from "./members.ts";
 import { createHouseSuccession } from "./succession.ts";
 import { houseTiesOf } from "../world/houseTies.ts";
@@ -27,12 +31,13 @@ import { type GovernanceAttached, attachGovernance } from "../governance/attach.
 import { withGovernance } from "../governance/gateway.ts";
 import { type CitySharesAttached, attachCityShares } from "../cityShares/attach.ts";
 import { type DiplomacyAttached, attachDiplomacy } from "../diplomacy/attach.ts";
-import type { HouseDiplomacyGateway } from "../diplomacy/gateway.ts";
 
 type HouseWorld = Pick<World, "status" | "persistence" | "npc" | "maps">;
 
 /** 공고한 소속 도시를 옮기는 간격(D-570) */
 const MOVE_SWEEP_MS = 60_000;
+/** NPC 가문 연맹 판단 간격(npc-invest-2 — leagueService.ts npcSweep) [임시] */
+const LEAGUE_SWEEP_MS = 3_600_000;
 
 export function attachHouses(options: {
   readonly db: Database;
@@ -47,8 +52,10 @@ export function attachHouses(options: {
     error(obj: object, message: string): void;
   };
 }): {
-  /** 가문 + 나라 의결(gov_*) + 도시 지분(city_share_*) + 조약(dip_*) 소켓(docs/adr/2026-11-21-governance.md·share-market.md·diplomacy-treaties.md) */
-  gateway: HouseDiplomacyGateway;
+  /** 가문 + 나라 의결(gov_*) + 도시 지분(city_share_*) + 조약(dip_*) + 가문 연맹(house_league) 소켓(docs/adr/2026-11-21-governance.md·share-market.md·diplomacy-treaties.md) */
+  gateway: HouseLeagueGateway;
+  /** 가문 연맹(조약) 서비스(npc-invest-2 — leagueService.ts) */
+  leagues: HouseLeagueService;
   /** 나라 의결 서비스·조회 */
   governance: GovernanceAttached;
   /** 도시(정부) 지분 시장 서비스·조회(D-583 — cityShares/attach.ts) */
@@ -142,6 +149,13 @@ export function attachHouses(options: {
     const p = options.world?.status().state === "ready" ? options.world.persistence : undefined;
     if (!p) return;
     clearInterval(taxTimer);
+    // 옛 도시 연맹 기금을 낸 가문 금고로 되돌린다(질문 2505 나 — leagueRefund.ts, 한 번·멱등)
+    refundOldLeagueFunds(pool, p.ledger, options.now())
+      .then((report) => {
+        if (report.funds > 0 || report.unattributed > 0)
+          options.log.info({ ...report, amount: report.amount.toString() }, "old league funds refunded");
+      })
+      .catch((error: unknown) => options.log.error({ err: error }, "old league fund refund failed"));
     // 나라 세금 표(질문 2322 나·2373 가 — government/nationTax.ts): 사업장 소득세·하루 끝 주민세가 원장으로 찾는다
     if (!nationTaxesOf(p.ledger))
       attachNationTaxes({ pool, ledger: p.ledger, owners: p.owners })
@@ -235,8 +249,35 @@ export function attachHouses(options: {
     log: options.log,
   });
   diplomacyRef = diplomacy;
+  // 가문 연맹(조약 — npc-invest-2, 질문 2502·2503): 플레이어 명령은 같은 소켓, NPC 가문 판단은 한 시간마다(세계가 준비된 뒤)
+  const leagues = createHouseLeagueService({ pool, now: options.now });
+  const leagueSocket = createHouseLeagueSocket({
+    service: () => leagues,
+    now: options.now,
+    log: options.log,
+  });
+  const leagueTimer = setInterval(() => {
+    const world = options.world;
+    const npc = world?.status().state === "ready" ? world.npc : undefined;
+    if (!npc) return;
+    const houses: NpcLeagueHouse[] = [];
+    for (const place of npc.world.cities.values())
+      for (const houseId of npc.cityHouses.housesOfCity(place.id)) {
+        const head = npc.cityHouses.headOf(houseId);
+        const traits = head === undefined ? undefined : npc.unitTraits(head);
+        if (traits) houses.push({ houseId, traits });
+      }
+    leagues
+      .npcSweep(houses, options.rules().npcLeague)
+      .catch((error: unknown) => options.log.error({ err: error }, "npc house leagues failed"));
+  }, LEAGUE_SWEEP_MS);
+  leagueTimer.unref();
   return {
-    gateway: diplomacy.wrap(cityShares.wrap(withGovernance(gateway, governance.gateway))),
+    gateway: withLeagues(
+      diplomacy.wrap(cityShares.wrap(withGovernance(gateway, governance.gateway))),
+      leagueSocket,
+    ),
+    leagues,
     governance,
     cityShares,
     diplomacy,
@@ -244,6 +285,7 @@ export function attachHouses(options: {
     stop: () => {
       clearInterval(moveTimer);
       clearInterval(taxTimer);
+      clearInterval(leagueTimer);
       governance.stop();
       cityShares.stop();
     },

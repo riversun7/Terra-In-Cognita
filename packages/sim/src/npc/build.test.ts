@@ -7,6 +7,7 @@ import {
   chooseCityBuild,
   chooseCityRepair,
   rankCityUpgrades,
+  upgradeDemand,
 } from "./build.ts";
 import { TEST_NPC_COEFFICIENTS } from "./coefficients.ts";
 
@@ -188,5 +189,61 @@ describe("NPC 증축 판단(질문 1101 나)", () => {
     expect(chooseCityRepair(list, 700)?.key).toBe(2);
     expect(chooseCityRepair(list.slice(2), 700)).toBeUndefined();
     expect(chooseCityRepair(list, 0)).toBeUndefined();
+  });
+});
+
+const invest = (capital: bigint, roll: number, cost = 100n) => ({
+  costOf: () => cost,
+  capital,
+  roll,
+  temperPm: 1000,
+});
+const costOf = (facility: string) => (facility === "lumber_camp" ? 1000n : 10n);
+const at = (facility: string, level: number, workers: number) => ({ key: 1, facility, level, workers });
+
+describe("NPC 짓기 투자 판단(npc-invest-2, 질문 2508 나)", () => {
+  const c = TEST_NPC_COEFFICIENTS;
+  const gatherPm = new Map([
+    ["farm", 0],
+    ["lumber_camp", 900],
+    ["mine", 600],
+  ]);
+  const needs = { humans: 12, workers: 12, foodPm: 1000, gatherPm };
+  const pick = (have: Record<string, number>, rules: Parameters<typeof chooseCityBuild>[4]) =>
+    chooseCityBuild({ ...needs, counts: counts(have) }, OPTIONS, TRAITS, c, rules);
+
+  it("첫 채집 시설은 수요라 굴리지 않는다", () => {
+    expect(pick({ farm: 1, lodging: 2 }, { ...RULES, invest: invest(150n, 999) })).toBe("lumber_camp");
+  });
+
+  it("이미 있는 채집 시설을 더 짓는 것은 도전 굴림을 넘어야 한다 — 국고가 클수록 넘는다", () => {
+    const have = { farm: 1, lodging: 2, lumber_camp: 1, mine: 1 };
+    // 국고 = 값의 1.5배 → 도전 50‰: 굴림 500은 못 넘는다
+    expect(pick(have, { ...RULES, invest: invest(150n, 500) })).toBeUndefined();
+    // 국고 = 값의 10배 → 도전 900‰(상한): 넘는다
+    expect(pick(have, { ...RULES, invest: invest(1000n, 500) })).toBe("lumber_camp");
+    // 투자 판단이 없으면 옛 판
+    expect(pick(have, RULES)).toBe("lumber_camp");
+  });
+
+  it("비용 몫을 점수에서 빼서 국고에 견줘 비싼 시설이 뒤로 간다", () => {
+    expect(
+      pick(
+        { farm: 1, lodging: 2 },
+        { ...RULES, invest: { costOf, capital: 1000n, roll: 0, temperPm: 1000 } },
+      ),
+    ).toBe("mine");
+  });
+
+  it("레벨 올리기 수요: 붐빈 숙소, 일꾼이 자리를 다 채운 시설", () => {
+    expect(upgradeDemand(at("lodging", 1, 0), 0, true)).toBe(true);
+    expect(upgradeDemand(at("lodging", 1, 0), 0, false)).toBe(false);
+    expect(upgradeDemand(at("mine", 2, 6), 3, false)).toBe(true);
+    expect(upgradeDemand(at("mine", 2, 5), 3, false)).toBe(false);
+    // 일 없는 휴먼이 있으면 늘어날 자리를 채울 사람이 있다
+    expect(upgradeDemand(at("mine", 2, 5), 3, false, 1)).toBe(true);
+    // 그 도시가 이미 다다른 레벨까지는 수요, 처음 다다르는 레벨은 도전
+    expect(upgradeDemand(at("mine", 2, 5), 3, false, 0, 3)).toBe(true);
+    expect(upgradeDemand(at("mine", 2, 5), 3, false, 0, 2)).toBe(false);
   });
 });

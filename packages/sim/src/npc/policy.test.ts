@@ -197,3 +197,35 @@ describe("npcRulingVaultReturnPm — NPC 지배 가문 금고 → 국고 몫(222
     expect(npcRulingVaultReturnPm(10, { traitMin: 5, traitMax: 5 }, limits)).toBe(900);
   });
 });
+
+const invest = (roll: number, temper = 1000) => ({ roll, guardTemperPm: temper, workerTemperPm: temper });
+
+describe("구인 카드 투자 판단(npc-invest-2, 질문 2508 다)", () => {
+  const cards = [
+    { slot: 0, total: 35, cost: 60n },
+    { slot: 1, total: 60, cost: 600n },
+    { slot: 2, total: 44, cost: 120n },
+    { slot: 3, total: 30, cost: 50n },
+  ];
+  const base = { cards, taken: 0, population: 9, housing: 10, treasury: 1500n };
+
+  it("굴림이 높으면(도전 실패) 가장 싼 카드를 산다 — 수는 그대로", () => {
+    expect(slots({ ...base, invest: invest(999) }, c)).toEqual([3]);
+    expect(slots({ ...base, population: 7, invest: invest(999) }, c)).toEqual([3, 0, 2]);
+  });
+
+  it("국고가 클수록 비싼(좋은) 카드까지 도전한다", () => {
+    // 국고 1500: 600짜리는 도전 150‰, 120짜리는 도전 1150‰ → 상한 900‰
+    expect(slots({ ...base, invest: invest(500) }, c)).toEqual([2]);
+    expect(slots({ ...base, invest: invest(100) }, c)).toEqual([1]);
+    expect(slots({ ...base, treasury: 100_000n, invest: invest(800) }, c)).toEqual([1]);
+  });
+
+  it("성향 배율이 낮으면 덜 도전한다", () => {
+    expect(slots({ ...base, invest: invest(100, 500) }, c)).toEqual([2]);
+  });
+
+  it("투자 판단이 없으면 옛 판(좋은 카드부터)", () => {
+    expect(slots(base, c)).toEqual([1]);
+  });
+});

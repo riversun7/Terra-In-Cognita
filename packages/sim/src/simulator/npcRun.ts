@@ -17,6 +17,7 @@ import {
   decideAction,
   peaceScore,
 } from "../npc/brain.ts";
+import { investTemperPm } from "../npc/invest.ts";
 import { nextTaxBp, occupationChoice, recruitPicks } from "../npc/policy.ts";
 import type { SocietyCoefficients } from "../society/coefficients.ts";
 import { cityHousingCap } from "../society/logistics.ts";
@@ -42,6 +43,20 @@ import {
 
 /** NPC 투자 도전 굴림 흐름(npc/invest.ts — 판단 흐름과 따로 두어 그 뒤 굴림을 밀지 않는다) */
 export const STREAM_INVEST = 11;
+
+/** 판단 하나의 투자 도전 굴림(0~999): 첫째 = 연구(옛 판과 같은 값), 둘째 = 구인 카드, 셋째 = 짓기·레벨 올리기(npc-invest-2, 질문 2508) */
+export interface InvestRolls {
+  readonly research: number;
+  readonly recruit: number;
+  readonly build: number;
+}
+
+export function investRollsOf(seed: number, factionId: number, aiStep: number): InvestRolls {
+  const rng = streamRng(seed, STREAM_INVEST, factionId, aiStep);
+  const research = rng.nextInt(1000);
+  const recruit = rng.nextInt(1000);
+  return { research, recruit, build: rng.nextInt(1000) };
+}
 
 export const EVENT_ARRIVE = "arrive";
 export const EVENT_DECIDE = "decide";
@@ -484,9 +499,20 @@ function taxPolicy(ctx: NpcContext, faction: SimFaction, view: FactionView, nowM
  * 행동 하나와 따로 판단마다 돈다(세율과 같은 자리). 서버 NPC 런타임도 이 함수를 그대로 부른다(가문 도시 자동 구인도 이 함수만 — 질문 1041 다,
  * apps/server/src/npc/houseRecruit.ts)
  */
-export function recruitPolicy(ctx: NpcContext, faction: SimFaction, nowMs: number): void {
+export function recruitPolicy(
+  ctx: NpcContext,
+  faction: SimFaction,
+  nowMs: number,
+  rolls: InvestRolls = investRollsOf(ctx.world.seed, faction.id, faction.aiStep),
+): void {
   const society = ctx.society;
   if (!society) return;
+  // 투자 판단(npc/invest.ts, 질문 2508 다): 더 좋은(비싼) 카드는 도전 굴림 — 경비대 = 공격 성향, 일꾼 = 상업 성향
+  const invest = {
+    roll: rolls.recruit,
+    guardTemperPm: investTemperPm(faction.traits.aggression, ctx.c.npc),
+    workerTemperPm: investTemperPm(faction.traits.commerce, ctx.c.npc),
+  };
   const byCity = citizens(ctx, faction);
   const guardTarget = faction.guardsPerCity ?? 0;
   const guardsByCity = new Map<number, number>();
@@ -511,6 +537,7 @@ export function recruitPolicy(ctx: NpcContext, faction: SimFaction, nowMs: numbe
         guardTarget,
         // 배후지에서 받은 몫이 문턱 아래면 인구를 늘리지 않는다(catchmentRun.ts — 지난 하루 끝 값, 없으면 다 받음)
         growthBlocked: (city.supplyPm ?? 1000) < ctx.c.worldSeed.catchmentGrowthMinPm,
+        invest,
       },
       ctx.c.npc,
     );
@@ -531,8 +558,8 @@ export function decide(ctx: NpcContext, factionId: number, nowMs: number): void 
   // 굴림 수는 판단마다 같다(무엇을 하든 다음 굴림이 밀리지 않게): 같은 점수 고르기, 도시 고르기, 지분 고르기·공성 결과 고르기
   const rolls = [rng.nextInt(0x1_0000), rng.nextInt(0x1_0000), rng.nextInt(0x1_0000)];
   const view = factionView(ctx, faction, nowMs);
-  const investRoll = streamRng(ctx.world.seed, STREAM_INVEST, faction.id, faction.aiStep).nextInt(1000);
-  const action = decideAction(view, rivalsOf(ctx, faction, nowMs), rolls[0] ?? 0, ctx.c.npc, investRoll);
+  const invest = investRollsOf(ctx.world.seed, faction.id, faction.aiStep);
+  const action = decideAction(view, rivalsOf(ctx, faction, nowMs), rolls[0] ?? 0, ctx.c.npc, invest.research);
   ctx.counts.actions[action.kind] += 1;
   const society = ctx.society;
   switch (action.kind) {
@@ -573,8 +600,8 @@ export function decide(ctx: NpcContext, factionId: number, nowMs: number): void 
   }
   // 세율은 판단을 시작할 때 본 국고끼리 견준다(행동이 쓴 돈과 섞이지 않게). 나라 단위 판단을 멈춘 나라는 세율을 바꾸지 않는다(서버 고리 — 질문 2440 나)
   if (faction.alive && !view.nationLocked) taxPolicy(ctx, faction, view, nowMs);
-  if (faction.alive) recruitPolicy(ctx, faction, nowMs);
-  if (faction.alive && ctx.build) buildPolicy(ctx, ctx.build, faction, nowMs);
+  if (faction.alive) recruitPolicy(ctx, faction, nowMs, invest);
+  if (faction.alive && ctx.build) buildPolicy(ctx, ctx.build, faction, nowMs, invest.build);
   if (faction.alive) ctx.claims?.prepare?.(faction, nowMs);
   if (ctx.combat && rng.nextInt(1000) < (ctx.encounterPerMille ?? 0) && faction.alive)
     ctx.combat.encounter(faction, rng.nextInt(0x1_0000), nowMs);

@@ -491,6 +491,8 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
       message.t === "city_share_result" ||
       // 조약 결과(줄기 diplomacy)는 세력 화면 외교 탭(faction/diplomacy/diplomacyCommands.ts)이 받는다
       message.t === "dip_result" ||
+      // 가문 연맹 결과(npc-invest-2)는 아직 받는 화면이 없다(명령·조회만 — 화면은 다음 줄기)
+      message.t === "house_league_result" ||
       // 사는 곳 고르기 결과(프로토콜 61)는 건물 판 사는 곳 카드(map/building/residenceData.ts)가 받는다
       message.t === "residence_result" ||
       // 배 결과(프로토콜 27)는 배 단추(boats/boatCommands.ts)가 받는다

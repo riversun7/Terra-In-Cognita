@@ -11,7 +11,11 @@ import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { gunzipSync } from "node:zlib";
 import { type CellKey, cellKey, stepCell } from "@terra/planet";
-import { decodePlanetValues, encodePlanetValues } from "@terra/planet/secondMap";
+import {
+  SECOND_MAP_GENERATOR_VERSION,
+  decodePlanetValues,
+  encodePlanetValues,
+} from "@terra/planet/secondMap";
 import { TERRAIN_SURFACE, decodeTerrain, terrainPath } from "@terra/protocol";
 import { placementCostsFromLayers } from "@terra/sim";
 import Fastify from "fastify";
@@ -94,7 +98,9 @@ describe("2차맵 지형 서비스", () => {
     const terrain = await service().get(TEST_MAP_KEY);
     expect(terrain.version).toMatch(TERRAIN_VERSION_PATTERN);
     expect(
-      terrain.version.startsWith(`1.${source.generatorVersion}.${source.definitionHash.slice(0, 8)}.`),
+      terrain.version.startsWith(
+        `${SECOND_MAP_GENERATOR_VERSION}.${source.generatorVersion}.${source.definitionHash.slice(0, 8)}.`,
+      ),
     ).toBe(true);
     const data = decodeTerrain(gunzipSync(terrain.file().gzip));
     expect(data.mapKey).toBe(TEST_MAP_KEY);

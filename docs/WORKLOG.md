@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-21 19:00 | 2차맵 강 폭 넓히기·폭 출렁임·여울(생성기 2판) | Claude Code | [21-1900-wide-rivers-fords](worklog/2026/11/21-1900-wide-rivers-fords.md) |
 | 2026-11-21 18:42~ | 2026-11-21 묶음 1116x 합치기 (지배 가문 지분 계정·국고 지분 과반 제외·NPC 도전자·빈자리·세율 안건) — 리셋 필요 없음 | Claude Code | [21-1842-batch-1116x-merge](worklog/2026/11/21-1842-batch-1116x-merge.md) |
 | 2026-11-21 18:00 | 회색 2차맵(지형 404)·건물 들어가기 자리·상태 메시지 정리 | Claude Code | [21-1800-grey-maps-enter-messages](worklog/2026/11/21-1800-grey-maps-enter-messages.md) |
 | 2026-11-21 17:45 | 2026-11-21 governance-2 — 지배 가문 지분 계정·국고 지분 과반 제외·NPC 도전자·지배 가문 반영·빈자리·일찍 끝내기·세율 안건 | Claude Code | [21-1745-governance-2](worklog/2026/11/21-1745-governance-2.md) |

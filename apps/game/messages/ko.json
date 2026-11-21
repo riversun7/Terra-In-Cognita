@@ -2166,7 +2166,7 @@
   "second_map_lab_hour": "지역 시각 {time}",
   "second_map_lab_sky_off_hint": "낮밤을 끄면 늘 같은 낮 빛(고정 빛)으로 그립니다.",
   "second_map_lab_exaggeration": "높이 과장 ×{factor}",
-  "second_map_lab_exaggeration_hint": "게임 높이는 실제의 1/12입니다. ×12면 실제 비율입니다. 보기만 바뀌고 지형 자료는 그대로입니다.",
+  "second_map_lab_exaggeration_hint": "게임 높이는 실제의 1/12입니다. ×12면 실제 비율입니다. 보기만 바뀌고 지형 자료는 그대로입니다. 게임 2차맵 화면은 ×4로 그립니다.",
   "second_map_lab_exaggeration_cap": "이 2차맵은 높이 폭이 커서 ×{max}까지만 됩니다.",
   "second_map_lab_neighbours": "이웃 3×3",
   "second_map_lab_grid": "격자(지형 칸, 굵은 선 16칸)",

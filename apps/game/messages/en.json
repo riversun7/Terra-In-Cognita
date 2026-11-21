@@ -2166,7 +2166,7 @@
   "second_map_lab_hour": "Local time {time}",
   "second_map_lab_sky_off_hint": "With day and night off, the map uses the same fixed daylight.",
   "second_map_lab_exaggeration": "Height ×{factor}",
-  "second_map_lab_exaggeration_hint": "Game heights are 1/12 of real heights; ×12 is the real ratio. Only the view changes, the terrain data stays the same.",
+  "second_map_lab_exaggeration_hint": "Game heights are 1/12 of real heights; ×12 is the real ratio. Only the view changes, the terrain data stays the same. The game's 2nd map view draws ×4.",
   "second_map_lab_exaggeration_cap": "This map's height range only allows up to ×{max}.",
   "second_map_lab_neighbours": "Neighbours 3×3",
   "second_map_lab_grid": "Grid (terrain cells, thick line every 16)",

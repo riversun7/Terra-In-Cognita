@@ -44,7 +44,8 @@ afterEach(async () => {
   await test.drop();
 });
 
-async function boot(): Promise<World> {
+// ticks = 켠 뒤 미리 돌릴 NPC 틱 수. 다시 켜는 시험은 0 — 지도자 나라 고리(attach) 전에 NPC 강화가 전쟁을 끝내지 않게(세계 시드가 무작위라 그때그때 다르다)
+async function boot(ticks = 4): Promise<World> {
   const world = startWorld({
     testBots: 12,
     paths: { kind: "inline" },
@@ -64,7 +65,7 @@ async function boot(): Promise<World> {
   await world.ready;
   const npc = world.npc;
   if (!npc) throw new Error("npc");
-  for (let i = 0; i < 4; i += 1) {
+  for (let i = 0; i < ticks; i += 1) {
     clock += 30 * 60_000;
     await npc.tick(true);
   }
@@ -474,7 +475,7 @@ describe.skipIf(!TEST_DATABASE_URL)("지도자끼리 조약(diplomacy)", () => {
     worlds.splice(0);
 
     // 다시 켬: 새 원장 = 새 위반 장부. 켤 때 선포 기록을 읽어 위반 나라를 가린다
-    world = await boot();
+    world = await boot(0);
     ({ npc } = parts(world));
     ({ gov, dip, tick } = attach(world, () => rules));
     const meOwner = npc.houses.ownerOfRow(me.nation) ?? -1;

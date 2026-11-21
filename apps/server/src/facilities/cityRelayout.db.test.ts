@@ -66,18 +66,24 @@ type BuildingLine = {
   owner_id: string;
   x: number;
   y: number;
+  rotation: number;
+  width: number;
+  height: number;
   cell_x: number;
   cell_y: number;
 };
 const buildings = () =>
   rows<BuildingLine>(
     test.db,
-    `select b.id, wf.facility_id, wf.city_id, b.owner_id, b.x, b.y, c.cell_x, c.cell_y
+    `select b.id, wf.facility_id, wf.city_id, b.owner_id, b.x, b.y, b.rotation, b.width, b.height, c.cell_x, c.cell_y
        from world_facilities wf join world_buildings b on b.id = wf.building_id join world_cities c on c.id = wf.city_id
       order by b.id`,
   );
 
 const at = (lines: BuildingLine[], id: string) => lines.find((line) => line.id === id);
+/** 건물 가운데 칸(sim cityLayout rectCenter: x + ⌊너비 ÷ 2⌋ — 팩 core@125부터 행정 건물 4×4) */
+const middleX = (line: BuildingLine): number => line.x + (line.width >> 1);
+const middleY = (line: BuildingLine): number => line.y + (line.height >> 1);
 
 describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 건물 다시 놓기(예약 → 다음 시작)", () => {
   it("NPC 건물만 같은 ID로 옮기고, 플레이어가 걸린 건물·다른 주인 건물은 그대로, 결과·감사 기록", async () => {
@@ -88,7 +94,9 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 건물 다시 놓기(예약 → 
     expect(before.length).toBeGreaterThan(10);
     // 옛 배치: 행정 건물이 도시 칸에서 떨어져 있다
     const oldHalls = before.filter((line) => line.facility_id === "government_hall");
-    expect(oldHalls.every((hall) => hall.x + 1 !== hall.cell_x || hall.y + 1 !== hall.cell_y)).toBe(true);
+    expect(oldHalls.every((hall) => middleX(hall) !== hall.cell_x || middleY(hall) !== hall.cell_y)).toBe(
+      true,
+    );
 
     // 플레이어가 걸린 건물(임대 조건이 있는 농장 하나), 다른 주인 건물(다른 국가 주체로 바꾼 창고 하나)
     const farm = before.find((line) => line.facility_id === "farm");
@@ -121,10 +129,10 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 건물 다시 놓기(예약 → 
     expect(after.length - before.length).toBe(1);
     expect([at(after, farm.id)?.x, at(after, farm.id)?.y]).toEqual([farm.x, farm.y]);
     expect([at(after, store.id)?.x, at(after, store.id)?.y]).toEqual([store.x, store.y]);
-    // 옮긴 건물이 있고, 행정 건물은 대부분 도시 칸 가운데(몇 칸 안)
+    // 옮긴 건물이 있고, 행정 건물은 대부분 도시 칸 가운데(몇 칸 안). 옮김 = 자리나 방향이 바뀐 것(같은 자리에서 방향만 바뀐 건물도 결과 moved에 든다)
     const moved = after.filter((line) => {
       const was = at(before, line.id);
-      return was && (was.x !== line.x || was.y !== line.y);
+      return was && (was.x !== line.x || was.y !== line.y || was.rotation !== line.rotation);
     });
     expect(moved.length).toBeGreaterThan(5);
     // 행정 건물이 옮겨진 도시는 성벽 고리도 새 자리 둘레로 옮긴다(질문 1071 가)
@@ -132,7 +140,7 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 건물 다시 놓기(예약 → 
     const halls = after.filter((line) => line.facility_id === "government_hall");
     for (const hall of halls)
       expect(
-        Math.max(Math.abs(hall.x + 1 - hall.cell_x), Math.abs(hall.y + 1 - hall.cell_y)),
+        Math.max(Math.abs(middleX(hall) - hall.cell_x), Math.abs(middleY(hall) - hall.cell_y)),
       ).toBeLessThanOrEqual(4);
 
     const request = await rows<{ applied_at_ms: string | null; report: { moved: number; pinned: number } }>(

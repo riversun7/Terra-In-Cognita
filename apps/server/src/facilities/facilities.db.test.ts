@@ -30,10 +30,10 @@ const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 /** 정시 + 1ms에서 시작 */
 const T0 = 1_800_000_000_000 - (1_800_000_000_000 % UPKEEP_PERIOD_MS) + 1;
-/** 공방 Lv1(팩): 소나무 10·철광석 6 × 배율 1200‰ → 12·7, 시간 = (2,000g × 10 + 1,000g × 6) × 1.2 × 10초/kg = 312초 */
-const WORKSHOP_L1_MS = 312_000;
+/** 공방 Lv1(팩 core@125 — 건물 티어 재조정): 소나무 10·철광석 6 × 배율 1000‰ → 10·6, 시간 = (2,000g × 10 + 1,000g × 6) × 1.0 × 10초/kg = 260초 */
+const WORKSHOP_L1_MS = 260_000;
 /** 공방 Lv1 짓기 소나무 통나무(개) */
-const WORKSHOP_L1_PINE = 12n;
+const WORKSHOP_L1_PINE = 10n;
 
 let test: TestDatabase;
 let clock = T0;
@@ -244,7 +244,7 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
       }),
     ).toEqual({ ok: false, code: "not_buildable" });
 
-    // 일꾼 하나 = 20% 단축(옛 ConstructionEngine), 재료 = 소나무 12·철광석 7
+    // 일꾼 하나 = 20% 단축(옛 ConstructionEngine), 재료 = 소나무 10·철광석 6
     const built = await service.build(a.userId, {
       mapKey: a.map.mapKey,
       facility: "workshop",
@@ -259,8 +259,8 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
       doneAtMs: clock + WORKSHOP_L1_MS * 0.8,
     });
     const buildingId = built.ok ? (built.buildingId ?? 0) : 0;
-    expect(goodsStock(p.ledger, a.ownerId, "pine_log")).toBe(18n);
-    expect(goodsStock(p.ledger, a.ownerId, "iron_ore")).toBe(13n);
+    expect(goodsStock(p.ledger, a.ownerId, "pine_log")).toBe(20n);
+    expect(goodsStock(p.ledger, a.ownerId, "iron_ore")).toBe(14n);
     expect(a.map.buildingOwner(buildingId)).toBe(a.ownerId);
     expect(service.works(buildingId)).toBe(false);
     // 짓는 동안 그 일꾼은 다른 작업에 쓸 수 없다
@@ -289,7 +289,7 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
       test.db,
       "select balance from ledger_accounts where system_code = 'sink:item:pine_log'",
     );
-    expect(sinks).toEqual([{ balance: "12" }]);
+    expect(sinks).toEqual([{ balance: "10" }]);
 
     // 레벨업: 다음 레벨 재료(가공품 판자·주괴)가 없으면 거절, 있으면 레벨 2
     expect(await service.upgrade(a.userId, buildingId, [])).toEqual({
@@ -301,8 +301,8 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
     const up = await service.upgrade(a.userId, buildingId, []);
     expect(up.ok).toBe(true);
     expect(await service.upgrade(a.userId, buildingId, [])).toEqual({ ok: false, code: "job_running" });
-    // 판자 10 × 4 × 1.2 = 48
-    expect(goodsStock(p.ledger, a.ownerId, "plank")).toBe(52n);
+    // 판자 10 × 4 × 1.0 = 40
+    expect(goodsStock(p.ledger, a.ownerId, "plank")).toBe(60n);
     clock = up.ok ? (up.doneAtMs ?? clock) : clock;
     service.finishDue(clock);
     expect(service.facilities.get(buildingId)?.level).toBe(2);
@@ -368,18 +368,18 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
       code: "unknown_unit",
     });
     const before = goodsStock(p.ledger, a.ownerId, "pine_log");
-    // 65% → 10단계 요청이어도 모자란 35%만: 소나무 ⌈12 × 0.35⌉ = 5, 철광석 ⌈7 × 0.35⌉ = 3, 시간 = 312초 × 0.35 × 0.8
+    // 65% → 10단계 요청이어도 모자란 35%만: 소나무 ⌈10 × 0.35⌉ = 4, 철광석 ⌈6 × 0.35⌉ = 3, 시간 = 260초 × 0.35 × 0.8
     const fixed = await service.repair(a.userId, { buildingId }, 10, a.units);
     expect(fixed).toEqual({ ok: true, doneAtMs: clock + Math.round(WORKSHOP_L1_MS * 0.35 * 0.8) });
-    expect(before - goodsStock(p.ledger, a.ownerId, "pine_log")).toBe(5n);
+    expect(before - goodsStock(p.ledger, a.ownerId, "pine_log")).toBe(4n);
     expect(await service.repair(a.userId, { buildingId }, 1, a.units)).toEqual({
       ok: false,
       code: "job_running",
     });
     clock = fixed.ok ? (fixed.doneAtMs ?? clock) : clock;
     service.finishDue(clock);
-    // 고치는 동안(87.36초)에도 노화는 흐른다: 70만 ppm × 87,360 ÷ 10일 = 70 ppm
-    expect(service.facilities.get(buildingId)?.conditionPpm).toBe(CONDITION_FULL - 70);
+    // 고치는 동안(72.8초)에도 노화는 흐른다: 70만 ppm × 72,800 ÷ 10일 = 58 ppm(내림)
+    expect(service.facilities.get(buildingId)?.conditionPpm).toBe(CONDITION_FULL - 58);
     expect(await world.checkInvariants()).toEqual([]);
   });
 
@@ -594,8 +594,8 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
       await service.storageMove(other.userId, { buildingId: yardId, asset: pine, qty: 1, direction: "in" }),
     ).toEqual({ ok: false, code: "forbidden" });
 
-    // 공방: 소나무 12 = 도시 창고 10 → 창고 시설 2, 철광석 7은 도시 창고(받은 것). 일꾼은 짓는 동안 직무 산출이 없고 계약도 못 맺는다
-    await service.devFacilityGrant(a.userId, "iron_ore", 7, { mapKey: a.map.mapKey, x: 40, y: 40 });
+    // 공방: 소나무 10 = 도시 창고 10(창고 시설 10은 그대로), 철광석 6은 도시 창고(받은 것). 일꾼은 짓는 동안 직무 산출이 없고 계약도 못 맺는다
+    await service.devFacilityGrant(a.userId, "iron_ore", 6, { mapKey: a.map.mapKey, x: 40, y: 40 });
     p.settlement.settleOwner(a.ownerId, clock);
     const oreBefore = p.ledger.balanceOf(a.ownerId, ASSET_ORE);
     const built = await service.build(a.userId, {
@@ -608,7 +608,7 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
     });
     expect(built.ok).toBe(true);
     expect(p.ledger.balanceOf(a.ownerId, pine, cityLocation(cityId))).toBe(0n);
-    expect(p.ledger.balanceOf(a.ownerId, pine, buildingLocation(yardId))).toBe(8n);
+    expect(p.ledger.balanceOf(a.ownerId, pine, buildingLocation(yardId))).toBe(10n);
     expect(goodsStock(p.ledger, a.ownerId, "iron_ore")).toBe(50n);
     // 작업에 묶인 유닛은 노동 계약도 맺지 못한다
     expect(await p.labor.create(a.userId, { kind: "wage", buildingId: yardId, unitId })).toEqual({
@@ -641,7 +641,7 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
     expect(view.facilities.find((facility) => facility.buildingId === yardId)).toMatchObject({
       storage: true,
       storageKg: 1000,
-      storedKg: 16,
+      storedKg: 20,
       cityId,
     });
     expect(view.cities.some((city) => city.id === cityId)).toBe(true);
@@ -659,7 +659,7 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
     service.age(clock);
     expect(service.facilities.has(yardId)).toBe(false);
     expect(p.ledger.balanceOf(a.ownerId, pine, buildingLocation(yardId))).toBe(0n);
-    expect(p.ledger.balanceOf(a.ownerId, pine, cityLocation(cityId))).toBe(8n);
+    expect(p.ledger.balanceOf(a.ownerId, pine, cityLocation(cityId))).toBe(10n);
     await p.writer.durable();
     expect(await world.checkInvariants()).toEqual([]);
   });

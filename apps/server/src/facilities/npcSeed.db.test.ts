@@ -197,20 +197,29 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 씨앗(고정 국가 시작 도시·
     const wallRows = await walls();
     expect(wallRows).toHaveLength(cities.length);
     for (const row of wallRows) expect(row.n).toBeGreaterThanOrEqual(4);
-    // 전략 배치(docs/adr/2026-11-11-city-building-layout.md): 행정 건물은 도시 칸 가운데(3×3 가운데 = 도시 칸). 그 칸에 원자재
-    // 오브젝트·막힌 땅이 있으면 가장 가까운 자리(몇 칸 안)
-    const halls = await rows<{ cell_x: number; cell_y: number; x: number; y: number }>(
+    // 전략 배치(docs/adr/2026-11-11-city-building-layout.md): 행정 건물은 도시 칸 가운데(가운데 = x + ⌊너비 ÷ 2⌋, sim cityLayout rectCenter —
+    // 팩 core@125부터 4×4라 x + 2). 그 칸에 원자재 오브젝트·막힌 땅이 있으면 가장 가까운 자리(몇 칸 안)
+    const halls = await rows<{
+      cell_x: number;
+      cell_y: number;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }>(
       test.db,
-      `select c.cell_x, c.cell_y, b.x, b.y from world_facilities wf join world_buildings b on b.id = wf.building_id
+      `select c.cell_x, c.cell_y, b.x, b.y, b.width, b.height from world_facilities wf join world_buildings b on b.id = wf.building_id
          join world_cities c on c.id = wf.city_id where wf.facility_id = 'government_hall'`,
     );
     expect(halls).toHaveLength(cities.length);
+    const middleX = (hall: (typeof halls)[number]): number => hall.x + (hall.width >> 1);
+    const middleY = (hall: (typeof halls)[number]): number => hall.y + (hall.height >> 1);
     for (const hall of halls)
       expect(
-        Math.max(Math.abs(hall.x + 1 - hall.cell_x), Math.abs(hall.y + 1 - hall.cell_y)),
+        Math.max(Math.abs(middleX(hall) - hall.cell_x), Math.abs(middleY(hall) - hall.cell_y)),
       ).toBeLessThanOrEqual(3);
     expect(
-      halls.filter((hall) => hall.x + 1 === hall.cell_x && hall.y + 1 === hall.cell_y).length,
+      halls.filter((hall) => middleX(hall) === hall.cell_x && middleY(hall) === hall.cell_y).length,
     ).toBeGreaterThan(halls.length / 2);
     for (const city of cities)
       expect(facilities.filter((row) => row.city_id === city.id).map((row) => row.facility_id)).toEqual(

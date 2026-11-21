@@ -126,21 +126,22 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 편집기 (DB)", () => {
     expect(body.revision).toBe(0);
     const mine = facilityOf(body, "mine");
     expect(mine).toMatchObject({ origin: "pack", override: null });
+    // 팩 core@125 건물 티어 재조정(배율 1000‰, 티어 1 재료 4·4)
     expect(obj(mine.entry).build).toEqual({
-      mulPm: 800,
+      mulPm: 1000,
       levels: [
         {
           from: 1,
           materials: [
-            { item: "pine_log", qty: 12 },
-            { item: "stone", qty: 10 },
+            { item: "pine_log", qty: 4 },
+            { item: "stone", qty: 4 },
           ],
         },
         {
           from: 2,
           materials: [
-            { item: "plank", qty: 12 },
-            { item: "brick", qty: 10 },
+            { item: "plank", qty: 4 },
+            { item: "brick", qty: 4 },
           ],
         },
       ],

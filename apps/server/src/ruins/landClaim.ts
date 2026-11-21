@@ -6,7 +6,8 @@
 //   범위 안이어도 — 알박기는 정부 건물이 없는 땅의 규칙이라 새 마을 자리 규칙 foundingClaimConflict를 거치지 않는다, 질문 2191). 폐허가 있는
 //   2차맵은 폐허 복원 길(ruins/service.ts), 도시가 있는 2차맵은 정부를 더 짓지 못한다(not_ruin 그대로).
 // - 새 도시 주인(D-574): 가문이 있으면(가문장·가문원 모두) 그 가문, 가문 없는 플레이어는 그 플레이어의 1인 가문("유닛 독재 도시" — 다 지었을 때
-//   ruins/claimHouse.ts가 만든다, 질문 2242), 세력 주체(NPC)는 그 세력. 가문이 아직 도시가 없으면(거울 세계에 없음) 짓기 때 고른 것으로 들인다
+//   ruins/claimHouse.ts가 만든다, 질문 2242), 세력 주체(NPC)는 바뀜 (D-580 — 질문 2335 나, npc-claim-3): 지은 세력에서 태어난 새 NPC 가문 세력
+//   (@terra/sim SocietyRun.claimHouse — 봉신 | 독립 + 체제 = 가문 성향 규칙식, 지분 = 그 가문, 재료를 낸 도시 휴먼이 가문원, foundNpcHouse). 가문이 아직 도시가 없으면(거울 세계에 없음) 짓기 때 고른 것으로 들인다
 //   (houses.adopt — 가문 마을 세우기·폐허 고르기와 같은 함수, D-340): nation = 가문 나라(born_of)의 봉신(귀속), independent = 독립 도시국가 +
 //   고른 체제(1인 가문은 늘 독재). 이미 도시가 있는 가문은 그 상태 그대로(mode_locked와 같다). 고르기는 시설 줄 claim(짓기 명령, 기본 선택 =
 //   @terra/shared/facilities DEFAULT_LAND_CLAIM_MODE — 확인 대기 질문 2241).
@@ -22,10 +23,13 @@
 // - 소식: 도시가 서면 그 가문 가문원 모두에게 city_gained(2197 나), 멈춘 건물을 지은 사람에게 claim_halted.
 // - 저장할 새 값: 시설 줄 claim_choice(고른 것), 알박기 도시 표 claim_cities. "알박기 중" = 시설 줄 도시가 비어 있는(null) 행정 건물이다.
 import type { SocietyCoefficients } from "@terra/sim";
+import { isCellKey } from "@terra/planet";
 import { DEFAULT_LAND_CLAIM_MODE, type LandClaimChoice } from "@terra/shared/facilities";
 import type { PlaceWorld } from "../facilities/places.ts";
 import { type FacilityRecord, claimChoiceText } from "../facilities/state.ts";
 import { TEST_HOUSE_RULES, houseRulesFrom } from "../factionIdentity/rules.ts";
+import { ringsOf } from "../npc/claimSites.ts";
+import type { CityPlace } from "../npc/persist.ts";
 import type { NpcRuntime } from "../npc/runtime.ts";
 import type { OwnerRow } from "../world/persist/load.ts";
 import type { ClaimNotice } from "./claimHouse.ts";
@@ -176,6 +180,49 @@ export function createLandClaims(d: LandClaimDeps): LandClaims {
     return notices;
   };
 
+  /**
+   * NPC 알박기 도시(D-580 — 질문 2335 나): 시뮬과 같은 SocietyRun.claimHouse — 지은 세력(부모)에서 새 NPC 가문 세력을 세우고(봉신 | 독립 + 체제 =
+   * 가문 성향 규칙식 foundingChoice, 마을 세우기와 같다), 재료를 낸 도시(그 2차맵에서 가장 가까운 부모 도시)의 휴먼 founders명이 가문원으로 옮기고,
+   * 지분 1,000주는 그 가문(최초 설립자, D-575). 도시 행·자리는 가문 마을과 같은 houses.placeCity. 옮긴 휴먼의 몸은 2차맵을 옮기지 않는다
+   * (NPC 마을 세우기와 같다 — 다음 맞추기가 그 도시 2차맵에 있는 사람만 세운다). 세웠나
+   */
+  const foundNpcHouse = (
+    runtime: NpcRuntime,
+    record: FacilityRecord,
+    ownerId: number,
+    place: Omit<CityPlace, "foundedAtMs">,
+    housing: number,
+    nowMs: number,
+  ): boolean => {
+    const join = d.joinOf(runtime, ownerId);
+    const parent = join === undefined ? undefined : runtime.world.factions.get(join);
+    if (!parent?.alive) return false;
+    const house = runtime.society.claimHouse(
+      parent,
+      sourceCityOf(runtime, parent.cities, place.mapKey),
+      nowMs,
+      (h) => runtime.houses.placeCity(h.id, place, housing, nowMs),
+    );
+    const cityId = [...house.cities][0];
+    if (cityId === undefined) return false;
+    const latest = d.facilities.facilities.get(record.buildingId) ?? record;
+    // 행정 건물은 새 도시의 시설(489 다), 고르기 칸 = 가문이 고른 것(봉신 = nation, 독립 = 그 체제)
+    const choice: LandClaimChoice =
+      house.overlord === null
+        ? { mode: "independent", regime: house.regime }
+        : { mode: "nation", regime: null };
+    d.facilities.seedBuilt({ ...latest, cityId, claim: choice });
+    runtime.houses.flush(house.id, cityId);
+    d.saveClaimCity?.({
+      city_id: cityId,
+      founder_owner_id: house.id,
+      choice: claimChoiceText(choice),
+      founded_at_ms: nowMs,
+    });
+    d.notify?.(haltRivals(runtime, place.mapKey, { owner: house.id, house: null }, nowMs));
+    return true;
+  };
+
   return {
     settled,
     kindOf(runtime, ownerId, mapKey) {
@@ -197,16 +244,22 @@ export function createLandClaims(d: LandClaimDeps): LandClaims {
         if (!found || found.ownerId === null || settled(runtime, found.mapKey)) continue;
         const map = places.maps.get(found.mapKey);
         if (!map) continue;
-        const side = ownerFor(runtime, record, found.ownerId, nowMs);
-        if (!side) continue;
         const housing = (d.rules ? houseRulesFrom(d.rules()) : TEST_HOUSE_RULES).villageHousing;
         const planetId = [...runtime.places.values()].find((p) => p.mapKey === found.mapKey)?.planetId;
-        const cityId = runtime.houses.foundVillage(
-          side.owner,
-          { planetId: planetId ?? map.planetId, mapKey: found.mapKey, cellX: found.x, cellY: found.y },
-          housing,
-          nowMs,
-        );
+        const place = {
+          planetId: planetId ?? map.planetId,
+          mapKey: found.mapKey,
+          cellX: found.x,
+          cellY: found.y,
+        };
+        // NPC 세력이 지은 알박기(D-580 — 질문 2335 나): 지은 NPC 가문이 새 세력(봉신 | 독립 = 가문 성향 규칙식, 지분 = 그 가문)
+        if (userOf(found.ownerId) === null) {
+          if (foundNpcHouse(runtime, record, found.ownerId, place, housing, nowMs)) founded += 1;
+          continue;
+        }
+        const side = ownerFor(runtime, record, found.ownerId, nowMs);
+        if (!side) continue;
+        const cityId = runtime.houses.foundVillage(side.owner, place, housing, nowMs);
         // 행정 건물은 새 도시의 시설(489 다 — 행정 레벨 = 건물 레벨). 시설 줄·세력 행·도시 행·알박기 도시 줄을 같은 동기 처리에서 쓰기 대기열로
         const latest = d.facilities.facilities.get(record.buildingId) ?? record;
         d.facilities.seedBuilt({ ...latest, cityId });
@@ -249,4 +302,17 @@ function cellOf(
     return found;
   }
   return undefined;
+}
+
+/** 재료를 낸 도시 = 그 2차맵에서 행성 칸 이웃 겹으로 가장 가까운 그 세력 도시(같으면 작은 ID, 8겹 안에 없으면 가장 작은 ID). 도시가 없으면 −1 */
+function sourceCityOf(runtime: NpcRuntime, cities: ReadonlySet<number>, mapKey: number): number {
+  let best: { id: number; d: number } | undefined;
+  const sorted = [...cities].toSorted((a, b) => a - b);
+  for (const id of sorted) {
+    const at = runtime.places.get(id);
+    if (!at || !isCellKey(at.mapKey)) continue;
+    const d = ringsOf(at.mapKey, 8).get(mapKey)?.d;
+    if (d !== undefined && (!best || d < best.d)) best = { id, d };
+  }
+  return best?.id ?? sorted[0] ?? -1;
 }

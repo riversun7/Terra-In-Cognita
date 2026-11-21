@@ -14,9 +14,10 @@
 //   짓는 중 모습이 보여 플레이어가 경쟁할 수 있다) ③ 재료를 도시 창고 → 그 건물 창고로 운반 일(npcCarry.ts 빈 일꾼 운반 — 보는 2차맵은 휴먼이
 //   화물을 지고 출발 2차맵 변 쪽으로 걷고, 보지 않으면 시간 셈, 운반꾼이 없으면 기다림)로 나른다. 시간 = 옮김 셈(claimHaulMs) ④ 닿으면 그 건물
 //   창고 재료로 짓기 작업(건물 서비스 npcJob kind build, 짓는 시간 = claimBuildMs) ⑤ 다 지으면 ruins/landClaim.ts foundPending이 그 세력 도시를
-//   세운다. TODO(D-580 — 질문 2335 나): 시뮬은 다 지으면 지은 NPC 가문이 새 세력(봉신 | 독립 = 성향 규칙식, 지분 = 그 가문 — @terra/sim
-//   SocietyRun.claimHouse)이지만, 서버 다 지음(landClaim.ts foundPending → houses.foundVillage)은 아직 그 세력 도시·지분 = 그 세력이다. 서버를 켜기
-//   (npc_claim_server 1) 전에 foundPending의 세력 주체 길을 claimHouse로 바꾼다. 모자라게 닿으면(약탈·그새 쓰임) 창고에 모자란 만큼이 생길 때 다시 나른다.
+//   세운다 — D-580(질문 2335 나): 지은 NPC 가문이 새 세력(봉신 | 독립 = 가문 성향 규칙식, 지분 = 그 가문, 시뮬과 같은 SocietyRun.claimHouse).
+//   모자라게 닿으면(약탈·그새 쓰임) 창고에 모자란 만큼이 생길 때 다시 나른다.
+// - 1분 지표(takeMetrics): npcClaimActive(지금 알박기 중 — 띄우는 중·나르는 중·짓는 중, NPC 것), npcClaimStarted·npcClaimFounded(짓기를 건 건물이 도시가
+//   됨)·npcClaimAbandoned(구간 수).
 // - 경쟁(2336 가 — 같은 세력만 같은 편): 먼저 다 지은 쪽이 도시, 도시가 서면 다른 편 짓는 중은 멈춘다(landClaim haltRivals). 나르는 중에 그
 //   2차맵에 도시·폐허가 서면 그 알박기는 버린다(재료는 그 건물 창고에 남는다 — "자원과 시간만 날릴수있음").
 // - 다시 켜면: 운반·띄우는 중 기억은 잃는다. NPC 세력의 레벨 0·도시 없는·작업 없는 행정 건물(도시·폐허 없는 2차맵)을 틱이 다시 맡아 모자란
@@ -82,6 +83,8 @@ export interface ServerClaims extends NpcClaimRun {
   tick(nowMs: number): number;
   /** 지금 맡은 알박기(띄우는 중·나르는 중) 수(시험) */
   readonly tracked: () => number;
+  /** 1분 지표(구간 수는 부르면 비운다) */
+  takeMetrics(): Record<string, number>;
 }
 
 /** 자리를 못 찾은 2차맵을 건너뛰는 시간(ms) */
@@ -106,6 +109,9 @@ export function createServerClaims(d: ServerClaimDeps): ServerClaims {
   const lastStart = new Map<number, number>();
   const refused = new Map<number, number>();
   const wanted = new Map<number, number>();
+  /** 짓기 작업을 건 알박기 건물(도시가 되면 세었다가 지운다) */
+  const building = new Set<number>();
+  const counts = { started: 0, founded: 0, abandoned: 0 };
 
   const on = (): boolean => Math.trunc(d.rules().npc.claimServer) === 1;
   const governmentDef = () =>
@@ -297,6 +303,7 @@ export function createServerClaims(d: ServerClaimDeps): ServerClaims {
     const map = d.maps.get(t.site);
     const drop = (why: string) => {
       tracked.delete(id);
+      counts.abandoned += 1;
       refused.set(t.site, nowMs + REFUSE_MS);
       d.log.info({ owner: t.faction, mapKey: t.site, why }, "npc land claim dropped");
     };
@@ -387,6 +394,7 @@ export function createServerClaims(d: ServerClaimDeps): ServerClaims {
       };
       tracked.set(id, t);
       lastStart.set(faction.id, nowMs);
+      counts.started += 1;
       const wantedCity = wanted.get(faction.id);
       if (wantedCity !== undefined) {
         economy.claimWants?.delete(wantedCity);
@@ -423,6 +431,18 @@ export function createServerClaims(d: ServerClaimDeps): ServerClaims {
 
     tick(nowMs) {
       let changed = 0;
+      // 짓기를 건 알박기 건물: 도시가 되면 다 지음, 사라지면 버림
+      for (const id of building) {
+        const record = d.service.facilities.get(id);
+        if (record && record.cityId !== null) counts.founded += 1;
+        else if (
+          !record ||
+          (record.level < 1 && ![...d.service.jobs.values()].some((j) => j.buildingId === id))
+        )
+          counts.abandoned += 1;
+        else continue;
+        building.delete(id);
+      }
       const settled = settledMaps();
       const buildings = claimBuildings();
       for (const [id, t] of tracked) {
@@ -432,11 +452,13 @@ export function createServerClaims(d: ServerClaimDeps): ServerClaims {
         // 그 2차맵에 도시·폐허가 섰거나(늦은 쪽) 건물이 사라졌거나 세력이 사라졌다: 버린다(재료는 그 건물 창고에 남는다)
         if (!entry || settled.has(entry.mapKey) || !faction?.alive) {
           tracked.delete(id);
+          counts.abandoned += 1;
           changed += 1;
           continue;
         }
         if (entry.job) {
           tracked.delete(id);
+          building.add(t.buildingId);
           continue;
         }
         if (t.carryKey !== null) {
@@ -472,7 +494,10 @@ export function createServerClaims(d: ServerClaimDeps): ServerClaims {
           { owner: t.faction, mapKey: t.site, buildingId: t.buildingId, ok: result.ok, nowMs },
           "npc land claim build started",
         );
-        if (result.ok) tracked.delete(id);
+        if (result.ok) {
+          tracked.delete(id);
+          building.add(t.buildingId);
+        }
         changed += 1;
       }
       // 다시 켠 뒤: 맡지 않은 NPC 알박기 건물(작업 없음, 도시·폐허 없는 2차맵)을 다시 맡는다
@@ -506,6 +531,23 @@ export function createServerClaims(d: ServerClaimDeps): ServerClaims {
       return changed;
     },
     tracked: () => tracked.size,
+    takeMetrics() {
+      const settled = settledMaps();
+      let active = 0;
+      for (const entry of claimBuildings().values())
+        if (!settled.has(entry.mapKey) && entry.owner !== null && !d.isUser(entry.owner)) active += 1;
+      for (const t of tracked.values()) if (t.buildingId === null) active += 1;
+      const out = {
+        npcClaimActive: active,
+        npcClaimStarted: counts.started,
+        npcClaimFounded: counts.founded,
+        npcClaimAbandoned: counts.abandoned,
+      };
+      counts.started = 0;
+      counts.founded = 0;
+      counts.abandoned = 0;
+      return out;
+    },
   };
 }
 

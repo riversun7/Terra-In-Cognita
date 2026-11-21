@@ -2,7 +2,8 @@
 // 가짜다. 도시 경제가 도는 세계를 켜고 NPC 도시 창고에 행정 건물 재료를 넣은 뒤 판단을 돌리면:
 // 1. 설정 칸 npc_claim_server가 0이면 아무것도 하지 않는다.
 // 2. 1이면 내 도시 2차맵 이웃의 빈 2차맵에 레벨 0·도시 없는 행정 건물을 놓고, 재료는 바로 빠지지 않고 운반 일로 그 건물 창고에 닿는다(순간이동 없음).
-// 3. 닿으면 짓기 작업이 걸리고(재료는 그 건물 창고에서 빠진다), 다 지으면 그 2차맵에 그 세력의 새 도시가 선다(ruins/landClaim.ts foundPending).
+// 3. 닿으면 짓기 작업이 걸리고(재료는 그 건물 창고에서 빠진다), 다 지으면 그 2차맵에 새 도시가 선다(ruins/landClaim.ts foundPending) — D-580: 주인은
+//    지은 세력에서 태어난 새 NPC 가문(봉신이면 상위 = 지은 세력), 지분 1,000주·알박기 도시 줄 설립자 = 그 가문. 1분 지표에 알박기 수.
 import { loadContentPack } from "@terra/content/node";
 import { DAY_MS, HOUR_MS, type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
 import { buildingLocation } from "@terra/shared/goodsPlaces";
@@ -132,7 +133,7 @@ function claimRecords(world: World) {
 }
 
 describe.skipIf(!TEST_DATABASE_URL)("서버 NPC 빈 2차맵 알박기 (DB, npc-claim-3)", () => {
-  it("끄면 짓지 않고, 켜면 빈 2차맵에 행정 건물 → 재료 운반 → 짓기 → 그 세력 새 도시", async () => {
+  it("끄면 짓지 않고, 켜면 빈 2차맵에 행정 건물 → 재료 운반 → 짓기 → 지은 NPC 가문의 새 도시(D-580)", async () => {
     const world = await boot();
     const { persistence, npc } = parts(world);
     const service = persistence.facilities.service;
@@ -173,14 +174,32 @@ describe.skipIf(!TEST_DATABASE_URL)("서버 NPC 빈 2차맵 알박기 (DB, npc-c
     for (let hour = 0; hour < 72 && !job(); hour++) await advance(world, HOUR_MS, HOUR_MS);
     expect(job()?.kind).toBe("build");
     expect(persistence.ledger.balanceOf(owner ?? -1, "item:pine_log", at)).toBe(0n);
-    // 다 지으면 그 2차맵에 그 세력의 새 도시
+    // 다 지으면 그 2차맵에 새 도시 — D-580: 지은 세력이 아니라 새 NPC 가문 세력(봉신이면 상위 = 지은 세력), 지분 1,000주 = 그 가문
     const founded = () =>
       [...npc.world.cities.entries()].find(
-        ([id, city]) =>
-          !citiesBefore.has(id) && npc.places.get(id)?.mapKey === mapKey && city.owner === owner,
+        ([id]) => !citiesBefore.has(id) && npc.places.get(id)?.mapKey === mapKey,
       );
     for (let hour = 0; hour < 24 * 14 && !founded(); hour++) await advance(world, HOUR_MS, HOUR_MS);
-    expect(founded()).toBeDefined();
-    expect(service.facilities.get(claim.buildingId)?.cityId).toBe(founded()?.[0]);
+    const [cityId, city] = founded() ?? [-1, undefined];
+    expect(city).toBeDefined();
+    expect(service.facilities.get(claim.buildingId)?.cityId).toBe(cityId);
+    const house = npc.world.factions.get(city?.owner ?? -1);
+    expect(house?.alive).toBe(true);
+    expect(house?.id).not.toBe(owner);
+    expect(house?.bornOf).toBe(owner);
+    expect([null, owner]).toContain(house?.overlord);
+    expect(persistence.ledger.balanceOf(house?.id ?? -1, `share_${String(cityId)}`)).toBe(1000n);
+    expect(persistence.ledger.balanceOf(owner ?? -1, `share_${String(cityId)}`)).toBe(0n);
+    // 저장: 새 가문 세력 행·도시 행·알박기 도시 줄(설립자 = 그 가문)
+    await persistence.writer.durable();
+    const row = await test.db.$client.query<{ founder_owner_id: string }>(
+      "select founder_owner_id from claim_cities where city_id = $1",
+      [cityId],
+    );
+    expect(Number(row.rows[0]?.founder_owner_id)).toBe(house?.id);
+    // 1분 지표: 알박기 수(시작·다 지음)
+    const metrics = npc.takeMetrics();
+    expect(metrics.npcClaimFounded).toBeGreaterThanOrEqual(1);
+    expect(typeof metrics.npcClaimActive).toBe("number");
   }, 180_000);
 });

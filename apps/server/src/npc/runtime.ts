@@ -977,6 +977,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         catchmentRows: metrics.catchmentRows,
         catchmentCells: catchmentState?.stock.size ?? 0,
         ...econ?.takeMetrics(),
+        ...claims?.takeMetrics(), // 알박기(npc-claim-3, npcClaims.ts)
       };
       metrics.decisions = 0;
       metrics.decideMs = 0;

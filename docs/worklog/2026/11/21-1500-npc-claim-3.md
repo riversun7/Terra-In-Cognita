@@ -26,11 +26,23 @@
   건물을 다시 맡는다. 플레이어 자리 설정 칸 `npc_claim_avoid_players`(2332, 기본 0). 같은 세력만 같은 편(2336 가 — landClaim 그대로).
 - 건물 서비스 `npcJob`에 kind `build`(레벨 0·도시 없는 행정 건물만, 재료 자리 = 그 건물 창고, `myFacility`의 도시 채우기를 끔 — 영토 지방 도시로 채우면 알박기가 아니게
   된다. DB 시험에서 그렇게 깨지는 것을 봄 → 플레이어 알박기에도 같은 문제가 있을 수 있어 제안 작업으로 넘김).
-- 설정 칸: 없앰 `npc_claim_cost`·`npc_claim_build_hours`(`id-changes.json` 뒤에 추가, since 169), 새로 `npc_claim_server`·`npc_claim_avoid_players`(ko·en), `npc_claim_max_active` 설명.
+- 설정 칸: 없앰 `npc_claim_cost`·`npc_claim_build_hours`(`id-changes.json` 뒤에 추가, since 170), 새로 `npc_claim_server`·`npc_claim_avoid_players`(ko·en), `npc_claim_max_active` 설명.
+
+## 이어서 한 일 (조정 세션 지시 — main 합침·서버 D-580·지표)
+- main 497aba3e97(묶음 1116u) 합침: 충돌 `manifest.json`(줄기 판 170으로)·`WORKLOG.md`(main 것 + `pnpm docs:index`). `tuning.json`·`npcRun.ts`·`society.ts`는 저절로 합쳐짐.
+- **서버 다 지음 D-580**(`apps/server/src/ruins/landClaim.ts foundNpcHouse`): 세력 주체(NPC)가 지은 알박기는 시뮬과 같은 `society.claimHouse`로 새 NPC 가문 세력을 세운다
+  (봉신 | 독립 + 체제 = 가문 성향 규칙식, 재료를 낸 도시 = 그 2차맵에서 행성 칸 이웃 겹으로 가장 가까운 부모 도시의 휴먼 founders명이 가문원, 지분 1,000주 = 그 가문). 도시 행·
+  자리는 가문 마을과 같은 길로 나눴다(`npc/houseRuntime.ts placeCity` — `foundVillage` = `placeCity` + 시설 고리 + 지분). 시설 줄 고르기 칸 = 가문이 고른 것, 알박기 도시 줄
+  설립자 = 그 가문, 같은 동기 처리에서 가문 세력 행·도시 행을 쓰기 대기열에(`houses.flush`). 늦은 쪽 멈춤은 그 가문 기준(지은 부모의 다른 짓는 중도 다른 편 — 2336 가).
+  "켜기 전에 바꿔야 함" TODO를 지웠다.
+- **1분 지표**(`npcClaims.ts takeMetrics`, `runtime.ts` 한 줄 → 999줄): `npcClaimActive`(NPC 알박기 중 — 띄우는 중·나르는 중·짓는 중), `npcClaimStarted`·
+  `npcClaimFounded`·`npcClaimAbandoned`(구간 수). `world.ts`·`app.ts`는 그대로(지표는 런타임 지표에 붙는다).
+- DB 시험(`npcClaims.db.test.ts`): 새 도시 주인 = 새 가문(부모 아님, 태어날 때 부모 = 지은 세력, 상위 = 없음 | 지은 세력), 지분 1,000주 = 가문·부모 0, `claim_cities` 설립자 =
+  가문, 지표 `npcClaimFounded` ≥ 1.
 
 ## 판·마이그레이션·리셋
 - **SIM_VERSION 106**(줄기 판 = main 66 + 40 — 합칠 때 main 다음 판으로), 출력 형식 **23 그대로**(칸 모양 같음: `npc.claims.spent` = 뺀 재료, 세력 생김 원인 표에 새 열쇠 `claim`),
-  팩 **core@169**(줄기 판 = main 129 + 40). 프로토콜 그대로. DB 표 그대로 — **마이그레이션 없음**. 리셋 필요 없음(서버 알박기는 꺼진 채 들어간다).
+  팩 **core@170**(줄기 판 — 처음 169 = main 129 + 40, main 130(묶음 1116u)을 합친 뒤 170). 프로토콜 그대로. DB 표 그대로 — **마이그레이션 없음**. 리셋 필요 없음(서버 알박기는 꺼진 채 들어간다).
 
 ## 시뮬 전·후 (Verified — 30일, 전 = main 954fe231c4, 후 = 이 가지, 둘 다 출발값)
 세계 = 요약 `world`(모든 세력), 시나리오 묶음 = 요약 `groups` 끝 합(알박기 가문·반란·마을 세력 빼고 — 후에는 알박기 도시가 가문 세력으로 가서 줄어든다).
@@ -57,24 +69,26 @@
 | `packages/sim/src/simulator/npcClaim.ts`·`npcClaim.test.ts` | 재료 자리(`ClaimSupply`)·사기(`prepare`)·운반 시간·D-580 가문 |
 | `packages/sim/src/simulator/society.ts`·`societyTypes.ts` | `claimHouse`(D-580) |
 | `packages/sim/src/simulator/npcRun.ts`, `economy.ts`, `npcTrade.ts`, `run.ts` | `prepare` 부름, `claimWants`·목표 재고, 붙이기 |
-| `packages/sim/src/npc/coefficients.ts`, `tuningNpc.ts`, `content/core/tuning.json`·`id-changes.json`·`manifest.json` | 설정 칸 빼기 2·더하기 2, 팩 169 |
+| `packages/sim/src/npc/coefficients.ts`, `tuningNpc.ts`, `content/core/tuning.json`·`id-changes.json`·`manifest.json` | 설정 칸 빼기 2·더하기 2, 팩 170 |
 | `packages/sim/src/version.ts` | SIM 106 |
 | `apps/server/src/npc/npcClaims.ts`(새)·`claimSites.ts`(새)·`claimSites.test.ts`(새)·`npcClaims.db.test.ts`(새) | 서버 3단계·자리 셈·시험 |
-| `apps/server/src/npc/runtime.ts`(998줄) | 알박기 붙이기·틱(3줄) |
+| `apps/server/src/npc/runtime.ts`(999줄) | 알박기 붙이기·틱·지표(4줄) |
+| `apps/server/src/ruins/landClaim.ts`, `apps/server/src/npc/houseRuntime.ts` | 서버 다 지음 D-580(`foundNpcHouse`), `placeCity` 나눔 |
 | `apps/server/src/npc/ruinsRuntime.ts`, `apps/server/src/ruins/runtimeInput.ts` | 그때 띄우기 고리(월드 저장 묶음 `spawn` — `world.ts` 그대로) |
 | `apps/server/src/facilities/service.ts`(999줄)·`serviceTypes.ts` | `npcJob` kind `build` |
 | ADR npc-brain-r5 "바뀜", 질문 `2026-11-21-npc-claim.md`(답 표시), 새 질문 `2026-11-21-npc-claim-3.md` | 기록 |
 
 ## 함께 바꿔야 하는 파일
-- 합칠 때: SIM_VERSION 106 → main 다음 판, 팩 169 → main 다음 판(`manifest.json`, `id-changes.json`의 since 169도), `version.ts` 주석·ADR "바뀜"·이 기록의 판 설명.
-- 서버 알박기를 켜기(`npc_claim_server` 1) 전에: `ruins/landClaim.ts foundPending`의 세력 주체 길을 D-580(`society.claimHouse`)으로 바꾼다(지금은 그 세력 도시·지분 = 그 세력).
+- 합칠 때: SIM_VERSION 106 → main 다음 판, 팩 170 → main 다음 판(`manifest.json`, `id-changes.json`의 since 170도), `version.ts` 주석·ADR "바뀜"·이 기록의 판 설명.
 
 ## 건드리지 말 것
 - `facilities/service.ts`·`npc/runtime.ts`는 999·998줄 — 더할 것은 새 파일로.
 - `NpcClaimRun.prepare`는 증축(`buildPolicy`) 다음에 부른다(차례가 바뀌면 시뮬 결과가 바뀐다).
 
 ## 미검증·TODO·알려진 문제
-- **TODO 서버 D-580**(위). 서버 알박기는 끈 채로 들어간다(2382).
+- 서버 알박기는 끈 채로 들어간다(2382 — 켜기는 조정 세션이 NAS를 본 뒤 정한다).
+- 서버 D-580: 가문원으로 옮긴 휴먼의 몸은 출발 2차맵에 남는다(NPC 마을 세우기와 같은 한계 — humanPlaces는 도시 2차맵에 있는 사람만 세운다). 몸을 옮기면
+  사람 순간이동이라 옮기지 않았다(Assumed: 기획 확인 필요하면 다음 질문으로).
 - NAS·화면에서 서버 알박기를 보지 않았다(미실행): 보이는 운반꾼이 변 쪽으로 걷는 모습, 2차맵 x·y = 행성 칸 i·j 방향(Assumed — `claimSites.ts edgeToward`), 그때 띄우기 수.
 - 서버: 다시 켜면 쉬는 날 기억을 잃는다. 운반 중 다시 켜면 화물을 진 운반꾼의 짐은 운반꾼에게 남고(옛 TODO 2156) 모자란 만큼을 다시 나른다.
 - 시뮬 D-580 해석: 가문은 다 지을 때 세우고 재료는 부모 창고에서 낸다(시뮬 세계의 가문 = 세력). 알박기 가문 도시 휴먼 = 옮긴 founders명.
@@ -86,6 +100,9 @@
   `pnpm settings:cells --check`·`pnpm check:content --no-compat`(core@169) 통과.
 - 끝: `pnpm check`(TEST_DATABASE_URL, DB 시험 포함, 잠금 안) 한 번 통과 — 포맷·린트·타입·경계·크기·다국어·디자인 값·콘텐츠(core@169), 시험 파일 **813/813**,
   시험 **5,972/5,972**(처음 두 번은 타입 오류 1·린트 경고 1로 멈춰 고친 뒤 다시 돌림). 빌드·화면 시험은 돌리지 않았다(`apps/game` 바뀜 없음).
+- main 합침·서버 D-580·지표 뒤: 고친 시험(`npcClaims.db.test`·`ruins/*`·`claimSites.test`) 통과, `pnpm check`(TEST_DATABASE_URL) 한 번 — 포맷·린트·타입·경계·크기·
+  다국어·디자인 값·콘텐츠(core@170) 통과, 시험 파일 **815/816**, 시험 **5,986/5,987**: 실패 1 = `territory/territory.db.test.ts`의 `beforeEach`(시험 DB 만들기) 30초 시간
+  초과(부하 — 이 줄기와 무관한 파일), 그 파일만 다시 돌려 5/5 통과.
 
 ## 사용자 결정 대기
 - 질문 2381~2385(`docs/questions/2026-11-21-npc-claim-3.md`).

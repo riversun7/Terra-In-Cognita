@@ -140,7 +140,7 @@ export function buildOptions(economy: Economy): BuildOption[] {
 }
 
 /** 재료 묶음 하나의 무게(g) = 기본 단위 무게 × 묶음 크기(서버 건물 목록 weightOf와 같다). 모르면 undefined */
-function lotWeightOf(economy: Economy, item: string): number | undefined {
+export function lotWeightOf(economy: Economy, item: string): number | undefined {
   const asset = itemAsset(item);
   const unit = economy.catalog.weightG.get(asset);
   return unit === undefined ? undefined : Number(unit * lotSizeOf(economy.catalog, asset));

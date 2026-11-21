@@ -4,11 +4,19 @@
 // 결과(점령·반란·독립·구인 휴먼·기술·백지 강화)는 규칙이 정한다. 서버(apps/server/src/npc/)도 같은 함수를 실제 시각으로 부른다.
 // 폐허 복원(기획 답 484 다): 정부 짓기 후보는 폐허 규칙(societyRuins.ts npcOptions)이 고르고, 판단이 고르면 같은 규칙이 실행한다(npcAct).
 // 넣기·투자는 하루 끝 규칙식(societyRuins.ts endOfDay)이다.
+// 빈 2차맵 알박기(빈틈 2243): 후보·실행은 알박기 실행 자리(NpcClaimRun — 시뮬 simulator/npcClaim.ts, 서버는 아직 없음 = 후보 없음)가 한다.
 // 합성 이동 부하(유닛마다 "arrive")는 서버와 같은 이동 함수로 도착 시각을 낸다.
 import { WALK_SPEED } from "../units.ts";
 import { arrivalAt, createMotion } from "../motion/motion.ts";
 import type { EventKey } from "../events/eventKey.ts";
-import { type FactionView, type NpcAction, type RivalView, decideAction, peaceScore } from "../npc/brain.ts";
+import {
+  type ClaimView,
+  type FactionView,
+  type NpcAction,
+  type RivalView,
+  decideAction,
+  peaceScore,
+} from "../npc/brain.ts";
 import { nextTaxBp, occupationChoice, recruitPicks } from "../npc/policy.ts";
 import type { SocietyCoefficients } from "../society/coefficients.ts";
 import { cityHousingCap } from "../society/logistics.ts";
@@ -111,6 +119,7 @@ export function emptyNpcCounts(): NpcCounts {
       peace: 0,
       break_vassal: 0,
       restore: 0,
+      claim: 0,
     },
     peaceRefused: 0,
     taxChanges: 0,
@@ -122,6 +131,16 @@ export function emptyNpcCounts(): NpcCounts {
     repairs: 0,
     plots: 0,
   };
+}
+
+/**
+ * 빈 2차맵 알박기 실행 자리(빈틈 2243 — 기획 D-212·D-572·D-574): 후보(자리 모형·상한 — 세력마다 가장 좋은 하나)와 실행(정부 짓기 시작). 다 지으면
+ * 새 도시는 실행 자리가 세운다(시뮬 = 짓는 중 정부 끝 예약, 서버 = 행정 건물 → ruins/landClaim.ts foundPending)
+ */
+export interface NpcClaimRun {
+  options(faction: SimFaction, nowMs: number): ClaimView[];
+  /** 정부 짓기를 시작한다. 시작했나 */
+  act(faction: SimFaction, site: number, nowMs: number): boolean;
 }
 
 export interface NpcContext {
@@ -149,6 +168,8 @@ export interface NpcContext {
   onAttack?: ((attacker: SimFaction, target: SimFaction, cityId: number, nowMs: number) => void) | undefined;
   /** NPC 증축(질문 1101 나, npcBuild.ts — 경제가 있을 때 run.ts·서버 런타임이 붙인다). 없으면 짓지 않는다 */
   build?: NpcBuildRun | undefined;
+  /** 빈 2차맵 알박기(빈틈 2243 — run.ts가 붙인다). 없으면 후보가 없다(서버는 아직 붙이지 않는다) */
+  claims?: NpcClaimRun | undefined;
 }
 
 /** 다음 판단 시각: 간격 ±25% */
@@ -253,6 +274,7 @@ export function factionView(ctx: NpcContext, faction: SimFaction, nowMs: number)
     overlord: overlord?.alive ? { id: overlord.id, strength: overlord.units.size } : null,
     vassals,
     restores: ctx.society?.ruins.npcOptions(faction, nowMs) ?? [],
+    claims: ctx.claims?.options(faction, nowMs) ?? [],
   };
 }
 
@@ -476,6 +498,9 @@ export function decide(ctx: NpcContext, factionId: number, nowMs: number): void 
       break;
     case "restore":
       society?.ruins.npcAct(faction, action.ruin, nowMs);
+      break;
+    case "claim":
+      ctx.claims?.act(faction, action.site, nowMs);
       break;
     case "idle":
       break;

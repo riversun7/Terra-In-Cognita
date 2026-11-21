@@ -84,6 +84,28 @@ export interface NpcCoefficients {
   readonly restoreFormerBonus: number;
   readonly restoreCityPenalty: number;
   /**
+   * [임시] 빈 2차맵 알박기(빈틈 2243 — 기획 D-212·D-555 1509·D-554·D-572·D-574, npc/brain.ts claimScore·simulator/npcClaim.ts). 점수: 기본·상업
+   * 성향 몫(축 끝에서 이 점수)·공격 성향 몫(축 끝에서 빼는 점수)·가진 도시마다 빼기·바깥 전쟁마다 빼기·붐빔 더하기·남이 짓는 중 빼기.
+   * 상한·조건: 세력마다 동시에 짓는 수(0 = 알박기 끔)·이 도시 수부터 더 짓지 않음·세계 도시 수(도시 + 폐허 + 짓는 중, 0 = 상한 없음)·한 곳을
+   * 시작한 뒤 쉬는 날·도시마다 있어야 할 휴먼(지금 도시 + 1 × 이 값 ≤ 휴먼)·자리 반경(내 도시 자리에서 체비쇼프 칸). 값: 정부 짓기 국고 값(최소
+   * 단위, 소각)·짓는 시간(시간 — 시뮬에 경제가 없을 때만, 경제가 있으면 팩 행정 건물 레벨 1 짓는 시간)
+   */
+  readonly claimScore: number;
+  readonly claimCommerce: number;
+  readonly claimAggression: number;
+  readonly claimCityPenalty: number;
+  readonly claimWarPenalty: number;
+  readonly claimCrowdedBonus: number;
+  readonly claimContestPenalty: number;
+  readonly claimMaxActive: number;
+  readonly claimMaxCities: number;
+  readonly claimWorldCities: number;
+  readonly claimCooldownDays: number;
+  readonly claimHumansPerCity: number;
+  readonly claimRadius: number;
+  readonly claimCost: number;
+  readonly claimBuildHours: number;
+  /**
    * [임시] NPC 도시 증축(기획 D-534 — 질문 1101 나, npc/build.ts·simulator/npcBuild.ts, 질문 1141~1144): 도시 하나의 건물 수 상한(행정 건물·
    * 성벽 빼고, 0 = 증축 끔), 채집 시설 한 종류의 목표 수 상한, 농장 하나가 먹이는 휴먼 수, 짓기를 돕는 일 없는 휴먼 수 상한
    */
@@ -201,6 +223,21 @@ export const TEST_NPC_COEFFICIENTS: NpcCoefficients = {
   restoreClaimScore: 400,
   restoreFormerBonus: 150,
   restoreCityPenalty: 40,
+  claimScore: 350,
+  claimCommerce: 150,
+  claimAggression: 150,
+  claimCityPenalty: 40,
+  claimWarPenalty: 150,
+  claimCrowdedBonus: 100,
+  claimContestPenalty: 200,
+  claimMaxActive: 1,
+  claimMaxCities: 6,
+  claimWorldCities: 128,
+  claimCooldownDays: 10,
+  claimHumansPerCity: 12,
+  claimRadius: 1,
+  claimCost: 5000,
+  claimBuildHours: 24,
   gatherTierCommercePm: 600,
   gatherTierAggressionPm: 300,
   gatherTierFaithPm: 300,

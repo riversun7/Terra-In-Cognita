@@ -26,8 +26,6 @@ import {
 } from "./catchmentRun.ts";
 import { ruinedGoodsHome } from "./ruinedGoods.ts";
 import { type CombatSummary, attachCombat } from "./combatRun.ts";
-import type { Edge } from "../combat/battleTypes.ts";
-import { edgeToward, waveAttackEdge } from "../combat/siegeArena.ts";
 import type { SiegeCityKit } from "../city/citySiege.ts";
 import { simCitySiegeLayouts } from "./citySiegeRun.ts";
 import type { CombatCatalog } from "../combat/catalog.ts";
@@ -46,6 +44,15 @@ import {
   scheduleTrip,
 } from "./npcRun.ts";
 import { type NpcCityGrade, npcCityGrades, simNpcBuilder } from "./npcBuild.ts";
+import {
+  type ClaimSummary,
+  EVENT_CLAIM,
+  type SimClaims,
+  claimBuildMsOf,
+  claimFallbackMs,
+  createSimClaims,
+} from "./npcClaim.ts";
+import { SIM_GRID_SIZE, cityDistance, createSimSites, simSiegeEdge, waveEdgeOf } from "./simGrid.ts";
 import {
   type SimFaction,
   TEST_ASSET_CREDIT,
@@ -89,51 +96,16 @@ import {
  * 21: 요약 npc.plots(NPC 면적 모듈 붙이기 시작한 수, 기획 D-569 1768)
  * 22: econ 줄·요약 economy 칸에 living(NPC 휴먼 지갑 — 임금 받은·못 받은 일꾼 수, 화폐마다 임금·지갑에서 낸 생필품 값·주인 현물 부양, 지갑 합·국고 합,
  *    질문 2236, simulator/humanPurse.ts)
+ * 23: 요약 npc.actions.claim·npc.claims(빈 2차맵 알박기 — 시작·새 도시·멈춤·잃음·짓는 중·소각한 값, 빈틈 2243, simulator/npcClaim.ts)
  */
-export const SIM_OUTPUT_FORMAT = 22;
+export const SIM_OUTPUT_FORMAT = 23;
 /** 가상 시계 시작 시각(ms). 정산 경계(정시)가 0에서 센 시각이라 0으로 둔다 */
 export const SIM_START_MS = 0;
-/** 정원사 합성 격자 한 변(도시마다 3칸 간격, 한 줄 32도시 — 1만 도시까지), 웨이브 전투 기본값(시나리오에 combat 칸이 없을 때) */
-const SIM_GRID_SIZE = 1024;
-const SIM_GRID_ROW = 32;
+/** 정원사 웨이브 전투 기본값(시나리오에 combat 칸이 없을 때) — 합성 격자 자리는 simGrid.ts */
 const DEFAULT_WAVE_MAP = 128;
 const DEFAULT_NEXUS = 2000;
 /** 정원사 크리쳐 전투 유닛 ID 시작(시뮬 유닛 ID와 겹치지 않게) */
 const WAVE_CREATURE_ID_BASE = 1_900_000_000;
-
-/** 도시 → 합성 격자 자리(도시 ID 차례로 3칸 간격, 가장자리에서 4칸 띄움). 격자 밖이면 undefined */
-function simCityXY(cityId: number): { x: number; y: number } | undefined {
-  const slot = cityId - 1;
-  const y = 4 + Math.floor(slot / SIM_GRID_ROW) * 3;
-  return slot < 0 || y >= SIM_GRID_SIZE - 4 ? undefined : { x: 4 + (slot % SIM_GRID_ROW) * 3, y };
-}
-
-/** 도시 → 합성 격자 칸 */
-function simCityCell(grid: ReturnType<typeof squareGrid>, cityId: number): number | undefined {
-  const at = simCityXY(cityId);
-  return at ? grid.cellOf(at.x, at.y) : undefined;
-}
-
-/**
- * 두 도시의 합성 격자 제곱 거리(정원사와 같은 칸 자리). 격자 밖 도시는 모른다(undefined) — 폐허 창고 물건의 "가장 가까운 다른 도시"
- * (기획 답 540 나, ruinedGoods.ts)가 쓴다
- */
-function simCityDistance(from: number, to: number): number | undefined {
-  const a = simCityXY(from);
-  const b = simCityXY(to);
-  if (!a || !b) return undefined;
-  return (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y);
-}
-
-/**
- * 정원사 웨이브가 들어오는 변(질문 1067 가): 도시 격자 자리에서 모함 칸(격자 끝, attachGardener의 mothershipCell과 같다)으로의 방향.
- * 격자 축 = 2차맵 축(x 동쪽, y 남쪽)으로 읽는다. 격자 밖 도시·같은 칸이면 시드로 고른다
- */
-function simWaveEdge(cityId: number, seed: number, waveId: number): Edge {
-  const at = simCityXY(cityId);
-  const toward = at ? edgeToward(SIM_GRID_SIZE - 1 - at.x, SIM_GRID_SIZE - 1 - at.y) : undefined;
-  return toward ?? waveAttackEdge(seed, waveId);
-}
 
 /**
  * 시뮬 세력의 나라 성격 목표(질문 1142 다): 세력 코드가 시작하는 시나리오 세력 묶음의 도시 계획(cityPlan) 시설 수. 묶음이 없거나 계획이 없으면
@@ -156,27 +128,7 @@ function simBuildTargets(
   };
 }
 
-/**
- * 시뮬 세력 공성이 들어오는 변(질문 1112 가, 기획 D-535 — 웨이브와 같은 "오는 쪽" 규칙): 공격 세력 도시 가운데 그 도시와 합성 격자 거리가 가장
- * 가까운 도시(같으면 작은 ID) 쪽 변(edgeToward). 공격 세력에 도시가 없거나 격자 밖·같은 칸이면 undefined(서쪽)
- */
-export function simSiegeEdge(
-  attackerCities: Iterable<number>,
-  cityId: number,
-  hasCity: (id: number) => boolean = () => true,
-): Edge | undefined {
-  const at = simCityXY(cityId);
-  if (!at) return undefined;
-  let best: { d: number; id: number; x: number; y: number } | undefined;
-  for (const from of attackerCities) {
-    if (from === cityId || !hasCity(from)) continue;
-    const xy = simCityXY(from);
-    if (!xy) continue;
-    const d = (xy.x - at.x) * (xy.x - at.x) + (xy.y - at.y) * (xy.y - at.y);
-    if (!best || d < best.d || (d === best.d && from < best.id)) best = { d, id: from, ...xy };
-  }
-  return best ? edgeToward(best.x - at.x, best.y - at.y) : undefined;
-}
+export { simSiegeEdge };
 
 /** 요약에 남기는 불변 조건 위반 문장 수 */
 const FIRST_PROBLEMS = 10;
@@ -241,7 +193,7 @@ export interface RunSummary {
   /** 세력·사회(R4b 규칙) */
   readonly society: SocietySummary;
   /** NPC 판단(R5) */
-  readonly npc: NpcCounts & { readonly cities?: readonly NpcCityGrade[] };
+  readonly npc: NpcCounts & { readonly cities?: readonly NpcCityGrade[]; readonly claims: ClaimSummary };
   /** 정원사(R5b). 시나리오에서 껐으면 null */
   readonly gardener: GardenerSummary | null;
   readonly ledger: { transactions: number; accounts: number };
@@ -286,6 +238,9 @@ export function runSimulation(options: RunOptions): RunSummary {
   const recorder = createMetricsRecorder({ startMs: SIM_START_MS, sink: emit });
   const byKind = new Map<string, number>();
   const ctxRef: { ctx?: NpcContext } = {};
+  // 합성 격자 도시 자리(simGrid.ts — 알박기로 선 도시는 지은 칸)·알박기(npcClaim.ts, 아래에서 붙인다)
+  const sites = createSimSites();
+  const claimsRef: { run?: SimClaims } = {};
   const gardenerRef: { run?: GardenerRun } = {};
   // 전투 한 번 = 그 도시 칸 오염 +battle(조우는 건 세력의 가장 오래된 도시, 질문 223 가)
   const combatRecorder: MetricsRecorder = {
@@ -309,6 +264,7 @@ export function runSimulation(options: RunOptions): RunSummary {
       if (econ?.handle(event, sim.nowMs)) return;
       if (gardenerRef.run?.handle(event.payload.kind, event.payload.subject, sim.nowMs)) return;
       if (event.payload.kind === EVENT_DECIDE) decide(ctx, event.payload.subject, sim.nowMs);
+      else if (event.payload.kind === EVENT_CLAIM) claimsRef.run?.complete(event.payload.subject, sim.nowMs);
       else if (event.payload.kind === EVENT_ARRIVE) scheduleTrip(ctx, event.payload.subject, sim.nowMs);
     },
   });
@@ -334,7 +290,7 @@ export function runSimulation(options: RunOptions): RunSummary {
             conditionCap: societyCoefficients.condition.cap,
             building: societyCoefficients.buildingGather,
           },
-          ruinedGoodsHome(world, simCityDistance),
+          ruinedGoodsHome(world, (from, to) => cityDistance(sites.xyOf, from, to)),
           // NPC 휴먼 지갑·임금·생활비(humanPurse.ts — 설정 칸 business_npc_wage_*)
           {
             rules: () => ({
@@ -372,7 +328,8 @@ export function runSimulation(options: RunOptions): RunSummary {
           options.combatCatalog,
           combatCoefficientsFrom(options.tuning ?? new Map(), undefined, options.combatFormulas),
           siegeLayouts,
-          (attacker, cityId) => simSiegeEdge(attacker.cities, cityId, (id) => world.cities.has(id)),
+          (attacker, cityId) =>
+            simSiegeEdge(attacker.cities, cityId, (id) => world.cities.has(id), sites.xyOf),
         )
       : undefined,
     encounterPerMille: scenario.combat?.encounterPerMille,
@@ -410,6 +367,21 @@ export function runSimulation(options: RunOptions): RunSummary {
     SIM_START_MS,
   );
   ctx.society = society;
+  // 빈 2차맵 알박기(빈틈 2243): 짓는 시간 = 팩 행정 건물 레벨 1(경제가 있을 때), 아니면 설정 칸
+  const claims = createSimClaims({
+    world,
+    c: societyCoefficients,
+    hooks: econ?.hooks,
+    treasuryAsset: (faction) => (econ ? econ.hooks.treasuryAsset(faction) : TEST_ASSET_CREDIT),
+    sites,
+    buildMs: econ
+      ? claimBuildMsOf(econ.economy, world, societyCoefficients, claimFallbackMs(societyCoefficients))
+      : () => claimFallbackMs(societyCoefficients),
+    schedule: (atMs, claimId) => loop.schedule(atMs, { kind: EVENT_CLAIM, subject: claimId }),
+    cancel: (eventId) => loop.cancel(eventId),
+  });
+  claimsRef.run = claims;
+  ctx.claims = claims;
 
   // 정원사(R5b): 시뮬 세계에는 지형이 없어 도시마다 합성 격자 칸(3칸 간격)을 준다. 모함 칸은 격자 끝(도시에서 멀다)
   const combatCoefficients = combatCoefficientsFrom(
@@ -424,7 +396,10 @@ export function runSimulation(options: RunOptions): RunSummary {
       world,
       rules: () => societyCoefficients.gardener,
       grid,
-      cellOf: (cityId) => simCityCell(grid, cityId),
+      cellOf: (cityId) => {
+        const at = sites.xyOf(cityId);
+        return at ? grid.cellOf(at.x, at.y) : undefined;
+      },
       mothershipCell: grid.cellOf(SIM_GRID_SIZE - 1, SIM_GRID_SIZE - 1),
       recorder,
       society,
@@ -455,7 +430,7 @@ export function runSimulation(options: RunOptions): RunSummary {
             maxDefenders: scenario.combat?.siegeUnits ?? waveDefendersMaxOf(societyCoefficients.gardener),
             // 도시 배치(질문 1068 가)·모함 쪽 변(질문 1067 가 — 합성 격자 칸 방향, 서버는 행성 칸 방향)
             layout: siegeLayouts(wave.city),
-            attackEdge: simWaveEdge(wave.city, seed, wave.id),
+            attackEdge: waveEdgeOf(sites.xyOf, wave.city, seed, wave.id),
           },
           options.combatCatalog ?? TEST_COMBAT_CATALOG,
           combatCoefficients,
@@ -503,6 +478,7 @@ export function runSimulation(options: RunOptions): RunSummary {
       ...(econ?.check() ?? []),
       ...society.check(nowMs),
       ...(gardenerRef.run?.check() ?? []),
+      ...claims.check(),
     ];
     violations += problems.length;
     for (const problem of problems) if (first.length < FIRST_PROBLEMS) first.push(`${nowMs}: ${problem}`);
@@ -594,7 +570,11 @@ export function runSimulation(options: RunOptions): RunSummary {
     economy: econ ? econ.summary() : null,
     combat: ctx.combat ? ctx.combat.summary() : null,
     society: society.summary(),
-    npc: { ...ctx.counts, ...(ctx.build ? { cities: npcCityGrades(ctx, ctx.build) } : {}) },
+    npc: {
+      ...ctx.counts,
+      ...(ctx.build ? { cities: npcCityGrades(ctx, ctx.build) } : {}),
+      claims: claims.summary(),
+    },
     gardener: gardenerRef.run ? gardenerRef.run.summary() : null,
     ledger: { transactions: world.audit.transactions, accounts: [...world.book.accounts()].length },
     invariants: { checks, violations, first },

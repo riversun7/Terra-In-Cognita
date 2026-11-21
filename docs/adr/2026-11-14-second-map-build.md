@@ -120,3 +120,11 @@
 - **귀속·독립 고르기는 정부 건물 완성 때 발효한다**(D-577 "건설을 시작할 때 경고 문구를 보이고 그 자리에서 미리 고르게, 완성 전에는 언제든 바꿀 수 있게. 아무것도 고르지 않고 완성되면 소속 국가 귀속"): 건축 시트 고르기 칸 위에 경고 한 줄(`build_claim_effect_warning` — 완성 때 적용·짓는 동안 바꿈·안 고르면 귀속). 짓는 중에는 새 명령 `facility_claim`(프로토콜 54 — 줄기 72, `buildingId`·`claim` → `facility_result`, 코드는 있던 것)으로 시설 줄 `world_facilities.claim_choice`를 바꾼다(`apps/server/src/facilities/claimChoice.ts` — 내 알박기 정부(짓기 때 고르기를 받은 시설 줄)·레벨 0·짓기 작업이 걸려 있음·그 2차맵에 아직 도시 없음일 때만, 다 지었거나 멈췄으면 `not_buildable`, 알박기 정부가 아니면 `not_facility`). 화면은 경제 화면 내 시설 카드(`apps/game/src/economy/ClaimChoiceParts.tsx` — tRPC `facilities.overview`의 시설 줄 선택 칸 `landClaim` {choice, kind, locked}). 다 지어질 때 `landClaim.foundPending`이 그때의 시설 줄 값을 읽는다(그대로). 기본값(`DEFAULT_LAND_CLAIM_MODE = "nation"`)은 그대로다.
 - **독립은 가문 단위**(D-577 "가문 자체가 독립하고, 독립한 가문 세력이 가문이 가진 도시를 모두 데리고 그대로 국가가 된다"): 독립 선언(`house_independence`)이 열리는 조건을 "가문 도시가 모두 알박기 도시"에서 **"알박기 도시가 하나라도 있음"**으로 넓혔다(`factionIdentity/houseIndependence.ts independenceOpen` — 독재 나라에서도, D-575 예외를 가문 전체로). 선언하면 알박기가 아닌 가문 도시도 함께 떨어진다(이미 가문 전체를 떼었다 — 코드 그대로). 알박기 도시가 하나도 없는 가문은 그대로 막는다(`independence_blocked` — D-302 독재는 반란으로만, 다른 체제는 46 §3.2 몫).
 - 판: 프로토콜 54(받는 가장 낮은 판 53 — 묶음 1116p 합친 판, 줄기 72·71). 저장 값 바뀜 없음(`claim_choice` 열은 1116o에 있다). 리셋 없음.
+
+## 바뀜 (2026-11-21, 빈틈 2243 — NPC 알박기 1·2단계, 줄기 `work/npc-claim`)
+- NPC도 빈 2차맵에 정부를 지어 알박기한다(D-212·D-555 1509) — **규칙 시뮬레이터에서 먼저**(ADR `2026-11-01-npc-brain-r5.md` "바뀜 (2026-11-21, 빈틈 2243 …)"): 판단 행동
+  `claim`(성향 가중), 시뮬 짓는 중 정부(합성 격자 칸 = 2차맵), 먼저 다 지은 쪽이 도시·늦은 쪽 멈춤(이 ADR "바뀜 (alpak-2)"의 2194 규칙과 같다), 새 도시 = 그 세력
+  도시(D-574, 가문 마을 모양·지분은 설립자).
+- 서버(3단계)는 아직이다: NPC 런타임이 `claim`을 받아 실제 2차맵에 행정 건물을 놓으려면 띄우지 않은 빈 2차맵을 띄워야 하고(2차맵 수 상한·메모리), 건물 서비스
+  `npcBuild`가 행정 건물(단계 government)을 막고 있으며 재료 자리가 그 2차맵 도시 창고다. 다 짓기는 지금 `landClaim.foundPending`이 그대로 받는다(세력 주체 = 그
+  세력, `kindOf` "faction"). 질문 `docs/questions/2026-11-21-npc-claim.md` 2333.

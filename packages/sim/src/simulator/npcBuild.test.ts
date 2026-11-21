@@ -74,7 +74,14 @@ describe("NPC 도시 증축(질문 1101 나)", () => {
   });
 
   it("도시 건물 수 상한까지만 짓는다(도시 8곳 × 상한 − 처음 시설)", () => {
-    const summary = run(20, new Map([["npc_build_max_buildings", 5]]));
+    // 도시 수가 그대로여야 셈이 맞다 — 알박기(빈틈 2243)로 새 도시가 서지 않게 끈다
+    const summary = run(
+      20,
+      new Map([
+        ["npc_build_max_buildings", 5],
+        ["npc_claim_max_active", 0],
+      ]),
+    );
     // 처음 시설: 농업 도시 4·공업 도시 5 → 더 지을 수 있는 수 = 4 × 1 + 4 × 0 = 4
     expect(summary.npc.builds).toBeLessThanOrEqual(4);
     expect(summary.npc.builds).toBeGreaterThan(0);

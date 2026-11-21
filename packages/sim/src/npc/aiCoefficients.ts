@@ -100,6 +100,24 @@ export interface NpcAiCoefficients {
   /** 7. 런타임 비상 스위치(0 = 끔, 1 = 켬) */
   readonly unitAiEnabled: number;
   readonly houseAiEnabled: number;
+
+  /** 8. 2차 지수·가문 일 지시·가문 금고(docs/adr/2026-11-21-npc-needs-drives.md — unitDrives.ts·houseOrders.ts) */
+  readonly driveWorkMoodFloorPm: number;
+  readonly driveWorkHungerFloorPm: number;
+  readonly houseCheckMs: number;
+  readonly houseUnfedBelowPm: number;
+  readonly houseFoodShortSharePm: number;
+  readonly houseMoraleLowBelow: number;
+  readonly houseRefuseBelowPm: number;
+  readonly houseTaxPm: number;
+  readonly houseCareMinPm: number;
+  readonly houseCareMaxPm: number;
+  /** 가문 연맹(houseLeague.ts·leagueBrain.ts): 분담금 몫(‰)·확장/생산 지원 최소 묶음(최소 단위) */
+  readonly leagueDuesPm: number;
+  readonly leagueLot: number;
+  /** 비접속 유저 유닛 관리인(서버 labor/offlineSteward.ts): 스위치·움직이기까지의 비접속 시간(ms) */
+  readonly offlineStewardEnabled: number;
+  readonly offlineStewardAfterMs: number;
 }
 
 const MIN_MS = 60_000;
@@ -182,6 +200,21 @@ export const DEFAULT_NPC_AI_COEFFICIENTS: NpcAiCoefficients = {
 
   unitAiEnabled: 1,
   houseAiEnabled: 1,
+
+  driveWorkMoodFloorPm: 400,
+  driveWorkHungerFloorPm: 500,
+  houseCheckMs: 300_000,
+  houseUnfedBelowPm: 500,
+  houseFoodShortSharePm: 300,
+  houseMoraleLowBelow: 45,
+  houseRefuseBelowPm: 600,
+  houseTaxPm: 100,
+  houseCareMinPm: 100,
+  houseCareMaxPm: 900,
+  leagueDuesPm: 200,
+  leagueLot: 500,
+  offlineStewardEnabled: 1,
+  offlineStewardAfterMs: 10 * MIN_MS,
 };
 
 /** 계수표 → 조직 합성 규칙 */

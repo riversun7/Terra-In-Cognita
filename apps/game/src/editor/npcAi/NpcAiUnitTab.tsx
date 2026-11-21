@@ -49,15 +49,45 @@ type SchedulePreview = Awaited<ReturnType<typeof api.npcAi.previewUnitSchedule.q
 const STATE_LABELS: Readonly<
   Record<string, { readonly ko: string; readonly en: string; readonly tone: number }>
 > = {
-  work: { ko: "근무", en: "Work", tone: 2 },
-  gather: { ko: "채집", en: "Gather", tone: 1 },
-  haul: { ko: "운반", en: "Haul", tone: 4 },
+  // 일(work)은 일감에 따라 나눠 보인다: 일터·둘레 채집·운반
+  "work:post": { ko: "근무", en: "Work", tone: 2 },
+  "work:forage": { ko: "채집", en: "Forage", tone: 1 },
+  "work:haul": { ko: "운반", en: "Haul", tone: 4 },
   rest: { ko: "휴식", en: "Rest", tone: 0 },
-  consume: { ko: "소비", en: "Shop", tone: 5 },
+  need: { ko: "욕구", en: "Needs", tone: 5 },
   patrol: { ko: "순찰", en: "Patrol", tone: 6 },
   evade: { ko: "회피", en: "Evade", tone: 7 },
-  travel: { ko: "이동", en: "Travel", tone: 3 },
 };
+
+/** 2차 지수·가문 일 지시·가문 금고 설정 칸(이름은 팩 항목 이름) */
+const HOUSE_ORDER_FIELDS: readonly { readonly id: string; readonly step: number }[] = [
+  { id: "npc_ai_drive_work_mood_floor_pm", step: 10 },
+  { id: "npc_ai_drive_work_hunger_floor_pm", step: 10 },
+  { id: "npc_ai_house_check_ms", step: 10_000 },
+  { id: "npc_ai_house_unfed_below_pm", step: 10 },
+  { id: "npc_ai_house_food_short_share_pm", step: 10 },
+  { id: "npc_ai_house_morale_low_below", step: 1 },
+  { id: "npc_ai_house_refuse_below_pm", step: 10 },
+  { id: "npc_ai_house_tax_pm", step: 10 },
+  { id: "npc_ai_house_care_min_pm", step: 10 },
+  { id: "npc_ai_house_care_max_pm", step: 10 },
+  { id: "npc_ai_league_dues_pm", step: 10 },
+  { id: "npc_ai_league_lot", step: 50 },
+  { id: "npc_ai_offline_steward_enabled", step: 1 },
+  { id: "npc_ai_offline_steward_after_ms", step: 60_000 },
+];
+
+/** 2차 지수 이름(근로 의욕·복종도·위험 감수·소비 성향) */
+const DRIVE_LABELS: readonly {
+  readonly key: "work" | "obedience" | "risk" | "spend";
+  readonly ko: string;
+  readonly en: string;
+}[] = [
+  { key: "work", ko: "근로 의욕", en: "Work drive" },
+  { key: "obedience", ko: "복종도", en: "Obedience" },
+  { key: "risk", ko: "위험 감수", en: "Risk" },
+  { key: "spend", ko: "소비 성향", en: "Spending" },
+];
 
 export function NpcAiUnitTab({
   entries,
@@ -81,6 +111,8 @@ export function NpcAiUnitTab({
     openness: 600,
     boldness: 550,
   });
+  const [satisfaction, setSatisfaction] = useState(70);
+  const [fedPm, setFedPm] = useState(1000);
   const [schedule, setSchedule] = useState<SchedulePreview | null>(null);
 
   const tuningValues = useMemo(() => buildTuningValuesRecord(entries, pending), [entries, pending]);
@@ -88,20 +120,22 @@ export function NpcAiUnitTab({
   useEffect(() => {
     let cancelled = false;
     const timer = window.setTimeout(() => {
-      api.npcAi.previewUnitSchedule.query({ traits, role, hasWorkplace, hasMarket, tuningValues }).then(
-        (res) => {
-          if (!cancelled) setSchedule(res);
-        },
-        () => {
-          // 미리보기 실패 시 직전 값 유지
-        },
-      );
+      api.npcAi.previewUnitSchedule
+        .query({ traits, role, hasWorkplace, hasMarket, satisfaction, fedPm, tuningValues })
+        .then(
+          (res) => {
+            if (!cancelled) setSchedule(res);
+          },
+          () => {
+            // 미리보기 실패 시 직전 값 유지
+          },
+        );
     }, 180);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [hasMarket, hasWorkplace, role, traits, tuningValues]);
+  }, [fedPm, hasMarket, hasWorkplace, role, satisfaction, traits, tuningValues]);
 
   const setAxis = (axis: TraitAxis, value: number): void => {
     setTraits((prev) => ({ ...prev, [axis]: value }));
@@ -203,7 +237,28 @@ export function NpcAiUnitTab({
         </div>
       </section>
 
-      {/* 가상 유닛 24시간 8상태 FSM 예상 시간표 */}
+      {/* 2차 지수·가문 일 지시·가문 금고 설정 칸(docs/adr/2026-11-21-npc-needs-drives.md) */}
+      <section className="panel na-card">
+        <div className="na-card-head">
+          <h2>{m.dev_npc_ai_house_orders_title()}</h2>
+          <p className="na-hint">{m.dev_npc_ai_house_orders_desc()}</p>
+        </div>
+        <div className="na-grid-2">
+          {HOUSE_ORDER_FIELDS.map((field) => (
+            <NpcAiNumberField
+              key={field.id}
+              id={field.id}
+              byId={byId}
+              pending={pending}
+              ko={ko}
+              step={field.step}
+              onStage={onStage}
+            />
+          ))}
+        </div>
+      </section>
+
+      {/* 가상 유닛 24시간 5상태 FSM 예상 시간표 */}
       <section className="panel na-card">
         <div className="na-card-head">
           <h2>{m.dev_npc_ai_schedule_title()}</h2>
@@ -240,6 +295,30 @@ export function NpcAiUnitTab({
                 <span>{ko ? "시장 있음" : "Has market"}</span>
               </label>
             </div>
+            <label className="na-axis-row">
+              <span className="na-axis-name">{ko ? "만족도 (= 충성도)" : "Satisfaction (= loyalty)"}</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={1}
+                value={satisfaction}
+                onChange={(e) => setSatisfaction(Number(e.target.value))}
+              />
+              <span className="na-axis-val">{satisfaction}</span>
+            </label>
+            <label className="na-axis-row">
+              <span className="na-axis-name">{ko ? "그날 식사 몫 (‰)" : "Food share today (‰)"}</span>
+              <input
+                type="range"
+                min={0}
+                max={1000}
+                step={50}
+                value={fedPm}
+                onChange={(e) => setFedPm(Number(e.target.value))}
+              />
+              <span className="na-axis-val">{fedPm}</span>
+            </label>
             {TRAIT_AXIS_META.map((meta) => (
               <label key={meta.axis} className="na-axis-row">
                 <span className="na-axis-name">
@@ -270,9 +349,17 @@ export function NpcAiUnitTab({
                       : `cells · leader roam ${schedule.leaderRoamRadiusCells} cells`}
                   </span>
                 </div>
+                {DRIVE_LABELS.map((drive) => (
+                  <div key={drive.key} className="na-override-kpi">
+                    <span>{ko ? drive.ko : drive.en}</span>
+                    <strong>{schedule.drives[drive.key]}</strong>
+                    <span className="na-hint">/ 1000</span>
+                  </div>
+                ))}
                 <div className="na-timeline" role="list" aria-label={m.dev_npc_ai_schedule_title()}>
                   {schedule.slots.map((slot) => {
-                    const info = STATE_LABELS[slot.state] ?? { ko: slot.state, en: slot.state, tone: 0 };
+                    const label = slot.job ? `${slot.state}:${slot.job}` : slot.state;
+                    const info = STATE_LABELS[label] ?? { ko: label, en: label, tone: 0 };
                     return (
                       <div
                         key={slot.hour}

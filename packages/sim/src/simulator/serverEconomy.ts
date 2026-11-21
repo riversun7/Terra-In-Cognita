@@ -35,6 +35,7 @@ export {
 export {
   cityUnitOrder,
   cityWorkerUnits,
+  laborOrderOf,
   humanPurseAccount,
   livingDay,
   moneyAssets,

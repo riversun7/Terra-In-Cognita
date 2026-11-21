@@ -5,7 +5,7 @@
 //   주 수 = 승인 수, 다 팔릴 때까지 남는다).
 // - 독재 과반(D-344): 독재 나라 도시에서 지배 쪽(지배 가문 지분 계정 + 지배 플레이어 가문 소유 주체 — 그 나라 국고가 아닐 때)의 팔기와 국고 팔기는
 //   지배 쪽 ÷ (합 − 국고) > 500‰가 남는 데까지만(governance/electorate.ts rulingSharePm과 같은 셈 — market.ts majorityCaps). 주문 때와 회차 때 본다.
-//   NPC 지배 가문의 팔기는 NPC 판단(@terra/sim society.sellShares — 직접 양도, 과반 지킴)이 그대로 한다(시장으로 옮기기는 질문 2461).
+//   NPC 지배 가문의 팔기는 NPC 판단(@terra/sim society.sellShares — 직접 양도, 과반 지킴)이 그대로 한다(시장으로 옮기기는 질문 2471).
 // - 회차: 15초마다 경계를 지났나 보고 지났으면 독재 도시의 과반 끝을 셈한 뒤 모든 도시를 체결한다. 명령·회차는 한 줄로 돈다.
 // - 명령의 답은 쓰기 대기열이 커밋된 뒤(writer.durable).
 import type { CityShareResultCode } from "@terra/protocol";

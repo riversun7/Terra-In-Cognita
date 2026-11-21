@@ -74,6 +74,9 @@ describe("노동 공식(기획 48 §7, N21~N33)", () => {
     expect(satisfactionTarget({ ...content, foodPm: 0, housing: 0, war: true, injured: true }, c)).toBe(0);
     // 상위 평균의 절반 임금: 임금 몫 10, 격차 불만 −10 → 80
     expect(satisfactionTarget({ ...content, wage: 5, topAverageWage: 10 }, c)).toBe(80_000);
+    // 임금 틀 안인데 못 받음(판 70): 그 도시에 받은 사람이 있으면 격차 불만 −10, 없으면 임금 요소 없음
+    expect(satisfactionTarget({ ...content, wage: 0, topAverageWage: 10, unpaid: true }, c)).toBe(70_000);
+    expect(satisfactionTarget({ ...content, wage: 0, topAverageWage: 0, unpaid: true }, c)).toBe(80_000);
     expect(satisfactionTarget({ ...content, wage: 10, topAverageWage: 10, faith: true }, c)).toBe(100_000);
     // 하루에 차이의 30%씩
     expect(satisfactionToward(50_000, 80_000, 1000, c)).toBe(59_000);

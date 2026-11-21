@@ -91,7 +91,7 @@ import { territoryOf } from "./townSites.ts";
 import { type NpcRuinsInput, liftGovernments, ruinedGoodsHomeOf, syncAdminLevels } from "./ruinsRuntime.ts";
 import { ruinsOf } from "./ruinsState.ts";
 import { npcRulingHooks } from "./rulingVault.ts";
-import { createNpcAiBridge } from "./aiBridge.ts";
+import { bridgeTies, createNpcAiBridge } from "./aiBridge.ts";
 import { loadNpcState, recruitOf } from "./state.ts";
 import { createWarOutcomePersist, loadWarOutcomes } from "./warOutcomes.ts";
 
@@ -807,6 +807,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
 
   function endOfDay(nowMs: number): void {
     econ?.beforeDay(nowMs);
+    aiBridge.houseDay(nowMs); // 가문세·돌봄 배당(임금 다음, 만족도 앞 — houseCare.ts)
     society.endOfDay(nowMs);
     // 하루 생필품 충족(781 나): 하루 끝 만족도가 쓴 바로 그 값(society.ts와 같이 없으면 1000)을 도시마다 적는다(도시 경제 하루 줄을 비우기
     // 전 — econ.afterDay)
@@ -865,6 +866,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     units,
     maps,
     mapKeyOfCity: (cityId) => persist.places.get(cityId)?.mapKey,
+    ties: bridgeTies(cityHouses, society, ledger, econ, ctxRef),
   });
   const syncPeople = (): void => {
     aiBridge.syncHumanPlaces({
@@ -918,7 +920,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         expiredAt = o.now();
         econ.expire(expiredAt);
       }
-      if (loop.processed === before && results === 0 && lifted === 0 && !force) return;
+      const labored = aiBridge.laborTick(o.now(), econ); // 가문 일 지시 점검(바뀐 도시만 일꾼을 다시 센다)
+      if (loop.processed === before && results === 0 && lifted + labored === 0 && !force) return;
       const started = performance.now();
       const result = await persist.flush(society.currentDay());
       warPersist.flush(o.now());

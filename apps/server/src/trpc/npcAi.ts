@@ -4,11 +4,14 @@
 import {
   chooseActionWithTemp,
   chooseCombatTacticFromTraits,
+  deriveUnitDrives,
+  driveRulesFromAi,
   effectiveAttackRatioPm,
   effectiveReservePm,
   explainActions7,
   foundingChoice7,
   guardPatrolRadiusCells,
+  loyaltyRulesFromAi,
   moveSkillAllowed,
   npcHouseEntryFee7,
   npcRulingVaultReturnPm7,
@@ -68,6 +71,9 @@ const scheduleInput = z.strictObject({
   role: z.enum(["citizen", "worker", "guard", "leader"]),
   hasWorkplace: z.boolean(),
   hasMarket: z.boolean(),
+  /** 만족도(0~100점)·그날 식사 몫(‰) — 1차 값(docs/adr/2026-11-21-npc-needs-drives.md). 없으면 만족도는 세지 않고 식사는 가득 */
+  satisfaction: z.int().min(0).max(100).optional(),
+  fedPm: z.int().min(0).max(1000).optional(),
   tuningValues: z.record(z.string(), z.int().min(-TUNING_VALUE_LIMIT).max(TUNING_VALUE_LIMIT)).optional(),
 });
 
@@ -169,6 +175,9 @@ export const npcAiRouter = router({
     const society = societyCoefficientsFrom(map);
     const workStartHour = Math.round((society.worldSeed.workStartPm * 24) / 1000) % 24;
     const workEndHour = Math.round((society.worldSeed.workEndPm * 24) / 1000) % 24;
+    const loyaltyRules = loyaltyRulesFromAi(society.npcAi);
+    const satisfactionMilli = input.satisfaction === undefined ? null : input.satisfaction * 1000;
+    const fedPm = input.fedPm ?? null;
     const slots = simulateDailySchedule({
       traits: input.traits,
       role: input.role,
@@ -176,10 +185,21 @@ export const npcAiRouter = router({
       hasMarket: input.hasMarket,
       workStartHour,
       workEndHour,
+      satisfactionMilli,
+      fedPm,
       ai: society.npcAi,
+      loyaltyRules,
     });
     return {
       slots,
+      // 2차 지수(근로 의욕·복종도·위험 감수·소비 성향)
+      drives: deriveUnitDrives({
+        traits: input.traits,
+        satisfactionMilli,
+        fedPm,
+        loyaltyRules,
+        rules: driveRulesFromAi(society.npcAi),
+      }),
       patrolRadiusCells: guardPatrolRadiusCells(input.traits, society.npcAi),
       leaderRoamRadiusCells: society.npcAi.leaderRoamRadiusCells,
     };

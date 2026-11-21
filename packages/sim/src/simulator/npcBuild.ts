@@ -305,6 +305,8 @@ export function buildPolicy(ctx: NpcContext, run: NpcBuildRun, faction: SimFacti
     wants.delete(cityId);
     const site = builder.site(faction, cityId);
     const city = world.cities.get(cityId);
+    // 짓는 중인 도시를 적는다(하루 끝 건설 도우미 임금 — humanPurse.ts livingDay, 판 70)
+    if (site?.busy) (economy.today.building ??= new Set()).add(cityId);
     if (!site || site.busy || !city) continue;
     const humans = economy.cityUnits.get(cityId) ?? 0;
     const housingCap = cityHousingCap(city);
@@ -467,7 +469,7 @@ export function buildPolicy(ctx: NpcContext, run: NpcBuildRun, faction: SimFacti
     if (plotAction && (!action || !builder.has(faction, cityId, action.materials))) action = plotAction;
     if (!action) continue;
     if (builder.has(faction, cityId, action.materials)) {
-      action.run();
+      if (action.run()) (economy.today.building ??= new Set()).add(cityId);
       continue;
     }
     // 재료를 산다: 모자란 몫의 지난 값 × 예비 ‰만큼 국고가 있을 때만 도시 목표 재고에 넣는다(같은 판단의 다른 도시 몫은 뺀다).

@@ -60,6 +60,24 @@ describe("assignHumanPlaces", () => {
     expect(homes.size).toBe(6);
   });
 
+  it("가문 일 지시가 있으면 일꾼 차례를 따르고, 지시 불복한 휴먼은 일터를 받지 않는다", () => {
+    const labor = new Map([
+      [303, { laborRank: 0 }],
+      [301, { laborRank: 1 }],
+      [302, { onStrike: true }],
+    ]);
+    const homes = assignHumanPlaces({
+      humans: [301, 302, 303],
+      home,
+      facilities: [{ id: 10, buildingId: 10, workers: 2 }],
+      areas,
+      laborOf: (unitId) => labor.get(unitId),
+    });
+    expect(homes.get(303)?.work).toEqual(farm);
+    expect(homes.get(301)?.work).toEqual(farm);
+    expect(homes.get(302)?.work).toBeUndefined();
+  });
+
   it("일꾼 수가 휴먼보다 많으면 앞 시설부터 채우고 끝난다. 2차맵에 없는 건물은 일터 없이", () => {
     const homes = assignHumanPlaces({
       humans: [1, 2],

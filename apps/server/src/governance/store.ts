@@ -48,6 +48,9 @@ export interface AgendaPayload {
   readonly monetaryRateBp?: number;
   /** 화폐 단계 전환: 손 조절 목표 물가 상한(천분율 — 줄기 gov-coup, D-588 2499). 없으면 앞 값 */
   readonly monetaryCapMilli?: number;
+  /** 조약 비준(diplomacy/ — 사용자 결정 D-588): 조약 ID·그 조항 판(맞제안마다 오른다 — 판이 바뀌면 집행하지 않는다) */
+  readonly treatyId?: number;
+  readonly treatyRevision?: number;
 }
 
 /** jsonb → 세율 안건 값(칸마다 정수 또는 null). 꼴이 틀리면 undefined */
@@ -185,6 +188,8 @@ function payloadOf(value: unknown): AgendaPayload {
     typeof value.monetaryCapMilli === "number" && Number.isSafeInteger(value.monetaryCapMilli)
       ? value.monetaryCapMilli
       : undefined;
+  const treatyId = typeof value.treatyId === "number" ? value.treatyId : undefined;
+  const treatyRevision = typeof value.treatyRevision === "number" ? value.treatyRevision : undefined;
   return {
     ...(regime ? { regime } : {}),
     ...(target !== undefined ? { targetNationId: target } : {}),
@@ -199,6 +204,8 @@ function payloadOf(value: unknown): AgendaPayload {
     ...(monetaryMode ? { monetaryMode } : {}),
     ...(monetaryRateBp !== undefined ? { monetaryRateBp } : {}),
     ...(monetaryCapMilli !== undefined ? { monetaryCapMilli } : {}),
+    ...(treatyId !== undefined ? { treatyId } : {}),
+    ...(treatyRevision !== undefined ? { treatyRevision } : {}),
   };
 }
 

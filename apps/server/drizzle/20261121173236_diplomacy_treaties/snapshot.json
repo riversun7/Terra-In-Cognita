@@ -1,0 +1,1024 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "3fe47edd-9548-4d6c-8d20-019b46f25026",
+  "prevIds": [
+    "8ccb7e3f-9488-45bf-8137-a0bfbba826db",
+    "e44a1520-def3-4dd0-85f2-a97fe6a8e2fb",
+    "90e99c42-2912-427e-b53e-b00329f24354"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "diplomacy_treaties"
+      ],
+      "writes": [
+        "s|tbl|public.diplomacy_treaties",
+        "n|tbl|public.diplomacy_treaties",
+        "e|tbl|public.diplomacy_treaties",
+        "n|rel|public.diplomacy_treaties",
+        "n|type|public.diplomacy_treaties",
+        "n|rel|public.diplomacy_treaties_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "diplomacy_war_joins"
+      ],
+      "writes": [
+        "s|tbl|public.diplomacy_war_joins",
+        "n|tbl|public.diplomacy_war_joins",
+        "e|tbl|public.diplomacy_war_joins",
+        "n|rel|public.diplomacy_war_joins",
+        "n|type|public.diplomacy_war_joins",
+        "n|rel|public.diplomacy_war_joins_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "diplomacy_treaties",
+        "diplomacy_treaties_a_idx"
+      ],
+      "writes": [
+        "s|idx|public.diplomacy_treaties_a_idx",
+        "n|idx|public.diplomacy_treaties_a_idx",
+        "e|idx|public.diplomacy_treaties_a_idx",
+        "n|rel|public.diplomacy_treaties_a_idx"
+      ],
+      "reads": [
+        "n|tbl|public.diplomacy_treaties",
+        "n|sch|public",
+        "n|col|public.diplomacy_treaties.nation_a",
+        "n|col|public.diplomacy_treaties.state"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "diplomacy_treaties",
+        "diplomacy_treaties_b_idx"
+      ],
+      "writes": [
+        "s|idx|public.diplomacy_treaties_b_idx",
+        "n|idx|public.diplomacy_treaties_b_idx",
+        "e|idx|public.diplomacy_treaties_b_idx",
+        "n|rel|public.diplomacy_treaties_b_idx"
+      ],
+      "reads": [
+        "n|tbl|public.diplomacy_treaties",
+        "n|sch|public",
+        "n|col|public.diplomacy_treaties.nation_b",
+        "n|col|public.diplomacy_treaties.state"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "diplomacy_war_joins",
+        "diplomacy_war_joins_treaty_idx"
+      ],
+      "writes": [
+        "s|idx|public.diplomacy_war_joins_treaty_idx",
+        "n|idx|public.diplomacy_war_joins_treaty_idx",
+        "e|idx|public.diplomacy_war_joins_treaty_idx",
+        "n|rel|public.diplomacy_war_joins_treaty_idx"
+      ],
+      "reads": [
+        "n|tbl|public.diplomacy_war_joins",
+        "n|sch|public",
+        "n|col|public.diplomacy_war_joins.treaty_id",
+        "n|col|public.diplomacy_war_joins.state"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "diplomacy_war_joins",
+        "diplomacy_war_joins_joiner_idx"
+      ],
+      "writes": [
+        "s|idx|public.diplomacy_war_joins_joiner_idx",
+        "n|idx|public.diplomacy_war_joins_joiner_idx",
+        "e|idx|public.diplomacy_war_joins_joiner_idx",
+        "n|rel|public.diplomacy_war_joins_joiner_idx"
+      ],
+      "reads": [
+        "n|tbl|public.diplomacy_war_joins",
+        "n|sch|public",
+        "n|col|public.diplomacy_war_joins.joiner_nation",
+        "n|col|public.diplomacy_war_joins.state"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "diplomacy_treaties"
+      ],
+      "writes": [
+        "s|fk|public.diplomacy_treaties.diplomacy_treaties_nation_a_factions_id_fkey",
+        "n|fk|public.diplomacy_treaties.diplomacy_treaties_nation_a_factions_id_fkey",
+        "e|fk|public.diplomacy_treaties.diplomacy_treaties_nation_a_factions_id_fkey",
+        "n|con|public.diplomacy_treaties.diplomacy_treaties_nation_a_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.diplomacy_treaties",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.diplomacy_treaties.nation_a",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "diplomacy_treaties"
+      ],
+      "writes": [
+        "s|fk|public.diplomacy_treaties.diplomacy_treaties_nation_b_factions_id_fkey",
+        "n|fk|public.diplomacy_treaties.diplomacy_treaties_nation_b_factions_id_fkey",
+        "e|fk|public.diplomacy_treaties.diplomacy_treaties_nation_b_factions_id_fkey",
+        "n|con|public.diplomacy_treaties.diplomacy_treaties_nation_b_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.diplomacy_treaties",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.diplomacy_treaties.nation_b",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "diplomacy_treaties"
+      ],
+      "writes": [
+        "s|fk|public.diplomacy_treaties.diplomacy_treaties_agenda_id_governance_agendas_id_fkey",
+        "n|fk|public.diplomacy_treaties.diplomacy_treaties_agenda_id_governance_agendas_id_fkey",
+        "e|fk|public.diplomacy_treaties.diplomacy_treaties_agenda_id_governance_agendas_id_fkey",
+        "n|con|public.diplomacy_treaties.diplomacy_treaties_agenda_id_governance_agendas_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.diplomacy_treaties",
+        "n|sch|public",
+        "n|tbl|public.governance_agendas",
+        "n|sch|public",
+        "n|col|public.diplomacy_treaties.agenda_id",
+        "n|col|public.governance_agendas.id",
+        "e|uniqueness|public.governance_agendas.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "diplomacy_war_joins"
+      ],
+      "writes": [
+        "s|fk|public.diplomacy_war_joins.diplomacy_war_joins_treaty_id_diplomacy_treaties_id_fkey",
+        "n|fk|public.diplomacy_war_joins.diplomacy_war_joins_treaty_id_diplomacy_treaties_id_fkey",
+        "e|fk|public.diplomacy_war_joins.diplomacy_war_joins_treaty_id_diplomacy_treaties_id_fkey",
+        "n|con|public.diplomacy_war_joins.diplomacy_war_joins_treaty_id_diplomacy_treaties_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.diplomacy_war_joins",
+        "n|sch|public",
+        "n|tbl|public.diplomacy_treaties",
+        "n|sch|public",
+        "n|col|public.diplomacy_war_joins.treaty_id",
+        "n|col|public.diplomacy_treaties.id",
+        "e|uniqueness|public.diplomacy_treaties.id"
+      ]
+    },
+    {
+      "statementType": "alter_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "governance_agendas"
+      ],
+      "writes": [
+        "s|ck|public.governance_agendas.governance_agendas_kind"
+      ],
+      "reads": [
+        "n|tbl|public.governance_agendas",
+        "n|sch|public",
+        "n|col|public.governance_agendas.kind",
+        "e|col|public.governance_agendas.kind"
+      ],
+      "sqlHash": "668597df7ebf1110"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "diplomacy_treaties",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "diplomacy_war_joins",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "diplomacy_treaties_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "9223372036854775807",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "nation_a",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "nation_b",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "author_nation",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "revision",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "clauses",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "days",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "state",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "author_ready",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "false",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "agenda_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "agenda_nation",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "respond_by_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "created_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "updated_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "activated_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "expires_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "ended_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "next_tribute_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_war_joins",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "diplomacy_war_joins_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "9223372036854775807",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_war_joins",
+        "name": "treaty_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_war_joins",
+        "name": "requester_nation",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_war_joins",
+        "name": "joiner_nation",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_war_joins",
+        "name": "enemy_nation",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_war_joins",
+        "name": "state",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_war_joins",
+        "name": "auto",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "false",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_war_joins",
+        "name": "created_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_war_joins",
+        "name": "respond_by_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_war_joins",
+        "name": "decided_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_war_joins",
+        "name": "note",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "diplomacy_treaties_a_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "nation_a",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "state",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "diplomacy_treaties_b_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "nation_b",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "state",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_war_joins",
+        "name": "diplomacy_war_joins_treaty_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "treaty_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "state",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_war_joins",
+        "name": "diplomacy_war_joins_joiner_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "joiner_nation",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "state",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "diplomacy_treaties_nation_a_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "nation_a"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "diplomacy_treaties_nation_b_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "nation_b"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "diplomacy_treaties_agenda_id_governance_agendas_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "agenda_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "governance_agendas",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "SET NULL",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_war_joins",
+        "name": "diplomacy_war_joins_treaty_id_diplomacy_treaties_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "treaty_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "diplomacy_treaties",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "diplomacy_treaties_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_war_joins",
+        "name": "diplomacy_war_joins_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "diplomacy_treaties_state",
+        "value": "\"state\" in ('proposed', 'negotiating', 'active', 'expired', 'broken', 'declined', 'lapsed')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "diplomacy_treaties_pair",
+        "value": "\"nation_a\" <> \"nation_b\"",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_treaties",
+        "name": "diplomacy_treaties_days",
+        "value": "\"days\" between 1 and 3650",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_war_joins",
+        "name": "diplomacy_war_joins_state",
+        "value": "\"state\" in ('requested', 'joined', 'declined', 'lapsed')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "checks\u0000[\"public\",\"governance_agendas\",\"governance_agendas_kind\"]",
+      "set": {
+        "value": "\"kind\" in ('leader_election', 'leader_removal', 'regime_change', 'war_declaration', 'tax_change', 'city_independence', 'treasury_share_sale', 'peace', 'currency_stage', 'house_independence', 'treaty')"
+      }
+    }
+  ]
+}

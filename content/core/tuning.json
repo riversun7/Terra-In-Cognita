@@ -16892,6 +16892,78 @@
       "source": "사용자 결정 D-588(2499 — 목표 물가 상한, D-131) · ADR 2026-11-21-governance · 줄기 gov-coup [임시 출발값]"
     },
     {
+      "id": "dip_treaty_max_days",
+      "code": "",
+      "name": {
+        "ko": "조약 기간 상한(날)",
+        "en": "Treaty duration cap (days)"
+      },
+      "value": 30,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 3650,
+      "desc": {
+        "ko": "지도자끼리 맺는 조약(불가침·동맹·보호·휴전) 한 번의 기간 상한. 기간이 끝나면 조약이 끝난다.",
+        "en": "Longest duration of one treaty between leaders (non-aggression, alliance, protection, ceasefire). The treaty ends when it runs out."
+      },
+      "source": "사용자 결정 D-588 · 질문 2497·2498 · ADR 2026-11-21-diplomacy-treaties · 줄기 diplomacy [임시 출발값]"
+    },
+    {
+      "id": "dip_tribute_max_pm",
+      "code": "",
+      "name": {
+        "ko": "보호 조약 공물 상한(‰)",
+        "en": "Protection treaty tribute cap (‰)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "보호 조약 공물(보호받는 나라 국고에서 공물 주기마다 보호하는 나라로 옮기는 몫)의 상한. D-444 [임시] 공물 5%.",
+        "en": "Cap on protection tribute (share of the protected nation's treasury moved to the protector each tribute period). D-444 provisional 5%."
+      },
+      "source": "사용자 결정 D-588 · 질문 2497·2498 · ADR 2026-11-21-diplomacy-treaties · 줄기 diplomacy [임시 출발값]"
+    },
+    {
+      "id": "dip_war_request_ms",
+      "code": "",
+      "name": {
+        "ko": "참전 요청 답 기한(ms)",
+        "en": "War join request answer window (ms)"
+      },
+      "value": 86400000,
+      "structural": false,
+      "unit": "ms",
+      "min": 3600000,
+      "max": 2592000000,
+      "desc": {
+        "ko": "동맹·보호 조약 상대에게 낸 참전 요청에 답할 수 있는 기간. 지나면 요청이 끝난다.",
+        "en": "How long an ally or protector can answer a war join request before it lapses."
+      },
+      "source": "사용자 결정 D-588 · 질문 2497·2498 · ADR 2026-11-21-diplomacy-treaties · 줄기 diplomacy [임시 출발값]"
+    },
+    {
+      "id": "dip_npc_calm_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 조약 수락: 차분함 문턱(‰)",
+        "en": "NPC treaty acceptance: calm threshold (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "NPC가 이끄는 나라는 차분함(1000 − 공격 성향)이 이 값 이상일 때만 불가침·동맹·보호 조약과 참전 요청을 받는다.",
+        "en": "An NPC-led nation accepts non-aggression, alliance and protection treaties and war join requests only when its calm (1000 − aggression) is at least this."
+      },
+      "source": "사용자 결정 D-588 · 질문 2497·2498 · ADR 2026-11-21-diplomacy-treaties · 줄기 diplomacy [임시 출발값]"
+    },
+    {
       "id": "npc_ai_drive_work_mood_floor_pm",
       "code": "",
       "name": {

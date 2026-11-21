@@ -9,6 +9,7 @@ import type { CombatCatalog, CombatCoefficients } from "@terra/sim";
 import { creditBookOf } from "../credit/book.ts";
 import { creditOwnerOfUser, sweepCreditStandings } from "../credit/standing.ts";
 import type { CoupCredit } from "./coup.ts";
+import type { TreatyHooks } from "./leaderAgendas.ts";
 import { createCoupStore } from "./coupStore.ts";
 import { createLeaderStore } from "./leaderStore.ts";
 import { type GovernanceGateway, createGovernanceGateway } from "./gateway.ts";
@@ -31,6 +32,8 @@ export interface GovernanceAttached {
   readonly store: GovernanceStore;
   readonly view: GovernanceView;
   readonly gateway: GovernanceGateway;
+  /** 설정값(외교 서비스가 같은 칸을 읽는다 — diplomacy/attach.ts) */
+  readonly rules: () => GovernanceRules;
   stop(): void;
 }
 
@@ -56,6 +59,8 @@ export function attachGovernance(o: {
   readonly shareBuyCheck?: ShareAgendaHooks["shareBuyCheck"];
   /** 틱 타이머를 켜지 않는다(시험이 tick을 직접 부른다) */
   readonly manual?: boolean | undefined;
+  /** 외교 서비스(diplomacy/ — D-588): 조약 비준 집행·강화 제안 고리, 의결 틱 뒤에 도는 틱. 나중에 붙어서 읽기 함수로 받는다 */
+  readonly diplomacy?: (() => { readonly hooks: TreatyHooks; tick(): Promise<void> } | undefined) | undefined;
 }): GovernanceAttached {
   // 쿠데타 전투 자료: 넘긴 것이 없으면 NPC 런타임 정원사가 쓰는 팩 전투 자료(줄기 governance-5 — app.ts를 키우지 않는다), 그것도 없으면 시험 자료
   const port = worldGovernancePort(o.world, o.combat ?? (() => o.world()?.npc?.gardener.combat()));
@@ -95,12 +100,14 @@ export function attachGovernance(o: {
     },
     leader: createLeaderStore(o.db.$client),
     credit,
+    treaties: () => o.diplomacy?.()?.hooks,
   });
   const view = createGovernanceView({ port, store, service, rules: o.rules, presets: o.presets, now: o.now });
   const gateway = createGovernanceGateway({ service: () => service, now: o.now, log: o.log });
   // 틱마다 신용 소속도 훑는다(credit/standing.ts — 소속 기간·사업장 운영 오름, D-584)
   const tick = async (): Promise<void> => {
     await service.tick();
+    await o.diplomacy?.()?.tick();
     sweepCreditStandings(o.world(), o.now());
   };
   const timer = o.manual ? undefined : setInterval(() => void tick(), GOVERNANCE_TICK_MS);
@@ -122,6 +129,7 @@ export function attachGovernance(o: {
     store,
     view,
     gateway,
+    rules: o.rules,
     stop: () => {
       clearInterval(timer);
       clearTimeout(boot);

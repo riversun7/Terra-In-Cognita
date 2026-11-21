@@ -426,6 +426,11 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "governance.monetaryCapMilli",
   "governance.monetaryCapMinMilli",
   "governance.monetaryCapMaxMilli",
+  // 지도자끼리 조약(diplomacy/ — docs/adr/2026-11-21-diplomacy-treaties.md): 명령·1분 틱마다 읽는다
+  "governance.treatyMaxDays",
+  "governance.tributeMaxPm",
+  "governance.warRequestMs",
+  "governance.npcTreatyCalmPm",
   // NPC 자율행동·7축 성향·조직 합성·충성도 개입(docs/adr/2026-11-20-npc-autonomous-ai.md): 조회·판단마다 읽는다
   "npcAi.unitTraitMin",
   "npcAi.unitTraitMax",

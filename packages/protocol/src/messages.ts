@@ -7,7 +7,8 @@
 // 원자재 오브젝트 채집·건물 들어가기는 gather.ts, 병원 치료는 hospital.ts(둘 다 프로토콜 17부터), 국적 바꾸기(귀화)는 citizenship.ts(프로토콜
 // 18부터), 가문 창설은 house.ts(프로토콜 22부터, 가문 가입은 23부터, 넘기기·해산·가문 도시는 24부터), 가문 도시 구인은
 // houseRecruit.ts(프로토콜 25부터), 나라 의결(안건·투표·후보)은 governance.ts, 배 만들기·타기·내리기는 boats.ts(프로토콜 27부터), 사업장 장부 명령은 business.ts(프로토콜 34부터),
-// 나라 세금 정하기는 nationTax.ts(프로토콜 57부터), 도시(정부) 지분 주문은 cityShares.ts(CITY_SHARE_PROTOCOL_VERSION부터), 사는 곳 고르기는 residence.ts(RESIDENCE_PROTOCOL_VERSION부터)에 있다.
+// 나라 세금 정하기는 nationTax.ts(프로토콜 57부터), 도시(정부) 지분 주문은 cityShares.ts(CITY_SHARE_PROTOCOL_VERSION부터), 사는 곳 고르기는 residence.ts(RESIDENCE_PROTOCOL_VERSION부터),
+// 지도자끼리 조약은 diplomacy.ts(DIPLOMACY_PROTOCOL_VERSION부터)에 있다.
 import { z } from "zod";
 import { citizenshipClientMessages, citizenshipServerMessages } from "./citizenship.ts";
 import { cyborgClientMessages, cyborgServerMessages } from "./cyborg.ts";
@@ -21,6 +22,7 @@ import { housePolicyClientMessages } from "./housePolicy.ts";
 import { nationTaxClientMessages, nationTaxServerMessages } from "./nationTax.ts";
 import { cityShareClientMessages, cityShareServerMessages } from "./cityShares.ts";
 import { residenceClientMessages, residenceServerMessages } from "./residence.ts";
+import { diplomacyClientMessages, diplomacyServerMessages } from "./diplomacy.ts";
 import { itemClientMessages, itemServerMessages } from "./items.ts";
 import { laborClientMessages, laborServerMessages } from "./labor.ts";
 import { marketClientMessages, marketServerMessages } from "./market.ts";
@@ -79,6 +81,7 @@ export const clientMessageSchema = z.discriminatedUnion("t", [
   ...nationTaxClientMessages,
   ...cityShareClientMessages,
   ...residenceClientMessages,
+  ...diplomacyClientMessages,
   ...boatClientMessages,
   ...businessClientMessages,
   ...battleOrderClientMessages,
@@ -134,6 +137,7 @@ export const serverMessageSchema = z.discriminatedUnion("t", [
   ...nationTaxServerMessages,
   ...cityShareServerMessages,
   ...residenceServerMessages,
+  ...diplomacyServerMessages,
   ...boatServerMessages,
   ...businessServerMessages,
   ...battleOrderServerMessages,

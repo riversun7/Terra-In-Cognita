@@ -31,6 +31,7 @@ import { fusionRouter } from "./fusion.ts";
 import { gatherRouter } from "./gather.ts";
 import { templeRouter } from "./temple.ts";
 import { governanceRouter } from "./governance.ts";
+import { diplomacyRouter } from "./diplomacy.ts";
 import { sharesRouter } from "./shares.ts";
 import { hospitalRouter } from "./hospital.ts";
 import { ruinsRouter } from "./ruins.ts";
@@ -98,6 +99,8 @@ export const appRouter = router({
   temple: templeRouter,
   // 나라 의결(조회만 — 명령은 WebSocket gov_*, docs/adr/2026-11-21-governance.md)
   governance: governanceRouter,
+  // 지도자끼리 조약(조회만 — 명령은 WebSocket dip_*, docs/adr/2026-11-21-diplomacy-treaties.md)
+  diplomacy: diplomacyRouter,
   // 도시(정부) 지분·증권 거래소(조회만 — 명령은 WebSocket city_share_*, docs/adr/2026-11-21-share-market.md)
   shares: sharesRouter,
   // 부상·병원(조회만 — 명령은 WebSocket hospital_treat·dev_injure_unit, docs/adr/2026-11-08-injury.md)

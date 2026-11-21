@@ -188,6 +188,14 @@ export {
   type ResidenceResultCode,
 } from "./residence.ts";
 export {
+  DIPLOMACY_ACTIONS,
+  DIPLOMACY_CLAUSE_KINDS,
+  DIPLOMACY_PROTOCOL_VERSION,
+  DIPLOMACY_RESULT_CODES,
+  type DiplomacyAction,
+  type DiplomacyResultCode,
+} from "./diplomacy.ts";
+export {
   HOSPITAL_PROTOCOL_VERSION,
   HOSPITAL_RESULT_CODES,
   type HospitalResultCode,

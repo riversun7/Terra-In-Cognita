@@ -29,6 +29,7 @@ import {
 import "./governance.css";
 
 type Status = { readonly tone: "ok" | "error"; readonly text: string } | null;
+type ProposableKind = Exclude<AgendaKind, "treaty">;
 type Run = (body: GovernanceRequest) => Promise<void>;
 
 const STATUS_TONE = {
@@ -290,13 +291,14 @@ const nationName = (row: GovernanceResponse["warTargets"][number]): string =>
 
 function ProposeForm({ view, busy, run }: { view: GovernanceResponse; busy: boolean; run: Run }) {
   const id = useId();
-  const kinds = view.canPropose;
-  const [kind, setKind] = useState<AgendaKind | "">(kinds[0] ?? "");
+  // 조약 비준(treaty)은 외교 화면이 연다(서버도 올리기 목록에 넣지 않는다)
+  const kinds = view.canPropose.filter((entry): entry is ProposableKind => entry !== "treaty");
+  const [kind, setKind] = useState<ProposableKind | "">(kinds[0] ?? "");
   const regime = view.nation?.regime;
   const regimes = GOVERNANCE_REGIMES.filter((entry) => entry !== regime);
   const [target, setTarget] = useState<GovernanceRegime | "">(regimes[0] ?? "");
   const [war, setWar] = useState<string>(view.warTargets[0] ? String(view.warTargets[0].id) : "");
-  const picked: AgendaKind | "" = kinds.find((entry) => entry === kind) ?? kinds[0] ?? "";
+  const picked: ProposableKind | "" = kinds.find((entry) => entry === kind) ?? kinds[0] ?? "";
   if (kinds.length === 0) return <p className="faction-muted">{m.gov_propose_none()}</p>;
   return (
     <form

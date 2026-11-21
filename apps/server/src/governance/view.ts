@@ -38,6 +38,8 @@ const NOT_LISTED: ReadonlySet<AgendaKind> = new Set([
   "city_independence",
   "treasury_share_sale",
   "treasury_share_buy",
+  // 조약 비준(D-588)은 외교 화면이 연다(diplomacy/)
+  "treaty",
 ]);
 /** 끝난 쿠데타를 몇 개까지 보이나 */
 const RECENT_COUPS = 3;

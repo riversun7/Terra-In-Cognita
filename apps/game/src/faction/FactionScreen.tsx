@@ -5,7 +5,7 @@
 // - 배치: 좁으면(모바일) 요약 판 → 탭 → 고른 탭. 넓으면(64em 이상) 왼쪽 옆 판(요약·내 몫·잠긴 메뉴) + 오른쪽 탭.
 // - 선전포고·투표·편입 답 같은 명령은 WebSocket으로만 보낸다(AGENTS 4장). 지금은 곧 열림 단추(누르면 알림만).
 // - 독재가 아니면 시장 임명·선전포고는 바로 실행이 아니라 [안건 올리기]다(기획 검토 C4, decidesByVote). 조약은 카드마다
-//   "투표 필요" 칸을 따른다(D-444 167, 외교 탭 아래 조약 제안 목록).
+//   "투표 필요" 칸을 따른다(D-444 167, 외교 탭 아래 조약 제안 목록). 실제 조약(D-588 — 제안·협상·참전 요청)은 외교 탭 위 외교 칸(diplomacy/DiplomacyPanel.tsx).
 // - 제목(h1)은 tabIndex=-1. 앱 안 이동 때 초점은 화면 틀이 옮긴다.
 import type { FactionOverviewResponse } from "@terra/shared/faction";
 import { useState } from "react";
@@ -27,6 +27,7 @@ import {
 import { useScreenQuery } from "../sections/useScreenQuery.ts";
 import { FactionCities } from "./FactionCities.tsx";
 import { FactionDiplomacy, FactionTreatyOffers } from "./FactionDiplomacy.tsx";
+import { DiplomacyPanel } from "./diplomacy/DiplomacyPanel.tsx";
 import { FactionOccupations, FactionShares } from "./FactionShares.tsx";
 import { FactionSide } from "./FactionSide.tsx";
 import { FactionVotes } from "./FactionVotes.tsx";
@@ -71,6 +72,8 @@ function TabBody({ tab, view }: { tab: FactionTab; view: FactionOverviewResponse
             title={m.faction_diplomacy_title()}
             preview={sectionKind(section) === "preview"}
           />
+          {/* 지도자끼리 조약(실제 조약·참전 요청 — docs/adr/2026-11-21-diplomacy-treaties.md): 시안 자료가 아닐 때 */}
+          {sectionKind(section) === "preview" ? null : <DiplomacyPanel now={now} />}
           {section.status === "ready" ? (
             <>
               <FactionDiplomacy rows={section.data} now={now} />

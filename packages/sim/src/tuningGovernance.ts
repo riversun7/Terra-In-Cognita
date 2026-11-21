@@ -356,4 +356,33 @@ export const GOVERNANCE_TUNING_KEYS: readonly TuningKey[] = [
     "손 조절 목표 물가 상한: 지도자가 고를 수 있는 위 끝",
     "Manual money: highest price cap a leader can set",
   ),
+  // 지도자끼리 조약(사용자 결정 D-588 — 질문 2497·2498, docs/adr/2026-11-21-diplomacy-treaties.md)
+  k(
+    "dip_treaty_max_days",
+    "",
+    "governance.treatyMaxDays",
+    "조약 기간 상한(날)",
+    "Treaty duration cap (days)",
+  ),
+  k(
+    "dip_tribute_max_pm",
+    "",
+    "governance.tributeMaxPm",
+    "보호 조약 공물 상한(‰)",
+    "Protection treaty tribute cap (‰)",
+  ),
+  k(
+    "dip_war_request_ms",
+    "",
+    "governance.warRequestMs",
+    "참전 요청 답 기한(ms)",
+    "War join request answer window (ms)",
+  ),
+  k(
+    "dip_npc_calm_pm",
+    "",
+    "governance.npcTreatyCalmPm",
+    "NPC 조약 수락: 차분함 문턱(‰)",
+    "NPC treaty acceptance: calm threshold (‰)",
+  ),
 ];

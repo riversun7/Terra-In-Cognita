@@ -2,6 +2,9 @@
 // - 강화(2452, D-5057 "전쟁·외교: 강화 수락"): 전쟁 중인 상대와. 민주주의·자본주의 = 투표(전쟁 묶음 — 짧은 기간), 독재 = 직권(D-217). 집행: 상대가 NPC가 이끄는 나라면 NPC 강화
 //   규칙식(npcRun proposePeace와 같은 셈)이 받으면 강화 조약, 아니면 거절(failed). 상대가 플레이어가 이끄는 나라(빈자리 포함)면 그쪽이 gov_peace_offer_ms 안에 우리에게 같은
 //   강화를 집행했으면 맺고, 아니면 제안으로 남는다(enacted + 감사 기록 governance.peace_offered) [임시 — 질문 2497]. 동맹·보호 조약은 세계에 조약 체계가 없어 만들지 않았다(질문 2498).
+//   바뀜(줄기 diplomacy — 사용자 결정 D-588 2497 가·나): 외교 서비스(diplomacy/)가 붙어 있으면 플레이어가 이끄는 상대에게 강화는 휴전·강화 조약 제안(조항 ceasefire,
+//   우리 나라는 이 안건으로 이미 받아들임)이 되고 상대는 외교 화면에서 받거나 고친다. 상대가 우리에게 먼저 낸 휴전·강화 조약이 있으면 그것을 받아 맺는다(옛 길 — 두 나라가
+//   서로 강화를 정하면 맺음 — 그대로). 조약 비준 안건(treaty)의 집행도 외교 서비스에 넘긴다(enactTreaty).
 // - 화폐 단계(2453, D-252·D-131): 공식(테일러 준칙 — 지금과 같다) ↔ 지도자 손 조절(하루 조절 만분율, 하루 상한 = 중앙은행 칸 E5) [임시]. 단계를 바꾸는 것은 안건(문턱
 //   gov_threshold_currency_pm 2/3) 또는 독재 직권, 손 조절 단계 안에서 조절량만 바꾸는 것은 지도자가 바로(직권 줄). 손 조절은 플레이어가 이끄는 나라에서만 건다(NPC가 이끌게
 //   되면 공식으로 돈다 [임시]).
@@ -35,6 +38,14 @@ export type LeaderFail =
   | "not_majority_holder"
   | "not_eligible";
 
+/** 외교 서비스(diplomacy/service.ts)가 의결에 거는 고리 — 의결 사슬 안에서 불린다(그 안에서 의결 run을 부르지 않는다) */
+export interface TreatyHooks {
+  /** 가결된 조약 비준 안건 집행(안건을 끝낸다) */
+  enact(agenda: AgendaRow, nation: GovernanceNation, nowMs: number): Promise<void>;
+  /** 플레이어가 이끄는 상대에게 강화: 상대가 우리에게 낸 휴전·강화 조약이 있으면 받아 맺고(made), 없으면 휴전·강화 조약을 낸다(offered) */
+  peaceOffer(nation: GovernanceNation, target: GovernanceNation, nowMs: number): Promise<"made" | "offered">;
+}
+
 export interface LeaderDeps {
   readonly port: GovernancePort;
   readonly store: Pick<GovernanceStore, "agendasOf" | "insertAgenda" | "saveState" | "states" | "finish">;
@@ -42,6 +53,8 @@ export interface LeaderDeps {
   readonly tools: Pick<ElectorateTools, "ruling">;
   readonly rules: () => GovernanceRules;
   readonly audit: (userId: string | null, action: string, after: Record<string, unknown>) => Promise<void>;
+  /** 외교 서비스 고리(없으면 조약 비준 안건은 취소, 강화 제안은 옛 길) */
+  readonly treaties?: (() => TreatyHooks | undefined) | undefined;
 }
 
 /**
@@ -227,7 +240,10 @@ export function createLeaderAgendas(d: LeaderDeps) {
           row.payload.targetNationId === nation.rowId &&
           (row.enactedAtMs ?? 0) >= since,
       );
+      const hooks = d.treaties?.();
       if (offered) made = await d.port.makePeace(nation, target, nowMs);
+      // 외교 서비스가 있으면 휴전·강화 조약으로(D-588) — 상대가 먼저 낸 조약을 받거나 새로 낸다
+      else if (hooks) made = (await hooks.peaceOffer(nation, target, nowMs)) === "made";
     }
     await d.store.finish(agenda.id, { status: "enacted", enactedAtMs: nowMs });
     await d.audit(null, made ? "governance.peace_made" : "governance.peace_offered", {
@@ -235,6 +251,13 @@ export function createLeaderAgendas(d: LeaderDeps) {
       targetNationId: target.rowId,
       agendaId: agenda.id,
     });
+  };
+
+  /** 조약 비준 안건 집행(외교 서비스가 없으면 취소) */
+  const enactTreaty = async (agenda: AgendaRow, nation: GovernanceNation, nowMs: number): Promise<void> => {
+    const hooks = d.treaties?.();
+    if (!hooks) return d.store.finish(agenda.id, { status: "cancelled", enactedAtMs: nowMs });
+    return hooks.enact(agenda, nation, nowMs);
   };
 
   /** 화폐 단계 집행 */
@@ -349,6 +372,7 @@ export function createLeaderAgendas(d: LeaderDeps) {
     currencyPayload,
     declareByPlayer,
     enactPeace,
+    enactTreaty,
     enactCurrency,
     tick,
     /** 해임 가결 문턱(신임도 고리 — 칸 출발값 0 = 그대로) */

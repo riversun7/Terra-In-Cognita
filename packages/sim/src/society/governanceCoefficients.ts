@@ -92,6 +92,14 @@ export interface GovernanceCoefficients {
   readonly monetaryCapMilli: number;
   readonly monetaryCapMinMilli: number;
   readonly monetaryCapMaxMilli: number;
+  /**
+   * 지도자끼리 조약(사용자 결정 D-588 — 질문 2497·2498, docs/adr/2026-11-21-diplomacy-treaties.md, 서버 diplomacy/만 읽는다): 조약 기간 상한(날)·보호 조약 공물 상한(‰ —
+   * D-444 [임시] 공물 5%)·참전 요청 답 기한(ms — D-291 해석 "선포부터 공성 시각까지(실제 1일 안)")·NPC가 불가침·동맹·보호를 받는 차분함 문턱(‰ — 1000 − 공격 성향) [임시]
+   */
+  readonly treatyMaxDays: number;
+  readonly tributeMaxPm: number;
+  readonly warRequestMs: number;
+  readonly npcTreatyCalmPm: number;
 }
 
 export const START_GOVERNANCE: GovernanceCoefficients = {
@@ -146,4 +154,8 @@ export const START_GOVERNANCE: GovernanceCoefficients = {
   monetaryCapMilli: 1300,
   monetaryCapMinMilli: 1000,
   monetaryCapMaxMilli: 3000,
+  treatyMaxDays: 30,
+  tributeMaxPm: 50,
+  warRequestMs: 86_400_000,
+  npcTreatyCalmPm: 500,
 };

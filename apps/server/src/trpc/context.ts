@@ -51,6 +51,7 @@ import type { FusionOverviewResponse } from "@terra/shared/fusion";
 import type { TempleOverviewResponse } from "@terra/shared/temple";
 import type { GovernanceView } from "../governance/view.ts";
 import type { CityShareView } from "../cityShares/view.ts";
+import type { DiplomacyView } from "../diplomacy/view.ts";
 import type { CreditResponse } from "@terra/shared/credit";
 import type { HospitalOverviewResponse } from "@terra/shared/hospital";
 import type { RuinsOverviewResponse } from "@terra/shared/ruins";
@@ -463,6 +464,8 @@ export interface TrpcContext {
   governance?: (() => GovernanceView | undefined) | undefined;
   /** 도시 지분·증권 거래소 조회(shares.*, docs/adr/2026-11-21-share-market.md). DB가 없으면 없다. 바꾸는 명령은 WebSocket city_share_* */
   cityShares?: (() => CityShareView | undefined) | undefined;
+  /** 지도자끼리 조약 조회(diplomacy.view, docs/adr/2026-11-21-diplomacy-treaties.md). DB가 없으면 없다. 바꾸는 명령은 WebSocket dip_* */
+  diplomacy?: (() => DiplomacyView | undefined) | undefined;
   /** 부상·병원 조회(D-521). 세계(DB)가 없거나 부팅 복구 전이면 undefined(프로시저가 PRECONDITION_FAILED) */
   hospital?: (() => HospitalReadServices | undefined) | undefined;
   /** 폐허 복원 조회. 세계·NPC 사회 런타임이 없거나 부팅 복구 전이면 undefined(프로시저가 PRECONDITION_FAILED) */

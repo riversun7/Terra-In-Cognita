@@ -270,6 +270,9 @@
  * 63: (묶음 1117c) 줄기 gov-coup(줄기 판 121) — 사용자 결정 D-588: gov_coup에 cityId(쿠데타를 일으킬 도시 — 2492 가 "모든 도시에서 누구나", 없으면 가문 자리 도시 →
  *    수도), gov_propose에 monetaryCapMilli(지도자 손 조절의 목표 물가 상한 — 2499, D-131). 더하기만 했다. 62판 기기는 이 칸을 보내지 않는다(governance.ts
  *    GOV_COUP_PROTOCOL_VERSION).
+ *    같은 판에 줄기 diplomacy(줄기 판 131) — 지도자끼리 조약(사용자 결정 D-588 — 질문 2497 가·나, docs/adr/2026-11-21-diplomacy-treaties.md):
+ *    dip_propose·dip_counter·dip_respond·dip_war_request·dip_war_respond → dip_result(결과 코드 15개·행동 7개). 더하기만 했다. 62판 기기는 보내지 않는다
+ *    (diplomacy.ts DIPLOMACY_PROTOCOL_VERSION). 다른 메시지 꼴은 그대로.
  */
 export const PROTOCOL_VERSION = 63;
 

@@ -2,6 +2,7 @@
 // 원래느린속도다" (apps/server/src/world/operatorPace.ts).
 // - dev: 같은 2차맵을 보통 보기로 구독한 연결과 전체 보기(운영자 모드)로 구독한 연결을 함께 연다. 내 사이보그에게 건물 들어가기(unit_enter —
 //   채집 서비스가 걷게 한다, 이동 명령이 아니다)를 보통 연결에서 보내면 보통 빠르기, 운영자 연결에서 보내면 100배로 걷는다(전송의 speed).
+//   운영자 배율은 기본 1이라(기획 D-560 1246) 운영자 연결은 먼저 operator_pace 100을 고른다.
 // - 끝나면 운영자 빠르기로 원래 자리에 돌려놓는다(다른 시험이 dev 사이보그 자리를 쓴다).
 import { PROTOCOL_VERSION } from "../packages/protocol/src/version.ts";
 import { fastMove, myPosition, waitAt } from "./helpers/cyborgTravel.ts";
@@ -24,7 +25,7 @@ test.describe("운영자 빠르기: 이동 명령이 아닌 명령", () => {
     const baseId = 100_000 + (Date.now() % 800_000);
     try {
       const outcome = await page.evaluate(
-        async ({ mapKey, unitId, protocolVersion, baseId: firstId }) => {
+        async ({ mapKey, unitId, protocolVersion, baseId: firstId, operatorFactor }) => {
           type Message = Record<string, unknown>;
           const open = async (): Promise<{ socket: WebSocket; inbox: Message[] }> => {
             const socket = new WebSocket(`${location.origin.replace(/^http/, "ws")}/ws`);
@@ -67,6 +68,12 @@ test.describe("운영자 빠르기: 이동 명령이 아닌 명령", () => {
           plain.socket.send(JSON.stringify({ t: "subscribe", id: firstId, mapKey }));
           await wait(operator.inbox, 0, isReply("result", firstId));
           await wait(plain.inbox, 0, isReply("result", firstId));
+          // 운영자 배율은 기본 1이라(기획 D-560 1246, 2026-11-15) 운영자 연결에서 100을 고른다(operator_pace — helpers/wsCommands.ts와 같다)
+          operator.socket.send(
+            JSON.stringify({ t: "operator_pace", id: firstId + 3, mapKey, factor: operatorFactor }),
+          );
+          const paced = await wait(operator.inbox, 0, isReply("result", firstId + 3));
+          if (paced.ok !== true) throw new Error(`operator_pace refused: ${String(paced.code)}`);
           // 전체 보기 스냅샷 조각을 모아 내 사이보그 자리와 가장 먼 건물을 고른다
           const first = await wait(operator.inbox, 0, (message) => message.t === "map_snapshot");
           const parts = Number(first.parts);
@@ -113,7 +120,13 @@ test.describe("운영자 빠르기: 이동 명령이 아닌 명령", () => {
           plain.socket.close();
           return { normal, fast, far };
         },
-        { mapKey: home.mapKey, unitId: home.unitId, protocolVersion: PROTOCOL_VERSION, baseId },
+        {
+          mapKey: home.mapKey,
+          unitId: home.unitId,
+          protocolVersion: PROTOCOL_VERSION,
+          baseId,
+          operatorFactor: OPERATOR_SPEED_FACTOR,
+        },
       );
       expect(outcome.far).toBeGreaterThan(4);
       expect(typeof outcome.normal).toBe("number");

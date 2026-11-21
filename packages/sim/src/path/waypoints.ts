@@ -14,7 +14,7 @@ import { PACE_BASE, normalizePaces } from "../motion/motion.ts";
 import { CELL_UNITS, type CellPoint, HALF_CELL_UNITS, PLACEMENT_SIZE, type Point } from "../units.ts";
 import type { PathResult, Pathfinder } from "./astar.ts";
 import { footprintPace } from "./pace.ts";
-import { smoothCellPath } from "./smooth.ts";
+import { directSegmentPace, smoothCellPath } from "./smooth.ts";
 
 /** 꺾이는 칸만 남긴다. 칸 번호 차이(±1, ±255, ±256, ±257)가 곧 방향이다. */
 export function simplifyCellPath(cells: readonly number[]): number[] {
@@ -127,9 +127,29 @@ export function planRoute(pathfinder: Pathfinder, grid: PlacementGrid, request: 
   const paces = [...smoothed.paces];
   const first = points[0];
   if (first && (first.x !== from.x || first.y !== from.y)) {
-    // 지금 자리 → 출발 칸 중심은 출발 칸의 배율
-    points.unshift(from);
-    paces.unshift(paceAt(result.cells[0] ?? 0));
+    const startCell = result.cells[0] ?? 0;
+    const startPace = paceAt(startCell);
+    const secondCell = smoothed.cells[1];
+    const second = points[1];
+    const firstPace = paces[0];
+    // 앞으로 나아가며 출발 칸이 다음 구간보다 느린 경우(예: 느린 지형에서 빠져나감)는 중심까지 출발 칸 배율을 지킨다.
+    const forwardToCenter =
+      second !== undefined &&
+      (first.x - from.x) * (second.x - first.x) + (first.y - from.y) * (second.y - first.y) > 0;
+    const preserveSlowStart = forwardToCenter && firstPace !== undefined && startPace > firstPace;
+    // 출발 칸 중심으로 뒤돌아갔다가 꺾지 않도록, 다음 꺾이는 칸 중심으로 곧장 가는 선이 통과 가능하고 비용 손해가 없으면 중심을 건너뛴다.
+    const directPace =
+      !preserveSlowStart && secondCell !== undefined
+        ? directSegmentPace(grid, from, startCell, secondCell, size, paceAt)
+        : null;
+    if (directPace !== null) {
+      points[0] = from;
+      paces[0] = directPace;
+    } else {
+      // 지금 자리 → 출발 칸 중심은 출발 칸의 배율
+      points.unshift(from);
+      paces.unshift(startPace);
+    }
   }
   const straight = dropStraightPoints(points, paces);
   const normalized = normalizePaces(straight.paces, straight.points.length - 1);

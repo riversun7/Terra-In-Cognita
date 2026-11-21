@@ -35,7 +35,7 @@ export function patternedNations(
 }
 
 export const EMPTY_TERRITORY_VIEW: TerritoryView = {
-  shapes: { areas: [], dividers: [], neighbours: [], labels: [] },
+  shapes: { areas: [], dividers: [], dividerEdges: [], neighbours: [], labels: [] },
   patterned: new Set(),
 };
 

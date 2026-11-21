@@ -86,4 +86,15 @@ describe("시야선 다듬기", () => {
   it("칸이 하나면 그대로", () => {
     expect(smoothCellPath(flat(), [at(3, 3)], 1, pace1)).toEqual({ cells: [at(3, 3)], paces: [] });
   });
+
+  it("모서리 당기기: 벽 모서리를 지나친 불필요한 L자 직각 꺾임을 모서리 쪽으로 당겨 줄인다", () => {
+    const grid = flat();
+    // (10..13, 10)에 성벽(4×1)
+    for (let x = 10; x <= 13; x++) setTerrainCost(grid, x, 10, 0);
+    // A*가 (14,9)에서 남쪽으로 내려갔다가 서쪽으로 L자 꺾는 칸 경로
+    const cells = [at(14, 9), at(14, 10), at(14, 11), at(14, 12), at(13, 12), at(12, 12), at(11, 12)];
+    const smoothed = smoothCellPath(grid, cells, 1, pace1);
+    // (14,12)에서 직각 꺾지 않고 모서리 직후 (14,11)에서 비스듬히 (11,12)로 당긴다
+    expect(smoothed.cells).toEqual([at(14, 9), at(14, 11), at(11, 12)]);
+  });
 });

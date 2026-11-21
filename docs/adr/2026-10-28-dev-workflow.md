@@ -1,6 +1,6 @@
 # 개발 방식(트렁크 기반, 기록 체계, 훅·CI, 에이전트 규칙)
 
-- 상태: 확정 (일부 대체됨: 2026-10-28-m0-toolchain.md — 모듈 경계 검사 도구 / 2026-10-28-dependency-updates.md — 버전 올림만 있는 변경은 작업 기록 검사 제외 / 2026-10-29-app-shell.md — 야간 CI의 E2E: 화면 시험은 CI에서 돌리지 않고 화면을 고칠 때 돌린다)
+- 상태: 확정 (일부 대체됨: 2026-10-28-m0-toolchain.md — 모듈 경계 검사 도구 / 2026-10-28-dependency-updates.md — 버전 올림만 있는 변경은 작업 기록 검사 제외 / 2026-10-29-app-shell.md — 야간 CI의 E2E: 화면 시험은 CI에서 돌리지 않고 화면을 고칠 때 돌린다 / 2026-11-18-ci-local-and-nas.md — CI의 check·secrets를 작업 PC 훅과 NAS 배포 점검으로 옮기고 GitHub CI는 이미지 빌드·NAS 배포만)
 - 날짜: 2026-10-28
 - 관련: PLAN 10장, DECISION_LOG Round 3·4·9, 독립 검토 18·19
 

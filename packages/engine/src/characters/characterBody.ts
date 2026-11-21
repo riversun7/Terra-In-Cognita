@@ -21,7 +21,21 @@ export function addLegs(c: PartContext): void {
     list.add("taper", 0, y0 + h / 2, 0, f.torsoW + 0.2, h, f.torsoD + 0.22, shadeColor(p.primary, 0.88));
   };
   if (lod === 1) {
-    list.pair(legL, legR, "box", x, L / 2, 0, w, L, d, look.legs === "piston" ? p.metal : p.secondary);
+    list.pair(
+      legL,
+      legR,
+      "taper",
+      x,
+      L / 2,
+      0,
+      w + 0.02,
+      L,
+      d + 0.02,
+      look.legs === "piston" ? p.metal : p.secondary,
+      {
+        rx: HALF_TURN,
+      },
+    );
     if (look.legs === "skirt") skirt();
     return;
   }
@@ -29,17 +43,49 @@ export function addLegs(c: PartContext): void {
   const legH = L - legY0;
   const foot = (color: number, grow = 0): void =>
     list.pair(legL, legR, "box", x, FOOT_H / 2, 0.05, w + 0.03 + grow, FOOT_H, d + 0.12 + grow, color);
+  // 허리·골반 이음매(다리와 몸통 사이가 자연스럽게 이어지게)
+  list.group = GROUP.body;
+  list.add("box", 0, L - 0.03, 0, f.torsoW * 0.9, 0.1, f.torsoD * 0.92, shadeColor(p.secondary, 0.85));
   switch (look.legs) {
-    case "plain":
-      list.pair(legL, legR, "box", x, legY0 + legH / 2, 0, w, legH, d, p.secondary);
-      foot(shadeColor(p.secondary, 0.62));
+    case "plain": {
+      const split = L * 0.48;
+      list.pair(legL, legR, "taper", x, (split + L) / 2, 0, w + 0.03, L - split, d + 0.03, p.secondary, {
+        rx: HALF_TURN,
+      });
+      list.pair(
+        legL,
+        legR,
+        "taper",
+        x,
+        (legY0 + split) / 2,
+        0,
+        w + 0.01,
+        split - legY0 + 0.02,
+        d + 0.01,
+        shadeColor(p.secondary, 0.86),
+      );
+      foot(shadeColor(p.secondary, 0.58), 0.02);
       break;
+    }
     case "boots": {
-      const split = L * 0.46;
+      const split = L * 0.48;
       const boot = shadeColor(p.accent, 0.72);
-      list.pair(legL, legR, "box", x, (split + L) / 2, 0, w, L - split, d, p.secondary);
-      list.pair(legL, legR, "box", x, (legY0 + split) / 2, 0, w + 0.05, split - legY0 + 0.02, d + 0.05, boot);
-      foot(boot, 0.04);
+      list.pair(legL, legR, "taper", x, (split + L) / 2, 0, w + 0.03, L - split, d + 0.03, p.secondary, {
+        rx: HALF_TURN,
+      });
+      list.pair(
+        legL,
+        legR,
+        "taper",
+        x,
+        (legY0 + split) / 2,
+        0,
+        w + 0.06,
+        split - legY0 + 0.02,
+        d + 0.06,
+        boot,
+      );
+      foot(shadeColor(boot, 0.78), 0.05);
       break;
     }
     case "piston": {
@@ -50,13 +96,15 @@ export function addLegs(c: PartContext): void {
       break;
     }
     case "greaves":
-      list.pair(legL, legR, "box", x, legY0 + legH / 2, 0, w, legH, d, p.secondary);
-      list.pair(legL, legR, "taper", x, legY0 + L * 0.24, d / 2, w + 0.05, L * 0.46, 0.07, p.metal);
-      foot(p.metalDark, 0.02);
+      list.pair(legL, legR, "taper", x, legY0 + legH / 2, 0, w + 0.02, legH, d + 0.02, p.secondary, {
+        rx: HALF_TURN,
+      });
+      list.pair(legL, legR, "taper", x, legY0 + L * 0.24, d / 2, w + 0.06, L * 0.46, 0.08, p.metal);
+      foot(p.metalDark, 0.03);
       break;
     case "skirt":
-      list.pair(legL, legR, "box", x, legY0 + legH / 2, 0, w, legH, d, p.secondary);
-      foot(shadeColor(p.secondary, 0.62));
+      list.pair(legL, legR, "taper", x, legY0 + legH / 2, 0, w, legH, d, p.secondary, { rx: HALF_TURN });
+      foot(shadeColor(p.secondary, 0.62), 0.02);
       skirt();
       break;
     default: {
@@ -83,33 +131,38 @@ export function addTorso(c: PartContext): void {
   if (lod === 1) {
     if (look.torso === "robe") drape(L * 0.3, 0.16, p.primary);
     else if (look.torso === "poncho") drape(L + T * 0.2, 0.32, p.primary);
-    else list.add("box", 0, cy, 0, W, T, D, p.primary);
+    else list.add("taper", 0, cy, 0, W * 1.06, T, D * 1.04, p.primary, { rx: HALF_TURN });
     return;
   }
   switch (look.torso) {
     case "tunic":
-      list.add("box", 0, cy, 0, W, T, D, p.primary);
-      // 아랫단
-      list.add("box", 0, L + 0.03, 0, W + 0.06, 0.12, D + 0.06, shadeColor(p.primary, 0.82));
+      list.add("taper", 0, cy, 0, W * 1.04, T, D * 1.04, p.primary, { rx: HALF_TURN });
+      // 아랫단과 허리띠·깃
+      list.add("taper", 0, L + 0.05, 0, W + 0.08, 0.14, D + 0.08, shadeColor(p.primary, 0.82));
+      list.add("box", 0, L + T * 0.24, 0, W * 0.94, 0.07, D + 0.04, shadeColor(p.accent, 0.85));
+      list.add("box", 0, L + T - 0.04, front * 0.6, W * 0.42, 0.08, D * 0.45, shadeColor(p.primary, 1.2));
       break;
     case "plate":
-      list.add("box", 0, cy, 0, W, T, D, p.primary);
-      list.add("box", 0, L + T * 0.68, front, W * 0.82, T * 0.5, 0.07, p.metal);
-      list.add("box", 0, L + T * 0.14, 0, W * 0.94, T * 0.24, D + 0.04, p.metalDark);
+      list.add("taper", 0, cy, 0, W * 1.04, T, D * 1.02, p.primary, { rx: HALF_TURN });
+      list.add("taper", 0, L + T * 0.68, front * 0.85, W * 0.9, T * 0.52, 0.1, p.metal, { rx: HALF_TURN });
+      list.add("box", 0, L + T * 0.14, 0, W * 0.96, T * 0.24, D + 0.05, p.metalDark);
+      list.add("box", 0, L + T * 0.88, 0, W * 1.08, 0.1, D + 0.04, p.accent);
       break;
     case "jacket":
-      list.add("box", 0, cy, 0, W, T, D, p.primary);
-      list.add("box", 0, cy - 0.02, front, W * 0.2, T * 0.86, 0.03, shadeColor(p.primary, 1.3));
-      list.add("box", 0, L + T - 0.04, 0, W * 0.72, 0.09, D + 0.07, p.accent);
+      list.add("taper", 0, cy, 0, W * 1.06, T, D * 1.05, p.primary, { rx: HALF_TURN });
+      list.add("box", 0, cy - 0.02, front, W * 0.22, T * 0.86, 0.04, shadeColor(p.primary, 1.32));
+      list.add("box", 0, L + T - 0.04, 0, W * 0.78, 0.1, D + 0.08, p.accent);
+      list.add("box", 0, L + 0.05, 0, W * 0.96, 0.07, D + 0.06, shadeColor(p.primary, 0.72));
       break;
     case "robe":
       drape(L * 0.3, 0.16, p.primary);
-      // 어깨(팔이 붙는 자리)와 허리끈
-      list.add("box", 0, L + T - 0.09, 0, W, 0.18, D, p.primary);
-      list.add("box", 0, L + T * 0.3, 0, W + 0.02, 0.07, D + 0.1, p.accent);
+      // 어깨(팔이 붙는 자리)와 허리끈·앞 띠
+      list.add("taper", 0, L + T - 0.1, 0, W * 1.06, 0.22, D * 1.04, p.primary, { rx: HALF_TURN });
+      list.add("box", 0, L + T * 0.3, 0, W + 0.03, 0.08, D + 0.11, p.accent);
+      list.add("box", 0, L + T * 0.62, front + 0.02, W * 0.26, T * 0.62, 0.04, p.accent);
       break;
     case "vest":
-      list.add("box", 0, cy, 0, W * 0.96, T, D * 0.96, shadeColor(p.secondary, 1.18));
+      list.add("taper", 0, cy, 0, W * 0.96, T, D * 0.96, shadeColor(p.secondary, 1.18), { rx: HALF_TURN });
       list.pair(
         GROUP.body,
         GROUP.body,
@@ -122,9 +175,10 @@ export function addTorso(c: PartContext): void {
         D + 0.05,
         p.primary,
       );
+      list.add("box", 0, L + 0.06, 0, W * 0.96, 0.07, D + 0.06, p.accent);
       break;
     case "core":
-      list.add("box", 0, cy, 0, W, T, D, p.primary);
+      list.add("taper", 0, cy, 0, W * 1.04, T, D * 1.02, p.primary, { rx: HALF_TURN });
       list.add("box", 0, L + T * 0.6, front, 0.27, 0.27, 0.05, p.metalDark);
       list.add("cyl", 0, L + T * 0.6, front + 0.03, 0.19, 0.07, 0.19, p.glow, {
         rx: Math.PI / 2,
@@ -132,14 +186,16 @@ export function addTorso(c: PartContext): void {
       });
       break;
     case "suit":
-      list.add("box", 0, cy, 0, W * 0.94, T, D * 0.94, p.primary);
-      list.add("box", 0, L + T * 0.7, 0, W * 0.96, 0.07, D * 0.98, p.accent);
-      list.add("box", 0, L + 0.04, 0, W * 0.96, 0.07, D * 0.98, shadeColor(p.primary, 0.7));
+      list.add("taper", 0, cy, 0, W * 1.0, T, D * 0.98, p.primary, { rx: HALF_TURN });
+      list.add("box", 0, L + T * 0.72, 0, W * 1.02, 0.08, D + 0.04, p.accent);
+      list.add("box", 0, L + 0.05, 0, W * 0.96, 0.08, D + 0.04, shadeColor(p.primary, 0.7));
+      list.add("box", 0, L + T * 0.45, front + 0.01, W * 0.22, T * 0.36, 0.04, p.metal);
       break;
     case "poncho":
       list.add("box", 0, L + T * 0.2, 0, W * 0.9, T * 0.4, D * 0.9, p.secondary);
       drape(L + T * 0.2, 0.32, p.primary);
-      list.add("box", 0, L + T - 0.03, 0, W * 0.6, 0.08, D + 0.1, p.accent);
+      list.add("box", 0, L + T - 0.03, 0, W * 0.62, 0.09, D + 0.11, p.accent);
+      list.add("box", 0, L + T * 0.22, 0, W + 0.3, 0.06, D + 0.32, p.accent);
       break;
     default: {
       const unknown: never = look.torso;
@@ -163,22 +219,40 @@ export function addArms(c: PartContext): void {
   ];
   if (lod === 1) {
     const [cy, h] = span(0, 1);
-    list.pair(armL, armR, "box", x, cy, 0, a, h, d, look.arms === "piston" ? p.metal : p.primary);
+    list.pair(
+      armL,
+      armR,
+      "taper",
+      x,
+      cy,
+      0,
+      a + 0.02,
+      h,
+      d + 0.02,
+      look.arms === "piston" ? p.metal : p.primary,
+      {
+        rx: HALF_TURN,
+      },
+    );
     return;
   }
   switch (look.arms) {
     case "plain": {
-      const [uy, uh] = span(0, 0.45);
-      const [ly, lh] = span(0.45, 1);
-      list.pair(armL, armR, "box", x, uy, 0, a + 0.02, uh, d + 0.02, p.primary);
-      list.pair(armL, armR, "box", x, ly, 0, a, lh, d, p.skin);
+      const [uy, uh] = span(0, 0.44);
+      const [ly, lh] = span(0.44, 0.84);
+      const [hy, hh] = span(0.84, 1);
+      list.pair(armL, armR, "taper", x, uy, 0, a + 0.04, uh, d + 0.04, p.primary, { rx: HALF_TURN });
+      list.pair(armL, armR, "taper", x, ly, 0, a + 0.01, lh, d + 0.01, p.skin, { rx: HALF_TURN });
+      list.pair(armL, armR, "box", x, hy, 0.01, a * 0.92, hh, d * 0.96, shadeColor(p.skin, 0.92));
       break;
     }
     case "sleeve": {
-      const [uy, uh] = span(0, 0.82);
-      const [ly, lh] = span(0.82, 1);
-      list.pair(armL, armR, "box", x, uy, 0, a + 0.03, uh, d + 0.03, p.primary);
-      list.pair(armL, armR, "box", x, ly, 0, a, lh, d, p.skin);
+      const [uy, uh] = span(0, 0.72);
+      const [cy, ch] = span(0.72, 0.84);
+      const [hy, hh] = span(0.84, 1);
+      list.pair(armL, armR, "taper", x, uy, 0, a + 0.04, uh, d + 0.04, p.primary, { rx: HALF_TURN });
+      list.pair(armL, armR, "box", x, cy, 0, a + 0.05, ch, d + 0.05, p.accent);
+      list.pair(armL, armR, "box", x, hy, 0.01, a * 0.92, hh, d * 0.94, p.skin);
       break;
     }
     case "piston": {
@@ -189,17 +263,19 @@ export function addArms(c: PartContext): void {
       break;
     }
     case "gauntlet": {
-      const [uy, uh] = span(0, 0.5);
-      const [ly, lh] = span(0.5, 1);
-      list.pair(armL, armR, "box", x, uy, 0, a + 0.02, uh, d + 0.02, p.primary);
-      list.pair(armL, armR, "box", x, ly, 0, a + 0.07, lh, d + 0.07, p.metal);
+      const [uy, uh] = span(0, 0.48);
+      const [ly, lh] = span(0.48, 0.86);
+      const [hy, hh] = span(0.86, 1.02);
+      list.pair(armL, armR, "taper", x, uy, 0, a + 0.03, uh, d + 0.03, p.primary, { rx: HALF_TURN });
+      list.pair(armL, armR, "taper", x, ly, 0, a + 0.08, lh, d + 0.08, p.metal);
+      list.pair(armL, armR, "box", x, hy, 0.01, a + 0.05, hh, d + 0.05, p.metalDark);
       break;
     }
     case "claw": {
       const [uy, uh] = span(0, 0.5);
       const [ly, lh] = span(0.5, 0.78);
       const [cy, ch] = span(0.78, 1.08);
-      list.pair(armL, armR, "box", x, uy, 0, a + 0.02, uh, d + 0.02, p.primary);
+      list.pair(armL, armR, "taper", x, uy, 0, a + 0.03, uh, d + 0.03, p.primary, { rx: HALF_TURN });
       list.pair(armL, armR, "box", x, ly, 0, a + 0.05, lh, d + 0.05, p.metalDark);
       // 집게: 아래를 보는 쐐기
       list.pair(armL, armR, "wedge", x, cy, 0, a + 0.03, ch, d, p.accent, { rx: HALF_TURN });

@@ -7,30 +7,35 @@
 import {
   type BufferGeometry,
   Color,
+  DoubleSide,
   Group,
   type IUniform,
   InstancedMesh,
   Matrix4,
   MeshBasicMaterial,
   MeshLambertMaterial,
+  PlaneGeometry,
   Quaternion,
   SRGBColorSpace,
   Vector3,
 } from "three";
+import type { NationEmblemView } from "@terra/shared/nationEditor";
 import { UNIT_BODY_SHADER_INSERT } from "../units/unitMaterials.ts";
 import type { Vec3 } from "../camera/cameraMath.ts";
 import { rayBoxDistance } from "../picking.ts";
 import { createPartGeometry } from "./buildingGeometry.ts";
 import { resolveLook } from "./buildingLook.ts";
-import { buildingModel } from "./buildingModels.ts";
+import { type ModelBundle, buildingModelBundle } from "./buildingModels.ts";
 import { BUILDING_NIGHT_LIFT, type Rgb, WINDOW_DAY, WINDOW_NIGHT } from "./buildingPalette.ts";
-import { type BuildingPart, PART_SHAPES, type PartShape } from "./buildingParts.ts";
+import { type BuildingPart, type EmblemMount, PART_SHAPES, type PartShape } from "./buildingParts.ts";
+import { type EmblemKind, EmblemTextureCache, emblemTextureKey } from "./emblemTexture.ts";
 import { type BuildingFootprint, footprintRect } from "./footprint.ts";
 
 /** 비탈에서 바닥 판을 가장 낮은 모서리보다 더 내리는 깊이(m) */
 const SINK_M = 0.5;
 /** three 프로그램 캐시 키 — 유닛 몸(같은 Lambert + 밤 빛)과 나눠 쓰지 않게 따로 준다 */
 const BODY_PROGRAM_KEY = "terra-building-body";
+const EMBLEM_PROGRAM_KEY = "terra-building-emblem";
 const HALF_TURN = Math.PI / 2;
 
 /** 누른 건물: ID, 판 안 자리(세계 m, 판 가장자리에서 조금 안), 시선 거리(m) */
@@ -44,7 +49,7 @@ export interface BuildingHit {
 /** 건물 몸 재질: 인스턴스 색 Lambert(각진 면) + 밤 빛(자기 색 × 값) */
 class BuildingBodyMaterial {
   readonly material = new MeshLambertMaterial({ color: 0xffffff, flatShading: true });
-  private readonly uniforms: { uNightLift: IUniform<number> } = { uNightLift: { value: 0 } };
+  readonly uniforms: { uNightLift: IUniform<number> } = { uNightLift: { value: 0 } };
 
   constructor() {
     this.material.onBeforeCompile = (shader) => {
@@ -65,6 +70,9 @@ class BuildingBodyMaterial {
 export class BuildingView {
   readonly group = new Group();
   private readonly geometries = new Map<PartShape, BufferGeometry>();
+  private readonly emblemQuad = new PlaneGeometry(1, 1);
+  private readonly emblemTextures = new EmblemTextureCache();
+  private readonly emblemMaterials: MeshLambertMaterial[] = [];
   private readonly body = new BuildingBodyMaterial();
   private readonly glow = new MeshBasicMaterial({ color: 0xffffff });
   private readonly meshes: InstancedMesh[] = [];
@@ -127,9 +135,9 @@ export class BuildingView {
     const cellM = this.sourceCellM;
     const groundAt = this.sourceGroundAt;
     // 모델을 먼저 모두 만들어 도형별 수를 센다(InstancedMesh 크기)
-    const models = buildings.map((building) => {
+    const bundles: ModelBundle[] = buildings.map((building) => {
       const look = resolveLook(building.look);
-      return buildingModel({
+      return buildingModelBundle({
         kind: look.kind,
         widthM: building.width * cellM,
         depthM: building.depth * cellM,
@@ -137,6 +145,8 @@ export class BuildingView {
         state: look.state,
         upgrading: look.upgrading,
         accent: look.accent,
+        accentColor: look.accentColor,
+        emblem: look.emblem,
         seed: building.id,
         wall: look.wall,
         roof: look.roof,
@@ -145,8 +155,8 @@ export class BuildingView {
     });
     const counts = new Map<PartShape, number>(PART_SHAPES.map((shape) => [shape, 0]));
     let total = 0;
-    for (const parts of models)
-      for (const part of parts) {
+    for (const bundle of bundles)
+      for (const part of bundle.parts) {
         counts.set(part.shape, (counts.get(part.shape) ?? 0) + 1);
         total++;
       }
@@ -165,6 +175,15 @@ export class BuildingView {
     this.ids = buildings.map((building) => building.id);
     this.partCount = 0;
 
+    const emblemGroups = new Map<
+      string,
+      {
+        emblem: NationEmblemView;
+        kind: EmblemKind;
+        items: { cx: number; cy: number; cz: number; angle: number; mount: EmblemMount; shade: number }[];
+      }
+    >();
+
     const writer = new PartWriter(meshes);
     buildings.forEach((building, index) => {
       const rect = footprintRect(building);
@@ -176,11 +195,26 @@ export class BuildingView {
       const corners = [groundAt(x0, z0), groundAt(x1, z0), groundAt(x0, z1), groundAt(x1, z1)];
       const base = Math.max(...corners);
       const low = Math.min(...corners) - SINK_M;
-      writer.begin((x0 + x1) / 2, base, (z0 + z1) / 2, -building.rotation * HALF_TURN, low - base);
-      for (const part of models[index] ?? []) {
+      const cx = (x0 + x1) / 2;
+      const cz = (z0 + z1) / 2;
+      const angle = -building.rotation * HALF_TURN;
+      writer.begin(cx, base, cz, angle, low - base);
+      const bundle = bundles[index];
+      for (const part of bundle?.parts ?? []) {
         writer.write(part, this.boxes, this.partCount * 6);
         this.owners[this.partCount] = index;
         this.partCount++;
+      }
+      if (bundle?.emblem && bundle.emblems.length > 0) {
+        for (const mount of bundle.emblems) {
+          const groupKey = emblemTextureKey(bundle.emblem, mount.kind);
+          let group = emblemGroups.get(groupKey);
+          if (!group) {
+            group = { emblem: bundle.emblem, kind: mount.kind, items: [] };
+            emblemGroups.set(groupKey, group);
+          }
+          group.items.push({ cx, cy: base, cz, angle, mount, shade: bundle.shade });
+        }
       }
     });
     for (const mesh of meshes.values()) {
@@ -191,6 +225,7 @@ export class BuildingView {
       this.meshes.push(mesh);
       this.group.add(mesh);
     }
+    this.appendEmblemMeshes(emblemGroups);
   }
 
   /** 밤 정도(0 낮 ~ 1 밤): 몸 밤 빛과 창문 색. 바뀌었을 때만 값을 넣는다 */
@@ -260,8 +295,61 @@ export class BuildingView {
     this.group.removeFromParent();
     for (const geometry of this.geometries.values()) geometry.dispose();
     this.geometries.clear();
+    this.emblemQuad.dispose();
+    this.emblemTextures.dispose();
     this.body.material.dispose();
     this.glow.dispose();
+  }
+
+  private appendEmblemMeshes(
+    groups: ReadonlyMap<
+      string,
+      {
+        emblem: NationEmblemView;
+        kind: EmblemKind;
+        items: { cx: number; cy: number; cz: number; angle: number; mount: EmblemMount; shade: number }[];
+      }
+    >,
+  ): void {
+    if (groups.size === 0) return;
+    const matrix = new Matrix4();
+    const pos = new Vector3();
+    const local = new Vector3();
+    const quat = new Quaternion();
+    const up = new Vector3(0, 1, 0);
+    const scale = new Vector3();
+    const color = new Color();
+    for (const group of groups.values()) {
+      const texture = this.emblemTextures.get(group.emblem, group.kind);
+      if (!texture) continue;
+      const material = new MeshLambertMaterial({ color: 0xffffff, map: texture, side: DoubleSide });
+      material.onBeforeCompile = (shader) => {
+        Object.assign(shader.uniforms, this.body.uniforms);
+        const { anchor, code, pars } = UNIT_BODY_SHADER_INSERT;
+        shader.fragmentShader = shader.fragmentShader
+          .replace(pars[0], `${pars[0]}\n${pars[1]}`)
+          .replace(anchor, `${anchor}\n${code}`);
+      };
+      material.customProgramCacheKey = () => EMBLEM_PROGRAM_KEY;
+      this.emblemMaterials.push(material);
+      const mesh = new InstancedMesh(this.emblemQuad, material, group.items.length);
+      group.items.forEach((item, idx) => {
+        const { mount } = item;
+        local.set(mount.x, mount.y, mount.z).applyAxisAngle(up, item.angle);
+        pos.set(item.cx + local.x, item.cy + local.y, item.cz + local.z);
+        quat.setFromAxisAngle(up, item.angle + mount.turn);
+        scale.set(mount.width, mount.height, 1);
+        matrix.compose(pos, quat, scale);
+        mesh.setMatrixAt(idx, matrix);
+        color.setRGB(item.shade, item.shade, item.shade, SRGBColorSpace);
+        mesh.setColorAt(idx, color);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      mesh.computeBoundingSphere();
+      this.meshes.push(mesh);
+      this.group.add(mesh);
+    }
   }
 
   private clear(): void {
@@ -271,6 +359,8 @@ export class BuildingView {
       mesh.dispose();
     }
     this.meshes.length = 0;
+    for (const material of this.emblemMaterials) material.dispose();
+    this.emblemMaterials.length = 0;
     this.ids = [];
     this.partCount = 0;
     this.visibleKey = "";

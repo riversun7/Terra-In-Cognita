@@ -59,6 +59,10 @@ jobs:
             sql "select planet_id, applied_at_ms, report from boat_resets order by planet_id" || true
             docker logs tic-app 2>&1 | grep 'boat reset' | tail -n 5 || true
             echo '```'
+            echo "### 서버 경고·오류 로그 (최근 ${MINUTES}분)"
+            echo '```'
+            docker logs --since "${MINUTES}m" tic-app 2>&1 | grep -E '"level":(40|50|60)|"level":"(warn|error|fatal)"|^✗|Error:' | tail -n 200 || true
+            echo '```'
             echo "### 기기 성능 (1분마다)"
             echo '```'
             sql "select received_at, page, window_sec, fps, frame_p50_ms, frame_p95_ms, frame_max_ms, long_frames, memory_mb, user_agent, device from client_perf_samples where received_at > now() - interval '${MINUTES} minutes' order by id limit 1440"

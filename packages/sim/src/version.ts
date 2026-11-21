@@ -265,7 +265,11 @@
  *      sim 시험이 그대로 통과한다)
  *    - (줄기 logistics의 80) 사업장 계수표에 물류센터 운반 대행 요금 단위 칸 둘(haulUnitG·haulUnitCells — 기획 D-576·질문 2213 요금 단위 나, 서버
  *      logistics/haulService.ts만 읽는다). 시뮬 판정·출력은 그대로다(시뮬은 운반 대행을 돌리지 않는다)
- * 90: (줄기 npc-wage — 합칠 때 main 다음 판으로) NPC 휴먼 일꾼 임금·생활비(질문 2236 — 기획 D-569 1782·D-097·D-555 1507·1509, docs/adr/
+ * 63: 2차맵 경로 출발 칸 중심 역행 제거 및 모서리 당기기(docs/adr/2026-11-19-path-backtrack-and-corner-pull.md, 사용자 지적 2026-11-19
+ *    "유닛이 근처 타일로 뒤로 갔다가 이동하는등 부자연 스러운 모습도 개선해라"): planRoute가 출발점이 칸 중심과 다를 때 다음 꺾이는 칸 중심으로
+ *    곧장 가는 선이 통과 가능하고 비용 손해가 없으면 출발 칸 중심으로 뒤돌아가지 않는다(path/smooth.ts directSegmentPace·sweptAnchorsFromPoint).
+ *    smoothCellPath가 앞쪽 욕심 탐색 뒤에 연속 세 점 A → B → C의 모서리를 당겨 불필요한 직각 꺾임을 줄인다. 경로 비용(cost)은 A* 값 그대로다
+ * 64: (묶음 1116q 합친 판, 줄기 npc-wage의 90) NPC 휴먼 일꾼 임금·생활비(질문 2236 — 기획 D-569 1782·D-097·D-555 1507·1509, docs/adr/
  *    2026-10-31-economy-core.md "바뀜 (2026-11-16, NPC 휴먼 지갑·임금·생활비)", simulator/humanPurse.ts): 하루 끝(중앙은행 전) 도시마다 일꾼 휴먼(서버
  *    humanPlaces와 같은 나눔)이 하루 임금 = 기준 임금(플레이어 직무 배치 식, 출발값 20) × 그날 포만감 효율(N33) × business_npc_wage_pm(1000) ÷ 1000을
  *    국고(서버는 시설 금고)에서 지갑(유닛 주인, 화폐, unitPurseLocation)으로 받고, 모든 휴먼이 그날 먹은 생필품 값(그 도시 시세)을 지갑에서 국고로 낸다
@@ -273,7 +277,7 @@
  *    원장 거래(npc_living·purse_move)가 늘어 원장 해시가 바뀐다. 출발값에서는 임금 < 생활비라 임금이 그날 국고로 돌아와 판정 결과(인구·도시·세력·건물·
  *    만족도·국고)는 끈 판과 같다(econ16 시드 1·2·3 × 30일). business_npc_wage_mode 0이면 옛 판. 출력 형식 22(living 칸)
  */
-export const SIM_VERSION = 90;
+export const SIM_VERSION = 64;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

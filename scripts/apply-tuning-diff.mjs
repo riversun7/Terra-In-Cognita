@@ -22,6 +22,7 @@ import {
   combatClassEntrySchema,
   creatureEntrySchema,
   effectEntrySchema,
+  expTableEntrySchema,
   facilityEntrySchema,
   gatherObjectEntrySchema,
   gatherTierEntrySchema,
@@ -59,6 +60,8 @@ export const ENTRY_FILES = {
   combat_classes: { file: "combat_classes.json", schema: combatClassEntrySchema },
   // 국력 등급 표(같은 편집기의 등급 탭, docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)")
   nation_tiers: { file: "nation_tiers.json", schema: nationTierEntrySchema },
+  // 유닛 공통 경험치 테이블(/dev/exp-table, docs/adr/2026-11-20-building-tier-and-exp-table.md)
+  exp_table: { file: "exp_table.json", schema: expTableEntrySchema },
   // 지형 오브젝트 편집기(/dev/terrain-objects, 기획 D-536): 소품 규칙·채집 오브젝트
   map_props: { file: "map_props.json", schema: mapPropEntrySchema },
   gather_objects: { file: "gather_objects.json", schema: gatherObjectEntrySchema },

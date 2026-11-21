@@ -57,12 +57,18 @@ describe("건물 편집기 화면 자료", () => {
     const smelter = views.find((view) => view.entry.id === "smelter");
     expect(smelter?.origin).toBe("pack");
     expect(smelter?.hash).toBe(state.hashOf("facilities", "smelter"));
-    // 옛 제련소(T2, raw {STONE 15, WOOD 8}, SECONDARY 1.2)의 옛 값 = 새 Lv2 가공품 구간(벽돌·판자)으로 셈한 값
-    if (smelter?.entry.build)
+    // 제련소(T3, Lv1 합 16, mulPm 1000): Lv2(L²=4) 벽돌 40·판자 24, Lv4(L²=16) 벽돌 128·판자 64·철 주괴 64
+    if (smelter?.entry.build) {
       expect(buildCostAt(smelter.entry.build, 2)).toEqual([
-        { item: "brick", qty: 72 },
-        { item: "plank", qty: 38 },
+        { item: "brick", qty: 40 },
+        { item: "plank", qty: 24 },
       ]);
+      expect(buildCostAt(smelter.entry.build, 4)).toEqual([
+        { item: "brick", qty: 128 },
+        { item: "plank", qty: 64 },
+        { item: "iron_ingot", qty: 64 },
+      ]);
+    }
   });
 
   it("공용 상수(코드 목록·범위)가 팩 스키마와 같다", () => {

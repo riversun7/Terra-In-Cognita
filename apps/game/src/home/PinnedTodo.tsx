@@ -39,7 +39,11 @@ export function PinnedTodo({ data }: Pick<HomeViewProps, "data">) {
   const hasItems = response !== null && response.items.length > 0;
   const folded = collapsed && hasItems;
   return (
-    <section className="home-panel home-pinned" aria-labelledby={titleId}>
+    <section
+      className="home-panel home-pinned"
+      data-empty={hasItems ? "false" : "true"}
+      aria-labelledby={titleId}
+    >
       <div className="home-panel-head">
         <span className="home-card-icon" data-card-icon="inbox">
           <InboxIcon />

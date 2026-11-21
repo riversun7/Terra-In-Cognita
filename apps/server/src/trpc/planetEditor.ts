@@ -42,11 +42,16 @@ const saveInput = z.strictObject({
 
 const restoreInput = z.strictObject({ planetId, revision: z.int().min(1).max(REVISION_MAX) });
 
-/** 개발자 2차맵 시험: 보고 싶은 2차맵(월드 시험 2차맵·키·시험 자리 종류) */
+/** 개발자 2차맵 시험: 보고 싶은 2차맵(월드 시험 2차맵·키·시험 자리 종류·바이옴 대표 칸) */
 const labTarget = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("test") }),
   z.strictObject({ kind: z.literal("key"), mapKey: z.int().min(0).max(Number.MAX_SAFE_INTEGER) }),
   z.strictObject({ kind: z.literal("preset"), preset: z.enum(MAP_PRESETS) }),
+  z.strictObject({
+    kind: z.literal("biome"),
+    biomeId: z.string().regex(/^[a-z][a-z0-9_]{0,47}$/),
+    variant: z.int().min(0).max(63).optional(),
+  }),
 ]);
 
 // ── 행성 보관함 입력(이름·정의는 서버가 이유 코드 차례로 본다: 여기서는 받기만 한다) ──
@@ -165,6 +170,32 @@ export const planetEditorRouter = router({
       if (!lab) throw new TRPCError({ code: "NOT_FOUND", message: "SECOND_MAP_LAB_UNAVAILABLE" });
       try {
         return await lab.locate(input.planetId, input.target);
+      } catch (error) {
+        if (error instanceof SecondMapLabInputError)
+          throw reasonedError("BAD_REQUEST", error.message, "bad_map_key");
+        if (error instanceof SecondMapLabNotReadyError) {
+          throw new TRPCError({ code: "PRECONDITION_FAILED", message: "SECOND_MAP_LAB_NOT_READY" });
+        }
+        throw error;
+      }
+    }),
+  /**
+   * 지형 오브젝트 비율 실시간 미리 보기(POST JSON 본문): 편집 중인 map_props 배열로 월드 행성 2차맵을 즉석 생성한다.
+   * 게임 상태·지형 캐시를 건드리지 않는 보기 전용이다. 월드 행성이 아니면 { kind: "device" }
+   */
+  secondMapPreview: editorProcedure("read")
+    .input(
+      z.strictObject({
+        planetId,
+        target: labTarget,
+        mapProps: z.array(z.unknown()).max(256),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const lab = ctx.secondMapLab;
+      if (!lab) throw new TRPCError({ code: "NOT_FOUND", message: "SECOND_MAP_LAB_UNAVAILABLE" });
+      try {
+        return await lab.preview(input.planetId, input.target, input.mapProps);
       } catch (error) {
         if (error instanceof SecondMapLabInputError)
           throw reasonedError("BAD_REQUEST", error.message, "bad_map_key");

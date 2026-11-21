@@ -1,13 +1,13 @@
 // 2차맵 시험 자료 받기 시험 — 서버 길(지형 주소·이웃 주소), 기기 길(시험 2차맵 자리·초지·키 레벨), 오류 코드, 무거운 생성 확인
 import type { TerrainInput } from "@terra/engine";
 import { cellKey } from "@terra/planet";
-import { S1_TEST_MAP_KEY, terrainPath } from "@terra/protocol";
+import { S1_TEST_MAP_KEY, encodeTerrain, terrainPath } from "@terra/protocol";
 import { describe, expect, it } from "vitest";
 import { neighbourSpots } from "../../map/secondMapNeighbours.ts";
 import type { SecondMapJob, SecondMapPreviewClient } from "../../map/secondMapBuildClient.ts";
 import type { SecondMapPreviewResult } from "../planet/secondMapPreviewProtocol.ts";
 import { PACK_BIOMES, TEST_PLANET } from "../planet/testDefinitions.ts";
-import { type LabAnswer, LabLoadError, createLabSource } from "./labSource.ts";
+import { type LabAnswer, LabLoadError, type LabPreviewAnswer, createLabSource } from "./labSource.ts";
 
 const CELL = {
   mapKey: S1_TEST_MAP_KEY,
@@ -178,5 +178,76 @@ describe("2차맵 시험 자료 — 기기 길", () => {
       code: "bad_key",
     });
     await expect(lab.load("nope", { kind: "test" })).rejects.toMatchObject({ code: "unknown_planet" });
+  });
+
+  it("바이옴 이동과 편집된 mapProps 즉석 미리 보기(서버 gzip TCTR2·기기 워커 둘 다)", async () => {
+    const raw = encodeTerrain({
+      mapKey: S1_TEST_MAP_KEY,
+      generatorVersion: 1,
+      seed: 1,
+      hash: 0x1234abcd,
+      terrainSize: 128,
+      heights: new Int32Array(129 * 129),
+      surface: new Uint8Array(128 * 128),
+      waterLevels: new Int32Array(129 * 129).fill(-2_147_483_648),
+      cover: new Uint8Array(256 * 256),
+      art: new Uint8Array(256 * 256).fill(8),
+      placementSize: 256,
+      cellSizeMm: 11_700,
+    });
+    const compressed = new Uint8Array(
+      await new Response(
+        new Blob([new Uint8Array(raw)]).stream().pipeThrough(new CompressionStream("gzip")),
+      ).arrayBuffer(),
+    );
+    let binary = "";
+    for (const byte of compressed) binary += String.fromCharCode(byte);
+    const gzipBase64 = btoa(binary);
+    const previewAnswer: LabPreviewAnswer = {
+      kind: "server",
+      planetId: "s2_test_planet",
+      faceLevel: 9,
+      mapKey: S1_TEST_MAP_KEY,
+      cell: CELL,
+      terrainGzipBase64: gzipBase64,
+      hash: "1234abcd",
+      mapMs: 42,
+    };
+    const { device, jobs } = fakeDevice();
+    const lab = createLabSource({
+      query: () => Promise.resolve({ kind: "device" }),
+      preview: (input) =>
+        Promise.resolve(input.planetId === "s2_test_planet" ? previewAnswer : { kind: "device" }),
+      fetchTerrain: () => Promise.resolve(terrainStub(0)),
+      device,
+      definitions: DEFINITIONS,
+    });
+    const customProps = [{ id: "cactus" }];
+    const serverPreview = await lab.preview(
+      "s2_test_planet",
+      { kind: "biome", biomeId: "desert", variant: 1 },
+      customProps,
+    );
+    expect(serverPreview).toMatchObject({
+      source: "server",
+      customProps: true,
+      hash: "1234abcd",
+      mapMs: 42,
+    });
+    expect(serverPreview.terrain.art?.[0]).toBe(8);
+    expect(jobs).toEqual([]);
+
+    const devicePreview = await lab.preview(
+      "small",
+      { kind: "biome", biomeId: "desert", variant: 2 },
+      customProps,
+    );
+    expect(devicePreview).toMatchObject({ source: "device", customProps: true });
+    expect(jobs[0]).toMatchObject({
+      mapKey: null,
+      biomeId: "desert",
+      biomeVariant: 2,
+      props: customProps,
+    });
   });
 });

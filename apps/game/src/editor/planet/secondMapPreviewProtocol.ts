@@ -21,10 +21,13 @@ export interface SecondMapPreviewRequest {
   readonly definition?:
     | { readonly entry: unknown; readonly biomes: readonly unknown[]; readonly faceLevel: number }
     | undefined;
-  /** 2차맵 키 = 행성 면 레벨 칸의 셀 키. null이면 preset으로 워커가 찾는다 */
+  /** 2차맵 키 = 행성 면 레벨 칸의 셀 키. null이면 biomeId 또는 preset으로 워커가 찾는다 */
   readonly mapKey: number | null;
-  /** 시험 자리 종류(개발자 2차맵 시험): mapKey가 null일 때 행성 값에서 찾는다(@terra/planet/secondMap findMapPreset) */
+  /** 시험 자리 종류(개발자 2차맵 시험): mapKey가 null이고 biomeId가 없을 때 행성 값에서 찾는다 */
   readonly preset?: MapPreset | undefined;
+  /** 바이옴 대표 칸(개발자 지형 오브젝트·2차맵 통합 화면): mapKey가 null일 때 우선한다 */
+  readonly biomeId?: string | undefined;
+  readonly biomeVariant?: number | undefined;
   /** 8이웃 2차맵도 만든다(개발자 2차맵 시험 3×3) */
   readonly neighbours?: boolean | undefined;
   /** 콘텐츠 map_props 원본 항목(팩 파일 JSON, 팩 순서 = 흩기 우선순위) */

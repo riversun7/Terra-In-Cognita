@@ -331,6 +331,17 @@
   font-size: var(--font-size-xs);
   line-height: var(--line-height-snug);
 }
+@media (max-width: 37.5em) {
+  .combat-card-head {
+    padding: var(--space-2) var(--space-3);
+  }
+  .combat-card-body {
+    padding: var(--space-2);
+  }
+  .combat-detail {
+    margin: 0 var(--space-2) var(--space-2);
+  }
+}
 .combat-detail[hidden] {
   display: none;
 }

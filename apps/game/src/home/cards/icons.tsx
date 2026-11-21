@@ -35,13 +35,13 @@ export function InboxIcon() {
   );
 }
 
-/** 사이보그(얼굴) — 위 띠의 얼굴과 같은 뜻 */
+/** 사이보그(프로세서 칩 — 프로 대시보드 코어 아이콘) */
 export function CyborgIcon() {
   return (
     <Icon>
-      <rect x="5" y="7" width="14" height="12" rx="4" />
-      <path d="M12 3.5V7M9.5 16h5" />
-      <path d="M9.5 12.5h.01M14.5 12.5h.01" strokeWidth={2.6} />
+      <rect x="6.5" y="6.5" width="11" height="11" rx="2.5" />
+      <rect x="9.5" y="9.5" width="5" height="5" rx="1" />
+      <path d="M9.5 3.5v3M14.5 3.5v3M9.5 17.5v3M14.5 17.5v3M3.5 9.5h3M3.5 14.5h3M17.5 9.5h3M17.5 14.5h3" />
     </Icon>
   );
 }
@@ -57,12 +57,32 @@ export function UnitsIcon() {
   );
 }
 
+/** 경제 요약 · 자산(지갑 아이콘) */
 export function AssetsIcon() {
   return (
     <Icon>
-      <ellipse cx="12" cy="6.8" rx="6.5" ry="2.8" />
-      <path d="M5.5 6.8v5c0 1.5 2.9 2.8 6.5 2.8s6.5-1.3 6.5-2.8v-5" />
-      <path d="M5.5 11.8v5c0 1.5 2.9 2.8 6.5 2.8s6.5-1.3 6.5-2.8v-5" />
+      <rect x="3.5" y="6" width="17" height="13" rx="2.5" />
+      <path d="M15 12.5h5.5M6.5 6V4.8A1.8 1.8 0 0 1 8.3 3h8.4" />
+      <circle cx="16.5" cy="12.5" r="0.8" fill="currentColor" stroke="none" />
+    </Icon>
+  );
+}
+
+/** 시장 시세(상승 추세 차트 아이콘) */
+export function MarketIcon() {
+  return (
+    <Icon>
+      <path d="M3.5 16.5 9 11l4 3.5 7.5-8" />
+      <path d="M15.5 6.5h5v5" />
+    </Icon>
+  );
+}
+
+/** 카드 오른쪽 위 바로가기 화살표(↗) */
+export function ExternalArrowIcon() {
+  return (
+    <Icon>
+      <path d="M7.5 16.5 16.5 7.5M9.5 7.5h7v7" />
     </Icon>
   );
 }

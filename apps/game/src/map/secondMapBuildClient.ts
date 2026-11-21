@@ -36,10 +36,12 @@ export interface SecondMapJob {
   /** 행성 생성기 입력(편집기). 없으면 definition으로 워커가 만든다(개발자 2차맵 시험) */
   readonly input?: PlanetGeneratorInput | undefined;
   readonly definition?: SecondMapPreviewRequest["definition"];
-  /** null이면 preset으로 워커가 찾는다(개발자 2차맵 시험) */
+  /** null이면 biomeId 또는 preset으로 워커가 찾는다(개발자 2차맵 시험) */
   readonly mapKey: number | null;
   readonly props: readonly unknown[];
   readonly preset?: MapPreset | undefined;
+  readonly biomeId?: string | undefined;
+  readonly biomeVariant?: number | undefined;
   /** 8이웃 2차맵도 만든다 */
   readonly neighbours?: boolean | undefined;
 }

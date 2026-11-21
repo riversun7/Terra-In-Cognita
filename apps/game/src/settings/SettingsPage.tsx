@@ -23,6 +23,9 @@ import { chooseMarketColors, chooseTheme, setAutoHaul, setFollowSystem, useSetti
 import { VersionRow } from "./VersionRow.tsx";
 import "./settings.css";
 
+/** 설정 화면에 표시할 테마 목록(선명 제외: 기본 · 다크 · 정거장) */
+const SHOWN_THEMES: readonly Theme[] = THEMES.filter((option) => option !== "contrast");
+
 /** 테마 이름과 한 줄 설명(메시지 키). 테마가 늘면 여기서 타입 오류가 난다 */
 const THEME_TEXT = {
   pastel: { name: m.theme_pastel, note: m.theme_pastel_note },
@@ -150,7 +153,7 @@ export default function SettingsPage({ onClose }: { onClose: () => void }) {
       <fieldset className="settings-section">
         <legend className="section-title">{m.settings_theme_legend()}</legend>
         <div className="theme-grid">
-          {THEMES.map((option) => (
+          {SHOWN_THEMES.map((option) => (
             <ThemeOption key={option} theme={option} checked={theme === option} />
           ))}
         </div>

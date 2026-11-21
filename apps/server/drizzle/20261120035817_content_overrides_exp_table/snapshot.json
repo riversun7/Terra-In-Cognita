@@ -1,0 +1,64 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "269797c2-bb5d-4208-9b1d-6790f163c1ff",
+  "prevIds": [
+    "c6f2df91-7ceb-4060-904b-f313a1523b28",
+    "9afdc6b8-11e0-40d9-810f-f00c2e261c8f"
+  ],
+  "footprints": [
+    {
+      "statementType": "alter_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "content_overrides"
+      ],
+      "writes": [
+        "s|ck|public.content_overrides.content_overrides_category"
+      ],
+      "reads": [
+        "n|tbl|public.content_overrides",
+        "n|sch|public",
+        "n|col|public.content_overrides.category",
+        "e|col|public.content_overrides.category"
+      ],
+      "sqlHash": "137a2700241e894a"
+    },
+    {
+      "statementType": "alter_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "content_retired_ids"
+      ],
+      "writes": [
+        "s|ck|public.content_retired_ids.content_retired_ids_category"
+      ],
+      "reads": [
+        "n|tbl|public.content_retired_ids",
+        "n|sch|public",
+        "n|col|public.content_retired_ids.category",
+        "e|col|public.content_retired_ids.category"
+      ],
+      "sqlHash": "b212b5ff2606a2c2"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "alter",
+      "key": "checks\u0000[\"public\",\"content_overrides\",\"content_overrides_category\"]",
+      "set": {
+        "value": "\"category\" in ('skills', 'items', 'unit_kinds', 'effects', 'item_subcategories', 'item_tags', 'weapon_types', 'facilities', 'gather_tiers', 'creatures', 'nation_presets', 'combat_classes', 'nation_tiers', 'exp_table')"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "checks\u0000[\"public\",\"content_retired_ids\",\"content_retired_ids_category\"]",
+      "set": {
+        "value": "\"category\" in ('skills', 'items', 'unit_kinds', 'effects', 'item_subcategories', 'item_tags', 'weapon_types', 'facilities', 'gather_tiers', 'creatures', 'nation_presets', 'combat_classes', 'nation_tiers', 'exp_table')"
+      }
+    }
+  ]
+}

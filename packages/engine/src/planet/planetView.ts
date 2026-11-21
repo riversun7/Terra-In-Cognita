@@ -37,6 +37,7 @@ import {
 import type { PickedCell, PlanetLayer, PlanetResourceMap } from "./planetTypes.ts";
 import { ResourceLayer } from "./resourceLayer.ts";
 import { Starfield } from "./starfield.ts";
+import { TileApronStitcher, padCellTexture } from "./tileApron.ts";
 import { type TileMeshArrays, tileGpuBytes, tileIndices } from "./tileMesh.ts";
 import type { GpuTile } from "./tilePipeline.ts";
 import { tileShape } from "./tileShape.ts";
@@ -107,6 +108,7 @@ export class PlanetView {
   private readonly radiusM: number;
   private readonly basis = new Matrix4();
   private readonly shown = new Set<PlanetTileGpu>();
+  private readonly aprons = new TileApronStitcher();
 
   /** skirtDepthM = 치마 바닥 깊이(tileShape.ts skirtDepthM, 모든 타일이 같이 쓴다) */
   constructor(
@@ -253,15 +255,29 @@ export class PlanetView {
     geometry.setIndex(mesh.segments === 32 ? this.index : new BufferAttribute(tileIndices(mesh.segments), 1));
     const shape = tileShape(node, this.radiusM);
     geometry.boundingSphere = new Sphere(new Vector3(0, 0, 0), shape.angularRadius * this.radiusM * 1.5);
-    const cellTexture = createCellTexture(mesh.cellData, mesh.cells, 4);
-    const extraTexture = createCellTexture(mesh.cellExtra, mesh.cells, 2);
+    const paddedData = padCellTexture(mesh.cellData, mesh.cells, 4);
+    const paddedExtra = padCellTexture(mesh.cellExtra, mesh.cells, 2);
+    const paddedSide = mesh.cells + 2;
+    const cellTexture = createCellTexture(paddedData, paddedSide, 4);
+    const extraTexture = createCellTexture(paddedExtra, paddedSide, 2);
     const { s0, t0, span } = nodeSTRange(node);
-    const material = createTileMaterial(this.shared, cellTexture, extraTexture, mesh.cells, mesh.origin, [
-      s0,
-      t0,
-      span,
-      node.face,
-    ]);
+    const material = createTileMaterial(
+      this.shared,
+      cellTexture,
+      extraTexture,
+      mesh.cells,
+      mesh.origin,
+      [s0, t0, span, node.face],
+      1,
+    );
+    this.aprons.add({
+      node,
+      cells: mesh.cells,
+      cellData: paddedData,
+      cellExtra: paddedExtra,
+      cellTexture,
+      extraTexture,
+    });
     const object = new Mesh(geometry, material);
     object.frustumCulled = false;
     object.visible = false;
@@ -269,7 +285,9 @@ export class PlanetView {
     this.tiles.add(object);
     const textures: Texture[] = [cellTexture, extraTexture];
     const shared = this.index;
-    const bytes = tileGpuBytes(mesh);
+    const apronExtraBytes =
+      paddedData.byteLength - mesh.cellData.byteLength + (paddedExtra.byteLength - mesh.cellExtra.byteLength);
+    const bytes = tileGpuBytes(mesh) + apronExtraBytes;
     const gpu: PlanetTileGpu = {
       mesh: object,
       origin: mesh.origin,
@@ -277,6 +295,7 @@ export class PlanetView {
       // three는 올린 뒤에도 속성·텍스처 배열(= 메시 배열)을 들고 있다(컨텍스트를 잃었다가 복구되면 그것으로 다시 올린다)
       retainedBytes: bytes,
       dispose: () => {
+        this.aprons.remove(node);
         object.removeFromParent();
         this.shown.delete(gpu);
         // 함께 쓰는 인덱스는 떼고 버린다(지오메트리를 버리면 three가 인덱스 버퍼도 지운다)
@@ -291,6 +310,7 @@ export class PlanetView {
 
   /** 타일은 먼저(파이프라인이) 버린다. 그다음 장면과 함께 쓰는 자원을 버린다 */
   dispose(): void {
+    this.aprons.clear();
     this.scene.clear();
     this.indexKeeper.geometry.dispose();
     this.indexKeeper.material.dispose();

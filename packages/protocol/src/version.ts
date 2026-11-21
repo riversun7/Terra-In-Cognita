@@ -237,8 +237,11 @@
  *      storage_move 꺼내기(out)·business_buy에 선택 칸 via(facilities.ts HAUL_OUT_PROTOCOL_VERSION). via가 없으면 서버가 계정 설정(자동 맡기기 — 새 열
  *      user_settings.auto_haul)을 따른다. 54판 기기는 이 값들을 보내지 않는다. 새 결과 코드 없음(사업장 사기의 물류센터 실패는 no_carrier·insufficient_funds).
  *    다른 메시지 꼴은 그대로.
+ * 94: (줄기 governance 판 — 합칠 때 묶음 판으로, 받는 가장 낮은 판은 줄기에서 93 — 묶음에서는 원칙대로 현재 − 1)
+ *    - 나라 의결(governance.ts, docs/adr/2026-11-21-governance.md — 질문 2351~2365 답 D-580, 기획 D-5057·D-217·D-131·D-344): 안건 올리기 gov_propose·
+ *      표 던지기 gov_vote·후보 등록 gov_candidate → gov_result(결과 코드 19개). 더하기만 했다. 55판 이하 기기는 보내지 않는다.
  */
-export const PROTOCOL_VERSION = 55;
+export const PROTOCOL_VERSION = 94;
 
 /**
  * 서버가 받아주는 가장 낮은 기기 프로토콜 버전. 원칙은 현재 + 직전 1개 지원이다(ADR 7). 5부터 3판 기기는 인사에서
@@ -250,7 +253,7 @@ export const PROTOCOL_VERSION = 55;
  * 속성 분배 전 사이보그(elements null)는 이제 기기가 만들지 않는다(5판부터 만들기에 분배가 꼭 든다). 화면 시험의 legacy 계정은
  * 지금 판으로 만든 뒤 서버를 끄고 DB에서 속성값을 비워 다시 켠다(e2e/global-setup.ts).
  */
-export const MIN_SUPPORTED_PROTOCOL_VERSION = 54;
+export const MIN_SUPPORTED_PROTOCOL_VERSION = 93;
 
 /** WebSocket 메시지 1개의 최대 크기 (바이트) */
 export const MAX_MESSAGE_BYTES = 64 * 1024;

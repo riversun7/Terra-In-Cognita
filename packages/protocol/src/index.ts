@@ -156,6 +156,14 @@ export {
 } from "./houseRecruit.ts";
 export { HOUSE_POLICY_PROTOCOL_VERSION } from "./housePolicy.ts";
 export {
+  GOVERNANCE_ACTIONS,
+  GOVERNANCE_AGENDA_KINDS,
+  GOVERNANCE_PROTOCOL_VERSION,
+  GOVERNANCE_RESULT_CODES,
+  type GovernanceAction,
+  type GovernanceResultCode,
+} from "./governance.ts";
+export {
   HOSPITAL_PROTOCOL_VERSION,
   HOSPITAL_RESULT_CODES,
   type HospitalResultCode,

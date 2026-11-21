@@ -371,6 +371,23 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "encounter.playerPolicy",
   "encounter.fullPm",
   "encounter.regroupHpPm",
+  // 나라 의결(governance/rules.ts, docs/adr/2026-11-21-governance.md): 명령·1분 틱마다 읽는다
+  "governance.periodLeaderMs",
+  "governance.periodWarMs",
+  "governance.quorumLeaderPm",
+  "governance.quorumWarPm",
+  "governance.thresholdPm",
+  "governance.thresholdRegimePm",
+  "governance.thresholdRemovalPm",
+  "governance.termMs",
+  "governance.registerMs",
+  "governance.graceRegimeMs",
+  "governance.proposeSharePm",
+  "governance.openPerProposer",
+  "governance.autoElections",
+  "governance.warAgenda",
+  "governance.npcKeepSatisfaction",
+  "governance.npcWarTraitPm",
 ];
 
 const LIVE = new Set(SERVER_LIVE_PATHS);

@@ -49,6 +49,7 @@ import type { BattleReplayDemoResponse } from "@terra/shared/battleReplay";
 import type { RecruitBoardResponse } from "@terra/shared/recruit";
 import type { FusionOverviewResponse } from "@terra/shared/fusion";
 import type { TempleOverviewResponse } from "@terra/shared/temple";
+import type { GovernanceView } from "../governance/view.ts";
 import type { HospitalOverviewResponse } from "@terra/shared/hospital";
 import type { RuinsOverviewResponse } from "@terra/shared/ruins";
 import type { WorldCitiesResponse, WorldPositionResponse } from "@terra/shared/worldMap";
@@ -454,6 +455,8 @@ export interface TrpcContext {
   fusion?: (() => FusionReadServices | undefined) | undefined;
   /** 신전 조회. 세계(DB)가 없거나 부팅 복구 전이면 undefined(프로시저가 PRECONDITION_FAILED) */
   temple?: (() => TempleReadServices | undefined) | undefined;
+  /** 나라 의결 조회(governance.view, docs/adr/2026-11-21-governance.md). DB가 없으면 없다. 바꾸는 명령은 WebSocket gov_* */
+  governance?: (() => GovernanceView | undefined) | undefined;
   /** 부상·병원 조회(D-521). 세계(DB)가 없거나 부팅 복구 전이면 undefined(프로시저가 PRECONDITION_FAILED) */
   hospital?: (() => HospitalReadServices | undefined) | undefined;
   /** 폐허 복원 조회. 세계·NPC 사회 런타임이 없거나 부팅 복구 전이면 undefined(프로시저가 PRECONDITION_FAILED) */

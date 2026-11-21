@@ -9,6 +9,7 @@ import { CONDITION_TUNING_KEYS } from "./tuningCondition.ts";
 import { GARDENER_TUNING_KEYS } from "./tuningGardener.ts";
 import { GATHER_OBJECT_TUNING_KEYS } from "./tuningGather.ts";
 import { HOUSE_TUNING_KEYS } from "./tuningHouse.ts";
+import { GOVERNANCE_TUNING_KEYS } from "./tuningGovernance.ts";
 import { INJURY_TUNING_KEYS } from "./tuningInjury.ts";
 import { LABOR_TUNING_KEYS } from "./tuningLabor.ts";
 import { LOGISTICS_TUNING_KEYS } from "./tuningLogistics.ts";
@@ -45,6 +46,7 @@ const GROUP_PAGES: readonly (readonly [readonly TuningKey[], TuningPage])[] = [
   [RESTORATION_TUNING_KEYS, "society"],
   [RECRUIT_TUNING_KEYS, "society"],
   [HOUSE_TUNING_KEYS, "society"],
+  [GOVERNANCE_TUNING_KEYS, "society"],
 ];
 
 /** 팩에만 있는 칸(규칙 코드가 아직 읽지 않음, 반영 범위 none)의 페이지 */

@@ -25,6 +25,7 @@ import { type LogisticsCoefficients, START_LOGISTICS } from "./logisticsCoeffici
 import { type EncounterCoefficients, START_ENCOUNTER } from "./encounterCoefficients.ts";
 import { type BoatCoefficients, START_BOATS } from "./boatCoefficients.ts";
 import { type BusinessCoefficients, START_BUSINESS } from "./businessCoefficients.ts";
+import { type GovernanceCoefficients, START_GOVERNANCE } from "./governanceCoefficients.ts";
 import { type ConditionCoefficients, START_CONDITION } from "./condition.ts";
 
 /**
@@ -136,6 +137,8 @@ export interface SocietyCoefficients {
   readonly boats: BoatCoefficients;
   /** 사업장 장부(팩 tuning 경로 "business.*", 모두 [임시] — docs/adr/2026-11-15-business-ledger.md). 서버 사업장 장부가 읽는다 */
   readonly business: BusinessCoefficients;
+  /** 나라 의결(D-5057·질문 2351~2365 답 — governanceCoefficients.ts, 서버만) */
+  readonly governance: GovernanceCoefficients;
   /** 지상 기술 단계 상한(질문 121 기본안: 시설 Lv1~5 사다리) */
   readonly techGroundMax: number;
   /** [임시] 단계 n으로 오르는 연구 작업량(효율 1000인 연구 일꾼 한 시간 = 1000) = researchWorkBase × n */
@@ -503,6 +506,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   encounter: { ...START_ENCOUNTER },
   boats: { ...START_BOATS },
   business: { ...START_BUSINESS },
+  governance: { ...START_GOVERNANCE },
   techGroundMax: 5,
   researchWorkBase: 48_000,
   developmentPerTech: 20,

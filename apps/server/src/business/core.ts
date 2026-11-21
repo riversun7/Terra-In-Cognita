@@ -184,7 +184,7 @@ export function createBusinessCore(deps: BusinessDeps): BusinessCore {
     writer,
     loaded: deps.loaded.credit ?? [],
     rules: deps.rules,
-    place: deps.place,
+    place: (buildingId) => deps.place(buildingId),
     nationOf: (cityId) => deps.tax(cityId)?.treasuryOwner,
   });
 

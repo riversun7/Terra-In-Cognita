@@ -139,7 +139,7 @@ export function createCreditBook(deps: CreditBookDeps): CreditBook {
     return account !== undefined && deps.ledger.balance(account) < 0n;
   };
   // 켤 때 이미 갚은(또는 계정이 없는) 줄은 지운다
-  for (const cause of [...marks.keys()]) if (!open(cause)) restore(cause);
+  for (const cause of marks.keys()) if (!open(cause)) restore(cause);
 
   const businessMark = (code: string, atMs: number): void => {
     const parsed = parseBusinessDebtCode(code);

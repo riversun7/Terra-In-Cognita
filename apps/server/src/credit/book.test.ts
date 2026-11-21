@@ -3,9 +3,10 @@ import { businessDebtCode, businessLocation, unitPurseLocation } from "@terra/sh
 import {
   type BusinessCoefficients,
   START_BUSINESS,
-  type SimFaction,
+  type SimHooks,
   cancelResidentDebts,
   collectResidentTax,
+  newFaction,
   residentDebtCode,
 } from "@terra/sim";
 import { describe, expect, it } from "vitest";
@@ -77,7 +78,20 @@ function world(
 
 const unitSubject = { ownerId: PLAYER, unitId: UNIT };
 const ownerSubject = { ownerId: PLAYER, unitId: null };
-const faction = { id: NATION } as SimFaction;
+const faction = newFaction(NATION, "fake_nation", {
+  fixed: true,
+  tech: 0,
+  regime: "dictatorship",
+  settledAtMs: 0,
+  traits: { aggression: 500, commerce: 500, faith: 500, station: 500 },
+});
+/** 고리 바탕(신용 고리가 얹힐 자리 — 원래 고리 넷만) */
+const BASE_HOOKS: SimHooks = {
+  treasuryAsset: () => CUR,
+  beforeCityTransfer: () => {},
+  factionBorn: () => {},
+  factionDied: () => {},
+};
 
 /** 집 몫(유닛 지갑) 주민세 한 주기 — 재산 1000 × 10‰ = 10 */
 const residentCycle = (w: ReturnType<typeof world>, atMs: number) => {
@@ -90,7 +104,7 @@ const residentCycle = (w: ReturnType<typeof world>, atMs: number) => {
     atMs,
   });
   if (result.arrears.length > 0)
-    withCredit({}, { ledger: w.ledger }).residentTaxArrears?.(faction, result.arrears, atMs);
+    withCredit(BASE_HOOKS, { ledger: w.ledger }).residentTaxArrears?.(faction, result.arrears, atMs);
   return result;
 };
 

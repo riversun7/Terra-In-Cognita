@@ -19,7 +19,12 @@
 //   ID 차례), 한 번에 한 레벨. 재료·시간은 플레이어 레벨업과 같은 식(팩 buildCostAt·buildTimeAt, 부르는 쪽)
 // - 수리(1114 가, chooseCityRepair): 상태가 문턱(설정 칸 npc_build_repair_below_pm [임시]) 아래인 시설을 가장 낮은 것부터 가득까지 — 짓기·레벨
 //   올리기보다 먼저. 전투에서 부서진 성벽·건물의 수리 재료가 그 도시를 지키는 값이 된다
+// 바뀜 (npc-invest-2, 질문 2508 나 — D-586·D-587 8 NPC 투자 판단): rules.invest가 있으면 짓기 후보마다 재료 값(지난 값, 국고 화폐)을 국고에 견준
+// 비용 몫을 점수에서 빼고(npc/invest.ts investCostPenalty), 수요 없이 앞서 가는 후보(이미 하나 있는 채집 시설을 더 짓기 — 배후지 몫이 기대 수익일
+// 뿐 지금 모자란 것이 아니다)는 도전 굴림(investGate — 성향 배율 = 상업 성향)을 넘을 때만 둔다. 주거·식량·나라 목표·첫 채집 시설은 수요라 굴리지
+// 않는다. 레벨 올리기의 문은 부르는 쪽(simulator/npcBuild.ts — upgradeDemand)이 같은 함수로 연다
 import type { NpcCoefficients } from "./coefficients.ts";
+import { investCostPenalty, investGate } from "./invest.ts";
 import type { Traits } from "./traits.ts";
 
 /** 숙소 시설 ID(팩 content/core/facilities.json, 생활 단계) */
@@ -71,6 +76,20 @@ export interface BuildChoiceRules {
   readonly cap?: number | undefined;
   /** 재료를 구할 길이 없는 시설(고르지 않는다 — 다음 점수의 시설을 고른다). 없으면 모두 고를 수 있다 */
   readonly blocked?: ReadonlySet<string> | undefined;
+  /** 투자 판단(위 바뀜 npc-invest-2). 없으면 옛 판(비용·도전을 보지 않는다) */
+  readonly invest?: BuildInvest | undefined;
+}
+
+/** 짓기 투자 판단 입력(npc/invest.ts) */
+export interface BuildInvest {
+  /** 시설 레벨 1 재료 값(국고 화폐 최소 단위, 지난 값). 모르면 0 */
+  costOf(facility: string): bigint;
+  /** 국고 */
+  readonly capital: bigint;
+  /** 도전 굴림(0 이상 정수) */
+  readonly roll: number;
+  /** 성향 배율(‰ — investTemperPm(상업 성향)) */
+  readonly temperPm: number;
 }
 
 /** 붐빔 숙소 점수를 성향으로 내리는 끝(농장 600·채집보다 위, 나라 목표 650 + 10 × 모자란 수와 다툰다) */
@@ -109,7 +128,10 @@ export function countedBuildings(
 
 const ceilDiv = (a: number, b: number): number => Math.ceil(Math.max(0, a) / Math.max(1, b));
 
-/** 시설 하나의 점수(지을 까닭이 없으면 undefined) */
+/** 수요가 있는 후보 점수(undefined면 후보 아님) */
+const demand = (score: number | undefined) => (score === undefined ? undefined : { score, demand: true });
+
+/** 시설 하나의 점수와 수요(지을 까닭이 없으면 undefined). demand = 지금 모자란 것(거짓이면 앞서 가는 투자 — 위 바뀜 npc-invest-2) */
 function scoreOf(
   option: BuildOption,
   needs: CityBuildNeeds,
@@ -117,11 +139,11 @@ function scoreOf(
   c: NpcCoefficients,
   rules: BuildChoiceRules,
   producing: number,
-): number | undefined {
+): { readonly score: number; readonly demand: boolean } | undefined {
   const have = needs.counts.get(option.facility) ?? 0;
   if (option.facility === BUILD_LODGING) {
     const beds = needs.beds ?? have * Math.max(1, rules.bedsPerLevel);
-    if (beds < needs.humans) return 700 + ceilDiv(needs.humans - beds, rules.bedsPerLevel) * 20;
+    if (beds < needs.humans) return demand(700 + ceilDiv(needs.humans - beds, rules.bedsPerLevel) * 20);
     // 붐빔(1131 나): 씨앗 숙소는 주거 몫이라 상한을 올리지 않는다 → 상한에 닿으면 숙소를 더 지어야 자란다. 생필품이 모자란 도시는 늘리지 않는다
     // 성향 몫(D-554 1188, D-572 질문 1995·2127 — 세력 평균으로 중립이 되게): + = 생필품이 조금 모자라도(1000 − 몫 ÷ 2‰ 이상) 붐빔 숙소를
     // 짓는다, − = 붐빔 숙소 점수를 내려 나라 목표(650 + 10 × 모자란 수) 뒤로 보낸다(LODGING_TILT_FLOOR까지). 처음 판(점수에 몫을 그대로 더함)은
@@ -129,25 +151,29 @@ function scoreOf(
     const tilt = Math.trunc(rules.lodgingTilt ?? 0);
     const foodNeed = 1000 - Math.trunc(Math.max(0, tilt) / 2);
     return needs.housingCap !== undefined && needs.humans >= needs.housingCap && needs.foodPm >= foodNeed
-      ? 700 + Math.max(LODGING_TILT_FLOOR, Math.min(0, tilt))
+      ? demand(700 + Math.max(LODGING_TILT_FLOOR, Math.min(0, tilt)))
       : undefined;
   }
   if (BUILD_PRODUCING_STAGES.has(option.stage) && needs.workers <= producing) return undefined;
   const land = needs.gatherPm?.get(option.facility);
   // 나라 성격 목표(1142 다): 특산 줄·국력 등급 처음 시설
   const target = needs.targets?.get(option.facility) ?? 0;
-  if (have < target && !(option.gather && land !== undefined && land <= 0)) return 650 + (target - have) * 10;
+  if (have < target && !(option.gather && land !== undefined && land <= 0))
+    return demand(650 + (target - have) * 10);
   if (option.facility === BUILD_FARM) {
     // 농사지을 땅이 없다고 아는데 농장이 이미 있으면 더 짓지 않는다(땅이 없는 도시도 농장 하나는 둔다 — 씨앗 규칙과 같다)
     if (land !== undefined && land <= 0 && have > 0) return undefined;
     const want = ceilDiv(needs.humans, c.buildFarmHumans) + (needs.foodPm < 1000 ? 1 : 0);
-    if (have < want) return 600 + Math.floor((1000 - Math.min(1000, needs.foodPm)) / 4);
+    if (have < want) return demand(600 + Math.floor((1000 - Math.min(1000, needs.foodPm)) / 4));
   }
   if (!option.gather) return undefined;
   const share = land ?? (have > 0 ? 500 : 0);
   const cap = Math.max(0, c.buildGatherMax);
   const want = share <= 0 || cap === 0 ? 0 : Math.min(cap, 1 + Math.floor((share * (cap - 1)) / 1000));
-  return have < want ? 300 + Math.floor(share / 5) + Math.floor(traits.commerce / 10) : undefined;
+  // 첫 채집 시설은 수요(그 땅의 원자재를 아직 하나도 캐지 않는다), 더 짓기는 앞서 가는 투자(배후지 몫 = 기대 수익)
+  return have < want
+    ? { score: 300 + Math.floor(share / 5) + Math.floor(traits.commerce / 10), demand: have === 0 }
+    : undefined;
 }
 
 /**
@@ -170,8 +196,16 @@ export function chooseCityBuild(
   let best: { facility: string; score: number } | undefined;
   for (const option of options) {
     if (BUILD_UNCOUNTED_STAGES.has(option.stage) || rules.blocked?.has(option.facility) === true) continue;
-    const score = scoreOf(option, needs, traits, c, rules, producing);
-    if (score !== undefined && (!best || score > best.score)) best = { facility: option.facility, score };
+    const scored = scoreOf(option, needs, traits, c, rules, producing);
+    if (scored === undefined) continue;
+    let score = scored.score;
+    const invest = rules.invest;
+    if (invest) {
+      const cost = invest.costOf(option.facility);
+      if (!investGate(cost, invest.capital, scored.demand, invest.roll, invest.temperPm, c)) continue;
+      score -= investCostPenalty(cost, invest.capital, c);
+    }
+    if (!best || score > best.score) best = { facility: option.facility, score };
   }
   return best?.facility;
 }
@@ -240,6 +274,24 @@ export function rankCityUpgrades(
     .filter((entry) => BUILD_PRODUCING_STAGES.has(specOf(entry.facility)?.stage ?? ""))
     .toSorted((a, b) => b.workers - a.workers || byLevel(a, b));
   return [...lodgings, ...producing];
+}
+
+/**
+ * 레벨 올리기의 수요(npc-invest-2, 질문 2508 나): 붐빈 도시의 숙소(주거가 모자람). 생산 시설은 늘어날 일꾼 자리를 채울 사람이 있을 때(일꾼이 지금 자리
+ * (레벨 × 레벨당 자리)를 다 채웠거나 그 도시에 일 없는 휴먼이 있다 — 기대 수익), 또는 그 도시가 이미 다다른 레벨까지 올릴 때(topLevel — 이미 아는 단계).
+ * 그 밖(그 도시에서 처음 다다르는 레벨, 자리가 남고 채울 사람도 없음)은 앞서 가는 도전이라 부르는 쪽이 도전 굴림을 넘을 때만 올린다 — 높은 레벨일수록
+ * 재료 값이 커서 덜 넘는다(D-586 "좋을수록 투자 비용이 높다"·D-587 8 "자본이 많으면 도전 확률 증가")
+ */
+export function upgradeDemand(
+  entry: SiteFacility,
+  slotsPerLevel: number,
+  crowded: boolean,
+  idle = 0,
+  topLevel = 0,
+): boolean {
+  if (entry.facility === BUILD_LODGING) return crowded;
+  if (idle > 0 || entry.level + 1 <= topLevel) return true;
+  return entry.workers >= Math.max(1, Math.trunc(slotsPerLevel)) * Math.max(1, entry.level);
 }
 
 /** 수리할 시설(1114 가): 상태가 문턱(‰) 아래인 것 가운데 가장 낮은 것(같으면 열쇠 차례). 문턱 0 = 수리 끔 */

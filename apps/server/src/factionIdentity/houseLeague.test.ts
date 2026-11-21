@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   type HouseLeague,
   delegateHouseLeague,
+  electHouseLeague,
   foundHouseLeague,
   joinHouseLeague,
   leaveHouseLeague,
+  voteHouseLeague,
 } from "./houseLeague.ts";
 
 const leagueOf = (result: ReturnType<typeof joinHouseLeague>): HouseLeague => {
@@ -43,5 +45,33 @@ describe("가문 연맹 조약(houseLeague.ts, D-587)", () => {
     const left = leagueOf(leaveHouseLeague(league, 20));
     expect(left.members).toEqual([10]);
     expect(leaveHouseLeague(left, 10)).toEqual({ ok: true, league: null });
+  });
+});
+
+describe("연맹 대표 투표(npc-invest-2, 질문 2503 [임시])", () => {
+  const league: HouseLeague = {
+    id: 1,
+    founder: 10,
+    representative: 10,
+    members: [10, 11, 12, 13],
+    createdAtMs: 0,
+  };
+  it("든 가문 과반이 찍은 후보가 대표가 되고 표를 지운다", () => {
+    let votes: ReadonlyMap<number, number> = new Map();
+    for (const voter of [11, 12]) {
+      const r = voteHouseLeague(league, votes, voter, 12);
+      if (!r.ok) throw new Error(r.code);
+      expect(r.elected).toBeNull();
+      votes = r.votes;
+    }
+    const r = voteHouseLeague(league, votes, 13, 12);
+    expect(r).toEqual({ ok: true, votes: new Map(), elected: 12 });
+    expect(electHouseLeague(league, 12).representative).toBe(12);
+  });
+  it("든 가문이 아니면 표를 던지지도 받지도 못한다, 마지막 표만 센다", () => {
+    expect(voteHouseLeague(league, new Map(), 99, 12)).toEqual({ ok: false, code: "not_member" });
+    expect(voteHouseLeague(league, new Map(), 11, 99)).toEqual({ ok: false, code: "not_member" });
+    const r = voteHouseLeague(league, new Map([[11, 12]]), 11, 13);
+    expect(r.ok && [...r.votes]).toEqual([[11, 13]]);
   });
 });

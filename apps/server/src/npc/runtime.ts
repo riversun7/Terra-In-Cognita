@@ -6,8 +6,7 @@
 //   구인 카드를 산다, D-469 출생 없음), 하루 끝(UTC 0시)에 endOfDay(만족도·수명·상속·반란·독립·백지 강화·연구, 7일마다 배당·공물).
 // - 처리 뒤 거울 세계의 바뀜을 쓰기 대기열·2차맵에 맞춘다(persist.ts).
 // - 정원사(docs/adr/2026-11-01-gardener-r5b.md 5절, gardener.ts): 하루 끝에 칸 오염·도시 웨이브 굴림·유목 부대, 웨이브 도착은
-//   서버 전투 서비스의 공성 전투로 싸운다(결과가 오면 다음 틱에 피해·폐허·쉬는 시간). 정원사 2: 정원 세력 관계도·세력 오염·
-//   보호 레이드(판단의 치기 → onAttack)·막아 낸 웨이브 보상(waveRewards.ts).
+//   서버 전투 서비스의 공성 전투로 싸운다(결과가 오면 다음 틱에 피해·폐허·쉬는 시간). 정원사 2: 정원 세력 관계도·세력 오염· 보호 레이드(판단의 치기 → onAttack)·막아 낸 웨이브 보상(waveRewards.ts).
 // - 도시 경제(docs/adr/2026-11-07-play-flow.md WP4, economy.ts): 시뮬과 같은 경제 실행(생산·생필품 유지비·NPC 거래·거래세)을 같은 루프에서
 //   돌리고 세력·사회에 경제 고리(생필품 충족·거래세 배당·세율·도시 주인 바뀜의 창고·거래소)를 준다. 거래소는 market/books.ts(저장·복원).
 // - 폐허 2(ruinsRuntime.ts): 정부 건물 상태·행정 레벨 = 그 도시 안 행정 건물 레벨(489 다, 틱마다 맞춤 — 빈 2차맵 알박기 새 도시도)·수호신만 있는 도시의 웨이브 전투
@@ -15,8 +14,7 @@
 // - NPC 휴먼 일터·시장·처음 인구(docs/adr/2026-11-07-play-flow.md "WP-NPC2"): 처음 켤 때 시작 도시마다 한 번 처음 인구(주거 × 비율, 749 다,
 //   cityPeople.ts), 저장 뒤마다 휴먼의 집·일터(도시 경제 일꾼 → 그 시설 둘레, 740 나, humanPlaces.ts)와 시장(떠나면 다시 고름, 744 나)을 맞춘다.
 // - "WP-NPC4": 일터에 가는 때 = 그 2차맵 지역 시각의 낮(770 나, 설정 칸 npc_work_*), 처음부터 있던 휴먼(처음 인구·옛 봇 휴먼)의 스탯·속성 = 그
-//   도시 행정 레벨 구인 카드 규칙(774 나, @terra/sim foundingProfileOf — 저장된 스탯이 없는 휴먼만 켤 때 채움), 휴먼 이름(773 나, humanNames.ts),
-//   하루 끝 생필품 충족 저장(781 나, cityDayStore.ts).
+//   도시 행정 레벨 구인 카드 규칙(774 나, @terra/sim foundingProfileOf — 저장된 스탯이 없는 휴먼만 켤 때 채움), 휴먼 이름(773 나, humanNames.ts), 하루 끝 생필품 충족 저장(781 나, cityDayStore.ts).
 // - 서버에서 아직 안 하는 것: 실시간 공성(NPC 공격은 전투 없이 점령 — 시뮬 "전투 끔"과 같은 규칙), 환전·세력 화폐(시험 화폐 하나),
 //   휴먼 지갑(상속은 빈 지갑), 편입 제안 저장(메모리), NPC 생산 시설의 오염(정원사 칸 오염에 넣지 않음), NPC의 행정 건물 올리기(NPC는 짓지
 //   않는다 — 씨앗 행정 건물 Lv1 그대로).
@@ -91,7 +89,7 @@ import { territoryOf } from "./townSites.ts";
 import { type NpcRuinsInput, liftGovernments, ruinedGoodsHomeOf, syncAdminLevels } from "./ruinsRuntime.ts";
 import { ruinsOf } from "./ruinsState.ts";
 import { npcRulingHooks } from "./rulingVault.ts";
-import { bridgeTies, createNpcAiBridge } from "./aiBridge.ts";
+import { type NpcAiBridge, bridgeTies, createNpcAiBridge } from "./aiBridge.ts";
 import { loadNpcState, recruitOf } from "./state.ts";
 import { createWarOutcomePersist, loadWarOutcomes } from "./warOutcomes.ts";
 
@@ -216,6 +214,7 @@ export interface NpcRuntime {
   mayorOf(cityId: number): number | undefined;
   /** NPC 도시의 가문(질문 1848 답·D-573, cityHouses.ts — 도시 등급마다 수, 지배 가문장 = 국가 지도자) */
   readonly cityHouses: NpcCityHouses;
+  readonly unitTraits: (unitId: number) => ReturnType<NpcAiBridge["factionBaseTraits"]>; // 유닛 7축 성향(aiBridge — NPC 가문의 연맹·지분 판단은 가문장 성향)
   /** NPC 휴먼 이름(기획 답 773 나, humanNames.ts — 그 휴먼 나라의 팩 목록). 거울 세계 휴먼이 아니거나 목록이 없으면 undefined */
   humanName(unitId: number): string | undefined;
   /** 그 도시의 지난 하루 끝 생필품 충족 ‰(781 나, cityDayStore.ts). 아직 하루 끝 전이면 undefined */
@@ -960,6 +959,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     }),
     mayorOf: (cityId) => people.mayorOf(cityId),
     cityHouses,
+    unitTraits: (unitId) => aiBridge.humanPlacesOptions().traitsOf?.(unitId),
     // 휴먼 이름(773 나): 그 휴먼 주인 세력이 따르는 나라의 목록(도시 이름과 같은 길)
     humanName(unitId) {
       const unit = world.units.get(unitId);

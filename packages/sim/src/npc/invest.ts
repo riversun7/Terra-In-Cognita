@@ -49,3 +49,46 @@ export function investChallenges(
 ): boolean {
   return Math.abs(Math.trunc(roll)) % 1000 < investChallengePm(cost, capital, c);
 }
+
+// 바뀜 (npc-invest-2, 질문 2508 나·다 — 기획 D-586·D-587 8): 같은 틀을 시설 짓기·레벨 올리기(build.ts·simulator/npcBuild.ts)와 군사(구인 카드 —
+// policy.ts recruitPicks)에도 쓴다. 시뮬·서버가 같은 함수를 부른다(서버 NPC 런타임 = npcRun.decide, 가문 자동 구인 = recruitPolicy).
+// - 수요가 있는 투자(주거·식량·나라 목표·첫 채집 시설, 일꾼이 다 찬 시설 올리기, 경비대·주거 목표 채우기)는 굴리지 않는다.
+// - 수요 없이 앞서 가는 투자(같은 채집 시설 더 짓기, 일꾼 자리가 남는 시설 올리기, 더 좋은 구인 카드 — 좋을수록 비싸다)는 도전 굴림을 넘을 때만.
+// - 성향 가중(D-323 성향 프리셋): 도전 확률에 성향 배율(축 값이 가장 낮으면 500‰, 가장 높으면 1500‰)을 곱한다 — 군사(경비대 카드)는 공격 성향,
+//   경제(시설·일꾼 카드)는 상업 성향. 연구는 위 점수(성향 몫)를 그대로 쓴다(바꾸지 않았다).
+
+type TemperRange = Pick<NpcCoefficients, "traitMin" | "traitMax">;
+
+/** 성향 배율(‰): 축 값이 가장 낮으면 500, 가장 높으면 1500, 사이는 선형(정수 나눗셈) */
+export function investTemperPm(trait: number, c: TemperRange): number {
+  const min = Math.min(c.traitMin, c.traitMax);
+  const max = Math.max(c.traitMin, c.traitMax);
+  if (max <= min) return 1000;
+  const value = Math.min(max, Math.max(min, Number.isFinite(trait) ? Math.trunc(trait) : min));
+  return 500 + Math.floor(((value - min) * 1000) / (max - min));
+}
+
+/** 성향을 곱한 도전 확률(‰, 0~상한) */
+export function investTemperedChallengePm(
+  cost: bigint,
+  capital: bigint,
+  temperPm: number,
+  c: InvestCoefficients,
+): number {
+  const max = Math.min(1000, Math.max(0, Math.trunc(c.investChallengeMaxPm)));
+  const base = investChallengePm(cost, capital, c);
+  return Math.min(max, Math.floor((base * Math.max(0, Math.trunc(temperPm))) / 1000));
+}
+
+/** 투자 문: 수요가 있으면 열리고, 없으면 성향을 곱한 도전 굴림(0 이상 정수의 1000 나머지)이 확률보다 작을 때만 열린다 */
+export function investGate(
+  cost: bigint,
+  capital: bigint,
+  demand: boolean,
+  roll: number,
+  temperPm: number,
+  c: InvestCoefficients,
+): boolean {
+  if (demand) return true;
+  return Math.abs(Math.trunc(roll)) % 1000 < investTemperedChallengePm(cost, capital, temperPm, c);
+}

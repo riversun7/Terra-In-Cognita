@@ -42,7 +42,9 @@ import {
   chooseCityRepair,
   countedBuildings,
   rankCityUpgrades,
+  upgradeDemand,
 } from "../npc/build.ts";
+import { investGate, investTemperPm } from "../npc/invest.ts";
 import type { RecipeSpec } from "../economy/production.ts";
 import type { NpcCoefficients } from "../npc/coefficients.ts";
 import { cityHousingCap } from "../society/logistics.ts";
@@ -259,11 +261,35 @@ export function levelSupplyMissing(
   return missing;
 }
 
+/** 재료 값(국고 화폐 최소 단위): 재료 줄마다 ⌈수량 ÷ 묶음⌉ × 그 도시 지난 값(모자란 재료를 살 때와 같은 셈 — 투자 판단의 비용) */
+export function materialsValue(
+  economy: Economy,
+  cityId: number,
+  materials: readonly BuildStackJson[],
+): bigint {
+  let total = 0n;
+  for (const stack of materials) {
+    if (stack.qty <= 0) continue;
+    const asset = itemAsset(stack.item);
+    const lot = lotSizeOf(economy.catalog, asset);
+    total += ((BigInt(stack.qty) + lot - 1n) / lot) * marketRefPrice(economy, cityId, asset);
+  }
+  return total;
+}
+
 /**
  * 증축 판단(세력 판단마다, 구인 규칙식 다음): 다 지은 것을 생산에 넣고, 도시마다(ID 차례) 짓는 중이 아니면 지을 것을 골라 재료가 있으면 짓고,
- * 없으면 재료를 도시 목표 재고에 넣는다
+ * 없으면 재료를 도시 목표 재고에 넣는다.
+ * investRoll(npc-invest-2, 질문 2508 나 — npc/invest.ts): 있으면 짓기 후보에 비용 몫·도전 굴림(npc/build.ts rules.invest)을, 레벨 올리기에 수요
+ * (upgradeDemand)가 없으면 도전 굴림을 건다(비용 = 그 레벨 재료 값, 자본 = 판단을 시작할 때 국고, 성향 배율 = 상업 성향). 없으면 옛 판
  */
-export function buildPolicy(ctx: NpcContext, run: NpcBuildRun, faction: SimFaction, nowMs: number): void {
+export function buildPolicy(
+  ctx: NpcContext,
+  run: NpcBuildRun,
+  faction: SimFaction,
+  nowMs: number,
+  investRoll?: number,
+): void {
   const { economy, builder } = run;
   const { world, c } = ctx;
   ctx.counts.buildsDone += builder.settle(faction, nowMs);
@@ -277,6 +303,9 @@ export function buildPolicy(ctx: NpcContext, run: NpcBuildRun, faction: SimFacti
   }
   const treasuryAsset = economy.currencyOf.get(faction.id) ?? economy.base;
   let funds = world.book.balanceOf(faction.id, treasuryAsset);
+  /** 투자 판단의 자본(판단을 시작할 때 국고 — 같은 판단의 도시마다 같은 값) */
+  const capital = funds;
+  const temperPm = investTemperPm(faction.traits.commerce, c.npc);
   const produced = producedAssets(economy);
   // 도시 성장 성향 몫(기획 D-554 1187·1188, D-572 질문 1995): 건물 수 상한 ± 채, 붐빔 숙소 점수 ±
   const temper = growthTemperOf(world.seed, faction, c.npc);
@@ -310,10 +339,8 @@ export function buildPolicy(ctx: NpcContext, run: NpcBuildRun, faction: SimFacti
     const humans = economy.cityUnits.get(cityId) ?? 0;
     const housingCap = cityHousingCap(city);
     const cap = buildingCapOf(cityGrade(city.development, c.territory), c.npc, temper.capDelta);
-    const helpers = Math.min(
-      Math.max(0, c.npc.buildBuildersMax),
-      idleHumans(economy, world, cityId, guards.get(cityId) ?? 0),
-    );
+    const idle = idleHumans(economy, world, cityId, guards.get(cityId) ?? 0);
+    const helpers = Math.min(Math.max(0, c.npc.buildBuildersMax), idle);
     const facilities = site.facilities ?? [];
     let action: { materials: BuildStackJson[]; run: () => boolean } | undefined;
     // 1. 수리(1114 가): 상태 문턱 아래 — 플레이어 수리와 같은 재료(그 레벨 짓기 재료 × 고친 몫)·시간
@@ -389,6 +416,18 @@ export function buildPolicy(ctx: NpcContext, run: NpcBuildRun, faction: SimFacti
               })
               .map((option) => option.facility),
           ),
+          invest:
+            investRoll === undefined
+              ? undefined
+              : {
+                  costOf: (facility) => {
+                    const build = economy.catalog.facilities.get(facility)?.build;
+                    return build ? materialsValue(economy, cityId, buildCostAt(build, 1)) : 0n;
+                  },
+                  capital,
+                  roll: investRoll,
+                  temperPm,
+                },
         },
       );
       const build = pick === undefined ? undefined : economy.catalog.facilities.get(pick)?.build;
@@ -442,12 +481,32 @@ export function buildPolicy(ctx: NpcContext, run: NpcBuildRun, faction: SimFacti
     // 3. 상한에 닿았으면 레벨 올리기(1146 나): 한 번에 한 레벨, 플레이어 레벨업과 같은 재료·시간. 구할 길이 없는 재료가 드는 시설은 건너뛴다
     if (!action && cap > 0 && builder.upgrade && countedBuildings(site.counts, stageOf) >= cap) {
       const upgrade = builder.upgrade.bind(builder);
+      const crowded = humans >= housingCap;
+      // 그 도시가 이미 다다른 가장 높은 레벨(행정 건물·성벽 빼고 — 레벨 올리기 수요, npc/build.ts upgradeDemand)
+      let topLevel = 0;
+      for (const entry of facilities)
+        if (!BUILD_UNCOUNTED_STAGES.has(stageOf(entry.facility) ?? ""))
+          topLevel = Math.max(topLevel, entry.level);
       for (const target of rankCityUpgrades(facilities, { humans, housingCap }, upgradeSpec)) {
-        const build = economy.catalog.facilities.get(target.facility)?.build;
-        if (!build) continue;
+        const spec = economy.catalog.facilities.get(target.facility);
+        const build = spec?.build;
+        if (!spec || !build) continue;
         const level = target.level + 1;
         const materials = buildCostAt(build, level).filter((stack) => stack.qty > 0);
         if (!canObtain(materials)) continue;
+        // 투자 판단(질문 2508 나): 수요 없는 올리기는 그 레벨 재료 값으로 도전 굴림 — 높은 레벨일수록 비싸 덜 넘는다
+        if (
+          investRoll !== undefined &&
+          !investGate(
+            materialsValue(economy, cityId, materials),
+            capital,
+            upgradeDemand(target, spec.slotsPerLevel, crowded, idle, topLevel),
+            investRoll,
+            temperPm,
+            c.npc,
+          )
+        )
+          continue;
         const ms = withBuilders(
           buildTimeAt(build, level, weight, c.facilityBuild).ms,
           helpers,

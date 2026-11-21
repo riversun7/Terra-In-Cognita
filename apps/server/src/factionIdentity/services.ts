@@ -41,6 +41,7 @@ import type { HouseCityService } from "./houseCity.ts";
 import { cyborgCityOf, homeChoices } from "./houseHome.ts";
 import { dismissHouseNotices, readHouseView } from "./houseView.ts";
 import { notify } from "./members.ts";
+import { type LeagueRow, loadLeagues } from "./leagueStore.ts";
 import { checkPlayerEmblemPng } from "./png.ts";
 import { type HouseRules, TEST_HOUSE_RULES } from "./rules.ts";
 import {
@@ -138,6 +139,8 @@ export interface FactionIdentityServices {
   report(viewer: IdentityViewer, input: { factionId: number }): Promise<FactionReportResult>;
   /** 내 가문·받은 초대·보낸 신청·가입할 수 있는 가문·가문 소식(질문 985 다) */
   house(viewer: IdentityViewer): Promise<HouseView>;
+  /** 끝나지 않은 가문 연맹(조약 — npc-invest-2, leagueStore.ts). 누구나 본다(나라와 상관없는 우호 기능) */
+  leagues(): Promise<readonly LeagueRow[]>;
   /** 가문 소식을 확인했다(ids가 없으면 모두) */
   dismissHouseNotices(
     viewer: IdentityViewer,
@@ -472,6 +475,7 @@ export function createFactionIdentityServices(
     },
 
     house: houseOf,
+    leagues: async () => (await loadLeagues(pool)).leagues,
 
     async dismissHouseNotices(viewer, input) {
       await dismissHouseNotices(pool, viewer.id, input.ids ?? null);

@@ -318,8 +318,15 @@
  *    "바뀜 (2026-11-22, D-587 …)", npc/invest.ts): 세력 판단의 연구 시설 점수에서 비용 몫(값 ÷ 국고 × npc_invest_cost_weight_pm)을 빼고, 다음 기술이
  *    막히지 않은 앞선 연구는 도전 굴림(흐름 STREAM_INVEST 11 — (국고 ÷ 값 − 1배) × 걸음, 상한)을 넘을 때만 후보가 된다. 칸을 0·1000·1000으로
  *    두면 옛 판과 같다. 비접속 상한 빼기(settle/owner.ts offlineExempt)는 시뮬이 쓰지 않는다
+ * 112(줄기 npc-invest-2 판 — 묶음이 다시 매긴다): NPC 투자 판단을 시설 짓기·레벨 올리기·구인 카드로 넓힘(질문 2508 나·다 — D-586·D-587 8,
+ *    docs/adr/2026-11-21-npc-needs-drives.md "바뀜 (npc-invest-2)"). 같은 판단의 투자 굴림 흐름(STREAM_INVEST 11)에서 둘째 = 구인, 셋째 = 짓기
+ *    (첫째 = 연구는 그대로, npcRun.ts investRollsOf). ① 짓기(npc/build.ts rules.invest): 후보 점수에서 재료 값(지난 값) ÷ 국고 비용 몫을 빼고,
+ *    이미 있는 채집 시설을 더 짓는 후보는 도전 굴림(성향 배율 = 상업)을 넘을 때만. ② 레벨 올리기(npcBuild.ts): 수요(붐빈 숙소·일꾼이 자리를 다 채움·
+ *    일 없는 휴먼이 있음 — npc/build.ts upgradeDemand)가 없으면 그 레벨 재료 값으로 도전 굴림. ③ 구인 카드(npc/policy.ts recruitPicks invest): 살 수
+ *    있는 가장 싼 카드와, 더 비싼 카드 가운데 도전 굴림(성향 배율 — 경비대 = 공격, 일꾼 = 상업)을 넘는 카드 가운데 토탈이 가장 높은 카드. 수는 그대로.
+ *    옛 판으로 되돌리는 설정 칸 조합은 없다(구인은 가장 싼 카드가 늘 후보). 출력 칸 모양 그대로 — 형식 23
  */
-export const SIM_VERSION = 72;
+export const SIM_VERSION = 112;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

@@ -9,7 +9,7 @@ import type { WorldWriter } from "../world/persist/writer.ts";
 import { ASSET_CREDIT } from "../world/settlement.ts";
 import type { World } from "../world/world.ts";
 import type { ShareLevy } from "./levy.ts";
-import type { NpcShareNation } from "./npcTrade.ts";
+import type { NpcShareHouse, NpcShareNation } from "./npcTrade.ts";
 import { createWorldShareLevy } from "./levyWorld.ts";
 import type { ShareMarketView } from "@terra/shared/businessBooks";
 import type { ExchangeKind } from "@terra/shared/exchange";
@@ -54,6 +54,8 @@ export interface CitySharePort {
   levy(): ShareLevy | undefined;
   /** NPC가 이끄는 살아 있는 나라들(NPC 지분 사기 — npcTrade.ts, D-587 질문 2471 다). 선출된 플레이어 지도자·빈자리 나라는 빠진다 */
   npcNations(): readonly NpcShareNation[];
+  /** NPC 가문들(가문 금고 사기 — 질문 2522 나, npc-invest-2). 지배 쪽이 NPC인 나라의 도시 가문만. 없으면 가문은 사지 않는다 */
+  npcHouses?(): readonly NpcShareHouse[];
 }
 
 type ShareWorld = Pick<World, "status" | "npc" | "persistence">;
@@ -103,6 +105,23 @@ export function worldCitySharePort(world: () => ShareWorld | undefined): CitySha
           asset: l.npc.economy?.economy.currencyOf.get(faction.id) ?? ASSET_CREDIT,
           commerce: faction.traits.commerce,
         });
+      }
+      return out;
+    },
+    npcHouses() {
+      const l = live();
+      if (!l) return [];
+      const out: NpcShareHouse[] = [];
+      for (const city of [...l.npc.world.cities.values()].toSorted((a, b) => a.id - b.id)) {
+        const nation = l.npc.world.factions.get(city.owner);
+        // 플레이어 가문 도시·플레이어가 이끄는 나라의 도시 가문은 빼고 NPC 쪽만(나라 사기와 같은 문)
+        if (!nation?.alive || nation.player || l.npc.cityHouses.controlOf(nation.id) !== "npc") continue;
+        const asset = l.npc.economy?.economy.currencyOf.get(nation.id) ?? ASSET_CREDIT;
+        for (const houseId of l.npc.cityHouses.housesOfCity(city.id)) {
+          const head = l.npc.cityHouses.headOf(houseId);
+          const greed = head === undefined ? undefined : l.npc.unitTraits(head)?.greed;
+          out.push({ houseId, asset, greed: greed ?? 500 });
+        }
       }
       return out;
     },

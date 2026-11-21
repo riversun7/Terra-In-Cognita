@@ -122,6 +122,16 @@ export function production(
   };
 }
 
+/** 그 도시에서 그날 임금을 받은 휴먼들의 상위 몫 평균(만족도 임금 요소의 견줄 값, 판 70). 받은 사람이 없으면 0 */
+export function topPaidWage(
+  units: readonly { readonly paidToday?: number | undefined }[],
+  c: SocietyCoefficients,
+): number {
+  const paid: number[] = [];
+  for (const unit of units) if ((unit.paidToday ?? 0) > 0) paid.push(unit.paidToday ?? 0);
+  return topShareAverage(paid, c);
+}
+
 export interface SatisfactionInputs {
   /** 생필품 충족도(포만감, D-438 5: 0~1000‰) */
   readonly foodPm: number;
@@ -130,6 +140,8 @@ export interface SatisfactionInputs {
   /** 그 유닛 임금과 같은 도시 같은 직무 상위 25% 평균(0이면 임금 요소 없음: 임금을 받지 않는 유닛) */
   readonly wage: number;
   readonly topAverageWage: number;
+  /** 임금 틀 안인데 그날 못 받았다(판 70 — 그 도시에 받은 사람이 있을 때 격차 불이익). 없으면 false */
+  readonly unpaid?: boolean | undefined;
   readonly faith: boolean;
   /** 그 세력이 전쟁 중 */
   readonly war: boolean;
@@ -147,7 +159,7 @@ export function satisfactionTarget(inputs: SatisfactionInputs, c: SocietyCoeffic
     const ratioPm = Math.min(1000, Math.floor((inputs.wage * 1000) / inputs.topAverageWage));
     points += Math.floor((t.wage * ratioPm) / 1000);
     if (ratioPm < t.wageGapFloorPm) points += t.wageGap;
-  }
+  } else if (inputs.unpaid === true && inputs.topAverageWage > 0) points += t.wageGap;
   if (inputs.faith) points += t.faith;
   if (inputs.war) points += t.war;
   if (inputs.injured) points += t.injury;

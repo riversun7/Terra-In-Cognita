@@ -118,9 +118,13 @@ export function assignHumanPlaces(input: {
   readonly trips?: readonly CityTrip[] | undefined;
   /** 운반꾼을 정했다(열쇠, 유닛) — 화물 싣기(npcCarry.ts load) */
   readonly onCarrier?: ((key: string, unitId: number) => void) | undefined;
-  /** 유닛 7축 성향(있고 ai.unitAiEnabled=1이면 8상태 FSM·경비대 순찰 반경 적용, ADR 2026-11-20) */
+  /** 유닛 7축 성향(있고 ai.unitAiEnabled=1이면 5상태 FSM·경비대 순찰 반경 적용, ADR 2026-11-20) */
   readonly traitsOf?: ((unitId: number) => UnitTraits | undefined) | undefined;
-  /** 도시 시장·상업 구역 네모(consume 상태 목적지) */
+  /** 유닛 욕구·만족도(그날 식사 몫 ‰·만족도 밀리점 — FSM 점수의 1차 값, ADR 2026-11-21-npc-needs-drives) */
+  readonly needsOf?: UnitNeedsLookup | undefined;
+  /** 가문 일 지시(일꾼 차례·지시 불복, npc/laborOrders.ts). 없으면 유닛 ID 차례 */
+  readonly laborOf?: UnitLaborLookup | undefined;
+  /** 도시 시장·상업 구역 네모(욕구 해결 need 상태 목적지) */
   readonly market?: TripArea | undefined;
   /** 소속 도시가 전쟁 중인지 */
   readonly cityAtWar?: boolean | undefined;
@@ -129,7 +133,13 @@ export function assignHumanPlaces(input: {
 }): Map<number, BotHome> {
   const shift = input.shift ?? DEFAULT_WORK_SHIFT;
   const out = new Map<number, BotHome>();
-  const humans = input.humans.toSorted((a, b) => a - b);
+  // 일꾼 차례: 가문 일 지시(laborOf — 임금 나눔 cityWorkerUnits와 같은 차례)가 있으면 그 차례, 지시 불복은 맨 뒤(일터를 받지 않는다)
+  const rankOf = (unitId: number): number => {
+    const labor = input.laborOf?.(unitId);
+    if (labor?.onStrike === true) return Number.MAX_SAFE_INTEGER;
+    return labor?.laborRank ?? Number.MAX_SAFE_INTEGER - 1;
+  };
+  const humans = input.humans.toSorted((a, b) => rankOf(a) - rankOf(b) || a - b);
   let next = 0;
   /** 시설 일꾼(받은 차례, 운반꾼이 아닌 사람) — 빈 일꾼 운반이 일 없는 휴먼보다 많으면 뒤에서부터 짬을 내 나른다(2155) */
   const spare: number[] = [];
@@ -212,12 +222,18 @@ export function assignHumanPlaces(input: {
     const traits = input.traitsOf?.(unitId);
     if (!traits) return base;
     const patrolRadius = role === "guard" ? guardPatrolRadiusCells(traits, input.ai) : base.homeRadius;
+    const needs = input.needsOf?.(unitId);
     return {
       ...base,
       ...(patrolRadius !== undefined ? { homeRadius: patrolRadius } : {}),
       role,
       traits,
       aiEnabled: true,
+      // 욕구·만족도(하루 끝마다 바뀐다). 만족도는 점 단위로 내려 자리 다시 넣기를 줄인다
+      ...(needs?.fedPm !== undefined ? { fedPm: needs.fedPm } : {}),
+      ...(needs?.satisfactionMilli !== undefined
+        ? { satisfactionMilli: Math.floor(needs.satisfactionMilli / 1000) * 1000 }
+        : {}),
       ...(input.market ? { market: input.market } : {}),
       ...(input.cityAtWar ? { cityAtWar: true } : {}),
       aiRules: input.ai,
@@ -233,6 +249,16 @@ export function assignHumanPlaces(input: {
   }
   return out;
 }
+
+/** 유닛의 욕구·만족도 조회(거울 세계 휴먼의 그날 식사 몫·만족도). 모르면 undefined */
+export type UnitNeedsLookup = (
+  unitId: number,
+) => { readonly fedPm?: number | undefined; readonly satisfactionMilli?: number | undefined } | undefined;
+
+/** 유닛의 가문 일 지시 조회(거울 세계 휴먼의 laborRank·onStrike) */
+export type UnitLaborLookup = (
+  unitId: number,
+) => { readonly laborRank?: number | undefined; readonly onStrike?: boolean | undefined } | undefined;
 
 /** 빈 일꾼 운반 하나(npcCarry.ts CarryJob의 보이는 몫) */
 export interface CityTrip {
@@ -280,6 +306,10 @@ export interface HumanPlacesInput {
   readonly carry?: { readonly board: Pick<CarryBoard, "load" | "idle">; readonly nowMs: number } | undefined;
   /** 유닛 7축 성향 조회(ADR 2026-11-20) */
   readonly traitsOf?: ((unitId: number) => UnitTraits | undefined) | undefined;
+  /** 유닛 욕구·만족도 조회(ADR 2026-11-21-npc-needs-drives) */
+  readonly needsOf?: UnitNeedsLookup | undefined;
+  /** 가문 일 지시 조회(일꾼 차례·지시 불복) */
+  readonly laborOf?: UnitLaborLookup | undefined;
   /** 도시 시장·상업 구역 건물 ID 조회 */
   readonly marketOf?: ((cityId: number) => number | undefined) | undefined;
   /** 도시 전쟁 여부 조회 */
@@ -368,6 +398,8 @@ export function createHumanPlaces(): { sync(input: HumanPlacesInput): number } {
             ? { trips: carry.board.idle(cityId, carry.nowMs), onCarrier: loadOf(carry) }
             : {}),
           traitsOf: input.traitsOf,
+          needsOf: input.needsOf,
+          laborOf: input.laborOf,
           market: (() => {
             const marketBuildingId = input.marketOf?.(cityId);
             return marketBuildingId === undefined

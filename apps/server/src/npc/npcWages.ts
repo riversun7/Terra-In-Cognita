@@ -118,6 +118,7 @@ export function createNpcWages(deps: NpcWagesDeps): {
         wagePm: c.business.npcWagePm,
         baseDailyWage: npcBaseDailyWage(c),
         foodEfficiency: c.foodEfficiency,
+        buildersMax: c.npc.buildBuildersMax,
       };
     },
     wageSource: ({ facilityId, owner, currency, need, atMs }) => {

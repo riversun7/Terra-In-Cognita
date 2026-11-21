@@ -218,6 +218,24 @@ export interface SimUnit {
    * 공격받으면 먼저 수비로 나서고(defenseOrder), 원정에는 다른 유닛이 모자랄 때만 나선다. 그 밖의 규칙(생필품·만족도·수명·세력 힘)은 휴먼과 같다
    */
   guard?: boolean | undefined;
+  /**
+   * 그날 받은 생필품 몫(‰, 0~1000 — humanPurse.ts livingDay가 하루 끝에 적는다: 받는 차례가 경계마다 받은 수 안이면 받았다). 하루 끝 만족도의
+   * 포만감 요소가 도시 평균 대신 이 값을 쓴다(docs/adr/2026-11-21-npc-needs-drives.md). 없으면(경제 없음·임금 끔·받을 것 없음) 도시 평균.
+   * 저장하지 않는다(서버를 다시 켜면 다음 하루 끝까지 도시 평균)
+   */
+  fedPm?: number | undefined;
+  /**
+   * 그날 받은 임금(최소 단위, humanPurse.ts livingDay — 일꾼·건설 도우미, 서버는 가문 돌봄 배당을 더한다). 하루 끝 만족도의 임금 요소가 그 도시
+   * 상위 몫 평균과 견준다(판 70, D-433). 0 = 못 받음, 없으면(경비대·임금 끔·경제 없음) 임금 요소 없음. 저장하지 않는다
+   */
+  paidToday?: number | undefined;
+  /**
+   * 가문 일 지시(서버 npc/laborOrders.ts가 적는다 — 시뮬은 가문이 없어 비운다, docs/adr/2026-11-21-npc-needs-drives.md "바뀜 (가문 일 지시)"):
+   * laborRank = 그 도시 일꾼 자리를 채우는 차례(작을수록 먼저, 없으면 유닛 ID 차례로 그 뒤), onStrike = 그날 지시를 따르지 않음(일꾼으로 세지
+   * 않는다). 일꾼 ↔ 휴먼 나눔(humanPurse.ts cityWorkerUnits)이 읽는다. 저장하지 않는다
+   */
+  laborRank?: number | undefined;
+  onStrike?: boolean | undefined;
 }
 
 /** 수비 차례: 경비대 먼저, 그다음 유닛 ID 차례 */

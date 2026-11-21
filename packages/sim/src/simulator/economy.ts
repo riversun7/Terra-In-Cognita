@@ -222,6 +222,8 @@ export interface Economy {
     produced: Map<string, bigint>;
     /** 도시 → 생필품 → 경계마다 받은 사람 수(휴먼 지갑 생활비, humanPurse.ts noteServed). 하루 끝 livingDay가 비운다 */
     served?: Map<number, Map<string, number[]>> | undefined;
+    /** 오늘 짓고 있던 도시(NPC 짓기 npcBuild.ts buildPolicy가 판단마다 적는다) — 하루 끝 livingDay가 건설 도우미 임금에 쓰고 비운다 */
+    building?: Set<number> | undefined;
   };
 }
 

@@ -297,8 +297,16 @@
  * 68: 가파른 비탈(지형 칸 높이 차 ≥ CLIFF_RELIEF_CM)을 막힘에서 느린 길로(terrain/layerCosts.ts STEEP_COST_PM — 지표 비용 × 4, 구간
  *    빠르기로 실제로 1/4 빠르기). 비탈에 둘러싸인 땅에 유닛이 갇혔다(사용자 지적 2026-11-21, ADR 2026-11-21-steep-slope-pace). 건물은
  *    비탈(비용 ≥ STEEP_COST_FLOOR)에 여전히 못 짓는다. 비탈이 있는 지형의 길·경로 시간이 바뀐다
+ * 69: 하루 끝 만족도의 포만감 요소가 도시 평균 생필품 충족 대신 그 휴먼이 그날 받은 몫(SimUnit.fedPm — humanPurse.ts livingDay가 적는다,
+ *    받는 차례 = 일꾼 먼저)을 본다(docs/adr/2026-11-21-npc-needs-drives.md). 모자란 날에는 못 받은 휴먼의 만족도만 떨어진다(예전: 모두 같이).
+ *    도시 평균 목표값은 그대로(목표가 포만감에 선형). 경제가 없거나 임금을 끈 판(business_npc_wage_mode 0)은 옛 판과 같다
+ * 70: 임금이 만족도에 든다 + 건설 도우미 임금(docs/adr/2026-11-21-npc-needs-drives.md "바뀜 (임금·가문 금고)"). ① 하루 끝 만족도의 임금
+ *    요소(D-433)가 NPC 휴먼에게도 든다: 그날 받은 임금(SimUnit.paidToday)을 그 도시에서 받은 사람들의 상위 몫 평균과 견주고, 임금 틀 안인데
+ *    못 받은 휴먼은 격차 불이익(wageGap). 경비대·임금 끈 판·경제 없는 시나리오는 예전처럼 임금 요소가 없다. ② 그날 짓고 있던 도시
+ *    (Economy.today.building — npcBuild.ts buildPolicy가 적는다)의 일 없는 휴먼은 npc_build_builders_max명까지 도시 주인 국고에서 일꾼과 같은
+ *    임금을 받는다(livingDay — 모자라면 못 받는다). 출력 칸 모양 그대로(living.wages에 도우미 임금이 든다) — 형식 23
  */
-export const SIM_VERSION = 68;
+export const SIM_VERSION = 70;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

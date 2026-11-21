@@ -1,6 +1,6 @@
 # NPC 자율행동·인공지능 통합 설계: 7축 양극 성향, 충성도 연동 계층 합성, 전용 에디터(/dev/npc-ai)
 
-- 상태: 확정 (2026-11-20, 사용자 승인)
+- 상태: 확정 (2026-11-20, 사용자 승인) (일부 대체됨: 2026-11-21-npc-needs-drives.md — 3절 유닛 일상 8상태 → 5상태 + 2차 지수 층)
 - 날짜: 2026-11-20
 - 관련: `docs/PLAN.md` 4.4·6·7장, ADR `2026-11-01-npc-brain-r5.md`, `2026-10-31-faction-society-core.md`, `2026-10-31-combat-core.md`, `2026-11-10-nation-editor.md`, `2026-11-10-editor-input-controls.md`, `2026-11-11-faction-identity.md`, `2026-11-15-combat-moves.md`, `2026-11-15-unloaded-second-maps.md`, 기획 `46_Faction_Society.md`(D-212·D-217·D-253·D-323·D-327·D-554·D-569·D-573·D-5062)·`45_Combat.md`(D-558·D-5039·D-5040)·`41_Time_Units.md`(D-097·D-127)
 

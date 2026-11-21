@@ -87,3 +87,40 @@ export function npcVoteChoice(input: NpcVoteInput, rules: NpcVoteRules): string 
   if (score > 0) return "yes";
   return score < 0 ? "no" : "abstain";
 }
+
+// ---------- NPC 후보(질문 2404 나 — 기획 대조: 현직만이 아니라 다른 NPC 가문도 성향 규칙식으로 나선다, D-555 1509·D-580 7, 줄기 governance-2) ----------
+// 출마 점수(D-323 점수 고르기 + 성향 프리셋 + 규칙식) = 그 가문 도시 만족도가 현직 편 문턱보다 낮은 만큼 × 2 + 공격 성향 − 신앙 성향(성향은 −50~50).
+// 점수 ≥ 설정 칸 gov_npc_run_score인 가문 가운데 높은 차례(같으면 가문 ID 작은 쪽)로 gov_npc_run_max개까지 나선다. 판정에 난수를 쓰지 않는다.
+
+export interface NpcRunInput {
+  readonly key: HouseKey;
+  readonly id: number;
+  readonly satisfaction: number | undefined;
+  readonly traits: NpcTraits;
+}
+
+export interface NpcRunRules {
+  readonly npcKeepSatisfaction: number;
+  readonly npcRunScore: number;
+  readonly npcRunMax: number;
+}
+
+/** NPC 가문 하나의 출마 점수 */
+export function npcRunScore(input: NpcRunInput, rules: Pick<NpcRunRules, "npcKeepSatisfaction">): number {
+  const keep =
+    input.satisfaction === undefined || !Number.isFinite(input.satisfaction)
+      ? 0
+      : Math.trunc(input.satisfaction) - rules.npcKeepSatisfaction;
+  return -keep * 2 + lean(input.traits.aggression) - lean(input.traits.faith);
+}
+
+/** 나설 도전자 NPC 가문(점수 높은 차례) */
+export function npcChallengers(houses: readonly NpcRunInput[], rules: NpcRunRules): HouseKey[] {
+  if (rules.npcRunMax <= 0) return [];
+  return houses
+    .map((house) => ({ house, score: npcRunScore(house, rules) }))
+    .filter((row) => row.score >= rules.npcRunScore)
+    .toSorted((a, b) => b.score - a.score || a.house.id - b.house.id)
+    .slice(0, rules.npcRunMax)
+    .map((row) => row.house.key);
+}

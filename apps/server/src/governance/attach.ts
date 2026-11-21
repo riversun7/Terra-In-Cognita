@@ -13,6 +13,8 @@ import { type GovernanceView, createGovernanceView } from "./view.ts";
 
 /** 의결 틱 간격(ms) */
 export const GOVERNANCE_TICK_MS = 60_000;
+/** 켤 때 세계 준비를 보는 간격(ms) */
+const GOVERNANCE_BOOT_POLL_MS = 5_000;
 
 export interface GovernanceAttached {
   readonly service: GovernanceService;
@@ -38,5 +40,24 @@ export function attachGovernance(o: {
   const gateway = createGovernanceGateway({ service: () => service, now: o.now, log: o.log });
   const timer = o.manual ? undefined : setInterval(() => void service.tick(), GOVERNANCE_TICK_MS);
   timer?.unref();
-  return { service, view, gateway, stop: () => clearInterval(timer) };
+  // 켤 때: 세계가 준비되면 바로 한 번 돈다(지배 가문 반영·지분 정리를 첫 1분 틱까지 미루지 않는다 — governance-2)
+  let boot: ReturnType<typeof setTimeout> | undefined;
+  const first = (): void => {
+    if (port.ready()) {
+      void service.tick();
+      return;
+    }
+    boot = setTimeout(first, GOVERNANCE_BOOT_POLL_MS);
+    boot.unref();
+  };
+  if (!o.manual) first();
+  return {
+    service,
+    view,
+    gateway,
+    stop: () => {
+      clearInterval(timer);
+      clearTimeout(boot);
+    },
+  };
 }

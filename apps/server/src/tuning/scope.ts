@@ -388,6 +388,10 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "governance.warAgenda",
   "governance.npcKeepSatisfaction",
   "governance.npcWarTraitPm",
+  "governance.npcRunScore",
+  "governance.npcRunMax",
+  "governance.vacancySplitMs",
+  "governance.coupSatisfactionDrop",
 ];
 
 const LIVE = new Set(SERVER_LIVE_PATHS);

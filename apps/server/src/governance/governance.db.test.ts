@@ -2,8 +2,10 @@
 // 민주주의 NPC 나라에서 플레이어 가문장이 선출을 열고 후보로 나서 NPC 가문 표로 이겨 지배 가문이 된다(2358 가) → 지도자가 체제 전환(자본주의)을
 // 올려 가결 → 7일 유예 뒤 집행(D-131) → 자본주의에서 국고 지분이 기권이면 투표권이 비고(2356 [임시]) 지배 쪽 지분 과반이라 지도자 직권으로 독재
 // (D-344) → 독재는 표가 없고 지도자 직권만(D-217). 선전포고 가결은 바로 전쟁. 해임 가결은 다시 뽑기를 연다(해임된 가문은 못 나선다).
+// 바뀜(governance-2): 국고 지분은 지배 쪽이 아니다(D-298·D-581) — 국고만이면 no_majority. 자본주의 NPC 나라 처음 지분은 세운 가문·수도는 지배 가문(D-582).
+// 독재 나라 국고 지분은 지배 가문 계정으로(D-338 — NAS 옛 세계 첫 틱). NPC 도전자(2404 나)·지배 가문 반영(2406)·빈자리(2403 답 D-582)·일찍 끝내기(2410 가).
 import { loadContentPack } from "@terra/content/node";
-import { DAY_MS, HOUR_MS } from "@terra/sim";
+import { DAY_MS, HOUR_MS, holdingsOf, houseHoldingsOf } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { createContentEditState } from "../contentEdit/state.ts";
@@ -13,6 +15,7 @@ import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "
 import { silentLog } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
 import { attachGovernance } from "./attach.ts";
+import { confiscateSharesToHouse, houseKeyOfTail } from "./houseShares.ts";
 import { type GovernanceRules, TEST_GOVERNANCE_RULES } from "./rules.ts";
 
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
@@ -128,7 +131,13 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결(governance)", () => {
       await npc.tick(true);
     }
     // NPC 표: 만족도 문턱을 100 넘게 두어 NPC 가문은 늘 바꾸는 쪽(도전자·찬성)에 선다
-    let rules: GovernanceRules = { ...TEST_GOVERNANCE_RULES, npcKeepSatisfaction: 101, registerMs: HOUR_MS };
+    // NPC 도전자는 끈다(이 시험은 플레이어 가문이 이기는 길 — 도전자는 아래 셋째 시험)
+    let rules: GovernanceRules = {
+      ...TEST_GOVERNANCE_RULES,
+      npcKeepSatisfaction: 101,
+      registerMs: HOUR_MS,
+      npcRunMax: 0,
+    };
     const gov = attachGovernance({
       db: test.db,
       world: () => world,
@@ -202,10 +211,14 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결(governance)", () => {
     const regime = await gov.service.propose(leader.userId, { kind: "regime_change", regime: "capitalism" });
     if (!regime.ok) throw new Error(regime.code);
     await gov.service.vote(leader.userId, regime.agendaId, "yes");
-    await gov.service.tick();
-    clock += rules.periodOf("regime_change");
+    // NPC 표가 결과를 정하면 기간 끝을 기다리지 않고 닫는다(2410 가) — 아니면 기간 끝에
     await gov.service.tick();
     view = await gov.view(leader.userId);
+    if (view.agendas.find((agenda) => agenda.id === regime.agendaId)?.status === "open") {
+      clock += rules.periodOf("regime_change");
+      await gov.service.tick();
+      view = await gov.view(leader.userId);
+    }
     const passed = view.agendas.find((agenda) => agenda.id === regime.agendaId);
     expect(passed?.status).toBe("passed");
     expect(passed?.effectAtMs).toBe(clock + rules.graceRegimeMs);
@@ -224,10 +237,29 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결(governance)", () => {
     ).toBe("capitalism");
     expect(saved).toBeDefined();
 
-    // 자본주의: 국고 지분은 기권(투표권에서 뺌 [임시]) — 국고가 지분을 다 가져 투표권이 비고 지배 쪽 몫은 1000‰
+    // 자본주의: 국고 지분은 지배 쪽이 아니다(D-298·D-581) — 국고만 지분을 가지면 지배 쪽 0‰, 독재로 갈 수 없다
+    view = await gov.view(leader.userId);
+    expect(view.nation?.rulingSharePm).toBe(0);
+    expect(view.agendas.find((agenda) => agenda.id === regime.agendaId)?.status).toBe("enacted");
+    expect(
+      await gov.service.propose(leader.userId, { kind: "regime_change", regime: "dictatorship" }),
+    ).toEqual({ ok: false, code: "no_majority" });
+    // 다음 틱: 자본주의 NPC 나라 처음 지분 → 세운 가문, 수도 → 지배 가문(D-582)
+    await gov.service.tick();
+    const book = npc.world.book;
+    const capital = npc.capitalOf(faction.id);
+    for (const cityId of faction.cities) {
+      const founder = npc.cityHouses.housesOfCity(cityId)[0];
+      // 가문이 아직 없는 도시는 가문이 생긴 뒤에 옮긴다
+      if (cityId !== capital && founder === undefined) continue;
+      expect(holdingsOf(book, cityId).find((row) => row.owner === faction.id)).toBeUndefined();
+      const holders = houseHoldingsOf(book, cityId).map((row) => houseKeyOfTail(row.house));
+      expect(holders).toEqual([cityId === capital ? key : `n:${founder}`]);
+    }
+    // 지배 가문이 지분을 다 사 모으면(시험은 몰수 도우미로 흉내) 과반
+    confiscateSharesToHouse(book, [...faction.cities], key, clock);
     view = await gov.view(leader.userId);
     expect(view.nation?.rulingSharePm).toBe(1000);
-    expect(view.agendas.find((agenda) => agenda.id === regime.agendaId)?.status).toBe("enacted");
     // 지분 과반 → 지도자 직권으로 독재(D-344, 2363 가) — 유예 뒤 집행
     const decree = await gov.service.propose(leader.userId, {
       kind: "regime_change",
@@ -267,6 +299,7 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결(governance)", () => {
         "governance.ruling_house",
         "governance.regime_enacted",
         "governance.regime_decree",
+        "governance.shares_to_house",
       ]),
     );
     gov.stop();
@@ -279,7 +312,7 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결(governance)", () => {
       clock += 30 * 60_000;
       await npc.tick(true);
     }
-    const rules: GovernanceRules = { ...TEST_GOVERNANCE_RULES, npcKeepSatisfaction: 101, npcWarTraitPm: 0 };
+    let rules: GovernanceRules = { ...TEST_GOVERNANCE_RULES, npcKeepSatisfaction: 101, npcWarTraitPm: 0 };
     const gov = attachGovernance({
       db: test.db,
       world: () => world,
@@ -311,8 +344,12 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결(governance)", () => {
     });
     await gov.service.vote(leader.userId, war.agendaId, "yes");
     await gov.service.tick();
-    clock += rules.periodOf("war_declaration");
-    await gov.service.tick();
+    if (
+      (await gov.view(leader.userId)).agendas.find((agenda) => agenda.id === war.agendaId)?.status === "open"
+    ) {
+      clock += rules.periodOf("war_declaration");
+      await gov.service.tick();
+    }
     const targetOwner = npc.houses.ownerOfRow(target.id) ?? -2;
     // 전쟁이 선다(같은 틱에 NPC 판단이 강화를 맺었으면 불가침이 남는다 — 선포는 된 것)
     expect(faction.wars.has(targetOwner) || faction.truces.has(targetOwner)).toBe(true);
@@ -320,14 +357,20 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결(governance)", () => {
       "enacted",
     );
 
-    // 해임: NPC 가문이 찬성(만족도 문턱 101) → 가결 → 다시 뽑기(해임된 지배 가문은 후보가 아니다)
+    // 해임: NPC 가문이 찬성(만족도 문턱 101) → 가결 → 다시 뽑기(해임된 지배 가문은 후보가 아니다). 도전자를 꺼서 다시 뽑기에 후보가 없게 한다
+    rules = { ...rules, npcRunMax: 0 };
     const before = (await gov.view(leader.userId)).nation?.rulingHouse?.key;
     const removal = await gov.service.propose(leader.userId, { kind: "leader_removal" });
     if (!removal.ok) throw new Error(removal.code);
     await gov.service.vote(leader.userId, removal.agendaId, "yes");
     await gov.service.tick();
-    clock += rules.periodOf("leader_removal");
-    await gov.service.tick();
+    if (
+      (await gov.view(leader.userId)).agendas.find((agenda) => agenda.id === removal.agendaId)?.status ===
+      "open"
+    ) {
+      clock += rules.periodOf("leader_removal");
+      await gov.service.tick();
+    }
     const after = await gov.view(leader.userId);
     expect(after.agendas.find((agenda) => agenda.id === removal.agendaId)?.status).toBe("enacted");
     const snap = after.agendas.find(
@@ -335,6 +378,97 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결(governance)", () => {
     );
     expect(snap?.barred?.key).toBe(before);
     expect(snap?.candidates.some((row) => row.key === before)).toBe(false);
+    // 다시 뽑기에 후보가 없어 실패 → 지도자 빈자리(2403 답 D-582) → NPC 런타임에도 지배 가문이 없다
+    clock += rules.periodOf("leader_election");
+    await gov.service.tick();
+    await gov.service.tick();
+    const vacant = await gov.view(leader.userId);
+    expect(vacant.agendas.find((agenda) => agenda.id === snap?.id)?.status).toBe("failed");
+    expect(vacant.nation?.rulingHouse).toBeNull();
+    expect(npc.cityHouses.rulingHouseOf(owner)).toBeUndefined();
+    const vacantAudit = await rows<{ action: string }>(
+      test.db,
+      "select action from audit_log where action = 'governance.vacant'",
+    );
+    expect(vacantAudit.length).toBe(1);
+    gov.stop();
+  }, 120_000);
+  it("독재 나라 국고 지분 → 지배 가문 계정(D-338, 첫 틱·멱등), NPC 도전자가 나서고 이기면 NPC 런타임 지배 가문이 바뀐다(2404 나·2406)", async () => {
+    const world = await boot();
+    const { npc } = parts(world);
+    for (let i = 0; i < 4; i += 1) {
+      clock += 30 * 60_000;
+      await npc.tick(true);
+    }
+    let rules: GovernanceRules = {
+      ...TEST_GOVERNANCE_RULES,
+      npcKeepSatisfaction: 101,
+      registerMs: HOUR_MS,
+      npcRunMax: 1,
+      // 임기를 짧게 — 둘째 틱에 자동 선출이 열린다
+      termMs: 1,
+    };
+    const gov = attachGovernance({
+      db: test.db,
+      world: () => world,
+      rules: () => rules,
+      now: () => clock,
+      log: silentLog,
+      manual: true,
+    });
+    const first = await citizen(world, "Dicone", 0);
+    const second = await citizen(world, "Demone", 1);
+    const dictator = npc.world.factions.get(npc.houses.ownerOfRow(first.nation) ?? -1);
+    const demo = npc.world.factions.get(npc.houses.ownerOfRow(second.nation) ?? -1);
+    if (!dictator || !demo) throw new Error("nations");
+    dictator.regime = "dictatorship";
+    demo.regime = "democracy";
+    const ruling = npc.cityHouses.rulingHouseOf(dictator.id);
+    if (!ruling) throw new Error("no ruling house");
+    await gov.service.tick();
+    const book = npc.world.book;
+    for (const cityId of dictator.cities) {
+      expect(book.balanceOf(dictator.id, `share_${cityId}`)).toBe(0n);
+      expect(houseHoldingsOf(book, cityId).map((row) => [row.house, row.amount])).toEqual([
+        [`npc:${ruling.id}:`, 1000n],
+      ]);
+    }
+    const moved = await rows<{ n: string }>(
+      test.db,
+      "select count(*)::text as n from audit_log where action = 'governance.shares_to_house'",
+    );
+    await gov.service.tick();
+    const again = await rows<{ n: string }>(
+      test.db,
+      "select count(*)::text as n from audit_log where action = 'governance.shares_to_house'",
+    );
+    expect(Number(moved[0]?.n)).toBeGreaterThan(0);
+    expect(again[0]?.n).toBe(moved[0]?.n);
+
+    // 민주주의 NPC 나라: 짧은 임기 → 둘째 틱에 자동 선출 → NPC 도전자 하나가 스스로 나선다
+    let view = await gov.view(second.userId);
+    const election = view.agendas.find(
+      (agenda) => agenda.kind === "leader_election" && agenda.status === "open",
+    );
+    if (!election) throw new Error("no election");
+    const incumbent = view.nation?.rulingHouse?.key;
+    const challengers = election.candidates.filter((row) => row.key !== incumbent);
+    expect(challengers.length).toBe(1);
+    expect(challengers[0]?.npc).toBe(true);
+    rules = { ...rules, termMs: TEST_GOVERNANCE_RULES.termMs };
+    clock += rules.registerMs + 60_000;
+    await gov.service.tick();
+    clock += rules.periodOf("leader_election");
+    await gov.service.tick();
+    await gov.service.tick();
+    view = await gov.view(second.userId);
+    const done = view.agendas.find((agenda) => agenda.id === election.id);
+    expect(done?.status).toBe("enacted");
+    const winner = done?.winner?.key;
+    expect(view.nation?.rulingHouse?.key).toBe(winner);
+    // NPC 런타임의 지배 가문(금고·정부 판·지도)이 같은 가문을 따른다
+    if (winner?.startsWith("n:"))
+      expect(npc.cityHouses.rulingHouseOf(demo.id)?.id).toBe(Number(winner.slice(2)));
     gov.stop();
   }, 120_000);
 });

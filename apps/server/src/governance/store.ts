@@ -76,6 +76,8 @@ export interface StateRow {
   readonly electedAtMs: number | null;
   readonly termEndsAtMs: number | null;
   readonly shareVotesSuspended: boolean;
+  /** 지도자 빈자리가 된 시각(질문 2403 답 D-582). 없으면 null */
+  readonly vacantSinceMs: number | null;
 }
 
 /** 플레이어 가문(그 나라 소속 — 가문장) */
@@ -312,7 +314,8 @@ export function createGovernanceStore(pool: GovernanceQueryable) {
     },
     async states(): Promise<Map<number, StateRow>> {
       const { rows } = await pool.query(
-        "select nation_id, ruling_house_key, elected_at_ms, term_ends_at_ms, share_votes_suspended from governance_state",
+        `select nation_id, ruling_house_key, elected_at_ms, term_ends_at_ms, share_votes_suspended, vacant_since_ms
+           from governance_state`,
       );
       return new Map(
         rows.map((row) => {
@@ -325,6 +328,7 @@ export function createGovernanceStore(pool: GovernanceQueryable) {
               electedAtMs: numOrNull(row.elected_at_ms),
               termEndsAtMs: numOrNull(row.term_ends_at_ms),
               shareVotesSuspended: row.share_votes_suspended === true,
+              vacantSinceMs: numOrNull(row.vacant_since_ms),
             },
           ];
         }),
@@ -332,11 +336,12 @@ export function createGovernanceStore(pool: GovernanceQueryable) {
     },
     async saveState(state: StateRow, atMs: number): Promise<void> {
       await pool.query(
-        `insert into governance_state (nation_id, ruling_house_key, elected_at_ms, term_ends_at_ms, share_votes_suspended, updated_at_ms)
-         values ($1, $2, $3, $4, $5, $6)
+        `insert into governance_state (nation_id, ruling_house_key, elected_at_ms, term_ends_at_ms, share_votes_suspended, updated_at_ms,
+           vacant_since_ms)
+         values ($1, $2, $3, $4, $5, $6, $7)
          on conflict (nation_id) do update set ruling_house_key = excluded.ruling_house_key, elected_at_ms = excluded.elected_at_ms,
            term_ends_at_ms = excluded.term_ends_at_ms, share_votes_suspended = excluded.share_votes_suspended,
-           updated_at_ms = excluded.updated_at_ms`,
+           updated_at_ms = excluded.updated_at_ms, vacant_since_ms = excluded.vacant_since_ms`,
         [
           state.nationId,
           state.rulingHouseKey,
@@ -344,7 +349,20 @@ export function createGovernanceStore(pool: GovernanceQueryable) {
           state.termEndsAtMs,
           state.shareVotesSuspended,
           atMs,
+          state.vacantSinceMs,
         ],
+      );
+    },
+    /** 처음 지분을 세운 가문으로 옮긴 도시(D-582 — 도시마다 한 번) */
+    async fixedCities(): Promise<Set<number>> {
+      const { rows } = await pool.query("select city_id from governance_share_fixups");
+      return new Set(rows.map((row) => num(row.city_id)));
+    },
+    async markFixed(cityId: number, houseKey: HouseKey, shares: bigint, atMs: number): Promise<void> {
+      await pool.query(
+        `insert into governance_share_fixups (city_id, house_key, shares, done_at_ms) values ($1, $2, $3, $4)
+         on conflict (city_id) do nothing`,
+        [cityId, houseKey, shares.toString(), atMs],
       );
     },
     /**

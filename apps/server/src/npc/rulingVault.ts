@@ -16,10 +16,12 @@
 //   있으면 먼저 갚는다). 나누기는 금고가 가장 모자란 곳부터 고르게(rulingSpend.ts splitInvest). NPC 사업장 장부(business_npc_books)가 꺼져 있거나 그 도시에
 //   사업장이 없으면 국고에 남는다(옛 길).
 // - 플레이어 가문 나라는 그대로(factionIdentity/houseVault.ts rulingVaultOf — 그 가문 금고).
+// - 바뀜(governance-2, 질문 2406): 지배 가문은 의결이 정한 값(cityHouses.ts setRuling)을 따른다. NPC 나라의 지배 가문이 선출로 플레이어 가문이 되면 남은 이익의
+//   국고 몫은 그 플레이어 가문 금고(vault:house:<가문 행>:<자산>)로 가고, 돌려보내기·가문장 꺼내기(NPC 행동)는 하지 않는다(가문장이 house_vault_take로 꺼낸다).
 import { unitPurseLocation } from "@terra/shared/businessBooks";
 import { type SimFaction, type SimHooks, type SocietyCoefficients, npcRulingVaultReturnPm } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
-import { HOUSE_VAULT_PREFIX } from "../factionIdentity/houseVault.ts";
+import { HOUSE_VAULT_PREFIX, houseVaultCode } from "../factionIdentity/houseVault.ts";
 import type { NpcCityHouses } from "./cityHouses.ts";
 import type { CityFacility } from "./economy.ts";
 import type { NpcBusiness } from "./npcDelivery.ts";
@@ -146,6 +148,8 @@ export function withNpcRulingVault(
     readonly ledger: VaultLedger;
     /** 그 나라(소유 주체 ID)의 지배 가문 NPC 가문 ID. 없으면 undefined */
     readonly rulingHouseOf: (owner: number) => number | undefined;
+    /** 그 나라 지배 가문이 선출된 플레이어 가문이면 그 가문 세력 행(governance-2). 없으면 undefined */
+    readonly rulingPlayerHouseOf?: ((owner: number) => number | undefined) | undefined;
     readonly rule: () => NpcVaultRule;
     /** 그 나라(nation) 지배 가문의 가문장·가문원(house-9). 없으면 가문장 꺼내기를 하지 않는다 */
     readonly headOf?: ((houseId: number, nation: number) => RulingHead | undefined) | undefined;
@@ -159,9 +163,16 @@ export function withNpcRulingVault(
     const house = o.rulingHouseOf(faction.id);
     return house === undefined ? undefined : o.ledger.systemAccount(npcHouseVaultCode(house, asset), asset);
   };
+  /** 선출된 플레이어 지배 가문의 금고(NPC 나라) */
+  const playerVault = (faction: SimFaction, asset: string): number | undefined => {
+    if (faction.player) return undefined;
+    const row = o.rulingPlayerHouseOf?.(faction.id);
+    return row === undefined ? undefined : o.ledger.systemAccount(houseVaultCode(row, asset), asset);
+  };
   return {
     ...base,
-    rulingVaultOf: (faction, asset) => base.rulingVaultOf?.(faction, asset) ?? npcVault(faction, asset),
+    rulingVaultOf: (faction, asset) =>
+      base.rulingVaultOf?.(faction, asset) ?? npcVault(faction, asset) ?? playerVault(faction, asset),
     rulingVaultPaid(faction, asset, nowMs) {
       base.rulingVaultPaid?.(faction, asset, nowMs);
       const account = npcVault(faction, asset);
@@ -193,7 +204,8 @@ export const npcRulingHooks = (
   base: SimHooks,
   o: {
     readonly ledger: VaultLedger;
-    readonly cityHouses: Pick<NpcCityHouses, "rulingHouseOf" | "headOf" | "membersOf">;
+    readonly cityHouses: Pick<NpcCityHouses, "rulingHouseOf" | "headOf" | "membersOf"> &
+      Partial<Pick<NpcCityHouses, "rulingPlayerHouseOf">>;
     readonly rules: () => SocietyCoefficients;
     /** 유닛 주인(지갑 계정 주인)을 읽는 시뮬 세계. 모르는 유닛 — 가문원은 배당에서 빠지고 가문장은 그 나라 것으로 본다 */
     readonly world?: { readonly units: ReadonlyMap<number, { readonly owner: number }> } | undefined;
@@ -233,6 +245,7 @@ export const npcRulingHooks = (
   return withNpcRulingVault(withResidentProperty(base, o.economy), {
     ledger: o.ledger,
     rulingHouseOf: (owner) => o.cityHouses.rulingHouseOf(owner)?.id,
+    rulingPlayerHouseOf: (owner) => o.cityHouses.rulingPlayerHouseOf?.(owner),
     rule: () => npcVaultRuleOf(o.rules()),
     headOf: (houseId, nation) => {
       const unit = o.cityHouses.headOf(houseId);

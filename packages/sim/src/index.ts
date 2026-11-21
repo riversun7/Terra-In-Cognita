@@ -782,15 +782,22 @@ export {
   type SocketedItem,
 } from "./combat/gems.ts";
 export {
+  HOUSE_MONEY_PREFIX,
+  HOUSE_SHARE_PREFIX,
   allocateShares,
   burnShares,
   holdingsOf,
+  houseHoldingsOf,
+  houseMoneyCode,
+  houseShareCode,
   issueShares,
+  moveSharesToHouse,
   rulerHasMajority,
   shareAsset,
   totalShares,
   transferShares,
   type Holding,
+  type HouseHolding,
   type Regime,
   type TransferResult,
 } from "./society/shares.ts";

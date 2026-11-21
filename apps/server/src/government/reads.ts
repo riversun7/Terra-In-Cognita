@@ -69,6 +69,8 @@ export interface GovernmentSource {
         readonly capitalOf?: ((owner: number) => number | undefined) | undefined;
         /** NPC 나라의 지배 가문(수도에서 먼저 세운 NPC 가문 — 질문 2012 답, npc/cityHouses.ts). 없으면 undefined */
         readonly rulingHouseOf?: ((owner: number) => { readonly name: string } | undefined) | undefined;
+        /** NPC 나라의 지배 가문이 선출로 플레이어 가문이 됐으면 그 가문 세력 행(governance-2, 질문 2406 가 — 지도자 = 그 가문장). 없으면 undefined */
+        readonly rulingPlayerHouseOf?: ((owner: number) => number | undefined) | undefined;
       }
     | undefined;
   /** 소유 주체 ID → 세력 행 ID(유저 주체·없으면 undefined) */
@@ -241,15 +243,19 @@ export function createGovernmentReads(source: GovernmentSource): GovernmentReads
       let humans = 0;
       for (const unit of runtime.world.units.values()) if (unit.city === city.id) humans += 1;
       const capital = capitalOf(runtime, city.owner);
-      const leaderUnit = faction?.fixed ? leaderUnitOf(source.maps.values(), city.owner) : undefined;
+      // 선출로 NPC 나라를 이끄는 플레이어 가문(질문 2406 가): 지도자 = 그 가문장, NPC 국가 지도자 유닛은 남지만 지도자 칸에 보이지 않는다(퇴임)
+      const electedRow = faction?.player === true ? undefined : runtime.rulingPlayerHouseOf?.(city.owner);
+      const leaderUnit =
+        faction?.fixed && electedRow === undefined
+          ? leaderUnitOf(source.maps.values(), city.owner)
+          : undefined;
       // 지도자가 이 도시 2차맵에 있나(아니면 화면이 "수도에 있음")
       const cityMap = source.maps.get(place.mapKey);
       const here = cityMap !== undefined && leaderUnitOf([cityMap], city.owner) === leaderUnit;
       // 플레이어 가문 나라의 지도자 = 그 가문장(질문 2012 답)
+      const headRow = faction?.player === true ? factionRow : electedRow;
       const head =
-        faction?.player === true && factionRow !== undefined
-          ? await source.houseLeader?.(factionRow).catch(() => undefined)
-          : undefined;
+        headRow !== undefined ? await source.houseLeader?.(headRow).catch(() => undefined) : undefined;
       const ruling = leaderUnit === undefined ? undefined : runtime.rulingHouseOf?.(city.owner);
       const houseEntry = (await source.houseEntry?.(viewer, city.id).catch(() => null)) ?? null;
       const code = faction?.code ?? null;
@@ -340,6 +346,7 @@ export function governmentReadsOfWorld(
         humanName: (unitId) => npc.humanName(unitId),
         capitalOf: (owner) => npc.capitalOf(owner),
         rulingHouseOf: (owner) => npc.cityHouses.rulingHouseOf(owner),
+        rulingPlayerHouseOf: (owner) => npc.cityHouses.rulingPlayerHouseOf(owner),
       };
     },
     factionRowOf: (ownerId) => world.persistence?.owners.get(ownerId)?.factionId ?? undefined,

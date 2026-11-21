@@ -173,4 +173,38 @@ describe("NPC 도시 가문", () => {
     expect(houses.of(101)?.leader).toBe(true);
     expect(houses.rulingHouseOf(1)?.leader).toBe(false);
   });
+  it("governance-2(질문 2406): 의결로 정한 지배 가문이 처음 규칙을 대신한다 — NPC 가문이면 그 가문장 = 지도자, 플레이어 가문이면 NPC 지배 가문 없음(퇴임)", () => {
+    const world = fakeWorld();
+    const houses = createNpcCityHouses({
+      world,
+      writer: fakeWriter(),
+      loaded: { houses: [], members: new Map() },
+      mayorOf: (cityId) => (cityId === 10 ? 101 : 102),
+      nameFor: (cityId) => `가${String(cityId)}`,
+      capitalOf: (owner) => (owner === 1 ? 10 : undefined),
+      leaderOf: (owner) => (owner === 1 ? 900 : undefined),
+    });
+    houses.sync(1);
+    houses.setRuling(1, { npc: true, id: 2 });
+    expect(houses.rulingHouseOf(1)).toEqual({ id: 2, cityId: 11, name: "가11", leader: true });
+    expect(houses.headOf(2)).toBe(900);
+    expect(houses.headOf(1)).toBe(101);
+    expect(houses.rulingHeads()).toEqual([{ house: 2, unit: 900 }]);
+    expect(houses.rulingPlayerHouseOf(1)).toBeUndefined();
+    // 그 가문 도시를 잃으면 처음 규칙으로
+    world.cities.set(11, { owner: 2 });
+    expect(houses.rulingHouseOf(1)?.id).toBe(1);
+    world.cities.set(11, { owner: 1 });
+    houses.setRuling(1, { npc: false, id: 55 });
+    expect(houses.rulingHouseOf(1)).toBeUndefined();
+    expect(houses.rulingPlayerHouseOf(1)).toBe(55);
+    expect(houses.rulingHeads()).toEqual([]);
+    expect(houses.headOf(1)).toBe(101);
+    // 빈자리(질문 2403 답 D-582): 지배 가문 없음
+    houses.setRuling(1, "vacant");
+    expect(houses.rulingHouseOf(1)).toBeUndefined();
+    expect(houses.rulingPlayerHouseOf(1)).toBeUndefined();
+    houses.setRuling(1, undefined);
+    expect(houses.rulingHouseOf(1)?.id).toBe(1);
+  });
 });

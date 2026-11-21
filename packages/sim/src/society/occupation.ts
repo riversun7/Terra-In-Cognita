@@ -15,6 +15,7 @@ import {
   allocateShares,
   burnShares,
   holdingsOf,
+  houseHoldingsOf,
   issueShares,
   rulerHasMajority,
   shareAsset,
@@ -86,24 +87,25 @@ export function settleShares(
   c: SocietyCoefficients,
 ): ShareChoice {
   const holdings = holdingsOf(book, cityId);
+  // 가문 지분 계정(서버만 — 옛 나라 지배 가문의 사유 지분, D-338 "쫓겨나면 그 도시 지분은 잃는다")도 옛 통치자 몫으로 몰수한다 [임시 질문 2431]
+  const houses = houseHoldingsOf(book, cityId);
+  const houseTotal = houses.reduce((sum, h) => sum + h.amount, 0n);
   const owner = shareOwnerOf(occupier);
   let decided = choice;
   if (decided === "keep" && occupier.regime === "dictatorship") {
-    const after = mergeHoldings(holdings, oldRuler, owner);
+    const after = mergeHoldings(holdings, oldRuler, owner, houseTotal);
     if (!rulerHasMajority(after, owner)) decided = "delist";
   }
   if (decided === "keep") {
-    const seized = holdings.find((h) => h.owner === oldRuler)?.amount ?? 0n;
-    if (seized > 0n && oldRuler !== owner) {
+    const seized = oldRuler === owner ? 0n : (holdings.find((h) => h.owner === oldRuler)?.amount ?? 0n);
+    if (seized + houseTotal > 0n) {
       const asset = shareAsset(cityId);
-      book.post({
-        kind: "transfer",
-        atMs,
-        entries: [
-          { account: book.ownerAccount(oldRuler, asset), amount: -seized },
-          { account: book.ownerAccount(owner, asset), amount: seized },
-        ],
-      });
+      const entries: LedgerEntry[] = [
+        ...(seized > 0n ? [{ account: book.ownerAccount(oldRuler, asset), amount: -seized }] : []),
+        ...houses.map((h) => ({ account: h.account, amount: -h.amount })),
+        { account: book.ownerAccount(owner, asset), amount: seized + houseTotal },
+      ];
+      book.post({ kind: "transfer", atMs, entries });
     }
     return "keep";
   }
@@ -112,8 +114,8 @@ export function settleShares(
   return "delist";
 }
 
-function mergeHoldings(holdings: readonly Holding[], from: number, to: number): Holding[] {
-  const moved = holdings.find((h) => h.owner === from)?.amount ?? 0n;
+function mergeHoldings(holdings: readonly Holding[], from: number, to: number, extra = 0n): Holding[] {
+  const moved = (holdings.find((h) => h.owner === from)?.amount ?? 0n) + extra;
   const rest = holdings.filter((h) => h.owner !== from && h.owner !== to);
   const own = (holdings.find((h) => h.owner === to)?.amount ?? 0n) + moved;
   return [...rest, { owner: to, amount: own }];

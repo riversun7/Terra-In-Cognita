@@ -20,9 +20,10 @@ const owners: Record<number, GovernanceOwner> = {
   400: { userId: null, factionRow: 40, playerHouse: true, traits: null, satisfaction: undefined },
 };
 
-function tools(holdings: { owner: number; amount: bigint }[]) {
+function tools(holdings: ({ owner: number; amount: bigint } | { holder: string; amount: bigint })[]) {
   const port: Parameters<typeof createElectorate>[0]["port"] = {
-    holdingsOf: () => holdings,
+    holdingsOf: () =>
+      holdings.map((row) => ("holder" in row ? row : { holder: `o:${row.owner}`, amount: row.amount })),
     ownerInfo: (id) => owners[id],
     npcHousesOf: () => [
       { id: 5, cityId: 1 },
@@ -70,14 +71,54 @@ describe("electorate", () => {
     expect((await t.electorate(nation("capitalism"))).total).toBe(0n);
     expect((await t.electorate(nation("dictatorship"))).voters).toEqual([]);
   });
-  it("지배 쪽 지분 몫(D-344): 국고 + 지배 플레이어 가문 국고", () => {
+  it("자본주의 가문 지분 계정(D-338·D-582)도 주주: NPC 가문은 규칙식(그 가문 도시 만족도), 플레이어 가문은 가문장", async () => {
+    const t = tools([
+      { owner: 100, amount: 500n },
+      { holder: "n:6", amount: 1000n },
+      { holder: "p:40", amount: 500n },
+    ]);
+    const result = await t.electorate(nation("capitalism"));
+    expect(
+      result.voters.map((voter) => [voter.key, voter.weight, voter.userId, voter.npc, voter.self]),
+    ).toEqual([
+      ["n:6", 1333n, null, true, "n:6"],
+      ["p:40", 666n, "u-head", false, "p:40"],
+    ]);
+    expect(result.voters[0]?.satisfaction).toBe(30);
+  });
+  it("지배 쪽 지분 몫(D-344): 국고는 빼고(D-298) 다른 주주 합에 대한 지배 가문 몫(D-581 비례 나눔), 국고만이면 0", () => {
     const t = tools([
       { owner: 100, amount: 400n },
       { owner: 400, amount: 200n },
       { owner: 200, amount: 400n },
     ]);
-    expect(t.rulingSharePm(nation("capitalism"), "n:5")).toBe(400);
-    expect(t.rulingSharePm(nation("capitalism"), "p:40")).toBe(600);
+    // 지배 쪽 = 지배 가문 지분만 — NPC 가문 n:5는 지분이 없다
+    expect(t.rulingSharePm(nation("capitalism"), "n:5")).toBe(0);
+    // 플레이어 가문 p:40의 소유 주체(400) 200 ÷ (1000 − 국고 400)
+    expect(t.rulingSharePm(nation("capitalism"), "p:40")).toBe(333);
     expect(tools([]).rulingSharePm(nation("capitalism"), null)).toBe(1000);
+    expect(tools([{ owner: 100, amount: 1000n }]).rulingSharePm(nation("capitalism"), "n:5")).toBe(0);
+    const house = tools([
+      { owner: 100, amount: 300n },
+      { holder: "n:5", amount: 600n },
+      { owner: 200, amount: 100n },
+    ]);
+    expect(house.rulingSharePm(nation("capitalism"), "n:5")).toBe(857);
+  });
+  it("빈자리(질문 2403 답 D-582): 지배 가문·지도자가 없다", async () => {
+    const t = tools([]);
+    const state = {
+      nationId: 10,
+      rulingHouseKey: "p:40" as const,
+      electedAtMs: 1,
+      termEndsAtMs: 2,
+      shareVotesSuspended: false,
+      vacantSinceMs: 5,
+    };
+    expect(await t.ruling(nation("democracy"), state)).toEqual({ key: null, leaderUser: null });
+    expect(await t.ruling(nation("democracy"), { ...state, vacantSinceMs: null })).toEqual({
+      key: "p:40",
+      leaderUser: "u-head",
+    });
   });
 });

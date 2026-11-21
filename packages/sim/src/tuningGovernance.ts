@@ -106,4 +106,33 @@ export const GOVERNANCE_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 투표: 선전포고 찬성 공격 성향(‰)",
     "NPC vote: aggression to back war (‰)",
   ),
+  // NPC 후보(질문 2404 나)·빈자리(2403 답 D-582)·군사 쿠데타(2401 답 D-582) — 줄기 governance-2
+  k(
+    "gov_npc_run_score",
+    "",
+    "governance.npcRunScore",
+    "NPC 후보: 출마 점수 문턱",
+    "NPC candidacy: run score threshold",
+  ),
+  k(
+    "gov_npc_run_max",
+    "",
+    "governance.npcRunMax",
+    "NPC 후보: 선출마다 도전자 수 상한",
+    "NPC candidacy: challengers per election",
+  ),
+  k(
+    "gov_vacancy_split_ms",
+    "",
+    "governance.vacancySplitMs",
+    "지도자 빈자리 기간: 독립 투표까지(ms)",
+    "Leader vacancy: time until independence votes (ms)",
+  ),
+  k(
+    "gov_coup_satisfaction_drop",
+    "",
+    "governance.coupSatisfactionDrop",
+    "군사 쿠데타 만족도 감소(점)",
+    "Military coup satisfaction drop (points)",
+  ),
 ];

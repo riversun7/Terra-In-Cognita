@@ -19,6 +19,13 @@ export interface GovernanceRules {
   readonly warAgenda: boolean;
   readonly npcKeepSatisfaction: number;
   readonly npcWarTraitPm: number;
+  /** NPC 후보 출마 점수 문턱·도전자 수 상한(질문 2404 나) */
+  readonly npcRunScore: number;
+  readonly npcRunMax: number;
+  /** 지도자 빈자리 기간(ms, 2403 답 D-582 — 가르는 절차는 빈틈, 읽기만) */
+  readonly vacancySplitMs: number;
+  /** 군사 쿠데타 만족도 감소(점, 2401 답 D-582 — 쿠데타 길은 아직 없음) */
+  readonly coupSatisfactionDrop: number;
 }
 
 const whole = (value: number): number => (Number.isSafeInteger(value) && value > 0 ? value : 0);
@@ -51,8 +58,20 @@ export function governanceRulesFrom(c: SocietyCoefficients): GovernanceRules {
     warAgenda: g.warAgenda !== 0,
     npcKeepSatisfaction: Math.min(100, whole(g.npcKeepSatisfaction)),
     npcWarTraitPm: permille(g.npcWarTraitPm),
+    npcRunScore: Number.isSafeInteger(g.npcRunScore) ? g.npcRunScore : 20,
+    npcRunMax: Math.min(10, whole(g.npcRunMax)),
+    vacancySplitMs: period(g.vacancySplitMs),
+    coupSatisfactionDrop: Math.min(100, whole(g.coupSatisfactionDrop)),
   };
 }
 
 /** 팩 없이 띄운 서버·시험 */
 export const TEST_GOVERNANCE_RULES: GovernanceRules = governanceRulesFrom(TEST_SOCIETY_COEFFICIENTS);
+
+/**
+ * 세율 크게 바꾸기 안건의 문턱(질문 2407 가 — 한 번에 바꾸는 폭이 설정 칸 이상이면 안건, 아래는 지도자가 바로). 나라 세율 저장(줄기 tax-2)이 들어온 뒤
+ * 세율 바꾸기 명령이 이 함수로 고르고, 설정 칸(gov_tax_agenda_width_pm)·안건 종류(tax_change)를 그때 더한다 — TODO(tax-2 뒤). 지금 부르는 곳은 없다.
+ */
+export function taxChangeNeedsAgenda(fromPm: number, toPm: number, widthPm: number): boolean {
+  return Math.abs(Math.trunc(toPm) - Math.trunc(fromPm)) >= Math.max(1, Math.trunc(widthPm));
+}

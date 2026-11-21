@@ -38,6 +38,16 @@ import type { Scenario } from "./scenario.ts";
 import type { SimEvent, SimHooks } from "./npcRun.ts";
 import type { SimWorld } from "./world.ts";
 import { catchmentLine, stepCatchment } from "./catchmentRun.ts";
+import {
+  type LivingDay,
+  type NpcLivingHooks,
+  type NpcLivingRules,
+  emptyLivingDay,
+  livingDay,
+  moneyAssets,
+  movePurses,
+  purseTotals,
+} from "./humanPurse.ts";
 
 /** 시스템 계정 앞머리 → 건드려도 되는 거래 종류(물건·돈이 생기고 사라지는 사건을 정해 둔다) */
 const SYSTEM_KINDS: Readonly<Record<string, readonly string[]>> = {
@@ -84,6 +94,25 @@ export interface EconomySummary {
   readonly priceIndexMilli: Record<string, number | null>;
   /** 배후지 채집 다툼(있을 때만, 출력 형식 17): 마지막 하루 끝 도시마다 [ID, 반경, 받은 몫, 겹친 칸] 등 */
   readonly catchment?: Record<string, unknown> | undefined;
+  /** NPC 휴먼 지갑(출력 형식 22, humanPurse.ts): 누적 임금·생활비·부양, 끝 날 지갑 합·국고 합(화폐마다) */
+  readonly living: LivingSummary;
+}
+
+/** 요약·하루 줄의 지갑 칸(출력 형식 22) */
+export interface LivingSummary {
+  readonly paidWorkers: number;
+  readonly unpaidWorkers: number;
+  readonly hungryWorkers: number;
+  readonly wages: Record<string, string>;
+  readonly living: Record<string, string>;
+  readonly subsidy: Record<string, string>;
+  readonly purses: Record<string, string>;
+  readonly treasuries: Record<string, string>;
+}
+
+/** 임금·생활비 선택(서버는 규칙을 부를 때마다 읽고 고리를 붙인다) */
+export interface LivingOptions extends NpcLivingHooks {
+  rules(): NpcLivingRules;
 }
 
 export interface EconomyRun {
@@ -99,6 +128,8 @@ export interface EconomyRun {
   summary(): EconomySummary;
   /** 지금까지 건 도시 매입 호가 수(누적, 서버 1분 지표가 차이를 쓴다) */
   bidsPlaced(): number;
+  /** 마지막 하루 끝의 임금·생활비 셈(서버 기록·지표) */
+  lastLiving(): LivingDay;
   /** 시설이 생산했을 때(도시, 레벨 × 오염 값 × 일한 ms). 정원사(gardenerRun.ts)가 붙인다 */
   onWork?: ((cityId: number, weightedWorkMs: number) => void) | undefined;
 }
@@ -112,6 +143,18 @@ function record<T>(map: ReadonlyMap<string, T>): Record<string, T> {
   return out;
 }
 
+/** 화폐마다 합을 더한다 */
+function addTo(into: Map<string, bigint>, from: ReadonlyMap<string, bigint>): void {
+  for (const [asset, amount] of from) into.set(asset, (into.get(asset) ?? 0n) + amount);
+}
+
+/** 화폐 → 금액(글자) 기록 */
+function bigRecord(map: ReadonlyMap<string, bigint>): Record<string, string> {
+  const out = new Map<string, string>();
+  for (const [key, value] of map) out.set(key, value.toString());
+  return record(out);
+}
+
 export function attachEconomy(
   world: SimWorld,
   scenario: Scenario,
@@ -121,10 +164,11 @@ export function attachEconomy(
   npc: NpcCoefficients,
   gather?: GatherSettings,
   goodsHome?: RuinedGoodsHome,
+  living?: LivingOptions,
 ): EconomyRun {
   const economy = createEconomy(world, scenario, catalog, startMs, gather);
   scheduleEconomy(economy, world, loop, startMs);
-  return runEconomy(economy, world, loop, npc, goodsHome);
+  return runEconomy(economy, world, loop, npc, goodsHome, living);
 }
 
 /**
@@ -139,7 +183,29 @@ export function runEconomy(
   loop: SimLoop<SimEvent>,
   npc: NpcCoefficients,
   goodsHome?: RuinedGoodsHome,
+  living?: LivingOptions,
 ): EconomyRun {
+  // 임금·생활비(humanPurse.ts): 선택이 없으면 끈 판(옛 판과 같다)
+  let lastLiving = emptyLivingDay();
+  const livingTotals = emptyLivingDay();
+  const livingLine = (day: LivingDay): LivingSummary => {
+    const treasuries = new Map<string, bigint>();
+    for (const faction of world.factions.values()) {
+      if (!faction.alive) continue;
+      const asset = economy.currencyOf.get(faction.id) ?? economy.base;
+      treasuries.set(asset, (treasuries.get(asset) ?? 0n) + world.book.balanceOf(faction.id, asset));
+    }
+    return {
+      paidWorkers: day.paidWorkers,
+      unpaidWorkers: day.unpaidWorkers,
+      hungryWorkers: day.hungryWorkers,
+      wages: bigRecord(day.wages),
+      living: bigRecord(day.living),
+      subsidy: bigRecord(day.subsidy),
+      purses: bigRecord(purseTotals(economy, world)),
+      treasuries: bigRecord(treasuries),
+    };
+  };
   const totals = {
     trades: 0,
     volume: new Map<string, bigint>(),
@@ -184,6 +250,10 @@ export function runEconomy(
       return sum;
     },
     interestPaidOf: (factionId) => economy.interestPaid.get(factionId) ?? 0n,
+    // 휴먼 지갑(humanPurse.ts): 지갑에 들 수 있는 화폐, 주인이 바뀐 휴먼의 지갑 옮기기(새 마을 등 — 도시 주인 바뀜은 beforeCityTransfer가 옮긴다)
+    moneyAssets: () => moneyAssets(economy),
+    unitsOwnerChanged: (unitIds, from, to, nowMs) =>
+      movePurses(world.book, unitIds, from, to, moneyAssets(economy), nowMs),
     taxOf: (faction) => economy.taxOf.get(faction.id) ?? 0,
     baseTaxOf: (faction) => economy.baseTax.get(faction.id) ?? 0,
     setTax: (faction, taxBp) => setTax(economy, faction, taxBp),
@@ -232,12 +302,23 @@ export function runEconomy(
       return true;
     },
     endOfDay(nowMs) {
+      // 임금·생활비(중앙은행이 시중 통화량을 보기 전에 — humanPurse.ts)
+      if (living) {
+        lastLiving = livingDay(economy, world, nowMs, living.rules(), living);
+        livingTotals.paidWorkers += lastLiving.paidWorkers;
+        livingTotals.unpaidWorkers += lastLiving.unpaidWorkers;
+        livingTotals.hungryWorkers += lastLiving.hungryWorkers;
+        addTo(livingTotals.wages, lastLiving.wages);
+        addTo(livingTotals.living, lastLiving.living);
+        addTo(livingTotals.subsidy, lastLiving.subsidy);
+      } else economy.today.served = undefined;
       // 중앙은행 공식 계수 = NPC 판단 계수표의 bank* 칸(설정 칸, 서버는 rules().npc)
       bankDay(economy, world, nowMs, centralBankRuleOf(npc));
       // 배후지 채집 다툼(있을 때만): 다음 하루의 채집 빠르기·성장 문턱
       if (economy.catchment) stepCatchment(economy.catchment, economy, world);
     },
     bidsPlaced: () => bids,
+    lastLiving: () => lastLiving,
     dayLine() {
       const now = marketTotals();
       const volume = new Map<string, string>();
@@ -279,6 +360,7 @@ export function runEconomy(
         shortUnits: record(economy.today.shortUnits),
         inputShort: economy.today.inputShort,
         ...(economy.catchment ? { catchment: catchmentLine(economy.catchment) } : {}),
+        living: livingLine(lastLiving),
       };
       economy.today.shortUnits.clear();
       economy.today.dueByCity.clear();
@@ -319,6 +401,7 @@ export function runEconomy(
         fx: record(fx),
         priceIndexMilli: record(index),
         ...(economy.catchment ? { catchment: catchmentLine(economy.catchment) } : {}),
+        living: livingLine(livingTotals),
       };
     },
   };

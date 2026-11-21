@@ -265,8 +265,15 @@
  *      sim 시험이 그대로 통과한다)
  *    - (줄기 logistics의 80) 사업장 계수표에 물류센터 운반 대행 요금 단위 칸 둘(haulUnitG·haulUnitCells — 기획 D-576·질문 2213 요금 단위 나, 서버
  *      logistics/haulService.ts만 읽는다). 시뮬 판정·출력은 그대로다(시뮬은 운반 대행을 돌리지 않는다)
+ * 90: (줄기 npc-wage — 합칠 때 main 다음 판으로) NPC 휴먼 일꾼 임금·생활비(질문 2236 — 기획 D-569 1782·D-097·D-555 1507·1509, docs/adr/
+ *    2026-10-31-economy-core.md "바뀜 (2026-11-16, NPC 휴먼 지갑·임금·생활비)", simulator/humanPurse.ts): 하루 끝(중앙은행 전) 도시마다 일꾼 휴먼(서버
+ *    humanPlaces와 같은 나눔)이 하루 임금 = 기준 임금(플레이어 직무 배치 식, 출발값 20) × 그날 포만감 효율(N33) × business_npc_wage_pm(1000) ÷ 1000을
+ *    국고(서버는 시설 금고)에서 지갑(유닛 주인, 화폐, unitPurseLocation)으로 받고, 모든 휴먼이 그날 먹은 생필품 값(그 도시 시세)을 지갑에서 국고로 낸다
+ *    (모자란 몫 = 주인 현물 부양, 굶기지 않는다). 지갑은 도시 주인 바뀜·새 마을 때 새 주인 밑으로 옮기고 떠나면(사망·신격화) 상속(inheritPurse).
+ *    원장 거래(npc_living·purse_move)가 늘어 원장 해시가 바뀐다. 출발값에서는 임금 < 생활비라 임금이 그날 국고로 돌아와 판정 결과(인구·도시·세력·건물·
+ *    만족도·국고)는 끈 판과 같다(econ16 시드 1·2·3 × 30일). business_npc_wage_mode 0이면 옛 판. 출력 형식 22(living 칸)
  */
-export const SIM_VERSION = 62;
+export const SIM_VERSION = 90;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

@@ -58,6 +58,15 @@ export interface BusinessCoefficients {
   /** [임시] NPC 시설 판매가의 목표 재고(판매 최소 묶음 수, 2153). 이만큼 쌓였으면 재고 폭 0 */
   readonly npcPriceStockLots: number;
   /**
+   * [임시] NPC 휴먼 일꾼 임금(질문 2236 — D-569 1782·D-097·D-555 1507·1509, simulator/humanPurse.ts): 1이면 하루 끝에 NPC 시설 일꾼 휴먼에게 임금을
+   * 그 휴먼 지갑으로 주고, 휴먼은 먹은 생필품 값을 지갑에서 낸다(서버는 숙박비도 지갑에서 — npc/npcWages.ts). 0이면 옛 판(임금 없음, 숙박비는 국고)
+   */
+  readonly npcWageMode: number;
+  /**
+   * [임시] NPC 일꾼 하루 임금 = 기준 임금(플레이어 직무 배치와 같은 식, humanPurse.ts npcBaseDailyWage) × 이 값 ÷ 1000(질문 2291)
+   */
+  readonly npcWagePm: number;
+  /**
    * [임시] 거래소 이용료(만분율, 기획 D-564 1682·D-548·D-160 — 질문 1948 답, docs/adr/2026-11-16-exchange-buildings.md "바뀜 (D-571)"). 물자 거래소
    * 체결마다 판 쪽이 총액 × 이 값 ÷ 10000(버림)을 그 도시 물자 거래소 건물 금고(사업장 장부)에 낸다. 거래세(국고, D-128)와 따로. 0이면 이용료 없음
    */
@@ -122,6 +131,8 @@ export const START_BUSINESS: BusinessCoefficients = {
   npcPriceTemperPm: 100,
   npcPriceStockPm: 200,
   npcPriceStockLots: 10,
+  npcWageMode: 1,
+  npcWagePm: 1000,
   exchangeFeeBp: 50,
   exchangeLockerG: 200_000,
   exchangeLockerStepG: 200_000,

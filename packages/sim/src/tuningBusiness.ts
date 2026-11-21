@@ -82,6 +82,14 @@ export const BUSINESS_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 시설 판매가 목표 재고(묶음)",
     "NPC shop price target stock (lots)",
   ),
+  // NPC 휴먼 일꾼 임금(질문 2236·2291, simulator/humanPurse.ts) — 시뮬·서버
+  k("business_npc_wage_mode", "npcWageMode", "NPC 일꾼 임금(1 켬·0 끔)", "NPC worker wages (1 on, 0 off)"),
+  k(
+    "business_npc_wage_pm",
+    "npcWagePm",
+    "NPC 일꾼 하루 임금(기준 임금 대비 ‰)",
+    "NPC worker daily wage (‰ of base wage)",
+  ),
   // 거래소 건물 2(기획 D-571, docs/adr/2026-11-16-exchange-buildings.md "바뀜 (D-571)") — 서버만 읽는다
   k("exchange_fee_bp", "exchangeFeeBp", "거래소 이용료(만분율)", "Exchange usage fee (bp)"),
   k(

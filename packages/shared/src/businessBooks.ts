@@ -381,6 +381,8 @@ export interface HaulServiceView {
   readonly unitCells: number;
   /** 지금 나를 수 있는 그 물류센터 일꾼 수(나르는 중 빼고) */
   readonly workers: number;
+  /** 요금·적정가 화폐 코드(그 도시 나라 화폐 — 기획 대조 2277). 칸이 없으면 옛 서버(서버 기준 화폐) */
+  readonly currency?: string | undefined;
 }
 
 export interface RepairServiceView {

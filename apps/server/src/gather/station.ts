@@ -41,7 +41,8 @@
 // - 물류센터(운반 대행, 기획 D-555 1505·D-576, docs/adr/2026-11-16-logistics-center.md): 명령이 물류센터를 고르면(CarrySpec via = 건물 ID) 그 물류센터 일꾼만
 //   운반꾼이 되고(porter.ts pick service), 떠날 때 요금(한 단위 요금 × 단위 수, logistics/haulService.ts)을 물건 주인 지갑에서 그 사업장 금고로 낸다.
 //   via = auto(설정의 자동 맡기기)는 내 운반꾼이 없을 때만 같은 도시의 받는 물류센터를 한 단위 요금이 싼 차례로 본다(나를 일꾼이 있는 첫 곳). 짐의 건물 =
-//   그 물류센터(합치기·닿는 시각은 같은 셈).
+//   그 물류센터(합치기·닿는 시각은 같은 셈). 바뀜 (기획 대조 2272·2273, 줄기 haul-2): via가 없으면 계정 자동 맡기기(haulService.auto)를 따르고 "own"은 내
+//   운반꾼만. 창고 꺼내기·사업장 판매 운반(haulOut)도 같은 carry 한 길이다(판 사람 몫은 sellerId, 사기 값은 keep — 요금을 낸 뒤에도 남게).
 // - 오브젝트 규칙(기획 D-552 "직접 채집과 일꾼 채집이 같은 규칙", docs/adr/2026-11-15-gather-object-tiers.md): objects 채집소 일꾼의 k번째 묶음은
 //   번수를 쓸 차례(가까운 것부터)의 k번째 오브젝트 규칙(사다리·티어 범위·대표 아이템·굴림표 — objectYield.ts objectRollOf)으로 굴린다(lotRoll).
 // [임시] 일꾼 상태·끝낸 묶음 수·피로 나머지는 메모리에만 있다(다시 켜면 0부터). 정산이 길게 밀리면(오프라인) 그 사이 다시 자란 번수는 세지 못하고
@@ -63,6 +64,7 @@ import { createPorters } from "./porter.ts";
 import { type StationBuffs, cellDistance2, regrowMs, stationBuffs } from "./rules.ts";
 import type { ObjectStore } from "./state.ts";
 import type { HaulCarryHook } from "../logistics/haulService.ts";
+import type { CarryResult, CarrySpec, HaulVia } from "./carrySpec.ts";
 
 /** 채집소 하나(지금 상태) */
 export interface StationSite {
@@ -208,6 +210,8 @@ export interface StationRuntime {
     qty: bigint,
     atMs: number,
     sellerId?: number,
+    via?: HaulVia,
+    keep?: CarrySpec["keep"],
   ): FacilityResultCode | null | undefined;
   /**
    * 거래소 넣기(기획 D-564 1628 "거래소로 실어 나른 물건만", docs/adr/2026-11-16-exchange-buildings.md): ownerId의 그 도시 창고 asset qty를 운반꾼(받을 사람의
@@ -219,7 +223,7 @@ export interface StationRuntime {
     asset: string,
     qty: bigint,
     atMs: number,
-    via?: number | "auto",
+    via?: HaulVia,
   ): FacilityResultCode | null | undefined;
   /** 물류센터의 지금 나를 수 있는 일꾼 수(화면 — porter.ts freeStaff) */
   freeStaff(buildingId: number, mapKey: number, nowMs: number): number;
@@ -230,39 +234,7 @@ export interface StationRuntime {
   stop(): void;
 }
 
-/** 실제 운반 하나(기획 D-555 1505) */
-export interface CarrySpec {
-  /** 물건 주인(운반꾼은 이 주인 몫을 진다) */
-  readonly ownerId: number;
-  /** 운반꾼을 고르는 건물(그 건물 일꾼 먼저, 같은 건물·주인 짐은 합친다) */
-  readonly buildingId: number;
-  readonly mapKey: number;
-  readonly cityId: number;
-  /** 꺼내는 원장 위치 / 닿으면 넣는 원장 위치 */
-  readonly source: number;
-  readonly deliverTo: number;
-  /** 걷는 길(배치 칸) — 거리 셈과 운반꾼 걸음 */
-  readonly from: { readonly x: number; readonly y: number };
-  readonly to: { readonly x: number; readonly y: number };
-  readonly loads: readonly { readonly asset: string; readonly qty: bigint }[];
-  readonly atMs: number;
-  /** 바로 옮길 때(옮김 셈 끔·거리 0) 거래 이름 */
-  readonly instantKind: string;
-  /** 닿을 때 받을 자리를 다시 고른다(porter.ts PorterTrip.redirect) */
-  readonly redirect?: (() => number | undefined) | undefined;
-  /** 물류센터에 맡기기(기획 D-576): 건물 ID = 그 물류센터, auto = 내 운반꾼이 없으면 같은 도시의 가장 싼 곳. 없으면 내 운반꾼만 */
-  readonly via?: number | "auto" | undefined;
-}
-
-/** 실제 운반 결과: 닿는 시각(바로 옮겼으면 atMs, porter 없음)이나 운반꾼이 없는 까닭 */
-export type CarryResult =
-  | { readonly arriveAtMs: number; readonly porter?: number }
-  | "unit_busy"
-  | "unknown_unit"
-  // 물류센터(D-576): 나를 일꾼 없음·받지 않음(고를 수 없는 건물 포함)·요금 모자람
-  | "no_shop_worker"
-  | "service_closed"
-  | "insufficient_funds";
+export type { CarryResult, CarrySpec, HaulVia } from "./carrySpec.ts";
 
 /** setTimeout 지연 상한 */
 const MAX_TIMER_MS = 0x7fff_ffff;
@@ -719,6 +691,8 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
     qty: bigint,
     atMs: number,
     sellerId?: number,
+    via?: HaulVia,
+    keep?: CarrySpec["keep"],
   ): FacilityResultCode | null | undefined => {
     const world = deps.places();
     const target = placeOf(buildingId);
@@ -729,26 +703,24 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
     const grams = qty * assetWeightG(world.catalog(), asset);
     const route = routeOf(buildingId, ownerId);
     if (!route || haulMs(grams, route.cells, 1, deps.rules()) <= 0) return undefined;
-    const porter = porters.pick(buildingId, target.mapKey, ownerId, atMs);
-    if (porter === undefined) {
-      const map = maps.get(target.mapKey);
-      const candidates = [
-        ...(deps.workersAt?.(buildingId) ?? []).map((worker) => worker.unitId),
-        ...(deps.ownUnits?.(ownerId, target.mapKey) ?? []),
-      ];
-      return candidates.some((unitId) => map?.unitInfo(unitId) !== undefined) ? "unit_busy" : "unknown_unit";
-    }
-    sendWithPorter(
-      { ...target, cityId: target.cityId },
+    // 같은 운반 한 길(carry — 내 운반꾼·고른 물류센터·자동 맡기기, 기획 대조 2273)
+    const carried = carry({
       ownerId,
-      porter,
-      [{ asset, qty, grams }],
+      buildingId,
+      mapKey: target.mapKey,
+      cityId: target.cityId,
+      source: here,
+      deliverTo: cityLocation(target.cityId),
+      from: route.from,
+      to: route.to,
+      loads: [{ asset, qty }],
       atMs,
-      false,
+      instantKind: "storage_out",
+      via,
       sellerId,
-    );
-    rearm();
-    return null;
+      keep,
+    });
+    return typeof carried === "string" ? carried : null;
   };
 
   /**
@@ -780,16 +752,19 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
       return { arriveAtMs: spec.atMs };
     }
     const service = deps.haulService;
+    // via가 없으면 계정 자동 맡기기(기획 대조 2272), own = 내 운반꾼만
+    const via =
+      spec.via === "own" ? undefined : (spec.via ?? (service?.auto(spec.ownerId) ? "auto" : undefined));
     // 물류센터를 고른 명령(D-576)은 그 물류센터 일꾼만 — 내 운반꾼으로 넘어가지 않는다
-    if (typeof spec.via === "number")
+    if (typeof via === "number")
       return service
-        ? (viaCenter(spec, service, loads, grams, cells, true) ?? "no_shop_worker")
+        ? (viaCenter(spec, via, service, loads, grams, cells, true) ?? "no_shop_worker")
         : "service_closed";
     const porter = porters.pick(spec.buildingId, spec.mapKey, spec.ownerId, spec.atMs);
     if (porter === undefined) {
-      // 자동 맡기기(설정, D-576): 내 운반꾼이 없으면 같은 도시의 받는 물류센터(싼 차례)
+      // 자동 맡기기(계정 설정, D-576): 내 운반꾼이 없으면 같은 도시의 받는 물류센터(싼 차례)
       const auto =
-        spec.via === "auto" && service ? viaCenter(spec, service, loads, grams, cells, false) : undefined;
+        via === "auto" && service ? viaCenter(spec, via, service, loads, grams, cells, false) : undefined;
       if (auto !== undefined) return auto;
       const map = maps.get(spec.mapKey);
       // 거래소 거래 직무 자리(질문 2084)는 나를 위해 일하는 유닛만 후보다(porter.ts pick과 같은 걸러내기)
@@ -828,6 +803,7 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
       timeMs: (total) => haulTime(haulMs(total, cells, 1, deps.rules()), spec.mapKey, buildingId, porter),
       deliverTo: spec.deliverTo,
       redirect: spec.redirect,
+      sourceOwnerId: spec.sellerId,
     });
     rearm();
     return { arriveAtMs: trip.arriveAtMs, porter };
@@ -839,18 +815,20 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
    */
   const viaCenter = (
     spec: CarrySpec,
+    via: number | "auto",
     service: HaulCarryHook,
     loads: readonly { asset: string; qty: bigint; grams: bigint }[],
     grams: bigint,
     cells: number,
     strict: boolean,
   ): CarryResult | undefined => {
-    const candidates = service.centers(spec.via ?? "auto", spec);
+    const candidates = service.centers(via, spec);
     if (typeof candidates === "string") return strict ? candidates : undefined;
     for (const centerId of candidates) {
       const porter = porters.pick(centerId, spec.mapKey, spec.ownerId, spec.atMs, true);
       if (porter === undefined) continue;
-      const paid = service.pay(spec.ownerId, centerId, service.fee(centerId, grams, cells), spec.atMs);
+      const fee = service.fee(centerId, grams, cells);
+      const paid = service.pay(spec.ownerId, centerId, fee, spec.atMs, spec.keep);
       if (paid !== null) return paid;
       return departCarry(spec, centerId, porter, loads, cells);
     }
@@ -869,7 +847,7 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
     asset: string,
     qty: bigint,
     atMs: number,
-    via?: number | "auto",
+    via?: HaulVia,
   ): FacilityResultCode | null | undefined => {
     const world = deps.places();
     const target = placeOf(buildingId);

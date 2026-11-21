@@ -735,6 +735,7 @@ describe("농장 채집소(오브젝트 없음, 756 ②)", () => {
         paid.push([ownerId, center, fee]);
         return null;
       },
+      auto: () => false,
     };
     const r = rig({ store: { x: 30, y: 24 }, haulService: hook });
     // 농장 자리를 물류센터로 본다(고리가 정한다)
@@ -781,6 +782,50 @@ describe("농장 채집소(오브젝트 없음, 756 ②)", () => {
     });
     expect(r.runtime.haulIn(OWNER, exchangeId, ORE, 1n, later, "auto")).toBeNull();
     expect(r.ledger.balanceOf(OWNER, ORE, cargoLocation(22))).toBe(1n);
+    expect(paid).toHaveLength(2);
+  });
+
+  it("물류센터 2차(기획 대조 2272·2273): 꺼내기·사업장 판매도 같은 via, via가 없으면 계정 자동 맡기기, own은 내 운반꾼만", () => {
+    const paid: [number, number, bigint, bigint | undefined][] = [];
+    let centerId = 0;
+    let autoOn = false;
+    const hook: HaulCarryHook = {
+      centers: (via) => (via === "auto" || via === centerId ? [centerId] : "service_closed"),
+      fee: () => 5n,
+      pay(ownerId, center, fee, _atMs, keep) {
+        paid.push([ownerId, center, fee, keep?.amount]);
+        return null;
+      },
+      auto: (ownerId) => autoOn && ownerId === TENANT,
+    };
+    const r = rig({ store: { x: 30, y: 24 }, haulService: hook });
+    centerId = r.farmId;
+    const here = buildingLocation(r.mineId);
+    r.ledger.post({
+      kind: "test",
+      atMs: NOW,
+      entries: [
+        { account: r.ledger.systemAccount("source:item:copper_ore", ORE), amount: -9n },
+        { account: r.ledger.ownerAccount(OWNER, ORE, here), amount: 9n },
+      ],
+    });
+    // 내 운반꾼이 없고 자동 맡기기 끔·own이면 예전 코드
+    expect(r.runtime.haulOut(TENANT, r.mineId, ORE, 2n, NOW, OWNER)).toBe("unknown_unit");
+    r.hire(centerId, 41, 86, 86, 99);
+    expect(r.runtime.haulOut(TENANT, r.mineId, ORE, 2n, NOW, OWNER, "own")).toBe("unknown_unit");
+    // 고른 물류센터: 판 사람(OWNER) 몫을 산 사람(TENANT) 화물로, 사기 값(keep)을 요금 내기에 넘긴다
+    const keep = { asset: "credit", amount: 70n };
+    expect(r.runtime.haulOut(TENANT, r.mineId, ORE, 2n, NOW, OWNER, centerId, keep)).toBeNull();
+    expect(paid).toEqual([[TENANT, centerId, 5n, 70n]]);
+    expect(r.ledger.balanceOf(OWNER, ORE, here)).toBe(7n);
+    expect(r.ledger.balanceOf(TENANT, ORE, cargoLocation(41))).toBe(2n);
+    r.runtime.haulNow(r.runtime.trip(centerId)?.arriveAtMs ?? 0);
+    expect(r.ledger.balanceOf(TENANT, ORE, cityLocation(CITY))).toBe(2n);
+    // via 없음 + 계정 자동 맡기기 켬 → 물류센터, own이면 맡기지 않는다
+    autoOn = true;
+    const later = NOW + 3_600_000;
+    expect(r.runtime.haulOut(TENANT, r.mineId, ORE, 1n, later, OWNER, "own")).toBe("unknown_unit");
+    expect(r.runtime.haulOut(TENANT, r.mineId, ORE, 1n, later, OWNER)).toBeNull();
     expect(paid).toHaveLength(2);
   });
 

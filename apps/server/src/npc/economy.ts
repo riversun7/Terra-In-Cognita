@@ -37,6 +37,7 @@ import {
   type ScheduledEvent,
   type SimEvent,
   type SimFaction,
+  type LedgerBook,
   type SimHooks,
   type SimLoop,
   type SimWorld,
@@ -68,7 +69,7 @@ import { planetCatchmentGeometry } from "./catchmentGeometry.ts";
 import { type CatchmentSaved, restoreCatchment } from "./catchmentStore.ts";
 import type { CityRestPlan, RestFacility } from "./cityRest.ts";
 import type { WorkFacility } from "./humanPlaces.ts";
-import { type CarryBoard, createCarryBoard, peopleCounter } from "./npcCarry.ts";
+import { type CarryBoard, type CarryBoardOptions, createCarryBoard, peopleCounter } from "./npcCarry.ts";
 import { EVENT_NPC_DELIVER, type NpcBusiness, createNpcDeliveries } from "./npcDelivery.ts";
 import { shopPriceSource } from "./npcShopPrice.ts";
 import type { NpcBuildWorld } from "./cityBuild.ts";
@@ -194,6 +195,8 @@ export interface NpcEconomyInput {
     | undefined;
   /** 물자 거래소 이용료 요율(D-574 질문 2085 — 주인이 정한 값, 없으면 적정 요율. fxFee.ts exchangeFeeOf). 없으면 설정 칸 적정 요율 */
   readonly exchangeFeeBp?: ((buildingId: number) => number) | undefined;
+  /** 빈 일꾼 운반꾼이 없을 때 같은 도시 물류센터에 맡기기(기획 대조 2274 — logistics/npcOutsource.ts). 없으면 기다리기만 */
+  readonly haulOutsource?: ((book: LedgerBook) => CarryBoardOptions["outsource"]) | undefined;
 }
 
 /** 시설 하나의 지금 생산(화면용) */
@@ -315,7 +318,8 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   const { currencyOf, taxOf, issuer } = nationCurrencies(world, catalog, ASSET_CREDIT);
   const isUser = (ownerId: number): boolean => (o.owners.get(ownerId)?.userId ?? null) !== null;
   // NPC 운반꾼 화물(2052·2088): 시설 산출·거래소 운반이 같이 쓴다. 빈 일꾼 운반꾼 = 그 도시 휴먼 중 운반하지 않는 사람(2155)
-  const carry = createCarryBoard(book, { peopleOf: peopleCounter(o.now, () => world.units.values()) });
+  const people = peopleCounter(o.now, () => world.units.values());
+  const carry = createCarryBoard(book, { peopleOf: people, outsource: o.input.haulOutsource?.(book) });
   // 거래소 모음: 호가창 물건 + 있는 도시에만. 화폐·세율·국고 = 그 도시 주인
   const registry = createMarketRegistry({
     ledger: book,

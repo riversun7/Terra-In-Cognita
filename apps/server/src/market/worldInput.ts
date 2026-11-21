@@ -14,6 +14,7 @@ import type { SecondMap } from "../world/secondMap.ts";
 import type { ServerEconomyCatalog } from "./catalog.ts";
 import { buildingCenterOf, createExchangeDirectory } from "./exchangeBuildings.ts";
 import { exchangeFeeOf, fxFeeOf } from "./fxFee.ts";
+import { npcOutsourceOf } from "../logistics/npcOutsource.ts";
 
 export function npcEconomyInputOf(
   catalog: (() => ServerEconomyCatalog) | undefined,
@@ -75,6 +76,9 @@ export function npcEconomyInputOf(
         facilities.rules().business,
         buildingId,
       ).charged,
+    // 운반꾼이 없는 NPC 운반은 같은 도시 물류센터에(기획 대조 2274 — 실제 운반 길, 요금은 국고 → 그 물류센터 금고)
+    haulOutsource: (ledger) =>
+      npcOutsourceOf({ haul: facilities.haul, places: () => facilities.service.places, maps, ledger }),
     // NPC 증축(질문 1101 나): 건물 서비스로 짓고 전략 배치로 자리를 고른다
     build: {
       service: facilities.service,

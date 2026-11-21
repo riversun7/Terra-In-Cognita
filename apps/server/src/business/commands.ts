@@ -46,7 +46,14 @@ export type BusinessCommand =
       readonly amount?: bigint;
     }
   | { readonly kind: "invest"; readonly buildingId: number; readonly asset: string; readonly amount: bigint }
-  | { readonly kind: "buy"; readonly buildingId: number; readonly item: string; readonly qty: number }
+  | {
+      readonly kind: "buy";
+      readonly buildingId: number;
+      readonly item: string;
+      readonly qty: number;
+      /** 산 물건 운반을 물류센터에 맡기기(기획 대조 2273 — 건물 ID·auto·own, 없으면 계정 자동 맡기기) */
+      readonly via?: number | "auto" | "own" | undefined;
+    }
   | { readonly kind: "price"; readonly buildingId: number; readonly item: string; readonly price: bigint }
   | { readonly kind: "gift"; readonly unitId: number; readonly amount: bigint }
   | {
@@ -86,6 +93,8 @@ export interface BusinessCommandDeps {
         asset: string,
         qty: bigint,
         atMs: number,
+        via?: number | "auto" | "own",
+        keep?: { readonly asset: string; readonly amount: bigint },
       ) => string | null | undefined)
     | undefined;
   cityAdminLevel(cityId: number): number | undefined;
@@ -141,13 +150,18 @@ export interface BusinessCommands {
   repairFee(buildingId: number, ms: number): bigint | null;
   /** 그 사람 지갑(기본 화폐)에 fee가 있나 */
   canPay(ownerId: number, fee: bigint): boolean;
-  /** 외주 요금을 낸다: 지갑 → 그 사업장 금고(소득세). 모자라면 "insufficient_funds" */
+  /**
+   * 외주 요금을 낸다: 지갑 → 그 사업장 금고(소득세). 모자라면 "insufficient_funds". asset = 요금 화폐(없으면 서버 기준 화폐 — 물류센터는 그 나라 화폐,
+   * 기획 대조 2277), keep = 낸 뒤에도 지갑에 남아야 할 돈(같은 화폐로 곧 낼 물건 값)
+   */
   chargeService(
     ownerId: number,
     buildingId: number,
     fee: bigint,
     kind: string,
     atMs: number,
+    asset?: string,
+    keep?: bigint,
   ): "insufficient_funds" | null;
 }
 
@@ -215,6 +229,7 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
     asset: string,
     qty: number,
     atMs: number,
+    via?: number | "auto" | "own",
   ): BusinessCommandResult => {
     const place = deps.place(buildingId);
     if (!place) return fail("unknown_building");
@@ -234,9 +249,18 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
     const cost = unit * amount;
     const wallet = ledger.ownerAccount(me, deps.fallbackAsset);
     if (ledger.balance(wallet) < cost) return fail("insufficient_funds");
-    // 물건부터 운반꾼에 싣는다(운반꾼이 없으면 돈·물건 그대로 — D-569 1784). 거리가 없으면 바로 도시 창고로
-    const carried = deps.carry?.(seller, me, buildingId, asset, amount, atMs);
-    if (carried === "unknown_unit" || carried === "unit_busy") return fail("no_carrier");
+    // 물건부터 운반꾼에 싣는다(운반꾼이 없으면 돈·물건 그대로 — D-569 1784). 거리가 없으면 바로 도시 창고로. 물류센터에 맡기면(기획 대조 2273) 요금을
+    // 낸 뒤에도 물건 값이 남아야 한다(keep)
+    const keep = { asset: deps.fallbackAsset, amount: cost };
+    const carried = deps.carry?.(seller, me, buildingId, asset, amount, atMs, via, keep);
+    if (
+      carried === "unknown_unit" ||
+      carried === "unit_busy" ||
+      carried === "no_shop_worker" ||
+      carried === "service_closed"
+    )
+      return fail("no_carrier");
+    if (carried === "insufficient_funds") return fail("insufficient_funds");
     if (carried === "insufficient_materials") return fail("insufficient_goods");
     if (typeof carried === "string") return fail("no_place");
     if (carried === undefined)
@@ -307,7 +331,7 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
       case "gift":
         return gift(me, command.unitId, command.amount, atMs);
       case "buy":
-        return buy(me, command.buildingId, command.item, command.qty, atMs);
+        return buy(me, command.buildingId, command.item, command.qty, atMs, command.via);
       case "settle": {
         // 정산(D-555 1502 "주인 또는 대주주", 기획 대조 2047 — D-573): 건물 주인은 지분을 팔아 대주주가 아니어도 정산한다
         const owner = deps.place(command.buildingId)?.ownerId === me;
@@ -428,11 +452,11 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
       return serviceFeeOf(rate.perHour, ms);
     },
     canPay: (ownerId, fee) => ledger.balance(ledger.ownerAccount(ownerId, deps.fallbackAsset)) >= fee,
-    chargeService(ownerId, buildingId, fee, kind, atMs) {
+    chargeService(ownerId, buildingId, fee, kind, atMs, asset = deps.fallbackAsset, keep = 0n) {
       if (fee <= 0n) return null;
-      const wallet = ledger.ownerAccount(ownerId, deps.fallbackAsset);
-      if (ledger.balance(wallet) < fee) return "insufficient_funds";
-      core.receive({ from: wallet, buildingId, asset: deps.fallbackAsset, amount: fee, kind, atMs });
+      const wallet = ledger.ownerAccount(ownerId, asset);
+      if (ledger.balance(wallet) < fee + (keep > 0n ? keep : 0n)) return "insufficient_funds";
+      core.receive({ from: wallet, buildingId, asset, amount: fee, kind, atMs });
       return null;
     },
   };

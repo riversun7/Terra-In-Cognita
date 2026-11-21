@@ -1,6 +1,7 @@
 // 운반 대행 요금 칸(건물 판 [관리] — 물류센터, 주인·대주주·운영자) — 기획 D-576(물류센터 맡기기), D-555 1505(운반 대행 서비스업), D-570 1822(판매자가
 // 정하고 적정가를 보인다), docs/adr/2026-11-16-logistics-center.md. 주인이 한 단위(무게 × 칸 — 질문 2213 요금 단위 나) 요금을 정하고(0 = 받지 않음), 곁에
 // 적정가(운반꾼 한 명 인건비 × 한 단위 나르는 시간 + 수수료 + 세금)를 보인다. 명령은 business_price(item = service:haul, 프로토콜 54). 판정·요금 셈은 서버.
+// 바뀜 (기획 대조 2277): 요금·적정가는 그 도시 나라 화폐다 — 값 뒤에 화폐 코드(서버 haulService.currency, 옛 서버는 칸 없음).
 import { HAUL_SERVICE_ITEM } from "@terra/shared/businessBooks";
 import { useState } from "react";
 import { formatAmount, parseAmountInput } from "../../economy/amount.ts";
@@ -23,7 +24,10 @@ export function HaulService({ books, reload }: { readonly books: BooksOk; readon
       { t: "business_price", buildingId: books.buildingId, item: HAUL_SERVICE_ITEM, price },
       m.haul_service_saved(),
     );
-  const charged = formatAmount(service.charged, locale);
+  // 값 + 나라 화폐 코드(기획 대조 2277)
+  const money = (value: string): string =>
+    service.currency ? `${formatAmount(value, locale)} ${service.currency}` : formatAmount(value, locale);
+  const charged = money(service.charged);
   const unit = m.haul_service_unit({
     kg: fmt(BigInt(Math.floor(service.unitG / 1000))),
     cells: service.unitCells,
@@ -50,7 +54,7 @@ export function HaulService({ books, reload }: { readonly books: BooksOk; readon
         {unit}
       </p>
       <p className="bp-muted" data-part="haul-service-fair">
-        {fairText(service.fair, (value) => formatAmount(value, locale))}
+        {fairText(service.fair, money)}
       </p>
       <div className="bp-form-row">
         <input

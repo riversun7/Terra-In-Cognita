@@ -3,7 +3,7 @@
 // 자동 맡기기 차례(한 단위 요금이 싼 차례), 요금 = 한 단위 × ⌈무게 ÷ 단위⌉ × ⌈칸 ÷ 단위⌉, 적정가(운반꾼 한 명 인건비 × 한 단위 시간 + 수수료 + 세금), 판 칸을 본다.
 import { performance } from "node:perf_hooks";
 import { HAUL_SERVICE_ITEM } from "@terra/shared/businessBooks";
-import { fairPrice, laborCostOf } from "@terra/shared/fairPrice";
+import { convertFair, fairPrice, laborCostOf } from "@terra/shared/fairPrice";
 import { TEST_SOCIETY_COEFFICIENTS, haulMs } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import type { FacilityCatalog, FacilityDef } from "../facilities/catalog.ts";
@@ -122,7 +122,7 @@ function rig() {
   };
   const prices = new Map<string, bigint>();
   const stopped = new Set<number>();
-  const charged: [number, number, bigint, string][] = [];
+  const charged: [number, number, bigint, string, string, bigint][] = [];
   let wallet = 1000n;
   const service = createHaulService({
     places: () => places,
@@ -135,12 +135,13 @@ function rig() {
     workerCount: () => 2,
     freeStaff: () => 1,
     rules: () => RULES,
-    charge(ownerId, buildingId, fee, kind) {
-      if (wallet < fee) return "insufficient_funds";
+    charge(ownerId, buildingId, fee, kind, _atMs, asset, keep) {
+      if (wallet < fee + keep) return "insufficient_funds";
       wallet -= fee;
-      charged.push([ownerId, buildingId, fee, kind]);
+      charged.push([ownerId, buildingId, fee, kind, asset, keep]);
       return null;
     },
+    fallbackAsset: "credit",
     now: () => NOW,
   });
   const setPrice = (id: number, value: bigint): void => {
@@ -206,7 +207,7 @@ describe("물류센터 운반 대행", () => {
     expect(r.service.fee(r.a, 1n, 1)).toBe(40n);
     expect(r.service.fee(r.a, 0n, 5)).toBe(0n);
     expect(r.service.pay(CUSTOMER, r.a, 240n, NOW)).toBeNull();
-    expect(r.charged).toEqual([[CUSTOMER, r.a, 240n, "haul_service"]]);
+    expect(r.charged).toEqual([[CUSTOMER, r.a, 240n, "haul_service", "credit", 0n]]);
     r.setWallet(10n);
     expect(r.service.pay(CUSTOMER, r.a, 240n, NOW)).toBe("insufficient_funds");
   });
@@ -222,5 +223,47 @@ describe("물류센터 운반 대행", () => {
     expect(rows.map((row) => row.buildingId)).toEqual([r.a, r.b]);
     expect(rows[0]).toMatchObject({ mine: true, perUnit: "25", workers: 1 });
     expect(r.service.centersView(CITY, CUSTOMER)[0]?.mine).toBe(false);
+  });
+
+  it("요금 화폐(기획 대조 2277): 그 도시 나라 화폐로 받고 적정가도 그 화폐로 보인다, 사기 값(keep)은 같은 화폐일 때만 남긴다", () => {
+    const r = rig();
+    const base = r.service.fair(r.a);
+    // 로트 1,000 기준 통화 = 지난 체결가 2,000(나라 화폐 1 로트에 기준 통화 2,000) → 나라 화폐 값 = 기준 × 1000 ÷ 2000
+    r.service.attachMoney({
+      assetOf: (id) => (id === r.a ? "cur:AAA" : undefined),
+      toLocal: (fair) => convertFair(fair, 1000n, 2000n),
+    });
+    expect(r.service.assetOf(r.a)).toBe("cur:AAA");
+    expect(r.service.assetOf(r.b)).toBe("credit");
+    expect(r.service.fair(r.a)).toEqual(convertFair(base, 1000n, 2000n));
+    expect(r.service.fair(r.b)).toEqual(base);
+    expect(r.service.view(r.a)?.currency).toBe("AAA");
+    expect(r.service.centersView(CITY, OWNER).map((row) => row.currency)).toEqual(["AAA", "credit"]);
+    expect(r.service.pay(CUSTOMER, r.a, 10n, NOW, { asset: "credit", amount: 500n })).toBeNull();
+    expect(r.charged.at(-1)).toEqual([CUSTOMER, r.a, 10n, "haul_service", "cur:AAA", 0n]);
+    expect(r.service.pay(CUSTOMER, r.b, 10n, NOW, { asset: "credit", amount: 500n })).toBeNull();
+    expect(r.charged.at(-1)).toEqual([CUSTOMER, r.b, 10n, "haul_service", "credit", 500n]);
+    r.setWallet(100n);
+    expect(r.service.pay(CUSTOMER, r.b, 10n, NOW, { asset: "credit", amount: 500n })).toBe(
+      "insufficient_funds",
+    );
+  });
+
+  it("계정 자동 맡기기(기획 대조 2272): 이은 설정이 켠 주인만 auto", async () => {
+    const r = rig();
+    expect(r.service.auto(CUSTOMER)).toBe(false);
+    const on = new Set<string>();
+    r.service.attachPrefs({
+      on: (ownerId) => on.has(`u${ownerId}`),
+      get: async (userId) => on.has(userId),
+      set: async (userId, value) => {
+        if (value) on.add(userId);
+        else on.delete(userId);
+        return value;
+      },
+    });
+    expect(await r.service.prefs()?.set(`u${CUSTOMER}`, true)).toBe(true);
+    expect(r.service.auto(CUSTOMER)).toBe(true);
+    expect(r.service.auto(OWNER)).toBe(false);
   });
 });

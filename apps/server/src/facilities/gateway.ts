@@ -140,7 +140,14 @@ function businessCommandOf(message: BusinessClientMessage): BusinessCommand {
         amount: BigInt(message.amount),
       };
     case "business_buy":
-      return { kind: "buy", buildingId: message.buildingId, item: message.item, qty: message.qty };
+      return {
+        kind: "buy",
+        buildingId: message.buildingId,
+        item: message.item,
+        qty: message.qty,
+        // 물류센터에 맡기기(프로토콜 84, 기획 대조 2273)
+        ...(message.via === undefined ? {} : { via: message.via }),
+      };
     case "business_price":
       return {
         kind: "price",
@@ -249,7 +256,7 @@ function run(
         asset: message.asset,
         qty: message.qty,
         direction: message.direction,
-        // 물류센터에 맡기기(프로토콜 54, D-576 — 물자 거래소 넣기만 쓴다)
+        // 물류센터에 맡기기(프로토콜 54 거래소 넣기, 84부터 꺼내기·own — D-576, 기획 대조 2273)
         ...(message.via === undefined ? {} : { via: message.via }),
       });
     case "dev_facility_finish":

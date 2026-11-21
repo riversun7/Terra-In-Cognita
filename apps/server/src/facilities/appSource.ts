@@ -62,6 +62,8 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
       },
       // 거래소 넣기에 맡길 물류센터(D-576)
       haulCenters: (cityId, viewerOwnerId) => facilities.haul.centersView(cityId, viewerOwnerId),
+      // 계정 자동 맡기기(기획 대조 2272 — 운반 고르기의 기본값)
+      autoHaulOf: (ownerId) => facilities.haul.auto(ownerId),
     },
     ownerOf: (userId) => settlement.findOwnerOfUser(userId),
     map: (mapKey) => world.maps.get(mapKey),
@@ -130,6 +132,8 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
         buildingId,
       ),
     land: facilities.land,
+    // 물류센터 자동 맡기기 계정 설정(기획 대조 2272)
+    autoHaul: facilities.haul.prefs(),
     claim: (ownerId, mapKey) => persistence.ruins.claimOf(ownerId, mapKey),
     claimLocked: (ownerId) => persistence.ruins.claimLockedOf(ownerId),
     async mapLooks(viewer, mapKey, nowMs) {

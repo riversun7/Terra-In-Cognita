@@ -41,7 +41,7 @@ export interface Cargo {
     boatId: number,
     buildingId: number,
     operator: boolean,
-    via?: number | "auto",
+    via?: number | "auto" | "own",
   ): BoatCommandResult;
   /** 그 항구의 물건 자리에서 아이템을 묶음 수만큼 배 창고에 싣는다 */
   load(
@@ -51,7 +51,7 @@ export interface Cargo {
     item: string,
     lots: number,
     operator: boolean,
-    via?: number | "auto",
+    via?: number | "auto" | "own",
   ): BoatCommandResult;
   /** 운반꾼을 기다리는 줄을 다시 해 본다(정시 살피기). 나르기 시작한 줄 수 */
   retry(nowMs: number): number;
@@ -176,7 +176,7 @@ export function createCargo(deps: BoatDeps, harbor: Harbor): Cargo {
     boatId: number,
     buildingId: number,
     operator: boolean,
-    via?: number | "auto",
+    via?: number | "auto" | "own",
   ): BoatCommandResult => {
     const port = portOf(deps, harbor, me, boatId, buildingId, operator);
     if (portFailed(port)) return port;
@@ -223,7 +223,7 @@ export function createCargo(deps: BoatDeps, harbor: Harbor): Cargo {
     item: string,
     lots: number,
     operator: boolean,
-    via?: number | "auto",
+    via?: number | "auto" | "own",
   ): BoatCommandResult => {
     const port = portOf(deps, harbor, me, boatId, buildingId, operator);
     if (portFailed(port)) return port;

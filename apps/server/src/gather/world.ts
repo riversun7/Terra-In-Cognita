@@ -172,11 +172,23 @@ export function startWorldGather(
         haulService: facilities.haul,
       });
       facilities.attachHaulStaff((buildingId, mapKey, nowMs) => station.freeStaff(buildingId, mapKey, nowMs));
+      // NPC 운반 맡기기도 같은 실제 운반 길(기획 대조 2274 — logistics/npcOutsource.ts)
+      facilities.haul.attachCarrier((spec) => station.carry(spec));
       parts.labor.attachStation(station.hook);
       // 손으로 옮기기도 운반꾼·거리 시간(질문 1091 가)
       // 사업장 판매(business_buy)·창고 시설 꺼내기도 같은 운반꾼(기획 D-569 1784 — sellerId = 판 사람)
-      facilities.service.attachStorageOut((ownerId, input, atMs, sellerId) =>
-        station.haulOut(ownerId, input.buildingId, input.asset, BigInt(input.qty), atMs, sellerId),
+      // 물류센터 맡기기도 같은 via(기획 대조 2273 — 고른 물류센터·자동 맡기기, 사기 값 keep)
+      facilities.service.attachStorageOut((ownerId, input, atMs, sellerId, keep) =>
+        station.haulOut(
+          ownerId,
+          input.buildingId,
+          input.asset,
+          BigInt(input.qty),
+          atMs,
+          sellerId,
+          input.via,
+          keep,
+        ),
       );
       // 물자 거래소 건물 넣기도 운반꾼(기획 D-564 1628 — docs/adr/2026-11-16-exchange-buildings.md)
       // 개인 창고 자리(기획 D-571 1943 — market/lockers.ts): 넘치면 떠나지 않는다(storage_full)

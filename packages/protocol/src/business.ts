@@ -5,6 +5,7 @@
 //   물건은 산 사람의 그 도시 창고로, 돈은 사업장 금고로(소득세).
 //   바뀜 (프로토콜 46, 기획 D-569 1781·1784): 주인도 누구나와 같은 판매(같은 판매가·최소 묶음, 0 = 아무에게도 안 팖)이고 돈은 사업장 매출로 잡힌다.
 //   산 물건은 운반꾼(그 건물 일꾼 또는 산 사람의 유닛)이 도시 창고로 걸어 나른다 — 운반꾼이 없으면 no_carrier(옮김 셈을 끄거나 거리 0이면 바로).
+//   84부터 선택 칸 via(물류센터에 맡기기 — 기획 대조 2273): 물류센터 쪽 실패는 no_carrier(나를 일꾼 없음·받지 않음)·insufficient_funds(요금 모자람).
 // - 값 정하기(business_price): 주인·대주주가 아이템 1개 값을 정한다(0 = 남에게 팔지 않음). 48부터 외주 수리 시간당 요금도(item =
 //   service:equipment_repair, D-570 1785). 51부터 조선소 배 판매가도(item = boat:<배 종류>, 0 = 그 종류는 만들지 않음 — 기획 대조 2057).
 //   52부터 외환 거래소 환전 이용료 요율도(item = service:fx_fee, 값 = 만분율 — 질문 2086, 줄기 exchange-3 판 56).
@@ -18,6 +19,7 @@
 //   null이면 설정 칸 기본값으로 돌린다.
 // 결과는 business_result 하나(id = 요청 id). 오류는 코드다(기기가 번역). 조회는 tRPC facilities.books다.
 import { z } from "zod";
+import { haulViaSchema } from "./facilities.ts";
 
 /** 사업장 장부 메시지에 필요한 가장 낮은 프로토콜 버전. 더 낮게 인사한 연결이 보내면 invalid_message로 거절한다 */
 export const BUSINESS_PROTOCOL_VERSION = 34;
@@ -90,6 +92,8 @@ export const businessBuyMessage = z.object({
   item,
   /** 입력 한도(게임 값 아님) 100만 */
   qty: z.number().int().positive().max(1_000_000),
+  /** 산 물건 운반을 물류센터에 맡기기(84부터 — 기획 대조 2273, facilities.ts haulViaSchema). 없으면 계정 설정(자동 맡기기) */
+  via: haulViaSchema.optional(),
 });
 
 export const businessPriceMessage = z.object({

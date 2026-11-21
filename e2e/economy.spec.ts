@@ -553,8 +553,8 @@ function withHaulCenters(data: unknown): void {
       sale: false,
       exchangeId: 9002,
       haulCenters: [
-        { buildingId: 9003, mine: false, perUnit: "1250000", workers: 3, ...unit },
-        { buildingId: 9004, mine: true, perUnit: "0", workers: 0, ...unit },
+        { buildingId: 9003, mine: false, perUnit: "1250000", workers: 3, currency: "AAA", ...unit },
+        { buildingId: 9004, mine: true, perUnit: "0", workers: 0, currency: "AAA", ...unit },
       ],
       lines: [
         {
@@ -579,7 +579,7 @@ test.describe("물류센터 고르기(D-576)", () => {
     test.describe(`${theme}·${language}`, () => {
       test.use({ theme, language, viewport: { width: 390, height: 844 } });
 
-      test("거래소로 옮기기에 운반 고르기: 받지 않는 곳은 막고, 자동 맡기기를 켜면 내 유닛 줄 글이 바뀐다", async ({
+      test("거래소로 옮기기에 운반 고르기: 받지 않는 곳은 막고, 계정 자동 맡기기를 켜면 처음 칸이 '없으면 물류센터'", async ({
         page,
         deviceErrors,
       }) => {
@@ -589,28 +589,45 @@ test.describe("물류센터 고르기(D-576)", () => {
         const moves = economy(page).locator('[data-part="facility-exchange-moves"]').first();
         await expect(moves).toBeVisible({ timeout: 30_000 });
         const pick = moves.locator('[data-part="facility-haul-pick"]');
-        await expect(pick.locator("option")).toHaveCount(3);
+        await expect(pick.locator("option")).toHaveCount(4);
         await expect(pick.locator("option").first()).toHaveText(message(language, "facility_haul_own"));
+        await expect(pick).toHaveValue("own");
         await expect(pick.locator('option[value="9004"]')).toHaveAttribute("disabled", "");
+        // 단위당 값 뒤에 나라 화폐 코드(기획 대조 2277)
+        await expect(pick.locator('option[value="9003"]')).toContainText("AAA");
         await pick.selectOption("9003");
         await expect(pick).toHaveValue("9003");
         await expect(moves.locator('[data-part="facility-haul-unit"]')).toBeVisible();
         await page.evaluate(() => document.fonts.ready.then(() => undefined));
         expect(await horizontalOverflow(page)).toEqual([]);
         await elementShot(moves, `economy-haul-pick-${theme}-${language}-390`);
-        // 설정의 자동 맡기기(기기에만)
+        // 설정의 자동 맡기기(계정 설정 — 기획 대조 2272): 서버에 쓰고, 경제 화면의 처음 칸이 바뀐다
         await page.goto("/settings");
         const toggle = page.locator('[data-part="settings-auto-haul"]');
-        await expect(toggle).toBeVisible();
+        const input = toggle.locator('input[name="auto-haul"]');
+        await expect(input).toBeEnabled({ timeout: 30_000 });
+        await expect(input).not.toBeChecked();
         await toggle.click();
-        await expect(toggle.locator('input[name="auto-haul"]')).toBeChecked();
+        await expect(input).toBeChecked();
+        await expect(input).toBeEnabled();
         expect(await horizontalOverflow(page)).toEqual([]);
         await elementShot(toggle, `settings-auto-haul-${theme}-${language}-390`);
+        // 새로 열어도(다른 기기와 같이) 계정 값이 남는다
+        await page.reload();
+        await expect(page.locator('[data-part="settings-auto-haul"] input[name="auto-haul"]')).toBeChecked({
+          timeout: 30_000,
+        });
         await page.goto("/economy/production");
-        await expect(economy(page).locator('[data-part="facility-haul-pick"] option').first()).toHaveText(
-          message(language, "facility_haul_own_auto"),
-          { timeout: 30_000 },
-        );
+        await expect(economy(page).locator('[data-part="facility-haul-pick"]').first()).toHaveValue("auto", {
+          timeout: 30_000,
+        });
+        // 다음 시험을 위해 끈다
+        await page.goto("/settings");
+        const again = page.locator('[data-part="settings-auto-haul"]');
+        await expect(again.locator('input[name="auto-haul"]')).toBeChecked({ timeout: 30_000 });
+        await again.click();
+        await expect(again.locator('input[name="auto-haul"]')).not.toBeChecked();
+        await expect(again.locator('input[name="auto-haul"]')).toBeEnabled();
         expect(deviceErrors).toEqual([]);
       });
     });

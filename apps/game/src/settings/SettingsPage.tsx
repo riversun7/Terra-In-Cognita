@@ -1,7 +1,8 @@
 // 설정 화면 — 사이드 메뉴의 [설정]·주소 /settings로 연다(지연 로딩되는 별도 조각, shell/routeViews.tsx의 React.lazy).
 // ADR 2026-10-28-design-system, 2026-10-29-app-shell 4절
 // 테마 4개(미리 보기), "기기 설정에 맞추기", 언어, 시세 색(D-442), 메뉴(하단 탭 모양·메뉴 순서 — shell/NavigationSettings.tsx).
-// 바꾸면 바로 걸고 기기에 저장한 뒤 계정에도 올린다(settings.ts). 시세 색만 기기에만 저장한다(계정 칸 없음).
+// 바꾸면 바로 걸고 기기에 저장한 뒤 계정에도 올린다(settings.ts). 시세 색만 기기에만 저장한다(계정 칸 없음). 물류센터 자동 맡기기는 서버 판정이 읽는
+// 계정 설정이라 따로 서버에 바로 쓴다(AutoHaulSetting.tsx — 기획 대조 2272).
 // - 테마는 기본 라디오 단추 묶음이다(화살표 키로 옮기고 고른다). 고른 표시는 지금 화면에 걸린 테마다(기기를 따르는 중이어도).
 // - 테마를 고르면 "기기 설정에 맞추기"는 꺼진다. 스위치를 끄면 지금 보이는 테마가 그대로 남는다.
 import { THEMES, type Theme } from "@terra/shared";
@@ -19,7 +20,8 @@ import {
   languageMarketColors,
 } from "./marketColors.ts";
 import { buildInfo } from "./buildInfo.ts";
-import { chooseMarketColors, chooseTheme, setAutoHaul, setFollowSystem, useSettings } from "./settings.ts";
+import { chooseMarketColors, chooseTheme, setFollowSystem, useSettings } from "./settings.ts";
+import { AutoHaulSetting } from "./AutoHaulSetting.tsx";
 import { VersionRow } from "./VersionRow.tsx";
 import "./settings.css";
 
@@ -133,9 +135,6 @@ export default function SettingsPage({ onClose }: { onClose: () => void }) {
   const followId = useId();
   const followNameId = useId();
   const followHintId = useId();
-  const haulId = useId();
-  const haulNameId = useId();
-  const haulHintId = useId();
 
   return (
     <section className="screen settings" aria-labelledby="settings-title">
@@ -179,29 +178,8 @@ export default function SettingsPage({ onClose }: { onClose: () => void }) {
       </label>
       <LanguageSelect variant="field" />
       <MarketColorsSelect value={device.marketColors ?? "language"} />
-      {/* 물류센터 자동 맡기기(기획 D-576 — 기기에만, 기본 끔) */}
-      <label className="setting-row" htmlFor={haulId} data-part="settings-auto-haul">
-        <span className="setting-text">
-          <span className="setting-name" id={haulNameId}>
-            {m.settings_auto_haul()}
-          </span>
-          <span className="setting-hint" id={haulHintId}>
-            {m.settings_auto_haul_hint()}
-          </span>
-        </span>
-        <input
-          id={haulId}
-          type="checkbox"
-          name="auto-haul"
-          role="switch"
-          className="switch-input visually-hidden"
-          checked={device.autoHaul === true}
-          onChange={(event) => setAutoHaul(event.target.checked)}
-          aria-labelledby={haulNameId}
-          aria-describedby={haulHintId}
-        />
-        <span className="switch-track" aria-hidden="true" />
-      </label>
+      {/* 물류센터 자동 맡기기(기획 D-576 — 계정 설정, 기획 대조 2272) */}
+      <AutoHaulSetting />
       <NavigationSettings />
       <fieldset className="settings-section">
         <legend className="section-title">{m.settings_help_legend()}</legend>

@@ -3,7 +3,7 @@
 // Drizzle 1.0 RC에는 열 이름 자동 변환(casing) 설정이 없어서 열 이름을 직접 적는다.
 // 세계 밖 표(계정·개발 도구·운영 기록)를 더하면 src/cli/resetWorld.ts WORLD_RESET_KEEP에도 넣는다(안 넣으면 세계 새로 시작 때 비워진다).
 import type { PerfReport } from "@terra/protocol";
-import type { PlanetLibraryBase, SettingsObject, StarSystemDefinition } from "@terra/shared";
+import type { PlanetLibraryBase, StarSystemDefinition } from "@terra/shared";
 import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
@@ -207,33 +207,8 @@ export const auditLog = pgTable(
   ],
 );
 
-/**
- * 계정 설정 — 사용자당 한 줄: 테마, 기기 설정 따르기, 언어(docs/adr/2026-10-28-design-system.md), 메뉴·홈(ADR 2026-10-29-app-shell 5절).
- * null은 "정하지 않음"(기기 규칙을 따른다). 목록(@terra/shared THEMES·LOCALES)은 검사 조건에 넣지 않는다:
- * 더 새 버전이 저장한 값도 옛 버전 앱이 그대로 읽게 한다(모르는 값은 읽을 때 null로 본다).
- * nav·home은 묶음마다 jsonb 하나다(모양을 모르는 JSON 객체, 입력 검사는 src/trpc/settings.ts). 열 더하기만 한 마이그레이션이라
- * 직전 판 서버는 이 두 열을 모른 채 그대로 읽고 쓴다.
- */
-export const userSettings = pgTable(
-  "user_settings",
-  {
-    userId: uuid("user_id")
-      .primaryKey()
-      .references(() => users.id, { onDelete: "cascade" }),
-    theme: text("theme"),
-    followSystem: boolean("follow_system").notNull().default(false),
-    locale: text("locale"),
-    updatedAt: updatedAt(),
-    /** 메뉴 설정(@terra/shared navigation.ts의 nav). null이면 정하지 않음 */
-    nav: jsonb("nav").$type<SettingsObject>(),
-    /** 홈 설정(@terra/shared/dashboard의 home). null이면 정하지 않음 */
-    home: jsonb("home").$type<SettingsObject>(),
-  },
-  (table) => [
-    check("user_settings_theme_format", sql`${table.theme} ~ '^[a-z][a-z0-9_]{0,31}$'`),
-    check("user_settings_locale_format", sql`${table.locale} ~ '^[a-z]{2,3}(-[A-Za-z0-9]{2,8}){0,3}$'`),
-  ],
-);
+/** 계정 설정(user_settings) — settingsSchema.ts(이 파일 줄 수 때문에 따로 둔다) */
+export { userSettings } from "./settingsSchema.ts";
 
 // ── 행성 편집기 초안 — docs/adr/2026-10-29-planet-editor-stage1.md 9절 ───────────────────────────────
 // 사람마다·팩 행성마다 초안 하나와 그 판 기록(최근 50개). 초안 항목(entry)은 planets.json 항목 그대로(시드 포함)라

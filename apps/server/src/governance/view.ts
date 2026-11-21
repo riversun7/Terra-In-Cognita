@@ -154,7 +154,7 @@ export function createGovernanceView(o: {
             counts?.find((count) => count.key === row.houseKey)?.votes ??
             (live.get(row.houseKey) ?? 0n).toString(),
         })),
-        barred: agenda.payload.barred ?? null,
+        barred: house(agenda.payload.barred ?? null),
         winner: house(agenda.result?.winner ?? null),
         votes: mine.map((row) => ({
           voter: voterOf(row.voterKey),
@@ -167,7 +167,7 @@ export function createGovernanceView(o: {
           canRegister:
             registering &&
             s.ownHouse !== null &&
-            s.ownHouse !== agenda.payload.barred &&
+            s.ownHouse !== (agenda.payload.barred ?? null) &&
             !cands.some((row) => row.houseKey === s.ownHouse),
           weight: s.power.toString(),
         },

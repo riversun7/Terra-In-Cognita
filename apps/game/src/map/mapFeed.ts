@@ -483,6 +483,8 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
       message.t === "house_member_result" ||
       message.t === "house_city_result" ||
       message.t === "house_recruit_result" ||
+      // 나라 의결 결과는 세력 화면 투표 탭(faction/governance/governanceCommands.ts)이 받는다
+      message.t === "gov_result" ||
       // 배 결과(프로토콜 27)는 배 단추(boats/boatCommands.ts)가 받는다
       message.t === "boat_result" ||
       // 사업장 장부 결과(프로토콜 34)는 장부 칸(business/businessCommands.ts)이 받는다

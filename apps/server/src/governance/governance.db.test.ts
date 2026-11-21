@@ -333,7 +333,7 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결(governance)", () => {
     const snap = after.agendas.find(
       (agenda) => agenda.kind === "leader_election" && agenda.status === "open",
     );
-    expect(snap?.barred).toBe(before);
+    expect(snap?.barred?.key).toBe(before);
     expect(snap?.candidates.some((row) => row.key === before)).toBe(false);
     gov.stop();
   }, 120_000);

@@ -213,7 +213,7 @@ export interface GovernanceAgendaView {
   /** 선출 후보와 표(선출만) */
   readonly candidates: readonly (GovernanceHouse & { readonly votes: string })[];
   /** 해임 뒤 다시 뽑기에서 후보로 나설 수 없는 가문 */
-  readonly barred: HouseKey | null;
+  readonly barred: GovernanceHouse | null;
   /** 이긴 가문(선출) */
   readonly winner: GovernanceHouse | null;
   readonly votes: readonly GovernanceVoteRow[];

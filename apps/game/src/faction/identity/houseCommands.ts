@@ -110,7 +110,7 @@ function randomU32(): number {
 let nextId = randomU32();
 
 /** 메시지 하나를 보내고 read가 값을 돌려주는 첫 답을 기다린다(끊김 = offline, 보낸 뒤 시간 넘김 = timeout) */
-function request<T>(
+export function request<T>(
   link: ServerLink,
   build: (id: number) => FeatureClientMessage,
   read: (message: ServerMessage, id: number) => T | null,

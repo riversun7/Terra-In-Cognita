@@ -103,8 +103,8 @@ async function choosePage(page: Page, tab: string): Promise<void> {
   await expect(page.locator(".tp-page-panel")).toHaveAttribute("data-page", tab);
 }
 
-/** 화면 안(틀 밖 제외) 누르는 곳이 44px보다 작은 것 — 휴대폰(터치)에서만 본다 */
-const smallInScreen = (page: Page) => smallTapTargets(page, { min: 44, ignore: ":not(.tp-screen *)" });
+/** 화면 안(틀 밖 제외) 누르는 곳이 최소 크기(--tap-min 24px, ADR 2026-11-21-tap-target-relax)보다 작은 것 — 휴대폰(터치)에서만 본다 */
+const smallInScreen = (page: Page) => smallTapTargets(page, { ignore: ":not(.tp-screen *)" });
 
 /** 줄을 찾아 새 값 칸에 값 → [담기] */
 async function stageValue(page: Page, id: string, value: string): Promise<void> {

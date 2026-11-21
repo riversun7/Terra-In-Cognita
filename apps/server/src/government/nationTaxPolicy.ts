@@ -5,13 +5,15 @@
 // - 바뀜(governance-2, 질문 2407 가): 민주주의·자본주의 나라에서 칸 하나라도 한 번에 설정 칸 gov_tax_agenda_width_pm(‰, 소득세는 bp ÷ 10) 이상 바꾸면
 //   taxChangeRule이 "vote"를 돌려주고 이 명령은 바로 정하지 않고 나라 의결 세율 안건(tax_change)을 연다(결과 ok + agendaId). 가결되면 의결 서비스가
 //   applyNationTaxes로 쓴다. 폭 아래·독재는 지도자가 바로 정한다. 칸의 null(정하지 않음)은 0으로 견준다 [임시 질문 2436].
+// - 바뀜(governance-3, 질문 2440 나 답 — D-252·D-128·D-5057): 선출로 NPC 나라를 이끄는 플레이어 지배 가문의 장(governance_state — houseEntryPolicy.ts
+//   electedNationOf)도 그 나라 세금을 정한다(NPC 판단은 그 나라 세율을 정하지 않는다 — npc/governanceHooks.ts nationLocked). 체제·안건 규칙은 같다.
 // - 감사 기록 faction.nation_tax(나라·앞뒤 값). 정한 뒤 메모리 표(nationTax.ts)를 바꾼다 — 다음 사업장 소득세·하루 끝 주민세부터 쓴다.
 import type { GovernmentRegime, GovernmentTaxes } from "@terra/shared/government";
 import type { NationTaxResultCode } from "@terra/protocol";
 import type { SocietyCoefficients } from "@terra/sim";
 import { writeAudit } from "../auth/store.ts";
 import type { Database } from "../db/client.ts";
-import { ruledBy } from "../factionIdentity/houseEntryPolicy.ts";
+import { electedNationOf, ruledBy } from "../factionIdentity/houseEntryPolicy.ts";
 import { type HouseTxPool, inTransaction, membershipOf } from "../factionIdentity/members.ts";
 import type { IdentityQueryable } from "../factionIdentity/store.ts";
 import { taxChangeNeedsAgenda } from "../governance/rules.ts";
@@ -120,18 +122,30 @@ export function createNationTaxPolicy(o: {
           "select regime from factions where id = $1 for update",
           [mine.factionId],
         );
-        const regime = locked.rows[0]?.regime;
+        let regime = locked.rows[0]?.regime;
         if (regime === undefined) return fail("not_ruler");
         const ruled = await ruledBy(q, mine.factionId);
-        if (!ruled.nation) return fail("not_ruler");
-        const before = await q.query(`${NATION_TAX_SELECT} where faction_id = $1`, [mine.factionId]);
+        // 선출된 지배 가문이 이끄는 NPC 나라(위 바뀜 governance-3)
+        let nationId = mine.factionId;
+        if (!ruled.nation) {
+          const elected = await electedNationOf(q, mine.factionId);
+          if (elected === undefined) return fail("not_ruler");
+          const nation = await q.query<{ regime: string }>(
+            "select regime from factions where id = $1 for update",
+            [elected],
+          );
+          regime = nation.rows[0]?.regime;
+          if (regime === undefined) return fail("not_ruler");
+          nationId = elected;
+        }
+        const before = await q.query(`${NATION_TAX_SELECT} where faction_id = $1`, [nationId]);
         const was = nationTaxRowOf(before.rows[0]);
         // 민주주의·자본주의에서 폭이 문턱 이상이면 안건으로(질문 2407 가 — 트랜잭션 밖에서 연다)
         if (o.openAgenda && taxChangeRule(regimeOf(regime), was, row, o.agendaWidthPm?.()) === "vote")
-          return { ok: true, factionId: mine.factionId, agendaId: 0 };
-        await applyNationTaxes(q, undefined, mine.factionId, row, o.now(), userId);
-        audit = { factionId: mine.factionId, before: was ?? null, after: row };
-        return { ok: true, factionId: mine.factionId };
+          return { ok: true, factionId: nationId, agendaId: 0 };
+        await applyNationTaxes(q, undefined, nationId, row, o.now(), userId);
+        audit = { factionId: nationId, before: was ?? null, after: row };
+        return { ok: true, factionId: nationId };
       });
       if (result.ok && result.agendaId !== undefined && o.openAgenda) {
         const opened = await o.openAgenda(userId, row);
@@ -170,11 +184,16 @@ export async function readNationTaxes(
       : q
           .query(`${NATION_TAX_SELECT} where faction_id = $1`, [nationRow])
           .then((r) => nationTaxRowOf(r.rows[0])),
-    input.npc ? Promise.resolve(null) : membershipOf(q, input.viewerId),
+    // NPC 나라도 본다 — 선출된 플레이어 지배 가문장이 정할 수 있다(바뀜 governance-3)
+    membershipOf(q, input.viewerId),
   ]);
-  // 정하는 사람 = 이 나라인 독립 가문의 가문장(NPC 나라는 없다)
+  // 정하는 사람 = 이 나라인 독립 가문의 가문장, 또는 선출로 이 나라를 이끄는 플레이어 지배 가문의 장(바뀜 governance-3 — 2440 나)
   const leads = mine?.role === "leader" && nationRow !== undefined && mine.factionId === nationRow;
-  const canSet = leads ? (await ruledBy(q, nationRow)).nation : false;
+  const canSet = leads
+    ? (await ruledBy(q, nationRow)).nation
+    : mine?.role === "leader" && nationRow !== undefined
+      ? (await electedNationOf(q, mine.factionId)) === nationRow
+      : false;
   return {
     ...effectiveNationTaxes(
       { row: own, npc: input.npc, commerce: input.commerce, tradeTaxBp: input.tradeTaxBp },

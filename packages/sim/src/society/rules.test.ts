@@ -235,6 +235,28 @@ describe("반란·독립", () => {
     expect(unrestBand(55_000, { ...c, rebellionWarningAt: 55 })).toBe("warning");
   });
 
+  it("자본주의 독립: 가문 지분 계정도 합과 찬성에 든다(질문 2435 — D-301, 서버만)", () => {
+    const holdings = [
+      { owner: 1, amount: 200n },
+      { owner: 4, amount: 300n },
+    ];
+    // 가문 500주가 반대면 300 ÷ 1000 = 실패, 찬성이면 800‰ 통과
+    expect(capitalistIndependence(holdings, 1, new Set(), c, [{ amount: 500n, yes: false }])).toEqual({
+      kind: "failed",
+      leader: 4,
+      yesPm: 300,
+    });
+    expect(capitalistIndependence(holdings, 1, new Set(), c, [{ amount: 500n, yes: true }])).toEqual({
+      kind: "passed",
+      leader: 4,
+      yesPm: 800,
+    });
+    // 가문만 지분을 가지면 열 주체가 없다(가문 독립은 따로 — 2435 나)
+    expect(capitalistIndependence([], 1, new Set(), c, [{ amount: 1000n, yes: true }])).toEqual({
+      kind: "none",
+    });
+  });
+
   it("자본주의: 지분 1위가 열고 혼자 50% 이상이면 선언, 찬성 합 50% 이상이면 통과(D-300·D-301)", () => {
     const holdings = [
       { owner: 1, amount: 300n },

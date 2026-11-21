@@ -5,7 +5,11 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-21 22:00 | 가파른 비탈 막힘 → 느리게 지나감(비용 ×4), 건물은 그대로 못 지음 | Claude Code | [21-2200-steep-slope-pace](worklog/2026/11/21-2200-steep-slope-pace.md) |
+| 2026-11-21 21:30 | 2차맵 화면 높이 과장 ×4(보기만) | Claude Code | [21-2130-second-map-relief](worklog/2026/11/21-2130-second-map-relief.md) |
+| 2026-11-21 21:03~ | 2026-11-21 묶음 1116y 합치기 (의결 3 — 쿠데타·지분 따라가기·빈자리 독립 / 신용 점수) — 리셋 필요 없음 | Claude Code | [21-2103-batch-1116y-merge](worklog/2026/11/21-2103-batch-1116y-merge.md) |
 | 2026-11-21 20:30 | 누르는 곳 최소 크기 규칙 풀기(44px → 24px), 작은 단추 38px로 되돌림 | Claude Code | [21-2030-tap-target-relax](worklog/2026/11/21-2030-tap-target-relax.md) |
+| 2026-11-21 20:30 | 2026-11-21 governance-3 — 점령 통치자 지분만 몰수·지배 쪽 지분 따라가기·군사 쿠데타·빈자리 도시 독립·국고 지분 팔기·나라 단위 판단 멈춤 | Claude Code | [21-2030-governance-3](worklog/2026/11/21-2030-governance-3.md) |
 | 2026-11-21 20:00 | 화면 시험 실패 고치기: 작은 단추 38px → 44px, 작은 창 첫 줄 선택자 | Claude Code | [21-2000-e2e-tap-size-peek-line](worklog/2026/11/21-2000-e2e-tap-size-peek-line.md) |
 | 2026-11-21 19:34 | NPC 자율행동 · AI 5단계 완료(외교 호감 · 자동 의뢰 · 1차맵 임무 · 180일/1만 유닛 검증 · 전체 회귀 통과) | Antigravity | [21-1934-npc-ai-phase5](worklog/2026/11/21-1934-npc-ai-phase5.md) |
 | 2026-11-21 19:30 | NPC 자율행동 · AI 4단계 구현(전투 이동 AI `moveAi.ts` 완성 · 7축/충성도 조우 작전 연결 · `/dev/npc-ai` 탭 4 확장) | Antigravity | [21-1930-npc-ai-phase4](worklog/2026/11/21-1930-npc-ai-phase4.md) |
@@ -14,6 +18,7 @@
 | 2026-11-21 18:42~ | 2026-11-21 묶음 1116x 합치기 (지배 가문 지분 계정·국고 지분 과반 제외·NPC 도전자·빈자리·세율 안건) — 리셋 필요 없음 | Claude Code | [21-1842-batch-1116x-merge](worklog/2026/11/21-1842-batch-1116x-merge.md) |
 | 2026-11-21 18:00 | 회색 2차맵(지형 404)·건물 들어가기 자리·상태 메시지 정리 | Claude Code | [21-1800-grey-maps-enter-messages](worklog/2026/11/21-1800-grey-maps-enter-messages.md) |
 | 2026-11-21 17:45 | 2026-11-21 governance-2 — 지배 가문 지분 계정·국고 지분 과반 제외·NPC 도전자·지배 가문 반영·빈자리·일찍 끝내기·세율 안건 | Claude Code | [21-1745-governance-2](worklog/2026/11/21-1745-governance-2.md) |
+| 2026-11-21 17:45 | 2026-11-21 credit — 신용 점수(도시 신용·나라 신용, 주민세 빚·사업장 적자로 깎고 갚으면 바로 회복, D-581) + 폐허 도시 주민세 빚 탕감(2427 나) | Claude Code | [21-1745-credit](worklog/2026/11/21-1745-credit.md) |
 | 2026-11-21 16:58~ | 2026-11-21 묶음 1116w 합치기 (나라 세금 칸·주민세 재산 = 건물 값·세후 임금) — 리셋 필요 없음 | Claude Code | [21-1658-batch-1116w-merge](worklog/2026/11/21-1658-batch-1116w-merge.md) |
 | 2026-11-21 16:00 | 2026-11-21 tax-2 — 나라 세금 칸(소득세·주민세 나라 값)·주민세 재산 = 건물 값·집 몫/사업장 몫(D-581)·빚 탕감·세후 임금·운반꾼 포만감·시험 봇 전투력 | Claude Code | [21-1600-tax-2](worklog/2026/11/21-1600-tax-2.md) |
 | 2026-11-21 15:56~ | 2026-11-21 묶음 1116v 합치기 (NPC 알박기 재료·운반 + 나라 의결 + NPC 판단 예약 저장) — 리셋 필요 없음 | Claude Code | [21-1556-batch-1116v-merge](worklog/2026/11/21-1556-batch-1116v-merge.md) |

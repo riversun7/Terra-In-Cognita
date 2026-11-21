@@ -27,6 +27,11 @@ export interface AgendaPayload {
   readonly byAuthority?: boolean;
   /** 세율 안건이 바꾸려는 나라 세금(질문 2407 가) */
   readonly taxes?: GovernanceTaxes;
+  /** 도시 독립 투표·국고 지분 팔기의 도시(질문 2434 (가)·2438 답 D-583) */
+  readonly cityId?: number;
+  /** 국고 지분 팔기: 주 수·한 주 가장 낮은 값(10진 글자) */
+  readonly shares?: string;
+  readonly minPrice?: string;
 }
 
 /** jsonb → 세율 안건 값(칸마다 정수 또는 null). 꼴이 틀리면 undefined */
@@ -125,18 +130,28 @@ const oneOf = <T extends string>(list: readonly T[], value: unknown, fallback: T
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
+/** 10진 정수 글자 칸(국고 지분 팔기 주 수·값) */
+const digits = (field: unknown): string | undefined =>
+  typeof field === "string" && /^[0-9]{1,25}$/.test(field) ? field : undefined;
+
 function payloadOf(value: unknown): AgendaPayload {
   if (!isRecord(value)) return {};
   const regime = GOVERNANCE_REGIMES.find((entry) => entry === value.regime);
   const target = typeof value.targetNationId === "number" ? value.targetNationId : undefined;
   const barred = typeof value.barred === "string" && isHouseKey(value.barred) ? value.barred : undefined;
   const taxes = taxesOf(value.taxes);
+  const cityId = typeof value.cityId === "number" ? value.cityId : undefined;
+  const shares = digits(value.shares);
+  const minPrice = digits(value.minPrice);
   return {
     ...(regime ? { regime } : {}),
     ...(target !== undefined ? { targetNationId: target } : {}),
     ...(barred ? { barred } : {}),
     ...(value.byAuthority === true ? { byAuthority: true } : {}),
     ...(taxes ? { taxes } : {}),
+    ...(cityId !== undefined ? { cityId } : {}),
+    ...(shares !== undefined ? { shares } : {}),
+    ...(minPrice !== undefined ? { minPrice } : {}),
   };
 }
 

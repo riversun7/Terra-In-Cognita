@@ -8,3 +8,5 @@ export {
   houseShareCode,
   moveSharesToHouse,
 } from "./shares.ts";
+// 군사 쿠데타 전투(서버만 — 줄기 governance-3, 질문 2433 나 답 D-583)
+export { type CoupBattleInput, runCoupBattle } from "./coupBattle.ts";

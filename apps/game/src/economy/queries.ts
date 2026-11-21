@@ -4,6 +4,7 @@
 // - 칸을 옮겨도 받은 값이 남는다(경제 조각이 살아 있는 동안). 시안 자료를 켜고 끄면 열쇠가 바뀌어 새로 받는다.
 // - 실패는 값으로 둔다(문구 키는 net/apiErrors.ts). 로그인이 끝났으면 세션을 다시 확인한다.
 // 이 모듈은 경제 지연 조각에만 들어간다(tRPC 클라이언트가 첫 화면에 들어가지 않게, ADR 37 11절).
+import type { CreditResponse } from "@terra/shared/credit";
 import type {
   EconomyCatalogResponse,
   EconomyCityNamesResponse,
@@ -178,6 +179,11 @@ export const useOrders = createQuery<EconomyOrdersResponse>((_args, preview, sig
 );
 export const useExchange = createQuery<EconomyExchangeResponse>((_args, preview, signal) =>
   api.economy.exchange.query(previewInput(preview), { signal }),
+);
+
+/** 내 신용 점수(실제 자료만 — D-581, docs/adr/2026-11-21-credit.md) */
+export const useCredit = createQuery<CreditResponse>((_args, _preview, signal) =>
+  api.economy.credit.query(undefined, { signal }),
 );
 
 /** 노동 계약(실제 자료만, 시안 자료 없음 — docs/adr/2026-11-03-labor-contracts.md) */

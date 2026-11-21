@@ -106,3 +106,46 @@
   안건 종류 검사에 `tax_change`를 더함 — 넓히기만 해서 직전 판 앱 그대로. 직전 판 앱으로 되돌리면 `tax_change` 안건을 모르는 종류로 읽는다 — Assumed 해 없음: 선출로 읽혀 후보 없이 실패),
   프로토콜 58(묶음 1116x, 줄기 판 98 — 받는 가장 낮은 판 57, gov_propose `tax_change`·`taxes`, nation_tax_result `agendaId`, 더하기만), 팩 core@133(묶음 1116x, 줄기 판 172 — 설정 칸 5개 `gov_npc_run_score`·
   `gov_npc_run_max`·`gov_vacancy_split_ms`·`gov_coup_satisfaction_drop`·`gov_tax_agenda_width_pm`), SIM_VERSION 그대로.
+
+## 바뀜 (governance-3, 2026-11-21 — 기획 대조 2431~2440·사용자 답 D-583, 제안 상태라 이 ADR을 고친다)
+- 근거: 기획 대조(코디네이터 전달 2026-11-21) — D-293·D-298·D-346·D-338·D-344·D-580 1·6·D-582·D-574 10·D-575·D-252·D-128·D-5057·D-217·D-301·D-302·D-341·D-323·D-555 1509·D-576·D-256·D-326,
+  사용자 답 D-583(2432 (다)·2433 나·2434 (가)·2438). 질문 표시 `docs/questions/2026-11-21-governance-3.md`, 새 질문 `docs/questions/2026-11-21-governance-4.md`(2451~2460).
+  위 "바뀜 (governance-2)"의 "점령 몰수(지분 유지 = 그 도시 가문 지분도 몰수 [임시 2431])"·"지배 가문이 바뀌어도 이미 가진 지분은 그 가문에 남는다 [임시 2432]"·"군사 쿠데타 — 결과
+  도우미만"·"빈자리가 길어질 때 … 빈틈(2434)"·"가문 100% 지분 독립(2435)"을 아래가 대신한다.
+- **점령 몰수 = 통치자 지분만(2431 나)**: `@terra/sim settleShares`가 옛 통치자 국고 + 옛 통치자 지배 가문의 가문 계정(`SimHooks.rulerShareHousesOf` — 서버 `npc/governanceHooks.ts`: NPC 나라 =
+  지배 가문 `npc:<ID>:` 또는 선출된 플레이어 가문 `<행>:`, 플레이어 가문 나라 = `npc/economy.ts`가 그 가문 `<행>:`)만 몰수한다. 세운 가문(D-582)·알박기 설립자(D-575) 지분은 남고, 독재 점령국
+  과반 셈(D-346)에 그 남은 몫이 든다(과반이 안 되면 상장폐지 — 원래 길). 시뮬은 고리가 없어(가문 계정 없음) 판정 그대로.
+- **지배 쪽 지분 따라가기(2432 나)·지분 과반 매수 독재의 국고 지분(2432 (다) 답 D-583 나)**: 새 표 `governance_share_houses`(나라마다 지배 쪽 지분 가문·treasury_kept). 독재 나라 틱에서
+  지배 가문이 기록과 다르면(수도 이전으로 처음 규칙 가문이 바뀜) 옛 가문 계정의 그 나라 도시 지분을 새 지배 가문으로 옮긴다(감사 기록 `governance.shares_follow_ruler`, [임시] 옛 가문의
+  세운 가문 몫과 가르지 않는다). 체제 전환으로 독재가 되면(지분 과반 매수 길뿐 — D-344) treasury_kept = 참 → 국고 지분은 국고에 남는다(배당은 국고, 의결권 없음). 원래 독재 NPC 나라는 그대로
+  국고 → 지배 가문(D-338). 독재가 아니게 되면 기록을 비운다. 선출(민주주의·자본주의)은 지배 쪽 지분이 따로 없어 옮기지 않는다.
+- **군사 쿠데타(2433 기술 기본값 가·다·라·마 + 답 D-583 나 가)**: `governance/coup.ts`·`portCoup.ts`·`coupStore.ts`, 새 표 `governance_coups`·`governance_coup_sides`.
+  - 일으키기: 그 나라 소속 플레이어 가문의 장(WebSocket `gov_coup`, 지배 가문이 아닐 때) 또는 NPC 가문(틱 — 출마 점수와 같은 성향 규칙식 ≥ `gov_coup_npc_score`, 가문 유닛 힘 ≥ 정부군 힘 ×
+    `gov_coup_npc_power_pm`). 가문마다 쿨타임 `gov_coup_cooldown_ms`, 나라마다 하나. 플레이어 가문 나라는 뺀다 [임시 2457]. 켬 = `gov_coup_enabled`(출발값 0 — 꺼짐).
+  - 참가 받기 `gov_coup_gather_ms`: 누구나 `gov_coup_join`으로 혁명군·정부군(그 사람 개인 유닛이 싸운다 [임시 2455]), NPC 가문은 틱마다 성향 규칙식(점수 ≥ 문턱 혁명군, ≤ −문턱 정부군).
+  - 전투 = 반란 전투 틀 D-256(`@terra/sim runCoupBattle` — `attachCombat().rebellion`, 빨리감기, 편마다 `gov_coup_battle_units`): 혁명군 = 일으킨 가문 + 혁명군 참가자, 정부군 = 지배 가문 +
+    수도 경비대 + 정부군 참가자. 힘(2433 가) = 유닛 전투력 몸(battleBodies basePower, D-576 같은 몸) 합. 전투 자료는 시험 자료 [임시 2456 — 앱이 아직 팩 전투 자료를 넘기지 않는다].
+  - 이기면: 그 가문이 지배 가문(governance_state — 임기 없음·빈자리 끝), 체제 독재, 그 나라 도시의 다른 모든 지분(국고 포함) → 그 가문 계정(D-582), 지배 쪽 지분 기록, 나라 휴먼 만족도
+    − `gov_coup_satisfaction_drop`. 지면: 일으킨 가문 금고 → 나라 국고 `gov_coup_fail_cost`(있는 만큼) + 그 가문 유닛 만족도 − `gov_coup_fail_satisfaction_drop`.
+  - 보상(이긴 편 플레이어): 나라 명성 `gov_coup_merit_renown`(공훈 — D-326), 신용 `gov_coup_credit_reward`는 고리 `rewardCredit`만(신용 줄기 work/credit TODO). 감사 기록
+    `governance.coup_started`·`coup_won`·`coup_lost`·`coup_cancelled`.
+- **빈자리 나라·선출된 플레이어 지도자 나라의 NPC 판단(2434 나·2440 나)**: `SimHooks.nationLocked`(서버 `npc/governanceHooks.ts` — `cityHouses.controlOf` player·vacant)면 NPC 판단이 새
+  선전포고·강화(제안·받기)·봉신 독립·거래세를 하지 않는다(이미 하는 전쟁의 공격은 잇는다 [임시]). 도시 세금(시장)·짓기·구인은 그대로(D-252). 선출된 플레이어 지배 가문장이 나라 세금 명령
+  (`nation_tax`)으로 그 나라 세금을 정한다(`government/nationTaxPolicy.ts` — electedNationOf). 독재 지도자는 선전포고를 직권으로(바로, D-217). 화폐(중앙은행 공식)는 멈추지 않았다(2453).
+- **빈자리 도시 독립(2434 (가) 답 D-583 가)**: `governance/cityVotes.ts` — 빈자리가 `gov_vacancy_split_ms`를 넘으면 시작 도시(D-341)가 아닌 도시마다 안건 `city_independence`(그 빈자리 동안
+  도시마다 한 번). 투표권 = 그 도시만 든 나라 모양(민주주의 = 그 도시 NPC 가문 + 그 나라 플레이어 가문 [임시 2451], 자본주의 = 그 도시 지분), 문턱 = 민주주의 과반·자본주의
+  `independencePassPm`(D-302). NPC 표 = 그 도시 불만이면 찬성. 가결 → `society.cityIndependence`(새 도시국가, 체제 = 옛 나라 체제 [임시 2459]).
+- **자본주의 독립 투표의 가문 지분(2435)**: `@terra/sim capitalistIndependence` houses 칸 — 가문 계정 지분이 합과 찬성에 든다(고리 `houseIndependenceYes` — NPC 가문 = 그 도시 불만이면 찬성,
+  옛 통치자 지배 가문·플레이어 가문은 반대). 가문 계정은 투표를 열지 않는다(100% 가문 독립 D-300·D-577은 다음 줄기 — 2454).
+- **국고 지분 팔기(2438 답 D-583 나)**: 안건 `treasury_share_sale`(gov_propose cityId·shares·minPrice, 지도자 묶음 기간·정족수·기본 문턱), 독재는 지배 가문장 직권(바로). 국고 지분이
+  모자라면 `not_enough_shares`. 승인되면 `approvedShareSale` 고리(정부 지분 시장 줄기 TODO — 지금은 승인·감사 기록 `governance.share_sale_approved`만). 의결 칸 올리기 목록에는 넣지 않았다(칸 입력 화면은
+  시장 줄기).
+- **독재 지분 팔기(2439 나)**: `SimHooks.shareSellerOf`(NPC가 이끄는 독재 NPC 나라의 지배 가문 계정) — NPC 판단의 "지분 팔기"가 가문 계정에서 팔고 돈은 그 가문 금고, 판 뒤 가문 과반을 못
+  지키면 팔지 않는다(D-344).
+- **2436 다**: 자본주의 발의는 의결권 하한 이상만(D-580 1) — 지금 코드(`mayPropose`)가 이미 막고 있어 DB 시험으로 확인만.
+- 화면: 의결 칸에 쿠데타 칸(`apps/game/src/faction/governance/CoupSection.tsx` — 일으키기·편 들기·결과), 안건 종류 둘·결과 코드 다섯 문구, 도시·지분 팔기 줄(문구 24개 ko·en).
+- 7축 성향(main 290241aa68 — NPC 가문 7축 실효 성향 `npcHouseAi.ts`)은 아직 의결(NPC 표·후보·쿠데타)에 잇지 않았다: 의결 NPC 규칙식은 governance-2와 같은 나라 4축 성향 + 도시 만족도다(TODO —
+  가문 7축 성향으로 바꾸는 줄기).
+- 판: 마이그레이션 `20261121112634_governance_coups`(prevIds = main 끝 `1efb9fa9`(npc_unit_traits))(새 표 셋 + 안건 종류 검사 넓히기 — 직전 판 앱 그대로. 되돌리면 새 종류 안건을 모르는 종류로 읽는다 — Assumed 해 없음), 프로토콜 59(묶음 1116y, 줄기 판 98 — 받는 가장 낮은
+  판 58, `gov_coup`·`gov_coup_join`·결과 코드 5·행동 2·`treasury_share_sale` 칸, 더하기만, `COUP_PROTOCOL_VERSION`), 팩 core@135(묶음 1116y, 줄기 판 173 — 설정 칸 10개 `gov_coup_*`), SIM_VERSION 그대로
+  (econ16·war16 시드 1~3 30일 출력이 머리 줄의 팩 판·해시 말고 같다).

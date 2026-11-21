@@ -393,6 +393,17 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "governance.vacancySplitMs",
   "governance.coupSatisfactionDrop",
   "governance.taxAgendaWidthPm",
+  // 군사 쿠데타(governance/coup.ts — 줄기 governance-3)
+  "governance.coupEnabled",
+  "governance.coupCooldownMs",
+  "governance.coupGatherMs",
+  "governance.coupFailCost",
+  "governance.coupFailSatisfactionDrop",
+  "governance.coupNpcScore",
+  "governance.coupNpcPowerPm",
+  "governance.coupBattleUnits",
+  "governance.coupMeritRenown",
+  "governance.coupCreditReward",
   // NPC 자율행동·7축 성향·조직 합성·충성도 개입(docs/adr/2026-11-20-npc-autonomous-ai.md): 조회·판단마다 읽는다
   "npcAi.unitTraitMin",
   "npcAi.unitTraitMax",

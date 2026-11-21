@@ -5,10 +5,12 @@ import type { GovernanceTaxes } from "@terra/shared/governance";
 import type { Database } from "../db/client.ts";
 import type { NationPreset } from "../npc/nations.ts";
 import type { World } from "../world/world.ts";
+import type { CombatCatalog, CombatCoefficients } from "@terra/sim";
+import { createCoupStore } from "./coupStore.ts";
 import { type GovernanceGateway, createGovernanceGateway } from "./gateway.ts";
 import { worldGovernancePort } from "./port.ts";
 import type { GovernanceRules } from "./rules.ts";
-import { type GovernanceService, createGovernanceService } from "./service.ts";
+import { type ApprovedShareSale, type GovernanceService, createGovernanceService } from "./service.ts";
 import { createGovernanceStore } from "./store.ts";
 import { type GovernanceView, createGovernanceView } from "./view.ts";
 
@@ -35,11 +37,20 @@ export function attachGovernance(o: {
   readonly applyTaxes?:
     | ((nationRowId: number, taxes: GovernanceTaxes, nowMs: number) => Promise<boolean>)
     | undefined;
+  /** 쿠데타 전투 자료(없으면 시험 자료 — 줄기 governance-3 [임시]: 앱이 아직 넘기지 않는다) */
+  readonly combat?:
+    | (() => { readonly catalog: CombatCatalog; readonly rules: CombatCoefficients })
+    | undefined;
+  /** 승인된 국고 지분 팔기(질문 2438 답 D-583 — 정부 지분 시장 줄기가 붙인다) */
+  readonly approvedShareSale?: ((sale: ApprovedShareSale, nowMs: number) => Promise<void>) | undefined;
+  /** 쿠데타 이긴 편 신용 보상(D-583 — 신용 체계 줄기가 붙인다) */
+  readonly rewardCredit?: ((userId: string, amount: number, nowMs: number) => void) | undefined;
   /** 틱 타이머를 켜지 않는다(시험이 tick을 직접 부른다) */
   readonly manual?: boolean | undefined;
 }): GovernanceAttached {
-  const port = worldGovernancePort(o.world);
+  const port = worldGovernancePort(o.world, o.combat);
   const store = createGovernanceStore(o.db.$client);
+  const coups = createCoupStore(o.db.$client);
   const service = createGovernanceService({
     port,
     store,
@@ -48,6 +59,9 @@ export function attachGovernance(o: {
     db: o.db,
     log: o.log,
     applyTaxes: o.applyTaxes,
+    coups,
+    approvedShareSale: o.approvedShareSale,
+    rewardCredit: o.rewardCredit,
   });
   const view = createGovernanceView({ port, store, service, rules: o.rules, presets: o.presets, now: o.now });
   const gateway = createGovernanceGateway({ service: () => service, now: o.now, log: o.log });

@@ -8,6 +8,7 @@
 // - 유닛은 칸을 차지하지 않아서 S1은 유닛 위 배치를 막지 않는다.
 import { type CellRect, type PlacementGrid, cellIndex, writeBuildingCells } from "../grid/placementGrid.ts";
 import { type CellPoint, PLACEMENT_SIZE } from "../units.ts";
+import { STEEP_COST_FLOOR } from "../terrain/layerCosts.ts";
 
 export type Rotation = 0 | 90 | 180 | 270;
 
@@ -78,7 +79,9 @@ export function validatePlacement(grid: PlacementGrid, placement: BuildingPlacem
       if (grid.building[index] !== 0)
         return { ok: false, problem: "overlaps_building", cell: { x: cx, y: cy } };
       if (grid.road[index] !== 0) return { ok: false, problem: "overlaps_road", cell: { x: cx, y: cy } };
-      if (grid.terrainCost[index] === 0)
+      // 막힘(0)과 가파른 비탈(STEEP_COST_FLOOR 이상, 유닛은 느리게 지나간다)에는 짓지 않는다
+      const cost = grid.terrainCost[index] ?? 0;
+      if (cost === 0 || cost >= STEEP_COST_FLOOR)
         return { ok: false, problem: "blocked_terrain", cell: { x: cx, y: cy } };
     }
   }

@@ -71,6 +71,7 @@ import { type MapFeedPool, createMapFeedPool } from "./mapFeedPool.ts";
 import { probeEvent } from "./mapProbe.ts";
 import { type MapHandover, type MapSession, startMapSession } from "./mapSession.ts";
 import { fetchTerrain } from "./terrainLoader.ts";
+import { gameTerrainView } from "./terrainRelief.ts";
 import { type HudSnapshot, UNIT_CAPACITY, openPlanetStage, serverNow, useMapEngine } from "./useMapEngine.ts";
 import type { MapUnit } from "@terra/shared/mapUnits";
 import {
@@ -455,7 +456,8 @@ function SecondMapView({
     if (!engine || !host) return () => undefined;
     const pool = createMapFeedPool({
       link: serverLink,
-      fetchTerrain: (url) => fetchTerrain(url),
+      // 높이 과장(보기만, 해수면 기준 ×4 — 지금·이웃 2차맵 모두 같은 길로 받아 경계가 이어진다)
+      fetchTerrain: (url) => fetchTerrain(url).then(gameTerrainView),
       canCommand: () => operatorRef.current,
       observe: () => operatorRef.current,
       operatorPace: () => paceRef.current,

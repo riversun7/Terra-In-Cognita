@@ -8,11 +8,18 @@
 //   (applyRuling → npc/cityHouses.ts setRuling, 질문 2406). 국고 지분 → 가문 계정 옮기기(moveTreasuryShares — 독재 D-338·자본주의 처음 지분 D-582).
 // - 선전포고는 세력·사회 규칙의 declareWar(무명분 비용 포함 — NPC와 같은 길)를 부르고 런타임 틱을 한 번 밀어 전쟁 줄을 저장한다.
 import { type GovernanceRegime, type HouseKey, isHouseKey } from "@terra/shared/governance";
-import { SATISFACTION_MAX_MILLI, holdingsOf, houseHoldingsOf } from "@terra/sim";
+import {
+  type CombatCatalog,
+  type CombatCoefficients,
+  SATISFACTION_MAX_MILLI,
+  holdingsOf,
+  houseHoldingsOf,
+} from "@terra/sim";
 import { houseTiesOf } from "../world/houseTies.ts";
 import type { World } from "../world/world.ts";
 import { houseKeyOfTail, treasurySharesToHouse } from "./houseShares.ts";
 import type { NpcTraits } from "./npcVote.ts";
+import { type GovernancePortCoup, worldGovernancePortCoup } from "./portCoup.ts";
 
 export interface GovernanceNation {
   /** 세력 행 ID(의결 표의 nation_id) */
@@ -44,7 +51,7 @@ export interface GovernanceOwner {
   readonly satisfaction: number | undefined;
 }
 
-export interface GovernancePort {
+export interface GovernancePort extends GovernancePortCoup {
   /** 세계·NPC 사회 런타임이 준비됐나 */
   ready(): boolean;
   nations(): readonly GovernanceNation[];
@@ -88,7 +95,10 @@ const avg = (sum: number, count: number): number | undefined =>
   count === 0 ? undefined : Math.trunc((sum * 100) / (count * SATISFACTION_MAX_MILLI));
 
 /** 실제 세계 포트 */
-export function worldGovernancePort(world: () => GovernanceWorld | undefined): GovernancePort {
+export function worldGovernancePort(
+  world: () => GovernanceWorld | undefined,
+  combat?: () => { readonly catalog: CombatCatalog; readonly rules: CombatCoefficients },
+): GovernancePort {
   const live = () => {
     const w = world();
     return w?.status().state === "ready" && w.npc && w.persistence
@@ -135,6 +145,8 @@ export function worldGovernancePort(world: () => GovernanceWorld | undefined): G
     return values.length === 0 ? undefined : Math.trunc(values.reduce((a, b) => a + b, 0) / values.length);
   };
   return {
+    // 쿠데타·지분 따라가기·도시 독립·국고 지분(줄기 governance-3 — portCoup.ts)
+    ...worldGovernancePortCoup(world, combat),
     ready: () => live() !== undefined,
     nations() {
       const l = live();

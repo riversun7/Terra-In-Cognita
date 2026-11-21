@@ -5,6 +5,7 @@ import { ROAD_TRAIL } from "../grid/costs.ts";
 import { cellIndex, createPlacementGrid, setRoad, setTerrainCost } from "../grid/placementGrid.ts";
 import { createPathfinder } from "../path/astar.ts";
 import { firstDifference } from "../testSupport.ts";
+import { STEEP_COST_FLOOR } from "../terrain/layerCosts.ts";
 import { PLACEMENT_SIZE } from "../units.ts";
 import {
   type BuildingPlacement,
@@ -78,6 +79,15 @@ describe("건물 배치", () => {
       problem: "blocked_terrain",
       cell: { x: 41, y: 41 },
     });
+    // 가파른 비탈(비용 ≥ STEEP_COST_FLOOR)도 못 짓는다 — 유닛은 느리게 지나간다. 그 바로 아래 비용(얕은 물 2,500 등)은 된다
+    setTerrainCost(grid, 51, 51, STEEP_COST_FLOOR);
+    expect(validatePlacement(grid, place(50, 50, 3, 3))).toEqual({
+      ok: false,
+      problem: "blocked_terrain",
+      cell: { x: 51, y: 51 },
+    });
+    setTerrainCost(grid, 61, 61, STEEP_COST_FLOOR - 1);
+    expect(validatePlacement(grid, place(60, 60, 3, 3)).ok).toBe(true);
   });
 
   it("틀린 입력은 invalid_input", () => {

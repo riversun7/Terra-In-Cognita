@@ -6,6 +6,8 @@ import {
   COVER_BLOCKING,
   FOREST_COST_PM,
   SLOW_TABLE_SIZE,
+  STEEP_COST_FLOOR,
+  STEEP_COST_PM,
   SURFACE_COST,
   isTreeArt,
   placementCostsFromLayers,
@@ -105,14 +107,21 @@ describe("지형 층 비용", () => {
     );
   });
 
-  it("네 꼭짓점 높이 차가 벼랑 기준 이상이면 막힘", () => {
+  it("네 꼭짓점 높이 차가 비탈 기준 이상이면 지표 비용 × 4(느리게 지나감), 비탈이 아닌 칸은 늘 STEEP_COST_FLOOR 아래", () => {
     const layers = flat();
     layers.heights[TERRAIN_VERTEX_SIZE + 1] = CLIFF_RELIEF_CM;
     const costs = placementCostsFromLayers(layers);
-    // 꼭짓점 (1, 1)을 나누는 지형 칸 넷이 막힌다
-    expect(costs[0]).toBe(0);
-    expect(costs[2 * 256 + 2]).toBe(0);
+    // 꼭짓점 (1, 1)을 나누는 지형 칸 넷이 비탈(풀 1000 × 4)
+    expect(STEEP_COST_PM).toBe(4000);
+    expect(costs[0]).toBe(4000);
+    expect(costs[2 * 256 + 2]).toBe(4000);
     expect(costs[4]).toBe(1000);
+    // 비탈이 아닌 칸의 가장 비싼 값이 비탈 바닥보다 작다 — 건물 배치가 이 값으로 비탈을 가른다.
+    // 땅 지표(물 0·얕은 물 10 빼고) × 숲 배율, 얕은 물 × 느려짐 소품 상한(1.5배, 팩 map_props slowPm 최댓값)
+    const land = [...SURFACE_COST].filter((cost, kind) => cost > 0 && kind !== 10);
+    expect(Math.floor((Math.max(...land) * FOREST_COST_PM) / 1000)).toBeLessThan(STEEP_COST_FLOOR);
+    expect(Math.floor(((SURFACE_COST[10] ?? 0) * 1500) / 1000)).toBeLessThan(STEEP_COST_FLOOR);
+    expect(Math.min(...land)).toBe(1000);
   });
 
   it("임시 지형 비용은 층 함수와 같다(엄폐 없음)", () => {

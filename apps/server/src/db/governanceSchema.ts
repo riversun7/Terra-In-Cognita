@@ -2,7 +2,18 @@
 // 둔다). 모두 세계 표라 시험 세계 새로 시작(reset-world)에서 지운다(남길 표 목록에 넣지 않는다). 새 표만 더해서 직전 판 앱은 모른 채 돈다.
 // 쓰는 곳은 apps/server/src/governance/store.ts 하나다(서버가 하나라 의결 서비스가 순서대로 쓴다).
 import { sql } from "drizzle-orm";
-import { bigint, boolean, check, index, jsonb, pgTable, primaryKey, text, uuid } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  boolean,
+  check,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { factions } from "./schema.ts";
 
 /**
@@ -39,7 +50,7 @@ export const governanceAgendas = pgTable(
     index("governance_agendas_nation_idx").on(table.nationId, table.status),
     check(
       "governance_agendas_kind",
-      sql`${table.kind} in ('leader_election', 'leader_removal', 'regime_change', 'war_declaration', 'tax_change')`,
+      sql`${table.kind} in ('leader_election', 'leader_removal', 'regime_change', 'war_declaration', 'tax_change', 'city_independence', 'treasury_share_sale')`,
     ),
     check(
       "governance_agendas_status",
@@ -121,3 +132,70 @@ export const governanceShareFixups = pgTable("governance_share_fixups", {
   shares: bigint("shares", { mode: "number" }).notNull(),
   doneAtMs: bigint("done_at_ms", { mode: "number" }).notNull(),
 });
+
+/**
+ * 나라마다 지배 쪽 지분을 가진 가문(줄기 governance-3 — 질문 2432 나 답: 쿠데타·수도 이전으로 지배 가문이 바뀌면 지배 쪽 지분이 새 지배 가문을 따른다,
+ * D-580 6·D-582·D-574 10·D-344). house_key = 지금 지배 쪽 지분을 가진 가문(p:/n:). treasury_kept = 지분 과반을 사서 독재가 된 나라(질문 2432 (다) 답 D-583 —
+ * 국고 지분은 국고에 남는다: 배당은 받고 의결권은 없다). 세계 표(시험 세계 새로 시작에서 지운다). 새 표라 직전 판 앱은 모른 채 돈다
+ */
+export const governanceShareHouses = pgTable("governance_share_houses", {
+  nationId: bigint("nation_id", { mode: "number" })
+    .primaryKey()
+    .references(() => factions.id, { onDelete: "cascade" }),
+  houseKey: text("house_key"),
+  treasuryKept: boolean("treasury_kept").notNull().default(false),
+  updatedAtMs: bigint("updated_at_ms", { mode: "number" }).notNull(),
+});
+
+/**
+ * 군사 쿠데타 한 번(질문 2433 답 — 기술 기본값 가·다·라·마 + D-583 나 가: 혁명군(일으킨 가문) 대 정부군(지배 가문원 + 수도 경비대), 누구나 어느 편이든
+ * 든다). status = gathering(참가 받는 중) | won | lost | cancelled. result = 편마다 힘·참가자·전투 결과·비용. 세계 표(새로 시작에서 지운다)
+ */
+export const governanceCoups = pgTable(
+  "governance_coups",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+    nationId: bigint("nation_id", { mode: "number" })
+      .notNull()
+      .references(() => factions.id, { onDelete: "cascade" }),
+    /** 일으킨 가문(p:/n:) */
+    houseKey: text("house_key").notNull(),
+    /** 일으킨 플레이어(NPC 가문이면 null) */
+    userId: uuid("user_id"),
+    openedAtMs: bigint("opened_at_ms", { mode: "number" }).notNull(),
+    /** 참가 받기 끝 = 전투 시각 */
+    gatherUntilMs: bigint("gather_until_ms", { mode: "number" }).notNull(),
+    status: text("status").notNull().default("gathering"),
+    result: jsonb("result"),
+    decidedAtMs: bigint("decided_at_ms", { mode: "number" }),
+  },
+  (table) => [
+    index("governance_coups_nation_idx").on(table.nationId, table.status),
+    index("governance_coups_house_idx").on(table.houseKey, table.openedAtMs),
+    check("governance_coups_status", sql`${table.status} in ('gathering', 'won', 'lost', 'cancelled')`),
+    check("governance_coups_house", sql`${table.houseKey} ~ '^[pn]:[1-9][0-9]{0,15}$'`),
+  ],
+);
+
+/**
+ * 쿠데타 참가(D-583 2433 나 가 — 누구나 어느 편이든). joiner_key = u:<사용자 UUID>(플레이어 — 그 사람 유닛) | n:<NPC 가문>(성향 규칙식). side = rebel | government.
+ * 한 참가자는 한 편만(바꾸면 덮어쓴다 — 참가 받기 끝까지)
+ */
+export const governanceCoupSides = pgTable(
+  "governance_coup_sides",
+  {
+    coupId: bigint("coup_id", { mode: "number" })
+      .notNull()
+      .references(() => governanceCoups.id, { onDelete: "cascade" }),
+    joinerKey: text("joiner_key").notNull(),
+    userId: uuid("user_id"),
+    side: text("side").notNull(),
+    /** 들어갈 때 낸 힘(화면용 — 셈은 전투 때 다시 본다) */
+    power: integer("power").notNull().default(0),
+    joinedAtMs: bigint("joined_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.coupId, table.joinerKey] }),
+    check("governance_coup_sides_side", sql`${table.side} in ('rebel', 'government')`),
+  ],
+);

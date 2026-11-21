@@ -6,6 +6,8 @@
 // - 시안이 아니면 서버가 아직 돌리지 않는 시스템(도시 경제가 없는 세계의 거래소·생산·환전)은 status "not_ready"와 빈 목록이다
 //   (지어내지 않는다, [결정 2]).
 // 게임 상태를 바꾸지 않는다(주문·취소 명령은 WebSocket market_place·market_cancel, packages/protocol/src/market.ts).
+import type { CreditBook } from "../credit/book.ts";
+import { creditResponse } from "../credit/view.ts";
 import type {
   EconomyCatalogResponse,
   EconomyExchangeResponse,
@@ -77,6 +79,8 @@ export interface EconomyWorldSource {
    * (그때는 이름을 보내지 않는다: 모르는 도시 이름이 새지 않게)
    */
   readonly knownCityIds?: ((viewer: Viewer) => Promise<ReadonlySet<number> | undefined>) | undefined;
+  /** 신용 장부(docs/adr/2026-11-21-credit.md — 세계가 준비되면). 없으면 credit은 not_ready */
+  readonly creditBook?: (() => CreditBook | undefined) | undefined;
 }
 
 /** [임시] 남은 주문 한도(D-148·D-6034). 거래소 유닛 INT·WIS 식은 기획 Step 5 */
@@ -263,6 +267,14 @@ export function createEconomyServices(options: {
       if (all.length === 0) return { cities: [] };
       const known = await world?.knownCityIds?.(viewer);
       return { cities: known ? all.filter((city) => known.has(city.id)) : [] };
+    },
+
+    // 내 신용(D-581): 깎인 줄만. 도시 이름은 아는 도시만(621 나 — 모르는 도시는 #ID)
+    async credit(viewer, query) {
+      const owner = world?.ownerOf(viewer.id);
+      const known = await world?.knownCityIds?.(viewer);
+      const name = (cityId: number) => (known?.has(cityId) === true ? world?.cityName?.(cityId) : undefined);
+      return creditResponse(world?.creditBook?.(), owner, query.now, name);
     },
 
     async holdings(viewer: Viewer, query: EconomyQuery): Promise<EconomyHoldingsResponse> {

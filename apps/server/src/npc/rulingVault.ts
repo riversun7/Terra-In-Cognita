@@ -39,7 +39,9 @@ import {
   residentSourceOf,
   withResidentProperty,
 } from "./residentProperty.ts";
+import { withCredit } from "../credit/hooks.ts";
 import { withNationTaxes } from "../government/nationTax.ts";
+import { withGovernanceHooks } from "./governanceHooks.ts";
 import {
   type InvestVault,
   type RulingSpendRule,
@@ -224,11 +226,16 @@ export const npcRulingHooks = (
   o: {
     readonly ledger: VaultLedger;
     readonly cityHouses: Pick<NpcCityHouses, "rulingHouseOf" | "headOf" | "membersOf"> &
-      Partial<Pick<NpcCityHouses, "rulingPlayerHouseOf">>;
+      Partial<Pick<NpcCityHouses, "rulingPlayerHouseOf" | "controlOf">>;
     readonly rules: () => SocietyCoefficients;
     /** 유닛 주인(지갑 계정 주인)을 읽는 시뮬 세계. 모르는 유닛 — 가문원은 배당에서 빠지고 가문장은 그 나라 것으로 본다 */
     readonly world?:
-      | { readonly units: ReadonlyMap<number, Pick<SimUnit, "id" | "owner" | "city" | "guard">> }
+      | {
+          readonly units: ReadonlyMap<
+            number,
+            Pick<SimUnit, "id" | "owner" | "city" | "guard" | "satisfactionMilli">
+          >;
+        }
       | undefined;
     /** 도시 시설·사업장 장부(house-10 — 투자를 사업장 금고로). 없으면 투자는 국고에 남는다 */
     readonly economy?:
@@ -270,14 +277,24 @@ export const npcRulingHooks = (
       : undefined;
   // 주민세 재산 값(D-579·2371 나, residentProperty.ts — 그 도시 건물 지은 값)과 나라 세금(2373 가, government/nationTax.ts — 나라 세율·주기·국세 몫)도
   // 여기서 얹는다(runtime.ts 1,000줄 상한)
-  const taxed = withNationTaxes(
-    withResidentProperty(
-      base,
-      residentSourceOf(o.economy?.build, o.econ, o.rules, { sim: o.world, ledger: o.ledger }),
+  // 주민세 빚이 남으면 신용 점수를 깎는다(D-581 — credit/hooks.ts)
+  const taxed = withCredit(
+    withNationTaxes(
+      withResidentProperty(
+        base,
+        residentSourceOf(o.economy?.build, o.econ, o.rules, { sim: o.world, ledger: o.ledger }),
+      ),
+      { ledger: o.ledger, rules: o.rules },
     ),
-    { ledger: o.ledger, rules: o.rules },
+    { ledger: o.ledger },
   );
-  return withNpcRulingVault(taxed, {
+  // 의결 고리(governanceHooks.ts — 점령 몰수·독립 투표 가문 지분·나라 단위 판단 멈춤·독재 지분 팔기, 줄기 governance-3)
+  const governed = withGovernanceHooks(taxed, {
+    cityHouses: o.cityHouses,
+    world: o.world,
+    keepSatisfaction: () => o.rules().governance.npcKeepSatisfaction,
+  });
+  return withNpcRulingVault(governed, {
     ledger: o.ledger,
     rulingHouseOf: (owner) => o.cityHouses.rulingHouseOf(owner)?.id,
     rulingPlayerHouseOf: (owner) => o.cityHouses.rulingPlayerHouseOf?.(owner),

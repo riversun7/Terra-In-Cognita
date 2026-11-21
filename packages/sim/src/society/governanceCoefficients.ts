@@ -44,6 +44,17 @@ export interface GovernanceCoefficients {
   readonly coupSatisfactionDrop: number;
   /** 세율 안건 폭(‰, 질문 2407 가): 민주주의·자본주의에서 지도자가 나라 세율 칸 하나라도 이만큼 이상 바꾸면 안건(투표), 아래는 바로. 소득세는 bp ÷ 10 */
   readonly taxAgendaWidthPm: number;
+  /** 군사 쿠데타(질문 2433 답·D-583, 줄기 governance-3 — 서버만): 켬(1)·쿨타임(ms)·참가 받기(ms)·실패 비용(나라 화폐)·실패 만족도(점)·NPC 성향 점수 문턱·NPC 힘 비(‰)·편마다 전투 유닛·이긴 편 명성·신용 보상 */
+  readonly coupEnabled: number;
+  readonly coupCooldownMs: number;
+  readonly coupGatherMs: number;
+  readonly coupFailCost: number;
+  readonly coupFailSatisfactionDrop: number;
+  readonly coupNpcScore: number;
+  readonly coupNpcPowerPm: number;
+  readonly coupBattleUnits: number;
+  readonly coupMeritRenown: number;
+  readonly coupCreditReward: number;
 }
 
 export const START_GOVERNANCE: GovernanceCoefficients = {
@@ -68,4 +79,14 @@ export const START_GOVERNANCE: GovernanceCoefficients = {
   vacancySplitMs: 14 * 86_400_000,
   coupSatisfactionDrop: 30,
   taxAgendaWidthPm: 50,
+  coupEnabled: 0,
+  coupCooldownMs: 604800000,
+  coupGatherMs: 21600000,
+  coupFailCost: 50000,
+  coupFailSatisfactionDrop: 20,
+  coupNpcScore: 40,
+  coupNpcPowerPm: 1000,
+  coupBattleUnits: 30,
+  coupMeritRenown: 50,
+  coupCreditReward: 10,
 };

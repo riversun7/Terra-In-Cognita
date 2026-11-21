@@ -16,6 +16,7 @@ import { dateText, relativeText } from "../../sections/screenText.ts";
 import { useScreenQuery } from "../../sections/useScreenQuery.ts";
 import { REGIME_NAMES } from "../factionText.ts";
 import { barWidth, formatPermille } from "../factionView.ts";
+import { CoupSection } from "./CoupSection.tsx";
 import { type GovernanceRequest, loadGovernance, sendGovernance } from "./governanceCommands.ts";
 import {
   AGENDA_KIND_TEXT,
@@ -103,6 +104,14 @@ function AgendaCard({
         {agenda.targetNation ? (
           <p className="faction-vote-detail">
             {m.gov_war_target({ nation: nationText(agenda.targetNation) })}
+          </p>
+        ) : null}
+        {agenda.cityId !== null ? (
+          <p className="faction-vote-detail">{m.gov_city_target({ city: String(agenda.cityId) })}</p>
+        ) : null}
+        {agenda.shareSale ? (
+          <p className="faction-vote-detail">
+            {m.gov_share_sale_target({ shares: agenda.shareSale.shares, price: agenda.shareSale.minPrice })}
           </p>
         ) : null}
         {totals && !agenda.byAuthority ? (
@@ -378,6 +387,8 @@ export function GovernancePanel({ now }: { now: number }) {
           decided: m.gov_done_decided,
           voted: m.gov_done_voted,
           registered: m.gov_done_registered,
+          coup_started: m.gov_done_coup_started,
+          coup_joined: m.gov_done_coup_joined,
         }[outcome.action];
         setStatus({ tone: "ok", text: done() });
       }
@@ -426,6 +437,7 @@ export function GovernancePanel({ now }: { now: number }) {
           {view.leader ? <p className="faction-muted">{m.gov_leader_you()}</p> : null}
           {view.nation.shareVotesSuspended ? <p className="faction-muted">{m.gov_suspended()}</p> : null}
           <ProposeForm key={view.canPropose.join(",")} view={view} busy={busy} run={run} />
+          <CoupSection view={view} now={now} busy={busy} run={run} />
           {status ? (
             <p className={status.tone === "ok" ? "gov-status" : "gov-status gov-status-error"} role="status">
               {status.text}

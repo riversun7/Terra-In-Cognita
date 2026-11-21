@@ -7,7 +7,9 @@ import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { HouseClientMessage, HouseGateway, HouseLink } from "../factionIdentity/gateway.ts";
 import type { GovernanceResult, GovernanceService } from "./service.ts";
 
-export type GovernanceClientMessage = ClientMessageOf<"gov_propose" | "gov_vote" | "gov_candidate">;
+export type GovernanceClientMessage = ClientMessageOf<
+  "gov_propose" | "gov_vote" | "gov_candidate" | "gov_coup" | "gov_coup_join"
+>;
 
 const MAX_PENDING = 4;
 const LIMIT = { capacity: 10, refillPerMinute: 30 };
@@ -32,7 +34,11 @@ export interface HouseGovernanceGateway {
 const isGovernance = (
   message: HouseClientMessage | GovernanceClientMessage,
 ): message is GovernanceClientMessage =>
-  message.t === "gov_propose" || message.t === "gov_vote" || message.t === "gov_candidate";
+  message.t === "gov_propose" ||
+  message.t === "gov_vote" ||
+  message.t === "gov_candidate" ||
+  message.t === "gov_coup" ||
+  message.t === "gov_coup_join";
 
 const failed = (code: GovernanceResultCode): GovernanceResult => ({ ok: false, code });
 
@@ -40,6 +46,34 @@ function resultText(id: number, result: GovernanceResult): string {
   return result.ok
     ? encodeMessage({ t: "gov_result", id, ok: true, agendaId: result.agendaId, action: result.action })
     : encodeMessage({ t: "gov_result", id, ok: false, code: result.code });
+}
+
+/** 메시지 하나를 의결 서비스에(쿠데타 gov_coup·gov_coup_join — 줄기 governance-3) */
+function dispatch(
+  service: GovernanceService,
+  userId: string,
+  message: GovernanceClientMessage,
+): Promise<GovernanceResult> {
+  switch (message.t) {
+    case "gov_propose":
+      return service.propose(userId, {
+        kind: message.kind,
+        regime: message.regime,
+        targetNationId: message.targetNationId,
+        taxes: message.taxes,
+        cityId: message.cityId,
+        shares: message.shares,
+        minPrice: message.minPrice,
+      });
+    case "gov_vote":
+      return service.vote(userId, message.agendaId, message.choice);
+    case "gov_candidate":
+      return service.register(userId, message.agendaId);
+    case "gov_coup":
+      return service.coup(userId);
+    default:
+      return service.coupJoin(userId, message.coupId, message.side);
+  }
 }
 
 export function createGovernanceGateway(options: {
@@ -63,17 +97,7 @@ export function createGovernanceGateway(options: {
         const service = options.service();
         if (!service) return reply(message.id, failed("busy"));
         if (!limiter.take(viewer.id)) return reply(message.id, failed("rate_limited"));
-        const result =
-          message.t === "gov_propose"
-            ? await service.propose(viewer.id, {
-                kind: message.kind,
-                regime: message.regime,
-                targetNationId: message.targetNationId,
-                taxes: message.taxes,
-              })
-            : message.t === "gov_vote"
-              ? await service.vote(viewer.id, message.agendaId, message.choice)
-              : await service.register(viewer.id, message.agendaId);
+        const result = await dispatch(service, viewer.id, message);
         if (result.ok)
           options.log.info({ userId: viewer.id, t: message.t, agendaId: result.agendaId }, "governance");
         reply(message.id, result);

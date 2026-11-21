@@ -91,6 +91,10 @@ export interface SocietyRun {
   declareWar(attacker: SimFaction, target: SimFaction, nowMs: number): void;
   /** 강화 조약(백지 + 불가침, 질문 195 가). 받는지는 부르는 쪽(판단)이 정했다 */
   makePeace(a: SimFaction, b: SimFaction, nowMs: number): void;
+  /**
+   * 도시 하나를 새 세력으로 떼어 낸다(서버만 — 빈자리 도시 독립 투표 가결, 질문 2434 (가) 답 D-583. 체제 = 옛 나라 체제). 시작 도시·없는 도시면 undefined, 아니면 새 세력 ID
+   */
+  cityIndependence(cityId: number, nowMs: number): number | undefined;
   /** 그 도시 지분 100주를 국고가 가장 많은 다른 세력에 판다(어느 도시를 팔지는 판단이 고른다) */
   sellShares(seller: SimFaction, cityId: number, nowMs: number): void;
   buildResearch(faction: SimFaction, nowMs: number): void;

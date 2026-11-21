@@ -29,6 +29,9 @@ import {
 import {
   type Regime,
   holdingsOf,
+  houseHoldingsOf,
+  houseMoneyCode,
+  houseShareCode,
   issueShares,
   shareAsset,
   totalShares,
@@ -300,7 +303,8 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
     }
     owner.cities.delete(cityId);
     world.cities.delete(cityId);
-    payouts.cityMoved(cityId);
+    // 폐허가 되면 그 도시의 주민세 빚도 사라진다(질문 2427 나 — 넘어갈 때와 같은 함수)
+    payouts.cityMoved(cityId, owner, nowMs);
     recordTech(owner, nowMs, 0, "city_ruined");
     if (owner.cities.size === 0) {
       dieIfEmpty(owner, cause, into, nowMs);
@@ -330,8 +334,63 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
     onEnd: o.onWarStateEnd,
   });
 
+  /**
+   * 독재 지배 가문이 도시 지분을 판다(질문 2439 나 답 — D-338 사유 자산, D-344 과반 유지): 사는 쪽·수량·값은 국고 팔기와 같은 [임시] 규칙(설정 칸 d_share_sale_*).
+   * 돈은 그 가문 금고(houseMoneyCode — 사는 쪽 국고 화폐), 판 뒤에도 가문이 과반(> 50%)을 지키지 못하면 팔지 않는다
+   */
+  const sellHouseShares = (seller: SimFaction, house: string, cityId: number, nowMs: number): void => {
+    let buyer: SimFaction | undefined;
+    for (const other of world.factions.values())
+      if (other.alive && other.id !== seller.id && (!buyer || treasury(other) > treasury(buyer)))
+        buyer = other;
+    const amount = BigInt(c.shareSaleAmount);
+    const price = amount * BigInt(c.shareSalePrice);
+    if (!buyer || treasury(buyer) < price || amount <= 0n) return;
+    const asset = shareAsset(cityId);
+    const account = book.systemAccount(houseShareCode(house, cityId), asset);
+    const have = book.balance(account);
+    if (have < amount || (have - amount) * 2n <= totalShares(book, cityId)) return;
+    const money = treasuryAsset(buyer);
+    book.post({
+      kind: "transfer",
+      atMs: nowMs,
+      entries: [
+        { account, amount: -amount },
+        { account: book.ownerAccount(buyer.id, asset), amount },
+      ],
+    });
+    book.post({
+      kind: "transfer",
+      atMs: nowMs,
+      entries: [
+        { account: book.ownerAccount(buyer.id, money), amount: -price },
+        { account: book.systemAccount(houseMoneyCode(house, money), money), amount: price },
+      ],
+    });
+    counts.shareSales += 1;
+  };
+
+  /** 도시 하나가 새 세력으로 떨어져 나간다(독립 — 자본주의 독립 투표·서버 빈자리 도시 독립 투표 D-583). 새 세력 */
+  const independence = (city: SimCity, parent: SimFaction, regime: Regime, nowMs: number): SimFaction => {
+    const child = spawnFaction(parent, "free", regime, null, nowMs);
+    moveCity(city.id, parent, child, nowMs);
+    birthTech(child);
+    counts.independence += 1;
+    recorder.born(nowMs, child.id, "independence", { parent: parent.id, city: city.id });
+    o.scheduleFaction(child, nowMs);
+    recordTech(parent, nowMs, 0, "city_lost");
+    dieIfEmpty(parent, "independence", child, nowMs);
+    return child;
+  };
+
   return {
     ruins,
+    cityIndependence(cityId, nowMs) {
+      const city = world.cities.get(cityId);
+      const parent = city ? world.factions.get(city.owner) : undefined;
+      if (!city || !parent?.alive || city.start) return undefined;
+      return independence(city, parent, parent.regime, nowMs).id;
+    },
     occupy(attacker, target, cityId, decision: OccupationChoice, nowMs) {
       const city = world.cities.get(cityId);
       if (!city || city.start) return;
@@ -389,7 +448,9 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
         regime: attacker.regime,
         rulingFamily: rulingFamilyOf(attacker),
       };
-      const decided = settleShares(book, cityId, target.id, occupier, choice, nowMs, c);
+      // 옛 통치자 몫 = 국고 + 옛 통치자 지배 가문 지분 계정(서버 고리 — 질문 2431 나, 시뮬은 빈 목록)
+      const rulerHouses = o.hooks?.rulerShareHousesOf?.(target) ?? [];
+      const decided = settleShares(book, cityId, target.id, occupier, choice, nowMs, c, rulerHouses);
       const shifts = occupationShifts("integrate", decided, target.regime, attacker.regime, c);
       for (const unit of cityUnits())
         unit.satisfactionMilli = shiftSatisfaction(unit.satisfactionMilli, shifts.satisfactionShift);
@@ -519,6 +580,12 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
 
     sellShares(seller, cityId, nowMs) {
       if (!seller.cities.has(cityId)) return;
+      // 독재 나라: 지배 가문 계정이 판다(서버 고리 — 질문 2439 나)
+      const house = o.hooks?.shareSellerOf?.(seller);
+      if (house !== undefined) {
+        sellHouseShares(seller, house, cityId, nowMs);
+        return;
+      }
       // [임시] 사는 쪽 = 국고가 가장 많은 다른 살아 있는 세력, 수량·주당 값 = 설정 칸(d_share_sale_*, 출발값 100주·주당 10, 사는 쪽 국고 화폐)
       let buyer: SimFaction | undefined;
       for (const other of world.factions.values())
@@ -790,16 +857,14 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
               );
             }),
         );
-        const vote = capitalistIndependence(holdings, parent.id, yes, c);
+        // 가문 지분 계정의 찬반(서버 고리 — 질문 2435, 시뮬은 가문 계정이 없다)
+        const houses = houseHoldingsOf(book, city.id).map((h) => ({
+          amount: h.amount,
+          yes: o.hooks?.houseIndependenceYes?.(h.house, city.id, parent) === true,
+        }));
+        const vote = capitalistIndependence(holdings, parent.id, yes, c, houses);
         if (vote.kind !== "declare" && vote.kind !== "passed") continue;
-        const child = spawnFaction(parent, "free", "capitalism", null, nowMs);
-        moveCity(city.id, parent, child, nowMs);
-        birthTech(child);
-        counts.independence += 1;
-        recorder.born(nowMs, child.id, "independence", { parent: parent.id, city: city.id });
-        o.scheduleFaction(child, nowMs);
-        recordTech(parent, nowMs, 0, "city_lost");
-        dieIfEmpty(parent, "independence", child, nowMs);
+        independence(city, parent, "capitalism", nowMs);
       }
 
       // 편입 제안: 받는 세력의 규칙식(질문 198 가), 기한이 지나면 만료 = 거부(D-347). 세력이 아닌 주인은 기한까지 답하지 않는다

@@ -11,6 +11,8 @@ export const AGENDA_KIND_TEXT = {
   regime_change: m.gov_kind_regime_change,
   war_declaration: m.gov_kind_war_declaration,
   tax_change: m.gov_kind_tax_change,
+  city_independence: m.gov_kind_city_independence,
+  treasury_share_sale: m.gov_kind_treasury_share_sale,
 } satisfies Record<AgendaKind, Text>;
 
 export const AGENDA_STATUS_TEXT = {
@@ -50,9 +52,22 @@ export const GOVERNANCE_ERROR_TEXT = {
   invalid_choice: m.gov_err_invalid_choice,
   registration_closed: m.gov_err_registration_closed,
   barred: m.gov_err_barred,
+  coup_disabled: m.gov_err_coup_disabled,
+  coup_cooldown: m.gov_err_coup_cooldown,
+  coup_open: m.gov_err_coup_open,
+  unknown_coup: m.gov_err_unknown_coup,
+  not_enough_shares: m.gov_err_not_enough_shares,
   offline: m.gov_err_offline,
   timeout: m.gov_err_timeout,
 } satisfies Record<GovernanceResultCode | "offline" | "timeout", Text>;
+
+/** 쿠데타 상태(질문 2433 답·D-583) */
+export const COUP_STATUS_TEXT = {
+  gathering: m.gov_coup_status_gathering,
+  won: m.gov_coup_status_won,
+  lost: m.gov_coup_status_lost,
+  cancelled: m.gov_coup_status_cancelled,
+} satisfies Record<"gathering" | "won" | "lost" | "cancelled", Text>;
 
 /** 가문 이름(NPC 가문은 성 하나라 "{성} 가문", 이름이 없으면 "이름 없는 가문") */
 export function houseText(house: Pick<GovernanceHouse, "name" | "npc"> | null): string {

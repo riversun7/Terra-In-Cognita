@@ -42,14 +42,18 @@ export type IndependenceVote =
 /**
  * 자본주의 독립 투표(D-300·D-301): 지배 주체가 아닌 지분 1위가 연다. 찬성 = 발의자 + yes(찬성한 주체).
  * 발의자 혼자 문턱 이상이면 선언, 찬성 합이 문턱 이상이면 통과
+ * 바뀜(줄기 governance-3 — 질문 2435 답, D-301 "그 도시 주식을 가진 가문·유저가 찬반"): houses = 가문 지분 계정(서버만 — 시뮬은 빈 목록)도 합(분모)과 찬성에 든다.
+ * 가문 계정은 투표를 열지 않는다(가문 독립 D-300·D-577은 따로 — 질문 2435 나)
  */
 export function capitalistIndependence(
   holdings: readonly Holding[],
   ruler: number,
   yes: ReadonlySet<number>,
   c: SocietyCoefficients,
+  houses: readonly { readonly amount: bigint; readonly yes: boolean }[] = [],
 ): IndependenceVote {
-  const total = holdings.reduce((sum, h) => sum + h.amount, 0n);
+  const houseTotal = houses.reduce((sum, h) => sum + h.amount, 0n);
+  const total = holdings.reduce((sum, h) => sum + h.amount, 0n) + houseTotal;
   if (total === 0n) return { kind: "none" };
   let leader: Holding | undefined;
   for (const h of holdings) if (h.owner !== ruler && (!leader || h.amount > leader.amount)) leader = h;
@@ -63,6 +67,7 @@ export function capitalistIndependence(
   let yesAmount = leader.amount;
   for (const h of holdings)
     if (h.owner !== leader.owner && h.owner !== ruler && yes.has(h.owner)) yesAmount += h.amount;
+  for (const h of houses) if (h.yes) yesAmount += h.amount;
   const yesPm = pm(yesAmount);
   return { kind: yesPm >= c.independencePassPm ? "passed" : "failed", leader: leader.owner, yesPm };
 }

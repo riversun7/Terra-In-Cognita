@@ -373,4 +373,20 @@ describe("시뮬 주민세(D-579)", () => {
     expect(world.book.balance(debt)).toBe(-74n);
     expect(world.book.balance(claim)).toBe(74n);
   });
+
+  it("도시가 폐허가 되면 그 도시의 주민세 빚이 사라진다(질문 2427 나)", () => {
+    const c: SocietyCoefficients = {
+      ...TEST_SOCIETY_COEFFICIENTS,
+      business: { ...TEST_SOCIETY_COEFFICIENTS.business, residentTaxPm: 100, residentTaxEveryMs: DAY_MS },
+    };
+    const { world, society } = residentSetup(c, 10_000n);
+    society.endOfDay(DAY_MS);
+    const debt = world.book.systemAccount(residentDebtCode(2, 5, 77, TEST_ASSET_CREDIT), TEST_ASSET_CREDIT);
+    const claim = world.book.systemAccount(residentClaimCode(2, TEST_ASSET_CREDIT), TEST_ASSET_CREDIT);
+    expect(world.book.balance(debt)).toBe(-850n);
+    society.ruin(5, 2 * DAY_MS);
+    expect(world.cities.has(5)).toBe(false);
+    expect(world.book.balance(debt)).toBe(0n);
+    expect(world.book.balance(claim)).toBe(0n);
+  });
 });

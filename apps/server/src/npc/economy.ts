@@ -799,6 +799,11 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     },
     // 독재 가문 나라의 남은 이익 국고 몫 → 지배 가문 금고(D-338, 국고와 따로 — factionIdentity/houseVault.ts)
     rulingVaultOf: (faction, asset) => rulingVaultOf(book, o.owners, faction, asset),
+    // 점령 몰수 = 옛 통치자 몫(질문 2431 나 — governanceHooks.ts): 플레이어 가문 나라의 가문 지분 계정(가문 꼬리 "<가문 행>:")
+    rulerShareHousesOf: (faction) => {
+      const row = faction.player ? (o.owners.get(faction.id)?.factionId ?? null) : null;
+      return row === null ? [] : [`${row}:`];
+    },
   };
 
   return {

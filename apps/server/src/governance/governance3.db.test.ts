@@ -1,0 +1,393 @@
+// 나라 의결 셋째 DB 통합 시험(줄기 governance-3) — TEST_DATABASE_URL이 있을 때만. 계정은 가짜 값이다.
+// 군사 쿠데타(질문 2433 답·D-583 — 참가 받기·NPC 참가·전투·결과), 지분 과반을 사서 된 독재의 국고 지분 남기기(2432 (다) 답 D-583), 지배 쪽 지분 따라가기(2432 나),
+// 자본주의 발의 하한(2436 다 — D-580 1), 독재 지도자의 선전포고·국고 지분 팔기 직권(2440 나·2438 답 D-583), 빈자리 도시 독립 투표(2434 (가) 답 D-583).
+import { loadContentPack } from "@terra/content/node";
+import {
+  DAY_MS,
+  holdingsOf,
+  houseHoldingsOf,
+  houseShareCode,
+  moveSharesToHouse,
+  shareAsset,
+} from "@terra/sim";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { DEFAULT_CONTENT_DIR } from "../config.ts";
+import { createContentEditState } from "../contentEdit/state.ts";
+import { createFactionIdentityServices, createFactionIdentityShared } from "../factionIdentity/services.ts";
+import { createHouseFounder } from "../factionIdentity/found.ts";
+import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
+import { silentLog } from "../world/testSupport.ts";
+import { type World, startWorld } from "../world/world.ts";
+import { attachGovernance } from "./attach.ts";
+import { type GovernanceRules, TEST_GOVERNANCE_RULES } from "./rules.ts";
+import type { ApprovedShareSale } from "./service.ts";
+
+const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
+if (!loaded.source || !loaded.pack) throw new Error("content pack");
+const pack = createContentEditState(loaded.source).effective();
+const EMBLEM = { shape: "shield", division: "pale", charge: "tree", scheme: 1 };
+const RELAXED = { capacity: 1000, refillPerMinute: 1000 };
+const viewer = (id: string) => ({ id, roles: ["player" as const] });
+
+let test: TestDatabase;
+const worlds: World[] = [];
+let clock = 0;
+
+beforeEach(async () => {
+  if (!TEST_DATABASE_URL) return;
+  test = await createTestDatabase();
+  clock = 1_800_000_000_000 - (1_800_000_000_000 % DAY_MS) + 3_600_000;
+});
+afterEach(async () => {
+  if (!TEST_DATABASE_URL) return;
+  for (const world of worlds.splice(0)) await world.stop().catch(() => undefined);
+  await test.drop();
+});
+
+async function boot(): Promise<World> {
+  const world = startWorld({
+    testBots: 12,
+    paths: { kind: "inline" },
+    now: () => clock,
+    log: silentLog,
+    pool: test.db.$client,
+    writeIntervalMs: 10,
+    onFatal: (error) => {
+      throw error;
+    },
+    npc: { testNations: 2, manual: true },
+    holdings: { content: () => pack },
+    facilities: { content: () => pack },
+  });
+  worlds.push(world);
+  await world.ready;
+  const npc = world.npc;
+  if (!npc) throw new Error("npc");
+  // NPC 가문이 생기도록 NPC 런타임을 조금 민다
+  for (let i = 0; i < 4; i += 1) {
+    clock += 30 * 60_000;
+    await npc.tick(true);
+  }
+  return world;
+}
+
+function parts(world: World) {
+  const persistence = world.persistence;
+  const npc = world.npc;
+  if (!persistence || !npc) throw new Error("world");
+  return { persistence, npc };
+}
+
+async function citizen(world: World, name: string, nationIndex = 0) {
+  const { persistence } = parts(world);
+  const found = await rows<{ id: string }>(
+    test.db,
+    `insert into users (name, email, username) values ($1, $2, $3) returning id`,
+    [name, `${name}@id.placeholder.invalid`, name.toLowerCase()],
+  );
+  const userId = String(found[0]?.id);
+  const faction = persistence.cyborgs.creation(userId, clock).factions[nationIndex];
+  const city = faction?.cities[0];
+  if (!faction || !city) throw new Error("no start city");
+  await persistence.cyborgs.roll(userId, "balanced");
+  const made = await persistence.cyborgs.create(userId, {
+    name,
+    appearance: {
+      head: "dome",
+      face: "visor",
+      body: "slim",
+      limbs: "piston",
+      primary: "mint",
+      accent: "lemon",
+    },
+    factionId: faction.id,
+    cityId: city.id,
+    elements: { fire: 6, wind: 4 },
+  });
+  if (!made.ok) throw new Error(`cyborg ${made.code}`);
+  await persistence.writer.durable();
+  return { userId, nation: faction.id };
+}
+
+async function house(world: World, leader: string, name: string, short: string): Promise<number> {
+  const pool = test.db.$client;
+  const identity = createFactionIdentityServices(
+    createFactionIdentityShared({ pool, now: () => clock, limits: { saves: RELAXED, uploads: RELAXED } }),
+    { db: test.db, ip: null },
+  );
+  await identity.save(viewer(leader), {
+    name,
+    shortName: short,
+    color: "#2980b9",
+    emblem: EMBLEM,
+    upload: { mode: "none" },
+  });
+  const nationOf = (userId: string) => parts(world).persistence.cyborgs.record(userId)?.factionId;
+  const founded = await createHouseFounder({ pool, db: test.db, now: () => clock, nationOf }).found(leader, {
+    cost: "0",
+  });
+  if (!founded.ok) throw new Error(founded.code);
+  return founded.factionId;
+}
+
+/** 선출 기록을 바로 적는다(시험 — 선출 길은 governance.db.test.ts가 본다) */
+async function setRuling(nationRow: number, key: string): Promise<void> {
+  await test.db.$client.query(
+    `insert into governance_state (nation_id, ruling_house_key, updated_at_ms) values ($1, $2, $3)
+     on conflict (nation_id) do update set ruling_house_key = excluded.ruling_house_key`,
+    [nationRow, key, clock],
+  );
+}
+
+function governance(world: World, rules: () => GovernanceRules, sales: ApprovedShareSale[] = []) {
+  return attachGovernance({
+    db: test.db,
+    world: () => world,
+    rules,
+    now: () => clock,
+    log: silentLog,
+    manual: true,
+    approvedShareSale: async (sale) => {
+      sales.push(sale);
+    },
+  });
+}
+
+describe.skipIf(!TEST_DATABASE_URL)("나라 의결 3(governance-3)", () => {
+  it("군사 쿠데타: 꺼져 있으면 막고, 켜면 참가 받기 → NPC 참가 → 전투 → 결과(이기면 독재 지배 가문 + 지분 몰수)", async () => {
+    const world = await boot();
+    const { npc } = parts(world);
+    let rules: GovernanceRules = { ...TEST_GOVERNANCE_RULES, coupGatherMs: 60_000, coupNpcScore: -1000 };
+    const gov = governance(world, () => rules);
+    const head = await citizen(world, "Coupone");
+    const faction = npc.world.factions.get(npc.houses.ownerOfRow(head.nation) ?? -1);
+    if (!faction) throw new Error("nation");
+    faction.regime = "democracy";
+    const row = await house(world, head.userId, "혁명가문", "REV");
+    await gov.service.tick();
+    // 출발값 = 꺼짐(gov_coup_enabled 0)
+    expect(await gov.service.coup(head.userId)).toEqual({ ok: false, code: "coup_disabled" });
+    rules = { ...rules, coupEnabled: true };
+    const started = await gov.service.coup(head.userId);
+    if (!started.ok) throw new Error(started.code);
+    expect(started.action).toBe("coup_started");
+    expect(await gov.service.coup(head.userId)).toEqual({ ok: false, code: "coup_open" });
+    // 다른 사람은 어느 편이든 든다(D-583 — 일으킨 사람은 혁명군에서 못 빠진다)
+    const other = await citizen(world, "Couptwo", 1);
+    expect(await gov.service.coupJoin(other.userId, started.agendaId, "government")).toMatchObject({
+      ok: true,
+      action: "coup_joined",
+    });
+    expect(await gov.service.coupJoin(head.userId, started.agendaId, "government")).toEqual({
+      ok: false,
+      code: "invalid_choice",
+    });
+    // 참가 받는 중: NPC 가문은 성향 규칙식으로 든다(문턱 −1000 → 모두 혁명군)
+    rules = { ...rules, coupEnabled: false };
+    await gov.service.tick();
+    let view = await gov.view(head.userId);
+    expect(view.coups[0]?.status).toBe("gathering");
+    expect(view.coups[0]?.mySide).toBe("rebel");
+    expect(view.coups[0]?.government).toBe(1);
+    // 참가 받기 끝 → 전투
+    clock += 120_000;
+    await gov.service.tick();
+    view = await gov.view(head.userId);
+    const done = view.coups[0];
+    expect(done?.status === "won" || done?.status === "lost").toBe(true);
+    const key = `p:${row}`;
+    if (done?.status === "won") {
+      expect(faction.regime).toBe("dictatorship");
+      expect(view.nation?.rulingHouse?.key).toBe(key);
+      for (const cityId of faction.cities) {
+        expect(holdingsOf(npc.world.book, cityId)).toEqual([]);
+        expect(houseHoldingsOf(npc.world.book, cityId).map((h) => h.house)).toEqual([`${row}:`]);
+      }
+    } else {
+      expect(faction.regime).toBe("democracy");
+      expect(view.nation?.rulingHouse?.key).not.toBe(key);
+    }
+    // 쿨타임
+    rules = { ...rules, coupEnabled: true };
+    if (done?.status === "lost")
+      expect(await gov.service.coup(head.userId)).toEqual({ ok: false, code: "coup_cooldown" });
+    const audits = await rows<{ action: string }>(
+      test.db,
+      "select action from audit_log where action like 'governance.coup%' order by id",
+    );
+    expect(audits.map((a) => a.action)).toEqual([
+      "governance.coup_started",
+      `governance.coup_${done?.status}`,
+    ]);
+    gov.stop();
+  }, 120_000);
+
+  it("지분 과반을 사서 독재: 국고 지분은 국고에 남고(2432 (다)), 독재 지도자는 선전포고·국고 지분 팔기를 직권으로(2440 나·2438)", async () => {
+    const world = await boot();
+    const { npc } = parts(world);
+    const rules: GovernanceRules = { ...TEST_GOVERNANCE_RULES, graceRegimeMs: 0 };
+    const sales: ApprovedShareSale[] = [];
+    const gov = governance(world, () => rules, sales);
+    const head = await citizen(world, "Buyone");
+    const faction = npc.world.factions.get(npc.houses.ownerOfRow(head.nation) ?? -1);
+    if (!faction) throw new Error("nation");
+    faction.regime = "democracy";
+    const row = await house(world, head.userId, "매수가문", "BUY");
+    await setRuling(head.nation, `p:${row}`);
+    const book = npc.world.book;
+    // 지배 가문이 도시마다 600주를 샀다(시험은 국고에서 옮겨 흉내)
+    for (const cityId of faction.cities) moveSharesToHouse(book, cityId, faction.id, `${row}:`, 600n, clock);
+    expect((await gov.view(head.userId)).nation?.rulingSharePm).toBe(1000);
+    expect(
+      await gov.service.propose(head.userId, { kind: "regime_change", regime: "dictatorship" }),
+    ).toMatchObject({
+      ok: true,
+      action: "decided",
+    });
+    await gov.service.tick();
+    await gov.service.tick();
+    expect(faction.regime).toBe("dictatorship");
+    for (const cityId of faction.cities) expect(book.balanceOf(faction.id, shareAsset(cityId))).toBe(400n);
+    const record = await rows<{ treasury_kept: boolean }>(
+      test.db,
+      "select treasury_kept from governance_share_houses where nation_id = $1",
+      [head.nation],
+    );
+    expect(record[0]?.treasury_kept).toBe(true);
+    // 독재 지도자 직권: 선전포고(바로 전쟁)
+    const view = await gov.view(head.userId);
+    expect(view.canPropose).toEqual(["regime_change", "war_declaration"]);
+    const target = view.warTargets[0];
+    if (!target) throw new Error("no target");
+    expect(
+      await gov.service.propose(head.userId, { kind: "war_declaration", targetNationId: target.id }),
+    ).toMatchObject({ ok: true, action: "decided" });
+    const targetOwner = npc.houses.ownerOfRow(target.id) ?? -2;
+    expect(faction.wars.has(targetOwner) || faction.truces.has(targetOwner)).toBe(true);
+    // 국고 지분 팔기 직권: 국고에 있는 만큼만, 승인된 판매는 시장 고리로
+    const cityId = faction.cities.values().next().value ?? -1;
+    expect(
+      await gov.service.propose(head.userId, {
+        kind: "treasury_share_sale",
+        cityId,
+        shares: "401",
+        minPrice: "5",
+      }),
+    ).toEqual({ ok: false, code: "not_enough_shares" });
+    expect(
+      await gov.service.propose(head.userId, {
+        kind: "treasury_share_sale",
+        cityId,
+        shares: "100",
+        minPrice: "5",
+      }),
+    ).toMatchObject({ ok: true, action: "decided" });
+    expect(sales).toEqual([
+      expect.objectContaining({ nationRowId: head.nation, cityId, shares: 100n, minPrice: 5n }),
+    ]);
+    gov.stop();
+  }, 120_000);
+
+  it("독재 지배 가문이 바뀌면 옛 지배 가문 지분이 새 지배 가문으로(2432 나), 자본주의 발의 하한 아래는 막는다(2436 다)", async () => {
+    const world = await boot();
+    const { npc } = parts(world);
+    const rules: GovernanceRules = { ...TEST_GOVERNANCE_RULES };
+    const gov = governance(world, () => rules);
+    const first = await citizen(world, "Folone", 0);
+    const second = await citizen(world, "Capone", 1);
+    const dictator = npc.world.factions.get(npc.houses.ownerOfRow(first.nation) ?? -1);
+    const capital = npc.world.factions.get(npc.houses.ownerOfRow(second.nation) ?? -1);
+    if (!dictator || !capital) throw new Error("nations");
+    dictator.regime = "dictatorship";
+    capital.regime = "capitalism";
+    const ruling = npc.cityHouses.rulingHouseOf(dictator.id);
+    if (!ruling) throw new Error("no ruling house");
+    await gov.service.tick();
+    const book = npc.world.book;
+    const city = [...dictator.cities][0] ?? -1;
+    // 옛 지배 가문(시험 — 없는 가문 n:999999)이 지분을 가진 채 기록이 그 가문을 가리킨다 = 수도 이전으로 처음 규칙 가문이 바뀐 뒤
+    const from = book.systemAccount(houseShareCode(`npc:${ruling.id}:`, city), shareAsset(city));
+    book.post({
+      kind: "test",
+      atMs: clock,
+      entries: [
+        { account: from, amount: -1000n },
+        { account: book.systemAccount(houseShareCode("npc:999999:", city), shareAsset(city)), amount: 1000n },
+      ],
+    });
+    await test.db.$client.query(
+      "update governance_share_houses set house_key = 'n:999999' where nation_id = $1",
+      [first.nation],
+    );
+    await gov.service.tick();
+    expect(houseHoldingsOf(book, city).map((h) => [h.house, h.amount])).toEqual([
+      [`npc:${ruling.id}:`, 1000n],
+    ]);
+    const follow = await rows<{ action: string }>(
+      test.db,
+      "select action from audit_log where action = 'governance.shares_follow_ruler'",
+    );
+    expect(follow.length).toBe(1);
+    // 자본주의: 지분이 없는 가문장은 발의·후보 등록을 못 한다(D-580 1 — 세율 안건도)
+    await house(world, second.userId, "무지분가문", "NOS");
+    const taxes = { incomeTaxBp: 800, residentTaxPm: 5, residentEveryDays: 7, residentNationPm: 100 };
+    expect(await gov.service.propose(second.userId, { kind: "tax_change", taxes })).toEqual({
+      ok: false,
+      code: "not_eligible",
+    });
+    expect((await gov.view(second.userId)).canPropose).toEqual([]);
+    gov.stop();
+  }, 120_000);
+
+  it("빈자리가 기간을 넘으면 시작 도시가 아닌 도시마다 독립 투표가 열리고, 가결되면 새 도시국가(2434 (가))", async () => {
+    const world = await boot();
+    const { npc } = parts(world);
+    const rules: GovernanceRules = {
+      ...TEST_GOVERNANCE_RULES,
+      npcKeepSatisfaction: 101,
+      vacancySplitMs: 60_000,
+    };
+    const gov = governance(world, () => rules);
+    const head = await citizen(world, "Vacone");
+    const faction = npc.world.factions.get(npc.houses.ownerOfRow(head.nation) ?? -1);
+    if (!faction) throw new Error("nation");
+    faction.regime = "democracy";
+    // 서버 시험 나라의 처음 도시는 모두 시작 도시(D-341 — 주인이 바뀌지 않는다)라, 하나를 마을처럼 시작 도시가 아니게 둔다
+    const cities = [...faction.cities].toSorted((a, b) => a - b);
+    const village = npc.world.cities.get(cities.at(-1) ?? -1);
+    if (!village || cities.length < 2) throw new Error("need two cities");
+    Object.assign(village, { start: false });
+    const loose = [village.id];
+    await test.db.$client.query(
+      `insert into governance_state (nation_id, vacant_since_ms, term_ends_at_ms, updated_at_ms) values ($1, $2, $3, $2)
+       on conflict (nation_id) do update set vacant_since_ms = excluded.vacant_since_ms`,
+      [head.nation, clock - 120_000, clock + DAY_MS],
+    );
+    await gov.service.tick();
+    let view = await gov.view(head.userId);
+    const votes = view.agendas.filter((agenda) => agenda.kind === "city_independence");
+    expect(new Set(votes.map((agenda) => agenda.cityId))).toEqual(new Set(loose));
+    // 다시 돌아도 같은 빈자리 동안 다시 열지 않는다
+    await gov.service.tick();
+    view = await gov.view(head.userId);
+    expect(view.agendas.filter((agenda) => agenda.kind === "city_independence").length).toBe(loose.length);
+    // NPC 가문(불만 — 문턱 101)이 찬성 → 기간 끝(또는 일찍) 가결 → 독립
+    clock += rules.periodOf("city_independence");
+    await gov.service.tick();
+    await gov.service.tick();
+    const enacted = (
+      await rows<{ payload: { cityId: number }; status: string }>(
+        test.db,
+        "select payload, status from governance_agendas where kind = 'city_independence'",
+      )
+    ).filter((row) => row.status === "enacted");
+    expect(enacted.map((row) => row.payload.cityId)).toEqual(loose);
+    for (const row of enacted) expect(npc.world.cities.get(row.payload.cityId)?.owner).not.toBe(faction.id);
+    const independent = await rows<{ action: string }>(
+      test.db,
+      "select action from audit_log where action = 'governance.city_independent'",
+    );
+    expect(independent.length).toBe(enacted.length);
+    gov.stop();
+  }, 120_000);
+});

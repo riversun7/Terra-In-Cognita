@@ -60,6 +60,10 @@ export const economyRouter = router({
       now: ctx.now(),
     }),
   ),
+  /** 내 신용 점수(도시·나라 — 깎인 곳만, D-581). 실제 자료다(시안 없음) */
+  credit: signedInProcedure.query(({ ctx }) =>
+    ctx.economy.credit(ctx.viewer, { preview: false, now: ctx.now() }),
+  ),
   /** 환전(기준 통화 짝 동시호가) */
   exchange: signedInProcedure.input(previewOnly).query(({ ctx, input }) =>
     ctx.economy.exchange(ctx.viewer, {

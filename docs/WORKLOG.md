@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-21 09:20~ (KST). 합치기는 11-17에 시작해 사용량 제한으로 멈췄다가 이어서 했다. | 2026-11-21 묶음 1116q 합치기 (서버 메모리 누수 고침 · NPC 휴먼 임금·생활비 + 새 main 3d66465) — 리셋 필요 없음 | Claude Code | [21-0920-batch-1116q-merge](worklog/2026/11/21-0920-batch-1116q-merge.md) |
 | 2026-11-20 15:20 | 홈 대시보드 테라 인코그니타 독자 비대칭 커맨드 벤토 개편 및 VIT·DEX 스탯 색상 분리 | Antigravity | [20-1520-dashboard-original-bento-and-stat-colors](worklog/2026/11/20-1520-dashboard-original-bento-and-stat-colors.md) |
 | 2026-11-20 13:55 | 건물 티어별 재료 2의 제곱수 밸런스 · 유닛 공통 경험치 테이블 및 시각화 에디터 | Antigravity | [20-1355-balance-buildings-exp-table](worklog/2026/11/20-1355-balance-buildings-exp-table.md) |
 | 2026-11-20 13:00 | 홈 대시보드 프로 터미널 개편 및 전역 타이포그래피·사이드바 정돈 | Antigravity | [20-1300-pro-dashboard-and-shell-overhaul](worklog/2026/11/20-1300-pro-dashboard-and-shell-overhaul.md) |

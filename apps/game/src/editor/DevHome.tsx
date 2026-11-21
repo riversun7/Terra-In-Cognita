@@ -105,6 +105,15 @@ const DEV_TOOLS = {
     tagEn: "CHARTS · Secondary",
     ready: true,
   },
+  // 유닛 공통 경험치 테이블 에디터(/dev/exp-table): Lv 1~60 경험치 표 편집·곡선 생성·수명 대비 도달 기간 차트
+  dev_exp_table: {
+    name: m.shell_route_dev_exp_table,
+    desc: m.dev_tool_exp_table_desc,
+    mark: <GaugeIcon />,
+    tagKo: "LIVE EDIT · 경험치 Lv 1~60",
+    tagEn: "LIVE EDIT · EXP Lv 1–60",
+    ready: true,
+  },
   // 스킬 편집기·행동별 소모(docs/adr/2026-11-01-skill-editor.md): 스킬마다 모든 칸·특수 효과, 행동별 스태미나·MP
   dev_skills: {
     name: m.shell_route_dev_skills,
@@ -202,8 +211,8 @@ const DEV_TOOLS = {
     name: m.shell_route_dev_terrain_objects,
     desc: m.dev_tool_terrain_objects_desc,
     mark: <Icon name="map" />,
-    tagKo: "EXPORT · 지형 D-536",
-    tagEn: "EXPORT · Terrain D-536",
+    tagKo: "3D LAB · 지형·오브젝트 D-536",
+    tagEn: "3D LAB · Terrain & Objects",
     ready: true,
   },
   dev_recruit: {
@@ -278,7 +287,7 @@ const DEV_SECTIONS: readonly DevSection[] = [
       "2차 스탯 가중치·계산식, 실제 판정 N회 전투 보고서(공성·A/B·피해 흐름), 49 설정 칸(N53 스위치 포함), 6v6 3D 전투 다시보기를 다룹니다.",
     subEn:
       "Secondary stat weights and formulas, N-run battle reports from the real engine (siege, A/B, damage flow), 49 settings cells (including N53 switches), and 6v6 3D battle replays.",
-    routes: ["dev_secondary_stats", "dev_balance", "dev_tuning", "dev_battle_replay"],
+    routes: ["dev_exp_table", "dev_secondary_stats", "dev_balance", "dev_tuning", "dev_battle_replay"],
   },
   {
     id: "world",
@@ -294,7 +303,6 @@ const DEV_SECTIONS: readonly DevSection[] = [
       "dev_nations",
       "dev_world_layout",
       "dev_territory",
-      "dev_second_map",
       "dev_terrain_objects",
       "dev_gather_objects",
     ],

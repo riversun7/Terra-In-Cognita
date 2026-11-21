@@ -36,6 +36,7 @@ export {
   type TileSource,
 } from "./planetTypes.ts";
 export {
+  CLIMATE_TEMP_RAMP,
   ELEVATION_LAKE_COLOR,
   ELEVATION_LAND_RAMP,
   ELEVATION_SEA_RAMP,

@@ -99,10 +99,18 @@ export interface TerritoryLabelSpot {
   readonly area: number;
 }
 
+/** 두 국가가 맞닿은 경계선 조각(작은 ID, 큰 ID + 꺾은선) — 전쟁 중인 국경 강조에 쓴다 */
+export interface TerritoryDividerEdge {
+  readonly factions: readonly [number, number];
+  readonly points: readonly LatLon[];
+}
+
 export interface TerritoryShapes {
   readonly areas: readonly TerritoryArea[];
   /** 두 국가가 맞닿은 선(꺾은선, 받침 선) */
   readonly dividers: readonly (readonly LatLon[])[];
+  /** 맞닿은 국가 쌍이 붙은 경계선 조각(전쟁 전선 테두리 강조용) */
+  readonly dividerEdges?: readonly TerritoryDividerEdge[] | undefined;
   /** 맞닿은 국가 쌍(작은 ID, 큰 ID — 받침 선이 있는 쌍, ID 차례). 비슷한 색 이웃 무늬(territoryView.ts)가 쓴다 */
   readonly neighbours: readonly (readonly [number, number])[];
   readonly labels: readonly TerritoryLabelSpot[];
@@ -416,6 +424,7 @@ export function buildTerritoryShapes(sites: readonly TerritorySite[], corridor: 
   const { map } = shapeMapOf(sites, corridor);
   const areas: TerritoryArea[] = [];
   const dividers: LatLon[][] = [];
+  const dividerEdges: TerritoryDividerEdge[] = [];
   const pairs = new Set<string>();
   const best = new Map<number, { area: number; total: number; spot: Vec }>();
   const ownerGroup = (p: Vec): TerritoryMapGroup | undefined => territoryMapOwnerOf(map, p)?.group;
@@ -442,12 +451,17 @@ export function buildTerritoryShapes(sites: readonly TerritorySite[], corridor: 
       simplifyLoop(loop, step * 0.05),
     );
     if (loops.length === 0) continue;
-    // 국가 경계 받침: 고리 변 바깥(오른쪽) 주인이 다른 국가인 몫
+    // 국가 경계 받침: 고리 변 바깥(오른쪽) 주인이 다른 국가인 몫(어느 국가와 맞닿았는지도 함께 적는다)
     for (const loop of loops) {
       let run: LatLon[] = [];
+      let runOther = -1;
       const flush = (): void => {
-        if (run.length >= 2) dividers.push(run);
+        if (run.length >= 2 && runOther > skeleton.faction) {
+          dividers.push(run);
+          dividerEdges.push({ factions: [skeleton.faction, runOther], points: run });
+        }
         run = [];
+        runOther = -1;
       };
       loop.forEach((point, index) => {
         const after = loop[(index + 1) % loop.length] ?? point;
@@ -462,6 +476,8 @@ export function buildTerritoryShapes(sites: readonly TerritorySite[], corridor: 
         const other = ownerGroup(probe);
         // 한 쪽(작은 국가 ID)에서만 넣는다
         if (other && other.faction > skeleton.faction) {
+          if (runOther !== -1 && runOther !== other.faction) flush();
+          runOther = other.faction;
           pairs.add(`${String(skeleton.faction)}:${String(other.faction)}`);
           if (run.length === 0) run.push(latLonOf(fromPlane(frame, point[0], point[1])));
           run.push(latLonOf(fromPlane(frame, after[0], after[1])));
@@ -515,5 +531,5 @@ export function buildTerritoryShapes(sites: readonly TerritorySite[], corridor: 
       return [a ?? 0, b ?? 0] as const;
     })
     .toSorted((x, y) => x[0] - y[0] || x[1] - y[1]);
-  return { areas, dividers, neighbours, labels };
+  return { areas, dividers, dividerEdges, neighbours, labels };
 }

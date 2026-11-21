@@ -37,6 +37,7 @@ import type { VitalsReadServices } from "../vitals/reads.ts";
 import type { RankingServices } from "../ranking/services.ts";
 import type { BuildingEditorServices } from "../buildingEdit/services.ts";
 import type { CreatureEditorServices } from "../creatureEdit/services.ts";
+import type { ExpTableEditorServices } from "../expTableEdit/services.ts";
 import type { NationEditorServices } from "../nationEdit/services.ts";
 import type { FormulaListResponse } from "@terra/shared/formula";
 import type { BattleLabShared } from "../battleLab/services.ts";
@@ -71,6 +72,7 @@ import type {
   PlanetLibraryVersion,
   PlanetLibraryVersionInfo,
   SecondMapLabAnswer,
+  SecondMapLabPreviewAnswer,
   SecondMapLabTarget,
   StarSystemRecord,
   StarSystemSaved,
@@ -343,6 +345,11 @@ export interface RecruitReadServices {
  */
 export interface SecondMapLabServices {
   locate(planetId: string, target: SecondMapLabTarget): Promise<SecondMapLabAnswer>;
+  preview(
+    planetId: string,
+    target: SecondMapLabTarget,
+    mapProps: readonly unknown[],
+  ): Promise<SecondMapLabPreviewAnswer>;
 }
 
 /** 경제 화면 조회의 조건. preview는 프로시저가 권한(home: preview, dev·admin)을 본 뒤에만 true다 */
@@ -498,6 +505,8 @@ export interface TrpcContext {
   creatures?: CreatureEditorServices | undefined;
   /** 시작 국가 설정 편집기. 설정 칸 패널과 같이 있을 때만(권한은 tuning이 본다, docs/adr/2026-11-10-nation-editor.md) */
   nations?: NationEditorServices | undefined;
+  /** 유닛 공통 경험치 테이블 편집기(/dev/exp-table). 설정 칸 패널과 같이 있을 때만(권한은 tuning이 본다) */
+  expTable?: ExpTableEditorServices | undefined;
   /** 전투 실험실(앱에 하나인 서비스 + 이 요청의 DB·접속 주소). 설정 칸 패널과 같이 있을 때만(권한은 tuning이 본다) */
   battleLab?: { readonly shared: BattleLabShared; readonly db: Database; readonly ip: string } | undefined;
   /** 전투 다시보기. 설정 칸 패널과 같이 있을 때만(권한은 tuning이 본다) */

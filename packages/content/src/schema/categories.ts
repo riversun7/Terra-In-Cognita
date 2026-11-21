@@ -30,6 +30,7 @@ import { mapPropEntrySchema } from "./mapProps.ts";
 import { gatherObjectEntrySchema } from "./gatherObjects.ts";
 import { combatClassEntrySchema } from "./combatClasses.ts";
 import { creatureEntrySchema } from "./creatures.ts";
+import { expTableEntrySchema } from "./expTable.ts";
 import { effectEntrySchema, skillEntrySchema, unitKindEntrySchema } from "./combat.ts";
 import { biomeEntrySchema, planetEntrySchema, planetTemplateEntrySchema } from "./planets.ts";
 import { formulaEntrySchema } from "./formulas.ts";
@@ -83,4 +84,5 @@ export const CATEGORIES: CategoryRegistry = {
   map_props: { entry: mapPropEntrySchema },
   gather_objects: { entry: gatherObjectEntrySchema },
   combat_classes: { entry: combatClassEntrySchema },
+  exp_table: { entry: expTableEntrySchema },
 };

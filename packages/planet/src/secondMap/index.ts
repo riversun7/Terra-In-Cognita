@@ -27,6 +27,8 @@ export {
 } from "./planetValues.ts";
 export {
   MAP_PRESETS,
+  findBiomeMapKey,
+  findBiomeMapKeys,
   findMapPreset,
   planetCellValues,
   planetCellValuesFromFile,

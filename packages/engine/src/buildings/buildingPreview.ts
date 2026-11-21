@@ -121,6 +121,8 @@ export class BuildingPreview {
       state: look.state,
       upgrading: look.upgrading,
       accent: look.accent,
+      accentColor: look.accentColor,
+      emblem: look.emblem,
       seed,
       wall: look.wall,
       roof: look.roof,

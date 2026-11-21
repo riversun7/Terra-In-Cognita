@@ -38,6 +38,7 @@ import { createSettingsServices } from "../settings/store.ts";
 import { type TuningShared, betterAuthTuningCheck, createTuningServices } from "../tuning/services.ts";
 import { createBuildingEditorServices } from "../buildingEdit/services.ts";
 import { createCreatureEditorServices } from "../creatureEdit/services.ts";
+import { createExpTableEditorServices } from "../expTableEdit/services.ts";
 import type { HouseRules } from "../factionIdentity/rules.ts";
 import type { HouseCityService } from "../factionIdentity/houseCity.ts";
 import { createFactionIdentityServices, createFactionIdentityShared } from "../factionIdentity/services.ts";
@@ -308,6 +309,15 @@ export function createContextFactory(options: ContextFactoryOptions) {
               shared: options.contentEdit,
               tuning,
               nation: options.nationEdit,
+              ip: request.ip,
+            })
+          : undefined,
+      expTable:
+        authDeps && request && tuning && options.contentEdit
+          ? createExpTableEditorServices({
+              db: authDeps.db,
+              shared: options.contentEdit,
+              tuning,
               ip: request.ip,
             })
           : undefined,

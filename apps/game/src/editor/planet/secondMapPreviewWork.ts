@@ -19,6 +19,7 @@ import {
   type PlanetValues,
   type SecondMapTerrain,
   compileMapProps,
+  findBiomeMapKeys,
   findMapPreset,
   generateSecondMap,
   mapPropInputsFromJson,
@@ -32,15 +33,16 @@ import type {
   SecondMapPreviewTerrain,
 } from "./secondMapPreviewProtocol.ts";
 
-/** 워커가 들고 있는 행성 값(하나만)과 그 행성에서 찾은 시험 자리 */
+/** 워커가 들고 있는 행성 값(하나만)과 그 행성에서 찾은 시험 자리·바이옴 대표 칸 */
 export interface PlanetValuesSlot {
   key: string | null;
   values: PlanetValues | null;
   presets: Map<MapPreset, number | null>;
+  biomeKeys: Map<string, readonly number[]> | null;
 }
 
 export function emptyPlanetSlot(): PlanetValuesSlot {
-  return { key: null, values: null, presets: new Map() };
+  return { key: null, values: null, presets: new Map(), biomeKeys: null };
 }
 
 /** 생성 결과 → 화면에 넘길 2차맵(배열은 그대로, 넘길 버퍼를 모은다) */
@@ -132,6 +134,7 @@ export function runSecondMapJob(
       slot.key = null;
       slot.values = null;
       slot.presets.clear();
+      slot.biomeKeys = null;
       onStage("planet");
       const started = now();
       const details = runPlanetGenerator(input);
@@ -143,14 +146,29 @@ export function runSecondMapJob(
     const planet = values;
     let mapKey = request.mapKey;
     if (mapKey === null) {
-      const preset = request.preset ?? "river";
-      if (!slot.presets.has(preset)) slot.presets.set(preset, findMapPreset(planet, preset));
-      mapKey = slot.presets.get(preset) ?? null;
-      if (mapKey === null) {
-        return {
-          reply: { kind: "error", id, code: "none", message: `no place for ${preset}` },
-          transfer: [],
-        };
+      if (request.biomeId) {
+        slot.biomeKeys ??= findBiomeMapKeys(planet, 8);
+        const list = slot.biomeKeys.get(request.biomeId);
+        if (list && list.length > 0) {
+          const index = Math.abs(Math.floor(request.biomeVariant ?? 0)) % list.length;
+          mapKey = list[index] ?? null;
+        }
+        if (mapKey === null) {
+          return {
+            reply: { kind: "error", id, code: "none", message: `no place for biome ${request.biomeId}` },
+            transfer: [],
+          };
+        }
+      } else {
+        const preset = request.preset ?? "river";
+        if (!slot.presets.has(preset)) slot.presets.set(preset, findMapPreset(planet, preset));
+        mapKey = slot.presets.get(preset) ?? null;
+        if (mapKey === null) {
+          return {
+            reply: { kind: "error", id, code: "none", message: `no place for ${preset}` },
+            transfer: [],
+          };
+        }
       }
     }
     onStage("map");

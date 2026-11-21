@@ -2,7 +2,7 @@
 // 모두 머리 묶음이다. 얼굴은 머리 앞면(+z)에 붙고, 머리카락·장비는 머리 실제 크기(headBox)에 맞춘다.
 import type { CharacterLook } from "@terra/shared/characterLook";
 import type { CharacterFrame, PartContext } from "./characterFrame.ts";
-import { GROUP } from "./characterParts.ts";
+import { GROUP, shadeColor } from "./characterParts.ts";
 
 const HALF_TURN = Math.PI;
 const QUARTER_TURN = Math.PI / 2;
@@ -44,9 +44,13 @@ export function addHead(c: PartContext): void {
   const cy = b.y0 + b.h / 2;
   list.group = GROUP.head;
   if (lod === 1) {
-    list.add("box", 0, cy, 0, b.w * 0.94, b.h, b.d * 0.94, p.skin);
+    const rounded =
+      look.head === "round" || look.head === "egg" || look.head === "jaw" || look.head === "dome";
+    list.add(rounded ? "taper" : "box", 0, cy, 0, b.w * 0.96, b.h, b.d * 0.96, p.skin);
     return;
   }
+  // 목(머리와 몸통 이음매)
+  list.add("taper", 0, b.y0 - 0.01, 0, b.w * 0.42, 0.11, b.d * 0.42, shadeColor(p.skin, 0.88));
   switch (look.head) {
     case "round":
     case "egg":
@@ -87,7 +91,10 @@ export function addFace(c: PartContext): void {
   const eyeColor = litEyes ? p.glow : p.ink;
   if (lod === 1) {
     if (look.face === "eyes")
-      list.add("box", 0, eyeY, zf, b.w * 0.56, b.h * 0.15, 0.05, eyeColor, { glow: litEyes });
+      // 먼 단계에서도 두 눈이 갈려 보이게(한 줄 검은 막대처럼 보이지 않게)
+      list.pair(head, head, "box", b.w * 0.2, eyeY, zf, b.w * 0.14, b.h * 0.16, 0.05, eyeColor, {
+        glow: litEyes,
+      });
     else if (look.face === "mask")
       list.add("box", 0, b.y0 + b.h * 0.26, zf, b.w * 0.9, b.h * 0.38, 0.06, p.accent);
     else list.add("box", 0, eyeY, zf, b.w * 0.7, b.h * 0.16, 0.05, p.glow, { glow: true });
@@ -97,11 +104,24 @@ export function addFace(c: PartContext): void {
     list.pair(head, head, "box", b.w * 0.2, eyeY, zf, b.w * w, b.h * h, 0.06, color, { glow });
   switch (look.face) {
     case "visor":
-      list.add("box", 0, eyeY, zf, b.w * 0.86, b.h * 0.26, 0.06, p.ink);
-      list.add("box", 0, eyeY, zf + 0.01, b.w * 0.7, b.h * 0.09, 0.06, p.glow, { glow: true });
+      list.add("box", 0, eyeY, zf, b.w * 0.88, b.h * 0.28, 0.07, p.ink);
+      list.add("box", 0, eyeY, zf + 0.015, b.w * 0.72, b.h * 0.1, 0.06, p.glow, { glow: true });
       break;
     case "eyes":
-      eyes(0.13, 0.17, eyeColor, litEyes);
+      eyes(0.14, 0.18, eyeColor, litEyes);
+      // 눈썹(표정 입체감)
+      list.pair(
+        head,
+        head,
+        "box",
+        b.w * 0.2,
+        eyeY + b.h * 0.15,
+        zf + 0.005,
+        b.w * 0.18,
+        b.h * 0.05,
+        0.05,
+        p.secondary,
+      );
       break;
     case "mono":
       list.add("box", 0, eyeY, zf, b.w * 0.5, b.h * 0.4, 0.06, p.ink);
@@ -190,8 +210,21 @@ export function addTop(c: PartContext): void {
   }
   switch (look.top) {
     case "short":
-      cap(hair, 0.05, 0.3);
-      backPanel(hair, 0.5, 0.05);
+      cap(hair, 0.06, 0.32);
+      backPanel(hair, 0.54, 0.06);
+      // 옆머리·앞머리 볼륨
+      list.pair(
+        head,
+        head,
+        "box",
+        b.w / 2 + 0.01,
+        b.y1 - b.h * 0.24,
+        -b.d * 0.05,
+        0.06,
+        b.h * 0.38,
+        b.d * 0.62,
+        hair,
+      );
       break;
     case "bob":
       cap(hair, 0.05, 0.3);

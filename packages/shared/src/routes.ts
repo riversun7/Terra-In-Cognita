@@ -258,6 +258,14 @@ export const ROUTES = {
     frame: "shown",
     access: "dev_admin",
   },
+  // 유닛 공통 경험치 테이블 에디터(/dev/exp-table): Lv 1~60 경험치 표 편집·곡선 생성·수명 대비 도달 기간 시각화, 적용하면 그 세계에 바로 든다
+  dev_exp_table: {
+    path: "/dev/exp-table",
+    search: [],
+    parent: "dev",
+    frame: "shown",
+    access: "dev_admin",
+  },
   // 스킬 편집기·행동별 소모(docs/adr/2026-11-01-skill-editor.md 5절): 틀 안 빽빽한 편집 화면. ?skill=<ID>는 그 스킬을 바로 연다
   // (효과 사전 쓰는 곳에서 온다). 저장하면 그 세계에 바로 든다
   dev_skills: {
@@ -351,13 +359,12 @@ export const ROUTES = {
     frame: "shown",
     access: "dev_admin",
   },
-  // 지형 오브젝트 편집기(기획 D-536·D-398): 틀 안 촘촘한 화면. 지형마다 2차맵 오브젝트(소품 규칙·지형별 채집 자리·어군) 종류·양을 고치고
-  // 차이를 내보낸다(pnpm tuning:apply)
+  // 2차맵·지형 오브젝트 통합 화면(기획 D-536·D-398, ADR 46): 틀 숨김 전체 화면(PC 기준). /dev/second-map과 같은 통합 화면을 연다
   dev_terrain_objects: {
     path: "/dev/terrain-objects",
     search: [],
     parent: "dev",
-    frame: "shown",
+    frame: "hidden",
     access: "dev_admin",
   },
   // 채집 오브젝트 편집기(기획 D-552, docs/adr/2026-11-15-gather-object-tiers.md 7절): 틀 안 촘촘한 화면. 오브젝트마다 3D 모델·대표 아이템(원자재

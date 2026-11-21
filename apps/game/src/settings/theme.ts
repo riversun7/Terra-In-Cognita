@@ -7,8 +7,8 @@ import { DEFAULT_THEME, type Theme } from "@terra/shared";
 
 /** 테마별 바탕색 = 주소창 색(<meta name="theme-color">). styles/tokens.css의 --color-bg와 같다(시험이 확인) */
 export const THEME_COLORS: Readonly<Record<Theme, string>> = {
-  pastel: "#dff2fb",
-  dark: "#13203a",
+  pastel: "#eef2f7",
+  dark: "#0b0f19",
   contrast: "#ffffff",
   station: "#05050c",
 };

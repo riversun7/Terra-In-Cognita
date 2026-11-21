@@ -28,7 +28,8 @@ ENV APP_BUILD_NUMBER=${APP_BUILD_NUMBER}
 # 이 빌드에는 .git이 없어서(.dockerignore) 커밋은 APP_BUILD에서 읽는다. 없으면(손으로 만든 이미지) 지금 시각을 앱·서버에 같이 쓴다
 ARG APP_BUILD_TIME=
 RUN APP_BUILD_TIME="${APP_BUILD_TIME:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}" && export APP_BUILD_TIME \
-  && pnpm --filter @terra/game build && pnpm --filter @terra/server build
+  && pnpm --filter @terra/game build && pnpm --filter @terra/server build \
+  && node scripts/check-pwa.mjs && node scripts/check-bundle.mjs && node scripts/check-content.mjs --no-compat
 # 서버 실행에 필요한 것만 모은다 (dist + 운영용 node_modules)
 RUN pnpm --filter @terra/server deploy --prod /out
 

@@ -83,9 +83,34 @@ describe("planRoute (위치 → 위치)", () => {
         { x: 5632, y: 512 },
       ],
     });
-    // 중심보다 동쪽에서 남쪽 목표로: 중심으로 돌아갔다가 꺾는다
+    // 같은 줄 오른쪽에서 동쪽으로: 출발 칸 중심으로 뒤돌아가지 않고 곧장 동쪽으로 간다(바뀜 2026-11-19)
+    const eastFromRight = planRoute(pathfinder, grid, {
+      from: { x: 900, y: 512 },
+      to: { x: 5632, y: 512 },
+      size: 1,
+    });
+    expect(eastFromRight).toMatchObject({
+      waypoints: [
+        { x: 900, y: 512 },
+        { x: 5632, y: 512 },
+      ],
+    });
+    // 중심보다 동쪽에서 빈 땅의 남쪽 목표로: 중심으로 뒤돌아가지 않고 곧장 남쪽으로 간다
     const south = planRoute(pathfinder, grid, { from: { x: 900, y: 512 }, to: { x: 512, y: 5632 }, size: 1 });
     expect(south).toMatchObject({
+      waypoints: [
+        { x: 900, y: 512 },
+        { x: 512, y: 5632 },
+      ],
+    });
+    // 단, 곧장 가는 길에 벽이 있으면 벽을 뚫지 않고 출발 칸 중심을 거친다
+    setTerrainCost(grid, 1, 1, 0);
+    const southBlocked = planRoute(pathfinder, grid, {
+      from: { x: 900, y: 512 },
+      to: { x: 512, y: 5632 },
+      size: 1,
+    });
+    expect(southBlocked).toMatchObject({
       waypoints: [
         { x: 900, y: 512 },
         { x: 512, y: 512 },

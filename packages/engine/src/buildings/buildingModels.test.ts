@@ -7,12 +7,13 @@ import {
   artKindOf,
   resolveLook,
 } from "./buildingLook.ts";
-import { type ModelInput, buildingModel } from "./buildingModels.ts";
+import { type ModelInput, buildingModel, buildingModelBundle } from "./buildingModels.ts";
 import {
   FACILITY_LOOK_COLORS,
   FACILITY_LOOK_MODELS,
   type FacilityLookColor,
 } from "@terra/shared/facilityLook";
+import type { NationEmblemView } from "@terra/shared/nationEditor";
 import { BUILDING_COLORS, LOOK_COLORS, NATION_ACCENTS, WINDOW_DARK, lookColor } from "./buildingPalette.ts";
 import { type BuildingPart, PART_SHAPES, type PartShape, partBounds } from "./buildingParts.ts";
 
@@ -26,6 +27,32 @@ const SIZES: readonly [number, number][] = [
   [4, 4],
   [5, 5],
 ];
+
+const checkBounds = (
+  kind: BuildingArtKind,
+  w: number,
+  d: number,
+  level: number,
+  state: (typeof BUILDING_CONDITIONS)[number],
+): void => {
+  const W = w * CELL_M;
+  const D = d * CELL_M;
+  const parts = buildingModel(input({ kind, widthM: W, depthM: D, level, state, accent: 2 }));
+  expect(parts.length, `${kind} ${w}x${d} L${level} ${state}`).toBeGreaterThan(3);
+  for (const part of parts) {
+    const b = partBounds(part);
+    const where = `${kind} ${w}x${d} L${level} ${state} ${part.shape}`;
+    expect(b.x0, where).toBeGreaterThanOrEqual(-W / 2 - 1e-6);
+    expect(b.x1, where).toBeLessThanOrEqual(W / 2 + 1e-6);
+    expect(b.z0, where).toBeGreaterThanOrEqual(-D / 2 - 1e-6);
+    expect(b.z1, where).toBeLessThanOrEqual(D / 2 + 1e-6);
+    expect(b.y0, where).toBeGreaterThanOrEqual(0);
+    for (const value of [part.sx, part.sy, part.sz]) {
+      expect(Number.isFinite(value), where).toBe(true);
+      expect(value, where).toBeGreaterThan(0);
+    }
+  }
+};
 
 const input = (over: Partial<ModelInput>): ModelInput => ({
   kind: "house",
@@ -54,29 +81,19 @@ const colorIn = (parts: readonly BuildingPart[], color: readonly number[]): bool
   parts.some((part) => part.color.every((value, i) => Math.abs(value - (color[i] ?? 0)) < 1e-9));
 
 describe("buildingModel", () => {
-  it("모든 종류·크기·레벨·상태의 조각이 바닥 판 안에 들고, 크기가 양수·유한하다", () => {
-    for (const kind of BUILDING_ART_KINDS)
+  it("모든 종류·크기·레벨·상태의 조각이 바닥 판 안에 들고, 크기가 양수·유한하다", { timeout: 25_000 }, () => {
+    for (const kind of BUILDING_ART_KINDS) {
       for (const [w, d] of SIZES)
         for (const level of [1, 2, 3, 5])
-          for (const state of BUILDING_CONDITIONS) {
-            const W = w * CELL_M;
-            const D = d * CELL_M;
-            const parts = buildingModel(input({ kind, widthM: W, depthM: D, level, state, accent: 2 }));
-            expect(parts.length, `${kind} ${w}x${d} L${level} ${state}`).toBeGreaterThan(3);
-            for (const part of parts) {
-              const b = partBounds(part);
-              const where = `${kind} ${w}x${d} L${level} ${state} ${part.shape}`;
-              expect(b.x0, where).toBeGreaterThanOrEqual(-W / 2 - 1e-6);
-              expect(b.x1, where).toBeLessThanOrEqual(W / 2 + 1e-6);
-              expect(b.z0, where).toBeGreaterThanOrEqual(-D / 2 - 1e-6);
-              expect(b.z1, where).toBeLessThanOrEqual(D / 2 + 1e-6);
-              expect(b.y0, where).toBeGreaterThanOrEqual(0);
-              for (const value of [part.sx, part.sy, part.sz]) {
-                expect(Number.isFinite(value), where).toBe(true);
-                expect(value, where).toBeGreaterThan(0);
-              }
-            }
-          }
+          for (const state of BUILDING_CONDITIONS) checkBounds(kind, w, d, level, state);
+      checkBounds(kind, 4, 1, 3, "ok");
+      checkBounds(kind, 1, 4, 3, "ok");
+    }
+    for (const level of [1, 2, 3, 5])
+      for (const state of BUILDING_CONDITIONS) {
+        checkBounds("wall", 4, 1, level, state);
+        checkBounds("wall", 1, 4, level, state);
+      }
   });
 
   it("같은 입력이면 같은 조각(씨앗), 씨앗이 달라도 조각 수는 같다", () => {
@@ -133,6 +150,8 @@ describe("buildingModel", () => {
     ).toBeGreaterThan(4);
     expect(has("kiln", (p) => p.shape === "dome")).toBe(true);
     expect(has("stockpile", (p) => p.color === BUILDING_COLORS.crate)).toBe(true);
+    expect(has("beacon", (p) => p.shape === "glow")).toBe(true);
+    expect(has("beacon", (p) => p.shape === "cone" && p.color === BUILDING_COLORS.gold)).toBe(true);
   });
 
   it("레벨: 3부터 본채가 높아지고, 2부터 덧붙는 조각이 생긴다", () => {
@@ -179,9 +198,19 @@ describe("buildingModel", () => {
 describe("resolveLook", () => {
   it("시설 ID → 모델 종류(모르는 ID·없음은 일반 집), 레벨 0은 짓는 중, 레벨은 1~5", () => {
     expect(artKindOf("lumber_camp")).toBe("lumber");
-    expect(artKindOf("grand_warehouse")).toBe("warehouse");
+    expect(artKindOf("grand_warehouse")).toBe("grand_warehouse");
     expect(artKindOf("biotech_lab")).toBe("lab");
     expect(artKindOf("government_hall")).toBe("government");
+    expect(artKindOf("territory_beacon")).toBe("beacon");
+    expect(artKindOf("city_wall")).toBe("wall");
+    expect(artKindOf("lodging")).toBe("lodging");
+    expect(artKindOf("shipyard")).toBe("shipyard");
+    expect(artKindOf("trade_dock")).toBe("trade_dock");
+    expect(artKindOf("logistics_center")).toBe("logistics");
+    expect(artKindOf("goods_exchange")).toBe("goods_exchange");
+    expect(artKindOf("fx_exchange")).toBe("fx_exchange");
+    expect(artKindOf("unit_exchange")).toBe("unit_exchange");
+    expect(artKindOf("stock_exchange")).toBe("stock_exchange");
     expect(artKindOf("future_thing")).toBe("house");
     expect(artKindOf("toString")).toBe("house");
     expect(artKindOf(null)).toBe("house");
@@ -191,6 +220,8 @@ describe("resolveLook", () => {
       state: "ok",
       upgrading: false,
       accent: null,
+      accentColor: null,
+      emblem: null,
       wall: null,
       roof: null,
       heightPm: 1000,
@@ -253,6 +284,38 @@ describe("겉모습 자료(팩 facilities.look, 2026-11-09)", () => {
     const tall = buildingModel(input({ kind: "warehouse", heightPm: 1500 }));
     expect(top(tall)).toBeCloseTo(0.3 + (top(base) - 0.3) * 1.5, 6);
     expect(pad(tall)).toEqual(pad(base));
+  });
+
+  it("국가 시그니처 컬러(#rrggbb)와 마크 걸이(정부 청사·영토 비콘)를 반영한다", () => {
+    const emblem: NationEmblemView = {
+      spec: { shape: "shield", division: "quarterly", charge: "star", scheme: 0 },
+      color: "#e6004c",
+      uploaded: null,
+    };
+    const resolved = resolveLook({
+      facility: "government_hall",
+      accentColor: "#e6004c",
+      emblem,
+    });
+    expect(resolved.accentColor).not.toBeNull();
+    expect(resolved.emblem).toEqual(emblem);
+    expect(resolveLook({ accentColor: "not-a-color" }).accentColor).toBeNull();
+
+    const accentRgb = resolved.accentColor;
+    expect(accentRgb).not.toBeNull();
+    if (!accentRgb) return;
+
+    for (const kind of ["government", "beacon"] as const) {
+      const ok = buildingModelBundle(input({ kind, accentColor: accentRgb, emblem }));
+      expect(ok.emblems.length, kind).toBeGreaterThan(0);
+      expect(colorIn(ok.parts, accentRgb), kind).toBe(true);
+
+      const noEmblem = buildingModelBundle(input({ kind, accentColor: accentRgb, emblem: null }));
+      expect(noEmblem.emblems.length, kind).toBe(0);
+
+      const off = buildingModelBundle(input({ kind, state: "disabled", accentColor: accentRgb, emblem }));
+      expect(off.emblems.length, kind).toBe(0);
+    }
   });
 });
 

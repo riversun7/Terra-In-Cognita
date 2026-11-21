@@ -14,10 +14,9 @@
 
 /* 테마와 상관없는 값: 글꼴, 크기, 간격, 모서리, 움직임 */
 :root {
-  /* 글꼴 — 제목 Jua, 본문 Pretendard(styles/fonts.css). 받기 전과 받지 못할 때는 기기 글꼴 */
+  /* 글꼴 — 제목·본문 모두 정밀한 기하학 산세리프 Pretendard(styles/fonts.css). 받기 전과 받지 못할 때는 기기 글꼴 */
   --font-display:
-    "Jua", "Pretendard", -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui,
-    sans-serif;
+    "Pretendard", -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
   --font-body:
     "Pretendard", -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
   /* 공식·계산 줄(사이보그 화면 상세 전투 스펙) — 기기 고정폭 글꼴만(받지 않는다) */
@@ -30,21 +29,20 @@
   /* 입력칸은 16px 이상: iOS 사파리가 16px보다 작은 입력칸을 누르면 화면을 확대한다 */
   --font-size-input: max(16px, 1rem);
   --font-size-lg: 1.1875rem; /* 19px */
-  --font-size-xl: 1.4375rem; /* 23px */
-  --font-size-2xl: 1.75rem; /* 28px */
-  --font-size-3xl: 2.125rem; /* 34px */
+  --font-size-xl: 1.375rem; /* 22px */
+  --font-size-2xl: 1.625rem; /* 26px */
+  --font-size-3xl: 2rem; /* 32px */
 
   /* 굵기 — 본문 글꼴은 400·600 파일만 받는다. 다른 값은 가까운 굵기로 그려진다(500 → 400, 700 → 600) */
   --font-weight-regular: 400;
   --font-weight-strong: 600;
-  /* Jua는 굵기가 하나다 */
-  --font-weight-display: 400;
+  --font-weight-display: 600;
 
   /* 줄 간격 — 한글 본문은 넉넉히 */
   --line-height-tight: 1.2;
   --line-height-snug: 1.35;
   --line-height-body: 1.55;
-  --letter-spacing-display: 0;
+  --letter-spacing-display: -0.025em;
   --letter-spacing-body: -0.005em;
 
   /* 간격 — 4px 단위 */
@@ -58,29 +56,32 @@
   --space-10: 40px;
   --space-12: 48px;
 
-  /* 모서리 — 위계별로 다르게: 판 > 조작부 > 작은 칩 */
-  --radius-sm: 10px;
-  --radius-control: 16px;
-  --radius-panel: 26px;
+  /* 모서리 — 위계별로 다르게: 판 > 조작부 > 작은 칩 (현대적 전략 UI 비례) */
+  --radius-sm: 8px;
+  --radius-control: 12px;
+  --radius-panel: 16px;
   --radius-pill: 999px;
 
   /* 조작부 크기 */
-  --control-h: 52px;
-  --control-h-sm: 44px;
+  --control-h: 46px;
+  --control-h-sm: 38px;
   /* 나란한 버튼의 기본 너비(글자 크기 기준) */
   --button-basis: 8em;
   /* 누르는 영역의 최소 크기(가로·세로) */
   --tap-size: 44px;
   /* 가는 선(미리 보기 테두리, 칩), 읽기 프로그램 전용 글의 크기 */
   --hairline: 1px;
-  --border-w: 2px;
-  --field-border-w: 2px;
+  --border-w: 1px;
+  --border-strong-w: 2px;
+  --field-border-w: 1px;
   --focus-w: 3px;
   --focus-offset: 2px;
-  /* 버튼 아래 턱 두께. 누르면 0 */
-  --lip: 4px;
+  /* 버튼 아래 턱 두께 — 모던 전략 터미널 기준 0 */
+  --lip: 0px;
+  --accent-bar: 3px;
+  --nav-icon-box: 34px;
   --icon-sm: 20px;
-  --icon-md: 24px;
+  --icon-md: 22px;
   /* 앱 아이콘(이름표): 로그인 화면, 다른 화면 */
   --mark-lg: 72px;
   --mark-sm: 32px;
@@ -119,9 +120,9 @@
   /* 중간 폭의 접은 레일(아이콘 + 짧은 이름) */
   --rail-w: 80px;
   /* 펼친 사이드 메뉴(이름 + 한 줄 설명). 넓은 폭은 늘 펼침, 중간 폭은 펴면 이 폭 */
-  --sidebar-w: 272px;
-  /* 넓은 폭의 본문 최대 너비(홈 카드 격자) */
-  --content-max-wide: 1120px;
+  --sidebar-w: 256px;
+  /* 넓은 폭의 본문 최대 너비(홈 3열 커맨드 데크) */
+  --content-max-wide: 1320px;
   /* 숫자 배지(종·메뉴 항목)의 지름(기본 글자 크기에서 20px). 두 자리부터는 가로로 늘린다.
      rem이라 글자를 키우면 함께 커진다(배지 글자가 넘치지 않게) */
   --badge-size: 1.25rem;
@@ -134,13 +135,25 @@
 :root {
   /* 1칸 카드의 가장 좁은 너비 */
   --card-min: 136px;
-  /* 넓은 폭(64em 이상)의 1칸 카드 가장 좁은 너비 — 열이 너무 많아져 카드가 좁아지지 않게(본문 1120px이면 6열) */
-  --card-min-wide: 176px;
+  /* 넓은 폭(64em 이상)의 1칸 카드 가장 좁은 너비 — 4열 벤토 격자로 카드마다 충분한 정보를 담는다 */
+  --card-min-wide: 240px;
   /* 격자 한 줄의 가장 낮은 높이(1×1 카드). 글이 길면 줄이 늘어난다(잘리지 않게) */
-  --card-row: 128px;
-  --card-gap: 12px;
+  --card-row: 148px;
+  --card-gap: 16px;
+  /* 프로 대시보드 전용 치수(막대·스파크라인·팝오버·강조선) */
+  --dash-grid-size: 28px;
+  --dash-bar-h: 6px;
+  --dash-bar-vital: 5px;
+  --dash-bar-exp: 5px;
+  --dash-kpi-bar: 2px;
+  --dash-spark-w: 52px;
+  --dash-spark-h: 18px;
+  --dash-popover-w: 244px;
+  --dash-dot: 6px;
+  --dash-code-w: 36px;
+  --dash-val-w: 34px;
   /* 카드 머리 아이콘·처리할 일 분류 아이콘의 둥근 바탕 */
-  --card-icon: 32px;
+  --card-icon: 36px;
   /* 부관 브리핑의 부관 얼굴 */
   --aide-size: 40px;
   /* 타임라인의 점 */
@@ -190,50 +203,57 @@
   --color-space-current: #ffd66e;
 }
 
-/* 파스텔(기본) — 하늘에서 풀밭으로. 버튼은 밝은 잎색 + 짙은 글자 */
+/* 기본(클린 데이라이트) — 현대적이고 선명한 주간 전략 화면 */
 :root,
 :root[data-theme="pastel"],
 [data-theme-preview="pastel"] {
   color-scheme: light;
-  --color-bg: #dff2fb;
+  --color-bg: #eef2f7;
   /* 맨 위 색 = --color-bg = 주소창 색 */
-  --color-bg-image: linear-gradient(180deg, #dff2fb 0%, #e6f6f1 58%, #dcf1d2 100%);
+  --color-bg-image: linear-gradient(180deg, #eef2f7 0%, #e6edf6 55%, #dfe8f2 100%);
   --color-surface: #ffffff;
-  --color-surface-2: #eef8e8;
-  --color-text: #22324a;
-  --color-text-muted: #4d5d74;
-  --color-primary: #8ed97f;
-  --color-on-primary: #14361b;
-  --color-primary-lip: #58a64a;
-  --color-highlight: #ffd66e;
-  --color-secondary-lip: #c3dcb8;
-  --color-success: #226b33;
-  --color-success-surface: #e6f5e1;
-  --color-warning: #7a4d00;
-  --color-warning-surface: #fff3d4;
-  --color-danger: #b8283f;
-  --color-danger-surface: #fdecef;
+  --color-surface-2: #e7eef7;
+  --color-nav-bg: #f6f9fc;
+  --color-nav-item: #ffffff;
+  --color-nav-active: #dff7ec;
+  --color-card-head: #f3f7fc;
+  --color-text: #0f172a;
+  --color-text-muted: #475569;
+  --color-primary: #0f7a56;
+  --color-on-primary: #ffffff;
+  --color-primary-lip: #09543b;
+  --color-highlight: #f59e0b;
+  --color-secondary-lip: #b8c6d8;
+  --color-success: #166534;
+  --color-success-surface: #e3f6eb;
+  --color-warning: #7a4b00;
+  --color-warning-surface: #fef3c7;
+  --color-danger: #b81d38;
+  --color-danger-surface: #fde8ec;
   /* 시세 파랑 — 한국식 시세 색의 내림·매도(D-442). 오름·매수는 위험색(빨강), 서양식은 성공색·위험색 */
   --color-market-blue: #1d56b8;
-  --color-focus: #1f63d6;
-  --color-border: #cfe3ee;
-  --color-field-bg: #f7fbff;
-  --color-field-border: #6f8aa0;
-  --color-overlay: rgb(34 50 74 / 45%);
-  --shadow-control: 0 2px 0 rgb(34 50 74 / 6%), 0 4px 10px rgb(34 50 74 / 8%);
-  --shadow-panel: inset 0 2px 0 rgb(255 255 255 / 80%), 0 10px 28px rgb(42 92 120 / 14%);
+  --color-focus: #1d4ed8;
+  --color-border: #cbd5e1;
+  --color-border-strong: #94a3b8;
+  --color-field-bg: #f8fafc;
+  --color-field-border: #64748b;
+  --color-overlay: rgb(15 23 42 / 48%);
+  --shadow-control: 0 1px 2px rgb(15 23 42 / 5%), 0 3px 8px rgb(15 23 42 / 6%);
+  --shadow-panel:
+    inset 0 1px 0 rgb(255 255 255 / 92%), 0 8px 24px rgb(15 23 42 / 8%), 0 2px 6px rgb(15 23 42 / 4%);
+  --shadow-card-hover: 0 12px 28px rgb(15 23 42 / 12%), 0 0 0 1px rgb(15 122 86 / 28%);
   --shadow-heading: none;
-  --color-deco-1: #bfe3b0;
-  --color-deco-2: #9fd68c;
-  --color-deco-3: #6fbf63;
+  --color-deco-1: #ccebd9;
+  --color-deco-2: #9fd8b8;
+  --color-deco-3: #52b788;
   /* 파스텔: 해, 다크: 달 */
-  --color-deco-sun: #ffd66e;
-  /* 스탯 색(ADR 2026-11-01-ui-visibility, 질문 181 가: 옛 프로젝트 STR 진홍·VIT 주황빨강·INT 파랑·WIS 보라·DEX 호박·AGI 초록). 바탕·판·둘째 판 위 글자 4.5:1 */
+  --color-deco-sun: #f59e0b;
+  /* 스탯 색(STR 진홍 · VIT 주황 · INT 파랑 · WIS 보라 · DEX 순수 노랑 · AGI 초록). 바탕·판·둘째 판 위 글자 4.5:1 */
   --color-stat-str: #c0233e;
-  --color-stat-vit: #b23f0a;
+  --color-stat-vit: #b83c08;
   --color-stat-int: #1f5bc4;
   --color-stat-wis: #7a3fc8;
-  --color-stat-dex: #8a5a00;
+  --color-stat-dex: #786200;
   --color-stat-agi: #1a7236;
   /* 2차 스탯 색(ADR 2026-11-01-ui-visibility "바뀜"): 1차 스탯 색과 겹치지 않는 계열 — 전투자원 청록, 공격 자홍, 방어 회색, 기동 연두. 글자 4.5:1 */
   --color-sec-hp: #0a706b;
@@ -256,54 +276,91 @@
   --color-sec-sight: #486e00;
   --color-sec-other: #5c6470;
   /* 부상 단계 색(D-521 "초록(정상) 흰색 노랑 빨강", docs/adr/2026-11-08-injury.md): 0 초록·1 흰·2 노랑·3 빨강. 점·막대 채움만(글자는 --color-text). 흰 점은 --color-field-border 테두리로 보인다 */
-  --color-injury-0: #3fae4f;
+  --color-injury-0: #229947;
   --color-injury-1: #ffffff;
-  --color-injury-2: #f2c230;
+  --color-injury-2: #e5a910;
   --color-injury-3: #d63a4a;
+  /* 프로 대시보드(데이라이트) — 절제된 금융·전략 터미널 틴트 */
+  --dash-grid:
+    linear-gradient(to right, rgb(15 23 42 / 3.5%) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(15 23 42 / 3.5%) 1px, transparent 1px);
+  --dash-tile-bg: #f6f9fd;
+  --dash-tile-hover: #edf3fa;
+  --dash-track: #dfe7f2;
+  --dash-amber-bg: rgb(245 158 11 / 10%);
+  --dash-amber-border: rgb(180 83 9 / 28%);
+  --dash-amber-fg: #9a4a00;
+  --dash-cobalt-bg: rgb(37 99 235 / 9%);
+  --dash-cobalt-border: rgb(37 99 235 / 26%);
+  --dash-cobalt-fg: #1d4ed8;
+  --dash-violet-bg: rgb(124 58 237 / 9%);
+  --dash-violet-border: rgb(124 58 237 / 26%);
+  --dash-violet-fg: #6d28d9;
+  --dash-emerald: #0f7a56;
+  --dash-crimson: #dc2626;
+  --dash-sky: #0284c7;
+  --dash-cyan: #0e7490;
+  --dash-stat-str-base: #e11d48;
+  --dash-stat-vit-base: #f97316;
+  --dash-stat-int-base: #2563eb;
+  --dash-stat-wis-base: #7c3aed;
+  --dash-stat-dex-base: #eab308;
+  --dash-stat-agi-base: #10b981;
+  --dash-popover-bg: #ffffff;
+  --dash-popover-border: #cbd5e1;
+  --dash-popover-shadow: 0 16px 36px rgb(15 23 42 / 16%), 0 2px 8px rgb(15 23 42 / 8%);
 }
 
-/* 다크 — 밤의 들판. 잎색 버튼은 그대로 두어 톤을 잇는다. 세계(지도) 조명은 바꾸지 않는다(D-070) → 판은 불투명 */
+/* 다크(택티컬 옵시디언) — 깊이감 있는 슬레이트·흑요석 바탕과 정밀 금융·전략 터미널. 세계(지도) 조명은 바꾸지 않는다(D-070) → 판은 불투명 */
 :root[data-theme="dark"],
 [data-theme-preview="dark"] {
   color-scheme: dark;
-  --color-bg: #13203a;
-  --color-bg-image: linear-gradient(180deg, #13203a 0%, #15243d 62%, #17301f 100%);
-  --color-surface: #1c2b47;
-  --color-surface-2: #233756;
-  --color-text: #eef5ff;
-  --color-text-muted: #a9bad3;
-  --color-primary: #8ed97f;
-  --color-on-primary: #14361b;
-  --color-primary-lip: #4a8d3e;
-  --color-highlight: #ffd66e;
-  --color-secondary-lip: #142238;
-  --color-success: #86e08f;
-  --color-success-surface: #1a3a31;
-  --color-warning: #f5c56b;
-  --color-warning-surface: #3a3122;
-  --color-danger: #ff8b9b;
-  --color-danger-surface: #3b2236;
+  --color-bg: #0b0f19;
+  --color-bg-image: linear-gradient(180deg, #0b0f19 0%, #0d1220 58%, #0f1626 100%);
+  --color-surface: #101522;
+  --color-surface-2: #172034;
+  --color-nav-bg: #0b0f19;
+  --color-nav-item: #101625;
+  --color-nav-active: #102a29;
+  --color-card-head: #131a2b;
+  --color-text: #f1f5f9;
+  --color-text-muted: #94a7c4;
+  --color-primary: #34d399;
+  --color-on-primary: #042619;
+  --color-primary-lip: #0d9468;
+  --color-highlight: #fbbf24;
+  --color-secondary-lip: #090d16;
+  --color-success: #6ee7b7;
+  --color-success-surface: #12332a;
+  --color-warning: #fcd34d;
+  --color-warning-surface: #352a16;
+  --color-danger: #fda4af;
+  --color-danger-surface: #3b1c2a;
   /* 시세 파랑 — 한국식 시세 색의 내림·매도(D-442). 오름·매수는 위험색(빨강), 서양식은 성공색·위험색 */
   --color-market-blue: #8ab8ff;
-  --color-focus: #8cc8ff;
-  --color-border: #33496b;
-  --color-field-bg: #15223b;
-  --color-field-border: #7d93b5;
-  --color-overlay: rgb(5 10 20 / 60%);
-  --shadow-control: 0 2px 0 rgb(0 0 0 / 20%), 0 6px 14px rgb(0 0 0 / 25%);
-  --shadow-panel: inset 0 1px 0 rgb(255 255 255 / 6%), 0 12px 30px rgb(0 0 0 / 35%);
+  --color-focus: #38bdf8;
+  --color-border: #1f2b42;
+  --color-border-strong: #334669;
+  --color-field-bg: #0c111d;
+  --color-field-border: #6e83a6;
+  --color-overlay: rgb(4 8 16 / 72%);
+  --shadow-control: inset 0 1px 0 rgb(255 255 255 / 5%), 0 2px 8px rgb(0 0 0 / 32%);
+  --shadow-panel:
+    inset 0 1px 0 rgb(255 255 255 / 5%), 0 10px 28px rgb(0 0 0 / 42%), 0 2px 6px rgb(0 0 0 / 26%);
+  --shadow-card-hover:
+    inset 0 1px 0 rgb(56 189 248 / 18%), 0 14px 32px rgb(0 0 0 / 54%), 0 0 0 1px rgb(56 189 248 / 28%);
   --shadow-heading: none;
-  --color-deco-1: #1d3a2b;
-  --color-deco-2: #22472f;
-  --color-deco-3: #2d5a3a;
-  --color-deco-sun: #e9e2c0;
-  /* 스탯 색 — 밤 판 위에서 밝게(글자 4.5:1) */
-  --color-stat-str: #ff8fa2;
-  --color-stat-vit: #ffa36e;
-  --color-stat-int: #8cb9ff;
-  --color-stat-wis: #c9a8ff;
-  --color-stat-dex: #f5c665;
-  --color-stat-agi: #7fdc97;
+  --color-deco-1: #16332b;
+  --color-deco-2: #1c4538;
+  --color-deco-3: #286652;
+  --color-deco-sun: #fbbf24;
+  /* 스탯 색 — 밤 판 위에서 선명하게 구분(STR 진홍·VIT 주황·INT 파랑·WIS 보라·DEX 순수 노랑·AGI 초록, 글자 4.5:1) */
+  --color-stat-str: #ff5c77;
+  --color-stat-vit: #ff8533;
+  --color-stat-int: #60a5fa;
+  --color-stat-wis: #c084fc;
+  --color-stat-dex: #fde047;
+  --color-stat-agi: #4ade80;
   /* 2차 스탯 색 — 밤 판 위에서 밝게(글자 4.5:1) */
   --color-sec-hp: #4fd6c8;
   --color-sec-armor-hp: #93bab6;
@@ -328,6 +385,35 @@
   --color-injury-1: #f4f7fb;
   --color-injury-2: #ffd257;
   --color-injury-3: #ff6b7d;
+  /* 프로 대시보드(옵시디언 터미널) — 테라 인코그니타 전용 절제된 금융·전략 터미널 */
+  --dash-grid:
+    linear-gradient(to right, rgb(148 163 184 / 4.5%) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(148 163 184 / 4.5%) 1px, transparent 1px);
+  --dash-tile-bg: #131a2c;
+  --dash-tile-hover: #19233a;
+  --dash-track: #1b2336;
+  --dash-amber-bg: rgb(245 158 11 / 12%);
+  --dash-amber-border: rgb(245 158 11 / 30%);
+  --dash-amber-fg: #fbbf24;
+  --dash-cobalt-bg: rgb(56 189 248 / 12%);
+  --dash-cobalt-border: rgb(56 189 248 / 28%);
+  --dash-cobalt-fg: #7dd3fc;
+  --dash-violet-bg: rgb(168 85 247 / 12%);
+  --dash-violet-border: rgb(192 132 252 / 28%);
+  --dash-violet-fg: #c084fc;
+  --dash-emerald: #34d399;
+  --dash-crimson: #f43f5e;
+  --dash-sky: #38bdf8;
+  --dash-cyan: #22d3ee;
+  --dash-stat-str-base: #e11d48;
+  --dash-stat-vit-base: #f97316;
+  --dash-stat-int-base: #2563eb;
+  --dash-stat-wis-base: #9333ea;
+  --dash-stat-dex-base: #facc15;
+  --dash-stat-agi-base: #10b981;
+  --dash-popover-bg: #0c111d;
+  --dash-popover-border: rgb(56 189 248 / 38%);
+  --dash-popover-shadow: 0 20px 48px rgb(0 0 0 / 72%), 0 0 28px rgb(56 189 248 / 18%);
 }
 
 /* 선명 — 고대비(본문 7:1 이상) + 색각 배려(성공=파랑, 위험=주황빨강, 상태는 늘 아이콘·글자와 함께). 그림자 없음 */
@@ -338,6 +424,10 @@
   --color-bg-image: none;
   --color-surface: #ffffff;
   --color-surface-2: #eef2f7;
+  --color-nav-bg: #ffffff;
+  --color-nav-item: #ffffff;
+  --color-nav-active: #e2e8f0;
+  --color-card-head: #eef2f7;
   --color-text: #0a1424;
   --color-text-muted: #2e3b50;
   --color-primary: #0b4fb3;
@@ -355,11 +445,13 @@
   --color-market-blue: #0a46a0;
   --color-focus: #0a1424;
   --color-border: #0a1424;
+  --color-border-strong: #0a1424;
   --color-field-bg: #ffffff;
   --color-field-border: #0a1424;
   --color-overlay: rgb(0 0 0 / 70%);
   --shadow-control: none;
   --shadow-panel: none;
+  --shadow-card-hover: none;
   --shadow-heading: none;
   --color-deco-1: #e3e8ef;
   --color-deco-2: #cfd7e2;
@@ -367,10 +459,10 @@
   --color-deco-sun: #dfe5ec;
   /* 스탯 색 — 선명: 짙게(글자 4.5:1. 색만으로 구분하지 않고 이름·약자를 늘 함께 쓴다) */
   --color-stat-str: #a3102b;
-  --color-stat-vit: #9e3300;
+  --color-stat-vit: #a83200;
   --color-stat-int: #0b4fb3;
   --color-stat-wis: #5a1fb0;
-  --color-stat-dex: #6f4500;
+  --color-stat-dex: #635300;
   --color-stat-agi: #11602b;
   /* 2차 스탯 색 — 선명: 짙게(글자 4.5:1) */
   --color-sec-hp: #005e5a;
@@ -396,6 +488,32 @@
   --color-injury-1: #ffffff;
   --color-injury-2: #c99400;
   --color-injury-3: #b3001b;
+  --dash-grid: none;
+  --dash-tile-bg: #ffffff;
+  --dash-tile-hover: #eef2f7;
+  --dash-track: #d7dfe9;
+  --dash-amber-bg: #ffffff;
+  --dash-amber-border: #0a1424;
+  --dash-amber-fg: #6f3900;
+  --dash-cobalt-bg: #ffffff;
+  --dash-cobalt-border: #0a1424;
+  --dash-cobalt-fg: #084298;
+  --dash-violet-bg: #ffffff;
+  --dash-violet-border: #0a1424;
+  --dash-violet-fg: #4c1d95;
+  --dash-emerald: #084ca8;
+  --dash-crimson: #a82a00;
+  --dash-sky: #0a46a0;
+  --dash-cyan: #084298;
+  --dash-stat-str-base: #a3102b;
+  --dash-stat-vit-base: #c2410c;
+  --dash-stat-int-base: #0b4fb3;
+  --dash-stat-wis-base: #5a1fb0;
+  --dash-stat-dex-base: #a18200;
+  --dash-stat-agi-base: #11602b;
+  --dash-popover-bg: #ffffff;
+  --dash-popover-border: #0a1424;
+  --dash-popover-shadow: none;
 }
 /* 선명: 초점 표시를 4px로(테두리는 이미 2px). 굵기 값은 바꾸지 않는다(본문 글꼴은 400·600만 받는다) */
 :root[data-theme="contrast"] {
@@ -403,9 +521,8 @@
 }
 
 /*
- * 정거장 — 네온 SF(사용자 결정 2026-11-01 "정거장은 기존프로젝트처럼 고대비 모드로 sf나 네온사인색처럼 선명한 테마로").
- * 옛 프로젝트(AntiGravt01) Magitech Dark 계열: 거의 검은 바탕, 네온 시안이 주색, 네온 자홍·보라·호박·초록이 포인트.
- * 판은 불투명(흐림 효과 backdrop-filter는 쓰지 않는다), 시안 가는 테두리 + 보라 빛, 제목은 시안 빛. 움직임은 더하지 않는다.
+ * 정거장 — 모던 네온 HUD(현대식 네온사인: 격자 무늬를 빼고 깔끔한 심연 바탕 위 예리한 시안·마젠타·앰버 네온 라인).
+ * 판은 불투명(흐림 효과 backdrop-filter는 쓰지 않는다), 시안 상단 하이라이트 + 미세한 네온 테두리 빛.
  * ADR 2026-11-01-ui-visibility
  */
 :root[data-theme="station"],
@@ -413,15 +530,18 @@
   color-scheme: dark;
   --color-bg: #05050c;
   --color-bg-image:
-    repeating-linear-gradient(0deg, rgb(0 240 255 / 6%) 0 1px, transparent 1px 32px),
-    repeating-linear-gradient(90deg, rgb(0 240 255 / 6%) 0 1px, transparent 1px 32px),
-    radial-gradient(circle at 50% 118%, #1d0a36 0%, #05050c 64%);
-  --color-surface: #0e0e1c;
-  --color-surface-2: #17172b;
-  --color-text: #eef6ff;
-  --color-text-muted: #a5b3ce;
+    radial-gradient(ellipse at 18% 0%, #091d2e 0%, #05050c 58%),
+    radial-gradient(ellipse at 85% 100%, #19082b 0%, #05050c 68%);
+  --color-surface: #0b0e1a;
+  --color-surface-2: #121a2e;
+  --color-nav-bg: #070912;
+  --color-nav-item: #0d1324;
+  --color-nav-active: #062b3b;
+  --color-card-head: #10182d;
+  --color-text: #f0f7ff;
+  --color-text-muted: #a3b3ce;
   --color-primary: #00f0ff;
-  --color-on-primary: #00262b;
+  --color-on-primary: #002026;
   --color-primary-lip: #0094a3;
   --color-highlight: #ffb800;
   --color-secondary-lip: #000000;
@@ -433,25 +553,32 @@
   --color-danger-surface: #2e0c19;
   /* 시세 파랑 — 한국식 시세 색의 내림·매도(D-442). 오름·매수는 위험색(빨강), 서양식은 성공색·위험색 */
   --color-market-blue: #59c7ff;
-  /* 초점: 네온 자홍(시안 버튼 위에서도 보인다) */
-  --color-focus: #ff5cf4;
-  --color-border: #30335c;
-  --color-field-bg: #08080f;
-  --color-field-border: #8f82ff;
-  --color-overlay: rgb(0 0 0 / 72%);
-  --shadow-control: 0 0 0 1px rgb(0 240 255 / 30%), 0 0 10px rgb(0 240 255 / 20%);
-  --shadow-panel: 0 0 0 1px rgb(0 240 255 / 26%), 0 0 26px rgb(188 19 254 / 18%);
-  --shadow-heading: 0 0 10px rgb(0 240 255 / 60%);
-  --color-deco-1: #14143a;
-  --color-deco-2: #25104c;
-  --color-deco-3: #4a1f8c;
-  --color-deco-sun: #bc13fe;
-  /* 스탯 색 — 정거장: 네온(글자 4.5:1) */
+  /* 초점: 네온 마젠타(시안 버튼 위에서도 보인다) */
+  --color-focus: #ff4fd8;
+  --color-border: #1e3358;
+  --color-border-strong: #00d8ec;
+  --color-field-bg: #070912;
+  --color-field-border: #8680ff;
+  --color-overlay: rgb(0 0 0 / 76%);
+  --shadow-control:
+    inset 0 1px 0 rgb(0 240 255 / 26%), 0 0 0 1px rgb(0 240 255 / 18%), 0 4px 12px rgb(0 0 0 / 55%);
+  --shadow-panel:
+    inset 0 1px 0 rgb(0 240 255 / 36%), 0 0 0 1px rgb(0 240 255 / 20%), 0 14px 32px rgb(0 0 0 / 68%),
+    0 0 24px rgb(0 240 255 / 11%);
+  --shadow-card-hover:
+    inset 0 1px 0 rgb(0 240 255 / 50%), 0 0 0 1px rgb(0 240 255 / 48%), 0 16px 36px rgb(0 0 0 / 72%),
+    0 0 20px rgb(0 240 255 / 20%);
+  --shadow-heading: 0 0 14px rgb(0 240 255 / 32%);
+  --color-deco-1: #0c2238;
+  --color-deco-2: #1d1244;
+  --color-deco-3: #00b4d8;
+  --color-deco-sun: #ff4fd8;
+  /* 스탯 색 — 정거장: 네온(STR 진홍·VIT 주황·INT 파랑·WIS 보라·DEX 순수 노랑·AGI 초록, 글자 4.5:1) */
   --color-stat-str: #ff4f6e;
-  --color-stat-vit: #ff8f3f;
+  --color-stat-vit: #ff7a29;
   --color-stat-int: #40b9ff;
   --color-stat-wis: #c770ff;
-  --color-stat-dex: #ffc933;
+  --color-stat-dex: #fff04d;
   --color-stat-agi: #3dff9e;
   /* 2차 스탯 색 — 정거장: 네온(글자 4.5:1) */
   --color-sec-hp: #20eedf;
@@ -477,6 +604,34 @@
   --color-injury-1: #f0f6ff;
   --color-injury-2: #ffe14d;
   --color-injury-3: #ff4d6d;
+  --dash-grid:
+    linear-gradient(to right, rgb(0 240 255 / 5%) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(0 240 255 / 5%) 1px, transparent 1px);
+  --dash-tile-bg: #0f1527;
+  --dash-tile-hover: #15213c;
+  --dash-track: #141e35;
+  --dash-amber-bg: rgb(255 184 0 / 12%);
+  --dash-amber-border: rgb(255 184 0 / 38%);
+  --dash-amber-fg: #ffc933;
+  --dash-cobalt-bg: rgb(0 240 255 / 11%);
+  --dash-cobalt-border: rgb(0 240 255 / 34%);
+  --dash-cobalt-fg: #59d8ff;
+  --dash-violet-bg: rgb(199 112 255 / 12%);
+  --dash-violet-border: rgb(199 112 255 / 36%);
+  --dash-violet-fg: #d28cff;
+  --dash-emerald: #3dffa0;
+  --dash-crimson: #ff4f6e;
+  --dash-sky: #40b9ff;
+  --dash-cyan: #00f0ff;
+  --dash-stat-str-base: #ff4f6e;
+  --dash-stat-vit-base: #f97316;
+  --dash-stat-int-base: #40b9ff;
+  --dash-stat-wis-base: #c770ff;
+  --dash-stat-dex-base: #facc15;
+  --dash-stat-agi-base: #3dff9e;
+  --dash-popover-bg: #080b16;
+  --dash-popover-border: rgb(0 240 255 / 48%);
+  --dash-popover-shadow: 0 20px 48px rgb(0 0 0 / 80%), 0 0 28px rgb(0 240 255 / 24%);
 }
 
 /* 촘촘 변형 — 관리자·거래창처럼 빽빽한 화면(data-density="compact"): 턱 0, 모서리 작게, 조작부 44px */
@@ -565,6 +720,10 @@
   --color-bg-image: none;
   --color-surface: #0e0f1d;
   --color-surface-2: #161829;
+  --color-nav-bg: #0a0b15;
+  --color-nav-item: #0e0f1d;
+  --color-nav-active: #0c2b33;
+  --color-card-head: #14162b;
   --color-text: #e3eaf5;
   --color-text-muted: #9ba7c0;
   --color-primary: #00e5f2;
@@ -581,21 +740,23 @@
   --color-market-blue: #59c7ff;
   --color-focus: #ff5cf4;
   --color-border: #282b4a;
+  --color-border-strong: #3f4470;
   --color-field-bg: #05050b;
   --color-field-border: #7c76e0;
   --color-overlay: rgb(0 0 0 / 72%);
   --shadow-control: none;
   --shadow-panel: none;
+  --shadow-card-hover: none;
   --shadow-heading: none;
   --color-deco-1: #14143a;
   --color-deco-2: #25104c;
   --color-deco-3: #4a1f8c;
   --color-deco-sun: #bc13fe;
   --color-stat-str: #ff4f6e;
-  --color-stat-vit: #ff8f3f;
+  --color-stat-vit: #ff7a29;
   --color-stat-int: #40b9ff;
   --color-stat-wis: #c770ff;
-  --color-stat-dex: #ffc933;
+  --color-stat-dex: #fde047;
   --color-stat-agi: #3dff9e;
   --color-sec-hp: #20eedf;
   --color-sec-armor-hp: #8fd6cd;
@@ -634,6 +795,10 @@
   --color-bg-image: none;
   --color-surface: #ffffff;
   --color-surface-2: #eceff4;
+  --color-nav-bg: #eef1f6;
+  --color-nav-item: #ffffff;
+  --color-nav-active: #dbe8fb;
+  --color-card-head: #e7ebf1;
   --color-text: #18202e;
   --color-text-muted: #4b5568;
   --color-primary: #0b5cc2;
@@ -650,21 +815,23 @@
   --color-market-blue: #1d56b8;
   --color-focus: #b0108a;
   --color-border: #d3d9e2;
+  --color-border-strong: #9aa5b8;
   --color-field-bg: #ffffff;
   --color-field-border: #77818f;
   --color-overlay: rgb(24 32 46 / 45%);
   --shadow-control: none;
   --shadow-panel: none;
+  --shadow-card-hover: none;
   --shadow-heading: none;
   --color-deco-1: #bfe3b0;
   --color-deco-2: #9fd68c;
   --color-deco-3: #6fbf63;
   --color-deco-sun: #ffd66e;
   --color-stat-str: #c0233e;
-  --color-stat-vit: #b23f0a;
+  --color-stat-vit: #b83c08;
   --color-stat-int: #1f5bc4;
   --color-stat-wis: #7a3fc8;
-  --color-stat-dex: #8a5a00;
+  --color-stat-dex: #786200;
   --color-stat-agi: #1a7236;
   --color-sec-hp: #0a706b;
   --color-sec-armor-hp: #476b68;

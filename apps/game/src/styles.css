@@ -97,12 +97,12 @@ p {
   gap: var(--space-4);
 }
 
-/* 판 — 흰 조약돌. 모서리: 판 > 조작부 > 작은 칩 */
+/* 판 — 전술 카드·컨테이너. 모서리: 판 > 조작부 > 작은 칩 */
 .panel {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-6) var(--space-5);
+  padding: var(--space-5);
   border: var(--border-w) solid var(--color-border);
   border-radius: var(--radius-panel);
   background-color: var(--color-surface);
@@ -125,6 +125,8 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: var(--border-w) solid var(--color-border);
 }
 .screen-header .screen-title {
   flex: 1 1 auto;

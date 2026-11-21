@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TARGET_WAIT_MS, createTargetLife, drapeRoute } from "./routePath.ts";
+import { TARGET_WAIT_MS, createTargetLife, drapeRoute, snapCellCenter } from "./routePath.ts";
 
 describe("drapeRoute", () => {
   it("구간을 step 이하로 자르고 누적 길이를 단다", () => {
@@ -24,6 +24,26 @@ describe("drapeRoute", () => {
     expect(drapeRoute([3, 3], 1)).toBeNull();
     expect(drapeRoute([3, 3, 3, 3], 1)).toBeNull();
     expect(drapeRoute([0, 0, 0, 0, 1, 0], 1)?.distances.length).toBe(2);
+  });
+
+  it("cornerRadius를 주면 직각 모서리를 둥글리고 누적 거리는 원래 경로 끝과 일치한다", () => {
+    const route = drapeRoute([0, 0, 2, 0, 2, 2], 0.5, 0.4);
+    expect(route).not.toBeNull();
+    if (!route) return;
+    // 시작·끝 점은 그대로 유지되고, 끝 누적 길이는 원래 꺾인 선 길이(4)와 같다
+    expect([route.centres[0], route.centres[1]]).toEqual([0, 0]);
+    expect(Array.from(route.centres.slice(-2))).toEqual([2, 2]);
+    expect(route.distances[route.distances.length - 1]).toBeCloseTo(4, 5);
+    // 모서리 (2, 0)을 그대로 지나지 않고 안쪽 곡선으로 둥글린다
+    let hitSharpCorner = false;
+    for (let i = 0; i < route.distances.length; i++) {
+      const x = route.centres[i * 2] ?? 0;
+      const y = route.centres[i * 2 + 1] ?? 0;
+      if (Math.abs(x - 2) < 1e-4 && Math.abs(y) < 1e-4) hitSharpCorner = true;
+      if (i > 0) expect(route.distances[i]).toBeGreaterThanOrEqual(route.distances[i - 1] ?? 0);
+    }
+    expect(hitSharpCorner).toBe(false);
+    expect(snapCellCenter({ x: 10.05, y: 11.95 })).toEqual({ x: 10.5, y: 11.5 });
   });
 });
 

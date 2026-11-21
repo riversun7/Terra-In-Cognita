@@ -1,15 +1,13 @@
 /*
- * 홈 대시보드 — 홈 조각과 함께 따로 내려온다. 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast).
- * 디자인: 후보 A "새싹 장난감"(ADR 2026-10-28-design-system). 카드는 흰 조약돌, 처리할 일은 분류마다 상태색 아이콘(+ 이름).
- * 격자: DOM 순서 = 보이는 순서 = 초점 순서. dense를 쓰지 않는다. 320px 폭에서도 2열이다(ADR 2026-10-29-app-shell 6절).
- * 폭 경계는 화면 틀과 같은 em 숫자다(37.5em·64em, CSS 변수는 미디어 쿼리에 못 쓴다).
- * 처리할 일 줄·타임라인·말풍선은 todo.css, 시안 템플릿 전용(처리함 묶음·요약 카드 줄·도시)은 templates/templates.css.
+ * 홈 대시보드 기본 레이아웃·카드 틀 — 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast).
+ * 프로 터미널 카드 내부 구성(사이보그 막대·경제 요약 KPI·시장 시세 티커·운영 카드)은 dashboardPro.css,
+ * 처리할 일 줄·타임라인·말풍선은 todo.css, 시안 템플릿 전용은 templates/templates.css.
  */
 
 .home {
   width: 100%;
   min-width: 0;
-  gap: var(--space-5);
+  gap: var(--space-4);
 }
 
 /* ── 머리: 제목 · [편집] · (dev·admin) 템플릿 표시 ─────────── */
@@ -22,12 +20,15 @@
 .home-header .screen-title {
   flex: 1 1 auto;
   min-width: 0;
+  font-size: var(--font-size-xl);
 }
 .home-edit-button {
   flex: none;
+  border-color: var(--color-border);
+  background-color: var(--color-surface);
+  color: var(--color-text-muted);
 }
 .home-tags {
-  flex: 1 1 100%;
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
@@ -35,33 +36,32 @@
 .home-tag {
   display: inline-flex;
   align-items: center;
-  min-height: calc(var(--tap-size) / 2 + var(--space-2));
+  min-height: calc(var(--tap-size) / 2 + var(--space-1));
   padding: 0 var(--space-3);
   border: var(--hairline) solid var(--color-border);
   border-radius: var(--radius-pill);
   background-color: var(--color-surface);
-  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-strong);
   line-height: var(--line-height-snug);
 }
 .home-tag-note {
-  color: var(--color-text-muted);
   font-weight: var(--font-weight-regular);
 }
 
-/* 시안 자료 안내(dev·admin) — 판 위의 한 줄 */
+/* 시안 자료 안내(dev·admin) */
 .home-note {
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
-  border: var(--border-w) dashed var(--color-border);
+  border: var(--hairline) dashed var(--color-border);
   border-radius: var(--radius-control);
   background-color: var(--color-surface);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-snug);
 }
-/* 알림 영역은 늘 두되(읽기 프로그램이 처음부터 있던 영역의 변화만 잘 읽는다) 빈 동안은 줄 간격을 차지하지 않게 흐름에서 뺀다 */
 .home-live:empty {
   position: absolute;
 }
@@ -77,15 +77,15 @@
 /* 아이콘(꾸밈). 글자와 같은 색 */
 .home-icon {
   flex: none;
-  width: var(--icon-md);
-  height: var(--icon-md);
+  width: var(--icon-sm);
+  height: var(--icon-sm);
 }
 .home-muted {
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
 }
 
-/* "시험 자료" 표시 — 점선 알약. 색만이 아니라 글자로 알린다 */
+/* "시험 자료" 표시 — 점선 알약 */
 .home-sample {
   display: inline-flex;
   align-items: center;
@@ -105,8 +105,8 @@
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
-  padding: var(--space-4) var(--space-4) var(--space-5);
-  border: var(--border-w) solid var(--color-border);
+  padding: var(--space-4);
+  border: var(--hairline) solid var(--color-border);
   border-radius: var(--radius-panel);
   background-color: var(--color-surface);
   box-shadow: var(--shadow-panel);
@@ -116,22 +116,41 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: var(--tap-size);
+  min-height: var(--control-h-sm);
 }
 .home-panel-title {
   flex: 1 1 auto;
   min-width: 0;
-  text-wrap: balance;
   font-family: var(--font-display);
   font-weight: var(--font-weight-display);
-  font-size: var(--font-size-xl);
-  line-height: var(--line-height-tight);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-snug);
   letter-spacing: var(--letter-spacing-display);
-  text-shadow: var(--shadow-heading);
 }
 .home-panel-body[hidden] {
   display: none;
 }
+/* 처리할 일이 0건이면 얇고 정갈한 1줄 상태 리본으로 접어 상단 3열 데크가 첫 화면에 바로 들어오게 한다 */
+.home-pinned[data-empty="true"] {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-control);
+}
+.home-pinned[data-empty="true"] .home-panel-head {
+  min-height: var(--control-h-sm);
+}
+.home-pinned[data-empty="true"] .home-panel-title {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.home-pinned[data-empty="true"] .home-empty {
+  font-size: var(--font-size-sm);
+}
+
 .home-collapse {
   flex: none;
   padding-inline: var(--space-3);
@@ -142,7 +161,6 @@
 .home-collapse[aria-expanded="false"] .home-icon {
   transform: rotate(-90deg);
 }
-/* 아주 좁은 판(320px 폭)에서는 접기 단추 글자를 읽기 프로그램에만 남긴다(제목과 수가 줄을 넘기지 않게) */
 @container (max-width: 20em) {
   .home-collapse {
     padding-inline: var(--space-2);
@@ -158,23 +176,42 @@
   }
 }
 
-/* 머리 아이콘 — 둥근 잎색 바탕(꾸밈) */
+/* 머리 아이콘 — 미니멀 테두리 없는 의미색 아이콘 */
 .home-card-icon {
   flex: none;
-  display: grid;
+  display: inline-grid;
   place-items: center;
-  width: var(--card-icon);
-  height: var(--card-icon);
-  border-radius: var(--radius-pill);
-  background-color: var(--color-deco-1);
-  color: var(--color-text);
+  width: var(--icon-md);
+  height: var(--icon-md);
+  color: var(--color-primary);
+}
+.home-card-icon[data-card-icon="cyborg"] {
+  color: var(--dash-cyan);
+}
+.home-card-icon[data-card-icon="assets"] {
+  color: var(--dash-amber-fg);
+}
+.home-card-icon[data-card-icon="market"] {
+  color: var(--dash-emerald);
+}
+.home-card-icon[data-card-icon="units"] {
+  color: var(--dash-cobalt-fg);
+}
+.home-card-icon[data-card-icon="faction"] {
+  color: var(--dash-violet-fg);
+}
+.home-card-icon[data-card-icon="maps"] {
+  color: var(--dash-emerald);
+}
+.home-card-icon[data-card-icon="diagnostics"] {
+  color: var(--dash-sky);
 }
 .home-card-icon .home-icon {
   width: var(--icon-sm);
   height: var(--icon-sm);
 }
 
-/* 수(처리할 일 수) — 제목 바로 뒤의 알약. 제목 글꼴(Jua)이 아니라 본문 글꼴 숫자 */
+/* 수(처리할 일 수) — 제목 바로 뒤 알약 */
 .home-count {
   flex: none;
   display: inline-grid;
@@ -193,7 +230,6 @@
   line-height: var(--line-height-tight);
 }
 
-/* 분류별 수(접은 처리할 일, 처리함 머리) */
 .home-counts {
   display: flex;
   flex-wrap: wrap;
@@ -219,7 +255,6 @@
   height: var(--icon-sm);
 }
 
-/* 비었을 때 한 줄 */
 .home-empty {
   display: flex;
   align-items: center;
@@ -232,7 +267,6 @@
   color: var(--color-success);
 }
 
-/* "처리함에서 n개 더 보기" + 가린 줄의 분류별 수(한 링크) */
 .home-more {
   display: flex;
   flex-direction: column;
@@ -255,7 +289,7 @@
   gap: var(--space-1);
   text-decoration: underline;
   text-decoration-color: var(--color-focus);
-  text-decoration-thickness: var(--border-w);
+  text-decoration-thickness: var(--hairline);
   text-underline-offset: var(--space-1);
 }
 .home-more-text .home-icon {
@@ -271,15 +305,10 @@
   font-size: var(--font-size-xs);
 }
 
-/* ── 카드 격자 ─────────── */
+/* ── 카드 격자 (하단 작전 데크: 모바일 1열 → 중간 2열 → 데스크톱 3열[유닛·세력·지도] + 하단 1줄 진단 바) ─────────── */
 .home-grid {
   display: grid;
-  /* 열 하나의 가장 좁은 너비: --card-min, 단 폭이 아주 좁아도 2열(넓이 절반)까지는 줄인다 → 2칸 카드가 넘치지 않는다 */
-  grid-template-columns: repeat(
-      auto-fill,
-      minmax(min(var(--card-min), calc((100% - var(--card-gap)) / 2)), 1fr)
-    );
-  grid-auto-rows: minmax(var(--card-row), auto);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--card-gap);
   margin: 0;
   padding: 0;
@@ -289,33 +318,65 @@
   display: flex;
   min-width: 0;
 }
-.home-cell[data-size="2x1"],
-.home-cell[data-size="2x2"] {
-  grid-column: span 2;
+@media (min-width: 37.5em) {
+  .home-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .home-cell[data-size="2x1"],
+  .home-cell[data-size="2x2"] {
+    grid-column: span 2;
+  }
 }
-.home-cell[data-size="2x2"] {
-  grid-row: span 2;
+@media (min-width: 64em) {
+  .home {
+    gap: var(--space-5);
+  }
+  .home-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  /* 보유 유닛 · 세력 · 지도가 균형 잡힌 3열 작전 바를 이루고, 연결·성능 등은 1줄 전체 폭 푸터로 */
+  .home-cell[data-card-id="maps"] {
+    grid-column: span 1;
+  }
+  .home-cell[data-size="2x1"]:not([data-card-id="maps"]),
+  .home-cell[data-size="2x2"] {
+    grid-column: 1 / -1;
+  }
 }
 
-/* ── 카드 ─────────── */
+/* ── 테라 인코그니타 전략 커맨드 카드 공통 틀 ─────────── */
 .home-card {
+  position: relative;
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
   min-width: 0;
-  padding: var(--space-3) var(--space-4) var(--space-4);
-  border: var(--border-w) solid var(--color-border);
+  padding: var(--space-5);
+  border: var(--hairline) solid var(--color-border);
   border-radius: var(--radius-panel);
   background-color: var(--color-surface);
-  box-shadow: var(--shadow-control);
+  box-shadow: var(--shadow-panel);
   container-type: inline-size;
+  overflow: visible;
+  transition:
+    border-color var(--duration-base) var(--easing-out),
+    box-shadow var(--duration-base) var(--easing-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .home-card:hover {
+    border-color: var(--color-border-strong);
+    box-shadow: var(--shadow-card-hover);
+  }
 }
 .home-card-head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-2);
-  min-height: var(--tap-size);
+  min-height: var(--control-h-sm);
+  padding-bottom: var(--space-3);
+  border-bottom: var(--hairline) solid var(--color-border);
 }
 .home-card-title {
   flex: 1 1 auto;
@@ -323,56 +384,87 @@
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-strong);
   line-height: var(--line-height-snug);
+  letter-spacing: var(--letter-spacing-display);
 }
 .home-card-heading {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: var(--tap-size);
   min-width: 0;
 }
 .home-card-name {
   min-width: 0;
+  color: var(--color-text);
 }
-/* 1칸처럼 좁은 카드: 첫 줄에 아이콘과 화살표, 둘째 줄에 제목(제목이 두 줄로 쪼개지지 않게) */
-@container (max-width: 13em) {
-  .home-card-heading {
-    flex-wrap: wrap;
-    row-gap: var(--space-1);
-  }
-  .home-card-name {
-    flex: 1 1 100%;
-    order: 1;
-  }
-}
-/* 머리 전체가 링크(그 화면으로). 화살표는 오른쪽 끝 */
-.home-card-link {
+/* 오른쪽 위 정갈한 바로가기 링크(상세 ↗ · 시장 ↗) */
+.home-card-action {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--tap-size);
+  padding: 0 var(--space-2);
+  margin: calc(var(--space-2) * -1) calc(var(--space-2) * -1) calc(var(--space-2) * -1) 0;
   border-radius: var(--radius-sm);
-  color: inherit;
-  text-decoration: none;
-}
-.home-card-link > .home-icon {
-  width: var(--icon-sm);
-  height: var(--icon-sm);
-  margin-left: auto;
   color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    color var(--duration-fast) var(--easing-out),
+    background-color var(--duration-fast) var(--easing-out);
+}
+.home-card-action .home-icon {
+  width: var(--font-size-sm);
+  height: var(--font-size-sm);
 }
 @media (hover: hover) and (pointer: fine) {
-  .home-card-link:hover .home-card-name {
-    text-decoration: underline;
-    text-decoration-color: var(--color-focus);
-    text-decoration-thickness: var(--border-w);
-    text-underline-offset: var(--space-1);
+  .home-card-action:hover {
+    color: var(--color-text);
+    background-color: var(--color-surface-2);
   }
 }
+
 .home-card-body {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
   min-width: 0;
 }
-/* "준비 중" — 숫자 없이 상태 알약 + 무엇이 언제 보일지 */
+
+/* 연결·성능 카드 — 넓은 화면에서는 슬림 1줄 하드웨어 텔레메트리 푸터 바로 접는다 */
+.home-card[data-card="diagnostics"] {
+  padding: var(--space-3) var(--space-5);
+  gap: var(--space-3);
+}
+.home-card[data-card="diagnostics"] .home-card-head {
+  padding-bottom: 0;
+  border-bottom: none;
+  min-height: 0;
+}
+@media (min-width: 48em) {
+  .home-card[data-card="diagnostics"] {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
+  .home-card[data-card="diagnostics"] .home-card-body {
+    flex: 1 1 auto;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+  }
+  .home-card[data-card="diagnostics"] .diagnostics {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-2) var(--space-4);
+  }
+}
 .home-card-status {
   align-self: flex-start;
   padding: var(--space-1) var(--space-3);
@@ -389,73 +481,27 @@
   line-height: var(--line-height-snug);
 }
 
-/* 지도 카드의 두 단추(링크) — 턱 있는 단추 모양. 누를 때의 움직임은 styles.css의 button과 같다(턱 색을 지키며 들어간다) */
-.home-maps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: auto;
-}
-.home-link-button {
-  --link-lip: var(--color-secondary-lip);
-  flex: 1 1 var(--button-basis);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: var(--control-h-sm);
-  padding: var(--space-1) var(--space-4);
-  border: var(--border-w) solid var(--color-border);
-  border-radius: var(--radius-control);
-  background-color: var(--color-surface-2);
-  box-shadow: 0 var(--lip) 0 var(--link-lip);
-  color: var(--color-text);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-strong);
-  line-height: var(--line-height-snug);
-  text-align: center;
-  text-decoration: none;
-  touch-action: manipulation;
-  transition:
-    transform var(--duration-base) var(--easing-bounce),
-    box-shadow var(--duration-base) var(--easing-bounce);
-}
-.home-link-primary {
-  --link-lip: var(--color-primary-lip);
-  border-color: transparent;
-  background-color: var(--color-primary);
-  color: var(--color-on-primary);
-}
-@media (hover: hover) and (pointer: fine) {
-  .home-link-button:hover {
-    filter: brightness(1.05);
-  }
-}
-.home-link-button:active {
-  transform: translateY(var(--lip));
-  box-shadow: 0 0 0 var(--link-lip);
-  transition-duration: var(--duration-fast);
-  transition-timing-function: var(--easing-out);
-}
-
-/* 연결·성능 카드 */
 .home-diagnostics {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
-
-/* 넓은 화면: 머리 판과 격자 사이를 조금 더 띄우고, 1칸 카드를 조금 넓게 */
-@media (min-width: 64em) {
-  .home {
-    gap: var(--space-6);
-  }
-  /* auto-fit: 카드가 다 채우지 못한 빈 열은 접고 남은 열이 넓어진다(오른쪽에 빈 열이 남지 않게) */
-  .home-grid {
-    grid-template-columns: repeat(auto-fit, minmax(var(--card-min-wide), 1fr));
+@container (min-width: 36em) {
+  .home-diagnostics .diagnostics {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3) var(--space-5);
   }
 }
 
-/* 윈도 고대비(강제 색) — 배경색이 지워져도 아이콘 바탕·수·상태 알약의 경계가 보이게 */
+@media (max-width: 37.5em) {
+  .home-card {
+    padding: var(--space-4);
+  }
+}
+
 @media (forced-colors: active) {
   .home-card-icon,
   .home-count,

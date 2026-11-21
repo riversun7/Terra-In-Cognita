@@ -257,6 +257,8 @@ describe("주소 표", () => {
       dev_balance: ["/dev/balance", "dev", "shown", "dev_admin", []],
       // 2차 스탯 전용 편집·시뮬레이터 화면
       dev_secondary_stats: ["/dev/secondary-stats", "dev", "shown", "dev_admin", ["target"]],
+      // 유닛 공통 경험치 테이블 편집·시각화 화면
+      dev_exp_table: ["/dev/exp-table", "dev", "shown", "dev_admin", []],
       // 스킬 편집기·행동별 소모(docs/adr/2026-11-01-skill-editor.md 5절)
       dev_skills: ["/dev/skills", "dev", "shown", "dev_admin", ["skill"]],
       // 아이템 편집기(docs/adr/2026-11-01-item-editor.md)
@@ -276,8 +278,8 @@ describe("주소 표", () => {
       dev_world_layout: ["/dev/world-layout", "dev", "shown", "dev_admin", []],
       // 구인 카드 시험(D-469)
       dev_recruit: ["/dev/recruit", "dev", "shown", "dev_admin", ["city"]],
-      // 지형 오브젝트 편집기(D-536)
-      dev_terrain_objects: ["/dev/terrain-objects", "dev", "shown", "dev_admin", []],
+      // 2차맵·지형 오브젝트 통합 화면(D-536)
+      dev_terrain_objects: ["/dev/terrain-objects", "dev", "hidden", "dev_admin", []],
       // 채집 오브젝트 편집기(D-552)
       dev_gather_objects: ["/dev/gather-objects", "dev", "shown", "dev_admin", []],
       // 전투 다시보기(docs/adr/2026-11-01-battle-replay.md 7절)

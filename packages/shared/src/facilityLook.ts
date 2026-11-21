@@ -27,6 +27,19 @@ export const FACILITY_LOOK_MODELS = [
   "fishing",
   // 부두(배 만들고 타고 내리는 곳, docs/adr/2026-11-13-boats.md 3절)
   "dock",
+  // 영토 비콘(1차맵 영토 표지·신호 탑, docs/adr/2026-11-03-territory-layer.md)
+  "beacon",
+  // 전체 건물 모델 개편(2026-11-19): 시설마다 전용 3D 모델
+  "grand_warehouse",
+  "logistics",
+  "lodging",
+  "wall",
+  "shipyard",
+  "trade_dock",
+  "goods_exchange",
+  "fx_exchange",
+  "unit_exchange",
+  "stock_exchange",
 ] as const;
 export type FacilityLookModel = (typeof FACILITY_LOOK_MODELS)[number];
 

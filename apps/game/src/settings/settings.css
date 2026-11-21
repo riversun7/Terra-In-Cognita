@@ -17,10 +17,10 @@
   margin-bottom: var(--space-3);
 }
 
-/* 테마 카드 4개(2×2) */
+/* 테마 카드 3개(기본 · 다크 · 정거장) */
 .theme-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(9.5em, 1fr));
   gap: var(--space-3);
 }
 .theme-option {
@@ -35,16 +35,20 @@
   flex-direction: column;
   gap: var(--space-2);
   height: 100%;
-  padding: var(--space-2) var(--space-2) var(--space-3);
+  padding: var(--space-3);
   border: var(--border-w) solid var(--color-border);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-panel);
   background-color: var(--color-surface);
   box-shadow: var(--shadow-control);
+  transition:
+    border-color var(--duration-base) var(--easing-out),
+    box-shadow var(--duration-base) var(--easing-out);
 }
 /* 고른 카드 — 테두리 + 안쪽 고리(초점 색). 그림자 토큰은 none일 수 있어 섞지 않는다 */
 .theme-radio:checked + .theme-card {
-  border-color: var(--color-focus);
-  box-shadow: inset 0 0 0 var(--border-w) var(--color-focus);
+  border-color: var(--color-primary);
+  background-color: var(--color-card-head);
+  box-shadow: inset 0 0 0 var(--border-strong-w) var(--color-primary);
 }
 .theme-radio:focus-visible + .theme-card {
   outline: var(--focus-w) solid var(--color-focus);
@@ -53,17 +57,18 @@
 .theme-preview {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  height: var(--preview-h);
+  gap: var(--space-2);
+  height: calc(var(--preview-h) + var(--space-2));
   padding: var(--space-2);
   overflow: hidden;
-  border: var(--hairline) solid var(--color-border);
+  border: var(--border-w) solid var(--color-border);
   border-radius: var(--radius-sm);
   background-color: var(--color-bg);
   background-image: var(--color-bg-image);
 }
 .preview-dots {
   display: flex;
+  align-items: center;
   gap: var(--space-1);
 }
 .preview-dots > span {
@@ -84,9 +89,10 @@
   align-items: center;
   gap: var(--space-2);
   padding: 0 var(--space-2);
-  border: var(--hairline) solid var(--color-border);
+  border: var(--hairline) solid var(--color-border-strong);
   border-radius: var(--radius-sm);
   background-color: var(--color-surface);
+  box-shadow: inset var(--accent-bar) 0 0 var(--color-primary);
 }
 .preview-line {
   width: 45%;

@@ -121,6 +121,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-strong);
   letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 .core-name {
   overflow: hidden;
@@ -134,6 +135,7 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-strong);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .core-bar {
   display: flex;
@@ -166,6 +168,14 @@
   font-variant-numeric: tabular-nums;
   line-height: var(--line-height-tight);
   text-align: end;
+  white-space: nowrap;
+}
+@media (max-width: 37.5em) {
+  .core-toggle {
+    grid-template-columns: minmax(3.75rem, auto) minmax(0, 1fr) minmax(2.5ch, auto);
+    gap: var(--space-2);
+    padding: var(--space-1);
+  }
 }
 
 /* ── 출처 상세 판(누르면 줄 아래에 열림, 마우스는 올리면 떠서 보임) ─────────── */

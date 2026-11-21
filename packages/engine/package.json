@@ -10,7 +10,8 @@
     "./battle": "./src/battle/index.ts",
     "./buildingPreview": "./src/buildings/previewEntry.ts",
     "./buildingArt": "./src/buildings/artEntry.ts",
-    "./characterPreview": "./src/characters/previewEntry.ts"
+    "./characterPreview": "./src/characters/previewEntry.ts",
+    "./propPreview": "./src/props/previewEntry.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"

@@ -93,7 +93,7 @@
 | 모듈 경계 | 자체 검사 스크립트 + pnpm 엄격 의존성 | — | `scripts/check-boundaries.mjs`: 패키지 간 금지된 의존, 판정 코드의 금지 API를 실패 처리. dependency-cruiser는 TS 7 작업공간 import를 해석하지 못해 제외(ADR 17) |
 | 훅·커밋 규칙 | lefthook + commitlint | 2.2.x / 21.2.x | |
 | 변경 이력 | git-cliff | 2.14.x | 태그 시 커밋 메시지로 CHANGELOG 생성 |
-| 비밀값 검사 | gitleaks(CI, Docker 이미지) + 커밋 훅용 자체 스크립트 | 8.30.1 | 훅은 설치 없이 돌도록 흔한 형태만 검사, 전체 이력은 CI에서 |
+| 비밀값 검사 | 커밋 훅용 자체 스크립트(`scripts/check-secrets.mjs`) | — | 설치 없이 커밋 단계(`pre-commit`)에서 올리는 파일의 비밀값·`.env` 유출을 검사(CI `gitleaks`는 사용량 절감을 위해 제거, ADR `2026-11-18-ci-local-and-nas.md`) |
 | 에셋 최적화 | glTF Transform CLI | 4.5.x | KTX2 텍스처, glTF + meshopt |
 | 맵 생성 보조 | FastNoiseLite(저장소에 복사, MIT), d3-geo-voronoi 2.1.0(ISC), poisson-disk-sampling 2.3.1(MIT) | | Priority-Flood는 논문(Barnes 외 2014) 보고 새로 구현 |
 | 실측 지형 | NOAA ETOPO 2022 (CC0) | | 1차맵 해상도로 오프라인 변환 |
@@ -377,7 +377,7 @@ self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·
 - 웹 푸시(하루 1회 접속 유도): iOS는 홈 화면에 설치한 웹앱에서만, 사용자가 버튼을 눌렀을 때만 권한 요청 가능 [V].
 
 ### 9.6 비밀값
-- 비밀값은 NAS에만 둔다(첫 배포 때 무작위 생성해 NAS의 `.env`에 저장). git에는 절대 넣지 않는다(gitleaks로 커밋·CI 검사).
+- 비밀값은 NAS에만 둔다(첫 배포 때 무작위 생성해 NAS의 `.env`에 저장). git에는 절대 넣지 않는다(`pre-commit` 훅 `scripts/check-secrets.mjs`로 검사).
 - 기존 프로젝트의 DB 비밀번호·JWT 기본값은 git 이력에 남아 있다. 교체는 사용자 결정대로 정식 서비스 직전에 한다.
 - M0 네트워크 설정 때 기존 DB 포트(5439·5440)가 공유기에서 외부로 포워딩되어 있는지 확인한다. 열려 있으면 닫을지 사용자와 정한다(닫으면 교체 전 위험이 크게 줄지만, 기존 개발 스크립트처럼 외부에서 DB에 직접 접속하는 방식은 막힌다). 이 세션에서는 외부 노출 여부를 직접 확인하지 못했다 [U]. 다만 2026-10-28 공유기 포워딩 없이 새 포트 4443이 외부에서 열렸다 → NAS 포트가 직접 노출된 구조로 보이고, DB 포트도 열려 있을 가능성이 높다 [A].
 
@@ -404,16 +404,16 @@ self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·
 - **트렁크 기반**: 기본은 `main`에서 바로 작업한다.
 - 여러 에이전트가 동시에 큰 작업을 할 때만 짧은 브랜치·worktree를 쓰고 빨리 합친다. 같은 브랜치 동시 작업 금지.
 - 푸시 전 `git pull --rebase`. **main이 CI 실패 상태면 다른 작업보다 먼저 고친다.**
-- 클라우드 세션이 작업 브랜치를 배정받는 경우 그 브랜치에서 작업하고, 검사 통과 후 main에 합친다.
+- 클라우드 세션이 작업 브랜치를 배정받는 경우 그 브랜치에서 작업하고, 검사 통과 후 main에 합친다. 작업 중에는 바꾼 꾸러미 시험만 돌리고, 전체 검증(`pnpm check`·바꾼 화면 시험)은 작업을 한 번에 모아서 끝낼 때 한 번만 돌려 토큰과 시간을 아낀다(ADR `2026-11-18-ci-local-and-nas.md`).
 
 ### 10.2 훅과 CI
 | 시점 | 검사 |
 |---|---|
 | commit-msg | Conventional Commits 형식(commitlint) |
 | pre-commit | 포맷(Biome), 비밀값(자체 스크립트, 흔한 형태만) — 빠르게 |
-| pre-push | 린트(oxlint), 타입 검사, 단위 테스트, 모듈 경계, 파일 크기, 다국어, 콘텐츠 검증, 문서 갱신 검사 (`pnpm check` + 문서 검사 + 콘텐츠 호환 검사) |
-| main 푸시 CI | 위 전체 + DB 통합 테스트(PostgreSQL 18.6 서비스 컨테이너)·표 정의와 마이그레이션 일치 + 비밀값 전체 이력(gitleaks) + 콘텐츠 검증 + 이미지 빌드 + 스테이징 배포. 문서·스킬만 바뀐 푸시는 이미지·배포 생략 |
-| 정기(NAS) | 매일 DB 백업, 주 1회 복구 훈련(`nas-backup`). 되돌림 훈련은 수동(`rollback-drill`) |
+| pre-push (작업 PC) | 타입 검사(다국어 컴파일 포함), 린트(oxlint), 단위·DB 통합 테스트, 모듈 경계, 파일 크기, 다국어, 대비, 콘텐츠 검증, `db:generate` 마이그레이션 일치, 문서·작업 기록 목차·위키 검사 (`lefthook.yml`, ADR `2026-11-18-ci-local-and-nas.md`) |
+| main 푸시 CI | 이미지 빌드(`Dockerfile` 안에서 `check-pwa`·`check-bundle`·`check-content --no-compat` 함께 확인) + GHCR 푸시(`image`) → NAS 배포 및 정적·PWA·`/health`·WebSocket 자동 점검(`deploy`, `[self-hosted, nas]`). 문서·스킬만 바뀐 푸시는 `paths-ignore`로 아예 시작하지 않음(사용량 0). PR·작업 가지는 CI를 돌리지 않음 |
+| 정기·수동(NAS) | 매일 DB 백업, 주 1회 복구 훈련(`nas-backup`), 수동 되돌림 훈련(`rollback-drill`)·지표 수집(`nas-metrics`)·세계 새로 시작(`world-reset`)·계정 관리(`account-admin`)·규모 시험(`s3-ramp`) 모두 NAS 자체 러너(`[self-hosted, nas]`)에서 실행(GitHub 서버 시간 0) |
 | 정기(GitHub) | 매주 월요일 Dependabot PR(npm·Actions). 버전 올림만 있는 PR은 작업 기록 검사에서 빠진다(ADR 21) |
 | 야간 CI | 생성기 해시, 복구 테스트, 성능 스모크 |
 | 화면을 고칠 때(손으로) | 화면 시험(Playwright, 저장소 `e2e/`). 화면을 고친 에이전트가 돌리고 결과(통과·실패, 잰 값)를 작업 기록에 남긴다. CI에서는 자동으로 돌리지 않는다. 필요해지면 손으로 실행하는 워크플로부터 만든다(ADR 37, 사용자 결정 2026-10-29) |

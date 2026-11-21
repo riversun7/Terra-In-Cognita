@@ -176,7 +176,7 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
       const records = [...facilities.values()].filter((record) => record.cityId === home.id);
       const hall = records.find((record) => record.facilityId === "government_hall");
       const hallRect = hall ? rects.get(hall.buildingId) : undefined;
-      expect(hallRect).toMatchObject({ x: home.cellX - 1, y: home.cellY - 1, width: 3, height: 3 });
+      expect(hallRect).toMatchObject({ x: home.cellX - 2, y: home.cellY - 2, width: 4, height: 4 });
       if (!hallRect) continue;
       const plaza = grow(hallRect, NO_WALLS.cityLayoutPlazaCells + LAYOUT_MARGIN);
       for (const record of records) {

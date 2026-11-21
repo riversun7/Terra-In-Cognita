@@ -139,11 +139,10 @@ export function buildOptions(economy: Economy): BuildOption[] {
   return out;
 }
 
-/** 재료 묶음 하나의 무게(g) = 기본 단위 무게 × 묶음 크기(서버 건물 목록 weightOf와 같다). 모르면 undefined */
+/** 건설 재료 한 기본 단위의 무게(g, 서버 건물 목록 weightOf와 같다 — 짓기 수량은 기본 단위). 모르면 undefined */
 export function lotWeightOf(economy: Economy, item: string): number | undefined {
-  const asset = itemAsset(item);
-  const unit = economy.catalog.weightG.get(asset);
-  return unit === undefined ? undefined : Number(unit * lotSizeOf(economy.catalog, asset));
+  const unit = economy.catalog.weightG.get(itemAsset(item));
+  return unit === undefined ? undefined : Number(unit);
 }
 
 /** 그 도시 일 없는 휴먼(경비대·시설 일꾼 빼고) */

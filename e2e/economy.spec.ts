@@ -232,17 +232,19 @@ test.describe("admin 시안 자료(시험 거래소)", () => {
       economy(page).locator('.eco-row[data-recipe="smelt_iron"] [data-part="worker-effect"]'),
     ).toHaveCount(0);
     await elementShot(rolled, "economy-recipe-worker-ko");
-    // 캐기 산출·제련 재료가 "철광석 ×10 (묶음 1 kg)"
-    const ore = message("ko", "economy_stack_lot", { name: "철광석", qty: "10", size: "1 kg" });
-    await expect(economy(page).locator(".eco-row-meta", { hasText: ore })).toHaveCount(2);
+    // 캐기 산출은 "철광석 ×10 (묶음 10 kg)", 제련 재료는 "철광석 ×1 (묶음 10 kg)"
+    const mineOre = message("ko", "economy_stack_lot", { name: "철광석", qty: "10", size: "10 kg" });
+    const smeltOre = message("ko", "economy_stack_lot", { name: "철광석", qty: "1", size: "10 kg" });
+    await expect(economy(page).locator(".eco-row-meta", { hasText: mineOre })).toHaveCount(1);
+    await expect(economy(page).locator(".eco-row-meta", { hasText: smeltOre })).toHaveCount(1);
     await page.goto("/economy/market/iron_ore/101");
     await expect(economy(page).locator('[data-part="lot-note"]')).toHaveText(
-      message("ko", "economy_lot_note", { size: "1 kg" }),
+      message("ko", "economy_lot_note", { size: "10 kg" }),
     );
     // 창고 자리는 인벤토리 [창고별]로 옮겼다(docs/adr/2026-11-14-inventory-screen.md)
     await page.goto("/inventory?tab=warehouses");
     await expect(economy(page).locator(".eco-place").first()).toContainText(
-      message("ko", "economy_hold_lots", { size: "1 kg", lots: "310" }),
+      message("ko", "economy_hold_lots", { size: "10 kg", lots: "31" }),
     );
     expect(deviceErrors).toEqual([]);
   });

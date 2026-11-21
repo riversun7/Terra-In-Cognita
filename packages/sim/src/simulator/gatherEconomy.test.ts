@@ -41,7 +41,7 @@ describe("채집 티어 추첨 + 묶음(시뮬 경제)", () => {
     expect(prepared.lotSize.get("item:iron_ore")).toBe(1000n);
   });
 
-  it("철광석 T3를 Lv1 광산이 막히지 않고 캐고(D-506), 나온 철광석은 1kg 묶음의 배수다", () => {
+  it("철광석 T3를 Lv1 광산이 막히지 않고 캐고(D-506), 광석 수확 1단위 = gatherOreGrams(기본 1g)로 나온다", () => {
     const summary = runSimulation({
       scenario: TEST_ECONOMY_SCENARIO,
       catalog: GATHER_CATALOG,
@@ -53,9 +53,50 @@ describe("채집 티어 추첨 + 묶음(시뮬 경제)", () => {
     const iron = BigInt(produced["item:iron_ore"] ?? "0");
     const rubble = BigInt(produced["item:rubble"] ?? "0");
     expect(iron).toBeGreaterThan(0n);
-    expect(iron % 1000n).toBe(0n);
-    // 새 유닛(20) 구간: 잡석 70% 쪽이 철 5%보다 훨씬 많다(잡석 묶음 = 1개)
-    expect(rubble).toBeGreaterThan(iron / 1000n);
+    // 새 유닛(20) 구간: 잡석 70% 쪽이 철 5%보다 훨씬 많다(둘 다 기본 수확량 단위 1)
+    expect(rubble).toBeGreaterThan(iron);
+  });
+
+  it("광산 수확량 50 + VIT × 5(상한 500) + gatherOreGrams 1: 사이클당 수십~수백 g 획득", () => {
+    const gramCatalog: EconomyCatalog = {
+      ...GATHER_CATALOG,
+      items: GATHER_CATALOG.items.map((item) =>
+        item.subcategory === "ore" ? { ...item, lotSize: 10_000n } : item,
+      ),
+      facilities: GATHER_CATALOG.facilities.map((facility) =>
+        facility.id === "mine"
+          ? {
+              ...facility,
+              gather: {
+                primary: "str",
+                secondary: "vit",
+                subcategory: "ore",
+                yieldBase: 50,
+                yieldPerStatPm: 5000,
+                yieldCap: 500,
+              },
+            }
+          : facility,
+      ),
+    };
+    const low = workerEffects(
+      gramCatalog.facilities.find((f) => f.id === "mine")?.gather,
+      { level: 1, primaryStat: 10, secondaryStat: 10 },
+      { levelBonus: 5, defaultStat: 10 },
+    );
+    const mid = workerEffects(
+      gramCatalog.facilities.find((f) => f.id === "mine")?.gather,
+      { level: 1, primaryStat: 40, secondaryStat: 50 },
+      { levelBonus: 5, defaultStat: 10 },
+    );
+    const capped = workerEffects(
+      gramCatalog.facilities.find((f) => f.id === "mine")?.gather,
+      { level: 1, primaryStat: 120, secondaryStat: 120 },
+      { levelBonus: 5, defaultStat: 10 },
+    );
+    expect(low.yieldPerLot).toBe(100);
+    expect(mid.yieldPerLot).toBe(300);
+    expect(capped.yieldPerLot).toBe(500);
   });
 
   it("제작(가공) 시설은 레벨 티어 상한(D-5001)을 그대로 받는다: Lv1 제련소가 T3 산출이면 차리지 못한다", () => {

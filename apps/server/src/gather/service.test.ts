@@ -117,6 +117,7 @@ interface RigOptions {
   readonly waterStrip?: boolean;
   /** 배 채집 일꾼 고리(D-570 1821, 없으면 이끄는 유닛 혼자·자르지 않음) */
   readonly boatCatch?: GatherDeps["boatCatch"];
+  readonly catalog?: FacilityCatalog;
 }
 
 function rig(options: RigOptions = {}): Rig {
@@ -153,7 +154,7 @@ function rig(options: RigOptions = {}): Rig {
   const places: PlaceWorld = {
     maps,
     facilities,
-    catalog: () => catalog,
+    catalog: () => options.catalog ?? catalog,
     cities: () => [{ id: CITY, mapKey: K[0] ?? 0, x: 100, y: 16 }],
   };
   const store = createObjectStore({ planetId: "s2_test_planet" });
@@ -622,6 +623,43 @@ describe("배에서 캐기(기획 D-541 1280 가)", () => {
     await until(() => r.ledger.balanceOf(OWNER, "item:saury", cargoLocation(50)) >= before + 2n);
     await until(() => (map.unitInfo(1)?.job.fatigue ?? 0) > 0 && (map.unitInfo(2)?.job.fatigue ?? 0) > 0);
     expect(map.unitInfo(3)?.job.fatigue ?? 0).toBeGreaterThan(0);
+    r.gather.stop();
+  });
+
+  it("광석 직접 채집(1g·묶음 10kg·50 + VIT × 5): 묶음 크기(10,000)가 아니라 gatherOreGrams(1g)로 수십~수백 g 획득", async () => {
+    const mineDef: FacilityDef = {
+      ...STOREHOUSE,
+      id: "mine",
+      stage: "gather",
+      gather: {
+        primary: "str",
+        secondary: "vit",
+        subcategory: "ore",
+        yieldBase: 50,
+        yieldPerStatPm: 5000,
+        yieldCap: 500,
+      },
+    };
+    const baseKind = KINDS[0];
+    if (!baseKind) throw new Error("missing base kind");
+    const r = rig({
+      kinds: [{ ...baseKind, facility: "mine" }],
+      catalog: {
+        ...catalog,
+        facility: (id) => (id === "mine" ? mineDef : catalog.facility(id)),
+        facilities: [STOREHOUSE, mineDef],
+        weightOf: () => 1,
+        unitWeightOf: () => 1,
+        lotSize: new Map([[ORE, 10_000n]]),
+      },
+    });
+    placeMine(r, 20, 30);
+    expect(await r.gather.start(USER, { unitId: 1, mapKey: K[0] ?? 0, objectId: FIRST })).toEqual({
+      ok: true,
+    });
+    await until(() => r.ledger.balanceOf(OWNER, ORE, cargoLocation(1)) > 0n);
+    // VIT 20 → 50 + 20 × 5 = 150g / 사이클 (10,000g 묶음 곱셈이 아님)
+    expect(r.ledger.balanceOf(OWNER, ORE, cargoLocation(1))).toBe(150n);
     r.gather.stop();
   });
 });

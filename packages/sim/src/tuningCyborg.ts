@@ -153,8 +153,8 @@ export const CYBORG_TUNING_KEYS: readonly TuningKey[] = [
     "start_goods_stone",
     "",
     "cyborg.startStone",
-    "시작 재료: 석재(개, 시작 도시 창고)",
-    "Starting goods: stone (count, start city storage)",
+    "시작 재료: 석재(g, 시작 도시 창고)",
+    "Starting goods: stone (g, start city storage)",
   ),
   // 국적 바꾸기(귀화, 질문 745 나 "값·쉬는 날은 설정 칸", docs/adr/2026-11-08-citizenship.md — 기획 칸 없음 → [임시] 설정값)
   k(

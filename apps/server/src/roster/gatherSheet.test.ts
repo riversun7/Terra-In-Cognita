@@ -126,8 +126,8 @@ describe("원자재별 채집 예상(사이보그 판 효율 묶음)", () => {
           unitId === 7
             ? {
                 workplace: { facility: "mine", level: 3 },
-                // 그 도시 거래소: 구리 원광 체결가 500
-                lastPrice: (item) => (item === "copper_ore" ? 500n : undefined),
+                // 그 도시 거래소: 구리 원광 체결가 5,000(10kg 묶음당)
+                lastPrice: (item) => (item === "copper_ore" ? 5000n : undefined),
                 currency: "TST",
               }
             : undefined,

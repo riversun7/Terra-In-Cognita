@@ -11,8 +11,8 @@
 
 /** 한 시간(ms) */
 const HOUR_MS = 3_600_000n;
-/** 같은 티어 아이템 몫을 나눌 때 쓰는 배율(시세 × 1000을 내림) */
-const SCALE = 1000n;
+/** 같은 티어 아이템 몫·묶음 환산 나눗셈에 쓰는 배율(10⁶ 스케일로 버림 오차를 줄인다) */
+const SCALE = 1_000_000n;
 
 export interface GatherValueInput {
   /** T0~T9 확률(‰) — 묶음 위 끝으로 접기 전 */
@@ -23,8 +23,10 @@ export interface GatherValueInput {
   readonly ladder: readonly (readonly string[])[];
   /** 같은 티어 아이템 비중(아이템 ID → 비중). 그 티어에 적은 것이 없으면 고르게 */
   readonly weights?: ReadonlyMap<string, number> | undefined;
-  /** 아이템 시세(최소 단위)와 거래소 체결가인가 */
+  /** 아이템 시세(최소 단위, 거래 묶음당)와 거래소 체결가인가 */
   readonly priceOf: (item: string) => { readonly price: bigint; readonly market: boolean };
+  /** 아이템 수확 1단위의 기본 단위(harvest)와 거래 묶음 크기(lot). 없으면 둘 다 1(묶음 = 수확 1단위) */
+  readonly unitOf?: ((item: string) => { readonly harvest: bigint; readonly lot: bigint }) | undefined;
   readonly yieldPerLot: number;
   /** 한 번 개수에 곱하는 배율(‰ — 건물 채집소 효율 × 면적, 기획 D-566 1721·D-567). 없으면 1000 */
   readonly yieldPm?: number | undefined;
@@ -64,11 +66,14 @@ function tierPriceMilli(
     for (const item of picks) {
       const weight = BigInt(weighted.length > 0 ? Math.trunc(input.weights?.get(item) ?? 0) : 1);
       const price = input.priceOf(item);
+      const unit = input.unitOf?.(item);
+      const lot = unit && unit.lot > 0n ? unit.lot : 1n;
+      const harvest = unit && unit.harvest > 0n ? unit.harvest : 1n;
       total += weight;
-      sum += weight * price.price;
+      sum += (weight * price.price * harvest * SCALE) / lot;
       market ||= price.market;
     }
-    return { tier: t, milli: total > 0n ? (sum * SCALE) / total : 0n, market };
+    return { tier: t, milli: total > 0n ? sum / total : 0n, market };
   }
   return undefined;
 }

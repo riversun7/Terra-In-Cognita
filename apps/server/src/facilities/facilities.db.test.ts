@@ -30,7 +30,7 @@ const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 /** 정시 + 1ms에서 시작 */
 const T0 = 1_800_000_000_000 - (1_800_000_000_000 % UPKEEP_PERIOD_MS) + 1;
-/** 공방 Lv1(팩 core@125 — 건물 티어 재조정): 소나무 10·철광석 6 × 배율 1000‰ → 10·6, 시간 = (2,000g × 10 + 1,000g × 6) × 1.0 × 10초/kg = 260초 */
+/** 공방 Lv1(팩 core@137 — 광석 1g 기본 단위): 소나무 10·철광석 6,000g × 배율 1000‰ → 10·6,000, 시간 = (2,000g × 10 + 1g × 6,000) × 1.0 × 10초/kg = 260초 */
 const WORKSHOP_L1_MS = 260_000;
 /** 공방 Lv1 짓기 소나무 통나무(개) */
 const WORKSHOP_L1_PINE = 10n;
@@ -121,7 +121,7 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 건설 땅 규칙(docs/adr/2026-11-
     const world = await boot();
     const p = persistence(world);
     const service = p.facilities.service;
-    const a = await setup(world, "lander", 0, { pine_log: 60, iron_ore: 40 });
+    const a = await setup(world, "lander", 0, { pine_log: 60, iron_ore: 40_000 });
     const screen = createFacilityScreenServices(() => facilityScreenSourceOf(world));
     const viewer: Viewer = { id: a.userId, loginId: "lander", roles: ["player"] };
     // 시험 세계 2차맵에는 NPC 도시가 있다: 짓는 2차맵의 도시를 비우면 도시가 없는 2차맵이지만 그 자리는 아직 그 NPC 세력의 1차맵 영토다
@@ -221,7 +221,7 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
     const world = await boot();
     const p = persistence(world);
     const service = p.facilities.service;
-    const a = await setup(world, "builder", 1, { pine_log: 30, iron_ore: 20 });
+    const a = await setup(world, "builder", 1, { pine_log: 30, iron_ore: 20_000 });
     // 재료가 모자라면 아무것도 바뀌지 않는다
     const poor = await setup(world, "poor", 0, { pine_log: 1 });
     expect(
@@ -260,7 +260,7 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
     });
     const buildingId = built.ok ? (built.buildingId ?? 0) : 0;
     expect(goodsStock(p.ledger, a.ownerId, "pine_log")).toBe(20n);
-    expect(goodsStock(p.ledger, a.ownerId, "iron_ore")).toBe(14n);
+    expect(goodsStock(p.ledger, a.ownerId, "iron_ore")).toBe(14_000n);
     expect(a.map.buildingOwner(buildingId)).toBe(a.ownerId);
     expect(service.works(buildingId)).toBe(false);
     // 짓는 동안 그 일꾼은 다른 작업에 쓸 수 없다
@@ -312,7 +312,7 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
     const world = await boot();
     const p = persistence(world);
     const service = p.facilities.service;
-    const a = await setup(world, "owner", 2, { pine_log: 30, iron_ore: 20 });
+    const a = await setup(world, "owner", 2, { pine_log: 30, iron_ore: 20_000 });
     const buildingId = await workshop(world, a, 40);
     const record = service.facilities.get(buildingId);
     // 10일(노화 기간)의 절반 → 65%
@@ -355,7 +355,7 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
     const world = await boot();
     const p = persistence(world);
     const service = p.facilities.service;
-    const a = await setup(world, "repairer", 1, { pine_log: 60, iron_ore: 40 });
+    const a = await setup(world, "repairer", 1, { pine_log: 60, iron_ore: 40_000 });
     const buildingId = await workshop(world, a, 40);
     expect(await service.repair(a.userId, { buildingId }, 1, a.units)).toEqual({
       ok: false,
@@ -387,7 +387,7 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
     const world = await boot();
     const p = persistence(world);
     const service = p.facilities.service;
-    const a = await setup(world, "smith", 1, { pine_log: 30, iron_ore: 20, iron_ingot: 5, deer_hide: 5 });
+    const a = await setup(world, "smith", 1, { pine_log: 30, iron_ore: 20_000, iron_ingot: 5, deer_hide: 5 });
     const buildingId = await workshop(world, a, 40);
     const unitId = a.units[0] ?? 0;
     const granted = p.holdings.service.acquire({
@@ -435,7 +435,7 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
     const world = await boot();
     const p = persistence(world);
     const service = p.facilities.service;
-    const owner = await setup(world, "shopkeeper", 1, { pine_log: 30, iron_ore: 20 });
+    const owner = await setup(world, "shopkeeper", 1, { pine_log: 30, iron_ore: 20_000 });
     const buildingId = await workshop(world, owner, 40);
     const guest = await setup(world, "customer", 1, { iron_ingot: 5, deer_hide: 5 });
     const granted = p.holdings.service.acquire({
@@ -515,7 +515,7 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
 
   it("다시 켜면: 짓던 작업과 상태가 DB에서 돌아오고, 지난 끝 시각은 그 시각으로 적용된다", async () => {
     const first = await boot();
-    const a = await setup(first, "restart", 0, { pine_log: 30, iron_ore: 20 });
+    const a = await setup(first, "restart", 0, { pine_log: 30, iron_ore: 20_000 });
     const built = await persistence(first).facilities.service.build(a.userId, {
       mapKey: a.map.mapKey,
       facility: "workshop",
@@ -594,8 +594,8 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
       await service.storageMove(other.userId, { buildingId: yardId, asset: pine, qty: 1, direction: "in" }),
     ).toEqual({ ok: false, code: "forbidden" });
 
-    // 공방: 소나무 10 = 도시 창고 10(창고 시설 10은 그대로), 철광석 6은 도시 창고(받은 것). 일꾼은 짓는 동안 직무 산출이 없고 계약도 못 맺는다
-    await service.devFacilityGrant(a.userId, "iron_ore", 6, { mapKey: a.map.mapKey, x: 40, y: 40 });
+    // 공방: 소나무 10 = 도시 창고 10(창고 시설 10은 그대로), 철광석 6,000g은 도시 창고(받은 것). 일꾼은 짓는 동안 직무 산출이 없고 계약도 못 맺는다
+    await service.devFacilityGrant(a.userId, "iron_ore", 6000, { mapKey: a.map.mapKey, x: 40, y: 40 });
     p.settlement.settleOwner(a.ownerId, clock);
     const oreBefore = p.ledger.balanceOf(a.ownerId, ASSET_ORE);
     const built = await service.build(a.userId, {

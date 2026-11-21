@@ -192,7 +192,7 @@ export function gatherLots(progress: GatherProgress, made: number, input: Gather
         yieldPerLot: effects.yieldPerLot,
         yieldPm: select ? effects.yieldPm : undefined,
         successPm: effects.catchPm,
-        harvestGrams: BigInt(settings.oreGrams ?? 1000),
+        harvestGrams: BigInt(settings.oreGrams ?? 1),
         tierRange: object?.tierRange,
         prefer: object?.prefer,
         weights: object?.weights,

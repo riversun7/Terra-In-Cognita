@@ -61,17 +61,8 @@ describe("원자재 오브젝트 종류", () => {
     // 노두는 지형별 오브젝트(2026-11-12 D-536) 앞이고, 관목 땔감(목재 몫 노두)은 그 뒤 맨 끝이다: 앞 종류 차례는 그대로
     const ids = kinds.map((kind) => kind.id);
     expect(ids.indexOf("copper_outcrop")).toBe(ids.indexOf("stone_outcrop") + 1);
-    // 그 뒤에 자연 채집물 소품 자리 여덟(기획 D-540 1224 가 — 장식 소품 그림에 서는 prop 종류)
-    const wild = [
-      "ice_chunk_water",
-      "salt_deposit",
-      "vine_fiber",
-      "peat_cut",
-      "berry_patch",
-      "fruit_pick",
-      "shell_pick",
-      "fossil_dig",
-    ];
+    // 그 뒤에 자연 채집물 소품 자리 다섯(소금·이탄·화석 제거 뒤)
+    const wild = ["ice_chunk_water", "vine_fiber", "berry_patch", "fruit_pick", "shell_pick"];
     // 그 뒤 맨 끝에 바다 물터(기획 D-562 1565 — 앞 종류 차례는 그대로)
     expect(ids.at(-1)).toBe("fishing_water_sea");
     const before = kinds.slice(0, -1);
@@ -97,8 +88,8 @@ describe("원자재 오브젝트 종류", () => {
     // 바다 오브젝트(기획 D-540 1222): 어군 넷은 낚시터가 맡고 티어 범위로 굴림, 고래 무리는 고래 고기·기름 굴림표, 난파선은 굴림표
     for (const id of ["school_lake", "school_coastal", "school_shelf", "school_deep"])
       expect(byId.get(id)).toMatchObject({ facility: "fishing_spot" });
-    // 오브젝트마다 티어 범위(기획 D-552): 굴림표가 아닌 48종(D-562 바다 물터 더함) 모두 범위가 있고, 굴림표 둘은 없다
-    expect(kinds.filter((kind) => kind.tierRange !== undefined)).toHaveLength(48);
+    // 오브젝트마다 티어 범위(기획 D-552): 굴림표가 아닌 45종(소금·이탄·화석 제거 뒤) 모두 범위가 있고, 굴림표 둘은 없다
+    expect(kinds.filter((kind) => kind.tierRange !== undefined)).toHaveLength(45);
     expect(byId.get("whale_pod")?.tierRange).toBeUndefined();
     expect(byId.get("boulder_stone")?.tierRange).toEqual({ min: 1, max: 1 });
     expect(byId.get("conifer_tree")?.tierRange).toEqual({ min: 0, max: 1 });

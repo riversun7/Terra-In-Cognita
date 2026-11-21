@@ -129,7 +129,7 @@
       "inputs": [
         {
           "item": "iron_ore",
-          "qty": 10
+          "qty": 1
         }
       ],
       "outputs": [
@@ -205,7 +205,7 @@
       "outputs": [
         {
           "item": "copper_ingot",
-          "qty": 1
+          "qty": 10
         }
       ],
       "work": 1000,
@@ -227,7 +227,7 @@
       "outputs": [
         {
           "item": "silver_ingot",
-          "qty": 1
+          "qty": 10
         }
       ],
       "work": 1000,
@@ -249,7 +249,7 @@
       "outputs": [
         {
           "item": "titanium_ingot",
-          "qty": 1
+          "qty": 10
         }
       ],
       "work": 1000,
@@ -271,7 +271,7 @@
       "outputs": [
         {
           "item": "gold_ingot",
-          "qty": 1
+          "qty": 10
         }
       ],
       "work": 1000,
@@ -293,7 +293,7 @@
       "outputs": [
         {
           "item": "platinum_ingot",
-          "qty": 1
+          "qty": 10
         }
       ],
       "work": 1000,
@@ -315,7 +315,7 @@
       "outputs": [
         {
           "item": "mithril_ingot",
-          "qty": 1
+          "qty": 10
         }
       ],
       "work": 1000,
@@ -337,7 +337,7 @@
       "outputs": [
         {
           "item": "orichalcum_ingot",
-          "qty": 1
+          "qty": 10
         }
       ],
       "work": 1000,
@@ -375,13 +375,13 @@
       "inputs": [
         {
           "item": "rubble",
-          "qty": 3
+          "qty": 1
         }
       ],
       "outputs": [
         {
           "item": "brick",
-          "qty": 2
+          "qty": 6
         }
       ],
       "work": 750,

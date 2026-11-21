@@ -247,13 +247,13 @@ describe("옛 기준 가치 칸(팩 core@28, 295 시작 시세)", () => {
   });
 });
 
-describe("묶음 크기 칸(팩 core@29, 302·D-506 광석 1g·1kg 묶음)", () => {
-  it("core@28까지 저장한 철광석 줄에 lotSize가 없으면 팩 값(1,000)을 넣는다: 값은 그대로 1kg 묶음당", () => {
+describe("묶음 크기 칸(팩 core@29, 302·D-506 광석 1g·10kg 묶음)", () => {
+  it("core@28까지 저장한 철광석 줄에 lotSize가 없으면 팩 값(10,000)을 넣는다: 값은 그대로 묶음당", () => {
     const state = fresh();
     const pack = state.packEntry("items", "iron_ore");
     const packHash = state.packHash("items", "iron_ore");
     if (!pack || packHash === null) throw new Error("fixture iron_ore");
-    expect(pack.lotSize).toBe(1000);
+    expect(pack.lotSize).toBe(10_000);
     const { lotSize: _lot, weight: _weight, ...old } = pack;
     const edited = {
       ...record("iron_ore", { ...old, tier: 1, startPrice: 9 }, packHash),
@@ -262,11 +262,11 @@ describe("묶음 크기 칸(팩 core@29, 302·D-506 광석 1g·1kg 묶음)", () 
     const { rows, upgraded } = upgradeLegacyRows(state.core, [edited]);
     expect(upgraded).toEqual(["items/iron_ore"]);
     // 무게는 옮기지 않는다(옛 줄 값 그대로), 다른 고친 칸(티어·시작 시세)도 남는다
-    expect(rows[0]?.entry).toEqual({ ...old, tier: 1, startPrice: 9, lotSize: 1000 });
+    expect(rows[0]?.entry).toEqual({ ...old, tier: 1, startPrice: 9, lotSize: 10_000 });
     expect(state.selectAtBoot([edited]).dropped).toEqual([]);
     state.install([edited], 1);
     const ore = state.effective().items.find((item) => item.id === "iron_ore");
-    expect([ore?.lotSize, ore?.startPrice]).toEqual([1000, 9]);
+    expect([ore?.lotSize, ore?.startPrice]).toEqual([10_000, 9]);
   });
 
   it("core@29부터 저장한 줄은 그대로, 판을 모르는 감사 옛 판 항목은 팩 값을 넣는다", () => {

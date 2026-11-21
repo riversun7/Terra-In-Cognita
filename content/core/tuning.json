@@ -1081,19 +1081,19 @@
       "id": "n44_ore_grams",
       "code": "N44",
       "name": {
-        "ko": "광석 한 번 캘 때 무게(g)",
-        "en": "Ore per harvest (g)"
+        "ko": "광석 수확 1단위 무게(g)",
+        "en": "Ore grams per yield unit (g)"
       },
-      "value": 1000,
+      "value": 1,
       "structural": false,
       "unit": "grams",
       "min": 1,
       "max": 1000000,
       "desc": {
-        "ko": "광석을 한 번 캘 때 나오는 무게.",
-        "en": "Weight of ore from one dig."
+        "ko": "광석 수확량 1당 무게(g). 광산 수확량(50 + VIT × 5, 상한 500)과 곱해 한 사이클에 수십~수백 g을 캔다.",
+        "en": "Grams per unit of ore yield. Multiplied by mine yield (50 + VIT × 5, cap 500) to yield tens to hundreds of grams per cycle."
       },
-      "source": "ADR 2026-10-31-economy-core \"바뀜 (D-506·D-507)\""
+      "source": "ADR 2026-10-31-economy-core \"바뀜 (D-506·D-507)\" · ADR 2026-11-21-ore-grams-and-cleanup"
     },
     {
       "id": "d506_storage_per_level",
@@ -3141,19 +3141,19 @@
       "id": "start_goods_stone",
       "code": "",
       "name": {
-        "ko": "시작 재료: 석재(개, 시작 도시 창고)",
-        "en": "Starting goods: stone (count, start city storage)"
+        "ko": "시작 재료: 석재(g, 시작 도시 창고)",
+        "en": "Starting goods: stone (g, start city storage)"
       },
-      "value": 10,
+      "value": 10000,
       "structural": false,
-      "unit": "count",
+      "unit": "grams",
       "min": 0,
       "max": 100000,
       "desc": {
-        "ko": "만들 때 넣어 주는 석재 수.",
-        "en": "Stone placed in the start city storage at creation."
+        "ko": "만들 때 넣어 주는 석재 무게(g).",
+        "en": "Stone (g) placed in the start city storage at creation."
       },
-      "source": "ADR 2026-11-07-play-flow \"WP3\" · 질문 520"
+      "source": "ADR 2026-11-07-play-flow \"WP3\" · 질문 520 · ADR 2026-11-21-ore-grams-and-cleanup"
     },
     {
       "id": "citizenship_fee",

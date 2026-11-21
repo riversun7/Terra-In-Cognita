@@ -393,7 +393,14 @@ export const TUNING_KEYS: readonly TuningKey[] = [
     "1차 생산 진행 1의 시간(ms)",
     "Primary production progress tick (ms)",
   ),
-  k("n44_ore_grams", "N44", "society", "gatherOreGrams", "광석 한 번 캘 때 무게(g)", "Ore per harvest (g)"),
+  k(
+    "n44_ore_grams",
+    "N44",
+    "society",
+    "gatherOreGrams",
+    "광석 수확 1단위 무게(g)",
+    "Ore grams per yield unit (g)",
+  ),
   // 전투 클래스 분류 문턱(D-529, 옛 CHR-1 §6.1 — 49에 칸이 없어 class_*를 앞머리로 쓴다)
   k(
     "class_three_stat_pm",

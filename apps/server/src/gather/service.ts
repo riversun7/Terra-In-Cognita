@@ -525,14 +525,20 @@ export function createGatherService(deps: GatherDeps): GatherService {
       yieldPmOf: (sub) => gatherYieldPm(kind, sub, rule, rules.productionSubYieldPm, efficiency),
       carry: action.yieldCarry,
     });
-    let heaviest =
-      BigInt(catalog.unitWeightOf(kind.item) ?? 0) * (catalog.lotSize.get(`item:${kind.item}`) ?? 1n);
+    // 광석처럼 기본 단위가 g이고 묶음(lotSize > 1)이 큰 아이템은 수확 1단위 = gatherOreGrams(g)로 넣는다(@terra/sim rollGatherOutputs와 같은 식)
+    const harvestUnit = (asset: string): bigint => {
+      const lot = catalog.lotSize.get(asset) ?? 1n;
+      return lot > 1n ? BigInt(rules.gatherOreGrams) : lot;
+    };
+    let heaviest = BigInt(catalog.unitWeightOf(kind.item) ?? 0) * harvestUnit(`item:${kind.item}`);
     for (const haul of hauls) {
-      const lot = catalog.lotSize.get(haul.asset) ?? 1n;
-      gatherIntoCargo(deps.ledger, action.ownerId, holder(action), haul.asset, BigInt(haul.lots) * lot, at);
+      const unit = harvestUnit(haul.asset);
+      const qty = BigInt(haul.lots) * unit;
+      gatherIntoCargo(deps.ledger, action.ownerId, holder(action), haul.asset, qty, at);
       action.assets.add(haul.asset);
       action.gatheredLots += haul.lots;
-      const weight = BigInt(catalog.unitWeightOf(haul.asset.slice("item:".length)) ?? 0) * lot;
+      const itemWeight = BigInt(catalog.unitWeightOf(haul.asset.slice("item:".length)) ?? 0);
+      const weight = (catalog.lotSize.get(haul.asset) ?? 1n) > 1n ? qty * itemWeight : itemWeight * unit;
       if (weight > heaviest) heaviest = weight;
     }
     // 피로(시설 반경 안이면 덜)

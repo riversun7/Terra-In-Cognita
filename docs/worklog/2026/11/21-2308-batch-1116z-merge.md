@@ -6,7 +6,8 @@
 
 ## 한 일
 - main 154c22be52(묶음 1116y 기록) 위에 두 줄기를 차례로 `--no-ff`로 합쳤다. 검사 뒤 main에 다른 세션 커밋 6a91da1ad9(NPC 유닛 욕구·가문 일 지시·가문 금고·가문 연맹·
-  비접속 관리인 — SIM 70, 팩 136, 질문 2461~2467)가 올라와 그것도 합쳤다(충돌 없음 — 아래 "손으로 푼 곳").
+  비접속 관리인 — SIM 70, 팩 136, 질문 2461~2467)가 올라와 그것도 합쳤다(충돌 없음 — 아래 "손으로 푼 곳"). 첫 푸시가 거절된 사이 또 올라온 5cf0d2d89a(광석 1g·10kg 묶음·
+  g 단위 채집, 화석·이탄·소금 제거 — SIM 71, 팩 137)도 합쳤다.
   1. `work/e2e-fix`(f3ed44e849, 안에 main 154c22be52 합침): 시험만 고침 — economy 시세 색을 토큰에서 읽기, labor 임대형에서 시험 건물 고르기, buildings 건설 재료 기대값을 팩에서
      세기, boats 동쪽 바다와 이어진 물가만 고르기, dev `TOOL_SCOPES` `/dev/terrain-objects` = planet, operator-speed `operator_pace` 100, sheet-buffs 이동 속도 "n칸/초". 앱·판 바뀜 없음.
   2. `work/share-market`(07d1f57657, 바탕 main 154c22be52): 도시(정부) 지분 시장(`apps/server/src/cityShares/`, 동시호가 = `market.ts matchRound`의 `clearCallAuction`, 사는 돈만 에스크로,
@@ -14,9 +15,9 @@
      호가창, 증권 거래소 잠금 풀기(`EXCHANGE_LOCKS`에서 securities 뺌)와 거래소 판, WS `city_share_order`·`city_share_cancel` → `city_share_result`, tRPC `shares.city`·`shares.hub`.
 - 최종 판:
   - 프로토콜 **60**(최소 **59**): share-market 줄기 판 99(최소 98) → 묶음 판. `CITY_SHARE_PROTOCOL_VERSION` 99 → **60**. e2e-fix는 프로토콜 바뀜 없음.
-  - 팩 **core@137**(main core@136 + 1, 줄기 판 175 → 묶음 판 — 처음 136으로 맞췄다가 main 6a91da1ad9가 136을 먼저 써서 137). `tuning.json`은 저절로 합쳐졌다(칸 919 → **935**: share-market
+  - 팩 **core@138**(main core@137 + 1, 줄기 판 175 → 묶음 판 — 처음 136으로 맞췄다가 main 6a91da1ad9가 136을, 5cf0d2d89a가 137을 먼저 써서 138). `tuning.json`은 저절로 합쳐졌다(칸 919 → **935**: share-market
     `city_share_round_ms`·`city_share_order_max` + main 6a91da1ad9 열넷, 같은 ID 없음). `id-changes.json` 바뀜 없음.
-  - `SIM_VERSION` **70**(main 6a91da1ad9가 올린 값 그대로 — 이 묶음은 시뮬 계수표에 선택 칸 둘만 더했고 시뮬은 쓰지 않는다). 시뮬 출력 형식 그대로.
+  - `SIM_VERSION` **71**(main 5cf0d2d89a가 올린 값 그대로 — 이 묶음은 시뮬 계수표에 선택 칸 둘만 더했고 시뮬은 쓰지 않는다). 시뮬 출력 형식 그대로.
   - 마이그레이션: 줄기 것 그대로. `20261121125203_city_share_market`(스냅숏 id `90e99c42-2912-427e-b53e-b00329f24354`, prevIds = 1116y 끝 둘 `ee4d36aa`·`ace6aeb5`).
     합친 뒤 `pnpm --filter @terra/server db:generate` = "No schema changes"(Verified). 다음 마이그레이션 `prevIds` = 끝 하나 **90e99c42-2912-427e-b53e-b00329f24354**.
 
@@ -33,11 +34,13 @@
 ## 손으로 푼 곳
 - `docs/WORKLOG.md`: 들어오는 쪽을 받은 뒤 `pnpm docs:index`(이 기록을 더한 뒤 다시). 다른 충돌은 없었다(두 줄기가 같이 바꾼 파일 = `docs/WORKLOG.md` 하나).
 - 판 번호: `packages/protocol/src/version.ts` 60 절(줄기 판 99)·`PROTOCOL_VERSION` 60·MIN 설명 "60부터 58판 이하"·`MIN_SUPPORTED_PROTOCOL_VERSION` 59, `cityShares.ts`
-  `CITY_SHARE_PROTOCOL_VERSION` 60(주석 "합칠 때 판을 맞춘다" 지움), `content/core/manifest.json` 137, ADR `2026-11-21-share-market.md` 명령·조회 줄(프로토콜 60/59).
+  `CITY_SHARE_PROTOCOL_VERSION` 60(주석 "합칠 때 판을 맞춘다" 지움), `content/core/manifest.json` 138, ADR `2026-11-21-share-market.md` 명령·조회 줄(프로토콜 60/59).
   줄기 기록은 고치지 않았다(줄기 판 그대로, 이 기록이 묶음 판 — 앞 묶음과 같은 방식).
 - main 6a91da1ad9 합치기: 충돌 없음. 두 쪽이 `manifest.json`을 똑같이 135 → 136으로 바꿔 저절로 136이 되어 **137**로 올렸다. 질문 번호가 겹쳤다 — main의
   `docs/questions/2026-11-21-npc-houses.md`가 2461~2467을 먼저 써서 share-market 질문 2461~2470을 **2471~2480**으로 옮겼다(질문 파일·governance-3 질문 표 줄·ADR·`cityShares/service.ts`
   주석·이 기록). 줄기 기록 `21-2216-share-market`의 2461~2470은 줄기 번호 그대로 두었다(= 지금 2471~2480). 손으로 푼 코드 충돌이 없어 전체 검사는 다시 돌리지 않았다(푸시 전 훅이 한 번 돈다).
+- main 5cf0d2d89a 합치기: `docs/WORKLOG.md`만 충돌(들어오는 쪽 + `pnpm docs:index`). `manifest.json`은 저절로 137이 되어 **138**로 올렸다. `e2e/economy.spec.ts`는 두 쪽이 다른 곳을
+  바꿔 저절로 합쳐졌다(e2e-fix = 시세 색, main = 광석 10 kg 묶음 문구). 손으로 푼 코드 충돌이 없어 전체 검사는 푸시 전 훅에서만 돈다.
 - 저절로 합쳐진 곳: 메시지 ko·en(8,748키씩, main 6a91da1ad9 합친 뒤 8,750키씩 — paraglide 다시 만듦), `tuning.json`, 서버 `tables.ts`·`schema.ts`·`session.ts`.
 - 파일 크기: 넘은 파일 없음. 큰 파일(main 6a91da1ad9 합친 뒤): `apps/server/src/app.ts` 999, `world/world.ts` 998, `npc/economy.ts` 997, `world/persist/tables.ts` 996, `sim/src/simulator/society.ts` 991, `db/schema.ts` 960,
   `session.ts` 952. 시장 새는 규칙: 새 코드에 `cityMap.get` 없음.
@@ -45,7 +48,7 @@
 ## 바꾼 파일과 이유
 | 파일 | 이유 |
 |---|---|
-| `content/core/manifest.json` | 팩 판 core@137 |
+| `content/core/manifest.json` | 팩 판 core@138 |
 | `docs/questions/2026-11-21-share-market.md`, `docs/questions/2026-11-21-governance-3.md`, `docs/adr/2026-11-21-share-market.md`, `apps/server/src/cityShares/service.ts` | 질문 번호 2461~2470 → 2471~2480 |
 | `packages/protocol/src/version.ts`, `cityShares.ts` | 프로토콜 60(최소 59), `CITY_SHARE_PROTOCOL_VERSION` 60 |
 | `docs/adr/2026-11-21-share-market.md` | 명령·조회 줄 판 번호 |
@@ -53,7 +56,7 @@
 | `docs/worklog/2026/11/21-2308-batch-1116z-merge.md`, `docs/WORKLOG.md` | 이 기록·목차 |
 
 ## 함께 바꿔야 하는 파일
-- 다음 판: 프로토콜 61(최소 60), 팩 138, SIM 71. 다음 마이그레이션 `prevIds` = **90e99c42-2912-427e-b53e-b00329f24354**(끝 하나).
+- 다음 판: 프로토콜 61(최소 60), 팩 139, SIM 72. 다음 마이그레이션 `prevIds` = **90e99c42-2912-427e-b53e-b00329f24354**(끝 하나).
 - `apps/server/src/app.ts`(999)·`world/world.ts`(998)·`npc/economy.ts`(997)·`world/persist/tables.ts`(996)·`sim/src/simulator/society.ts`(991)를 늘리면 새 모듈로 나눈다.
 - 화면 범위를 바꾸면 `apps/game/src/scope/scopeRoutes.ts`와 `e2e/dev.spec.ts` `TOOL_SCOPES`를 같이 바꾼다(e2e-fix).
 - 줄기 기록 `21-2216-share-market`의 "함께 바꿔야 하는 파일"·"건드리지 말 것"을 따른다. 앞 묶음 TODO 그대로: 거래소를 읽기만 할 때는 `peekMarket`, 다음 배포에서 옛
@@ -71,7 +74,10 @@
 - `pnpm check:content 154c22be52`(core@136 f8910427f14f, 단계 1·2·4a·4b), `pnpm check:docs 154c22be52`, `pnpm settings:cells --check`, `pnpm wiki:index --check`(항목 40개),
   `pnpm --filter @terra/server db:generate` = "No schema changes" 모두 통과.
 - main 6a91da1ad9 합친 뒤(core@137): `pnpm check:content 6a91da1ad9`(core@137 45611b7e1a40, 단계 1·2·4a·4b), `pnpm check:docs 6a91da1ad9`, 다국어(8,750키), `settings:cells --check`,
-  `wiki:index --check`, `db:generate` = "No schema changes" 통과. 전체 `pnpm check`는 푸시 전 훅에서 한 번 돈다(이 기록에는 결과를 적지 못함 — 합치기 보고에 적음).
+  `wiki:index --check`, `db:generate` = "No schema changes" 통과. 이 상태(6a91da1ad9 합친 65769434ab)로 푸시 전 훅의 전체 `pnpm check`(TEST_DATABASE_URL) 통과: 시험 파일
+  **862/862**, 시험 **6,190/6,190**(앞서 흔들린 `governance.db.test.ts`도 통과) — 푸시는 main이 또 바뀌어 거절됐다.
+- main 5cf0d2d89a 합친 뒤(core@138): `pnpm check:content 5cf0d2d89a`(core@138 b17a0ec26895, 단계 1·2·4a·4b), `pnpm check:docs 5cf0d2d89a`, 다국어(8,750키), `settings:cells --check`,
+  `db:generate` = "No schema changes" 통과. 전체 `pnpm check`는 푸시 전 훅에서 다시 돈다.
 - `apps/game`이 바뀌어(정부 지분 시장 칸·거래소 판·사업장 호가창) `pnpm build` 통과, `check-pwa` 통과, `pnpm check:bundle` 첫 화면 JS **110,768 B** / 상한 131,416 B(파일 7개,
   1116y 110,735 B에서 +33 B).
 - 화면 시험(한 번씩, 빌드한 앱): `share-market.spec.ts` **9/9**(10.3분), `build-mode.spec.ts` **9/9**(6.1분), `economy.spec.ts` **27/27**(4.1분 — 1116y의 시세 색 두 실패가 e2e-fix로 풀림),

@@ -2,8 +2,11 @@
 // 임시 지형(tempTerrain.ts)과 행성 값에서 만든 2차맵(@terra/planet/secondMap, 서버가 넘긴다)이 같은 함수를 쓴다.
 // - 지표 비용(천분율, 0 = 막힘): 번호는 protocol TERRAIN_SURFACE(= planet SM_SURFACE)와 같다. 0 ~ 3은 S1 임시값 그대로,
 //   4 ~ 10은 기획 질문 124·126 기술 기본안의 [임시] 출발값(Step 5 설정값 전): 얕은 물(하천 등급 1 ~ 2)은 걸어서 건너되 비싸다.
-// - 지형 칸 네 꼭짓점 높이 차가 CLIFF_RELIEF_CM 이상이면 벼랑(막힘). 엄폐 값 2(차폐: 빽빽한 숲·큰 바위)는 막힘(D-227 ①·D-234).
-//   planet secondMap SM_CLIFF_RELIEF_CM과 같다(서버 시험이 본다).
+// - 지형 칸 네 꼭짓점 높이 차가 CLIFF_RELIEF_CM 이상이면 가파른 비탈: 지표 비용 × STEEP_COST_PM ÷ 1000으로 느리게 지나간다(구간 빠르기가
+//   비용을 걸음 배율로 쓰므로 실제로 느리게 걷는다). 예전에는 막힘이었다 — 비탈에 둘러싸인 땅에 유닛이 갇혔다(사용자 지적 2026-11-21
+//   "갇혀버리는 문제 발생. 속도패널티를 받고 갈수있게하라", SIM_VERSION 68, ADR 2026-11-21-steep-slope-pace). 건물은 여전히 못 짓는다
+//   (비용 ≥ STEEP_COST_FLOOR = placement.ts blocked_terrain). planet secondMap SM_CLIFF_RELIEF_CM과 같다(서버 시험이 본다).
+// - 엄폐 값 2(차폐: 빽빽한 숲·큰 바위)는 막힘(D-227 ①·D-234).
 // - 숲 들어가기(docs/adr/2026-11-07-gather-objects.md, 사용자 지적 2026-11-07 "숲이나 건물로 진입 등의 상호작용 불가", SIM_VERSION 19):
 //   소품 그림 층(art)을 함께 주면 나무 그림(활엽수·침엽수·야자수)이 선 차폐 칸은 막지 않고 그 칸 지표 비용 × FOREST_COST_PM ÷ 1000으로
 //   지나간다(시야는 그대로 막는다 — 엄폐 값은 바꾸지 않는다). 큰 바위 등 다른 차폐는 그대로 막힘. art가 없으면(전투장·옛 호출) 예전 그대로.
@@ -35,8 +38,17 @@ export const SURFACE_COST: Readonly<Uint16Array> = Uint16Array.of(
   2500,
 );
 
-/** 이 이상이면 가파른 비탈이라 지나갈 수 없다(지형 칸 약 11.7m에 약 6.5m) */
+/** 이 이상이면 가파른 비탈이다(지형 칸 약 11.7m에 약 6.5m). 느리게 지나가고 건물은 못 짓는다 */
 export const CLIFF_RELIEF_CM = 650;
+
+/** [임시] 가파른 비탈 지나는 비용 배율(천분율) — 지표 비용의 4배(걷는 빠르기 1/4). 기획 수치 없음 */
+export const STEEP_COST_PM = 4000;
+
+/**
+ * 이 비용(천분율) 이상인 칸은 가파른 비탈이다(가장 싼 지표 1000 × STEEP_COST_PM ÷ 1000). 비탈이 아닌 칸의 가장 비싼 값
+ * (진흙 위 숲 1400 × 1.8 = 2,520, 얕은 물 2,500, 느려짐 소품 ≤ 1.5배)보다 크다(시험이 본다). 건물 배치가 이 값으로 비탈을 막는다
+ */
+export const STEEP_COST_FLOOR = Math.floor((1000 * STEEP_COST_PM) / 1000);
 
 /** 차폐 엄폐 값(지나갈 수 없다) */
 export const COVER_BLOCKING = 2;
@@ -111,7 +123,9 @@ export function placementCostsFromLayers(layers: TerrainLayers): Uint16Array {
   for (let ty = 0; ty < TERRAIN_SIZE; ty++) {
     for (let tx = 0; tx < TERRAIN_SIZE; tx++) {
       const kind = surface[ty * TERRAIN_SIZE + tx] ?? 0;
-      const cost = cellRelief(heights, tx, ty) >= CLIFF_RELIEF_CM ? 0 : (SURFACE_COST[kind] ?? 0);
+      const surfaceCost = SURFACE_COST[kind] ?? 0;
+      const cost =
+        cellRelief(heights, tx, ty) >= CLIFF_RELIEF_CM ? scaledCost(surfaceCost, STEEP_COST_PM) : surfaceCost;
       for (let dy = 0; dy < PLACEMENT_PER_TERRAIN; dy++) {
         const row = (ty * PLACEMENT_PER_TERRAIN + dy) * PLACEMENT_SIZE + tx * PLACEMENT_PER_TERRAIN;
         for (let dx = 0; dx < PLACEMENT_PER_TERRAIN; dx++) {

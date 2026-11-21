@@ -3,6 +3,7 @@ import { BASE_COST } from "../grid/costs.ts";
 import { firstDifference } from "../testSupport.ts";
 import { PLACEMENT_SIZE, TERRAIN_SIZE, TERRAIN_VERTEX_SIZE } from "../units.ts";
 import { TEMP_TERRAIN_GENERATOR_VERSION } from "../version.ts";
+import { STEEP_COST_PM } from "./layerCosts.ts";
 import { valueNoise } from "./noise.ts";
 import {
   CLIFF_RELIEF_CM,
@@ -83,7 +84,7 @@ describe("S1 임시 지형", () => {
     expect(SURFACE_COST[SURFACE_GRASS]).toBe(BASE_COST);
   });
 
-  it("지형 칸 하나가 배치 칸 2×2를 덮고, 물·가파른 비탈은 막힌다", () => {
+  it("지형 칸 하나가 배치 칸 2×2를 덮고, 물은 막히고 가파른 비탈은 지표 비용 × 4다", () => {
     const terrain = generateTempTerrain(4242);
     const costs = placementCostsFromTerrain(terrain);
     // 배치 칸 (px, py)는 지형 칸 (px ÷ 2, py ÷ 2)의 값을 따른다
@@ -93,8 +94,9 @@ describe("S1 임시 지형", () => {
         const tx = px >> 1;
         const ty = py >> 1;
         const surface = terrain.surface[ty * TERRAIN_SIZE + tx] ?? SURFACE_WATER;
-        const blocked = surface === SURFACE_WATER || terrainCellRelief(terrain, tx, ty) >= CLIFF_RELIEF_CM;
-        expected[py * PLACEMENT_SIZE + px] = blocked ? 0 : (SURFACE_COST[surface] ?? 0);
+        const steep = terrainCellRelief(terrain, tx, ty) >= CLIFF_RELIEF_CM;
+        const cost = surface === SURFACE_WATER ? 0 : (SURFACE_COST[surface] ?? 0);
+        expected[py * PLACEMENT_SIZE + px] = steep ? Math.floor((cost * STEEP_COST_PM) / 1000) : cost;
       }
     }
     expect(costs).toHaveLength(PLACEMENT_SIZE * PLACEMENT_SIZE);

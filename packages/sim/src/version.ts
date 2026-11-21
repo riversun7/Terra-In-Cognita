@@ -294,8 +294,11 @@
  *    2335 나, SocietyRun.claimHouse: 봉신 | 독립 + 체제 = 가문 성향 규칙식 foundingChoice, 재료를 낸 도시 휴먼 founders명이 가문원으로 옮김, 지분
  *    1,000주 = 그 가문 — 예전: 그 세력 도시). 세력 생김 줄 cause "claim"이 생긴다(요약 society 생김 원인 표에 새 열쇠 — 칸 모양 그대로). 출력 칸
  *    모양 그대로(npc.claims.spent = 뺀 재료) — 형식 23
+ * 68: 가파른 비탈(지형 칸 높이 차 ≥ CLIFF_RELIEF_CM)을 막힘에서 느린 길로(terrain/layerCosts.ts STEEP_COST_PM — 지표 비용 × 4, 구간
+ *    빠르기로 실제로 1/4 빠르기). 비탈에 둘러싸인 땅에 유닛이 갇혔다(사용자 지적 2026-11-21, ADR 2026-11-21-steep-slope-pace). 건물은
+ *    비탈(비용 ≥ STEEP_COST_FLOOR)에 여전히 못 짓는다. 비탈이 있는 지형의 길·경로 시간이 바뀐다
  */
-export const SIM_VERSION = 67;
+export const SIM_VERSION = 68;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

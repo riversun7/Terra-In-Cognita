@@ -222,24 +222,6 @@
         "n|col|public.diplomacy_treaties.id",
         "e|uniqueness|public.diplomacy_treaties.id"
       ]
-    },
-    {
-      "statementType": "alter_check",
-      "statementTarget": [
-        "table",
-        "public",
-        "governance_agendas"
-      ],
-      "writes": [
-        "s|ck|public.governance_agendas.governance_agendas_kind"
-      ],
-      "reads": [
-        "n|tbl|public.governance_agendas",
-        "n|sch|public",
-        "n|col|public.governance_agendas.kind",
-        "e|col|public.governance_agendas.kind"
-      ],
-      "sqlHash": "668597df7ebf1110"
     }
   ],
   "deltas": [
@@ -1011,13 +993,6 @@
         "name": "diplomacy_war_joins_state",
         "value": "\"state\" in ('requested', 'joined', 'declined', 'lapsed')",
         "entityType": "checks"
-      }
-    },
-    {
-      "op": "alter",
-      "key": "checks\u0000[\"public\",\"governance_agendas\",\"governance_agendas_kind\"]",
-      "set": {
-        "value": "\"kind\" in ('leader_election', 'leader_removal', 'regime_change', 'war_declaration', 'tax_change', 'city_independence', 'treasury_share_sale', 'peace', 'currency_stage', 'house_independence', 'treaty')"
       }
     }
   ]

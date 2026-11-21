@@ -16,6 +16,7 @@ export const AGENDA_KIND_TEXT = {
   peace: m.gov_kind_peace,
   currency_stage: m.gov_kind_currency_stage,
   house_independence: m.gov_kind_house_independence,
+  treasury_share_buy: m.gov_kind_treasury_share_buy,
 } satisfies Record<AgendaKind, Text>;
 
 export const AGENDA_STATUS_TEXT = {
@@ -63,6 +64,7 @@ export const GOVERNANCE_ERROR_TEXT = {
   not_at_war: m.gov_err_not_at_war,
   coup_protected: m.gov_err_coup_protected,
   not_majority_holder: m.gov_err_not_majority_holder,
+  not_enough_funds: m.gov_err_not_enough_funds,
   offline: m.gov_err_offline,
   timeout: m.gov_err_timeout,
 } satisfies Record<GovernanceResultCode | "offline" | "timeout", Text>;

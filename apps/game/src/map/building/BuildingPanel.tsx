@@ -15,7 +15,7 @@ import { FACILITY_CATEGORY_TEXT } from "../facilityCategoryText.ts";
 import { HarborPanel } from "../boats/HarborPanel.tsx";
 import { BOOK_PERIODS, type BookPeriod, loadOwner, useBooks } from "../business/booksData.ts";
 import { BooksAlert, BooksSummary, DayBars, GoodsSale, OwnerMoneyTools } from "../business/BooksParts.tsx";
-import { ExchangeFeeService, FxFeeService } from "../business/FxFeeService.tsx";
+import { ExchangeFeeService, FxFeeService, ShareFeeService } from "../business/FxFeeService.tsx";
 import { HaulService } from "../business/HaulService.tsx";
 import { RepairService } from "../business/RepairService.tsx";
 import { ReserveTools } from "../business/ReserveTools.tsx";
@@ -409,6 +409,7 @@ export function BuildingPanel({
             {booksOk ? <RepairService books={booksOk} reload={reloadAll} /> : null}
             {booksOk ? <FxFeeService books={booksOk} reload={reloadAll} /> : null}
             {booksOk ? <ExchangeFeeService books={booksOk} reload={reloadAll} /> : null}
+            {booksOk ? <ShareFeeService books={booksOk} reload={reloadAll} /> : null}
             {booksOk ? <HaulService books={booksOk} reload={reloadAll} /> : null}
             {stationPart("upgrade")}
           </>

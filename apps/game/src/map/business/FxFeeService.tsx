@@ -2,7 +2,12 @@
 // "거래소 주인이 정하고 위아래 한도만 설정값", 줄기 misc-574)가 같은 틀이다. 기획 D-564 1682("상업시설은 모두 외주를 받아 장사"), D-570 1822("판매자가
 // 정하고 적정가격을 보여 줌"). 주인이 요율(만분율)을 정하고, 곁에 적정 요율(설정 칸)과 정할 수 있는 아래·위 끝을 보인다. 명령은 business_price(item =
 // service:fx_fee 프로토콜 52 / service:exchange_fee 프로토콜 54). 판정·셈은 서버.
-import { EXCHANGE_FEE_ITEM, FX_FEE_ITEM, type FeeRateView } from "@terra/shared/businessBooks";
+import {
+  EXCHANGE_FEE_ITEM,
+  FX_FEE_ITEM,
+  SHARE_FEE_ITEM,
+  type FeeRateView,
+} from "@terra/shared/businessBooks";
 import { useState } from "react";
 import { parseAmountInput } from "../../economy/amount.ts";
 import { bpPercent } from "../../economy/economyText.ts";
@@ -130,6 +135,25 @@ export function ExchangeFeeService({
         hint: m.exchange_fee_service_hint(),
         saved: m.exchange_fee_service_saved(),
         part: "books-exchange-fee",
+      }}
+    />
+  );
+}
+
+/** 증권 거래소 이용료(D-587 질문 2474 다 — 지분 체결마다 판 쪽이 낸다) */
+export function ShareFeeService({ books, reload }: { readonly books: BooksOk; readonly reload: () => void }) {
+  if (!books.shareFee) return null;
+  return (
+    <FeeRateCard
+      books={books}
+      reload={reload}
+      fee={books.shareFee}
+      item={SHARE_FEE_ITEM}
+      text={{
+        title: m.share_fee_service_title(),
+        hint: m.share_fee_service_hint(),
+        saved: m.share_fee_service_saved(),
+        part: "books-share-fee",
       }}
     />
   );

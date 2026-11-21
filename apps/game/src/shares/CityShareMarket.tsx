@@ -4,6 +4,7 @@
 // - 호가창(OrderBook.tsx — 값 줄을 누르면 주문 값에 넣는다)·다음 회차 시계.
 // - 주문: 사기·팔기, 주문하는 쪽(내 계정 · 내 가문 — 가문장만), 1주 값 × 주 수, 묶일 돈·팔 수 있는 주 미리 보기. 내 걸린 주문(거두기).
 // - 국고 지분: 그 나라 사람에게 국고가 가진 주와, 자격이 있으면 국고 지분 팔기(독재 = 직권, 그 밖 = 안건 — WebSocket gov_propose treasury_share_sale).
+//   바뀜(줄기 share-market-2, D-587): 국고 칸·국고 지분 사기는 TreasuryShares.tsx. 주문 칸에 거래세·증권 거래소 이용료 요율(2474 다).
 // 판정·체결은 서버(city_share_order·city_share_cancel). 화면은 입력 모양과 묶일 돈만 미리 보인다.
 import type {
   CityShareHolderView,
@@ -12,8 +13,7 @@ import type {
 } from "@terra/shared/cityShares";
 import { useCallback, useEffect, useState } from "react";
 import { formatAmount, parseAmountInput } from "../economy/amount.ts";
-import { sendGovernance } from "../faction/governance/governanceCommands.ts";
-import { GOVERNANCE_ERROR_TEXT } from "../faction/governance/governanceText.ts";
+import { bpPercent } from "../economy/economyText.ts";
 import { RoundBars } from "../map/business/ShareMarket.tsx";
 import { localName, moneyName, pmText } from "../map/business/businessText.ts";
 import { m } from "../paraglide/messages.js";
@@ -21,6 +21,7 @@ import { getLocale } from "../paraglide/runtime.js";
 import { OrderBook } from "./OrderBook.tsx";
 import { loadCityShares, sendCityShare } from "./shareCommands.ts";
 import { CITY_SHARE_RESULT_TEXT, HOLDER_KIND_TEXT } from "./shareText.ts";
+import { TreasuryBuy, TreasurySale } from "./TreasuryShares.tsx";
 import "../map/building/building.css";
 import "./shares.css";
 
@@ -247,91 +248,12 @@ function OrderForm({
         </ul>
       ) : null}
       <p className="bp-muted">{m.city_shares_rest_note()}</p>
-      {notice ? (
-        <p className="bp-notice" role="status">
-          {notice}
+      {view.levy ? (
+        <p className="bp-muted" data-part="city-share-levy">
+          {view.levy.feeBp === null
+            ? m.city_shares_levy({ tax: bpPercent(view.levy.taxBp) })
+            : m.city_shares_levy_fee({ tax: bpPercent(view.levy.taxBp), fee: bpPercent(view.levy.feeBp) })}
         </p>
-      ) : null}
-    </section>
-  );
-}
-
-/** 국고 지분과 국고 지분 팔기(그 나라 사람만 — 자격이 있으면 직권·안건) */
-function TreasurySale({ view, reload }: { readonly view: CityShareMarketView; readonly reload: () => void }) {
-  const locale = getLocale();
-  const [count, setCount] = useState("");
-  const [minPrice, setMinPrice] = useState("");
-  const [notice, setNotice] = useState<string | null>(null);
-  const [sending, setSending] = useState(false);
-  const treasury = view.treasury;
-  if (!treasury) return null;
-  const countIn = parseAmountInput(count);
-  const priceIn = parseAmountInput(minPrice);
-  const valid =
-    countIn.kind === "ok" &&
-    priceIn.kind === "ok" &&
-    countIn.value > 0n &&
-    priceIn.value > 0n &&
-    countIn.value <= BigInt(treasury.shares);
-  return (
-    <section className="bp-card" aria-label={m.city_shares_treasury_sale()} data-part="city-share-treasury">
-      <h3 className="bp-card-title">{m.city_shares_treasury_sale()}</h3>
-      <p className="sm-wallet">{m.city_shares_treasury({ count: formatAmount(treasury.shares, locale) })}</p>
-      <p className="bp-muted">{m.city_shares_treasury_note()}</p>
-      {treasury.canPropose ? (
-        <>
-          <div className="bp-form-row">
-            <label className="bp-field">
-              <span>{m.shares_qty()}</span>
-              <input
-                className="bp-input"
-                inputMode="numeric"
-                value={count}
-                onChange={(event) => setCount(event.target.value)}
-              />
-            </label>
-            <label className="bp-field">
-              <span>{m.city_shares_treasury_min({ money: moneyName(view.asset) })}</span>
-              <input
-                className="bp-input"
-                inputMode="numeric"
-                value={minPrice}
-                onChange={(event) => setMinPrice(event.target.value)}
-              />
-            </label>
-          </div>
-          <button
-            type="button"
-            className="button-small bp-wide"
-            data-part="city-share-treasury-submit"
-            disabled={sending || !valid}
-            onClick={() => {
-              if (countIn.kind !== "ok" || priceIn.kind !== "ok") return;
-              setSending(true);
-              void sendGovernance({
-                t: "gov_propose",
-                kind: "treasury_share_sale",
-                cityId: view.cityId,
-                shares: String(countIn.value),
-                minPrice: String(priceIn.value),
-              })
-                .then((outcome) => {
-                  setNotice(
-                    outcome.ok
-                      ? outcome.action === "decided"
-                        ? m.city_shares_treasury_decided()
-                        : m.city_shares_treasury_opened()
-                      : GOVERNANCE_ERROR_TEXT[outcome.code](),
-                  );
-                  if (outcome.ok) setCount("");
-                  reload();
-                })
-                .finally(() => setSending(false));
-            }}
-          >
-            {treasury.dictatorship ? m.city_shares_treasury_decree() : m.city_shares_treasury_vote()}
-          </button>
-        </>
       ) : null}
       {notice ? (
         <p className="bp-notice" role="status">
@@ -425,6 +347,7 @@ export function CityShareMarket({ cityId }: { readonly cityId: number }) {
       ) : null}
       <OrderForm view={data} price={price} setPrice={setPrice} reload={reload} />
       <TreasurySale view={data} reload={reload} />
+      <TreasuryBuy view={data} reload={reload} />
     </div>
   );
 }

@@ -114,6 +114,11 @@ function AgendaCard({
             {m.gov_share_sale_target({ shares: agenda.shareSale.shares, price: agenda.shareSale.minPrice })}
           </p>
         ) : null}
+        {agenda.shareBuy ? (
+          <p className="faction-vote-detail">
+            {m.gov_share_buy_target({ shares: agenda.shareBuy.shares, price: agenda.shareBuy.maxPrice })}
+          </p>
+        ) : null}
         {totals && !agenda.byAuthority ? (
           <>
             <div className="faction-vote-bar" aria-hidden="true">

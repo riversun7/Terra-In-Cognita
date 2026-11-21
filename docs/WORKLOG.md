@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-21 20:30 | 누르는 곳 최소 크기 규칙 풀기(44px → 24px), 작은 단추 38px로 되돌림 | Claude Code | [21-2030-tap-target-relax](worklog/2026/11/21-2030-tap-target-relax.md) |
 | 2026-11-21 20:00 | 화면 시험 실패 고치기: 작은 단추 38px → 44px, 작은 창 첫 줄 선택자 | Claude Code | [21-2000-e2e-tap-size-peek-line](worklog/2026/11/21-2000-e2e-tap-size-peek-line.md) |
 | 2026-11-21 19:34 | NPC 자율행동 · AI 5단계 완료(외교 호감 · 자동 의뢰 · 1차맵 임무 · 180일/1만 유닛 검증 · 전체 회귀 통과) | Antigravity | [21-1934-npc-ai-phase5](worklog/2026/11/21-1934-npc-ai-phase5.md) |
 | 2026-11-21 19:30 | NPC 자율행동 · AI 4단계 구현(전투 이동 AI `moveAi.ts` 완성 · 7축/충성도 조우 작전 연결 · `/dev/npc-ai` 탭 4 확장) | Antigravity | [21-1930-npc-ai-phase4](worklog/2026/11/21-1930-npc-ai-phase4.md) |

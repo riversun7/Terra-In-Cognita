@@ -48,6 +48,14 @@ export interface GovernanceRules {
   readonly approvalNpcStart: number;
   readonly approvalRemovalEasePm: number;
   readonly approvalRebellionEase: number;
+  /** 지도자끼리 조약(diplomacy/ — 사용자 결정 D-588): 기간 상한(날)·공물 상한(‰)·공물 주기(ms — 봉신 공물 주기 칸과 같다)·참전 요청 답 기한(ms)·NPC 차분함 문턱(‰) */
+  readonly treatyMaxDays: number;
+  readonly tributeMaxPm: number;
+  readonly tributeEveryMs: number;
+  readonly warRequestMs: number;
+  readonly npcTreatyCalmPm: number;
+  /** 강화 조약 불가침 기간(ms — 세력·사회 d292_truce, 휴전·강화 조약의 기본 기간) */
+  readonly truceMs: number;
 }
 
 const whole = (value: number): number => (Number.isSafeInteger(value) && value > 0 ? value : 0);
@@ -107,6 +115,12 @@ export function governanceRulesFrom(c: SocietyCoefficients): GovernanceRules {
     approvalNpcStart: permille(g.approvalNpcStart),
     approvalRemovalEasePm: permille(g.approvalRemovalEasePm),
     approvalRebellionEase: Math.min(100, whole(g.approvalRebellionEase)),
+    treatyMaxDays: Math.max(1, Math.min(3650, whole(g.treatyMaxDays))),
+    tributeMaxPm: permille(g.tributeMaxPm),
+    tributeEveryMs: period(c.tributeEveryMs),
+    warRequestMs: period(g.warRequestMs),
+    npcTreatyCalmPm: permille(g.npcTreatyCalmPm),
+    truceMs: period(c.npc.truceMs),
   };
 }
 

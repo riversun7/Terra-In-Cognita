@@ -1,0 +1,67 @@
+/*
+ * 외교 칸(세력 화면 외교 탭, docs/adr/2026-11-21-diplomacy-treaties.md) — 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 판·제목·고르기 칸은 의결 칸(.gov-*)과 조약 카드는 세력 화면 .faction-item을 그대로 쓰고, 여기는 조항 고르기·조항 목록·참전 요청 줄만 둔다(모바일 390 기준 쌓는다).
+ */
+.dip-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
+}
+.dip-form > .gov-sub,
+.dip-form > .dip-clauses,
+.dip-form > .screen-actions {
+  flex-basis: 100%;
+}
+.dip-clauses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.dip-clauses > legend {
+  padding: 0;
+  margin-block-end: var(--space-1);
+}
+.dip-clauses > .faction-muted {
+  flex-basis: 100%;
+  font-size: var(--font-size-sm);
+}
+.dip-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--tap-min);
+}
+.dip-protection {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+}
+.dip-number {
+  max-width: 8rem;
+}
+.dip-clause-list,
+.dip-join-list,
+.dip-requests {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-sm);
+}
+.dip-join {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+}
+.dip-join-text {
+  overflow-wrap: anywhere;
+}

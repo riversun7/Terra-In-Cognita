@@ -26,7 +26,8 @@ import type { HouseRules } from "./rules.ts";
 import { type GovernanceAttached, attachGovernance } from "../governance/attach.ts";
 import { withGovernance } from "../governance/gateway.ts";
 import { type CitySharesAttached, attachCityShares } from "../cityShares/attach.ts";
-import type { HouseShareGateway } from "../cityShares/gateway.ts";
+import { type DiplomacyAttached, attachDiplomacy } from "../diplomacy/attach.ts";
+import type { HouseDiplomacyGateway } from "../diplomacy/gateway.ts";
 
 type HouseWorld = Pick<World, "status" | "persistence" | "npc" | "maps">;
 
@@ -46,12 +47,14 @@ export function attachHouses(options: {
     error(obj: object, message: string): void;
   };
 }): {
-  /** 가문 + 나라 의결(gov_*) + 도시 지분(city_share_*) 소켓(docs/adr/2026-11-21-governance.md·2026-11-21-share-market.md) */
-  gateway: HouseShareGateway;
+  /** 가문 + 나라 의결(gov_*) + 도시 지분(city_share_*) + 조약(dip_*) 소켓(docs/adr/2026-11-21-governance.md·share-market.md·diplomacy-treaties.md) */
+  gateway: HouseDiplomacyGateway;
   /** 나라 의결 서비스·조회 */
   governance: GovernanceAttached;
   /** 도시(정부) 지분 시장 서비스·조회(D-583 — cityShares/attach.ts) */
   cityShares: CitySharesAttached;
+  /** 지도자끼리 조약 서비스·조회(D-588 — diplomacy/attach.ts) */
+  diplomacy: DiplomacyAttached;
   /** 가문 도시(조회 — 세력 화면 "내 가문" 칸) */
   city: HouseCityService;
   /** 공고 옮기기 타이머를 멈춘다(앱을 닫을 때) */
@@ -183,6 +186,7 @@ export function attachHouses(options: {
   });
   // 도시(정부) 지분 시장(D-583 — cityShares/attach.ts): 의결이 승인한 국고 지분 팔기를 받고 같은 소켓으로 주문을 받는다
   let sharesRef: CitySharesAttached | undefined;
+  let diplomacyRef: DiplomacyAttached | undefined;
   // 나라 의결(안건·투표·선출·체제 전환 — governance/attach.ts): 같은 소켓으로 받고 1분 틱을 돈다
   const governance = attachGovernance({
     db: options.db,
@@ -199,6 +203,12 @@ export function attachHouses(options: {
     approvedShareSale: async (sale, nowMs) => {
       await sharesRef?.service.approvedSale(sale, nowMs);
     },
+    // 지도자끼리 조약(D-588): 조약 비준 집행·강화 제안 고리와 의결 틱 뒤 틱
+    diplomacy: () =>
+      diplomacyRef && {
+        hooks: diplomacyRef.service.hooks,
+        tick: () => diplomacyRef?.service.tick() ?? Promise.resolve(),
+      },
   });
   governanceRef = governance;
   const cityShares = attachCityShares({
@@ -210,10 +220,20 @@ export function attachHouses(options: {
     log: options.log,
   });
   sharesRef = cityShares;
+  const diplomacy = attachDiplomacy({
+    db: options.db,
+    world: () => options.world,
+    governance,
+    presets: options.presets,
+    now: options.now,
+    log: options.log,
+  });
+  diplomacyRef = diplomacy;
   return {
-    gateway: cityShares.wrap(withGovernance(gateway, governance.gateway)),
+    gateway: diplomacy.wrap(cityShares.wrap(withGovernance(gateway, governance.gateway))),
     governance,
     cityShares,
+    diplomacy,
     city,
     stop: () => {
       clearInterval(moveTimer);

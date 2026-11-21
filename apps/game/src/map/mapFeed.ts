@@ -489,6 +489,8 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
       message.t === "nation_tax_result" ||
       // 도시 지분 결과(D-583)는 정부 지분 시장 칸(shares/shareCommands.ts)이 받는다
       message.t === "city_share_result" ||
+      // 조약 결과(줄기 diplomacy)는 세력 화면 외교 탭(faction/diplomacy/diplomacyCommands.ts)이 받는다
+      message.t === "dip_result" ||
       // 사는 곳 고르기 결과(프로토콜 61)는 건물 판 사는 곳 카드(map/building/residenceData.ts)가 받는다
       message.t === "residence_result" ||
       // 배 결과(프로토콜 27)는 배 단추(boats/boatCommands.ts)가 받는다

@@ -33,7 +33,7 @@ import { writeAudit } from "../auth/store.ts";
 import type { Database } from "../db/client.ts";
 import { type CoupCredit, createCoupService } from "./coup.ts";
 import type { CoupSide, CoupStore } from "./coupStore.ts";
-import { createLeaderAgendas } from "./leaderAgendas.ts";
+import { type TreatyHooks, createLeaderAgendas } from "./leaderAgendas.ts";
 import type { LeaderStore } from "./leaderStore.ts";
 import { electionDecided, motionDecided } from "./early.ts";
 import { type Electorate, type Ruling, createElectorate } from "./electorate.ts";
@@ -120,6 +120,8 @@ export function createGovernanceService(o: {
   readonly leader: LeaderStore;
   /** 쿠데타 신용(D-584 — attach.ts가 credit/로 잇는다) */
   readonly credit?: CoupCredit | undefined;
+  /** 가결된 조약 비준 안건 집행(diplomacy/ — D-588, 의결 사슬 안에서 불린다 — 그 안에서 run을 부르지 않는다). 없으면 취소 */
+  readonly treaties?: () => TreatyHooks | undefined;
 }) {
   const tools = createElectorate(o);
   let chain: Promise<unknown> = Promise.resolve();
@@ -171,6 +173,7 @@ export function createGovernanceService(o: {
     tools,
     rules: o.rules,
     audit,
+    treaties: o.treaties,
   });
 
   const standing = async (userId: string): Promise<Standing | undefined> => {
@@ -351,7 +354,7 @@ export function createGovernanceService(o: {
     const { nation } = s;
     if (input.kind === "war_declaration" && !rules.warAgenda) return fail("kind_disabled");
     // 도시 독립 투표는 서버가 연다(질문 2434 (가) 답 D-583)
-    if (input.kind === "city_independence") return fail("kind_disabled");
+    if (input.kind === "city_independence" || input.kind === "treaty") return fail("kind_disabled");
     // 가문 독립 선언(질문 2454 — D-300, 투표 없이 바로. agendaId = 새 나라 행)
     if (input.kind === "house_independence") {
       const done = await leader.declareByPlayer(
@@ -686,6 +689,8 @@ export function createGovernanceService(o: {
         return o.store.finish(agenda.id, { status: "cancelled", enactedAtMs: nowMs });
       case "peace":
         return leader.enactPeace(agenda, nation, nowMs);
+      case "treaty":
+        return leader.enactTreaty(agenda, nation, nowMs);
       case "currency_stage":
         return leader.enactCurrency(agenda, nation, nowMs);
       case "treasury_share_sale": {
@@ -970,6 +975,8 @@ export function createGovernanceService(o: {
       serial(tick).catch((error: unknown) => {
         o.log?.error({ err: error }, "governance tick failed");
       }),
+    /** 의결 사슬에서 일을 돌린다(외교 서비스 — 틱·명령과 겹치지 않게). 사슬 안에서 다시 부르지 않는다 */
+    run: <T>(work: () => Promise<T>): Promise<T> => serial(work),
     /** 조회(view.ts)가 같은 자격 셈을 쓴다 */
     standing,
     mayPropose,

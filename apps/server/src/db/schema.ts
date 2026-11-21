@@ -947,6 +947,8 @@ export { currencyProfiles, factionIdentities, factionProfiles, opsGrants, opsSwi
 export * from "./houseSchema.ts";
 // 나라 의결 표(docs/adr/2026-11-21-governance.md)
 export * from "./governanceSchema.ts";
+// 지도자끼리 조약·참전 요청(사용자 결정 D-588 — docs/adr/2026-11-21-diplomacy-treaties.md)
+export { diplomacyTreaties, diplomacyWarJoins } from "./diplomacySchema.ts";
 // 나라 세금(질문 2322 나·2373 가 — 지도자가 정함): nationTaxSchema.ts
 export { nationTaxes } from "./nationTaxSchema.ts";
 // 신용 점수 깎은 몫(D-581 — docs/adr/2026-11-21-credit.md): creditSchema.ts

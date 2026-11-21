@@ -1,0 +1,238 @@
+// 조약·참전 요청 표 읽기·쓰기(SQL만 — 규칙은 service.ts). 표 정의 db/diplomacySchema.ts. docs/adr/2026-11-21-diplomacy-treaties.md
+import {
+  TREATY_STATES,
+  type TreatyClause,
+  type TreatyState,
+  WAR_JOIN_STATES,
+  type WarJoinState,
+} from "@terra/shared/treaty";
+import type { GovernanceQueryable } from "../governance/store.ts";
+import { clausesOf } from "./clauses.ts";
+
+export interface TreatyRow {
+  readonly id: number;
+  readonly nationA: number;
+  readonly nationB: number;
+  readonly authorNation: number;
+  readonly revision: number;
+  readonly clauses: readonly TreatyClause[];
+  readonly days: number;
+  readonly state: TreatyState;
+  readonly authorReady: boolean;
+  readonly agendaId: number | null;
+  readonly agendaNation: number | null;
+  readonly respondByMs: number | null;
+  readonly createdAtMs: number;
+  readonly updatedAtMs: number;
+  readonly activatedAtMs: number | null;
+  readonly expiresAtMs: number | null;
+  readonly endedAtMs: number | null;
+  readonly nextTributeMs: number | null;
+}
+
+export interface WarJoinRow {
+  readonly id: number;
+  readonly treatyId: number;
+  readonly requesterNation: number;
+  readonly joinerNation: number;
+  readonly enemyNation: number;
+  readonly state: WarJoinState;
+  readonly auto: boolean;
+  readonly createdAtMs: number;
+  readonly respondByMs: number;
+  readonly decidedAtMs: number | null;
+}
+
+const num = (value: unknown): number => Number(value);
+const numOrNull = (value: unknown): number | null =>
+  value === null || value === undefined ? null : Number(value);
+const oneOf = <T extends string>(list: readonly T[], value: unknown, fallback: T): T =>
+  list.find((entry) => entry === value) ?? fallback;
+
+const TREATY_COLUMNS = `id, nation_a, nation_b, author_nation, revision, clauses, days, state, author_ready, agenda_id, agenda_nation,
+  respond_by_ms, created_at_ms, updated_at_ms, activated_at_ms, expires_at_ms, ended_at_ms, next_tribute_ms`;
+
+function treatyOf(row: Record<string, unknown>): TreatyRow {
+  return {
+    id: num(row.id),
+    nationA: num(row.nation_a),
+    nationB: num(row.nation_b),
+    authorNation: num(row.author_nation),
+    revision: num(row.revision),
+    clauses: clausesOf(row.clauses),
+    days: num(row.days),
+    state: oneOf(TREATY_STATES, row.state, "declined"),
+    authorReady: row.author_ready === true,
+    agendaId: numOrNull(row.agenda_id),
+    agendaNation: numOrNull(row.agenda_nation),
+    respondByMs: numOrNull(row.respond_by_ms),
+    createdAtMs: num(row.created_at_ms),
+    updatedAtMs: num(row.updated_at_ms),
+    activatedAtMs: numOrNull(row.activated_at_ms),
+    expiresAtMs: numOrNull(row.expires_at_ms),
+    endedAtMs: numOrNull(row.ended_at_ms),
+    nextTributeMs: numOrNull(row.next_tribute_ms),
+  };
+}
+
+const JOIN_COLUMNS = `id, treaty_id, requester_nation, joiner_nation, enemy_nation, state, auto, created_at_ms, respond_by_ms, decided_at_ms`;
+
+function joinOf(row: Record<string, unknown>): WarJoinRow {
+  return {
+    id: num(row.id),
+    treatyId: num(row.treaty_id),
+    requesterNation: num(row.requester_nation),
+    joinerNation: num(row.joiner_nation),
+    enemyNation: num(row.enemy_nation),
+    state: oneOf(WAR_JOIN_STATES, row.state, "lapsed"),
+    auto: row.auto === true,
+    createdAtMs: num(row.created_at_ms),
+    respondByMs: num(row.respond_by_ms),
+    decidedAtMs: numOrNull(row.decided_at_ms),
+  };
+}
+
+export function createDiplomacyStore(pool: GovernanceQueryable) {
+  return {
+    async insertTreaty(input: {
+      nationA: number;
+      nationB: number;
+      clauses: readonly TreatyClause[];
+      days: number;
+      atMs: number;
+    }): Promise<TreatyRow> {
+      const { rows } = await pool.query(
+        `insert into diplomacy_treaties (nation_a, nation_b, author_nation, revision, clauses, days, state, author_ready, created_at_ms, updated_at_ms)
+         values ($1, $2, $1, 0, $3::jsonb, $4, 'proposed', false, $5, $5) returning ${TREATY_COLUMNS}`,
+        [input.nationA, input.nationB, JSON.stringify(input.clauses), input.days, input.atMs],
+      );
+      const row = rows[0];
+      if (!row) throw new Error("treaty insert");
+      return treatyOf(row);
+    },
+    /** 바뀌는 칸을 모두 쓴다(서버 하나 — 외교 서비스가 의결 사슬에서 순서대로 쓴다) */
+    async saveTreaty(row: TreatyRow, atMs: number): Promise<void> {
+      await pool.query(
+        `update diplomacy_treaties set author_nation = $2, revision = $3, clauses = $4::jsonb, days = $5, state = $6, author_ready = $7,
+           agenda_id = $8, agenda_nation = $9, respond_by_ms = $10, updated_at_ms = $11, activated_at_ms = $12, expires_at_ms = $13,
+           ended_at_ms = $14, next_tribute_ms = $15
+         where id = $1`,
+        [
+          row.id,
+          row.authorNation,
+          row.revision,
+          JSON.stringify(row.clauses),
+          row.days,
+          row.state,
+          row.authorReady,
+          row.agendaId,
+          row.agendaNation,
+          row.respondByMs,
+          atMs,
+          row.activatedAtMs,
+          row.expiresAtMs,
+          row.endedAtMs,
+          row.nextTributeMs,
+        ],
+      );
+    },
+    async treaty(id: number): Promise<TreatyRow | undefined> {
+      const { rows } = await pool.query(`select ${TREATY_COLUMNS} from diplomacy_treaties where id = $1`, [
+        id,
+      ]);
+      return rows[0] ? treatyOf(rows[0]) : undefined;
+    },
+    /** 그 나라가 든 조약(새것부터) */
+    async treatiesOf(nationId: number, limit: number): Promise<TreatyRow[]> {
+      const { rows } = await pool.query(
+        `select ${TREATY_COLUMNS} from diplomacy_treaties where nation_a = $1 or nation_b = $1 order by id desc limit $2`,
+        [nationId, limit],
+      );
+      return rows.map(treatyOf);
+    },
+    /** 열린 조약과 맺은 조약(틱 — 차례대로) */
+    async liveTreaties(): Promise<TreatyRow[]> {
+      const { rows } = await pool.query(
+        `select ${TREATY_COLUMNS} from diplomacy_treaties where state in ('proposed', 'negotiating', 'active') order by id`,
+      );
+      return rows.map(treatyOf);
+    },
+    async insertJoin(input: {
+      treatyId: number;
+      requesterNation: number;
+      joinerNation: number;
+      enemyNation: number;
+      auto: boolean;
+      atMs: number;
+      respondByMs: number;
+    }): Promise<WarJoinRow> {
+      const { rows } = await pool.query(
+        `insert into diplomacy_war_joins (treaty_id, requester_nation, joiner_nation, enemy_nation, state, auto, created_at_ms, respond_by_ms)
+         values ($1, $2, $3, $4, 'requested', $5, $6, $7) returning ${JOIN_COLUMNS}`,
+        [
+          input.treatyId,
+          input.requesterNation,
+          input.joinerNation,
+          input.enemyNation,
+          input.auto,
+          input.atMs,
+          input.respondByMs,
+        ],
+      );
+      const row = rows[0];
+      if (!row) throw new Error("war join insert");
+      return joinOf(row);
+    },
+    async finishJoin(
+      id: number,
+      state: WarJoinState,
+      atMs: number,
+      note: Record<string, unknown>,
+    ): Promise<void> {
+      await pool.query(
+        "update diplomacy_war_joins set state = $2, decided_at_ms = $3, note = $4::jsonb where id = $1",
+        [id, state, atMs, JSON.stringify(note)],
+      );
+    },
+    async join(id: number): Promise<WarJoinRow | undefined> {
+      const { rows } = await pool.query(`select ${JOIN_COLUMNS} from diplomacy_war_joins where id = $1`, [
+        id,
+      ]);
+      return rows[0] ? joinOf(rows[0]) : undefined;
+    },
+    /** 그 나라가 요청했거나 받은 참전 요청(새것부터) */
+    async joinsOf(nationId: number, limit: number): Promise<WarJoinRow[]> {
+      const { rows } = await pool.query(
+        `select ${JOIN_COLUMNS} from diplomacy_war_joins where requester_nation = $1 or joiner_nation = $1 order by id desc limit $2`,
+        [nationId, limit],
+      );
+      return rows.map(joinOf);
+    },
+    /** 답 기다리는 참전 요청(틱) */
+    async openJoins(): Promise<WarJoinRow[]> {
+      const { rows } = await pool.query(
+        `select ${JOIN_COLUMNS} from diplomacy_war_joins where state = 'requested' order by id`,
+      );
+      return rows.map(joinOf);
+    },
+    /**
+     * 그 조약에서 그 적을 두고 낸 요청이 있나(같은 요청을 두 번 내지 않는다). liveOnly = 요청됨·참가함만(사람이 다시 요청할 때), 아니면 끝난 것까지(보호 조약의
+     * 저절로 요청은 조약·적마다 한 번 [임시 2555])
+     */
+    async joinExists(
+      treatyId: number,
+      joinerNation: number,
+      enemyNation: number,
+      liveOnly: boolean,
+    ): Promise<boolean> {
+      const { rows } = await pool.query(
+        `select 1 from diplomacy_war_joins where treaty_id = $1 and joiner_nation = $2 and enemy_nation = $3
+           and ($4::boolean = false or state in ('requested', 'joined')) limit 1`,
+        [treatyId, joinerNation, enemyNation, liveOnly],
+      );
+      return rows.length > 0;
+    },
+  };
+}
+
+export type DiplomacyStore = ReturnType<typeof createDiplomacyStore>;

@@ -33,6 +33,11 @@ export const AGENDA_KINDS = [
    * NPC 가문은 성향 규칙식(D-323)과 옛 나라와의 힘 비(D-585)로 고른다
    */
   "house_independence",
+  /**
+   * 조약 비준(사용자 결정 D-588 — 질문 2497, D-444 167, docs/adr/2026-11-21-diplomacy-treaties.md): 외교 화면에서 지도자가 낸 조약(조항 카드 묶음)·받은 조약을 그 나라가
+   * 받아들이는 투표. 서버(외교 서비스 diplomacy/)만 연다 — gov_propose로는 올리지 않는다. 휴전·강화만 든 조약은 짧은 투표 기간, 독재는 투표 없이 지도자가 바로
+   */
+  "treaty",
 ] as const;
 export type AgendaKind = (typeof AGENDA_KINDS)[number];
 

@@ -51,6 +51,7 @@
     "./government": "./src/government.ts",
     "./residence": "./src/residence.ts",
     "./governance": "./src/governance.ts",
+    "./treaty": "./src/treaty.ts",
     "./holdings": "./src/holdings.ts",
     "./hospital": "./src/hospital.ts",
     "./house": "./src/house.ts",

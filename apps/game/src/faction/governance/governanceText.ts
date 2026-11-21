@@ -16,6 +16,7 @@ export const AGENDA_KIND_TEXT = {
   peace: m.gov_kind_peace,
   currency_stage: m.gov_kind_currency_stage,
   house_independence: m.gov_kind_house_independence,
+  treaty: m.gov_kind_treaty,
 } satisfies Record<AgendaKind, Text>;
 
 export const AGENDA_STATUS_TEXT = {

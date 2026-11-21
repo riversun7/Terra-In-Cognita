@@ -14,7 +14,8 @@ export type GovernanceOutcome =
 export type GovernanceRequest =
   | {
       readonly t: "gov_propose";
-      readonly kind: AgendaKind;
+      /** 조약 비준(treaty)은 서버(외교 서비스)만 연다 */
+      readonly kind: Exclude<AgendaKind, "treaty">;
       readonly regime?: GovernanceRegime;
       readonly targetNationId?: number;
       /** 국고 지분 팔기(질문 2438 답 D-583 — 정부 지분 시장 칸 shares/CityShareMarket.tsx) */

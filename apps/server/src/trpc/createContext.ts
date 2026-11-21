@@ -43,6 +43,7 @@ import type { HouseRules } from "../factionIdentity/rules.ts";
 import type { HouseCityService } from "../factionIdentity/houseCity.ts";
 import type { GovernanceAttached } from "../governance/attach.ts";
 import type { CitySharesAttached } from "../cityShares/attach.ts";
+import type { DiplomacyAttached } from "../diplomacy/attach.ts";
 import { createFactionIdentityServices, createFactionIdentityShared } from "../factionIdentity/services.ts";
 import { type NationEditShared, createNationEditorServices } from "../nationEdit/services.ts";
 import { type ContentEditShared, createSkillEditorServices } from "../contentEdit/services.ts";
@@ -122,6 +123,7 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
             readonly city: HouseCityService;
             readonly governance: GovernanceAttached;
             readonly cityShares?: CitySharesAttached | undefined;
+            readonly diplomacy?: DiplomacyAttached | undefined;
           }
         | undefined)
     | undefined;
@@ -261,6 +263,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
       temple: options.temple,
       governance: options.houseServices ? () => options.houseServices?.()?.governance.view : undefined,
       cityShares: options.houseServices ? () => options.houseServices?.()?.cityShares?.view : undefined,
+      diplomacy: options.houseServices ? () => options.houseServices?.()?.diplomacy?.view : undefined,
       hospital: options.hospital,
       ruins: options.ruins,
       secondMapLab: options.secondMapLab,

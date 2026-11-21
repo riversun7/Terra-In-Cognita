@@ -37,7 +37,8 @@ describe("거래소 건물", () => {
   it("짓기: 잠긴 종류·도시 밖·같은 도시 같은 종류(짓는 중 포함)는 막는다", () => {
     const records = [record(1, "goods_exchange", 5, 0)];
     expect(exchangeBuildProblem(catalog, records, "farm", 5)).toBeUndefined();
-    expect(exchangeBuildProblem(catalog, records, "stock_exchange", 6)).toBe("exchange_locked");
+    // 증권 거래소는 D-583(질문 2438 답)으로 잠금이 풀렸다
+    expect(exchangeBuildProblem(catalog, records, "stock_exchange", 6)).toBeUndefined();
     expect(exchangeBuildProblem(catalog, records, "unit_exchange", 6)).toBe("exchange_locked");
     expect(exchangeBuildProblem(catalog, records, "goods_exchange", null)).toBe("no_place");
     expect(exchangeBuildProblem(catalog, records, "goods_exchange", 5)).toBe("exchange_exists");

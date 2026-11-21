@@ -24,7 +24,9 @@ import { attachNationTaxes, nationTaxesOf } from "../government/nationTax.ts";
 import { applyNationTaxes, createNationTaxPolicy } from "../government/nationTaxPolicy.ts";
 import type { HouseRules } from "./rules.ts";
 import { type GovernanceAttached, attachGovernance } from "../governance/attach.ts";
-import { type HouseGovernanceGateway, withGovernance } from "../governance/gateway.ts";
+import { withGovernance } from "../governance/gateway.ts";
+import { type CitySharesAttached, attachCityShares } from "../cityShares/attach.ts";
+import type { HouseShareGateway } from "../cityShares/gateway.ts";
 
 type HouseWorld = Pick<World, "status" | "persistence" | "npc" | "maps">;
 
@@ -44,10 +46,12 @@ export function attachHouses(options: {
     error(obj: object, message: string): void;
   };
 }): {
-  /** 가문 + 나라 의결(gov_*) 소켓(docs/adr/2026-11-21-governance.md) */
-  gateway: HouseGovernanceGateway;
+  /** 가문 + 나라 의결(gov_*) + 도시 지분(city_share_*) 소켓(docs/adr/2026-11-21-governance.md·2026-11-21-share-market.md) */
+  gateway: HouseShareGateway;
   /** 나라 의결 서비스·조회 */
   governance: GovernanceAttached;
+  /** 도시(정부) 지분 시장 서비스·조회(D-583 — cityShares/attach.ts) */
+  cityShares: CitySharesAttached;
   /** 가문 도시(조회 — 세력 화면 "내 가문" 칸) */
   city: HouseCityService;
   /** 공고 옮기기 타이머를 멈춘다(앱을 닫을 때) */
@@ -177,6 +181,8 @@ export function attachHouses(options: {
     now: options.now,
     log: options.log,
   });
+  // 도시(정부) 지분 시장(D-583 — cityShares/attach.ts): 의결이 승인한 국고 지분 팔기를 받고 같은 소켓으로 주문을 받는다
+  let sharesRef: CitySharesAttached | undefined;
   // 나라 의결(안건·투표·선출·체제 전환 — governance/attach.ts): 같은 소켓으로 받고 1분 틱을 돈다
   const governance = attachGovernance({
     db: options.db,
@@ -189,16 +195,31 @@ export function attachHouses(options: {
       await applyNationTaxes(pool, taxTable(), nationRow, taxes, nowMs, null);
       return true;
     },
+    // 승인된 국고 지분 팔기(질문 2438 답 D-583) → 도시 지분 시장에 국고 팔 주문
+    approvedShareSale: async (sale, nowMs) => {
+      await sharesRef?.service.approvedSale(sale, nowMs);
+    },
   });
   governanceRef = governance;
+  const cityShares = attachCityShares({
+    world: () => options.world,
+    governance: () => governance,
+    rules: () => options.rules().cityShares,
+    presets: options.presets,
+    now: options.now,
+    log: options.log,
+  });
+  sharesRef = cityShares;
   return {
-    gateway: withGovernance(gateway, governance.gateway),
+    gateway: cityShares.wrap(withGovernance(gateway, governance.gateway)),
     governance,
+    cityShares,
     city,
     stop: () => {
       clearInterval(moveTimer);
       clearInterval(taxTimer);
       governance.stop();
+      cityShares.stop();
     },
   };
 }

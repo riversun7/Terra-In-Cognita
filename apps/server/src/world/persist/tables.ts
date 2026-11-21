@@ -1,5 +1,6 @@
 // 월드 쓰기 대기열이 쓰는 표(열 이름은 src/db/schema.ts와 같다) — docs/adr/2026-10-31-s3-server-stage.md 1절
 // 쓰는 차례가 곧 외래 키 차례다: 소유 주체 → 계정 → 유닛·건물 → … → 거래 → 항목. 지우기는 거꾸로 한다.
+import { CITY_SHARE_TABLES } from "../../cityShares/table.ts";
 import { CREDIT_TABLES } from "../../credit/table.ts";
 
 export interface TableSpec {
@@ -902,6 +903,7 @@ export const WORLD_TABLES = {
     key: [],
   },
   ...CREDIT_TABLES,
+  ...CITY_SHARE_TABLES,
 } as const satisfies Record<string, TableSpec>;
 
 export type WorldTable = keyof typeof WORLD_TABLES;
@@ -975,6 +977,8 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "businessShareOrders",
   "businessShareRounds",
   "creditMarks",
+  "cityShareOrders",
+  "cityShareRounds",
   "marketBooks",
   "marketOrders",
   "marketTrades",

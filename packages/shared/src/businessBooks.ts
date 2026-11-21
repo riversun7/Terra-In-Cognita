@@ -12,6 +12,7 @@
 import type { FairPriceView } from "./fairPrice.ts";
 import { buildingLocation, cargoLocation } from "./goodsPlaces.ts";
 import type { LocalizedName } from "./roster.ts";
+import type { ShareBookView, ShareExpectedView } from "./shareBook.ts";
 
 /** 사업장 지분 자산 코드(원장 자산 코드 꼴 앞머리:ID — ledger_accounts_asset_format에 맞는다) */
 export function businessShareAsset(buildingId: number): string {
@@ -443,6 +444,10 @@ export interface ShareMarketView {
   readonly orderMax: number;
   /** 최근 회차(오래된 차례, 체결 없는 회차는 빼고 최근 24개) */
   readonly rounds: readonly ShareRoundView[];
+  /** 호가창(값마다 걸린 주 — D-583 "호가창처럼", shareBook.ts). 옛 응답에는 없다 */
+  readonly book?: ShareBookView | undefined;
+  /** 지금 닫으면 날 체결가(동시호가 미리 보기). 옛 응답에는 없다 */
+  readonly expected?: ShareExpectedView | null | undefined;
 }
 
 export type BusinessBooksResponse =

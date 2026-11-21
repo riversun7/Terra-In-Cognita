@@ -12,6 +12,7 @@
 // 바뀜(질문 2012·2018 답): 지도자 덧말에 지배 가문, 하루 값 아래 가문 이동 정책 칸(HouseEntryPolicy.tsx — 도시 주인·독립 나라 가문장이 정한다).
 // 바뀜(D-574): 지도자 덧말에 나라를 이끄는 방식(체제 — 10), 가문 도시면 다른 가문 짓기 정책 칸(HouseBuildPolicy.tsx — 2124).
 // 바뀜(tax-2, 질문 2322 나·2373 가): 하루 값 아래 나라 세금 칸(NationTaxPolicy.tsx — 모두 보고 지도자가 정한다).
+// 바뀜(D-583, 질문 2438 답): 나라 세금 아래 정부 지분 시장 칸(shares/CityShareMarket.tsx — 주주 전체·호가창·주문·국고 지분 팔기).
 import type { GovernmentResponse } from "@terra/shared/government";
 import { useEffect, useId, useRef } from "react";
 import { RecruitPanel } from "../economy/RecruitPanel.tsx";
@@ -33,6 +34,7 @@ import {
 import { HouseBuildPolicy } from "./HouseBuildPolicy.tsx";
 import { HouseEntryPolicy } from "./HouseEntryPolicy.tsx";
 import { NationTaxPolicy } from "./NationTaxPolicy.tsx";
+import { CityShareMarket } from "../shares/CityShareMarket.tsx";
 import { MayorFact } from "./MayorFact.tsx";
 import { PersonFact } from "./PersonFact.tsx";
 import "../economy/economy.css";
@@ -172,6 +174,13 @@ export default function GovernmentDialog({ government, onClose, via = "building"
         </section>
         <GovernmentDay day={city.day} />
         {government.taxes ? <NationTaxPolicy taxes={government.taxes} /> : null}
+        {/* 정부 지분 시장(D-583 — 주주 전체·호가창·주문·국고 지분 팔기) */}
+        <section className="gov-section" aria-labelledby={`${titleId}-shares`} data-part="government-shares">
+          <h3 id={`${titleId}-shares`} className="gov-section-title">
+            {m.city_shares_title()}
+          </h3>
+          <CityShareMarket cityId={city.id} />
+        </section>
         {government.houseEntry ? <HouseEntryPolicy cityId={city.id} policy={government.houseEntry} /> : null}
         {government.houseEntry?.build ? (
           <HouseBuildPolicy

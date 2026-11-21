@@ -17,6 +17,10 @@ export type GovernanceRequest =
       readonly kind: AgendaKind;
       readonly regime?: GovernanceRegime;
       readonly targetNationId?: number;
+      /** 국고 지분 팔기(질문 2438 답 D-583 — 정부 지분 시장 칸 shares/CityShareMarket.tsx) */
+      readonly cityId?: number;
+      readonly shares?: string;
+      readonly minPrice?: string;
     }
   | { readonly t: "gov_vote"; readonly agendaId: number; readonly choice: string }
   | { readonly t: "gov_candidate"; readonly agendaId: number }

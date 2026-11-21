@@ -21,6 +21,13 @@ export interface BusinessCoefficients {
   /** [임시] 한 사람이 한 회차에 걸어 둘 수 있는 지분 주문 수(환전 ORDER_MAX와 같은 값) */
   readonly shareOrderMax: number;
   /**
+   * [임시] 도시(정부) 지분 동시호가 주기(ms — 기획 D-583 "호가창처럼", D-125 동시호가 그대로, 서버 cityShares 줄기, docs/adr/2026-11-21-share-market.md).
+   * 선택 칸 — 없으면 사업장 지분 주기(shareRoundMs). 시뮬은 쓰지 않는다
+   */
+  readonly cityShareRoundMs?: number | undefined;
+  /** [임시] 한 사람(또는 가문)이 한 회차에 걸어 둘 수 있는 도시 지분 주문 수(모든 도시 합). 선택 칸 — 없으면 shareOrderMax */
+  readonly cityShareOrderMax?: number | undefined;
+  /**
    * [임시] 지급준비금 임금 상승 여유(‰, 기획 D-564 1623 "임금이 상승할 경우도 고려하여 여유 있게"). 정산 때 자동 계산한 필요액(다음 정산
    * 주기까지 임금 + 한 달치 보증금 모자람)에 (1000 + 이 값)/1000을 곱한다
    */
@@ -168,6 +175,8 @@ export const START_BUSINESS: BusinessCoefficients = {
   shareCount: 1000,
   shareRoundMs: 1_800_000,
   shareOrderMax: 10,
+  cityShareRoundMs: 1_800_000,
+  cityShareOrderMax: 10,
   reserveMarginPm: 200,
   reserveDefaultPm: 1000,
   serviceFeePm: 200,

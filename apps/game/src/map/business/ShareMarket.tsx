@@ -3,11 +3,13 @@
 // - 주주: 이름·몫(%) 막대(가장 많은 주주가 관리 — 정산·값·임금·임대료).
 // - 시장: 지난 체결가·다음 회차·걸린 살·팔 합, 내 지분·지갑, 주문(사기·팔기, 1주 값 × 주 수), 내 걸린 주문(거두기), 최근 체결 막대.
 // - 판정·체결은 서버(business_share_order·business_share_cancel, 프로토콜 38). 화면은 입력 모양과 묶일 돈만 미리 보인다.
+// - 바뀜 (D-583, docs/adr/2026-11-21-share-market.md): 시장 칸 아래 호가창(값마다 걸린 주·지금 닫으면 날 값·다음 회차 시계 — shares/OrderBook.tsx).
 import type { BookHolder, ShareMarketView } from "@terra/shared/businessBooks";
 import { useState } from "react";
 import { formatAmount, parseAmountInput } from "../../economy/amount.ts";
 import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
+import { OrderBook } from "../../shares/OrderBook.tsx";
 import { timeText } from "./booksData.ts";
 import { type BusinessCommand, sendBusinessCommand } from "./businessCommands.ts";
 import { RESULT_TEXT, moneyName, ownerText, pmText } from "./businessText.ts";
@@ -131,6 +133,17 @@ export function ShareMarket({ buildingId, holders, market, reload, holdersOnly =
             {market.issued ? null : <p className="bp-muted">{m.shares_not_issued()}</p>}
             {market.rounds.length > 0 ? <RoundBars rounds={market.rounds} /> : null}
           </section>
+          {market.book ? (
+            // 호가창(D-583 "호가창처럼" — 값마다 걸린 주, 값 줄을 누르면 주문 값에)
+            <OrderBook
+              book={market.book}
+              expected={market.expected}
+              money={money}
+              nextRoundMs={market.nextRoundMs}
+              onPick={setPrice}
+              onDue={reload}
+            />
+          ) : null}
           <section className="bp-card" aria-label={m.shares_order()}>
             <h3 className="bp-card-title">{m.shares_order()}</h3>
             <div className="bp-seg" role="radiogroup" aria-label={m.shares_side()}>
@@ -244,8 +257,8 @@ export function ShareMarket({ buildingId, holders, market, reload, holdersOnly =
   );
 }
 
-/** 최근 체결가 막대(가장 높은 값 = 가득) */
-function RoundBars({ rounds }: { readonly rounds: ShareMarketView["rounds"] }) {
+/** 최근 체결가 막대(가장 높은 값 = 가득) — 정부 지분 시장(shares/CityShareMarket.tsx)도 쓴다 */
+export function RoundBars({ rounds }: { readonly rounds: ShareMarketView["rounds"] }) {
   const locale = getLocale();
   let top = 1n;
   for (const round of rounds)

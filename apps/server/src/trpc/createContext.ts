@@ -42,6 +42,7 @@ import { createExpTableEditorServices } from "../expTableEdit/services.ts";
 import type { HouseRules } from "../factionIdentity/rules.ts";
 import type { HouseCityService } from "../factionIdentity/houseCity.ts";
 import type { GovernanceAttached } from "../governance/attach.ts";
+import type { CitySharesAttached } from "../cityShares/attach.ts";
 import { createFactionIdentityServices, createFactionIdentityShared } from "../factionIdentity/services.ts";
 import { type NationEditShared, createNationEditorServices } from "../nationEdit/services.ts";
 import { type ContentEditShared, createSkillEditorServices } from "../contentEdit/services.ts";
@@ -116,7 +117,13 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   houseRules?: (() => HouseRules) | undefined;
   /** 가문 묶음(가문 도시 조회 — factionIdentity/houseCity.ts, 나라 의결 — governance/attach.ts). DB가 있는 앱 */
   houseServices?:
-    | (() => { readonly city: HouseCityService; readonly governance: GovernanceAttached } | undefined)
+    | (() =>
+        | {
+            readonly city: HouseCityService;
+            readonly governance: GovernanceAttached;
+            readonly cityShares?: CitySharesAttached | undefined;
+          }
+        | undefined)
     | undefined;
   /** 설정 칸 패널(접근자·속도 제한기·쓰기 차례, src/tuning/services.ts). 인증이 켜져 있어야 쓴다 */
   tuning?: TuningShared | undefined;
@@ -253,6 +260,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
       fusion: options.fusion,
       temple: options.temple,
       governance: options.houseServices ? () => options.houseServices?.()?.governance.view : undefined,
+      cityShares: options.houseServices ? () => options.houseServices?.()?.cityShares?.view : undefined,
       hospital: options.hospital,
       ruins: options.ruins,
       secondMapLab: options.secondMapLab,

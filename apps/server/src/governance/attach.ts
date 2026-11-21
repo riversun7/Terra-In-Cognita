@@ -8,10 +8,10 @@ import type { World } from "../world/world.ts";
 import type { CombatCatalog, CombatCoefficients } from "@terra/sim";
 import { createCoupStore } from "./coupStore.ts";
 import { type GovernanceGateway, createGovernanceGateway } from "./gateway.ts";
-import { worldGovernancePort } from "./port.ts";
+import { type GovernancePort, worldGovernancePort } from "./port.ts";
 import type { GovernanceRules } from "./rules.ts";
 import { type ApprovedShareSale, type GovernanceService, createGovernanceService } from "./service.ts";
-import { createGovernanceStore } from "./store.ts";
+import { type GovernanceStore, createGovernanceStore } from "./store.ts";
 import { type GovernanceView, createGovernanceView } from "./view.ts";
 
 /** 의결 틱 간격(ms) */
@@ -21,6 +21,9 @@ const GOVERNANCE_BOOT_POLL_MS = 5_000;
 
 export interface GovernanceAttached {
   readonly service: GovernanceService;
+  /** 세계 포트·표(도시 지분 시장 cityShares/attach.ts가 주주 이름·지배 가문을 읽는다) */
+  readonly port: GovernancePort;
+  readonly store: GovernanceStore;
   readonly view: GovernanceView;
   readonly gateway: GovernanceGateway;
   stop(): void;
@@ -80,6 +83,8 @@ export function attachGovernance(o: {
   if (!o.manual) first();
   return {
     service,
+    port,
+    store,
     view,
     gateway,
     stop: () => {

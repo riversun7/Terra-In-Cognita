@@ -32,7 +32,7 @@ const EMPTY: Omit<GovernanceResponse, "status"> = {
   warTargets: [],
 };
 
-/** 의결 칸 올리기 목록에 넣지 않는 안건: 세율(나라 세금 명령이 연다 — 2407 가)·도시 독립(서버가 연다 — 2434 (가))·국고 지분 팔기(칸 입력은 시장 줄기 화면 — 2438) */
+/** 의결 칸 올리기 목록에 넣지 않는 안건: 세율(나라 세금 명령이 연다 — 2407 가)·도시 독립(서버가 연다 — 2434 (가))·국고 지분 팔기(칸 입력은 정부 지분 시장 칸 — 게임 shares/CityShareMarket.tsx, 2438) */
 const NOT_LISTED: ReadonlySet<AgendaKind> = new Set([
   "tax_change",
   "city_independence",

@@ -3,7 +3,7 @@
 // - 머리: 시설 이름·레벨, 분류 칩, 주인 이름표(소유자 이름 또는 가장 많은 주주 이름·몫, 내 것이면 "내 것" 표시 — "남의 건물" 대신).
 // - 칸(탭): 개요(하는 일·상태·안에 있는 유닛·채집소 요약·배 시설·정부) / 일꾼(일꾼·일자리·임대·계약) / 창고(채집소 창고·사업장 물건) /
 //   장부(요약·막대 → [재무 보기] 화면) / 지분(주주·동시호가) / 관리(주인·대주주·운영자: 임금·임대료·정산·넣기·값·레벨 올리기).
-//   사업장이 아닌 건물은 개요만. 관리 칸은 관리할 수 있을 때만.
+//   사업장이 아닌 건물은 개요만. 관리 칸은 관리할 수 있을 때만. 증권 거래소 건물은 개요 칸에 거래소 판(shares/ShareHub.tsx — D-583).
 // - 아래 고정: 보내는 유닛 줄 + [들어가기]·[닫기]. 모바일 우선(390px) — 판 높이 안에서 칸 몸만 넘긴다.
 // - 반경 고리: 고른 채집소에 반경이 있으면(오브젝트 채집소) 칸과 상관없이 그린다(사용자 요청 "건물선택시 오브젝트 포함할 반경 표시").
 import type { GatherBuildingResponse } from "@terra/shared/gather";
@@ -25,6 +25,8 @@ import type { GatherState } from "../gather/gatherState.ts";
 import { StationPanel, useStation } from "../gather/StationPanel.tsx";
 import { BuildingLabor, useLaborBuilding } from "./BuildingLabor.tsx";
 import type { BuildingOwnerResponse } from "@terra/shared/businessBooks";
+import { STOCK_EXCHANGE_FACILITY } from "@terra/shared/cityShares";
+import { ShareHub } from "../../shares/ShareHub.tsx";
 import "./building.css";
 
 export type BuildingTab = "overview" | "work" | "storage" | "books" | "shares" | "manage";
@@ -292,6 +294,10 @@ export function BuildingPanel({
               </section>
             ) : null}
             {extra}
+            {ok?.facilityId === STOCK_EXCHANGE_FACILITY && ok.level > 0 ? (
+              // 증권 거래소 주기능(D-583): 그 나라 정부 지분·사업장 지분 시장
+              <ShareHub key={buildingId} buildingId={buildingId} />
+            ) : null}
             {ok?.harbor ? (
               <HarborPanel
                 key={buildingId}

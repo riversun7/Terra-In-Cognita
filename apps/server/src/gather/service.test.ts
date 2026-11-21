@@ -626,7 +626,7 @@ describe("배에서 캐기(기획 D-541 1280 가)", () => {
     r.gather.stop();
   });
 
-  it("광석 직접 채집(1g·묶음 10kg·50 + VIT × 5): 묶음 크기(10,000)가 아니라 gatherOreGrams(1g)로 수십~수백 g 획득", async () => {
+  it("광석 직접 채집(1g·묶음 10kg·50 + VIT × 5): 묶음 크기(10,000)가 아니라 수확량 × gatherOreGrams(20g)로 1~10kg 획득", async () => {
     const mineDef: FacilityDef = {
       ...STOREHOUSE,
       id: "mine",
@@ -658,8 +658,8 @@ describe("배에서 캐기(기획 D-541 1280 가)", () => {
       ok: true,
     });
     await until(() => r.ledger.balanceOf(OWNER, ORE, cargoLocation(1)) > 0n);
-    // VIT 20 → 50 + 20 × 5 = 150g / 사이클 (10,000g 묶음 곱셈이 아님)
-    expect(r.ledger.balanceOf(OWNER, ORE, cargoLocation(1))).toBe(150n);
+    // VIT 20 → (50 + 20 × 5) × 20g = 3,000g / 사이클 (10,000g 묶음 곱셈이 아님 — D-587 11 나)
+    expect(r.ledger.balanceOf(OWNER, ORE, cargoLocation(1))).toBe(3000n);
     r.gather.stop();
   });
 });

@@ -88,7 +88,7 @@ export interface GatherSettings {
   readonly tierProgressStep?: number | undefined;
   /** 진행 1의 시간(N44 n44_tick_ms, 옛 1분 = 60,000). 없으면 60,000 */
   readonly tickMs?: number | undefined;
-  /** 광석 수확 1단위 무게(g, N44 n44_ore_grams, 1). 없으면 1 */
+  /** 광석 수확 1단위 무게(g, N44 n44_ore_grams, 팩 20). 없으면 1 */
   readonly oreGrams?: number | undefined;
   /** 컨디션 합계 상한(±, 49 N43 condition_cap, D-534 출발 40). 없으면 0(컨디션을 쓰지 않는다) */
   readonly conditionCap?: number | undefined;

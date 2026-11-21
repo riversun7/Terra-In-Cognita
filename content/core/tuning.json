@@ -1084,16 +1084,16 @@
         "ko": "광석 수확 1단위 무게(g)",
         "en": "Ore grams per yield unit (g)"
       },
-      "value": 1,
+      "value": 20,
       "structural": false,
       "unit": "grams",
       "min": 1,
       "max": 1000000,
       "desc": {
-        "ko": "광석 수확량 1당 무게(g). 광산 수확량(50 + VIT × 5, 상한 500)과 곱해 한 사이클에 수십~수백 g을 캔다.",
-        "en": "Grams per unit of ore yield. Multiplied by mine yield (50 + VIT × 5, cap 500) to yield tens to hundreds of grams per cycle."
+        "ko": "광석 수확량 1당 무게(g). 광산 수확량(50 + VIT × 5, 상한 500)과 곱해 한 사이클에 1~10kg을 캔다(g 단위 바뀜 전 광산 한 사이클 무게와 같다 — D-587 11 나).",
+        "en": "Grams per unit of ore yield. Multiplied by mine yield (50 + VIT × 5, cap 500) to yield 1–10 kg per cycle (same mass per cycle as before the gram unit change — D-587 11 B)."
       },
-      "source": "ADR 2026-10-31-economy-core \"바뀜 (D-506·D-507)\" · ADR 2026-11-21-ore-grams-and-cleanup"
+      "source": "ADR 2026-10-31-economy-core \"바뀜 (D-506·D-507)\" · ADR 2026-11-21-ore-grams-and-cleanup · 질문 2511(D-587 11 나)"
     },
     {
       "id": "d506_storage_per_level",

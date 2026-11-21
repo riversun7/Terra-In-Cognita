@@ -198,14 +198,15 @@ test.describe("admin 시안 자료(시험 거래소)", () => {
     });
     await expect(rolled).toHaveCount(1);
     await expect(rolled.locator(".eco-tag")).toHaveText(message("ko", "economy_tier_rolled"));
-    // 옛 1차 생산 규칙(D-507): 기준 유닛(스탯 10) STR → 속도 ×1, VIT → 한 번에 2개(1 + ⌊10 × 0.10⌋, 최대 10), 한 번 T0~T3 시간
+    // 1차 생산 규칙(D-507, 광석 g 단위 core@137): 기준 유닛(스탯 10) STR → 속도 ×1, VIT → 한 번에 100(50 + ⌊10 × 5⌋, 최대 500 — 수확 1단위 =
+    // n44_ore_grams 20g이라 한 번에 2kg, 옛 1 + ⌊10 × 0.10⌋ = 2개 × 1kg과 같은 무게, ADR 2026-11-22-ore-yield-mass), 한 번 T0~T3 시간
     await expect(rolled.locator('[data-part="worker-effect"]')).toHaveText(
       message("ko", "economy_worker_effect", {
         stat: 10,
         primary: "STR",
         progress: 1,
         secondary: "VIT",
-        count: 2,
+        count: 100,
       }),
     );
     await expect(rolled.locator('[data-part="worker-formula"]')).toHaveText(
@@ -213,9 +214,9 @@ test.describe("admin 시안 자료(시험 거래소)", () => {
         primary: "STR",
         secondary: "VIT",
         divisor: 20,
-        base: 1,
-        rate: "0.10",
-        cap: 10,
+        base: 50,
+        rate: "5.00",
+        cap: 500,
       }),
     );
     await expect(rolled.locator('[data-part="worker-harvest"]')).toContainText("T3");

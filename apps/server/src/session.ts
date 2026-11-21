@@ -48,22 +48,7 @@ import {
   GATHER_PROTOCOL_VERSION,
   HOSPITAL_PROTOCOL_VERSION,
   CITIZENSHIP_PROTOCOL_VERSION,
-  HOUSE_CITY_PROTOCOL_VERSION,
-  HOUSE_INDEPENDENCE_PROTOCOL_VERSION,
-  HOUSE_HOME_PROTOCOL_VERSION,
-  HOUSE_ENTRY_POLICY_PROTOCOL_VERSION,
-  HOUSE_HEIR_PROTOCOL_VERSION,
-  HOUSE_MEMBER_PROTOCOL_VERSION,
-  HOUSE_POLICY_PROTOCOL_VERSION,
-  NATION_TAX_PROTOCOL_VERSION,
   RESIDENCE_PROTOCOL_VERSION,
-  HOUSE_PROTOCOL_VERSION,
-  HOUSE_RECRUIT_PROTOCOL_VERSION,
-  COUP_PROTOCOL_VERSION,
-  GOVERNANCE_PROTOCOL_VERSION,
-  CITY_SHARE_PROTOCOL_VERSION,
-  HOUSE_LEAGUE_PROTOCOL_VERSION,
-  DIPLOMACY_PROTOCOL_VERSION,
   BOAT_PROTOCOL_VERSION,
   GEAR_PROTOCOL_VERSION,
   HARBOR_PROTOCOL_VERSION,
@@ -75,6 +60,7 @@ import {
   isProtocolSupported,
 } from "@terra/protocol";
 import type { WebSocket } from "@fastify/websocket";
+import { houseBusyReply, houseMessageNeed } from "./sessionHouse.ts";
 import type { RawData } from "ws";
 import type { Viewer } from "./trpc/context.ts";
 import type { CyborgGateway, CyborgSocket } from "./cyborg/gateway.ts";
@@ -756,42 +742,8 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         citizenshipSocket.handle(message);
         return;
       }
-      case "house_found": {
-        // 가문 창설은 프로토콜 22의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
-        if (protocolVersion < HOUSE_PROTOCOL_VERSION) {
-          reject("invalid_message");
-          return;
-        }
-        if (!context.house) {
-          send({ t: "house_result", id: message.id, ok: false, code: "busy" });
-          return;
-        }
-        houseSocket ??= context.house.open({
-          send: sendText,
-          viewer: context.viewer ?? signedOut,
-          protocolVersion,
-        });
-        houseSocket.handle(message);
-        return;
-      }
-      case "nation_tax": {
-        // 나라 세금 정하기는 프로토콜 57의 메시지다(질문 2322 나·2373 가 — 가문 게이트웨이가 받아 government/nationTaxPolicy.ts로)
-        if (protocolVersion < NATION_TAX_PROTOCOL_VERSION) {
-          reject("invalid_message");
-          return;
-        }
-        if (!context.house) {
-          send({ t: "nation_tax_result", id: message.id, ok: false, code: "busy" });
-          return;
-        }
-        houseSocket ??= context.house.open({
-          send: sendText,
-          viewer: context.viewer ?? signedOut,
-          protocolVersion,
-        });
-        houseSocket.handle(message);
-        return;
-      }
+      case "house_found":
+      case "nation_tax":
       case "house_invite":
       case "house_apply":
       case "house_answer":
@@ -801,32 +753,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "house_donate":
       case "house_vault_take":
       case "house_tax":
-      case "house_build_policy": {
-        // 가문 가입은 프로토콜 23의 메시지다(질문 985 다). 더 낮게 인사한 연결은 모르는 메시지로 본다. 가문 금고 기부·꺼내기·가문세율·도시
-        // 짓기 정책은 54부터(D-574·D-576)
-        if (
-          protocolVersion < HOUSE_MEMBER_PROTOCOL_VERSION ||
-          ((message.t === "house_donate" ||
-            message.t === "house_vault_take" ||
-            message.t === "house_tax" ||
-            message.t === "house_build_policy") &&
-            protocolVersion < HOUSE_POLICY_PROTOCOL_VERSION)
-        ) {
-          reject("invalid_message");
-          return;
-        }
-        if (!context.house) {
-          send({ t: "house_member_result", id: message.id, ok: false, code: "busy" });
-          return;
-        }
-        houseSocket ??= context.house.open({
-          send: sendText,
-          viewer: context.viewer ?? signedOut,
-          protocolVersion,
-        });
-        houseSocket.handle(message);
-        return;
-      }
+      case "house_build_policy":
       case "house_handover":
       case "house_heir":
       case "house_dissolve":
@@ -834,78 +761,14 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "house_entry_policy":
       case "house_village":
       case "house_ruin":
-      case "house_independence": {
-        // 가문장 넘기기·해산·가문 도시는 프로토콜 24, 소속 도시 바꾸기는 39, 가문 이동 정책은 51, 독립 선언은 53의 메시지다(D-565·2018·D-575)
-        if (
-          protocolVersion < HOUSE_CITY_PROTOCOL_VERSION ||
-          (message.t === "house_independence" && protocolVersion < HOUSE_INDEPENDENCE_PROTOCOL_VERSION) ||
-          (message.t === "house_home" && protocolVersion < HOUSE_HOME_PROTOCOL_VERSION) ||
-          (message.t === "house_entry_policy" && protocolVersion < HOUSE_ENTRY_POLICY_PROTOCOL_VERSION) ||
-          (message.t === "house_heir" && protocolVersion < HOUSE_HEIR_PROTOCOL_VERSION)
-        ) {
-          reject("invalid_message");
-          return;
-        }
-        if (!context.house) {
-          if (
-            message.t !== "house_village" &&
-            message.t !== "house_ruin" &&
-            message.t !== "house_independence"
-          )
-            send({ t: "house_member_result", id: message.id, ok: false, code: "busy" });
-          else send({ t: "house_city_result", id: message.id, ok: false, code: "busy" });
-          return;
-        }
-        houseSocket ??= context.house.open({
-          send: sendText,
-          viewer: context.viewer ?? signedOut,
-          protocolVersion,
-        });
-        houseSocket.handle(message);
-        return;
-      }
+      case "house_independence":
       case "house_recruit_auto":
-      case "house_recruit_hire": {
-        // 가문 도시 구인은 프로토콜 25의 메시지다(질문 1041 다)
-        if (protocolVersion < HOUSE_RECRUIT_PROTOCOL_VERSION) {
-          reject("invalid_message");
-          return;
-        }
-        if (!context.house) {
-          send({ t: "house_recruit_result", id: message.id, ok: false, code: "busy" });
-          return;
-        }
-        houseSocket ??= context.house.open({
-          send: sendText,
-          viewer: context.viewer ?? signedOut,
-          protocolVersion,
-        });
-        houseSocket.handle(message);
-        return;
-      }
+      case "house_recruit_hire":
       case "gov_propose":
       case "gov_vote":
       case "gov_candidate":
       case "gov_coup":
-      case "gov_coup_join": {
-        // 나라 의결(docs/adr/2026-11-21-governance.md)은 GOVERNANCE_PROTOCOL_VERSION(56)의 메시지다(쿠데타는 COUP_PROTOCOL_VERSION). 가문 소켓이 함께 받는다
-        const coupOnly = message.t === "gov_coup" || message.t === "gov_coup_join";
-        if (protocolVersion < (coupOnly ? COUP_PROTOCOL_VERSION : GOVERNANCE_PROTOCOL_VERSION)) {
-          reject("invalid_message");
-          return;
-        }
-        if (!context.house) {
-          send({ t: "gov_result", id: message.id, ok: false, code: "busy" });
-          return;
-        }
-        houseSocket ??= context.house.open({
-          send: sendText,
-          viewer: context.viewer ?? signedOut,
-          protocolVersion,
-        });
-        houseSocket.handle(message);
-        return;
-      }
+      case "gov_coup_join":
       case "city_share_order":
       case "city_share_cancel":
       case "house_league":
@@ -914,23 +777,13 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "dip_respond":
       case "dip_war_request":
       case "dip_war_respond": {
-        // 도시(정부) 지분 주문(docs/adr/2026-11-21-share-market.md)은 CITY_SHARE_PROTOCOL_VERSION, 지도자끼리 조약(2026-11-21-diplomacy-treaties.md)은
-        // DIPLOMACY_PROTOCOL_VERSION, 가문 연맹(npc-invest-2)은 HOUSE_LEAGUE_PROTOCOL_VERSION의 메시지다. 가문 소켓이 함께 받는다
-        const dip = message.t.startsWith("dip_");
-        const league = message.t === "house_league";
-        const need = dip
-          ? DIPLOMACY_PROTOCOL_VERSION
-          : league
-            ? HOUSE_LEAGUE_PROTOCOL_VERSION
-            : CITY_SHARE_PROTOCOL_VERSION;
-        if (protocolVersion < need) {
+        // 가문 소켓 메시지(가문·나라 세금·의결·도시 지분·조약·가문 연맹) — 판 문턱과 준비 전 답은 sessionHouse.ts
+        if (protocolVersion < houseMessageNeed(message)) {
           reject("invalid_message");
           return;
         }
         if (!context.house) {
-          if (dip) send({ t: "dip_result", id: message.id, ok: false, code: "busy" });
-          else if (league) send({ t: "house_league_result", id: message.id, ok: false, code: "busy" });
-          else send({ t: "city_share_result", id: message.id, ok: false, code: "busy" });
+          send(houseBusyReply(message));
           return;
         }
         houseSocket ??= context.house.open({

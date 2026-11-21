@@ -18,15 +18,26 @@
 // - 국가 지도자(NPC 지배 가문장 — 가문원 줄이 없는 유닛)의 지갑·전투력은 그 지배 가문 몫(npcHouses — 출처 rulingHeads). 나라 줄 전투력에도 그대로 든다.
 // 바뀜(house-10, 기획 대조 2316 — D-569 1746 "랭킹은 가문별 유닛별 모두 존재"): 유닛 몫(units)을 가문원만이 아니라 모든 유닛에 센다(유닛 판). 유닛마다
 // 주인·이름(사이보그 본체 = 사이보그 이름, 그 밖 = 출처 nameOf — NPC 휴먼 이름)을 함께 싣는다.
+// 바뀜(fixes-1116t, 기획 대조 2345 나 — 규모 시험 봇은 게임 유닛이 아니다): 시험 2차맵 줄(world/testMaps.ts testMapKey, MAX_TEST_MAPS장)에 선 봇 종류
+// (UNIT_KIND_BOT) 가운데 휴먼 줄(world_humans)이 없는 것 = 규모 시험 봇(S1_TEST_BOTS)은 유닛 몫(유닛 판·unitInfo)에 넣지 않는다. NPC 휴먼(같은 봇 종류지만
+// world_humans 줄이 있다)·경비대·지도자는 그대로 든다. 주인(시험 NPC 세력) 전투력 합에는 옛처럼 든다(사람 판 몫 — 바꾸지 않는다).
 import { parseBusinessShareAsset } from "@terra/shared/businessBooks";
 import { BUILDING_LOCATION_BASE } from "@terra/shared/goodsPlaces";
+import { MAX_TEST_MAPS } from "../config.ts";
 import { parseHouseVaultCode } from "../factionIdentity/houseVault.ts";
+import { testMapKey } from "../world/testMaps.ts";
 import type { Queryable } from "./measures.ts";
 
 /** 배(world_units.kind — world/unitKinds.ts UNIT_KIND_BOAT). 사람이 아니라 전투력에서 뺀다 */
 const BOAT_KIND = 8;
 /** 사이보그 본체(world/unitKinds.ts UNIT_KIND_CYBORG) — 이름 = 사이보그 이름 */
 const CYBORG_KIND = 3;
+/** 시험 봇(world/unitKinds.ts UNIT_KIND_BOT — NPC 휴먼도 같은 값이라 휴먼 줄이 없는 것만 시험 봇) */
+const BOT_KIND = 0;
+/** 시험 2차맵 줄 키(규모 시험 봇 자리 — 설정 S1_TEST_MAPS가 몇이든 상한까지 본다) */
+const TEST_MAP_KEYS: readonly number[] = Array.from({ length: MAX_TEST_MAPS }, (_, index) =>
+  testMapKey(index),
+);
 /** 유닛 몇 개마다 이벤트 루프에 양보하나 */
 const YIELD_EVERY = 256;
 
@@ -89,20 +100,23 @@ export const emptyWorth = (): WorthValues => ({
   npcHouses: new Map(),
 });
 
-/** 유닛 훑기: 주인·이름, 전투력(소유 주체 합, 유닛마다, 지도자는 지배 가문에도) */
+/** 유닛 훑기: 주인·이름, 전투력(소유 주체 합, 유닛마다, 지도자는 지배 가문에도). 규모 시험 봇은 유닛 몫에서 빼고 testBots에 담는다 */
 async function readUnits(
   db: Queryable,
   source: WorthSource,
   leaders: ReadonlyMap<number, number>,
   out: WorthValues,
+  testBots: Set<number>,
 ): Promise<void> {
   const result = await db.query(
-    `select u.id, u.owner_id, u.kind, c.name as cyborg_name
+    `select u.id, u.owner_id, u.kind, c.name as cyborg_name,
+            (u.kind = $3 and u.map_key = any($4::bigint[])
+              and not exists (select 1 from world_humans h where h.unit_id = u.id)) as test_bot
        from world_units u
        left join world_owners o on o.id = u.owner_id and u.kind = $2
        left join cyborgs c on c.user_id = o.user_id
       where u.kind <> $1 order by u.id`,
-    [BOAT_KIND, CYBORG_KIND],
+    [BOAT_KIND, CYBORG_KIND, BOT_KIND, TEST_MAP_KEYS],
   );
   let count = 0;
   for (const row of result.rows) {
@@ -110,12 +124,17 @@ async function readUnits(
     if (count % YIELD_EVERY === 0) await yieldLoop();
     const unitId = num(row.id);
     const owner = num(row.owner_id);
-    const cyborgName = typeof row.cyborg_name === "string" ? row.cyborg_name : undefined;
-    out.unitInfo.set(unitId, { owner, name: cyborgName ?? source.nameOf?.(unitId) ?? null });
+    const testBot = row.test_bot === true;
+    if (testBot) testBots.add(unitId);
+    else {
+      const cyborgName = typeof row.cyborg_name === "string" ? row.cyborg_name : undefined;
+      out.unitInfo.set(unitId, { owner, name: cyborgName ?? source.nameOf?.(unitId) ?? null });
+    }
     const power = source.powerOf?.(unitId) ?? 0;
     if (!(power > 0)) continue;
     const value = BigInt(Math.trunc(power));
     entryOf(out.owners, owner).power += value;
+    if (testBot) continue;
     entryOf(out.units, unitId).power += value;
     const house = leaders.get(unitId);
     if (house !== undefined) entryOf(out.npcHouses, house).power += value;
@@ -145,6 +164,7 @@ async function readAssets(
   leaders: ReadonlyMap<number, number>,
   creditAsset: string,
   out: WorthValues,
+  testBots: ReadonlySet<number>,
 ): Promise<void> {
   const [accounts, issued, vaultRows, orders] = await Promise.all([
     db.query(
@@ -182,6 +202,8 @@ async function readAssets(
     const qty = big(row.qty);
     if (row.purse_unit !== null && row.purse_unit !== undefined) {
       const unitId = num(row.purse_unit);
+      // 규모 시험 봇의 지갑은 유닛 판에 넣지 않는다(2345 나 — 보통 없다)
+      if (testBots.has(unitId)) continue;
       const value = valueOf(asset, qty);
       entryOf(out.units, unitId).assets += value;
       const house = leaders.get(unitId);
@@ -254,8 +276,9 @@ export async function readWorth(
   if (!source) return out;
   const leaders = new Map<number, number>();
   for (const head of source.rulingHeads?.() ?? []) leaders.set(head.unit, head.house);
-  await readUnits(db, source, leaders, out);
-  await readAssets(db, source.valueOf, leaders, creditAsset, out);
+  const testBots = new Set<number>();
+  await readUnits(db, source, leaders, out, testBots);
+  await readAssets(db, source.valueOf, leaders, creditAsset, out, testBots);
   return out;
 }
 

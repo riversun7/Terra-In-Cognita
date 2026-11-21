@@ -2,7 +2,17 @@
 // 원장·전투 기록·세계 표에서 다시 셀 수 있는 파생 자료라 월드 쓰기 대기열을 거치지 않고 랭킹 집계가 한 트랜잭션으로 바꿔 쓴다.
 // 주체(소유 주체·세력)에 외래 키를 두지 않는다: 세력이 사라져도(유동 세력) 판 줄은 다음 집계에서 빠진다. 새 표라 직전 판 앱은 모른 채 돈다.
 import { sql } from "drizzle-orm";
-import { bigint, check, index, integer, pgTable, primaryKey, smallint, text } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  boolean,
+  check,
+  index,
+  integer,
+  pgTable,
+  primaryKey,
+  smallint,
+  text,
+} from "drizzle-orm/pg-core";
 
 /** 마지막 집계(한 줄, id = 1): 집계한 기간 [from, to)·센 시각. 다음 집계는 to 다음 경계에서 */
 export const rankingState = pgTable(
@@ -81,6 +91,27 @@ export const rankingUnitScores = pgTable(
     index("ranking_unit_scores_unit_idx").on(table.unitId),
     check("ranking_unit_scores_score", sql`${table.score} > 0`),
     check("ranking_unit_scores_path_format", sql`${table.pathId} ~ '^[a-z][a-z0-9_]{1,47}$'`),
+  ],
+);
+
+/**
+ * 가문 몫 점수 한 줄(경로 × 가문, 감쇠형 — 경로 판과 같은 셈 D-037 "랭킹 점수는 감쇠형"). fixes-1116t(기획 대조 2341 나 — D-576·D-338 "가문 금고·지도자
+ * 지갑은 가문 재산"): 가문 금고(플레이어·NPC)와 NPC 지배 가문장(국가 지도자)의 지갑·전투력을 가문 하나의 재고 지표(전투력·자산)로 보고 가문마다 쌓는다.
+ * 가문 판 점수 = 가문원 점수 합 + 이 점수(ranking/houseBoard.ts). npc = false면 house_id = 플레이어 가문 세력 행 ID, true면 NPC 가문 ID(npc_houses).
+ * 랭킹 집계가 같은 트랜잭션에서 통째로 바꾼다(ranking/houseScores.ts). 점수가 0이 되거나 가문이 없어지면 줄을 지운다. 새 표라 직전 판 앱은 모른 채 돈다
+ */
+export const rankingHouseScores = pgTable(
+  "ranking_house_scores",
+  {
+    pathId: text("path_id").notNull(),
+    npc: boolean("npc").notNull(),
+    houseId: bigint("house_id", { mode: "number" }).notNull(),
+    score: bigint("score", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.pathId, table.npc, table.houseId] }),
+    check("ranking_house_scores_score", sql`${table.score} > 0`),
+    check("ranking_house_scores_path_format", sql`${table.pathId} ~ '^[a-z][a-z0-9_]{1,47}$'`),
   ],
 );
 

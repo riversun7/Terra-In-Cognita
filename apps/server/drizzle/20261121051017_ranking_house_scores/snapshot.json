@@ -1,0 +1,140 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "2d53a6a4-006b-4ecb-8057-b0b0330ff694",
+  "prevIds": [
+    "65053bfd-71dd-44b5-aeed-2e342a1d94c5"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "ranking_house_scores"
+      ],
+      "writes": [
+        "s|tbl|public.ranking_house_scores",
+        "n|tbl|public.ranking_house_scores",
+        "e|tbl|public.ranking_house_scores",
+        "n|rel|public.ranking_house_scores",
+        "n|type|public.ranking_house_scores",
+        "n|rel|public.ranking_house_scores_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "ranking_house_scores",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ranking_house_scores",
+        "name": "path_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ranking_house_scores",
+        "name": "npc",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ranking_house_scores",
+        "name": "house_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ranking_house_scores",
+        "name": "score",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ranking_house_scores",
+        "name": "ranking_house_scores_pkey",
+        "columns": [
+          "path_id",
+          "npc",
+          "house_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ranking_house_scores",
+        "name": "ranking_house_scores_score",
+        "value": "\"score\" > 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ranking_house_scores",
+        "name": "ranking_house_scores_path_format",
+        "value": "\"path_id\" ~ '^[a-z][a-z0-9_]{1,47}$'",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

@@ -9,15 +9,30 @@
 // - 증축(성향 가중): 그 도시에서 운반꾼을 기다리는 NPC 운반 일 수 × 상업 성향 배율(가장 낮음 500‰ ~ 가장 높음 1500‰, rulingSpend.ts traitScalePm)이
 //   설정 칸 logistics_npc_build_waits 이상이고 도시 휴먼이 logistics_npc_build_humans 이상이면 증축 목표에 물류센터 하나(npc/cityBuild.ts — 거래소·부두와
 //   같은 서버 목표). 기획의 "확장" 성향 축은 없어 상업 성향만 쓴다(질문 2348). 지으면 haul-2의 NPC 맡기기(logistics/npcOutsource.ts)가 그 물류센터를 고른다.
+// 바뀜(fixes-1116t, 기획 대조 2347 나·2348 다 — D-555 1507 "유닛은 사유재산이 있어 당연히 자기가 내고"·1509 "NPC만으로도 그대로 똑같이"·D-097·D-554
+// "고정 규칙 대신 성향 변수"):
+// - 운반꾼 임금(payCenterHaulers): 하루 끝 뒤(도시 경제 afterDay — 시설 일꾼 임금 livingDay 다음) 운반꾼마다 NPC 하루 임금(@terra/sim npcDailyWage —
+//   시설 일꾼과 같은 기준 임금 × business_npc_wage_pm)을 그 물류센터 사업장 금고에서 휴먼 지갑으로. 금고가 모자라면 NPC 주인이 국고에서 운영 자금을
+//   넣는다(business invest — npcWages.ts wageSource와 같은 길). NPC 사업장 장부를 끄면(business_npc_books 0) 국고에서. 낼 곳이 모자라면 그 운반꾼은
+//   받지 못한다. business_npc_wage_mode 0이면 옛 판(임금 없음). 포만감 효율 배율(N33)은 곱하지 않는다 — 시설 일꾼의 그날 생필품 받은 차례는 시뮬
+//   하루 셈 안에서만 안다 [임시]. 시뮬 도시 경제 시설 줄에 물류센터를 넣지 않는다(SIM_VERSION 그대로).
+// - 증축 수(centerTarget): 목표 = 지금 물류센터 수 k(짓는 중 포함)에서, 기다리는 일 × 상업 성향 배율 ≥ 문턱 × (k + 1)이고 도시 휴먼 ≥ 하한 × (k + 1)이면
+//   k + 1. 하나뿐이던 고정 상한을 없애 수요가 계속 크면 둘째·셋째를 짓는다(운반꾼이 서면 기다리는 일이 줄어 멈춘다).
+// - 운반꾼은 NPC 자기 짐(빈 일꾼 운반)의 운반꾼 수에서 뺀다(staffIn — npc/economy.ts peopleOf). 운반꾼은 물류센터에 맡긴 짐을 진다.
 // 정수만 쓴다.
 import {
   type SimCity,
   type SimUnit,
   type SocietyCoefficients,
+  type LedgerBook,
+  type LedgerEntry,
   cityUnitOrder,
   cityWorkerUnits,
+  humanPurseAccount,
   npcBaseDailyWage,
+  npcDailyWage,
 } from "@terra/sim";
+import type { BusinessCore } from "../business/core.ts";
 import type { WorkFacility } from "./humanPlaces.ts";
 import { traitScalePm } from "./rulingSpend.ts";
 
@@ -59,14 +74,24 @@ export interface CenterBuildRule {
   readonly npcBuildHumans: number;
 }
 
-/** 물류센터를 증축 목표에 넣나(순수 함수 — 위 머리 주석) */
-export function wantsCenter(
-  input: { readonly waiting: number; readonly humans: number; readonly commerce: number },
+/**
+ * 그 도시 물류센터 목표 수(순수 함수 — 위 머리 주석 바뀜 fixes-1116t): existing = 그 세력이 그 도시에 가진 물류센터 수(짓는 중 포함).
+ * 다음 하나(k + 1번째)는 기다리는 일 × 상업 성향 배율 ≥ 문턱 × (k + 1), 도시 휴먼 ≥ 하한 × (k + 1)일 때. 아니면 지금 수 그대로
+ */
+export function centerTarget(
+  input: {
+    readonly waiting: number;
+    readonly humans: number;
+    readonly commerce: number;
+    readonly existing: number;
+  },
   rule: CenterBuildRule,
-): boolean {
+): number {
+  const have = Math.max(0, Math.trunc(input.existing));
+  const next = have + 1;
   const waits = Math.max(1, Math.trunc(rule.npcBuildWaits));
-  if (input.humans < Math.max(0, Math.trunc(rule.npcBuildHumans))) return false;
-  return input.waiting * traitScalePm(input.commerce, rule) >= waits * 1000;
+  if (input.humans < Math.max(0, Math.trunc(rule.npcBuildHumans)) * next) return have;
+  return input.waiting * traitScalePm(input.commerce, rule) >= waits * next * 1000 ? next : have;
 }
 
 /** 시설 정의 몫(팩 — facilities/catalog.ts FacilityDef) */
@@ -100,6 +125,10 @@ export interface NpcLogistics {
   staffAt(buildingId: number): readonly number[];
   /** 보이는 일터(humanPlaces.ts 시설 줄 — 도시 경제 시설 뒤에 붙인다) */
   workFacilities(cityId: number): WorkFacility[];
+  /** 그 도시 NPC 물류센터 운반꾼 수(NPC 자기 짐 운반꾼 수에서 뺀다 — fixes-1116t) */
+  staffIn(cityId: number): number;
+  /** 그 도시 NPC 물류센터마다 운반꾼(건물 ID 차례 — 임금) */
+  centersIn(cityId: number): ReadonlyMap<number, readonly number[]>;
 }
 
 export function createNpcLogistics(deps: NpcLogisticsDeps): NpcLogistics {
@@ -147,7 +176,98 @@ export function createNpcLogistics(deps: NpcLogisticsDeps): NpcLogistics {
           workers: staff.length,
         }));
     },
+    staffIn(cityId) {
+      let count = 0;
+      for (const staff of staffOf(cityId).values()) count += staff.length;
+      return count;
+    },
+    centersIn: (cityId) => staffOf(cityId),
   };
+}
+
+/** 운반꾼 임금에 필요한 것(npc/economy.ts가 넘긴다) */
+export interface HaulerWageDeps {
+  readonly book: LedgerBook;
+  readonly world: {
+    readonly cities: ReadonlyMap<number, Pick<SimCity, "owner">>;
+    readonly units: ReadonlyMap<number, Pick<SimUnit, "owner">>;
+  };
+  /** 사업장 장부(없으면 국고에서) */
+  readonly business?: Pick<BusinessCore, "vault" | "vaultBalance" | "invest"> | undefined;
+  readonly logistics: Pick<NpcLogistics, "centersIn">;
+  /** 세력 화폐 */
+  currencyOf(owner: number): string;
+  readonly rules: () => SocietyCoefficients;
+}
+
+/** 하루 운반꾼 임금 셈 */
+export interface HaulerWages {
+  readonly paid: bigint;
+  readonly paidHaulers: number;
+  /** 낼 곳이 모자라 받지 못한 운반꾼 수 */
+  readonly unpaidHaulers: number;
+}
+
+/**
+ * NPC 물류센터 운반꾼 하루 임금(위 머리 주석 바뀜 fixes-1116t): 도시 ID 차례 → 물류센터 건물 ID 차례 → 운반꾼 차례. 물류센터마다 거래 하나
+ * (종류 npc_living — 시설 일꾼 임금과 같은 종류, 열쇠로 두 번 내지 않는다)
+ */
+export function payCenterHaulers(deps: HaulerWageDeps, nowMs: number): HaulerWages {
+  let paid = 0n;
+  let paidHaulers = 0;
+  let unpaidHaulers = 0;
+  const c = deps.rules();
+  if (Math.trunc(c.business.npcWageMode) !== 1) return { paid, paidHaulers, unpaidHaulers };
+  const wage = npcDailyWage({
+    wageMode: c.business.npcWageMode,
+    wagePm: c.business.npcWagePm,
+    baseDailyWage: npcBaseDailyWage(c),
+    foodEfficiency: c.foodEfficiency,
+  });
+  if (wage <= 0n) return { paid, paidHaulers, unpaidHaulers };
+  const { book, business } = deps;
+  const books = business !== undefined && Math.trunc(c.business.npcBooks) === 1;
+  for (const cityId of [...deps.world.cities.keys()].toSorted((a, b) => a - b)) {
+    const owner = deps.world.cities.get(cityId)?.owner;
+    if (owner === undefined) continue;
+    const currency = deps.currencyOf(owner);
+    for (const [buildingId, staff] of [...deps.logistics.centersIn(cityId)].toSorted((a, b) => a[0] - b[0])) {
+      if (staff.length === 0) continue;
+      const need = wage * BigInt(staff.length);
+      let source = book.ownerAccount(owner, currency);
+      if (books) {
+        // 금고가 모자라면 NPC 주인이 국고에서 운영 자금을 넣는다(시설 일꾼 임금과 같은 길 — 적자가 있으면 먼저 갚는다)
+        const have = business.vaultBalance(buildingId, owner, currency);
+        if (have < need) business.invest(buildingId, owner, currency, need - have, nowMs);
+        source = business.vault(owner, currency, buildingId);
+      }
+      let left = book.balance(source);
+      const entries: LedgerEntry[] = [];
+      let total = 0n;
+      for (const unitId of staff) {
+        if (left < wage) {
+          unpaidHaulers += 1;
+          continue;
+        }
+        left -= wage;
+        total += wage;
+        paidHaulers += 1;
+        entries.push({
+          account: humanPurseAccount(book, deps.world.units.get(unitId)?.owner ?? owner, currency, unitId),
+          amount: wage,
+        });
+      }
+      if (total <= 0n) continue;
+      book.post({
+        kind: "npc_living",
+        atMs: nowMs,
+        key: `npc_haul_wage:${buildingId}:${nowMs}`,
+        entries: [{ account: source, amount: -total }, ...entries],
+      });
+      paid += total;
+    }
+  }
+  return { paid, paidHaulers, unpaidHaulers };
 }
 
 /** 운반 길(gather/station.ts)이 받는 일꾼 줄: 노동 계약 일꾼이 없으면 NPC 운반꾼(주인 = 그 휴먼 주인) */

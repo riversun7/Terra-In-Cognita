@@ -95,6 +95,19 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 세금 정하기 — 세율 안건 (
     expect(opened.length).toBe(1);
   });
 
+  it("주민세 주기는 고르기 목록(1·3·7·14·30일 — 질문 2482 답, governance-6)에서만 바꾼다", async () => {
+    const at = { ...ROW, incomeTaxBp: 9000 };
+    expect(await policy().set(leader, { ...at, residentEveryDays: 5 })).toEqual({
+      ok: false,
+      code: "invalid_period",
+    });
+    for (const days of [1, 3, 14, 30])
+      expect(await policy().set(leader, { ...at, residentEveryDays: days })).toEqual({
+        ok: true,
+        factionId: nation,
+      });
+  });
+
   it("선출된 플레이어 지배 가문장(질문 2440 나): 이끄는 NPC 나라의 세금을 정한다", async () => {
     // 도시 없는 가문(독립 나라 아님) + 그 가문이 선출로 이끄는 NPC 나라
     const head =

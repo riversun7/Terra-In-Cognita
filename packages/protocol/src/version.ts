@@ -264,6 +264,9 @@
  *    - business_price item service:share_fee(증권 거래소 이용료 요율 — 2474 다).
  *    - 의미: 사업장 지분 주문은 체결되지 않은 몫이 다음 회차에도 남는다(2472 나 — 꼴 그대로), city_share_cancel은 지도자가 국고 주문도 거둔다(2473 다).
  *    더하기만 했다. 61판 기기는 새 값을 보내지 않는다.
+ *    같은 판에 줄기 governance-6(줄기 판 111) — 사용자 결정 D-588 5·질문 2481 가:
+ *    - 가문 후계자 지정 house_heir(userId | null) → house_member_result(한 일 heir_set — house.ts HOUSE_HEIR_PROTOCOL_VERSION). 더하기만 했다. 61판 기기는 보내지 않는다.
+ *    - residence_result에 새 실패 코드 full(집 정원이 다 참). 이 판 연결에만 가고 더 낮은 판은 not_eligible(residence.ts RESIDENCE_FULL_PROTOCOL_VERSION).
  */
 export const PROTOCOL_VERSION = 62;
 

@@ -39,6 +39,21 @@ export const houseMembers = pgTable(
 );
 
 /**
+ * 가문장이 미리 정한 후계자(질문 2491 — 사용자 결정 D-588 5 "지배 가문의 서열이나 미리 지정한 후계자로 자동 계승", 줄기 governance-6): 가문마다 한 줄.
+ * 지배 가문의 가문장(= 국가 지도자) 자리가 비면 이 사람이 먼저 잇는다(그때 가문원이어야 한다 — 아니면 서열, apps/server/src/governance/succession.ts).
+ * 세계 표(시험 세계 새로 시작에서 지운다). 새 표만 더해서 직전 판 앱은 모른 채 돈다
+ */
+export const houseHeirs = pgTable("house_heirs", {
+  factionId: bigint("faction_id", { mode: "number" })
+    .primaryKey()
+    .references(() => factions.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  designatedAtMs: bigint("designated_at_ms", { mode: "number" }).notNull(),
+});
+
+/**
  * 가문 마크·이름 신고(질문 930 나): 신고한 계정마다 한 줄(같은 가문을 두 번 세지 않는다). 운영자가 넘기거나 마크를 내리면 그 가문 줄을 지운다.
  * 하루 횟수 제한(설정 칸 house_report_daily)은 created_at_ms로 센다
  */

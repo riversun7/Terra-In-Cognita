@@ -131,6 +131,7 @@ export {
   HOUSE_HOME_NOTICE_PROTOCOL_VERSION,
   HOUSE_ENTRY_POLICY_PROTOCOL_VERSION,
   HOUSE_ENTRY_SCOPES,
+  HOUSE_HEIR_PROTOCOL_VERSION,
   type HouseEntryScope,
   legacyHouseMemberAction,
   legacyHouseMemberCode,
@@ -179,8 +180,10 @@ export {
   type CityShareResultCode,
 } from "./cityShares.ts";
 export {
+  RESIDENCE_FULL_PROTOCOL_VERSION,
   RESIDENCE_PROTOCOL_VERSION,
   RESIDENCE_RESULT_CODES,
+  legacyResidenceCode,
   type ResidenceResultCode,
 } from "./residence.ts";
 export {

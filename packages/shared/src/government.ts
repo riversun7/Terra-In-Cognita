@@ -154,10 +154,10 @@ export type GovernmentTaxSource = "leader" | "npc" | "default";
 
 /**
  * 주민세 주기 고르기 목록(날) — 사용자 답 D-585 2: 정해진 기본 "주 1회" 규칙은 없고 정부가 정책으로 고른다(하루·한 주 등). 지도자는 이 목록에서만 고른다(서버가
- * 다시 본다 — nation_tax invalid_period). [임시] 목록 값은 사용자가 말한 둘(하루·한 주)만 — 더 넣을지는 질문 2482. 고르지 않은 나라는 설정 칸
- * nation_resident_tax_every_ms([임시] 기본값 — 7일)를 따른다.
+ * 다시 본다 — nation_tax invalid_period). 바뀜(governance-6, 질문 2482 답 "매일, 주 단위 등 선택하게 하라"): 하루·사흘·한 주·두 주·30일 — 값은 기술 기본값
+ * [임시](질문 2533). 고르지 않은 나라는 설정 칸 nation_resident_tax_every_ms([임시] 기본값 — 7일)를 따른다.
  */
-export const RESIDENT_TAX_PERIOD_DAYS: readonly number[] = [1, 7];
+export const RESIDENT_TAX_PERIOD_DAYS: readonly number[] = [1, 3, 7, 14, 30];
 
 /** 주민세 주기(날)가 고르기 목록 안인가 */
 export const isResidentTaxPeriod = (days: number): boolean => RESIDENT_TAX_PERIOD_DAYS.includes(days);

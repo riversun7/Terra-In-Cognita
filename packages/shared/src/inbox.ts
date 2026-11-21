@@ -126,6 +126,17 @@ export const INBOX_KINDS = {
     // 제공 함수: 서버 boats/inbox.ts
     planned: false,
   },
+  // 멈춤: 고른 사는 곳을 쓸 수 없게 된 내 유닛(질문 2485 가 — 집을 잃음·숙소 배정이 바뀜·정원이 줄어 쉰다, 쉬는 동안은 옛 길 숙소 배정). 계정마다 한 줄로
+  // 묶는다(사는 곳이 쉬는 유닛 N명). 다시 쓸 수 있게 되거나 다른 집을 고르면 사라진다. 줄기 governance-6
+  residence_paused: {
+    category: "stalled",
+    grouped: true,
+    route: "map",
+    actions: [],
+    badge: null,
+    // 제공 함수: 서버 residence/inbox.ts
+    planned: false,
+  },
   // 제안·결정: 정찰이 목표 2차맵을 보고 돌아섰다(기획 답 612 나) — 들어가 볼지 고른다. 정찰 길마다 한 줄, 마감 없음. 확인 저장이 아직 없어
   // 돌아온 뒤 이동 서비스가 끝난 길을 보이는 동안만 있다(docs/adr/2026-11-07-play-flow.md "WP13")
   scout_returned: {

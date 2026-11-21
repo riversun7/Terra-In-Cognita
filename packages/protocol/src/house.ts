@@ -205,6 +205,8 @@ export const HOUSE_MEMBER_ACTIONS = [
   "build_policy_set",
   // 가문장이 금고에서 꺼냄(house_vault_take, D-576)
   "vault_taken",
+  // 62판부터(house_heir의 답에만): 후계자를 정하거나 풂(질문 2491 — D-588 5)
+  "heir_set",
 ] as const;
 export type HouseMemberAction = (typeof HOUSE_MEMBER_ACTIONS)[number];
 
@@ -238,6 +240,19 @@ export const houseHandoverMessage = z.object({
   t: z.literal("house_handover"),
   id: requestId,
   userId,
+});
+
+/** 가문 후계자 지정(house_heir)이 생긴 판(질문 2491 — 사용자 결정 D-588 5, 묶음 1117b, 줄기 governance-6 판 111) */
+export const HOUSE_HEIR_PROTOCOL_VERSION = 62;
+
+/**
+ * 가문장이 가문원 한 명을 후계자로 정한다(null = 푼다). 지배 가문의 가문장(= 국가 지도자) 자리가 비면 후계자가 먼저 잇고, 없거나 가문원이 아니면 서열(들어온 차례
+ * [임시])로 잇는다(D-588 5). 답은 house_member_result(한 일 heir_set, 코드 not_in_house·not_leader·not_found·self)
+ */
+export const houseHeirMessage = z.object({
+  t: z.literal("house_heir"),
+  id: requestId,
+  userId: userId.nullable(),
 });
 
 /** 혼자 남은 가문장이 가문을 해산한다(이름·약어가 풀린다) */
@@ -425,6 +440,7 @@ export const houseClientMessages = [
   houseLeaveMessage,
   houseKickMessage,
   houseHandoverMessage,
+  houseHeirMessage,
   houseDissolveMessage,
   houseVillageMessage,
   houseRuinMessage,

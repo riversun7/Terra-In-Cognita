@@ -10,8 +10,10 @@
 // - 주민세(D-579·D-581, society/residentTax.ts): 나라마다 주기 날 끝에 그 도시에 사는 유닛이 집 몫(고리 residentHomes)을, 사는 유닛이 있는 주인이 그 도시
 //   사업장 몫(고리 residentProperty)을 국고에 낸다. 국세 몫을 뺀 나머지는 그 도시 세금 수입으로 다음 도시 세금 정산(기간 세금)에 더한다. 세율 0(설정 칸·
 //   나라 값 모두)이면 아무것도 하지 않는다. 도시가 다른 나라로 넘어가면 그 도시의 옛 나라 빚을 지운다(cityMoved — 2375 다, D-581 E). 폐허가 되어도
-//   빚은 남는다(D-585 — 2427 나를 되돌림: 폐허가 복원되어도 그대로).
-//   [임시] 국세 몫을 뺀 도시 몫을 D-304 도시 세금 정산에 넣는 나눔은 사용자 답이 없다(D-585 3 — 질문 2484). 바뀜 없이 그대로 둔다.
+//   빚은 남는다(D-585 — 2427 나를 되돌림: 옛 나라가 복원하면 그대로, 다른 나라가 복원하면 societyRuins.ts가 지운다 — 질문 2483 나).
+//   바뀜(governance-6, 질문 2484 다): 국세 몫을 뺀 도시 몫은 D-304 정산(이익 나눔)에 넣지 않고 그 도시 운영비로만 쓴다 — 정산 때 그 기간 운영비를 먼저
+//   메우고(그만큼 도시 세금에서 운영비를 빼지 않는다) 남은 몫은 다음 기간 운영비로 넘긴다. [임시] 따로 도시 금고 계정은 없다(돈은 국고에 있고, 남은 몫은
+//   메모리 — 다시 켜거나 도시가 넘어가면 국고 몫이 된다, 질문 2537).
 import { type CityRevenue, payCityProfit, profitRecipient, settleCityTaxes } from "../society/dividends.ts";
 import {
   type ResidentHome,
@@ -61,7 +63,7 @@ export function createSocietyPayouts(
   const taxMark = new Map<number, bigint>();
   const operating = new Map<number, bigint>();
   const interestMark = new Map<number, bigint>();
-  /** 도시 → 다음 정산까지 쌓인 주민세 도시 몫(D-579 — 도시 세금 수입) */
+  /** 도시 → 쌓인 주민세 도시 몫(D-579 — 그 도시 운영비로만, 질문 2484 다) */
   const residentRevenue = new Map<number, bigint>();
   const taxOf = (cityId: number): bigint => hooks?.taxCollectedOf?.(cityId) ?? 0n;
   const sortedFactions = (): SimFaction[] => [...world.factions.values()].toSorted((a, b) => a.id - b.id);
@@ -89,12 +91,16 @@ export function createSocietyPayouts(
           .toSorted((a, b) => a - b)
           .map((cityId) => {
             const collected = taxOf(cityId);
-            const revenue = collected - (taxMark.get(cityId) ?? 0n) + (residentRevenue.get(cityId) ?? 0n);
+            const revenue = collected - (taxMark.get(cityId) ?? 0n);
             taxMark.set(cityId, collected);
-            residentRevenue.delete(cityId);
-            const cost = operating.get(cityId) ?? 0n;
+            // 주민세 도시 몫 = 그 도시 운영비로만(질문 2484 다): 그 기간 운영비를 먼저 메우고 남은 몫은 다음 기간 운영비로 넘긴다(이익으로 나누지 않는다)
+            const fund = residentRevenue.get(cityId) ?? 0n;
+            const spentCost = operating.get(cityId) ?? 0n;
+            const covered = fund < spentCost ? fund : spentCost;
+            if (fund > covered) residentRevenue.set(cityId, fund - covered);
+            else residentRevenue.delete(cityId);
             operating.delete(cityId);
-            return { city: cityId, revenue, operating: cost };
+            return { city: cityId, revenue, operating: spentCost - covered };
           });
         const asset = treasuryAsset(faction);
         let vaultPaid = false;
@@ -165,7 +171,7 @@ export function createSocietyPayouts(
           nationSharePm: own?.nationSharePm ?? b.residentTaxNationPm ?? 0,
           atMs: nowMs,
         });
-        // 도시 몫은 지금 그 나라 도시일 때만 도시 세금 수입으로(폐허 도시의 옛 빚 갚은 몫은 국고에 남는다 — 질문 2375). [임시] 도시 몫 → D-304 나눔(질문 2484)
+        // 도시 몫은 지금 그 나라 도시일 때만 그 도시 운영비 몫으로(폐허 도시의 옛 빚 갚은 몫은 국고에 남는다 — 질문 2375, 운영비로만 — 질문 2484 다)
         for (const city of result.cities)
           if (city.cityPart > 0n && faction.cities.has(city.city))
             residentRevenue.set(city.city, (residentRevenue.get(city.city) ?? 0n) + city.cityPart);

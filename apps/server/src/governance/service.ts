@@ -16,7 +16,7 @@
 //   고리로 넘긴다 — 정부 지분 시장 cityShares/service.ts approvedSale이 국고 팔 주문을 건다, docs/adr/2026-11-21-share-market.md), 독재 지도자의 선전포고 직권(2440 나 — D-217 독재 = 지배 가문장이 정함).
 // - 바뀜(governance-5 — 질문 2451~2460 답·사용자 결정 D-584·D-585): 강화·화폐 단계·가문 독립 선언·지도자 나라 거래세·신임도(leaderAgendas.ts). 빈자리는 도시 독립 투표로
 //   이어지지 않는다(D-584 — D-583 3 대신): 빈자리가 되면 누구나 나설 수 있는 선출을 바로 연다(기간 gov_vacancy_election_ms). 열려 있던 도시 독립 투표는 취소한다.
-//   후임자(국가 지도자 가문에서 대행·계승)를 고르는 규칙은 정해지지 않아 만들지 않았다(질문 2491).
+//   바뀜(governance-6 — 질문 2491, D-584·D-588 5): 빈자리면 먼저 지배 가문의 후계자·서열로 가문장을 세우고(succession.ts), 이을 사람이 없을 때만 자동 선출.
 // 쓰기는 DB 바로(서버 하나라 이 서비스가 순서대로 쓴다). 한 번에 하나만 돈다(명령·틱이 같은 사슬).
 import {
   type AgendaKind,
@@ -34,6 +34,7 @@ import type { Database } from "../db/client.ts";
 import { type CoupCredit, createCoupService } from "./coup.ts";
 import type { CoupSide, CoupStore } from "./coupStore.ts";
 import { createLeaderAgendas } from "./leaderAgendas.ts";
+import { createSuccession } from "./succession.ts";
 import type { LeaderStore } from "./leaderStore.ts";
 import { electionDecided, motionDecided } from "./early.ts";
 import { type Electorate, type Ruling, createElectorate } from "./electorate.ts";
@@ -177,6 +178,8 @@ export function createGovernanceService(o: {
     rules: o.rules,
     audit,
   });
+  // 빈자리 자동 계승(succession.ts — 줄기 governance-6, 질문 2491)
+  const succession = createSuccession({ store: o.store, audit, db: o.db });
 
   const standing = async (userId: string): Promise<Standing | undefined> => {
     const nationId = o.port.viewerNation(userId);
@@ -621,7 +624,11 @@ export function createGovernanceService(o: {
         await o.store.finish(agenda.id, { status: "enacted", enactedAtMs: nowMs });
         const ruling = await tools.ruling(nation, state);
         const barred = agenda.payload.barred ?? ruling.key;
-        await openElection(nation, { key: null, user: null }, nowMs, barred ? { barred } : {}, ruling.key);
+        // 해임된 사람(barredUser)은 빈자리 후임이 못 된다(질문 2491 — succession.ts)
+        const payload = barred
+          ? { barred, ...(ruling.leaderUser ? { barredUser: ruling.leaderUser } : {}) }
+          : {};
+        await openElection(nation, { key: null, user: null }, nowMs, payload, ruling.key);
         return;
       }
       case "regime_change": {
@@ -750,21 +757,14 @@ export function createGovernanceService(o: {
         ruling.key,
       );
       const current = state ?? blankState(nation);
-      // 해임 뒤 다시 뽑기가 실패하면 지도자 자리가 빈다(질문 2403 답 D-582). 선출로 채우면 빈자리가 끝난다
-      const vacantSinceMs = result.winner
-        ? null
-        : agenda.payload.barred
-          ? (current.vacantSinceMs ?? nowMs)
-          : current.vacantSinceMs;
-      await saveState(
-        {
-          ...current,
-          rulingHouseKey: result.winner ?? current.rulingHouseKey,
-          electedAtMs: result.winner ? nowMs : current.electedAtMs,
-          termEndsAtMs: nowMs + rules.termMs,
-          vacantSinceMs,
-        },
+      // 해임 뒤 다시 뽑기가 실패하면 먼저 지도자 가문에서 후임, 없으면 지도자 자리가 빈다(D-582·D-584 — succession.ts). 선출로 채우면 빈자리가 끝난다
+      const { vacantSinceMs } = await succession.afterElection(
+        nation,
+        current,
+        agenda.payload,
+        result.winner,
         nowMs,
+        rules.termMs,
       );
       if (vacantSinceMs !== null && current.vacantSinceMs === null)
         await audit(null, "governance.vacant", { nationId: nation.rowId, agendaId: agenda.id });
@@ -863,8 +863,13 @@ export function createGovernanceService(o: {
     let active = await o.store.activeAgendas();
     // 임기·자동 선출·독재 정리
     for (const nation of nations.values()) {
-      const state = states.get(nation.rowId);
       const mine = active.filter((agenda) => agenda.nationId === nation.rowId);
+      const electing = mine.some(
+        (agenda) =>
+          agenda.status === "open" && (agenda.kind === "leader_election" || agenda.kind === "leader_removal"),
+      );
+      // 빈자리·가문장 없음이면 먼저 지배 가문의 후계자·서열로 가문장을 세운다(질문 2491 — succession.ts)
+      const state = await succession.tick(nation, states.get(nation.rowId), electing, nowMs);
       if (nation.regime === "dictatorship") {
         if (state && state.termEndsAtMs !== null) await saveState({ ...state, termEndsAtMs: null }, nowMs);
         for (const agenda of mine.filter((row) => row.status === "open"))
@@ -886,11 +891,7 @@ export function createGovernanceService(o: {
         await saveState({ ...(state ?? blankState(nation)), termEndsAtMs: nowMs + rules.termMs }, nowMs);
         continue;
       }
-      const electing = mine.some(
-        (agenda) =>
-          agenda.status === "open" && (agenda.kind === "leader_election" || agenda.kind === "leader_removal"),
-      );
-      // 빈자리(D-584): 누구나 나설 수 있는 선출을 바로 연다(기간 gov_vacancy_election_ms)
+      // 빈자리(D-584): 지도자 가문에 후임이 없으면 누구나 나설 수 있는 선출을 바로 연다(기간 gov_vacancy_election_ms)
       if (state.vacantSinceMs !== null && !electing) {
         await openElection(nation, { key: null, user: null }, nowMs, {}, null, rules.vacancyElectionMs);
         continue;

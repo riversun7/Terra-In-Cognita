@@ -105,6 +105,10 @@ describe("가문 연결 처리(넘기기·해산·가문 도시, 프로토콜 24
           calls.push(`dissolve:${userId}`);
           return Promise.resolve({ ok: false, code: "not_alone" });
         },
+        heir: (userId, target) => {
+          calls.push(`heir:${userId}:${target ?? "none"}`);
+          return Promise.resolve({ ok: true, action: "heir_set", factionId: 40 });
+        },
       }),
       city: () => ({
         village: (userId, input) => {

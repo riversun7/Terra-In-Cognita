@@ -348,7 +348,7 @@ describe("시뮬 주민세(D-579)", () => {
     expect(world.book.balanceOf(77, TEST_ASSET_CREDIT)).toBe(150n);
   });
 
-  it("주기마다 재산 × 세율을 사는 도시 나라 국고에, 도시 몫은 D-304 도시 세금 수입으로, 못 낸 몫은 빚(다음에 먼저 갚는다)", () => {
+  it("주기마다 재산 × 세율을 사는 도시 나라 국고에, 도시 몫은 그 도시 운영비로만(D-304 이익 나눔 아님 — 질문 2484 다), 못 낸 몫은 빚(다음에 먼저 갚는다)", () => {
     const c: SocietyCoefficients = {
       ...TEST_SOCIETY_COEFFICIENTS,
       business: { ...TEST_SOCIETY_COEFFICIENTS.business, residentTaxPm: 10, residentTaxEveryMs: 7 * DAY_MS },
@@ -358,20 +358,20 @@ describe("시뮬 주민세(D-579)", () => {
     for (let day = 1; day <= 6; day++) society.endOfDay(day * DAY_MS);
     expect(world.book.balanceOf(77, TEST_ASSET_CREDIT)).toBe(150n);
     society.endOfDay(7 * DAY_MS);
-    // 세금 100(10,000 × 10‰) → 국고. 같은 날 도시 세금 정산에서 도시 5 수입 100의 지분 40% = 40이 77번에게
-    expect(world.book.balanceOf(77, TEST_ASSET_CREDIT)).toBe(90n);
+    // 세금 100(10,000 × 10‰) → 국고. 같은 날 도시 세금 정산이 있어도 도시 몫은 운영비로만이라 77번(지분 40%)에게 배당이 없다
+    expect(world.book.balanceOf(77, TEST_ASSET_CREDIT)).toBe(50n);
     for (let day = 8; day <= 14; day++) society.endOfDay(day * DAY_MS);
-    // 둘째 주: 세금 100 가운데 90만 낸다 → 빚 10, 배당 40% × 90 = 36
-    expect(world.book.balanceOf(77, TEST_ASSET_CREDIT)).toBe(36n);
-    expect(arrears).toEqual([10n]);
+    // 둘째 주: 세금 100 가운데 50만 낸다 → 빚 50
+    expect(world.book.balanceOf(77, TEST_ASSET_CREDIT)).toBe(0n);
+    expect(arrears).toEqual([50n]);
     const debt = world.book.systemAccount(residentDebtCode(2, 5, 77, TEST_ASSET_CREDIT), TEST_ASSET_CREDIT);
     const claim = world.book.systemAccount(residentClaimCode(2, TEST_ASSET_CREDIT), TEST_ASSET_CREDIT);
-    expect(world.book.balance(debt)).toBe(-10n);
-    expect(world.book.balance(claim)).toBe(10n);
-    // 셋째 주: 빚 10 + 세금 100 = 110 가운데 36만 → 빚 74
+    expect(world.book.balance(debt)).toBe(-50n);
+    expect(world.book.balance(claim)).toBe(50n);
+    // 셋째 주: 빚 50 + 세금 100 = 150 가운데 0 → 빚 150
     for (let day = 15; day <= 21; day++) society.endOfDay(day * DAY_MS);
-    expect(world.book.balance(debt)).toBe(-74n);
-    expect(world.book.balance(claim)).toBe(74n);
+    expect(world.book.balance(debt)).toBe(-150n);
+    expect(world.book.balance(claim)).toBe(150n);
   });
 
   it("도시가 폐허가 되어도 그 도시의 주민세 빚은 남는다(D-585 — 2427 나를 되돌림)", () => {
@@ -388,6 +388,37 @@ describe("시뮬 주민세(D-579)", () => {
     expect(world.cities.has(5)).toBe(false);
     expect(world.book.balance(debt)).toBe(-850n);
     expect(world.book.balance(claim)).toBe(850n);
+  });
+
+  it("폐허를 다른 나라가 복원하면 나라가 바뀐 것이라 빚이 사라지고, 옛 나라가 복원하면 남는다(질문 2483 나 — D-585 6)", () => {
+    const base: SocietyCoefficients = {
+      ...TEST_SOCIETY_COEFFICIENTS,
+      business: { ...TEST_SOCIETY_COEFFICIENTS.business, residentTaxPm: 100, residentTaxEveryMs: DAY_MS },
+      restoration: {
+        ...TEST_SOCIETY_COEFFICIENTS.restoration,
+        claimCost: 0,
+        goal: 1000,
+        goalPerHousing: 0,
+        fundDays: 0,
+        npcClaimAfterDays: 10_000,
+        npcFundPm: 0,
+        npcInvestPm: 0,
+      },
+    };
+    for (const [restorer, left] of [
+      [1, 0n],
+      [2, -850n],
+    ] as const) {
+      const { world, society } = residentSetup(base, 10_000n);
+      society.endOfDay(DAY_MS);
+      const debt = world.book.systemAccount(residentDebtCode(2, 5, 77, TEST_ASSET_CREDIT), TEST_ASSET_CREDIT);
+      society.ruin(5, 2 * DAY_MS);
+      expect(society.ruins.claim(5, restorer, restorer, 2 * DAY_MS, { pay: true })).toBe("ok");
+      expect(society.ruins.fund(5, restorer, 1000n, 2 * DAY_MS).restored).toBe(true);
+      expect(world.cities.get(5)?.owner).toBe(restorer);
+      expect(world.book.balance(debt)).toBe(left);
+      expect(society.check(2 * DAY_MS)).toEqual([]);
+    }
   });
 
   it("도시의 나라가 바뀌면(점령) 그 도시의 주민세 빚이 사라진다(D-581 2375 다·E)", () => {

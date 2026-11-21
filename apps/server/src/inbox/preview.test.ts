@@ -30,6 +30,7 @@ describe("처리할 일 시안 자료", () => {
           (kind) =>
             kind !== "scout_returned" &&
             kind !== "labor_paused" &&
+            kind !== "residence_paused" &&
             !kind.startsWith("house_") &&
             !kind.startsWith("boat_"),
         ),

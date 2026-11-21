@@ -11,6 +11,9 @@
 // - 복원: 목표를 채우면 그 값은 소각(복원 비용), 옛 지분(쓸모없던 것)을 소각하고 1000주를 낸 값 비례로 낸다(독재 = 지배 가문 과반,
 //   society/restoration.ts). 도시는 같은 ID로 도시가 드는 세력에 돌아온다(주거 = 옛 주거, 행정 레벨 = 정부 건물 레벨 489 다 — NPC는 Lv1,
 //   휴먼 없음 — 구인 카드로).
+// - 바뀜(governance-6, 질문 2483 나 — D-585 6 "도시의 국가가 바뀌게 되면 사라진다. 폐허가 재건되면 그대로이다"): 옛 주인이 아닌 나라가 복원하면 도시의
+//   나라가 바뀐 것으로 보아 그 도시의 옛 나라 주민세 빚을 지운다(cancelResidentDebts — 점령 길 moveCity와 같은 뜻). 옛 주인이 복원하면 빚은 그대로.
+//   주민세 고리(residentProperty·residentHomes)가 없으면 원장을 훑지 않는다(시뮬은 고리가 없어 바이트 그대로).
 // - 하루 끝: 도시가 드는 세력이 사라졌거나 기한이 지난 사업은 낸 값을 돌려주고 주인 없음으로 되돌린다.
 // - NPC(484 다): 정부 짓기는 판단 후보 "폐허 복원"(npc/brain.ts)이 고른다. 후보(npcOptions) = 주인 없는(또는 정부 건물이 0%인) 폐허(옛
 //   주인은 바로, 다른 세력은 폐허가 된 지 며칠 뒤), 실행은 npcAct. 넣기·투자는 판단 칸을 쓰지 않고 하루 끝 규칙식으로 돈다(판단마다
@@ -28,6 +31,7 @@ import {
   restorationGoal,
   restorationShares,
 } from "../society/restoration.ts";
+import { cancelResidentDebts } from "../society/residentTax.ts";
 import { type Holding, burnShares, issueShares } from "../society/shares.ts";
 import { DAY_MS } from "./metrics.ts";
 import type { SimHooks } from "./npcRun.ts";
@@ -229,6 +233,9 @@ export function createSocietyRuins(o: SocietyRuinsOptions): SocietyRuins {
     world.ruins.delete(ruin.id);
     world.cities.set(city.id, city);
     faction.cities.add(city.id);
+    // 다른 나라가 복원 = 도시의 나라가 바뀜 → 옛 나라 주민세 빚을 지운다(질문 2483 나). 같은 나라면 그대로(D-585 6)
+    if (faction.id !== ruin.formerOwner && (o.hooks?.residentProperty || o.hooks?.residentHomes))
+      cancelResidentDebts(book, ruin.formerOwner, ruin.id, nowMs);
     o.hooks?.cityFounded?.(city.id, 0, nowMs);
     o.onRestored(faction, city, nowMs);
     counts.restored += 1;

@@ -51,6 +51,7 @@ import {
   HOUSE_INDEPENDENCE_PROTOCOL_VERSION,
   HOUSE_HOME_PROTOCOL_VERSION,
   HOUSE_ENTRY_POLICY_PROTOCOL_VERSION,
+  HOUSE_HEIR_PROTOCOL_VERSION,
   HOUSE_MEMBER_PROTOCOL_VERSION,
   HOUSE_POLICY_PROTOCOL_VERSION,
   NATION_TAX_PROTOCOL_VERSION,
@@ -688,6 +689,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         gatherSocket ??= context.gather.open({
           send: sendText,
           viewer: context.viewer ?? signedOut,
+          protocolVersion,
           // 운영자 모드(전체 보기) 연결의 채집·들어가기도 운영자 빠르기(world/operatorPace.ts)
           observing: () => worldSocket?.observing() === true,
           operatorPace,
@@ -708,6 +710,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         gatherSocket ??= context.gather.open({
           send: sendText,
           viewer: context.viewer ?? signedOut,
+          protocolVersion,
           observing: () => worldSocket?.observing() === true,
           operatorPace,
         });
@@ -819,6 +822,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         return;
       }
       case "house_handover":
+      case "house_heir":
       case "house_dissolve":
       case "house_home":
       case "house_entry_policy":
@@ -830,7 +834,8 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           protocolVersion < HOUSE_CITY_PROTOCOL_VERSION ||
           (message.t === "house_independence" && protocolVersion < HOUSE_INDEPENDENCE_PROTOCOL_VERSION) ||
           (message.t === "house_home" && protocolVersion < HOUSE_HOME_PROTOCOL_VERSION) ||
-          (message.t === "house_entry_policy" && protocolVersion < HOUSE_ENTRY_POLICY_PROTOCOL_VERSION)
+          (message.t === "house_entry_policy" && protocolVersion < HOUSE_ENTRY_POLICY_PROTOCOL_VERSION) ||
+          (message.t === "house_heir" && protocolVersion < HOUSE_HEIR_PROTOCOL_VERSION)
         ) {
           reject("invalid_message");
           return;
@@ -962,7 +967,6 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           // 운영자 모드(전체 보기) 연결은 남의 부두·배에 명령하고 재료 없이 만든다
           observing: () => worldSocket?.observing() === true,
           operatorPace,
-          protocolVersion,
         });
         boatSocket.handle(message);
         return;

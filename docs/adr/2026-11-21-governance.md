@@ -181,3 +181,19 @@
   `nation_taxes.trade_tax_bp`·`governance_coup_sides.units` + 검사 넓히기 둘(안건 종류 `peace`·`currency_stage`·`house_independence`, 신용 종류). 직전 판 앱 그대로 — 되돌리면 새 종류
   안건을 모르는 종류로 읽는다, Assumed 해 없음), 프로토콜 61(묶음 1117a, 줄기 판 99 — 받는 가장 낮은 판 60, `GOVERNANCE5_PROTOCOL_VERSION`, 더하기만, 낮은 판에는 새 결과 코드 대신 not_eligible), 팩 core@139(묶음 1117a, 줄기 판 176 —
   설정 칸 더하기 19·빼기 3), SIM_VERSION 그대로(시뮬은 새 고리 둘 — `bankOverride`·`rebellionThresholdShift` — 을 붙이지 않는다).
+## 바뀜 (governance-6, 2026-11-22 — 질문 2491·2500 답·사용자 결정 D-588 5, 제안 상태라 이 ADR을 고친다)
+- 근거: 기획 세션 답(2026-11-21 — 2491·2500), 사용자 결정 D-588 5(코디네이터 전달). 질문 표시 `docs/questions/2026-11-21-governance-5.md`, 새 질문 `docs/questions/2026-11-21-governance-6.md`
+  (2531~2538). 위 "바뀜 (governance-5)"의 "후임·대행 규칙 없음(2491)"·"독립 뒤 전쟁으로 만들지 않음·힘 비 = 옛 나라 군대 전체(2500)"를 아래가 대신한다.
+- **빈자리 자동 계승(2491 — D-584·D-588 5)**: 국가 지도자 = 지배 가문의 가문장(그대로). 자리가 비면 먼저 지배 가문에서 ① 가문장이 미리 정한 후계자 ② 서열(가문에 먼저 들어온
+  차례 [임시 — 질문 2532])로 이을 사람을 골라 그 가문의 가문장으로 세운다(`apps/server/src/governance/succession.ts` → `factionIdentity/succession.ts succeedHouseHead` — 가문장
+  넘기기와 같은 몸통 transferHead, 옛 가문장은 가문원, 정체성 줄·소식 같이). 그 사람이 곧 지도자라 대행이 없다. 이을 사람이 없을 때만 예전 길(누구나 나서는 자동 선출,
+  `gov_vacancy_election_ms`). 해임된 사람(해임 가결 때의 지도자 — 다시 뽑기 안건 칸 `barredUser`)은 잇지 못한다. 빈자리가 되는 길: 해임 뒤 다시 뽑기 실패(D-582), 지배 플레이어
+  가문에 가문장이 없어짐(틱이 본다). NPC 지배 가문은 이 길을 타지 않는다(자동 선출) [임시]. 감사 기록 `governance.successor`·`faction.house_succession`.
+- **후계자 칸**: 새 표 `house_heirs`(가문마다 한 줄 — 가문·계정·정한 시각, 외래 키 cascade), WebSocket `house_heir { userId | null }` → `house_member_result`(한 일 `heir_set`, 가문장만,
+  가문원만 — `factionIdentity/heir.ts`), 가문 조회 `heirUserId`, 세력 화면 가문원 줄 [후계자로 정하기]·[후계자 풀기]·"후계자" 표시. 후계자가 가문장이 되면 줄을 지운다.
+- **NPC 가문 독립 뒤(2500 — D-585 2 "독립함으로써 기존 국가와 적대관계")**: 자동 전쟁이 아니다(사용자 답). 거울 세계·시뮬에 세력 쌍 관계(적대·중립)를 담는 상태가 없어(전쟁·불가침만,
+  세력 쌍 호감 D-255는 화면 시안뿐) 새 관계 체계를 지어내지 않고 관계는 그대로 둔다 [임시 — 질문 2531]. 힘 비 대상 = 기술 기본값 "옛 나라에 남는 군대(세력 유닛 − 그 가문
+  유닛)"(`leaderAgendas.ts independencePowerOk` — 앞 판은 가문 유닛이 든 군대 전체와 견주어 넘을 수 없었다, 질문 2534).
+- 판: 마이그레이션 `20261121172306_governance6_heirs_residence`(prevIds = 끝 셋 `90e99c42`·`e44a1520`·`8ccb7e3f` — 새 표 `house_heirs` + `unit_residences.paused_since_ms`, 직전 판 앱 그대로),
+  프로토콜 62(묶음 1117b, 줄기 판 111 — 받는 가장 낮은 판 61, `HOUSE_HEIR_PROTOCOL_VERSION`, 더하기만), 팩 core@140(묶음 1117b, 줄기 판 189 — 설정 칸 `gov_house_independence_power_pm` 설명), SIM_VERSION 그대로
+  (시뮬에 가문·의결이 없다).

@@ -263,6 +263,11 @@ export interface HouseView {
         readonly tax?: { readonly ratePm: number; readonly maxPm: number } | undefined;
         /** 금고 장부(D-576 — 넣기·꺼내기 모두 가문원에게 공개): 최근 HOUSE_VAULT_LOG_LIMIT줄, 새 것 먼저. 옛 서버는 보내지 않는다 */
         readonly vaultLog?: readonly HouseVaultLogRow[] | undefined;
+        /**
+         * 가문장이 미리 정한 후계자(질문 2491 — D-588 5: 지배 가문의 가문장 = 국가 지도자 자리가 비면 이 사람이 먼저 잇는다, 없으면 서열). 없으면 null. 옛 서버는 보내지
+         * 않는다
+         */
+        readonly heirUserId?: string | null | undefined;
       })
     | null;
   /** 내가 받은 초대·내가 보낸 신청(가문이 없을 때) */

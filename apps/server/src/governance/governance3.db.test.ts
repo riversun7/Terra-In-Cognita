@@ -1,6 +1,6 @@
 // 나라 의결 셋째 DB 통합 시험(줄기 governance-3) — TEST_DATABASE_URL이 있을 때만. 계정은 가짜 값이다.
 // 군사 쿠데타(질문 2433 답·D-583 — 참가 받기·NPC 참가·전투·결과), 지분 과반을 사서 된 독재의 국고 지분 남기기(2432 (다) 답 D-583), 지배 쪽 지분 따라가기(2432 나),
-// 자본주의 발의 하한(2436 다 — D-580 1), 독재 지도자의 선전포고·국고 지분 팔기 직권(2440 나·2438 답 D-583), 빈자리 자동 선출(D-584 — 도시 독립 투표 대신, 줄기 governance-5).
+// 자본주의 발의 하한(2436 다 — D-580 1), 독재 지도자의 선전포고·국고 지분 팔기 직권(2440 나·2438 답 D-583), 빈자리 자동 선출(D-584 — 도시 독립 투표 대신, 줄기 governance-5), 빈자리 후임(질문 2491 — 줄기 governance-6).
 import { loadContentPack } from "@terra/content/node";
 import {
   DAY_MS,
@@ -15,6 +15,7 @@ import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { createContentEditState } from "../contentEdit/state.ts";
 import { createFactionIdentityServices, createFactionIdentityShared } from "../factionIdentity/services.ts";
 import { createHouseFounder } from "../factionIdentity/found.ts";
+import { createHouseSuccession } from "../factionIdentity/succession.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { silentLog } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
@@ -375,6 +376,66 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 3(governance-3)", () => {
       (await gov.view(head.userId)).agendas.filter((agenda) => agenda.kind === "leader_election").length,
     ).toBe(1);
     for (const cityId of faction.cities) expect(npc.world.cities.get(cityId)?.owner).toBe(faction.id);
+    gov.stop();
+  }, 120_000);
+  it("빈자리면 먼저 지배 가문의 후계자·서열로 가문장을 세운다(D-588 5 — 질문 2491): 새 가문장이 지도자, 자동 선출은 열지 않는다", async () => {
+    const world = await boot();
+    const { npc } = parts(world);
+    const gov = governance(world, () => TEST_GOVERNANCE_RULES);
+    const head = await citizen(world, "Sucone");
+    const elder = await citizen(world, "Suctwo");
+    const heir = await citizen(world, "Sucthr");
+    const faction = npc.world.factions.get(npc.houses.ownerOfRow(head.nation) ?? -1);
+    if (!faction) throw new Error("nation");
+    faction.regime = "democracy";
+    const row = await house(world, head.userId, "후임가문", "SUC");
+    for (const [userId, joined] of [
+      [elder.userId, clock],
+      [heir.userId, clock + 1],
+    ] as const)
+      await test.db.$client.query(
+        "insert into house_members (user_id, faction_id, role, joined_at_ms) values ($1, $2, 'member', $3)",
+        [userId, row, joined],
+      );
+    // 가문장이 후계자를 정한다(house_heir — 서열(먼저 들어온 elder)보다 먼저)
+    const pool = test.db.$client;
+    const succession = createHouseSuccession({ pool, db: test.db, now: () => clock });
+    expect(await succession.heir(elder.userId, heir.userId)).toEqual({ ok: false, code: "not_leader" });
+    expect(await succession.heir(head.userId, heir.userId)).toEqual({
+      ok: true,
+      action: "heir_set",
+      factionId: row,
+    });
+    // 해임 뒤 다시 뽑기가 실패해 빈자리가 된 나라(옛 판 — 해임된 사람을 모르므로 지금 가문장을 뺀다)
+    await pool.query(
+      `insert into governance_state (nation_id, ruling_house_key, vacant_since_ms, term_ends_at_ms, updated_at_ms) values ($1, $2, $3, $4, $3)
+       on conflict (nation_id) do update set ruling_house_key = excluded.ruling_house_key, vacant_since_ms = excluded.vacant_since_ms,
+         term_ends_at_ms = excluded.term_ends_at_ms`,
+      [head.nation, `p:${row}`, clock - 120_000, clock + 60 * DAY_MS],
+    );
+    await gov.service.tick();
+    expect(
+      await rows(test.db, "select vacant_since_ms from governance_state where nation_id = $1", [head.nation]),
+    ).toEqual([{ vacant_since_ms: null }]);
+    expect(
+      await rows(
+        test.db,
+        "select user_id, role from house_members where faction_id = $1 order by joined_at_ms",
+        [row],
+      ),
+    ).toEqual([
+      { user_id: head.userId, role: "member" },
+      { user_id: elder.userId, role: "member" },
+      { user_id: heir.userId, role: "leader" },
+    ]);
+    // 후계자가 가문장이 되면 후계자 줄은 지운다
+    expect(await rows(test.db, "select user_id from house_heirs where faction_id = $1", [row])).toEqual([]);
+    const view = await gov.view(heir.userId);
+    expect(view.leader).toBe(true);
+    expect((await gov.view(head.userId)).leader).toBe(false);
+    expect(view.agendas.filter((agenda) => agenda.kind === "leader_election").length).toBe(0);
+    const audits = await rows(test.db, "select action from audit_log where action = 'governance.successor'");
+    expect(audits.length).toBe(1);
     gov.stop();
   }, 120_000);
 });

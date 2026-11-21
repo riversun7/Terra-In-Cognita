@@ -221,6 +221,13 @@ export const BUSINESS_TUNING_KEYS: readonly TuningKey[] = [
     "주민세 국세 몫(‰)",
     "Resident tax national share (‰)",
   ),
+  // 사는 곳 정원(질문 2481 가 — 줄기 governance-6)
+  k(
+    "residence_capacity_per_level",
+    "residenceCapacityPerLevel",
+    "사는 곳 정원: 레벨(층)마다 유닛 수",
+    "Residence capacity: units per level (floor)",
+  ),
   // 나라 세금(tax-2 — 질문 2371 나·2373 가): NPC 나라 주민세 규칙식 범위, 주민세 재산의 건물 값(지은 값·감가)
   k(
     "npc_resident_tax_min_pm",

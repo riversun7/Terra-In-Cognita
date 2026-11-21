@@ -19,7 +19,11 @@ import { type StationRuntime, createStationRuntime } from "./station.ts";
 import { cellMaterials, oreSharePm, woodSharePm } from "@terra/shared/catchment";
 import { exchangeRoom } from "../market/lockerRoom.ts";
 import { withNpcStaff } from "../npc/npcLogistics.ts";
-import { attachResidence, registerResidenceService } from "../residence/attach.ts";
+import {
+  DEFAULT_RESIDENCE_CAPACITY_PER_LEVEL,
+  attachResidence,
+  registerResidenceService,
+} from "../residence/attach.ts";
 import { loadResidences } from "../residence/store.ts";
 import type { ResidenceService } from "../residence/service.ts";
 
@@ -61,6 +65,8 @@ export function startWorldGather(
 ): WorldGather {
   let built: GatherWorld | undefined;
   let stopped = false;
+  /** 사는 곳 쉼 훑기 멈추기(질문 2485 가) */
+  let stopResidence: (() => void) | undefined;
   void world.ready
     .then(async () => {
       const parts = world.persistence;
@@ -238,10 +244,14 @@ export function startWorldGather(
         facilities,
         maps: world.maps,
         workerRest,
+        // 사는 곳 정원 = 레벨(층) × 설정 칸(질문 2481 가 — 줄기 governance-6)
+        capacityPerLevel: () =>
+          rules().business.residenceCapacityPerLevel ?? DEFAULT_RESIDENCE_CAPACITY_PER_LEVEL,
         ownerOf,
         now: options.now,
       });
       registerResidenceService(service, residence.service);
+      stopResidence = () => residence.stop();
       built = {
         service,
         store,
@@ -279,6 +289,7 @@ export function startWorldGather(
       stopped = true;
       built?.service.stop();
       built?.station.stop();
+      stopResidence?.();
     },
   };
 }

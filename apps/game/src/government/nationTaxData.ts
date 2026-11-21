@@ -1,6 +1,6 @@
 // 정부 판 나라 세금 칸의 글자·입력 셈(순수 함수 — NationTaxPolicy.tsx가 쓴다). 줄기 tax-2(질문 2322 나·2373 가).
 // 소득세는 만분율(화면은 %, 소수 둘째 자리까지), 주민세·국세 몫은 ‰, 주기는 날. 빈칸 = 정하지 않음(기본값을 따른다). 범위는 프로토콜과 같다(NATION_TAX_LIMITS).
-// 주기는 고르기 목록(RESIDENT_TAX_PERIOD_DAYS — 사용자 답 D-585 2)에서 고른다. 목록 밖 옛 값(전에 정해 둔 것)은 그대로 둘 수 있게 고르기에 함께 보인다.
+// 주기는 고르기 목록(RESIDENT_TAX_PERIOD_DAYS — 사용자 답 D-585 2, 1·3·7·14·30일 — 질문 2482 답)에서 고른다. 목록 밖 옛 값(전에 정해 둔 것)은 그대로 둘 수 있게 고르기에 함께 보인다.
 import {
   type GovernmentTaxField,
   type GovernmentTaxSource,
@@ -122,6 +122,13 @@ export function periodChoices(current: string): number[] {
   const now = Number(current);
   if (current.trim() !== "" && Number.isInteger(now) && now > 0) days.add(now);
   return [...days].toSorted((a, b) => a - b);
+}
+
+/** 주기 이름(질문 2482 답 — governance-6): 1일 = 매일, 7일 = 매주, 그 밖 = N일마다 */
+export function periodLabel(days: number): string {
+  if (days === 1) return m.government_tax_period_daily();
+  if (days === 7) return m.government_tax_period_weekly();
+  return m.government_tax_days({ days });
 }
 
 /** 나라 세금 실패 코드 → 문구(가문 문구 표 + 주기 목록 밖) */

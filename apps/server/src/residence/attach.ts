@@ -12,6 +12,35 @@ import {
   registerResidenceBook,
 } from "./book.ts";
 import { type ResidenceService, createResidenceService } from "./service.ts";
+import { markResidencePaused } from "./store.ts";
+
+/** 고른 집이 쉬는지 훑는 간격(ms — 질문 2485 가) */
+const PAUSE_SWEEP_MS = 60_000;
+
+/**
+ * 고른 집이 쉬기 시작했거나 다시 쓸 수 있게 된 유닛의 표시를 고친다(질문 2485 가 — 쉬면 옛 길 숙소 배정으로 돌아가고 주인에게 처리할 일 residence_paused, residence/inbox.ts).
+ * 바뀐 유닛 수
+ */
+export async function sweepResidencePauses(
+  book: ResidenceBook,
+  pool: QueryPool | undefined,
+  nowMs: number,
+): Promise<number> {
+  let changed = 0;
+  for (const choice of book.all()) {
+    const usable = book.chosenPlace(choice.unitId) !== undefined;
+    const paused = choice.pausedSinceMs !== null && choice.pausedSinceMs !== undefined;
+    if (usable === !paused) continue;
+    const next = usable ? null : nowMs;
+    if (pool) await markResidencePaused(pool, choice.unitId, next);
+    book.put({ ...choice, pausedSinceMs: next });
+    changed += 1;
+  }
+  return changed;
+}
+
+/** 설정 칸 residence_capacity_per_level이 없을 때(옛 팩) 레벨마다 정원 — 기술 기본값 [임시] */
+export const DEFAULT_RESIDENCE_CAPACITY_PER_LEVEL = 4;
 
 /** 생활 단계 시설(숙소·집 — 팩 facilities stage "living") */
 const LIVING_STAGE = "living";
@@ -36,6 +65,8 @@ export interface ResidenceParts {
     }
   >;
   readonly workerRest: Pick<WorkerRest, "restOf">;
+  /** 사는 곳 정원: 레벨(층)마다 유닛 수(설정 칸 residence_capacity_per_level — 질문 2481 가) */
+  capacityPerLevel(): number;
   ownerOf(userId: string): number | undefined;
   readonly now: () => number;
 }
@@ -68,6 +99,7 @@ export function residenceWorldOf(
         level: record.level,
         living: parts.facilities.catalog().facility(record.facilityId)?.stage === LIVING_STAGE,
         ownerId: buildingOwner(buildingId),
+        capacity: Math.max(0, record.level) * Math.max(0, Math.trunc(parts.capacityPerLevel())),
       };
     },
     lodgingOf(unitId) {
@@ -83,6 +115,8 @@ export function residenceWorldOf(
 export function attachResidence(parts: ResidenceParts & { readonly rows: readonly ResidenceChoice[] }): {
   readonly book: ResidenceBook;
   readonly service: ResidenceService;
+  /** 쉼 훑기를 멈춘다 */
+  stop(): void;
 } {
   const world = residenceWorldOf(parts);
   const book = createResidenceBook(world);
@@ -95,7 +129,19 @@ export function attachResidence(parts: ResidenceParts & { readonly rows: readonl
     unitOwner: (unitId) => world.unitOwner(unitId),
     now: parts.now,
   });
-  return { book, service };
+  // 고른 집 쉼 훑기(질문 2485 가): 1분마다, 하나씩 차례로(겹치지 않게)
+  let sweeping = false;
+  const timer = setInterval(() => {
+    if (sweeping) return;
+    sweeping = true;
+    void sweepResidencePauses(book, parts.pool, parts.now())
+      .catch(() => undefined)
+      .finally(() => {
+        sweeping = false;
+      });
+  }, PAUSE_SWEEP_MS);
+  timer.unref();
+  return { book, service, stop: () => clearInterval(timer) };
 }
 
 const services = new WeakMap<object, ResidenceService>();

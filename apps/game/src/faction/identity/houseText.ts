@@ -63,6 +63,7 @@ export const HOUSE_ACTION_TEXT: Readonly<Record<HouseMemberAction | "accepted", 
   vault_taken: m.fid_house_done_vault_taken,
   tax_set: m.fid_house_done_tax_set,
   build_policy_set: m.fid_house_done_build_policy,
+  heir_set: m.fid_house_done_heir,
 };
 
 /** 가문 도시 명령 결과 코드 → 문장(질문 1005 가) */

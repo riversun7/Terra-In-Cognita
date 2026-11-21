@@ -78,6 +78,7 @@ function dispatch(
         cityId: message.cityId,
         shares: message.shares,
         minPrice: message.minPrice,
+        maxPrice: message.maxPrice,
         monetaryMode: message.monetaryMode,
         monetaryRateBp: message.monetaryRateBp,
       });

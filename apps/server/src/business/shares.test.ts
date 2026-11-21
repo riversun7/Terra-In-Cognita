@@ -84,7 +84,7 @@ describe("생산시설 지분 시장", () => {
     expect(core.mayManage(SHOP, BUYER)).toBe(false);
   });
 
-  it("주문이 들어오면 주인에게 한 번 발행하고, 회차에 한 값으로 체결해 남은 것을 돌려준다", () => {
+  it("주문이 들어오면 주인에게 한 번 발행하고, 회차에 한 값으로 체결해 남은 몫은 다음 회차에 걸어 둔다(D-587 2472 나)", () => {
     const { shares, ledger, grant, advance, ops } = setup();
     grant(BUYER, 10_000n);
     const sell = shares.place(OWNER, SHOP, "sell", 5n, 400n, T0 + 10);
@@ -110,7 +110,11 @@ describe("생산시설 지분 시장", () => {
     expect(ledger.balanceOf(BUYER, businessShareAsset(SHOP))).toBe(300n);
     expect(ledger.balanceOf(BUYER, ASSET)).toBe(10_000n - 1500n);
     expect(ledger.balanceOf(OWNER, ASSET)).toBe(1500n);
-    expect(ledger.balanceOf(OWNER, businessShareAsset(SHOP))).toBe(700n);
+    // 팔리지 않은 100주는 묶인 채 걸려 있다(주인 몫으로 센다)
+    expect(ledger.balanceOf(OWNER, businessShareAsset(SHOP))).toBe(600n);
+    expect(shares.view(SHOP, OWNER, T0 + ROUND + 20).myOrders).toEqual([
+      { id: sell.ok ? sell.orderId : 0, side: "sell", price: "5", shares: "100" },
+    ]);
     expect(shares.holders(SHOP)).toEqual([
       { ownerId: OWNER, shares: 700n },
       { ownerId: BUYER, shares: 300n },
@@ -121,7 +125,83 @@ describe("생산시설 지분 시장", () => {
     expect(view.myShares).toBe("300");
     expect(view.rounds).toEqual([{ atMs: T0 + ROUND, price: "5", shares: "300" }]);
     expect(ops.some((op) => op.table === "businessShareRounds")).toBe(true);
-    expect(ops.filter((op) => op.table === "businessShareOrders" && op.row.state === "done")).toHaveLength(2);
+    expect(ops.filter((op) => op.table === "businessShareOrders" && op.row.state === "done")).toHaveLength(1);
+    const open = ops.filter((op) => op.table === "businessShareOrders" && op.row.state === "open").at(-1);
+    expect(open?.row).toEqual(expect.objectContaining({ shares: 100n, filled: 300n, locked: 100n }));
+  });
+
+  it("다시 켜도 남은 주문을 되살리고, 판 쪽은 거래세(국고)·이용료(거래소 금고)를 낸다(D-587 2474 다)", () => {
+    let ids = 1;
+    const ledger = createLedgerBook({ nextAccountId: () => ids++, nextTxId: () => ids++ });
+    const ops: { table: WorldTable; row: Row }[] = [];
+    const writer: WorldWriter = {
+      upsert: (table, row) => ops.push({ table, row }),
+      remove: (table, row) => ops.push({ table, row }),
+      append: (table, row) => ops.push({ table, row }),
+      durable: () => Promise.resolve(),
+      drain: () => Promise.resolve(),
+      pendingCount: 0,
+      takeMetrics: () => ({}),
+      crash: () => Promise.resolve(),
+    };
+    const paid: bigint[] = [];
+    const make = (loaded = EMPTY_SHARES) =>
+      createShareMarkets({
+        ledger,
+        writer,
+        planetId: "p",
+        loaded,
+        asset: ASSET,
+        owner: (buildingId) => (buildingId === SHOP ? OWNER : undefined),
+        isBusiness: (buildingId) => buildingId === SHOP,
+        rules: () => START_BUSINESS,
+        now: () => T0,
+        cityOf: () => 3,
+        levy: () => ({
+          rateOf: () => ({ treasuryOwner: 99, taxBp: 1000, fee: { buildingId: 500, bp: 200 } }),
+          pay: ({ amount }) => paid.push(amount),
+        }),
+      });
+    ledger.post({
+      kind: "grant",
+      atMs: 0,
+      entries: [
+        { account: ledger.systemAccount("issue:credit", ASSET), amount: -10_000n },
+        { account: ledger.ownerAccount(BUYER, ASSET), amount: 10_000n },
+      ],
+    });
+    const first = make();
+    const sell = first.place(OWNER, SHOP, "sell", 10n, 50n, T0);
+    if (!sell.ok) throw new Error("sell");
+    // 다시 켬: 걸린 줄(지금까지 체결 0)에서 시장을 되살린다
+    const row = ops.findLast((op) => op.table === "businessShareOrders")?.row;
+    const second = make({
+      ...EMPTY_SHARES,
+      open: [
+        {
+          buildingId: SHOP,
+          placedAtMs: T0,
+          filled: 0n,
+          order: {
+            id: sell.orderId,
+            owner: OWNER,
+            side: "sell",
+            price: 10n,
+            lots: BigInt(String(row?.shares)),
+            seq: 1,
+          },
+        },
+      ],
+      maxOrderId: sell.orderId,
+    });
+    expect(second.place(BUYER, SHOP, "buy", 10n, 20n, T0).ok).toBe(true);
+    expect(second.tick(T0 + ROUND)).toBe(1);
+    // 20주 × 10 = 200: 거래세 10% = 20 → 국고 99, 이용료 2% = 4 → 거래소(pay 고리)
+    expect(ledger.balanceOf(99, ASSET)).toBe(20n);
+    expect(ledger.balanceOf(OWNER, ASSET)).toBe(180n);
+    expect(paid).toEqual([4n]);
+    expect(ledger.balanceOf(BUYER, businessShareAsset(SHOP))).toBe(20n);
+    expect(second.check()).toEqual([]);
   });
 
   it("정산은 지분 수대로 나누고, 100% 가까이 사면 경영권(관리)이 넘어간다", () => {

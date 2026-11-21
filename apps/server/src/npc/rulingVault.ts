@@ -290,6 +290,7 @@ export const npcRulingHooks = (
   );
   // 의결 고리(governanceHooks.ts — 점령 몰수·독립 투표 가문 지분·나라 단위 판단 멈춤·독재 지분 팔기, 줄기 governance-3)
   const governed = withGovernanceHooks(taxed, {
+    ledger: o.ledger,
     cityHouses: o.cityHouses,
     world: o.world,
     keepSatisfaction: () => o.rules().governance.npcKeepSatisfaction,

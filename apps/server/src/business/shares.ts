@@ -4,11 +4,16 @@
 //   business_share_count만큼 한 번 발행한다(시스템 계정 issue:share:biz_<건물>, 거래 share_issue). 발행 전에는 주인이 모두 가진 것으로 본다.
 // - 체결 = 환전과 같은 동시호가 함수(@terra/sim createFxMarket, prefix "share" — 에스크로 escrow:share:<건물>:base·quote, 거래 share_escrow·
 //   share_clear·share_refund). 1주 = 로트 1. 값을 매기는 화폐 = 사업장 금고 화폐(지금 서버 시험 화폐 [임시] — D-7010 "증권은 세력 화폐로만"은
-//   사업장 돈이 나라 화폐로 바뀔 때 함께 바꾼다). 회차 = 설정 칸 business_share_round_ms(UTC 0시 기준 같은 간격), 남은 주문은 회차 뒤 돌려준다.
+//   사업장 돈이 나라 화폐로 바뀔 때 함께 바꾼다). 회차 = 설정 칸 business_share_round_ms(UTC 0시 기준 같은 간격). 남은 주문은 아래 "바뀜".
 // - 주주(정산·대주주 판단) = 그 자산 잔고 + 걸어 둔 팔 주문의 주(에스크로에 있어도 그 사람 몫). 많은 주주 찾기는 바뀔 때마다 그 사업장만 다시 센다.
 // - 증권 거래소 건물(D-561·D-583): cityShares/view.ts 거래소 목록이 이 모음의 조회를 부른다(주문·회차·조회 함수는 건물을 모른다 — 사업장 ID만
 //   받는다). 조회에 호가창(값마다 걸린 주)·지금 닫으면 날 값을 더했다(D-583 "호가창처럼", docs/adr/2026-11-21-share-market.md).
 // - 쓰기는 월드 쓰기 대기열(원장 고리와 같은 묶음). 부팅 때 걸린 주문(seq 그대로)·지난 체결가로 시장을 다시 만든다.
+// 바뀜(줄기 share-market-2, 기획 D-587 — docs/adr/2026-11-21-share-market-2.md):
+// - 남는 주문(질문 2472 나): 회차에 체결되지 않은 몫은 거둘 때까지 다음 회차에도 걸려 있다(createFxMarket rest — 묶음 그대로, 차례 그대로). 다시 켜도
+//   걸린 줄(state open, shares = 아직 걸린 주, filled = 지금까지 체결)에서 되살린다.
+// - 거래세·증권 거래소 이용료(질문 2474 다 — cityShares/levy.ts): 회차 정산 뒤 판 쪽이 받은 돈에서 거래세(그 사업장이 선 도시 주인 나라 국고, 거래
+//   share_trade_tax)와 이용료(그 도시 증권 거래소 금고 — 사업장 장부 수입 share_fee)를 낸다.
 import {
   type ShareHolder,
   type ShareMarketView,
@@ -28,6 +33,7 @@ import {
 } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
+import { type ShareLevy, shareLevyAmounts } from "../cityShares/levy.ts";
 
 /** 조회가 보이는 최근 회차 수 */
 const ROUNDS_SHOWN = 24;
@@ -48,6 +54,8 @@ export interface LoadedShares {
     readonly buildingId: number;
     readonly placedAtMs: number;
     readonly order: FxOrder;
+    /** 지금까지 체결한 주 수(남는 주문 — 옛 줄은 0) */
+    readonly filled?: bigint | undefined;
   }[];
   readonly rounds: readonly ShareRoundRecord[];
   /** 사업장마다 마지막 체결가(창 밖이어도) */
@@ -88,6 +96,10 @@ export interface ShareMarketsDeps {
   isBusiness(buildingId: number): boolean;
   readonly rules: () => BusinessCoefficients;
   readonly now: () => number;
+  /** 사업장이 선 도시(거래세·이용료 — 없으면 세금·이용료 없음) */
+  readonly cityOf?: ((buildingId: number) => number | null | undefined) | undefined;
+  /** 거래세·증권 거래소 이용료(질문 2474 다). 없으면 세금·이용료 없음 */
+  readonly levy?: (() => ShareLevy | undefined) | undefined;
 }
 
 export interface ShareMarkets {
@@ -135,6 +147,8 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
   };
   const markets = new Map<number, FxMarket>();
   const placedAt = new Map<number, number>();
+  /** 남는 주문의 지금까지 체결한 주 수(주문 ID → 주) */
+  const filledSoFar = new Map<number, bigint>();
   const rounds = new Map<number, ShareRoundRecord[]>();
   const issuedBy = new Map<number, bigint>();
   /** 사업장 → 주주(잔고만, 걸린 팔 주문은 따로 더한다). 바뀐 사업장만 다시 센다 */
@@ -170,7 +184,13 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
     dirty.delete(buildingId);
   };
 
-  const writeOpen = (buildingId: number, order: FxOrder, atMs: number): void => {
+  const writeOpen = (
+    buildingId: number,
+    order: FxOrder,
+    atMs: number,
+    filled = 0n,
+    clearPrice?: bigint,
+  ): void => {
     writer.upsert("businessShareOrders", {
       id: order.id,
       building_id: buildingId,
@@ -181,10 +201,10 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
       shares: order.lots,
       locked: lockOf(order),
       seq: order.seq,
-      placed_at_ms: atMs,
+      placed_at_ms: placedAt.get(order.id) ?? atMs,
       state: "open",
-      filled: 0n,
-      clear_price: null,
+      filled,
+      clear_price: clearPrice ?? null,
       done_at_ms: null,
     });
   };
@@ -213,6 +233,7 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
       done_at_ms: atMs,
     });
     placedAt.delete(order.id);
+    filledSoFar.delete(order.id);
   };
 
   const marketOf = (buildingId: number, restore?: readonly FxOrder[]): FxMarket => {
@@ -225,6 +246,8 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
         quote: deps.asset,
         lotSize: 1n,
         prefix: SHARE_MARKET_PREFIX,
+        // 체결되지 않은 몫은 다음 회차에 남는다(D-587 질문 2472 나)
+        rest: true,
       },
       ledger,
       nextOrderId,
@@ -238,6 +261,7 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
   const openBy = new Map<number, FxOrder[]>();
   for (const row of loaded.open) {
     placedAt.set(row.order.id, row.placedAtMs);
+    if ((row.filled ?? 0n) > 0n) filledSoFar.set(row.order.id, row.filled ?? 0n);
     const list = openBy.get(row.buildingId) ?? [];
     list.push(row.order);
     openBy.set(row.buildingId, list);
@@ -298,11 +322,52 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
     return count;
   };
 
+  /** 회차 정산 뒤 판 쪽이 내는 거래세(국고 — 거래 share_trade_tax)·이용료(그 도시 증권 거래소 금고) — 질문 2474 다 */
+  const levyRound = (
+    buildingId: number,
+    sells: readonly { owner: number; filled: bigint }[],
+    price: bigint,
+    atMs: number,
+  ): void => {
+    const levy = deps.levy?.();
+    const cityId = deps.cityOf?.(buildingId);
+    const rate = levy && cityId !== null && cityId !== undefined ? levy.rateOf(cityId) : undefined;
+    if (!levy || !rate) return;
+    for (const sell of sells) {
+      const cut = shareLevyAmounts(sell.filled * price, rate, sell.owner);
+      const from = ledger.ownerAccount(sell.owner, deps.asset);
+      if (cut.tax > 0n && ledger.balance(from) >= cut.tax)
+        ledger.post({
+          kind: "share_trade_tax",
+          atMs,
+          entries: [
+            { account: from, amount: -cut.tax },
+            { account: ledger.ownerAccount(rate.treasuryOwner, deps.asset), amount: cut.tax },
+          ],
+        });
+      if (cut.fee > 0n && rate.fee)
+        levy.pay({ from, buildingId: rate.fee.buildingId, asset: deps.asset, amount: cut.fee, atMs });
+    }
+  };
+
   const run = (buildingId: number, market: FxMarket, atMs: number): void => {
     const before = [...market.orders()];
     const result = market.run(atMs);
-    for (const order of before)
-      writeDone(buildingId, order, "done", result.fills.get(order.id) ?? 0n, result.price, atMs);
+    const left = new Map(market.orders().map((order) => [order.id, order]));
+    const sold: { owner: number; filled: bigint }[] = [];
+    for (const order of before) {
+      const filled = result.fills.get(order.id) ?? 0n;
+      if (filled <= 0n) continue;
+      if (order.side === "sell") sold.push({ owner: order.owner, filled });
+      const sum = (filledSoFar.get(order.id) ?? 0n) + filled;
+      const rest = left.get(order.id);
+      if (rest) {
+        // 남은 몫은 다음 회차에(줄은 open 그대로 — 아직 걸린 주·지금까지 체결)
+        filledSoFar.set(order.id, sum);
+        writeOpen(buildingId, rest, atMs, sum, result.price);
+      } else writeDone(buildingId, { ...order, lots: sum }, "done", sum, result.price, atMs);
+    }
+    if (result.price !== undefined) levyRound(buildingId, sold, result.price, atMs);
     lastRoundId += 1;
     const round: ShareRoundRecord = {
       id: lastRoundId,
@@ -328,7 +393,10 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
   };
 
   const cancelOrder = (buildingId: number, market: FxMarket, order: FxOrder, atMs: number): void => {
-    if (market.cancel(order.id, atMs)) writeDone(buildingId, order, "cancelled", 0n, undefined, atMs);
+    // 끝난 줄 = 체결 + 거둔 몫(shares), 지금까지 체결(filled)
+    const filled = filledSoFar.get(order.id) ?? 0n;
+    if (market.cancel(order.id, atMs))
+      writeDone(buildingId, { ...order, lots: order.lots + filled }, "cancelled", filled, undefined, atMs);
   };
   const sharesOf = (buildingId: number, ownerId: number): bigint =>
     holders(buildingId).find((holder) => holder.ownerId === ownerId)?.shares ?? 0n;

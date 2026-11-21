@@ -50,7 +50,7 @@ export const governanceAgendas = pgTable(
     index("governance_agendas_nation_idx").on(table.nationId, table.status),
     check(
       "governance_agendas_kind",
-      sql`${table.kind} in ('leader_election', 'leader_removal', 'regime_change', 'war_declaration', 'tax_change', 'city_independence', 'treasury_share_sale', 'peace', 'currency_stage', 'house_independence')`,
+      sql`${table.kind} in ('leader_election', 'leader_removal', 'regime_change', 'war_declaration', 'tax_change', 'city_independence', 'treasury_share_sale', 'peace', 'currency_stage', 'house_independence', 'treasury_share_buy')`,
     ),
     check(
       "governance_agendas_status",

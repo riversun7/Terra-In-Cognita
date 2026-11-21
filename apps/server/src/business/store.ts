@@ -59,7 +59,7 @@ export async function loadBusiness(pool: QueryPool): Promise<LoadedBusiness> {
 /** 지분 주문(open)·최근 회차·사업장마다 마지막 체결가·가장 큰 번호 */
 export async function loadShares(pool: QueryPool, nowMs: number): Promise<LoadedShares> {
   const open = await pool.query(
-    `select id, building_id, owner_id, side, price, shares, seq, placed_at_ms
+    `select id, building_id, owner_id, side, price, shares, seq, placed_at_ms, filled
        from business_share_orders where state = 'open' order by building_id, seq`,
   );
   const rounds = await pool.query(
@@ -78,6 +78,7 @@ export async function loadShares(pool: QueryPool, nowMs: number): Promise<Loaded
     open: open.rows.map((row) => ({
       buildingId: Number(row.building_id),
       placedAtMs: Number(row.placed_at_ms),
+      filled: row.filled === null || row.filled === undefined ? 0n : bigOf(row.filled),
       order: {
         id: Number(row.id),
         owner: Number(row.owner_id),

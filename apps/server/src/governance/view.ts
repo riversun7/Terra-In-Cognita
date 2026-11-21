@@ -37,6 +37,7 @@ const NOT_LISTED: ReadonlySet<AgendaKind> = new Set([
   "tax_change",
   "city_independence",
   "treasury_share_sale",
+  "treasury_share_buy",
 ]);
 /** 끝난 쿠데타를 몇 개까지 보이나 */
 const RECENT_COUPS = 3;
@@ -148,6 +149,10 @@ export function createGovernanceView(o: {
         taxes: agenda.payload.taxes ?? null,
         cityId: agenda.payload.cityId ?? null,
         shareSale: shares !== undefined && minPrice !== undefined ? { shares, minPrice } : null,
+        shareBuy:
+          shares !== undefined && agenda.payload.maxPrice !== undefined
+            ? { shares, maxPrice: agenda.payload.maxPrice }
+            : null,
         targetNation: target === undefined ? null : { id: target, name: names.get(target) ?? null },
         monetary: agenda.payload.monetaryMode
           ? { mode: agenda.payload.monetaryMode, rateBp: agenda.payload.monetaryRateBp ?? 0 }

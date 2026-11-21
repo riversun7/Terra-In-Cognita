@@ -1,6 +1,7 @@
 // 플레이어 가문 설정값 — 콘텐츠 팩 `tuning`을 얹은 세력·사회 계수표(@terra/sim societyCoefficientsFrom)의 house 칸에서 고른다
 // (질문 926~935 답, docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-11, 926~935 답)"). 부를 때마다 읽어 개발자 패널에서 바꾸면 다음
 // 요청부터 쓴다. 팩 없이 띄운 서버·시험은 sim 시험 계수표(팩 출발값과 같다).
+import type { CityShareRules } from "../cityShares/market.ts";
 import { type FactionShortRange, clampShortRange } from "@terra/shared/factionIdentity";
 import { type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
 import { type GovernanceRules, governanceRulesFrom } from "../governance/rules.ts";
@@ -44,7 +45,7 @@ export interface HouseRules {
   /** 나라 의결 설정값(governance 칸 — 가문 게이트웨이와 한 소켓으로 묶어 같은 설정 고리로 읽는다, docs/adr/2026-11-21-governance.md) */
   readonly governance: GovernanceRules;
   /** 도시(정부) 지분 시장 설정값(설정 칸 city_share_round_ms·city_share_order_max — D-583, docs/adr/2026-11-21-share-market.md) */
-  readonly cityShares: { readonly roundMs: number; readonly orderMax: number };
+  readonly cityShares: CityShareRules;
 }
 
 const whole = (value: number): number => (Number.isSafeInteger(value) && value > 0 ? value : 0);
@@ -83,6 +84,14 @@ export function houseRulesFrom(c: SocietyCoefficients): HouseRules {
     cityShares: {
       roundMs: Math.max(60_000, whole(c.business.cityShareRoundMs ?? c.business.shareRoundMs)),
       orderMax: atLeastOne(c.business.cityShareOrderMax ?? c.business.shareOrderMax),
+      // NPC 지분 주문(D-587 질문 2471 다 — cityShares/npcTrade.ts): 시뮬 지분 팔기와 같은 수·값, 사기 예산, 성향 범위
+      npc: {
+        lot: BigInt(whole(c.shareSaleAmount)),
+        price: BigInt(whole(c.shareSalePrice)),
+        budgetPm: whole(c.business.cityShareNpcBuyBudgetPm ?? 50),
+        traitMin: c.npc.traitMin,
+        traitMax: c.npc.traitMax,
+      },
     },
   };
 }

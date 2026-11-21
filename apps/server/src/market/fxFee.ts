@@ -13,6 +13,7 @@
 import {
   EXCHANGE_FEE_ITEM,
   FX_FEE_ITEM,
+  SHARE_FEE_ITEM,
   type FeeRateView,
   type FxFeeView,
 } from "@terra/shared/businessBooks";
@@ -56,6 +57,20 @@ export function exchangeFeeOf(
     rules.exchangeFeeBp,
     rules.exchangeFeeMinBp ?? 0,
     rules.exchangeFeeMaxBp ?? 10_000,
+  );
+}
+
+/** 그 증권 거래소의 이용료(D-587 질문 2474 다 — 물자 거래소와 같은 꼴: 주인이 정한 요율, 한도로 자름, 없으면 적정 요율) */
+export function shareFeeOf(
+  priceOf: (buildingId: number, item: string) => bigint | undefined,
+  rules: BusinessCoefficients,
+  buildingId: number,
+): FeeRateView {
+  return feeRate(
+    priceOf(buildingId, SHARE_FEE_ITEM),
+    rules.exchangeShareFeeBp ?? 50,
+    rules.exchangeShareFeeMinBp ?? 0,
+    rules.exchangeShareFeeMaxBp ?? 1000,
   );
 }
 

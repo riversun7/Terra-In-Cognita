@@ -21,6 +21,7 @@
 import type { BusinessResultCode } from "@terra/protocol";
 import {
   EXCHANGE_FEE_ITEM,
+  SHARE_FEE_ITEM,
   FX_FEE_ITEM,
   HAUL_SERVICE_ITEM,
   REPAIR_SERVICE_ITEM,
@@ -120,6 +121,8 @@ export interface BusinessCommandDeps {
   readonly fxShop?: ((buildingId: number) => boolean) | undefined;
   /** 물자 거래소인가(이용료 요율 — D-574 질문 2085). 없으면 아니다 */
   readonly goodsExchange?: ((buildingId: number) => boolean) | undefined;
+  /** 증권 거래소인가(이용료 요율 — D-587 질문 2474 다). 없으면 정할 수 없다 */
+  readonly shareExchange?: ((buildingId: number) => boolean) | undefined;
 }
 
 export interface BusinessCommands {
@@ -378,6 +381,16 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
           const r = deps.rules();
           const max = fx ? bound(r.exchangeFxFeeMaxBp, 0) : bound(r.exchangeFeeMaxBp, 10_000);
           const min = fx ? bound(r.exchangeFxFeeMinBp, 0) : bound(r.exchangeFeeMinBp, 0);
+          if (command.price < min || command.price > max) return fail("invalid_amount");
+          core.setPrice(command.buildingId, command.item, command.price);
+          return { ok: true };
+        }
+        // 증권 거래소 이용료 요율(D-587 질문 2474 다): 증권 거래소만, 아래·위 끝(설정 칸) 안에서
+        if (command.item === SHARE_FEE_ITEM) {
+          if (deps.shareExchange?.(command.buildingId) !== true) return fail("not_goods");
+          const r = deps.rules();
+          const max = bound(r.exchangeShareFeeMaxBp ?? 1000, 0);
+          const min = bound(r.exchangeShareFeeMinBp ?? 0, 0);
           if (command.price < min || command.price > max) return fail("invalid_amount");
           core.setPrice(command.buildingId, command.item, command.price);
           return { ok: true };

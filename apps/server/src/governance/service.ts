@@ -39,6 +39,13 @@ import { electionDecided, motionDecided } from "./early.ts";
 import { type Electorate, type Ruling, createElectorate } from "./electorate.ts";
 import { npcChallengers, npcVoteChoice } from "./npcVote.ts";
 import { applyRulings, dictatorshipShares, runShareFixups } from "./shareFixups.ts";
+import {
+  type ShareAgendaHooks,
+  enactShareAgenda,
+  isShareAgenda,
+  shareAgendaOpen,
+  shareAgendaPayload,
+} from "./shareAgendas.ts";
 import type { GovernanceNation, GovernancePort } from "./port.ts";
 import type { GovernanceRules } from "./rules.ts";
 import { type AgendaPayload, type AgendaRow, type GovernanceStore, type StateRow } from "./store.ts";
@@ -57,19 +64,14 @@ export interface ProposeInput {
   readonly cityId?: number | undefined;
   readonly shares?: string | undefined;
   readonly minPrice?: string | undefined;
+  /** 국고 지분 사기(D-587 질문 2479 나): 한 주 가장 높은 값 */
+  readonly maxPrice?: string | undefined;
   /** 화폐 단계 전환(질문 2453 — 줄기 governance-5): 목표 단계·하루 조절 만분율 */
   readonly monetaryMode?: MonetaryMode | undefined;
   readonly monetaryRateBp?: number | undefined;
 }
 
-/** 승인된 국고 지분 팔기(정부 지분 시장 cityShares/service.ts approvedSale이 받는다 — D-583) */
-export interface ApprovedShareSale {
-  readonly nationRowId: number;
-  readonly agendaId: number;
-  readonly cityId: number;
-  readonly shares: bigint;
-  readonly minPrice: bigint;
-}
+export type { ApprovedShareBuy, ApprovedShareSale } from "./shareAgendas.ts";
 
 const fail = (code: GovernanceResultCode): GovernanceResult => ({ ok: false, code });
 
@@ -114,8 +116,11 @@ export function createGovernanceService(o: {
     | undefined;
   /** 쿠데타·지배 쪽 지분 가문 표(coupStore.ts) */
   readonly coups: CoupStore;
-  /** 승인된 국고 지분 팔기를 정부 지분 시장에 넘긴다(질문 2438 답 D-583 — 시장 줄기가 붙인다). 없으면 승인 기록만 남긴다 */
-  readonly approvedShareSale?: ((sale: ApprovedShareSale, nowMs: number) => Promise<void>) | undefined;
+  /**
+   * 승인된 국고 지분 팔기·사기를 정부 지분 시장에 넘긴다(질문 2438 답 D-583·D-587 질문 2479 나 — shareAgendas.ts). 팔기 고리가 없으면 승인 기록만 남기고,
+   * 사기 칸 검사 고리가 없으면 사기 안건은 꺼져 있다
+   */
+  readonly shares?: ShareAgendaHooks | undefined;
   /** 화폐 단계·신임도·가문 집 표(leaderStore.ts — 줄기 governance-5) */
   readonly leader: LeaderStore;
   /** 쿠데타 신용(D-584 — attach.ts가 credit/로 잇는다) */
@@ -323,23 +328,14 @@ export function createGovernanceService(o: {
     return { ok: true, agendaId: agenda.id, action: "decided" };
   };
 
-  /** 국고 지분 팔기 안건 칸 검사(질문 2438 답 D-583) — 틀리면 실패 코드 */
-  const shareSalePayload = (
+  /** 국고 지분 안건 칸 검사(팔기 2438 답 D-583 · 사기 D-587 2479 나 — shareAgendas.ts) — 틀리면 실패 */
+  const sharePayload = (
     s: Standing,
     input: ProposeInput,
   ): AgendaPayload | Extract<GovernanceResult, { ok: false }> => {
-    const { cityId, shares, minPrice } = input;
-    if (
-      cityId === undefined ||
-      shares === undefined ||
-      minPrice === undefined ||
-      !s.nation.cities.includes(cityId)
-    )
-      return { ok: false, code: "invalid_choice" };
-    if (BigInt(shares) <= 0n) return { ok: false, code: "invalid_choice" };
-    if (o.port.treasuryShares(s.nation, cityId) < BigInt(shares))
-      return { ok: false, code: "not_enough_shares" };
-    return { cityId, shares, minPrice };
+    if (!isShareAgenda(input.kind)) return { ok: false, code: "invalid_choice" };
+    const checked = shareAgendaPayload(input.kind, s.nation, input, o.port, o.shares ?? {});
+    return typeof checked === "string" ? { ok: false, code: checked } : checked;
   };
 
   const propose = async (userId: string, input: ProposeInput): Promise<GovernanceResult> => {
@@ -373,9 +369,9 @@ export function createGovernanceService(o: {
         if (o.port.atWar(nation, target)) return fail("already_at_war");
         return decreeNow(s, userId, "war_declaration", { targetNationId: target.rowId }, nowMs);
       }
-      if (input.kind === "treasury_share_sale") {
-        const payload = shareSalePayload(s, input);
-        return "ok" in payload ? payload : decreeNow(s, userId, "treasury_share_sale", payload, nowMs);
+      if (isShareAgenda(input.kind)) {
+        const payload = sharePayload(s, input);
+        return "ok" in payload ? payload : decreeNow(s, userId, input.kind, payload, nowMs);
       }
       // 강화·화폐 단계도 직권(줄기 governance-5 — D-217)
       if (input.kind === "peace") {
@@ -423,15 +419,11 @@ export function createGovernanceService(o: {
         payload.regime = input.regime;
         break;
       }
-      case "treasury_share_sale": {
-        const checked = shareSalePayload(s, input);
+      case "treasury_share_sale":
+      case "treasury_share_buy": {
+        const checked = sharePayload(s, input);
         if ("ok" in checked) return checked;
-        if (
-          open.some(
-            (agenda) => agenda.kind === "treasury_share_sale" && agenda.payload.cityId === checked.cityId,
-          )
-        )
-          return fail("already_open");
+        if (shareAgendaOpen(input.kind, checked.cityId, open)) return fail("already_open");
         Object.assign(payload, checked);
         break;
       }
@@ -688,34 +680,19 @@ export function createGovernanceService(o: {
         return leader.enactPeace(agenda, nation, nowMs);
       case "currency_stage":
         return leader.enactCurrency(agenda, nation, nowMs);
-      case "treasury_share_sale": {
-        // 승인된 국고 지분 팔기(질문 2438 답 D-583): 정부 지분 시장에 넘긴다(cityShares — 국고 팔 주문, 고리가 없으면 승인 기록만)
-        const { cityId, shares, minPrice } = agenda.payload;
-        const valid =
-          cityId !== undefined &&
-          shares !== undefined &&
-          minPrice !== undefined &&
-          o.port.treasuryShares(nation, cityId) >= BigInt(shares);
-        if (valid && o.approvedShareSale)
-          await o.approvedShareSale(
-            {
-              nationRowId: nation.rowId,
-              agendaId: agenda.id,
-              cityId,
-              shares: BigInt(shares),
-              minPrice: BigInt(minPrice),
-            },
-            nowMs,
-          );
+      case "treasury_share_sale":
+      case "treasury_share_buy": {
+        // 승인된 국고 지분 팔기·사기(2438 답 D-583·D-587 2479 나): 정부 지분 시장에 넘긴다(shareAgendas.ts — 국고 주문, 고리가 없으면 승인 기록만)
+        const valid = await enactShareAgenda(agenda.kind, agenda, nation, o.port, o.shares ?? {}, nowMs);
         await o.store.finish(agenda.id, { status: valid ? "enacted" : "cancelled", enactedAtMs: nowMs });
         if (valid)
-          await audit(null, "governance.share_sale_approved", {
-            nationId: nation.rowId,
-            agendaId: agenda.id,
-            cityId,
-            shares,
-            minPrice,
-          });
+          await audit(
+            null,
+            agenda.kind === "treasury_share_sale"
+              ? "governance.share_sale_approved"
+              : "governance.share_buy_approved",
+            { nationId: nation.rowId, agendaId: agenda.id, ...agenda.payload },
+          );
         return;
       }
       case "tax_change": {

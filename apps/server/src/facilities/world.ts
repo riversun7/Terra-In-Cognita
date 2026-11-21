@@ -37,6 +37,7 @@ import { roomGrams } from "./storage.ts";
 import { type BusinessCore, EMPTY_BUSINESS, createBusinessCore } from "../business/core.ts";
 import { type BusinessCommands, createBusinessCommands } from "../business/commands.ts";
 import { EMPTY_SHARES, type ShareMarkets, createShareMarkets } from "../business/shares.ts";
+import { createWorldShareLevy } from "../cityShares/levyWorld.ts";
 import { ASSET_CREDIT } from "../world/settlement.ts";
 import { nationIncomeTaxBp } from "../government/nationTax.ts";
 import { creditAttackHook, creditUpkeepHook } from "../credit/hooks.ts";
@@ -346,6 +347,19 @@ export function createWorldFacilities(input: {
     isBusiness: (buildingId) => service.facilities.has(buildingId),
     rules: () => input.rules().business,
     now: input.now,
+    // 거래세·증권 거래소 이용료(D-587 질문 2474 다 — cityShares/levyWorld.ts)
+    cityOf: (buildingId) => service.facilities.get(buildingId)?.cityId,
+    levy: () =>
+      createWorldShareLevy({
+        records: () => service.facilities.values(),
+        catalog,
+        works: (buildingId) => service.works(buildingId),
+        business: core,
+        businessRules: () => input.rules().business,
+        cityOwner: (cityId) => npcCity(cityId)?.owner,
+        taxOf: (owner) => input.npc?.()?.economy?.economy.taxOf.get(owner),
+        balance: (account) => input.ledger.balance(account),
+      }),
   });
   shares = shareMarkets;
   // 사업장 장부 명령(프로토콜 34) — 건물 게이트웨이가 건물 서비스 고리로 넘긴다
@@ -389,6 +403,9 @@ export function createWorldFacilities(input: {
     // 물자 거래소 이용료 요율(D-574 질문 2085): 물자 거래소
     goodsExchange: (buildingId) =>
       catalog().facility(service.facilities.get(buildingId)?.facilityId ?? "")?.exchange === "goods",
+    // 증권 거래소 이용료 요율(D-587 질문 2474 다): 증권 거래소
+    shareExchange: (buildingId) =>
+      catalog().facility(service.facilities.get(buildingId)?.facilityId ?? "")?.exchange === "securities",
     // 배 판매가(기획 대조 2057): 그 조선소가 만드는 배 종류
     boatTypes: (buildingId) =>
       (catalog().facility(service.facilities.get(buildingId)?.facilityId ?? "")?.boats ?? []).map(

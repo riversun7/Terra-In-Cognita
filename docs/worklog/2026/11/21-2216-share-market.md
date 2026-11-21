@@ -50,8 +50,15 @@
 - 사업장 지분 엔진(`business/shares.ts` 체결·발행) — 옛 걸린 주문 복원과 시험이 그 꼴을 쓴다(질문 2462 답 전까지).
 - 올라간 마이그레이션.
 
+## 검사 (Verified — 실행함)
+- `TEST_DATABASE_URL=… pnpm check`: 포맷·타입·린트·경계·파일 크기·다국어(8748 키)·디자인 값(대비 746쌍)·콘텐츠(core@175) 통과. 단위 시험 855개 파일 중 852 통과,
+  3개(`cyborg.db`·`facilities.db`·`nationTiers.db` — 다른 줄기와 같은 DB·CPU를 함께 쓴 동안 30초 훅 시간 초과)는 따로 다시 돌려 3/3·25/25 통과 → 855/855 파일, 6155/6155 시험.
+- 새 시험: `cityShares/market.test.ts` 9, `view.test.ts` 3, `gateway.test.ts` 3, `cityShares.db.test.ts` 1(독재 직권 국고 팔기 → 체결 → 복원·거두기·불변 조건), `protocol/cityShares.test.ts` 4, `shared/shareBook.test.ts` 2, 사업장 호가창 단언(`business/shares.test.ts`).
+- `pnpm build` 통과, `pnpm check:bundle` 첫 화면 JS 110,770 B / 상한 131,416 B(올리지 않음).
+- 화면 시험 `e2e/share-market.spec.ts` 9개 통과(첫 실행 8/9 — 거래소 판 시험이 견본 도시 번호를 판이 열린 뒤 정해 실패 → 도시를 먼저 찾게 고쳐 다시 7/7), `e2e/build-mode.spec.ts` 9/9(잠긴 거래소 예 = 유닛 거래소).
+  사진 15장(390 파스텔·다크 한국어 + 파스텔 영어 — 정부 지분 주주·호가창·주문, 증권 거래소 판): 세션 임시 폴더 `share-shots/`.
+
 ## 미검증·TODO·알려진 문제
-- (검사 결과는 아래 "검사"에 적는다)
 - NPC 가문·NPC 나라의 지분 주문은 없다(NPC 팔기는 시뮬 직접 양도 그대로) — 질문 2461.
 - 팔 지분을 묶지 않아 회차 때 판 쪽이 모자라면 체결량이 줄 수 있다(호가창의 팔 주와 다를 수 있다).
 - 거래 세금·수수료 없음(질문 2464). 증권 거래소 건물은 목록일 뿐 주문 조건이 아니다(질문 2465).

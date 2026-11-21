@@ -250,14 +250,13 @@ test.describe("지분 시장: 플레이어", () => {
     deviceErrors,
   }) => {
     test.setTimeout(240_000);
-    let city = 0;
+    // 진짜 도시 하나(내 나라 첫 도시)를 먼저 찾는다 — 견본 목록이 그 도시를 가리킨다(거래소 판은 건물 판이 열릴 때 바로 읽는다)
+    const mapKey = await openMap(page);
+    const city = Number(field(field((await findHall(page, mapKey)).data, "city"), "id"));
     const { sheet } = await openBusiness(
       page,
       exchangeEdits(() => city),
     );
-    // 진짜 도시 하나(내 나라 첫 도시) — 견본 목록이 그 도시를 가리킨다
-    const mapKey = Number(await page.locator(".map-screen").getAttribute("data-map-key"));
-    city = Number(field(field((await findHall(page, mapKey)).data, "city"), "id"));
     await sheet.locator('.bp-tab[data-tab="overview"]').click();
     const hub = sheet.locator('[data-part="share-hub"]');
     await expect(hub).toBeVisible({ timeout: 20_000 });

@@ -233,9 +233,9 @@ export const START_BUSINESS: BusinessCoefficients = {
   creditResidentNation: 20,
   creditBusinessNation: 10,
   creditUpkeep: 2,
-  creditTenurePerDay: 10,
+  creditTenurePerDay: 5,
   creditTenureCap: 300,
-  creditBusinessDaily: 2,
+  creditBusinessDaily: 10,
   creditCoupJoin: 100,
   creditSameNationAttack: 50,
 };

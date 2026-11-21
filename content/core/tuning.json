@@ -14135,7 +14135,7 @@
         "ko": "처음(그 나라에 속한 첫날) 신용 점수. 소속 기간·사업장 운영으로 오르고 빚·체납·쿠데타 가담·같은 나라 공격으로 내린다.",
         "en": "Credit score on the first day of belonging to a nation. Rises with tenure and running businesses, falls with debts, arrears, joining coups and attacking compatriots."
       },
-      "source": "D-584(사용자 결정 \"신용은 한 점수 — 소속 기간·사업장으로 오르고 체납·쿠데타 가담·같은 나라 공격으로 내린다, 크기는 설정 칸\") · 줄기 governance-5 [임시 출발값]"
+      "source": "D-584(사용자 결정 \"신용은 한 점수 — 소속 기간·사업장으로 오르고 체납·쿠데타 가담·같은 나라 공격으로 내린다, 크기는 설정 칸\") · 줄기 governance-5 · D-587(사용자 답 \"소속 하루 +5·사업장마다 하루 +10, 시작 100·상한 300\")"
     },
     {
       "id": "credit_resident_nation",
@@ -14198,7 +14198,7 @@
         "ko": "소속 기간: 하루마다 오르는 신용(점)",
         "en": "Membership tenure: credit rise per day (points)"
       },
-      "value": 10,
+      "value": 5,
       "structural": false,
       "unit": "points",
       "min": 0,
@@ -14207,7 +14207,7 @@
         "ko": "그 나라에 속한 하루마다 저절로 오르는 신용(상한은 다음 칸). 나라를 옮기면 처음부터 센다.",
         "en": "Credit gained automatically per day of belonging to the nation (capped by the next cell). Restarts when changing nations."
       },
-      "source": "D-584(사용자 결정 \"신용은 한 점수 — 소속 기간·사업장으로 오르고 체납·쿠데타 가담·같은 나라 공격으로 내린다, 크기는 설정 칸\") · 줄기 governance-5 [임시 출발값]"
+      "source": "D-584(사용자 결정 \"신용은 한 점수 — 소속 기간·사업장으로 오르고 체납·쿠데타 가담·같은 나라 공격으로 내린다, 크기는 설정 칸\") · 줄기 governance-5 · D-587(사용자 답 \"소속 하루 +5·사업장마다 하루 +10, 시작 100·상한 300\")"
     },
     {
       "id": "credit_tenure_cap",
@@ -14225,7 +14225,7 @@
         "ko": "소속 기간으로 오르는 신용의 상한.",
         "en": "Cap on the credit gained from tenure."
       },
-      "source": "D-584(사용자 결정 \"신용은 한 점수 — 소속 기간·사업장으로 오르고 체납·쿠데타 가담·같은 나라 공격으로 내린다, 크기는 설정 칸\") · 줄기 governance-5 [임시 출발값]"
+      "source": "D-584(사용자 결정 \"신용은 한 점수 — 소속 기간·사업장으로 오르고 체납·쿠데타 가담·같은 나라 공격으로 내린다, 크기는 설정 칸\") · 줄기 governance-5 · D-587(사용자 답 \"소속 하루 +5·사업장마다 하루 +10, 시작 100·상한 300\")"
     },
     {
       "id": "credit_business_daily",
@@ -14234,7 +14234,7 @@
         "ko": "사업장 운영: 하루마다 오르는 신용(사업장마다, 점)",
         "en": "Running businesses: credit rise per day (per business, points)"
       },
-      "value": 2,
+      "value": 10,
       "structural": false,
       "unit": "points",
       "min": 0,
@@ -14243,7 +14243,7 @@
         "ko": "멈추지 않고 돌아가는 사업장 하나마다 하루에 한 번 주인의 신용에 더하는 점수.",
         "en": "Points added once a day to the owner's credit for each business that is running (not suspended)."
       },
-      "source": "D-584(사용자 결정 \"신용은 한 점수 — 소속 기간·사업장으로 오르고 체납·쿠데타 가담·같은 나라 공격으로 내린다, 크기는 설정 칸\") · 줄기 governance-5 [임시 출발값]"
+      "source": "D-584(사용자 결정 \"신용은 한 점수 — 소속 기간·사업장으로 오르고 체납·쿠데타 가담·같은 나라 공격으로 내린다, 크기는 설정 칸\") · 줄기 governance-5 · D-587(사용자 답 \"소속 하루 +5·사업장마다 하루 +10, 시작 100·상한 300\")"
     },
     {
       "id": "credit_coup_join",

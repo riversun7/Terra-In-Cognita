@@ -215,15 +215,15 @@ describe("신용 점수 장부(D-581 · D-584 한 점수)", () => {
     const w = world({ operating: () => operating });
     w.book.sweep(T0, new Map([[PLAYER, NATION]]));
     expect(w.book.score(ownerSubject, NATION, T0)).toBe(100);
-    // 사흘 뒤: 소속 +30, 그날 사업장 3 × 2 = 6
+    // 사흘 뒤: 소속 +15(하루 5 — D-587), 그날 사업장 3 × 10 = 30(D-587)
     w.book.sweep(T0 + 3 * DAY, new Map([[PLAYER, NATION]]));
-    expect(w.book.score(ownerSubject, NATION, T0 + 3 * DAY)).toBe(136);
+    expect(w.book.score(ownerSubject, NATION, T0 + 3 * DAY)).toBe(145);
     // 같은 날 다시 훑어도 더하지 않는다
     w.book.sweep(T0 + 3 * DAY + 1000, new Map([[PLAYER, NATION]]));
-    expect(w.book.standingOf(PLAYER)?.rise).toBe(6);
+    expect(w.book.standingOf(PLAYER)?.rise).toBe(30);
     // 소속 오름 상한(300) — 100일 뒤
     operating = new Map();
-    expect(w.book.score(ownerSubject, NATION, T0 + 100 * DAY)).toBe(100 + 300 + 6);
+    expect(w.book.score(ownerSubject, NATION, T0 + 100 * DAY)).toBe(100 + 300 + 30);
     // 나라를 옮기면 처음부터, 옛 나라 점수는 시작값
     w.book.sweep(T0 + 5 * DAY, new Map([[PLAYER, 9]]));
     expect(w.book.score(ownerSubject, 9, T0 + 5 * DAY)).toBe(100);
@@ -315,8 +315,8 @@ describe("신용 점수 장부(D-581 · D-584 한 점수)", () => {
         unitId: null,
         nationId: NATION,
         current: true,
-        score: 100 + 20 - 10,
-        tenure: 20,
+        score: 100 + 10 - 10,
+        tenure: 10,
         rise: 0,
         marks: [{ cause: "business", points: 10, count: 1, sinceMs: 2 }],
       },

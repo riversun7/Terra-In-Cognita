@@ -186,6 +186,11 @@ export interface Economy {
    * 지도자 손 조절(서버만 — 줄기 governance-5, 질문 2453): 발행 나라 → 하루 조절 만분율(+발행 −소각). undefined면 공식(D-131). 시뮬은 붙이지 않는다(판정 그대로)
    */
   bankOverride?: ((factionId: number) => number | undefined) | undefined;
+  /**
+   * 지도자 손 조절의 목표 물가 상한(서버만 — 줄기 gov-coup, 사용자 결정 D-588 2499·D-131): 발행 나라 → 물가 지수 천분율. 지수가 이 값 이상이면 손 조절 발행을 막는다(소각은 그대로).
+   * 시뮬은 붙이지 않는다(판정 그대로)
+   */
+  bankPriceCap?: ((factionId: number) => number | undefined) | undefined;
   /** 나라 → 소각한 발행 이자 누적(D-303). 도시 세금 정산(D-304)이 기간 차이를 쓴다 */
   readonly interestPaid: Map<number, bigint>;
   readonly facilities: Map<number, EcoFacility>;
@@ -844,7 +849,10 @@ export function bankDay(
       interestOwed: economy.interestOwed.get(currency) ?? 0n,
     };
     const manual = economy.bankOverride?.(factionId);
-    const step = manual === undefined ? centralBankStep(input, rule) : manualBankStep(input, rule, manual);
+    const step =
+      manual === undefined
+        ? centralBankStep(input, rule)
+        : manualBankStep(input, rule, manual, economy.bankPriceCap?.(factionId));
     economy.interestOwed.set(currency, step.interestOwed);
     economy.interestPaid.set(factionId, (economy.interestPaid.get(factionId) ?? 0n) + step.interestBurn);
     burn(economy, world.book, currency, factionId, step.interestBurn + step.burn, nowMs);

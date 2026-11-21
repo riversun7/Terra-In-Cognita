@@ -88,11 +88,14 @@ export function centralBankStep(input: CentralBankInput, rule: CentralBankRule):
 /**
  * 지도자 손 조절(줄기 governance-5, 질문 2453 — D-252 "발행·소각은 지도자 몫" [임시]): 발행 이자 소각은 공식과 같고, 조절량 = 시중 통화량 × 지도자가 정한 만분율(+발행 −소각),
  * 하루 상한(E5 — 공식과 같은 칸) 안. 소각은 국고 잔고까지만. 서버만 부른다(시뮬은 늘 공식)
+ * 바뀜(줄기 gov-coup — 사용자 결정 D-588 2499 "지도자가 하루 발행·소각량을 정하되 목표 물가 상한(D-131)을 넘겨 발행하지 못한다"): capMilli가 있고 물가 지수가 그 값
+ * 이상이면 발행은 0(소각은 그대로). 지수를 모르면(시세 없음) 막지 않는다 [임시 — 질문 2547]
  */
 export function manualBankStep(
   input: CentralBankInput,
   rule: CentralBankRule,
   rateBp: number,
+  capMilli?: number,
 ): CentralBankStep {
   const owed = input.interestOwed + (input.outstanding * BigInt(rule.interestBpPerDay)) / 10_000n;
   const interestBurn = owed < input.treasury ? owed : input.treasury;
@@ -105,7 +108,8 @@ export function manualBankStep(
     const cap = (circulating * BigInt(rule.dailyCapBp)) / 10_000n;
     const raw = (circulating * BigInt(Math.abs(rate))) / 10_000n;
     const want = raw < cap ? raw : cap;
-    if (rate > 0) issue = want;
+    const capped = capMilli !== undefined && input.indexMilli !== undefined && input.indexMilli >= capMilli;
+    if (rate > 0) issue = capped ? 0n : want;
     else burn = want < treasury ? want : treasury;
   }
   return { interestBurn, interestOwed: owed - interestBurn, issue, burn };

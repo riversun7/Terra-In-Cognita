@@ -19,6 +19,11 @@ export const COUP_PROTOCOL_VERSION = 59;
  * 더 낮은 판 연결에는 새 결과 코드 대신 not_eligible을 보낸다(governance/gateway.ts)
  */
 export const GOVERNANCE5_PROTOCOL_VERSION = 61;
+/**
+ * 쿠데타 도시(gov_coup cityId — 사용자 결정 D-588 2492 가 "모든 도시에서 누구나")·손 조절 목표 물가 상한(gov_propose monetaryCapMilli — D-588 2499)에 필요한 가장 낮은
+ * 프로토콜 버전(줄기 gov-coup 판 121 — 묶음 판은 합칠 때 정한다). 더하기만 — 낮은 판 기기는 칸을 보내지 않는다(쿠데타 = 가문 자리 도시 → 수도, 상한 = 앞 값 그대로)
+ */
+export const GOV_COUP_PROTOCOL_VERSION = 121;
 
 const requestId = z.number().int().nonnegative().max(0xffff_ffff);
 const rowId = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
@@ -72,6 +77,11 @@ export const govProposeMessage = z.object({
   monetaryMode: z.enum(GOVERNANCE_MONETARY_MODES).optional(),
   /** 화폐 단계 전환: 지도자 손 조절의 하루 조절(시중 통화량의 만분율, +발행 −소각 — 서버가 설정 칸 하루 상한으로 자른다) */
   monetaryRateBp: z.number().int().min(-10_000).max(10_000).optional(),
+  /**
+   * 화폐 단계 전환: 지도자 손 조절의 목표 물가 상한(물가 지수 천분율 — D-588 2499·D-131). 물가 지수가 이 값 이상이면 손 조절 발행이 멈춘다(소각은 그대로). 서버가 설정 칸
+   * 범위(gov_monetary_cap_min_milli~gov_monetary_cap_max_milli)로 자른다. 없으면 앞 값(처음이면 설정 칸 출발값). GOV_COUP_PROTOCOL_VERSION부터
+   */
+  monetaryCapMilli: z.number().int().min(1).max(1_000_000).optional(),
   /** 국고 지분 팔기: 도시(그 나라 도시) — treasury_share_sale만 */
   cityId: rowId.optional(),
   /** 국고 지분 팔기: 주 수(10진 정수 글자, 1 이상) */
@@ -104,6 +114,11 @@ export const govCandidateMessage = z.object({
 export const govCoupMessage = z.object({
   t: z.literal("gov_coup"),
   id: requestId,
+  /**
+   * 쿠데타를 일으킬 도시(그 나라 도시 — 사용자 결정 D-588 2492 가 "쿠데타 전투는 모든 도시에서 누구나"). 전투는 이 도시에서 하고, 이기면 이 도시가 새 나라로 떨어져
+   * 나간다(시작 도시면 옛 나라 전체 [임시]). 없으면 내 가문 자리 도시, 그것도 없으면 수도. GOV_COUP_PROTOCOL_VERSION부터
+   */
+  cityId: rowId.optional(),
 });
 
 /** 열린 쿠데타에 편을 든다(D-583 2433 나 가 — 누구나 어느 편이든: rebel = 혁명군, government = 정부군) */
@@ -113,7 +128,8 @@ export const govCoupJoinMessage = z.object({
   coupId: rowId,
   side: z.enum(["rebel", "government"]),
   /**
-   * 데려갈 병력(내 거울 세계 유닛 ID — 줄기 governance-5, 질문 2455 답 D-583 "참전 = 병력을 데려온다"). 없으면 수도에 있는 내 유닛 모두. 수도에 없는 유닛은 빠진다.
+   * 데려갈 병력(내 거울 세계 유닛 ID — 줄기 governance-5, 질문 2455 답 D-583 "참전 = 병력을 데려온다"). 없으면 쿠데타 도시(옛 쿠데타는 수도)에 있는 내 유닛 모두. 그 도시에
+   * 없는 유닛은 빠진다(줄기 gov-coup — D-588 2492 가).
    * 병력이 없으면 편만 들고 보상은 없다. 프로토콜 GOVERNANCE5_PROTOCOL_VERSION부터
    */
   unitIds: z.array(rowId).max(200).optional(),

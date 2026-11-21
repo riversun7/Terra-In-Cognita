@@ -80,13 +80,14 @@ function dispatch(
         minPrice: message.minPrice,
         monetaryMode: message.monetaryMode,
         monetaryRateBp: message.monetaryRateBp,
+        monetaryCapMilli: message.monetaryCapMilli,
       });
     case "gov_vote":
       return service.vote(userId, message.agendaId, message.choice);
     case "gov_candidate":
       return service.register(userId, message.agendaId);
     case "gov_coup":
-      return service.coup(userId);
+      return service.coup(userId, message.cityId);
     default:
       return service.coupJoin(userId, message.coupId, message.side, message.unitIds);
   }

@@ -16472,8 +16472,8 @@
       "min": 0,
       "max": 1000,
       "desc": {
-        "ko": "플레이어 가문이 지배 가문이 될 때의 신임도(주민이 지도자를 얼마나 믿나 — 신용과 다른 값). 낮게 시작한다(D-585). 오르내림 규칙은 아직 없다.",
-        "en": "Approval when a player house becomes the ruling house (how much residents trust the leader — not credit). Starts low (D-585). Rise/fall rules are not decided yet."
+        "ko": "플레이어 가문이 지배 가문이 될 때의 신임도(주민이 지도자를 얼마나 믿나 — 신용과 다른 값). 낮게 시작한다(D-585). 오르내림은 gov_approval_* 칸(세금·전쟁·도시·만족도).",
+        "en": "Approval when a player house becomes the ruling house (how much residents trust the leader — not credit). Starts low (D-585). Rise/fall: the gov_approval_* cells (taxes, war, cities, satisfaction)."
       },
       "source": "사용자 답 D-585 · ADR 2026-11-21-governance · 줄기 governance-5 [임시 출발값]"
     },
@@ -16490,8 +16490,8 @@
       "min": 0,
       "max": 1000,
       "desc": {
-        "ko": "NPC 가문이 지배 가문이 될 때의 신임도. 오르내림 규칙은 아직 없다.",
-        "en": "Approval when an NPC house becomes the ruling house. Rise/fall rules are not decided yet."
+        "ko": "NPC 가문이 지배 가문이 될 때의 신임도. 오르내림은 gov_approval_* 칸(세금·전쟁·도시·만족도).",
+        "en": "Approval when an NPC house becomes the ruling house. Rise/fall: the gov_approval_* cells (taxes, war, cities, satisfaction)."
       },
       "source": "사용자 답 D-585 · ADR 2026-11-21-governance · 줄기 governance-5 [임시 출발값]"
     },
@@ -16502,16 +16502,16 @@
         "ko": "낮은 신임도: 해임 문턱 낮추는 폭(‰)",
         "en": "Low approval: removal threshold ease (‰)"
       },
-      "value": 0,
+      "value": 300,
       "structural": false,
       "unit": "pm",
       "min": 0,
       "max": 1000,
       "desc": {
-        "ko": "신임도가 0일 때 지도자 해임 가결 문턱을 이만큼 낮춘다(신임도에 비례). 0이면 보정 없음.",
-        "en": "At zero approval the leader removal pass threshold drops by this much (proportional to approval). 0 = no effect."
+        "ko": "신임도가 0일 때 지도자 해임 가결 문턱을 이만큼 낮춘다(기준점 gov_approval_neutral_pm 아래에서 신임도에 비례). 0이면 보정 없음.",
+        "en": "At zero approval the leader removal pass threshold drops by this much (proportional below the pivot gov_approval_neutral_pm). 0 = no effect."
       },
-      "source": "사용자 답 D-585 · ADR 2026-11-21-governance · 줄기 governance-5 [임시 출발값]"
+      "source": "사용자 답 D-585 · D-588(2493 — 폭 출발값 0 → 300) · ADR 2026-11-21-governance · 줄기 gov-coup [임시 출발값]"
     },
     {
       "id": "gov_approval_rebellion_ease",
@@ -16520,16 +16520,214 @@
         "ko": "낮은 신임도: 반란 문턱 올리는 폭(만족도 점)",
         "en": "Low approval: rebellion threshold ease (satisfaction points)"
       },
-      "value": 0,
+      "value": 15,
       "structural": false,
       "unit": "points",
       "min": 0,
       "max": 100,
       "desc": {
-        "ko": "신임도가 0일 때 그 나라 도시의 반란 만족도 문턱을 이만큼 올린다(신임도에 비례). 0이면 보정 없음.",
-        "en": "At zero approval the rebellion satisfaction threshold of the nation's cities rises by this much (proportional to approval). 0 = no effect."
+        "ko": "신임도가 0일 때 그 나라 도시의 반란 만족도 문턱을 이만큼 올린다(기준점 gov_approval_neutral_pm 아래에서 신임도에 비례). 0이면 보정 없음.",
+        "en": "At zero approval the rebellion satisfaction threshold of the nation's cities rises by this much (proportional below the pivot gov_approval_neutral_pm). 0 = no effect."
       },
-      "source": "사용자 답 D-585 · ADR 2026-11-21-governance · 줄기 governance-5 [임시 출발값]"
+      "source": "사용자 답 D-585 · D-588(2493 — 폭 출발값 0 → 15) · ADR 2026-11-21-governance · 줄기 gov-coup [임시 출발값]"
+    },
+    {
+      "id": "gov_approval_neutral_pm",
+      "code": "",
+      "name": {
+        "ko": "신임도 보정 기준점(‰)",
+        "en": "Approval ease pivot (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "신임도가 이 값보다 낮을 때만 해임 가결 문턱이 내려가고 반란 만족도 문턱이 올라간다(낮을수록 크게, 0이면 폭 그대로). 이 값 이상이면 보정 없음.",
+        "en": "Only below this approval do the removal threshold drop and the rebellion threshold rise (more the lower it is, full ease at 0). At or above it there is no effect."
+      },
+      "source": "사용자 결정 D-588(2493 \"알아서\" — 기술 기본값) · ADR 2026-11-21-governance · 줄기 gov-coup [임시 출발값]"
+    },
+    {
+      "id": "gov_approval_tax_per_pm",
+      "code": "",
+      "name": {
+        "ko": "신임도: 세금 1‰ 바뀜마다(점)",
+        "en": "Approval: per 1‰ tax change (points)"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "나라 세금 수준(소득세 ÷ 10 + 주민세 + 거래세 ÷ 10, ‰)이 1‰ 오를 때마다 신임도를 이만큼 내리고, 내릴 때마다 이만큼 올린다.",
+        "en": "For every 1‰ the nation's tax level (income tax ÷ 10 + resident tax + trade tax ÷ 10, ‰) rises, approval drops by this much; it rises by this much per 1‰ cut."
+      },
+      "source": "사용자 결정 D-588(2493 \"알아서\" — 기술 기본값) · ADR 2026-11-21-governance · 줄기 gov-coup [임시 출발값]"
+    },
+    {
+      "id": "gov_approval_war_start",
+      "code": "",
+      "name": {
+        "ko": "신임도: 새 전쟁마다 내림(점)",
+        "en": "Approval: drop per new war (points)"
+      },
+      "value": 30,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "나라가 새 전쟁에 들어갈 때마다(선전포고·받은 선전포고) 신임도를 이만큼 내린다.",
+        "en": "Each time the nation enters a new war (declared or declared upon), approval drops by this much."
+      },
+      "source": "사용자 결정 D-588(2493 \"알아서\" — 기술 기본값) · ADR 2026-11-21-governance · 줄기 gov-coup [임시 출발값]"
+    },
+    {
+      "id": "gov_approval_war_daily",
+      "code": "",
+      "name": {
+        "ko": "신임도: 전쟁 하루마다 내림(점, 전쟁 하나당)",
+        "en": "Approval: daily drop per war (points)"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "하루마다 지금 하는 전쟁 하나당 신임도를 이만큼 내린다(전쟁 자체가 벌점).",
+        "en": "Every day approval drops by this much for each war the nation is fighting (war itself is a penalty)."
+      },
+      "source": "사용자 결정 D-588(2493 \"알아서\" — 기술 기본값) · ADR 2026-11-21-governance · 줄기 gov-coup [임시 출발값]"
+    },
+    {
+      "id": "gov_approval_peace",
+      "code": "",
+      "name": {
+        "ko": "신임도: 끝난 전쟁마다 오름(점)",
+        "en": "Approval: rise per war ended (points)"
+      },
+      "value": 40,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "전쟁이 하나 끝날 때마다(강화·상대가 사라짐) 신임도를 이만큼 올린다.",
+        "en": "Each time a war ends (peace or the enemy is gone), approval rises by this much."
+      },
+      "source": "사용자 결정 D-588(2493 \"알아서\" — 기술 기본값) · ADR 2026-11-21-governance · 줄기 gov-coup [임시 출발값]"
+    },
+    {
+      "id": "gov_approval_city_won",
+      "code": "",
+      "name": {
+        "ko": "신임도: 얻은 도시마다 오름(점)",
+        "en": "Approval: rise per city gained (points)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "나라 도시가 하나 늘 때마다(점령 — 승리) 신임도를 이만큼 올린다.",
+        "en": "Each city the nation gains (conquest — a victory) raises approval by this much."
+      },
+      "source": "사용자 결정 D-588(2493 \"알아서\" — 기술 기본값) · ADR 2026-11-21-governance · 줄기 gov-coup [임시 출발값]"
+    },
+    {
+      "id": "gov_approval_city_lost",
+      "code": "",
+      "name": {
+        "ko": "신임도: 잃은 도시마다 내림(점)",
+        "en": "Approval: drop per city lost (points)"
+      },
+      "value": 80,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "나라 도시가 하나 줄 때마다(빼앗김·반란·독립·쿠데타로 떨어져 나감) 신임도를 이만큼 내린다.",
+        "en": "Each city the nation loses (captured, rebellion, independence or a coup split) drops approval by this much."
+      },
+      "source": "사용자 결정 D-588(2493 \"알아서\" — 기술 기본값) · ADR 2026-11-21-governance · 줄기 gov-coup [임시 출발값]"
+    },
+    {
+      "id": "gov_approval_satisfaction_pull_pm",
+      "code": "",
+      "name": {
+        "ko": "신임도: 하루마다 만족도 쪽으로 다가가는 몫(‰)",
+        "en": "Approval: daily pull toward satisfaction (‰)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "하루마다 신임도가 나라 주민 평균 만족도(0~100 × 10) 쪽으로 남은 차이의 이 몫만큼 다가간다. 0이면 만족도를 보지 않는다.",
+        "en": "Every day approval moves this share of the gap toward the nation's average resident satisfaction (0–100 × 10). 0 = satisfaction is ignored."
+      },
+      "source": "사용자 결정 D-588(2493 \"알아서\" — 기술 기본값) · ADR 2026-11-21-governance · 줄기 gov-coup [임시 출발값]"
+    },
+    {
+      "id": "gov_monetary_cap_milli",
+      "code": "",
+      "name": {
+        "ko": "손 조절 목표 물가 상한 출발값(천분율)",
+        "en": "Manual money: default price cap (‰ of start price)"
+      },
+      "value": 1300,
+      "structural": false,
+      "unit": "pm",
+      "min": 1,
+      "max": 1000000,
+      "desc": {
+        "ko": "지도자 손 조절 화폐에서 물가 지수(첫 가격 = 1000)가 이 값 이상이면 발행을 막는다(소각은 그대로 — 물가 상승 제한, D-131). 지도자가 따로 정하지 않았을 때의 값.",
+        "en": "Under a leader's manual money policy, issuing stops while the price index (first price = 1000) is at or above this (burning still works — inflation limiter, D-131). Used when the leader has not set one."
+      },
+      "source": "사용자 결정 D-588(2499 — 목표 물가 상한, D-131) · ADR 2026-11-21-governance · 줄기 gov-coup [임시 출발값]"
+    },
+    {
+      "id": "gov_monetary_cap_min_milli",
+      "code": "",
+      "name": {
+        "ko": "손 조절 목표 물가 상한: 지도자가 고를 수 있는 아래 끝",
+        "en": "Manual money: lowest price cap a leader can set"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 1,
+      "max": 1000000,
+      "desc": {
+        "ko": "지도자가 정하는 목표 물가 상한의 아래 끝(천분율).",
+        "en": "Lowest price cap (‰ of start price) a leader can set."
+      },
+      "source": "사용자 결정 D-588(2499 — 목표 물가 상한, D-131) · ADR 2026-11-21-governance · 줄기 gov-coup [임시 출발값]"
+    },
+    {
+      "id": "gov_monetary_cap_max_milli",
+      "code": "",
+      "name": {
+        "ko": "손 조절 목표 물가 상한: 지도자가 고를 수 있는 위 끝",
+        "en": "Manual money: highest price cap a leader can set"
+      },
+      "value": 3000,
+      "structural": false,
+      "unit": "pm",
+      "min": 1,
+      "max": 1000000,
+      "desc": {
+        "ko": "지도자가 정하는 목표 물가 상한의 위 끝(천분율).",
+        "en": "Highest price cap (‰ of start price) a leader can set."
+      },
+      "source": "사용자 결정 D-588(2499 — 목표 물가 상한, D-131) · ADR 2026-11-21-governance · 줄기 gov-coup [임시 출발값]"
     },
     {
       "id": "npc_ai_drive_work_mood_floor_pm",

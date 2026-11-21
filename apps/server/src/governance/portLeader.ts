@@ -2,12 +2,14 @@
 // 떨어져 나가기(D-585)·지도자 신임도 반란 고리(D-585)가 세계에서 읽고 바꾸는 것. 읽기는 거울 세계 메모리, 쓰기는 세력·사회 규칙(NPC와 같은 길)·경제 고리.
 // - 강화: 세력·사회 makePeace(강화 조약 — 불가침 기간, NPC와 같다). 받는 쪽이 NPC가 이끄는 나라면 NPC 강화 규칙식(@terra/sim peaceScore — npcRun proposePeace와 같은 셈).
 // - 거래세: 경제 고리 setTax(NPC 세율 규칙식과 같은 길 — 그 나라 도시 거래소 세율).
-// - 화폐 단계: 경제 bankOverride(지도자 손 조절 나라 → 하루 조절 만분율). 공식 나라는 표에 없다.
+// - 화폐 단계: 경제 bankOverride(지도자 손 조절 나라 → 하루 조절 만분율)·bankPriceCap(목표 물가 상한 — 줄기 gov-coup, D-588 2499). 공식 나라는 표에 없다.
+// - 신임도(줄기 gov-coup — D-588 2493): 전쟁 수(세력 wars)·세금 수준(나라 세금 표 + 경제 거래세)을 읽는다.
 import type { HouseKey } from "@terra/shared/governance";
 import { factionView, houseHoldingsOf, holdingsOf, peaceScore, rivalView } from "@terra/sim";
 import { nationTaxesOf } from "../government/nationTax.ts";
 import type { World } from "../world/world.ts";
 import { setRebellionShifts } from "./approval.ts";
+import { taxLevelPm } from "./approvalFactors.ts";
 import { houseKeyOfTail } from "./houseShares.ts";
 import type { GovernanceNation } from "./port.ts";
 
@@ -22,8 +24,12 @@ export interface GovernancePortLeader {
   leaderTradeTaxOf(nation: GovernanceNation): number | undefined;
   /** 거래세를 바꾼다(그 나라 도시 거래소) */
   setTradeTax(nation: GovernanceNation, bp: number, nowMs: number): void;
-  /** 지도자 손 조절 나라(소유 주체 ID → 하루 조절 만분율)를 중앙은행에 건다 */
-  installMonetary(byOwner: ReadonlyMap<number, number>): void;
+  /** 지도자 손 조절 나라(소유 주체 ID → 하루 조절 만분율·목표 물가 상한 천분율 — D-588 2499)를 중앙은행에 건다 */
+  installMonetary(byOwner: ReadonlyMap<number, ManualMoney>): void;
+  /** 그 나라가 지금 하는 전쟁 수(신임도 — D-588 2493) */
+  warCount(nation: GovernanceNation): number;
+  /** 그 나라 세금 수준(‰ — 소득세 ÷ 10 + 주민세 + 거래세 ÷ 10, approvalFactors.ts taxLevelPm). 모르면 undefined */
+  taxLevelOf(nation: GovernanceNation): number | undefined;
   /** 신임도 반란 문턱 보정(소유 주체 ID → 만족도 점)을 건다 */
   installRebellionShifts(byOwner: ReadonlyMap<number, number>): void;
   /** 그 도시 지분: 가문 열쇠마다 가진 주 수와 전체 주 수 */
@@ -34,6 +40,13 @@ export interface GovernancePortLeader {
   unitCity(unitId: number): number | undefined;
   /** 새 나라의 체제를 바꾼다(쿠데타로 떨어져 나간 도시국가 = 독재 D-582) */
   setNationRegime(nationRow: number, regime: "dictatorship" | "democracy" | "capitalism"): void;
+}
+
+/** 지도자 손 조절 한 나라(줄기 governance-5·gov-coup) */
+export interface ManualMoney {
+  readonly rateBp: number;
+  /** 목표 물가 상한(천분율) — 물가 지수가 이 값 이상이면 발행을 막는다(D-588 2499) */
+  readonly capMilli: number;
 }
 
 type LeaderWorld = Pick<World, "status" | "npc" | "persistence">;
@@ -82,7 +95,19 @@ export function worldGovernancePortLeader(world: () => LeaderWorld | undefined):
       const economy = live()?.npc.economy?.economy;
       if (!economy) return;
       const table = new Map(byOwner);
-      economy.bankOverride = table.size === 0 ? undefined : (factionId) => table.get(factionId);
+      economy.bankOverride = table.size === 0 ? undefined : (factionId) => table.get(factionId)?.rateBp;
+      economy.bankPriceCap = table.size === 0 ? undefined : (factionId) => table.get(factionId)?.capMilli;
+    },
+    warCount: (nation) => live()?.npc.world.factions.get(nation.ownerId)?.wars.size ?? 0,
+    taxLevelOf(nation) {
+      const l = live();
+      if (!l) return undefined;
+      const row = nationTaxesOf(l.persistence.ledger)?.forOwner(nation.ownerId);
+      return taxLevelPm({
+        incomeTaxBp: row?.incomeTaxBp,
+        residentTaxPm: row?.residentTaxPm,
+        tradeTaxBp: l.npc.economy?.economy.taxOf.get(nation.ownerId),
+      });
     },
     installRebellionShifts(byOwner) {
       const l = live();

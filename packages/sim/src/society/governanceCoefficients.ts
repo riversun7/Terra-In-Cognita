@@ -67,12 +67,31 @@ export interface GovernanceCoefficients {
   readonly houseIndependencePowerPm: number;
   /**
    * 지도자 신임도(사용자 답 D-585 — 신용과 다른 새 값, governance/approval.ts): 플레이어 지도자·NPC 지도자 시작값(0~1000), 낮은 신임도가 해임 문턱을 낮추는 폭(‰)·반란 문턱을
-   * 올리는 폭(만족도 점). 오르내림 규칙은 정해지지 않았다(질문 2493). 폭 출발값 0 = 보정 없음
+   * 올리는 폭(만족도 점). 바뀜(줄기 gov-coup — D-588 2493): 두 폭 출발값 300‰·15점(기준점 아래에서만 — approvalNeutralPm), 오르내림은 아래 칸들
    */
   readonly approvalPlayerStart: number;
   readonly approvalNpcStart: number;
   readonly approvalRemovalEasePm: number;
   readonly approvalRebellionEase: number;
+  /**
+   * 줄기 gov-coup(사용자 결정 D-588 2493 "알아서" — 기술 기본값, governance/approvalFactors.ts): 신임도 오르내림. 보정 기준점(‰ — 이 값 아래에서만 해임·반란 문턱이 쉬워진다),
+   * 세금 수준 1‰ 바뀜마다 점(올리면 −, 내리면 +), 새 전쟁 하나마다 −, 전쟁 하루마다(전쟁 하나당) −, 끝난 전쟁(강화) 하나마다 +, 얻은 도시 하나마다 +, 잃은 도시 하나마다 −,
+   * 하루마다 주민 만족도(×10) 쪽으로 다가가는 몫(‰). 모두 [임시] 출발값
+   */
+  readonly approvalNeutralPm: number;
+  readonly approvalTaxPerPm: number;
+  readonly approvalWarStart: number;
+  readonly approvalWarDaily: number;
+  readonly approvalPeace: number;
+  readonly approvalCityWon: number;
+  readonly approvalCityLost: number;
+  readonly approvalSatisfactionPullPm: number;
+  /**
+   * 지도자 손 조절의 목표 물가 상한(D-588 2499·D-131 — 물가 지수 천분율): 출발값·지도자가 고를 수 있는 아래·위 끝. 물가 지수가 상한 이상이면 손 조절 발행을 막는다(소각은 그대로)
+   */
+  readonly monetaryCapMilli: number;
+  readonly monetaryCapMinMilli: number;
+  readonly monetaryCapMaxMilli: number;
 }
 
 export const START_GOVERNANCE: GovernanceCoefficients = {
@@ -114,6 +133,17 @@ export const START_GOVERNANCE: GovernanceCoefficients = {
   houseIndependencePowerPm: 1000,
   approvalPlayerStart: 300,
   approvalNpcStart: 500,
-  approvalRemovalEasePm: 0,
-  approvalRebellionEase: 0,
+  approvalRemovalEasePm: 300,
+  approvalRebellionEase: 15,
+  approvalNeutralPm: 500,
+  approvalTaxPerPm: 3,
+  approvalWarStart: 30,
+  approvalWarDaily: 10,
+  approvalPeace: 40,
+  approvalCityWon: 50,
+  approvalCityLost: 80,
+  approvalSatisfactionPullPm: 100,
+  monetaryCapMilli: 1300,
+  monetaryCapMinMilli: 1000,
+  monetaryCapMaxMilli: 3000,
 };

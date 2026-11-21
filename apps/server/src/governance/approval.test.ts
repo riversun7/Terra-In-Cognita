@@ -26,4 +26,13 @@ describe("지도자 신임도 고리(D-585)", () => {
     expect(rebellionShift(world, 5)).toBe(14);
     expect(rebellionShift(undefined, 5)).toBe(0);
   });
+
+  it("기준점(줄기 gov-coup — D-588 2493): 기준점 이상이면 보정 없음, 아래에서만 비례", () => {
+    expect(removalThresholdWithApproval(666, 500, 300, 500)).toBe(666);
+    expect(removalThresholdWithApproval(666, 300, 300, 500)).toBe(666 - 120);
+    expect(removalThresholdWithApproval(666, 0, 300, 500)).toBe(366);
+    expect(rebellionShiftOf(700, 15, 500)).toBe(0);
+    expect(rebellionShiftOf(300, 15, 500)).toBe(6);
+    expect(rebellionShiftOf(0, 15, 500)).toBe(15);
+  });
 });

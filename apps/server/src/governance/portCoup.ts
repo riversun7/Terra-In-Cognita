@@ -3,6 +3,7 @@
 // 도시 독립은 바로 틱을 민다).
 // - 가문 유닛: NPC 가문 = 가문원 + 가문장(지배 가문은 국가 지도자 유닛 — 거울 세계 유닛 표에 없으면 빠진다), 플레이어 가문 = 그 가문 소유 주체의 유닛.
 // - 정부군(D-583 2433 나 가): 지배 가문원 + 수도 경비대(그 나라 경비대 유닛 가운데 수도에 있는 것).
+//   바뀜(줄기 gov-coup — D-588 2492 가): 쿠데타 도시의 경비대(cityGuards — 도시를 모르면 수도). 도시 이름(cityName — 의결 칸 쿠데타 도시 고르기).
 // - 힘(질문 2433 가 기술 기본값 — 랭킹 전투력 D-576과 같은 몸): 유닛마다 전투력 몸(battleBodies basePower — 버프 없는 기본 수치) 합. 몸을 모르면 유닛마다 1.
 // - 쿠데타 전투(D-583 2433 나 가 — 반란 전투 틀 D-256): @terra/sim runCoupBattle(반란과 같은 도시 안 공성 — 혁명군이 시청을 무너뜨리거나 정부군을 모두
 //   쓰러뜨리면 이김). 거울 세계 유닛의 부상만 남는다(세계 유닛 생명 수치는 건드리지 않는다 [임시]).
@@ -34,8 +35,10 @@ export interface CoupBattleSize {
 export interface GovernancePortCoup {
   /** 그 가문의 유닛 ID(위 머리 주석) */
   houseUnits(nation: GovernanceNation, key: HouseKey): readonly number[];
-  /** 수도 경비대 유닛 ID */
-  capitalGuards(nation: GovernanceNation): readonly number[];
+  /** 그 도시 경비대 유닛 ID(도시를 모르면 수도 — 쿠데타 전투 도시, D-588 2492 가) */
+  cityGuards(nation: GovernanceNation, cityId: number | undefined): readonly number[];
+  /** 도시 이름(번역 안 함 — 모르면 undefined) */
+  cityName(cityId: number): string | undefined;
   /** 그 사용자 소유 주체의 거울 세계 유닛 ID(없으면 빈 목록) */
   userUnits(userId: string): readonly number[];
   /** 유닛 힘 합(전투력 몸, 모르면 1) */
@@ -99,15 +102,16 @@ export function worldGovernancePortCoup(
       const owner = l.npc.houses.ownerOfRow(id);
       return owner === undefined || owner === nation.ownerId ? [] : unitsOf(owner);
     },
-    capitalGuards(nation) {
+    cityGuards(nation, cityId) {
       const l = live();
-      const capital = l?.npc.capitalOf(nation.ownerId);
-      if (!l || capital === undefined) return [];
+      const city = cityId ?? l?.npc.capitalOf(nation.ownerId);
+      if (!l || city === undefined) return [];
       return unitsOf(nation.ownerId).filter((id) => {
         const unit = l.npc.world.units.get(id);
-        return unit?.guard === true && unit.city === capital;
+        return unit?.guard === true && unit.city === city;
       });
     },
+    cityName: (cityId) => live()?.npc.places.get(cityId)?.name,
     userUnits(userId) {
       const l = live();
       if (!l) return [];

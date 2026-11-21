@@ -1,0 +1,248 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "ad6ac753-e016-4b68-b71c-9abb631d2332",
+  "prevIds": [
+    "8ccb7e3f-9488-45bf-8137-a0bfbba826db",
+    "e44a1520-def3-4dd0-85f2-a97fe6a8e2fb",
+    "90e99c42-2912-427e-b53e-b00329f24354"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "governance_approval",
+        "tax_level_pm"
+      ],
+      "writes": [
+        "s|col|public.governance_approval.tax_level_pm",
+        "n|col|public.governance_approval.tax_level_pm",
+        "e|col|public.governance_approval.tax_level_pm"
+      ],
+      "reads": [
+        "n|tbl|public.governance_approval",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "governance_approval",
+        "cities"
+      ],
+      "writes": [
+        "s|col|public.governance_approval.cities",
+        "n|col|public.governance_approval.cities",
+        "e|col|public.governance_approval.cities"
+      ],
+      "reads": [
+        "n|tbl|public.governance_approval",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "governance_approval",
+        "wars"
+      ],
+      "writes": [
+        "s|col|public.governance_approval.wars",
+        "n|col|public.governance_approval.wars",
+        "e|col|public.governance_approval.wars"
+      ],
+      "reads": [
+        "n|tbl|public.governance_approval",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "governance_approval",
+        "day_at_ms"
+      ],
+      "writes": [
+        "s|col|public.governance_approval.day_at_ms",
+        "n|col|public.governance_approval.day_at_ms",
+        "e|col|public.governance_approval.day_at_ms"
+      ],
+      "reads": [
+        "n|tbl|public.governance_approval",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "governance_coups",
+        "city_id"
+      ],
+      "writes": [
+        "s|col|public.governance_coups.city_id",
+        "n|col|public.governance_coups.city_id",
+        "e|col|public.governance_coups.city_id"
+      ],
+      "reads": [
+        "n|tbl|public.governance_coups",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "nation_monetary",
+        "price_cap_milli"
+      ],
+      "writes": [
+        "s|col|public.nation_monetary.price_cap_milli",
+        "n|col|public.nation_monetary.price_cap_milli",
+        "e|col|public.nation_monetary.price_cap_milli"
+      ],
+      "reads": [
+        "n|tbl|public.nation_monetary",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "nation_monetary"
+      ],
+      "writes": [
+        "s|ck|public.nation_monetary.nation_monetary_cap",
+        "n|ck|public.nation_monetary.nation_monetary_cap",
+        "e|ck|public.nation_monetary.nation_monetary_cap",
+        "n|con|public.nation_monetary.nation_monetary_cap"
+      ],
+      "reads": [
+        "n|tbl|public.nation_monetary",
+        "n|sch|public",
+        "n|col|public.nation_monetary.price_cap_milli"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_approval",
+        "name": "tax_level_pm",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_approval",
+        "name": "cities",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_approval",
+        "name": "wars",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_approval",
+        "name": "day_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_coups",
+        "name": "city_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nation_monetary",
+        "name": "price_cap_milli",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nation_monetary",
+        "name": "nation_monetary_cap",
+        "value": "\"price_cap_milli\" is null or \"price_cap_milli\" between 1 and 1000000",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

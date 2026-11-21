@@ -228,11 +228,13 @@ export function createGovernanceView(o: {
         termEndsAtMs: nation.regime === "dictatorship" ? null : (s.state?.termEndsAtMs ?? null),
         shareVotesSuspended: s.state?.shareVotesSuspended === true,
         rulingSharePm: o.service.tools.rulingSharePm(nation, s.ruling.key),
+        approval: s.ruling.key === null ? null : (o.service.approvalOf(nation.rowId) ?? null),
       },
       canPropose,
       leader: s.leader,
       agendas: agendas.map(toView),
       canCoup,
+      coupCities: canCoup ? nation.cities.map((id) => ({ id, name: o.port.cityName(id) ?? null })) : [],
       coups: coupRows.map((row) => {
         const sides = coupSides.get(row.id) ?? [];
         const mine = sides.find((side) => side.userId === userId);
@@ -248,6 +250,7 @@ export function createGovernanceView(o: {
           rebels: sides.filter((side) => side.side === "rebel").length,
           government: sides.filter((side) => side.side === "government").length,
           mySide: mine?.side ?? null,
+          city: row.cityId === null ? null : { id: row.cityId, name: o.port.cityName(row.cityId) ?? null },
         };
       }),
       warTargets: others

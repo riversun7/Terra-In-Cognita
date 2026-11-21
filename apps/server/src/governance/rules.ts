@@ -2,6 +2,7 @@
 // 개발자 패널에서 바꾸면 다음 틱·명령부터 쓴다. 팩 없이 띄운 서버·시험은 sim 시험 계수표(팩 출발값과 같다). docs/adr/2026-11-21-governance.md
 import { type AgendaKind, agendaGroupOf } from "@terra/shared/governance";
 import { type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
+import type { ApprovalFactorRules } from "./approvalFactors.ts";
 
 export interface GovernanceRules {
   /** 안건 종류의 투표 기간(ms) */
@@ -48,12 +49,33 @@ export interface GovernanceRules {
   readonly approvalNpcStart: number;
   readonly approvalRemovalEasePm: number;
   readonly approvalRebellionEase: number;
+  /** 줄기 gov-coup(D-588 2493): 신임도 보정 기준점·오르내림 크기(approvalFactors.ts) */
+  readonly approval: ApprovalFactorRules;
+  /** 줄기 gov-coup(D-588 2499): 손 조절 목표 물가 상한 출발값·아래 끝·위 끝(천분율) */
+  readonly monetaryCapMilli: number;
+  readonly monetaryCapMinMilli: number;
+  readonly monetaryCapMaxMilli: number;
 }
 
 const whole = (value: number): number => (Number.isSafeInteger(value) && value > 0 ? value : 0);
 const permille = (value: number): number => Math.min(1000, whole(value));
 /** 기간(ms): 1분 이상 */
 const period = (value: number): number => Math.max(60_000, whole(value));
+
+/** 목표 물가 상한 칸(아래 끝 ≤ 출발값 ≤ 위 끝으로 맞춘다, 1 이상) */
+function monetaryCaps(
+  start: number,
+  low: number,
+  high: number,
+): Pick<GovernanceRules, "monetaryCapMilli" | "monetaryCapMinMilli" | "monetaryCapMaxMilli"> {
+  const min = Math.max(1, whole(low));
+  const max = Math.max(min, whole(high));
+  return {
+    monetaryCapMilli: Math.min(max, Math.max(min, whole(start))),
+    monetaryCapMinMilli: min,
+    monetaryCapMaxMilli: max,
+  };
+}
 
 export function governanceRulesFrom(c: SocietyCoefficients): GovernanceRules {
   const g = c.governance;
@@ -107,6 +129,17 @@ export function governanceRulesFrom(c: SocietyCoefficients): GovernanceRules {
     approvalNpcStart: permille(g.approvalNpcStart),
     approvalRemovalEasePm: permille(g.approvalRemovalEasePm),
     approvalRebellionEase: Math.min(100, whole(g.approvalRebellionEase)),
+    approval: {
+      neutralPm: permille(g.approvalNeutralPm),
+      taxPerPm: Math.min(1000, whole(g.approvalTaxPerPm)),
+      warStart: permille(g.approvalWarStart),
+      warDaily: permille(g.approvalWarDaily),
+      peace: permille(g.approvalPeace),
+      cityWon: permille(g.approvalCityWon),
+      cityLost: permille(g.approvalCityLost),
+      satisfactionPullPm: permille(g.approvalSatisfactionPullPm),
+    },
+    ...monetaryCaps(g.monetaryCapMilli, g.monetaryCapMinMilli, g.monetaryCapMaxMilli),
   };
 }
 

@@ -433,6 +433,11 @@ export function GovernancePanel({ now }: { now: number }) {
               )}
             </Fact>
             <Fact label={m.gov_ruling_share()}>{formatPermille(view.nation.rulingSharePm, locale)}</Fact>
+            {view.nation.approval === null || view.nation.approval === undefined ? null : (
+              <Fact label={m.gov_approval()}>
+                <span data-testid="governance-approval">{formatPermille(view.nation.approval, locale)}</span>
+              </Fact>
+            )}
           </dl>
           {view.leader ? <p className="faction-muted">{m.gov_leader_you()}</p> : null}
           {view.nation.shareVotesSuspended ? <p className="faction-muted">{m.gov_suspended()}</p> : null}

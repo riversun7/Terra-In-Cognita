@@ -181,3 +181,36 @@
   `nation_taxes.trade_tax_bp`·`governance_coup_sides.units` + 검사 넓히기 둘(안건 종류 `peace`·`currency_stage`·`house_independence`, 신용 종류). 직전 판 앱 그대로 — 되돌리면 새 종류
   안건을 모르는 종류로 읽는다, Assumed 해 없음), 프로토콜 61(묶음 1117a, 줄기 판 99 — 받는 가장 낮은 판 60, `GOVERNANCE5_PROTOCOL_VERSION`, 더하기만, 낮은 판에는 새 결과 코드 대신 not_eligible), 팩 core@139(묶음 1117a, 줄기 판 176 —
   설정 칸 더하기 19·빼기 3), SIM_VERSION 그대로(시뮬은 새 고리 둘 — `bankOverride`·`rebellionThresholdShift` — 을 붙이지 않는다).
+
+## 바뀜 (gov-coup, 2026-11-22 — 사용자 결정 D-588(2492 가·2493 기술에 맡김·2499), 제안 상태라 이 ADR에 덧붙인다)
+- 근거: 사용자 결정 D-588(2026-11-21, 기획 전달) — 2492 가 "쿠데타 전투는 모든 도시에서 누구나 가능하다", 2493 "알아서"(신임도 오르내림을 기술이 정함 — 세금을 올리면 내리고 내리면
+  오른다, 전쟁 자체는 벌점이지만 승리하면 오른다, 그 밖의 알맞은 것), 2499 "지도자가 하루 발행·소각량을 정하되 목표 물가 상한(D-131)을 넘겨 발행하지 못한다". 질문 표시
+  `docs/questions/2026-11-21-governance-5.md`, 새 질문 `docs/questions/2026-11-21-gov-coup.md`(2541~2550). 위 "바뀜 (governance-5)"의 "이기면 쿠데타 가문의 자리 도시만 새 독재 나라로 …
+  [임시 2492]", "플레이어 병력 = 수도에 있는 그 사람 유닛", governance-3의 "정부군 = 지배 가문 + 수도 경비대", "오르내림 규칙 없음(질문 2493)·두 폭 출발값 0"을 아래가 대신한다.
+- **쿠데타 = 일으킨 도시의 전투(D-588 2492 가 — `governance/coup.ts`)**: 반란 전투 틀(D-256 — `@terra/sim runCoupBattle`)은 그대로 쓰되 싸우는 자리를 수도에서 일으킨 도시로 옮겼다.
+  - 도시: 플레이어 `gov_coup cityId`(그 나라 도시 아무 곳 — 아니면 `invalid_choice`), 없으면 내 가문 자리 도시(`house_homes`) → 수도. NPC 가문은 그 가문 도시에서 일으킨다(같은 `open` 길).
+    쿠데타 줄에 도시를 적는다(`governance_coups.city_id`, 옛 줄 null = 수도).
+  - 병력·방어(그 도시에 있는 것만): 혁명군 = 일으킨 가문 유닛 + 혁명군 참가자 병력, 정부군 = 지배 가문 유닛 + 그 도시 경비대(`cityGuards` — `capitalGuards` 대신) + 정부군 참가자 병력. 플레이어
+    병력 = 그 도시에 있는 내 유닛(`unitIds`로 고름). NPC 일으키기의 힘 비·NPC 참가 힘도 그 도시 안으로 본다.
+  - 이기면 싸운 도시가 새 독재 나라로 떨어져 나간다(D-585 — 지배 가문 = 쿠데타 가문, 그 도시 다른 지분 몰수, 만족도 벌칙). 그 도시가 시작 도시(D-341 — 수도 포함)면 옛 나라 전체를 차지한다
+    [임시 — 질문 2542]. 결과 칸 `battleCity`.
+  - "누구나"(질문 2544에 적음): 일으키기 = 그 나라에 속한 플레이어 가문의 장(어느 가문이든, 지배 가문 빼고 — 이기면 그 가문이 새 나라 지배 가문이라 가문이 있어야 한다) 또는 NPC 가문, 편 들기 =
+    누구나(그대로). 비용·쿨타임·보호 기간·나라마다 하나·플레이어 가문 나라 빼기(2457)는 그대로.
+  - 조회·화면: `GovernanceResponse.coupCities`(일으킬 수 있는 도시·이름), 쿠데타 카드 `city`, 의결 칸 쿠데타 도시 고르기(`CoupSection.tsx` — 기본 = 내 가문 도시 → 수도).
+- **신임도 오르내림(D-588 2493 — 기술 기본값, `governance/approvalFactors.ts`)**: 의결 틱마다 지난 틱에 본 값(표 `governance_approval` 새 칸 `tax_level_pm`·`cities`·`wars`·`day_at_ms`)과 견준다.
+  처음 보는 값(배포 직후·지배 가문이 바뀐 뒤)은 기준만 적는다. 크기는 모두 설정 칸 [임시 출발값]:
+  - 세금 수준(‰ = 소득세 bp ÷ 10 + 주민세 ‰ + 거래세 bp ÷ 10 — 세율 안건 폭과 같은 단위)이 1‰ 오르면 −`gov_approval_tax_per_pm`(3), 내리면 +3. 거래세는 경제가 건 실제 값이라 NPC 세율 규칙식이
+    바꿔도 든다.
+  - 새 전쟁 하나마다 −`gov_approval_war_start`(30), 하루마다 전쟁 하나당 −`gov_approval_war_daily`(10), 끝난 전쟁(강화·상대가 사라짐) 하나마다 +`gov_approval_peace`(40).
+  - 도시가 늘면(점령 — 승리) 하나마다 +`gov_approval_city_won`(50), 줄면(빼앗김·반란·독립·쿠데타 분리) −`gov_approval_city_lost`(80).
+  - 하루마다(실제 하루, 밀린 날 7일까지) 주민 평균 만족도(0~100 × 10) 쪽으로 차이의 `gov_approval_satisfaction_pull_pm`(100‰)만큼 다가간다(만족도를 모르는 플레이어 가문 나라는 건너뜀).
+  - 고리: 보정 = ⌊폭 × (기준점 − 신임도) ÷ 기준점⌋, 신임도 ≥ 기준점(`gov_approval_neutral_pm` 500)이면 0. 폭 출발값 0 → `gov_approval_removal_ease_pm` 300‰·`gov_approval_rebellion_ease` 15점
+    (D-585 "낮으면 해임 투표·반란이 쉽다"가 실제로 걸리게). NPC 시작값(500)은 기준점이라 배포 때 NPC 나라 반란 문턱이 바로 바뀌지 않는다. 플레이어 시작값 300이면 해임 문턱 666 → 546, 반란 +6.
+  - 화면: 의결 칸 사실 줄에 "지도자 신임도"(`GovernanceResponse.nation.approval` — 의결 틱의 값).
+- **손 조절 목표 물가 상한(D-588 2499 — D-131)**: `nation_monetary.price_cap_milli`(null = 설정 칸 출발값 `gov_monetary_cap_milli` 1300). 지도자가 `gov_propose currency_stage monetaryCapMilli`로
+  정하고 서버가 `gov_monetary_cap_min_milli`(1000)~`gov_monetary_cap_max_milli`(3000)로 자른다. 같은 손 조절 단계에서 상한만 바꾸는 것도 지도자 바로(직권 줄, 조절량과 같은 규칙). 의결 틱이 경제
+  `bankPriceCap`(시뮬 `Economy` 선택 칸 — 시뮬은 붙이지 않음)에 걸고, `manualBankStep`이 물가 지수 ≥ 상한이면 발행을 0으로 한다(소각은 그대로, 지수를 모르면 막지 않음 [임시 2547]).
+  화면 칸은 아직 없다(화폐 단계 안건 화면이 없음 — governance-5 그대로).
+- 판: 마이그레이션 `20261121172002_gov_coup`(prevIds = 세 끝 `90e99c42`·`e44a1520`·`8ccb7e3f` — 칸 더하기 여섯 + 검사 하나, 직전 판 앱 그대로), 프로토콜 121(줄기 판 — 받는 가장 낮은 판 120,
+  `GOV_COUP_PROTOCOL_VERSION`, gov_coup `cityId`·gov_propose `monetaryCapMilli` 더하기만), 팩 core@199(줄기 판 — 설정 칸 더하기 11·출발값 바꿈 2), SIM_VERSION 그대로(시뮬은 `bankPriceCap`을 붙이지
+  않는다 — `manualBankStep`의 새 인수는 선택).

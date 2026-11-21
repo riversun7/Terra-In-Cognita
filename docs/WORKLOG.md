@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-22 03:00 | 2026-11-22 gov-coup — 모든 도시 쿠데타·신임도 오르내림·같은 나라 유닛 공격 신용·목표 물가 상한 | Claude Code | [22-0300-gov-coup](worklog/2026/11/22-0300-gov-coup.md) |
 | 2026-11-22 01:10~ | 2026-11-22 묶음 1117a 합치기 (DB 시험 g 단위 / 나라 의결 5·한 점수 신용 / 사는 곳 고르기) — 리셋 필요 없음 | Claude Code | [22-0110-batch-1117a-merge](worklog/2026/11/22-0110-batch-1117a-merge.md) |
 | 2026-11-22 01:00 | DB 시험 고침: 광석 1g 기본 단위(팩 core@137) 뒤 시험 재료 수량 | Claude Code | [22-0100-dbtest-fix](worklog/2026/11/22-0100-dbtest-fix.md) |
 | 2026-11-21 23:58 | 광석 1g·10kg 묶음·g 단위 채집, 화석·이탄·소금 제거, 벽돌 가공품 이동 | Antigravity | [21-2355-ore-grams-and-cleanup](worklog/2026/11/21-2355-ore-grams-and-cleanup.md) |

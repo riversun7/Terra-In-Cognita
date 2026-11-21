@@ -34,6 +34,7 @@ import {
   positionAt,
 } from "@terra/sim";
 import type { PlanetCellValues } from "@terra/planet/secondMap";
+import { creditUnitAttack } from "../credit/hooks.ts";
 import { DEFENSE_STAGE } from "../facilities/cityWalls.ts";
 import { OBSTACLE_DURABILITY, facilityPoints, mapLayers } from "../facilities/siegeLayout.ts";
 import { gatherOf } from "../gather/registry.ts";
@@ -619,6 +620,13 @@ export function startCoordinateRules(
     const targets = siegeFacilityTargets(arena.sources, (id) => records?.has(id) === true, 0);
     const worldInit: WorldBattleInit = { ...init, targets };
     const battleId = await persistence.startBattle(worldInit, engagement.atWar);
+    // 같은 나라 유저 유닛을 먼저 친 편은 신용이 내린다(약탈 행위 — D-588 2496 가, credit/hooks.ts)
+    creditUnitAttack(
+      persistence.ledger,
+      ordered[0].map((unit) => unit.ownerId),
+      ordered[1].map((unit) => unit.ownerId),
+      at,
+    );
     // 회피 편이 느려 붙잡혔다(D-573): 그 편(수비 편 = 편 2) 파티는 시작 틱에 퇴각을 시도한다(D-190 퇴각 규칙)
     if (resolution.flee)
       for (const party of init.parties)

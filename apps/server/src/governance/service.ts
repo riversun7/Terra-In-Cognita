@@ -60,6 +60,8 @@ export interface ProposeInput {
   /** 화폐 단계 전환(질문 2453 — 줄기 governance-5): 목표 단계·하루 조절 만분율 */
   readonly monetaryMode?: MonetaryMode | undefined;
   readonly monetaryRateBp?: number | undefined;
+  /** 손 조절 목표 물가 상한(천분율 — 줄기 gov-coup, D-588 2499) */
+  readonly monetaryCapMilli?: number | undefined;
 }
 
 /** 승인된 국고 지분 팔기(정부 지분 시장 cityShares/service.ts approvedSale이 받는다 — D-583) */
@@ -383,7 +385,7 @@ export function createGovernanceService(o: {
         return typeof payload === "string" ? fail(payload) : decreeNow(s, userId, "peace", payload, nowMs);
       }
       if (input.kind === "currency_stage") {
-        const checked = await leader.currencyPayload(nation, input.monetaryMode, input.monetaryRateBp);
+        const checked = await leader.currencyPayload(nation, input);
         return typeof checked === "string"
           ? fail(checked)
           : decreeNow(s, userId, "currency_stage", checked.payload, nowMs);
@@ -466,7 +468,7 @@ export function createGovernanceService(o: {
         break;
       }
       case "currency_stage": {
-        const checked = await leader.currencyPayload(nation, input.monetaryMode, input.monetaryRateBp);
+        const checked = await leader.currencyPayload(nation, input);
         if (typeof checked === "string") return fail(checked);
         // 손 조절 단계 안의 조절량은 지도자가 바로(D-252)
         if (checked.direct)
@@ -962,7 +964,7 @@ export function createGovernanceService(o: {
     propose: guarded(propose),
     vote: guarded(vote),
     register: guarded(register),
-    coup: guarded((userId: string) => coup.launch(userId)),
+    coup: guarded((userId: string, cityId?: number) => coup.launch(userId, cityId)),
     coupJoin: guarded((userId: string, coupId: number, side: CoupSide, unitIds?: readonly number[]) =>
       coup.join(userId, coupId, side, unitIds),
     ),
@@ -977,6 +979,7 @@ export function createGovernanceService(o: {
     electorateOf,
     thresholdFor,
     coups: o.coups,
+    approvalOf: leader.approvalOf,
   };
 }
 

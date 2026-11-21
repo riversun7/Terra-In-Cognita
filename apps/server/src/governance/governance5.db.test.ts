@@ -18,6 +18,7 @@ import { type World, startWorld } from "../world/world.ts";
 import { rebellionShift } from "./approval.ts";
 import { attachGovernance } from "./attach.ts";
 import { type GovernanceRules, TEST_GOVERNANCE_RULES } from "./rules.ts";
+import type { AgendaRow } from "./store.ts";
 
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
 if (!loaded.source || !loaded.pack) throw new Error("content pack");
@@ -180,13 +181,13 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 5(governance-5)", () => {
     const row = await house(world, head.userId, "지도가문", "LDR");
     await setState(head.nation, `p:${row}`);
     await gov.service.tick();
-    // 신임도: 플레이어 지도자는 낮게 시작(설정 칸 300), 반란 고리가 걸린다(폭 20 × (1000 − 300) ÷ 1000 = 14)
+    // 신임도: 플레이어 지도자는 낮게 시작(설정 칸 300), 반란 고리가 걸린다(기준점 500 아래만 — 폭 20 × (500 − 300) ÷ 500 = 8, 줄기 gov-coup)
     expect(
       await rows(test.db, "select house_key, approval from governance_approval where nation_id = $1", [
         head.nation,
       ]),
     ).toEqual([{ house_key: `p:${row}`, approval: 300 }]);
-    expect(rebellionShift(npc.world, owner)).toBe(14);
+    expect(rebellionShift(npc.world, owner)).toBe(8);
     // 강화: 전쟁 중이 아니면 막는다
     const view = await gov.view(head.userId);
     const target = view.warTargets[0];
@@ -231,6 +232,18 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 5(governance-5)", () => {
     await gov.service.tick();
     const live = npc.economy?.economy;
     expect(live?.bankOverride?.(owner)).toBe(50);
+    // 목표 물가 상한(줄기 gov-coup — D-588 2499): 정하지 않으면 설정 칸 출발값, 정하면 칸 범위로 자른다
+    expect(live?.bankPriceCap?.(owner)).toBe(rules.monetaryCapMilli);
+    expect(
+      await gov.service.propose(head.userId, {
+        kind: "currency_stage",
+        monetaryMode: "manual",
+        monetaryRateBp: 50,
+        monetaryCapMilli: 999_999,
+      }),
+    ).toMatchObject({ ok: true, action: "decided" });
+    await gov.service.tick();
+    expect(live?.bankPriceCap?.(owner)).toBe(rules.monetaryCapMaxMilli);
     expect(
       await gov.service.propose(head.userId, {
         kind: "currency_stage",
@@ -337,6 +350,8 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 5(governance-5)", () => {
     if (!ruling) throw new Error("ruling");
     await setState(head.nation, `n:${ruling.id}`, clock);
     await gov.service.tick();
+    // 쿠데타 도시(줄기 gov-coup — D-588 2492 가): 그 나라 도시가 아니면 막는다
+    expect(await gov.service.coup(head.userId, 999_999)).toEqual({ ok: false, code: "invalid_choice" });
     expect(await gov.service.coup(head.userId)).toEqual({ ok: false, code: "coup_protected" });
     // NPC 쿠데타: 시작 도시가 아닌 도시의 NPC 가문(점수 문턱 −1000·힘 비 0)
     const city = looseCity(world, owner);
@@ -344,12 +359,18 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 5(governance-5)", () => {
     if (rebel === undefined) throw new Error("no rebel house");
     rules = { ...rules, coupProtectMs: 0, coupNpcScore: -1000, coupNpcPowerPm: 0 };
     await gov.service.tick();
-    const coups = await rows<{ id: string; house_key: string }>(
+    const coups = await rows<{ id: string; house_key: string; city_id: string | null }>(
       test.db,
-      "select id, house_key from governance_coups where nation_id = $1",
+      "select id, house_key, city_id from governance_coups where nation_id = $1",
       [head.nation],
     );
     expect(coups.length).toBe(1);
+    // NPC 쿠데타는 그 가문 도시에서 일어난다(수도가 아니어도 — D-588 2492 가)
+    const rebelKey = coups[0]?.house_key ?? "";
+    const seat = [...faction.cities].find((cityId) =>
+      npc.cityHouses.housesOfCity(cityId).some((id) => `n:${id}` === rebelKey),
+    );
+    expect(Number(coups[0]?.city_id)).toBe(seat);
     const coupId = Number(coups[0]?.id);
     // 병력: 내 것이 아닌 유닛을 골라도 빠진다 → 병력 없이 편만 듦(보상 없음)
     expect(await gov.service.coupJoin(head.userId, coupId, "government", [999_999])).toMatchObject({
@@ -373,7 +394,8 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 5(governance-5)", () => {
       const coupCity = done[0].result?.city;
       const child = done[0].result?.newNationId;
       if (coupCity !== null && coupCity !== undefined && child !== null && child !== undefined) {
-        // 차지한 도시만 떨어져 나가고 옛 나라는 남는다(D-585)
+        // 싸운 도시만 떨어져 나가고 옛 나라는 남는다(D-585·D-588)
+        expect(coupCity).toBe(seat);
         expect(npc.world.cities.get(coupCity)?.owner).not.toBe(owner);
         expect(faction.alive).toBe(true);
         expect(faction.regime).toBe("democracy");
@@ -382,6 +404,79 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 5(governance-5)", () => {
         ).toEqual([{ ruling_house_key: key }]);
       } else expect(faction.regime).toBe("dictatorship");
     } else expect(done[0]?.status).toBe("lost");
+    gov.stop();
+  }, 180_000);
+
+  it("신임도 오르내림(줄기 gov-coup — D-588 2493): 처음 틱은 기준만, 세금을 올리면 내리고 내리면 오른다, 해임 문턱이 기준점 아래에서 낮아진다", async () => {
+    const world = await boot();
+    const { npc, persistence } = parts(world);
+    const rules: GovernanceRules = TEST_GOVERNANCE_RULES;
+    const gov = governance(world, () => rules);
+    const head = await citizen(world, "Approve");
+    const owner = npc.houses.ownerOfRow(head.nation) ?? -1;
+    const faction = npc.world.factions.get(owner);
+    if (!faction) throw new Error("nation");
+    faction.regime = "democracy";
+    const ruling = npc.cityHouses.rulingHouseOf(owner);
+    if (!ruling) throw new Error("ruling");
+    await setState(head.nation, `n:${ruling.id}`, clock);
+    await gov.service.tick();
+    const read = async () =>
+      (
+        await rows<{ approval: number; tax_level_pm: number | null; cities: number; wars: number }>(
+          test.db,
+          "select approval, tax_level_pm, cities, wars from governance_approval where nation_id = $1",
+          [head.nation],
+        )
+      )[0];
+    const first = await read();
+    expect(first?.approval).toBe(rules.approvalNpcStart);
+    expect(first?.cities).toBe(faction.cities.size);
+    // 소득세 100‰(1000bp)를 매긴다 → 세금 수준 +100‰ → 신임도 −100 × 3
+    await test.db.$client.query(
+      "insert into nation_taxes (faction_id, income_tax_bp, set_at_ms) values ($1, 1000, $2)",
+      [head.nation, clock],
+    );
+    const table = attachNationTaxes({
+      pool: test.db.$client,
+      ledger: persistence.ledger,
+      owners: persistence.owners,
+    });
+    await table.reload();
+    clock += 60_000;
+    await gov.service.tick();
+    const raised = await read();
+    expect(raised?.approval).toBe(rules.approvalNpcStart - 100 * rules.approval.taxPerPm);
+    expect((await gov.view(head.userId)).nation?.approval).toBe(raised?.approval);
+    // 신임도 200 < 기준점 500 → 해임 문턱 666 − ⌊300 × 300 ÷ 500⌋ = 486
+    const removal: AgendaRow = {
+      id: 1,
+      nationId: head.nation,
+      kind: "leader_removal",
+      regime: "democracy",
+      proposerKey: null,
+      proposerUser: null,
+      payload: {},
+      openedAtMs: clock,
+      registerUntilMs: null,
+      closesAtMs: clock,
+      status: "open",
+      result: null,
+      decidedAtMs: null,
+      effectAtMs: null,
+      enactedAtMs: null,
+    };
+    expect(gov.service.thresholdFor(removal)).toBe(
+      rules.thresholdOf("leader_removal") - Math.floor((rules.approvalRemovalEasePm * 300) / 500),
+    );
+    // 세금을 내리면 오른다
+    await test.db.$client.query("update nation_taxes set income_tax_bp = 500 where faction_id = $1", [
+      head.nation,
+    ]);
+    await table.reload();
+    clock += 60_000;
+    await gov.service.tick();
+    expect((await read())?.approval).toBe((raised?.approval ?? 0) + 50 * rules.approval.taxPerPm);
     gov.stop();
   }, 180_000);
 });

@@ -21,6 +21,10 @@
 //   (governance 틱)이 나라마다 정한 지배 가문을 setRuling으로 넣는다. NPC 가문이면 그 가문이 지배 가문(가문장 = NPC 국가 지도자 유닛, 그 가문 도시가 아직 그
 //   나라 것일 때만 — 아니면 처음 규칙), 플레이어 가문이면 NPC 지배 가문이 없다(rulingHouseOf undefined — NPC 국가 지도자 유닛은 남지만 어느 가문도 이끌지
 //   않는다 = 퇴임, 질문 2406 가 기술 기본값). 지배 가문 금고(rulingVault.ts)·정부 판·지도 한눈 정보·랭킹 지도자 자산이 이 값을 따른다.
+// - 바뀜(gov-fix-2, 질문 2532 (3) 기획 답 — D-588 5 "지배가문 서열에 따라 자동 승계"에 NPC 예외 없음): 의결이 NPC 지배 가문의 다음 가문장(이은 가문원)을
+//   setRuling 셋째 칸으로 넣으면 그 가문원이 지배 가문장이다(NPC 국가 지도자 유닛은 남지만 그 가문을 이끌지 않는다 = 퇴임 — 2406과 같은 꼴). 이은 가문원이
+//   죽거나 가문을 떠나면 가문원 가운데 다음 사람(successorOf — 시장 규칙과 같은 서열)이 잇는다. 서열 = 다른 가문의 가문장 규칙(시장이 든 가문이면 시장 →
+//   INT + WIS → 스탯 합 → 작은 ID) [임시 — 질문 2532 (4) 기술 기본값].
 // 판정에 쓰지 않는다(보이기·집계용 — 한눈 정보의 가문 줄·정부 판의 지배 가문·가문 판).
 import { HOMELESS, type SimCity, type SimFaction, type SimUnit } from "@terra/sim";
 import { cityGrade, gradeValue, type TerritoryCoefficients } from "@terra/shared/territory";
@@ -66,8 +70,13 @@ export interface NpcCityHouses {
   membersOf(houseId: number): readonly number[];
   /** NPC 지배 가문마다 그 가문장인 국가 지도자 유닛(랭킹 자산 — 지도자 지갑은 가문 재산, house-10 기획 대조 2313). 가문 ID 차례 */
   rulingHeads(): { readonly house: number; readonly unit: number }[];
-  /** 의결로 정한 지배 가문(위 머리 주석 바뀜 governance-2). undefined면 처음 규칙(수도 첫 가문), "vacant"면 빈자리(질문 2403 답 D-582 — 지배 가문 없음) */
-  setRuling(owner: number, house: RulingRef | undefined): void;
+  /**
+   * 의결로 정한 지배 가문(위 머리 주석 바뀜 governance-2). undefined면 처음 규칙(수도 첫 가문), "vacant"면 빈자리(질문 2403 답 D-582 — 지배 가문 없음).
+   * head = 계승으로 선 NPC 지배 가문장 유닛(바뀜 gov-fix-2 — 없으면 NPC 국가 지도자)
+   */
+  setRuling(owner: number, house: RulingRef | undefined, head?: number | null): void;
+  /** NPC 가문의 다음 가문장(계승 서열 — 위 머리 주석 바뀜 gov-fix-2): 빼는 유닛을 뺀 가문원 가운데. 없으면 undefined */
+  successorOf(houseId: number, excluded: ReadonlySet<number>): number | undefined;
   /** 의결로 정한 지배 가문이 플레이어 가문이면 그 가문 세력 행. 아니면 undefined */
   rulingPlayerHouseOf(owner: number): number | undefined;
   /**
@@ -173,6 +182,22 @@ export function createNpcCityHouses(o: {
   };
   /** 의결로 정한 지배 가문(나라 소유 주체 → 가문) */
   const overrides = new Map<number, RulingRef>();
+  /** 계승으로 선 NPC 지배 가문장(나라 소유 주체 → 유닛 — 바뀜 gov-fix-2) */
+  const succeededHeads = new Map<number, number>();
+  /** 가문원 가운데 서열 첫 사람(시장이 든 가문이면 시장 → pickMayor 규칙). 빼는 유닛은 뺀다 */
+  const rankedHead = (house: NpcCityHouseRow, excluded: ReadonlySet<number>): number | undefined => {
+    const list = [...(roster.get(house.id) ?? new Set<number>())].filter(
+      (unitId) => !excluded.has(unitId) && o.world.units.has(unitId),
+    );
+    const mayor = o.mayorOf(house.cityId);
+    if (mayor !== undefined && list.includes(mayor)) return mayor;
+    return pickMayor(
+      list.flatMap((unitId) => {
+        const unit = o.world.units.get(unitId);
+        return unit ? [{ id: unit.id, recruit: unit.recruit ?? null }] : [];
+      }),
+    );
+  };
   /** 그 NPC 나라의 지배 가문 ID: 의결로 정한 NPC 가문(그 가문 도시가 그 나라 것일 때) → 플레이어 가문이면 없음 → 수도에서 먼저 세운 가문 */
   const rulingIdOf = (owner: number): number | undefined => {
     if (!npcOwner(owner)) return undefined;
@@ -189,18 +214,16 @@ export function createNpcCityHouses(o: {
   const headOf = (house: NpcCityHouseRow): number | undefined => {
     const city = o.world.cities.get(house.cityId);
     if (city && rulingIdOf(city.owner) === house.id) {
-      const leader = o.leaderOf?.(city.owner);
-      if (leader !== undefined) return leader;
+      const succeeded = succeededHeads.get(city.owner);
+      // 계승으로 선 가문장(바뀜 gov-fix-2): 아직 가문원이면 그 사람, 사라졌으면 아래 서열 규칙(다음 사람)
+      if (succeeded !== undefined) {
+        if (roster.get(house.id)?.has(succeeded) === true && o.world.units.has(succeeded)) return succeeded;
+      } else {
+        const leader = o.leaderOf?.(city.owner);
+        if (leader !== undefined) return leader;
+      }
     }
-    const list = roster.get(house.id) ?? new Set<number>();
-    const mayor = o.mayorOf(house.cityId);
-    if (mayor !== undefined && list.has(mayor)) return mayor;
-    return pickMayor(
-      [...list].flatMap((unitId) => {
-        const unit = o.world.units.get(unitId);
-        return unit ? [{ id: unit.id, recruit: unit.recruit ?? null }] : [];
-      }),
-    );
+    return rankedHead(house, new Set());
   };
   const view = (house: NpcCityHouseRow, unitId: number): NpcUnitHouse => ({
     id: house.id,
@@ -289,15 +312,24 @@ export function createNpcCityHouses(o: {
       for (const city of o.world.cities.values()) owners.add(city.owner);
       for (const owner of owners) {
         const house = rulingIdOf(owner);
-        const unit = house === undefined ? undefined : o.leaderOf?.(owner);
+        const row = house === undefined ? undefined : houses.get(house);
+        const unit =
+          row === undefined ? undefined : succeededHeads.has(owner) ? headOf(row) : o.leaderOf?.(owner);
         if (house !== undefined && unit !== undefined) out.push({ house, unit });
       }
       return out.toSorted((a, b) => a.house - b.house);
     },
-    setRuling(owner, house) {
+    setRuling(owner, house, head) {
       if (house === "vacant") overrides.set(owner, "vacant");
       else if (house) overrides.set(owner, { npc: house.npc, id: house.id });
       else overrides.delete(owner);
+      if (head !== null && head !== undefined && house !== "vacant" && house?.npc === true)
+        succeededHeads.set(owner, head);
+      else succeededHeads.delete(owner);
+    },
+    successorOf(houseId, excluded) {
+      const house = houses.get(houseId);
+      return house ? rankedHead(house, excluded) : undefined;
     },
     rulingPlayerHouseOf(owner) {
       const set = overrides.get(owner);

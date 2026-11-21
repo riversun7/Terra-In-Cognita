@@ -7,12 +7,16 @@
 //   계정 ID). 가문원 서열 자료가 따로 없어 들어온 차례를 서열로 읽는다 [임시 — 기술 기본값, 질문 2532]. 바꾸기 쉽게 pickSuccessor 하나에 둔다.
 // - 빈자리가 되는 길: (1) 해임 뒤 다시 뽑기 실패(질문 2403 답 D-582 — 해임된 사람 = 안건 칸 barredUser는 이을 수 없다), (2) 지배 플레이어 가문에 가문장이 없어짐(계정이
 //   지워져 가문원 줄이 사라짐 등). 옛 빈자리(이 판 전에 생긴 것)는 해임된 사람을 몰라 그 가문의 지금 가문장을 뺀다.
-// - [임시] NPC 지배 가문: 의결에 개인 가문원이 없어(NPC 가문장은 NPC 가문 규칙이 늘 정한다) 이 길을 타지 않는다 → 해임 뒤 빈자리는 자동 선출. 독재 나라는 선출이 없어
-//   이을 사람이 없으면 그대로 둔다(예전 길).
+// - 독재 나라는 선출이 없어 이을 사람이 없으면 그대로 둔다(예전 길).
+// - 바뀜(gov-fix-2 — 질문 2532 (3) 기획 답: D-588 5 "지배가문 서열에 따라 자동 승계"에 NPC 예외가 없다): NPC 지배 가문도 같은 길을 탄다. 해임된 사람 = 그때의 NPC 지배
+//   가문장 유닛(안건 칸 barredUnit — 처음엔 NPC 국가 지도자 유닛), 이을 사람 = 그 가문 가문원 가운데 서열 첫 사람(npc/cityHouses.ts successorOf — 다른 NPC 가문의
+//   가문장 규칙과 같은 서열: 시장이 든 가문이면 시장 → INT + WIS → 스탯 합 → 작은 ID [임시 — 2532 (4) 기술 기본값]). NPC 가문은 후계자 칸이 없다. 세우기 = 의결 상태
+//   npc_head_unit_id에 적고 NPC 런타임에 알린다(applyRuling — NPC 국가 지도자 유닛은 남지만 그 가문을 이끌지 않는다). 이은 가문장이 사라지면 틱이 다음 사람을 세운다.
+//   이을 가문원이 없을 때만 예전처럼 자동 선출.
 import type { HouseKey } from "@terra/shared/governance";
 import type { Database } from "../db/client.ts";
 import { succeedHouseHead } from "../factionIdentity/succession.ts";
-import { type GovernanceNation, parseHouseKey } from "./port.ts";
+import { type GovernanceNation, type GovernancePort, parseHouseKey } from "./port.ts";
 import type { AgendaPayload, GovernanceStore, HouseMemberRow, StateRow } from "./store.ts";
 
 /**
@@ -34,8 +38,53 @@ export function pickSuccessor(
 /** 후임 고르기가 보는 나라 칸 */
 type SuccessionNation = Pick<GovernanceNation, "rowId" | "regime">;
 
+/** 후임(플레이어 가문 = 계정, NPC 가문 = 유닛) */
+export type Successor =
+  | { readonly npc: false; readonly row: number; readonly userId: string }
+  | { readonly npc: true; readonly row: number; readonly unit: number };
+
+/** 빼는 사람(해임된 사람 — 플레이어 계정·NPC 가문장 유닛) */
+export interface SuccessionExcluded {
+  readonly users?: ReadonlySet<string>;
+  readonly units?: ReadonlySet<number>;
+}
+
+/** NPC 가문 계승이 읽고 쓰는 NPC 런타임 몫(바뀜 gov-fix-2 — port.ts) */
+export interface SuccessionNpc {
+  head(houseId: number): number | undefined;
+  successor(houseId: number, excluded: ReadonlySet<number>): number | undefined;
+  /** 세운 가문장을 NPC 런타임에 바로 알린다(다음 틱 applyRulings도 같은 값) */
+  apply?(nation: SuccessionNation, house: HouseKey, unit: number): void;
+}
+
+/** 실제 세계 포트로 NPC 가문 계승 몫을 만든다(service.ts) */
+export function npcSuccessionOf(
+  port: Pick<GovernancePort, "npcHouseHead" | "npcHouseSuccessor" | "applyRuling" | "nation">,
+): SuccessionNpc {
+  return {
+    head: (houseId) => port.npcHouseHead(houseId),
+    successor: (houseId, excluded) => port.npcHouseSuccessor(houseId, excluded),
+    apply(nation, house, unit) {
+      const full = port.nation(nation.rowId);
+      if (full) port.applyRuling(full, house, unit);
+    },
+  };
+}
+
+/** 해임 안건 칸: NPC 지배 가문이면 해임된 사람 = 지금 그 가문장 유닛(barredUnit — 바뀜 gov-fix-2). 아니면 빈 칸 */
+export function barredUnitOf(
+  port: Pick<GovernancePort, "npcHouseHead">,
+  barred: HouseKey | null,
+): { readonly barredUnit?: number } {
+  const parsed = barred === null ? undefined : parseHouseKey(barred);
+  const unit = parsed?.npc === true ? port.npcHouseHead(parsed.id) : undefined;
+  return unit === undefined ? {} : { barredUnit: unit };
+}
+
 export interface SuccessionDeps {
   readonly store: Pick<GovernanceStore, "houseMembersOf" | "heirOf" | "saveState">;
+  /** NPC 가문 계승(없으면 NPC 가문은 잇지 못한다 — 옛 시험) */
+  readonly npc?: SuccessionNpc | undefined;
   readonly audit: (userId: string | null, action: string, after: Record<string, unknown>) => Promise<void>;
   /** 가문장을 세운다(시험은 가짜). 없으면 db로 factionIdentity succeedHouseHead, db도 없으면 세우지 못한다(false) */
   readonly promote?: ((houseRow: number, userId: string, nowMs: number) => Promise<boolean>) | undefined;
@@ -48,16 +97,20 @@ export function createSuccession(d: SuccessionDeps) {
     return d.db ? succeedHouseHead({ pool: d.db.$client, db: d.db }, houseRow, userId, nowMs) : false;
   };
 
-  /** 그 가문의 후임(플레이어 가문만 — NPC 가문은 null [임시]) */
+  /** 그 가문의 후임(플레이어 가문 = 후계자·서열, NPC 가문 = 가문원 서열 — 바뀜 gov-fix-2). 없으면 null */
   const successorOf = async (
     house: HouseKey | null,
-    excluded: ReadonlySet<string>,
-  ): Promise<{ readonly row: number; readonly userId: string } | null> => {
+    excluded: SuccessionExcluded,
+  ): Promise<Successor | null> => {
     const parsed = house === null ? undefined : parseHouseKey(house);
-    if (!parsed || parsed.npc) return null;
+    if (!parsed) return null;
+    if (parsed.npc) {
+      const unit = d.npc?.successor(parsed.id, excluded.units ?? new Set());
+      return unit === undefined ? null : { npc: true, row: parsed.id, unit };
+    }
     const [members, heir] = await Promise.all([d.store.houseMembersOf(parsed.id), d.store.heirOf(parsed.id)]);
-    const userId = pickSuccessor(members, heir, excluded);
-    return userId === null ? null : { row: parsed.id, userId };
+    const userId = pickSuccessor(members, heir, excluded.users ?? new Set());
+    return userId === null ? null : { npc: false, row: parsed.id, userId };
   };
 
   /** 후임을 그 가문의 가문장으로 세우고 그 가문이 지배 가문으로 남는다(빈자리 끝). 못 세우면 그대로. 감사 기록 governance.successor */
@@ -65,13 +118,23 @@ export function createSuccession(d: SuccessionDeps) {
     nation: SuccessionNation,
     state: StateRow,
     house: HouseKey,
-    successor: { readonly row: number; readonly userId: string },
+    successor: Successor,
     nowMs: number,
   ): Promise<StateRow | undefined> => {
-    if (!(await promote(successor.row, successor.userId, nowMs))) return undefined;
-    const next: StateRow = { ...state, rulingHouseKey: house, vacantSinceMs: null };
+    if (!successor.npc && !(await promote(successor.row, successor.userId, nowMs))) return undefined;
+    const next: StateRow = {
+      ...state,
+      rulingHouseKey: house,
+      vacantSinceMs: null,
+      npcHeadUnit: successor.npc ? successor.unit : null,
+    };
     await d.store.saveState(next, nowMs);
-    await d.audit(null, "governance.successor", { nationId: nation.rowId, house, userId: successor.userId });
+    if (successor.npc) d.npc?.apply?.(nation, house, successor.unit);
+    await d.audit(null, "governance.successor", {
+      nationId: nation.rowId,
+      house,
+      ...(successor.npc ? { unit: successor.unit } : { userId: successor.userId }),
+    });
     return next;
   };
 
@@ -87,14 +150,19 @@ export function createSuccession(d: SuccessionDeps) {
     nowMs: number,
     termMs: number,
   ): Promise<StateRow> => {
-    const { barred, barredUser } = payload;
+    const { barred, barredUser, barredUnit } = payload;
     const successor =
       winner !== null || !barred || current.vacantSinceMs !== null
         ? null
-        : await successorOf(barred, new Set(barredUser === undefined ? [] : [barredUser]));
+        : await successorOf(barred, {
+            users: new Set(barredUser === undefined ? [] : [barredUser]),
+            units: new Set(barredUnit === undefined ? [] : [barredUnit]),
+          });
     const next: StateRow = {
       ...current,
       rulingHouseKey: winner ?? current.rulingHouseKey,
+      // 선출로 지배 가문이 정해지면 계승한 NPC 가문장 기록은 지운다(바뀜 gov-fix-2)
+      ...(winner !== null ? { npcHeadUnit: null } : {}),
       electedAtMs: winner === null ? current.electedAtMs : nowMs,
       termEndsAtMs: nowMs + termMs,
       vacantSinceMs:
@@ -110,7 +178,8 @@ export function createSuccession(d: SuccessionDeps) {
 
   /**
    * 틱(나라마다, 임기·자동 선출 앞): 빈자리면(선출이 열려 있지 않을 때) 먼저 그 가문에서 후임(옛 빈자리는 해임된 사람을 몰라 지금 가문장을 뺀다 [임시]). 가문장이 없는 지배
-   * 플레이어 가문은 후임을 세우고 없으면 빈자리로(독재는 선출이 없어 그대로). 바뀐 상태(없으면 그대로)
+   * 플레이어 가문은 후임을 세우고 없으면 빈자리로(독재는 선출이 없어 그대로). NPC 지배 가문(바뀜 gov-fix-2)은 계승으로 선 가문장이 사라졌으면 다음 사람을 세운다.
+   * 바뀐 상태(없으면 그대로)
    */
   const tick = async (
     nation: SuccessionNation,
@@ -120,18 +189,19 @@ export function createSuccession(d: SuccessionDeps) {
   ): Promise<StateRow | undefined> => {
     const house = state?.rulingHouseKey ?? null;
     const parsed = house === null ? undefined : parseHouseKey(house);
-    if (!state || house === null || !parsed || parsed.npc) return state;
+    if (!state || house === null || !parsed) return state;
+    if (parsed.npc) return npcTick(nation, state, house, parsed.id, electing, nowMs);
     const members = await d.store.houseMembersOf(parsed.id);
     const head = members.find((member) => member.role === "leader")?.userId;
     if (state.vacantSinceMs !== null) {
       // 빈자리 선출이 열려 있으면 그 선출을 기다린다
       if (electing) return state;
-      const successor = await successorOf(house, new Set(head === undefined ? [] : [head]));
+      const successor = await successorOf(house, { users: new Set(head === undefined ? [] : [head]) });
       return (successor && (await install(nation, state, house, successor, nowMs))) ?? state;
     }
     if (head !== undefined) return state;
     // 지배 가문에 가문장이 없어졌다: 그 가문에서 잇는다
-    const successor = await successorOf(house, new Set());
+    const successor = await successorOf(house, {});
     const installed = successor ? await install(nation, state, house, successor, nowMs) : undefined;
     if (installed) return installed;
     if (nation.regime === "dictatorship") return state;
@@ -139,6 +209,29 @@ export function createSuccession(d: SuccessionDeps) {
     await d.store.saveState(vacant, nowMs);
     await d.audit(null, "governance.vacant", { nationId: nation.rowId, house });
     return vacant;
+  };
+
+  /** NPC 지배 가문 틱(바뀜 gov-fix-2): 빈자리면 가문원 서열로 잇고, 계승으로 선 가문장이 사라졌으면 다음 사람을 세운다(없으면 NPC 런타임 규칙 그대로) */
+  const npcTick = async (
+    nation: SuccessionNation,
+    state: StateRow,
+    house: HouseKey,
+    houseId: number,
+    electing: boolean,
+    nowMs: number,
+  ): Promise<StateRow | undefined> => {
+    if (!d.npc) return state;
+    if (state.vacantSinceMs !== null) {
+      if (electing) return state;
+      // 옛 빈자리의 해임된 사람은 NPC 국가 지도자 유닛(가문원이 아니라 잇지 못한다) 또는 계승으로 섰던 가문장
+      const before = state.npcHeadUnit ?? null;
+      const successor = await successorOf(house, { units: new Set(before === null ? [] : [before]) });
+      return (successor && (await install(nation, state, house, successor, nowMs))) ?? state;
+    }
+    const recorded = state.npcHeadUnit ?? null;
+    if (recorded === null || d.npc.head(houseId) === recorded) return state;
+    const successor = await successorOf(house, { units: new Set([recorded]) });
+    return (successor && (await install(nation, state, house, successor, nowMs))) ?? state;
   };
 
   return { successorOf, install, afterElection, tick };

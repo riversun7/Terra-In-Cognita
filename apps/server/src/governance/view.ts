@@ -219,12 +219,8 @@ export function createGovernanceView(o: {
     );
     const coupHouses = await o.store.houseNames(coupRows.map((row) => row.houseKey));
     const gathering = coupRows.some((row) => row.status === "gathering");
-    const canCoup =
-      rules.coupEnabled &&
-      !nation.playerHouse &&
-      !gathering &&
-      s.ownHouse !== null &&
-      s.ownHouse !== s.ruling.key;
+    // 플레이어 가문 나라도 대상(2545 — gov-fix-2)
+    const canCoup = rules.coupEnabled && !gathering && s.ownHouse !== null && s.ownHouse !== s.ruling.key;
     return {
       status: "ready",
       nation: {

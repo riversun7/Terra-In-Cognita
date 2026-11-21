@@ -118,6 +118,11 @@ export const governanceState = pgTable("governance_state", {
   updatedAtMs: bigint("updated_at_ms", { mode: "number" }).notNull(),
   /** 지도자 빈자리가 된 시각(질문 2403 답 D-582 — 해임 뒤 다시 뽑기가 실패하면). 선출로 채우면 null. 직전 판 앱은 읽지 않는다 */
   vacantSinceMs: bigint("vacant_since_ms", { mode: "number" }),
+  /**
+   * 계승으로 선 NPC 지배 가문장 유닛(gov-fix-2 — 질문 2532 (3) 기획 답: NPC 지배 가문도 서열로 다음 가문장이 잇는다). null = NPC 국가 지도자 유닛이 가문장.
+   * 유닛 외래 키는 두지 않는다(죽은 유닛이면 NPC 런타임이 다음 서열을 본다). 직전 판 앱은 읽지 않는다
+   */
+  npcHeadUnitId: bigint("npc_head_unit_id", { mode: "number" }),
 });
 
 /**

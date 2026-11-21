@@ -207,4 +207,32 @@ describe("NPC 도시 가문", () => {
     houses.setRuling(1, undefined);
     expect(houses.rulingHouseOf(1)?.id).toBe(1);
   });
+  it("gov-fix-2(질문 2532 (3)): 계승으로 선 가문원이 NPC 지배 가문장(국가 지도자는 퇴임), 그 사람이 사라지면 서열 다음 사람, 다음 사람 고르기는 빼는 유닛을 뺀다", () => {
+    const world = fakeWorld();
+    const houses = createNpcCityHouses({
+      world,
+      writer: fakeWriter(),
+      loaded: { houses: [], members: new Map() },
+      mayorOf: (cityId) => (cityId === 10 ? 101 : 102),
+      nameFor: (cityId) => `가${String(cityId)}`,
+      capitalOf: (owner) => (owner === 1 ? 10 : undefined),
+      leaderOf: (owner) => (owner === 1 ? 900 : undefined),
+    });
+    houses.sync(1);
+    houses.setRuling(1, { npc: true, id: 1 });
+    expect(houses.headOf(1)).toBe(900);
+    // 서열(다른 가문의 가문장 규칙 — 시장이 든 가문이면 시장 → 시장 규칙): 가문원 100·101(시장) 가운데
+    expect(houses.successorOf(1, new Set())).toBe(101);
+    expect(houses.successorOf(1, new Set([101]))).toBe(100);
+    houses.setRuling(1, { npc: true, id: 1 }, 100);
+    expect(houses.headOf(1)).toBe(100);
+    expect(houses.rulingHeads()).toEqual([{ house: 1, unit: 100 }]);
+    expect(houses.of(100)?.leader).toBe(true);
+    // 이은 가문장이 죽으면 서열 다음 사람(국가 지도자로 돌아가지 않는다)
+    world.units.delete(100);
+    expect(houses.headOf(1)).toBe(101);
+    // 계승 기록 없이 넣으면 국가 지도자
+    houses.setRuling(1, { npc: true, id: 1 }, null);
+    expect(houses.headOf(1)).toBe(900);
+  });
 });

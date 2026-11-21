@@ -44,6 +44,7 @@ export function applyRulings(
     port.applyRuling(
       nation,
       state && state.vacantSinceMs !== null ? "vacant" : (state?.rulingHouseKey ?? null),
+      state?.npcHeadUnit ?? null,
     );
   }
 }

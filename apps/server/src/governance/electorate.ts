@@ -65,7 +65,7 @@ export function createElectorate(o: {
   };
 
   /** 지배 쪽 지분 몫(‰ — D-344, 국고는 빼고 D-581 비례 나눔으로 센다). 지분이 없으면 1000, 국고만 있으면 0 */
-  const rulingSharePm = (nation: GovernanceNation, rulingKey: HouseKey | null): number => {
+  const shareOf = (nation: GovernanceNation, rulingKey: HouseKey | null): number => {
     const holdings = o.port.holdingsOf(nation);
     const total = holdings.reduce((sum, row) => sum + row.amount, 0n);
     if (total === 0n) return 1000;
@@ -79,6 +79,17 @@ export function createElectorate(o: {
     const own = holdings.filter((row) => sides.has(row.holder)).reduce((sum, row) => sum + row.amount, 0n);
     return Number((own * 1000n) / others);
   };
+
+  /**
+   * 독재 과반 셈(바뀜 gov-fix-2 — 질문 2528 나, D-587 2·D-344 "독재 나라 도시 = 지배 가문 지분 > 50% 불변 조건"): 도시마다 지배 쪽 몫을 세어 가장 낮은 도시 값(‰).
+   * 독재로 바꾸는 조건(> 500)과 지키는 조건(지분 시장 과반 끝 — cityShares/market.ts majorityCaps, 도시마다)이 모두 이 셈이다. 지분이 없는 도시(상장폐지)는 1000,
+   * 도시가 없으면 1000. 자본주의 의결권(표 무게)은 나라 모든 도시 합 그대로다(D-580 3 — electorate)
+   */
+  const rulingSharePm = (nation: GovernanceNation, rulingKey: HouseKey | null): number =>
+    nation.cities.reduce(
+      (low, cityId) => Math.min(low, shareOf({ ...nation, cities: [cityId] }, rulingKey)),
+      1000,
+    );
 
   const electorate = async (nation: GovernanceNation): Promise<Electorate> => {
     if (nation.regime === "dictatorship") return { voters: [], total: 0n };

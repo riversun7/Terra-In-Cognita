@@ -1,0 +1,1 @@
+ALTER TABLE "governance_state" ADD COLUMN "npc_head_unit_id" bigint;

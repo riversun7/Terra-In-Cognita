@@ -31,7 +31,7 @@ import {
   restorationGoal,
   restorationShares,
 } from "../society/restoration.ts";
-import { cancelResidentDebts } from "../society/residentTax.ts";
+import { cancelResidentDebts, refundCityFund } from "../society/residentTax.ts";
 import { type Holding, burnShares, issueShares } from "../society/shares.ts";
 import { DAY_MS } from "./metrics.ts";
 import type { SimHooks } from "./npcRun.ts";
@@ -234,8 +234,11 @@ export function createSocietyRuins(o: SocietyRuinsOptions): SocietyRuins {
     world.cities.set(city.id, city);
     faction.cities.add(city.id);
     // 다른 나라가 복원 = 도시의 나라가 바뀜 → 옛 나라 주민세 빚을 지운다(질문 2483 나). 같은 나라면 그대로(D-585 6)
-    if (faction.id !== ruin.formerOwner && (o.hooks?.residentProperty || o.hooks?.residentHomes))
+    // 옛 나라의 그 도시 운영비 금고 남은 몫은 옛 나라 국고로(gov-fix-2 — 질문 2537)
+    if (faction.id !== ruin.formerOwner && (o.hooks?.residentProperty || o.hooks?.residentHomes)) {
       cancelResidentDebts(book, ruin.formerOwner, ruin.id, nowMs);
+      refundCityFund(book, ruin.formerOwner, ruin.id, nowMs);
+    }
     o.hooks?.cityFounded?.(city.id, 0, nowMs);
     o.onRestored(faction, city, nowMs);
     counts.restored += 1;

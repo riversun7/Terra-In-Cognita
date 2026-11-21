@@ -32,6 +32,8 @@ export interface AgendaPayload {
   readonly barred?: HouseKey;
   /** 해임된 지도자(사람 — 줄기 governance-6: 빈자리 후임이 못 된다, succession.ts). NPC 지도자면 없음 */
   readonly barredUser?: string;
+  /** 해임된 NPC 지배 가문장 유닛(바뀜 gov-fix-2 — 질문 2532 (3): NPC 지배 가문도 다음 가문장이 잇는다, 해임된 유닛은 잇지 못한다). 플레이어 지도자면 없음 */
+  readonly barredUnit?: number;
   /** 직권 결정(투표 없음 — 독재 지도자, 지분 과반 지도자의 독재 전환) */
   readonly byAuthority?: boolean;
   /** 세율 안건이 바꾸려는 나라 세금(질문 2407 가) */
@@ -140,6 +142,11 @@ export interface StateRow {
   readonly shareVotesSuspended: boolean;
   /** 지도자 빈자리가 된 시각(질문 2403 답 D-582). 없으면 null */
   readonly vacantSinceMs: number | null;
+  /**
+   * 계승으로 선 NPC 지배 가문장 유닛(바뀜 gov-fix-2 — 질문 2532 (3), 칸 npc_head_unit_id). 없으면(null·빠짐) NPC 국가 지도자 유닛이 가문장. 지배 가문이 바뀌면 지운다
+   * (남아 있어도 그 유닛이 지배 가문원이 아니면 NPC 런타임이 보지 않는다 — npc/cityHouses.ts)
+   */
+  readonly npcHeadUnit?: number | null;
 }
 
 /** 가문원 한 사람(빈자리 후임 고르기 — succession.ts) */
@@ -174,6 +181,7 @@ function payloadOf(value: unknown): AgendaPayload {
   const target = typeof value.targetNationId === "number" ? value.targetNationId : undefined;
   const barred = typeof value.barred === "string" && isHouseKey(value.barred) ? value.barred : undefined;
   const barredUser = typeof value.barredUser === "string" ? value.barredUser : undefined;
+  const barredUnit = typeof value.barredUnit === "number" ? value.barredUnit : undefined;
   const taxes = taxesOf(value.taxes);
   const cityId = typeof value.cityId === "number" ? value.cityId : undefined;
   const shares = digits(value.shares);
@@ -195,6 +203,7 @@ function payloadOf(value: unknown): AgendaPayload {
     ...(target !== undefined ? { targetNationId: target } : {}),
     ...(barred ? { barred } : {}),
     ...(barredUser !== undefined ? { barredUser } : {}),
+    ...(barredUnit !== undefined ? { barredUnit } : {}),
     ...(value.byAuthority === true ? { byAuthority: true } : {}),
     ...(taxes ? { taxes } : {}),
     ...(cityId !== undefined ? { cityId } : {}),
@@ -415,8 +424,8 @@ export function createGovernanceStore(pool: GovernanceQueryable) {
     },
     async states(): Promise<Map<number, StateRow>> {
       const { rows } = await pool.query(
-        `select nation_id, ruling_house_key, elected_at_ms, term_ends_at_ms, share_votes_suspended, vacant_since_ms
-           from governance_state`,
+        `select nation_id, ruling_house_key, elected_at_ms, term_ends_at_ms, share_votes_suspended, vacant_since_ms,
+           npc_head_unit_id from governance_state`,
       );
       return new Map(
         rows.map((row) => {
@@ -430,6 +439,7 @@ export function createGovernanceStore(pool: GovernanceQueryable) {
               termEndsAtMs: numOrNull(row.term_ends_at_ms),
               shareVotesSuspended: row.share_votes_suspended === true,
               vacantSinceMs: numOrNull(row.vacant_since_ms),
+              npcHeadUnit: numOrNull(row.npc_head_unit_id),
             },
           ];
         }),
@@ -438,11 +448,12 @@ export function createGovernanceStore(pool: GovernanceQueryable) {
     async saveState(state: StateRow, atMs: number): Promise<void> {
       await pool.query(
         `insert into governance_state (nation_id, ruling_house_key, elected_at_ms, term_ends_at_ms, share_votes_suspended, updated_at_ms,
-           vacant_since_ms)
-         values ($1, $2, $3, $4, $5, $6, $7)
+           vacant_since_ms, npc_head_unit_id)
+         values ($1, $2, $3, $4, $5, $6, $7, $8)
          on conflict (nation_id) do update set ruling_house_key = excluded.ruling_house_key, elected_at_ms = excluded.elected_at_ms,
            term_ends_at_ms = excluded.term_ends_at_ms, share_votes_suspended = excluded.share_votes_suspended,
-           updated_at_ms = excluded.updated_at_ms, vacant_since_ms = excluded.vacant_since_ms`,
+           updated_at_ms = excluded.updated_at_ms, vacant_since_ms = excluded.vacant_since_ms,
+           npc_head_unit_id = excluded.npc_head_unit_id`,
         [
           state.nationId,
           state.rulingHouseKey,
@@ -451,6 +462,7 @@ export function createGovernanceStore(pool: GovernanceQueryable) {
           state.shareVotesSuspended,
           atMs,
           state.vacantSinceMs,
+          state.npcHeadUnit ?? null,
         ],
       );
     },

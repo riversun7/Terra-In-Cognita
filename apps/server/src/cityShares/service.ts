@@ -151,7 +151,7 @@ export function createCityShareService(o: {
 
   /**
    * 지배 쪽 지분·국고 지분·걸린 팔 주문 → 과반 끝. 바뀜(D-587 질문 2477 나): 독재 과반은 도시마다 센다(그 도시 지분만 — 시뮬 transferShares·D-349와 같다).
-   * 의결 셈(rulingSharePm — 체제 전환·쿠데타)은 나라 합 그대로다
+   * 바뀜(gov-fix-2 — 질문 2528 나): 독재 전환 조건(governance/electorate.ts rulingSharePm)도 도시마다 센다(가장 낮은 도시). 자본주의 의결권은 나라 합 그대로
    */
   const capsOf = (m: CityShareMarket, r: RulingSides, cityId: number, pending: boolean) => {
     const ledger = o.port.ledger();

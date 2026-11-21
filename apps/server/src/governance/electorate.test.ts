@@ -105,6 +105,35 @@ describe("electorate", () => {
     ]);
     expect(house.rulingSharePm(nation("capitalism"), "n:5")).toBe(857);
   });
+  it("독재 과반은 도시마다(gov-fix-2 — 질문 2528 나, D-587 2·D-344): 가장 낮은 도시 값, 지분 없는 도시는 1000", () => {
+    const byCity: Record<number, { holder: string; amount: bigint }[]> = {
+      1: [
+        { holder: "n:5", amount: 900n },
+        { holder: "o:200", amount: 100n },
+      ],
+      2: [
+        { holder: "n:5", amount: 400n },
+        { holder: "o:200", amount: 600n },
+      ],
+      3: [],
+    };
+    const port: Parameters<typeof createElectorate>[0]["port"] = {
+      holdingsOf: (n) => n.cities.flatMap((city) => byCity[city] ?? []),
+      ownerInfo: (id) => owners[id],
+      npcHousesOf: () => [],
+      citySatisfaction: () => undefined,
+      defaultRulingHouse: () => "n:5",
+      ownerOfHouseRow: () => undefined,
+    };
+    const t = createElectorate({
+      port,
+      store: { playerHousesOf: async () => [], headOf: async () => undefined },
+    });
+    // 나라 합이면 1300 ÷ 2000 = 650 > 500이지만 도시 2가 400이라 독재 과반이 아니다
+    expect(t.rulingSharePm({ ...nation("capitalism"), cities: [1, 2] }, "n:5")).toBe(400);
+    expect(t.rulingSharePm({ ...nation("capitalism"), cities: [1, 3] }, "n:5")).toBe(900);
+    expect(t.rulingSharePm({ ...nation("capitalism"), cities: [] }, "n:5")).toBe(1000);
+  });
   it("빈자리(질문 2403 답 D-582): 지배 가문·지도자가 없다", async () => {
     const t = tools([]);
     const state = {

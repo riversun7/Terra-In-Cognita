@@ -139,3 +139,4 @@
 - 2026-11-16 19:20 KST: 원본 `0acaa1b`(D-575 보충: 독재 나라 귀속 알박기 도시도 설립자 지분·독립 선언) 동기화 — 00_README, 02_Decision_Log. README·PLAN §14 머리 문장 갱신.
 - 2026-11-16 21:10 KST: 원본 `a822c95`(D-576 사용자 답 3개: 물류센터 맡기기, 가문 금고 꺼내기, NPC 가문 점수) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules. README·PLAN §14 머리 문장 갱신. 49 변경 없음.
 - 2026-11-16 21:45 KST: 원본 `b7c5ed2`(D-577 사용자 답 2개: 독립은 가문 단위, 귀속 선택 시점) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules. README·PLAN §14 머리 문장 갱신. 49 변경 없음.
+- 2026-11-21 09:35 KST: 원본 `eaa9a8f`(D-578 사용자 답: 가문세 대상·임금 원천징수·주민세) 동기화 — 00_README, 02_Decision_Log, 03_Planning_Rules. README·PLAN §14 머리 문장 갱신. 49 변경 없음.

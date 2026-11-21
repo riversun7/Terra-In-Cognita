@@ -544,7 +544,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   gatherTierProgressBase: 30,
   gatherTierProgressStep: 30,
   gatherTickMs: 60_000,
-  gatherOreGrams: 1000,
+  gatherOreGrams: 1,
   combatClass: { threeStatPm: 600, generalistPm: 800 },
   foodEfficiency: [
     { atMost: 30, pm: 0 },
@@ -620,7 +620,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     grantMinPm: 1000,
     grantStepPm: 50,
     startPineLog: 20,
-    startStone: 10,
+    startStone: 10_000,
     naturalizeFee: 100,
     naturalizeRestMs: 7 * 86_400_000,
     naturalizeStandingDrop: 20,

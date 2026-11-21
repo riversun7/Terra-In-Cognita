@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-21 23:58 | 광석 1g·10kg 묶음·g 단위 채집, 화석·이탄·소금 제거, 벽돌 가공품 이동 | Antigravity | [21-2355-ore-grams-and-cleanup](worklog/2026/11/21-2355-ore-grams-and-cleanup.md) |
 | 2026-11-21 22:00 | 가파른 비탈 막힘 → 느리게 지나감(비용 ×4), 건물은 그대로 못 지음 | Claude Code | [21-2200-steep-slope-pace](worklog/2026/11/21-2200-steep-slope-pace.md) |
 | 2026-11-21 21:45 | NPC AI 구체화 A단계: 유닛 2차 지수 층 · 5상태 FSM · 개인 식사 몫 → 만족도 (SIM_VERSION 69) | Claude Code | [21-2145-npc-needs-drives](worklog/2026/11/21-2145-npc-needs-drives.md) |
 | 2026-11-21 21:30 | 2차맵 화면 높이 과장 ×4(보기만) | Claude Code | [21-2130-second-map-relief](worklog/2026/11/21-2130-second-map-relief.md) |

@@ -134,7 +134,7 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 편집기 (DB)", () => {
           from: 1,
           materials: [
             { item: "pine_log", qty: 4 },
-            { item: "stone", qty: 4 },
+            { item: "stone", qty: 4000 },
           ],
         },
         {
@@ -151,7 +151,7 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 편집기 (DB)", () => {
     expect("enabled" in obj(facilityOf(body, "kiln").entry)).toBe(false);
     expect(arr(facilityOf(body, "kiln").recipes).map((recipe) => obj(recipe).id)).toEqual(["fire_bricks"]);
     expect(obj(arr(body.items).find((item) => obj(item).id === "brick"))).toMatchObject({
-      category: "construction",
+      category: "processed",
       weight: 1500,
       lotSize: 1,
       enabled: true,

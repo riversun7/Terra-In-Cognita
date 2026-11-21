@@ -378,8 +378,8 @@
       "id": "ice_fossil",
       "name": { "ko": "얼음 속 화석", "en": "Fossil in ice" },
       "description": {
-        "ko": "장식 소품(엄폐 0). 같은 자리에 서는 채집 오브젝트에서 화석을 캔다(기획 D-540 1224 가).",
-        "en": "Decoration (cover 0). A gather object on the same spot yields fossil (design D-540 1224 a)."
+        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
+        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
       },
       "placement": "scatter",
       "art": "ice_fossil",
@@ -438,8 +438,8 @@
       "id": "salt_flat",
       "name": { "ko": "소금 평원", "en": "Salt flat" },
       "description": {
-        "ko": "장식 소품(엄폐 0). 같은 자리에 서는 채집 오브젝트에서 소금을 캔다(기획 D-540 1224 가).",
-        "en": "Decoration (cover 0). A gather object on the same spot yields salt (design D-540 1224 a)."
+        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
+        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
       },
       "placement": "scatter",
       "art": "salt_flat",
@@ -522,8 +522,8 @@
       "id": "peat_mound",
       "name": { "ko": "이탄 더미", "en": "Peat mound" },
       "description": {
-        "ko": "장식 소품(엄폐 0). 같은 자리에 서는 채집 오브젝트에서 연료를 캔다(기획 D-540 1224 가).",
-        "en": "Decoration (cover 0). A gather object on the same spot yields fuel (design D-540 1224 a)."
+        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
+        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
       },
       "placement": "scatter",
       "art": "peat_mound",
@@ -615,8 +615,8 @@
       "id": "salt_pan",
       "name": { "ko": "소금밭", "en": "Salt pan" },
       "description": {
-        "ko": "장식 소품(엄폐 0). 같은 자리에 서는 채집 오브젝트에서 소금을 캔다(기획 D-540 1224 가).",
-        "en": "Decoration (cover 0). A gather object on the same spot yields salt (design D-540 1224 a)."
+        "ko": "장식 소품(엄폐 0): 판정이 없고 그 땅다운 모습만 만든다.",
+        "en": "Decoration (cover 0): no rules effect, it only makes the place look like itself."
       },
       "placement": "scatter",
       "art": "salt_flat",

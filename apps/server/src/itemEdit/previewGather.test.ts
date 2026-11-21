@@ -86,7 +86,7 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
     expect(shown?.bands.at(-1)?.to).toBeNull();
   });
 
-  it("구리(T2)는 0~39 구간 10%, 은(T4)은 Lv5(60~79)에서 0.5%(T4 1%를 화석과 나눔 — D-562 1568)이고 초안을 끄면 0", () => {
+  it("구리(T2)는 0~39 구간 10%, 은(T4)은 Lv5(60~79)에서 1%(화석 제거 뒤 T4 단독)이고 초안을 끄면 0", () => {
     expect(
       previewGather(ctx, find("copper_ore"), pack.items, DEFAULT_PREVIEW_UNIT)?.levels[0]?.chanceBp,
     ).toBe(1000);
@@ -94,7 +94,7 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
     expect(silver.enabled).toBe(true);
     expect(
       previewGather(ctx, silver, pack.items, DEFAULT_PREVIEW_UNIT)?.levels.map((row) => row.chanceBp),
-    ).toEqual([0, 0, 0, 0, 50]);
+    ).toEqual([0, 0, 0, 0, 100]);
     const off = previewGather(ctx, { ...silver, enabled: false }, pack.items, DEFAULT_PREVIEW_UNIT);
     expect(off?.levels[4]?.chanceBp).toBe(0);
   });
@@ -144,35 +144,35 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
     expect(loach?.levels[0]?.chanceBp).toBe(816);
   });
 
-  it("진행·수확량(D-507): 철광석 = 새 유닛 속도 ×1·한 번에 2개(1 + ⌊10 × 0.10⌋)·T3 필요 진행 120 = 2시간, 광석 한 번 1,000g", () => {
+  it("진행·수확량(D-507): 철광석 = 새 유닛 속도 ×1·한 번에 100g(50 + 10×5, 상한 500)·T3 필요 진행 120 = 2시간, 수확 1단위 1g", () => {
     const work = previewGather(ctx, find("iron_ore"), pack.items, DEFAULT_PREVIEW_UNIT)?.work;
     expect(work).toMatchObject({
       divisor: 20,
-      yieldBase: 1,
-      yieldPerStatPm: 100,
-      yieldCap: 10,
+      yieldBase: 50,
+      yieldPerStatPm: 5000,
+      yieldCap: 500,
       requiredProgress: 120,
       tickMs: 60_000,
-      harvestGrams: 1000,
+      harvestGrams: 1,
       unitPrimary: 10,
       unitSecondary: 10,
       unitProgress: 1,
-      unitYield: 2,
+      unitYield: 100,
       unitHarvestMs: 7_200_000,
     });
-    // 스탯 40 → 진행 2(한 번 1시간)·한 번에 5개, 100 → 진행 5·상한 10개
+    // 스탯 40 → 진행 2(한 번 1시간)·한 번에 250g, 100 → 진행 5·상한 500g
     expect(work?.rows.map((row) => [row.stat, row.progress, row.yield, row.harvestMs])).toEqual([
-      [10, 1, 2, 7_200_000],
-      [20, 1, 3, 7_200_000],
-      [40, 2, 5, 3_600_000],
-      [60, 3, 7, 2_400_000],
-      [100, 5, 10, 1_440_000],
-      [160, 8, 10, 900_000],
-      [240, 12, 10, 600_000],
+      [10, 1, 100, 7_200_000],
+      [20, 1, 150, 7_200_000],
+      [40, 2, 250, 3_600_000],
+      [60, 3, 350, 2_400_000],
+      [100, 5, 500, 1_440_000],
+      [160, 8, 500, 900_000],
+      [240, 12, 500, 600_000],
     ]);
-    // 잡석(T0, 개 단위)은 g 환산 없음, 필요 진행 30
+    // 잡석(T0, 1g 기본 단위·묶음 10kg)도 수확 1단위 1g, 필요 진행 30
     expect(previewGather(ctx, find("rubble"), pack.items, DEFAULT_PREVIEW_UNIT)?.work).toMatchObject({
-      harvestGrams: null,
+      harvestGrams: 1,
       requiredProgress: 30,
       unitHarvestMs: 1_800_000,
     });

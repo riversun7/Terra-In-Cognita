@@ -84,7 +84,7 @@ export interface BoatTypeDef {
 export interface FacilityCatalog {
   facility(id: string): FacilityDef | undefined;
   readonly facilities: readonly FacilityDef[];
-  /** 재료 한 묶음 무게(g, 아이템 weight × lotSize). 모르면 undefined(건설 시간에서 0으로 센다) */
+  /** 건설 재료 한 기본 단위의 무게(g, 짓기 수량은 기본 단위). 모르면 undefined(건설 시간에서 0으로 센다) */
   weightOf(item: string): number | undefined;
   /**
    * 기본 단위 하나의 무게(g, 아이템 weight — 광석은 1g). 원장 잔고(창고·운반)는 기본 단위라 창고 무게는 이것으로 센다(302·D-506). 모르면
@@ -243,10 +243,7 @@ export function facilityCatalogOf(source: () => CatalogSource): () => FacilityCa
     const value: FacilityCatalog = {
       facility: (id) => byId.get(id),
       facilities: defs,
-      weightOf(id) {
-        const item = items.get(id);
-        return item?.weight === undefined ? undefined : item.weight * (item.lotSize ?? 1);
-      },
+      weightOf: (id) => items.get(id)?.weight,
       unitWeightOf: (id) => items.get(id)?.weight,
       unitPriceOf(id) {
         const item = items.get(id);

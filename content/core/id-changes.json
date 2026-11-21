@@ -496,6 +496,54 @@
       "compensation": {
         "kind": "none"
       }
+    },
+    {
+      "category": "items",
+      "id": "salt",
+      "since": 137,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "items",
+      "id": "peat",
+      "since": 137,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "items",
+      "id": "fossil",
+      "since": 137,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "gather_objects",
+      "id": "salt_deposit",
+      "since": 137,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "gather_objects",
+      "id": "peat_cut",
+      "since": 137,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "gather_objects",
+      "id": "fossil_dig",
+      "since": 137,
+      "compensation": {
+        "kind": "none"
+      }
     }
   ]
 }

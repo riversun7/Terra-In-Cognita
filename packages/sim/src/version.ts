@@ -305,8 +305,12 @@
  *    못 받은 휴먼은 격차 불이익(wageGap). 경비대·임금 끈 판·경제 없는 시나리오는 예전처럼 임금 요소가 없다. ② 그날 짓고 있던 도시
  *    (Economy.today.building — npcBuild.ts buildPolicy가 적는다)의 일 없는 휴먼은 npc_build_builders_max명까지 도시 주인 국고에서 일꾼과 같은
  *    임금을 받는다(livingDay — 모자라면 못 받는다). 출력 칸 모양 그대로(living.wages에 도우미 임금이 든다) — 형식 23
+ * 71: 광석 1g 기본 단위·10kg 묶음·채집 수확 g 단위(사용자 결정 2026-11-21, docs/adr/2026-11-21-ore-grams-and-cleanup.md, 팩 core@137):
+ *    ① `TEST_SOCIETY_COEFFICIENTS.gatherOreGrams` 1,000 → 1(광산 수확량 50 + VIT × 5, 상한 500과 곱해 사이클당 50~500g), `cyborg.startStone`
+ *    10 → 10,000(10kg). ② 건설 재료 수량이 기본 단위(원장 단위)이므로 `npcBuild.ts lotWeightOf`가 `lotSize`를 다시 곱하지 않고 기본 단위 무게(g)를
+ *    돌려준다(석재·잡석이 1g·묶음 10,000g이 되면서 건설 시간·알박기 운반 무게가 10,000배로 튀지 않게). 팩으로 도는 시나리오 결과가 바뀐다
  */
-export const SIM_VERSION = 70;
+export const SIM_VERSION = 71;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

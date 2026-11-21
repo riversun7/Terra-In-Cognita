@@ -94,6 +94,11 @@ export function gatherSheetOf(
   const tiers = npcTiersOfKinds(source.kinds ?? [], (id) => itemById.get(id)?.tier);
   const fishRanges = npcFishRanges(tiers);
   const place = unitId === undefined || unitId === null ? undefined : source.place?.(unitId);
+  const oreGrams = BigInt(Math.max(1, settings.oreGrams ?? 1));
+  const unitOf = (item: string) => {
+    const lot = BigInt(Math.max(1, itemById.get(item)?.lotSize ?? 1));
+    return lot > 1n ? { harvest: oreGrams, lot } : { harvest: 1n, lot: 1n };
+  };
   const priceOf = (item: string) => {
     const last = place?.lastPrice(item);
     return last === undefined
@@ -166,6 +171,7 @@ export function gatherSheetOf(
       ladder,
       weights: roll.weights,
       priceOf,
+      unitOf,
       yieldPerLot: effects.yieldPerLot,
       yieldPm: effects.yieldPm,
       progress: effects.progress,

@@ -79,7 +79,7 @@ const FALLBACK_RULES: BuildingEditorGatherRules = {
   tierProgressBase: 30,
   tierProgressStep: 30,
   tickMs: 60_000,
-  oreGrams: 1000,
+  oreGrams: 1,
   defaultStat: 10,
 };
 

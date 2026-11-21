@@ -82,7 +82,7 @@
               },
               {
                 "item": "stone",
-                "qty": 3
+                "qty": 3000
               }
             ]
           },
@@ -125,9 +125,9 @@
         "primary": "str",
         "secondary": "vit",
         "subcategory": "ore",
-        "yieldBase": 1,
-        "yieldPerStatPm": 100,
-        "yieldCap": 10
+        "yieldBase": 50,
+        "yieldPerStatPm": 5000,
+        "yieldCap": 500
       },
       "build": {
         "mulPm": 1000,
@@ -141,7 +141,7 @@
               },
               {
                 "item": "stone",
-                "qty": 4
+                "qty": 4000
               }
             ]
           },
@@ -311,7 +311,7 @@
               },
               {
                 "item": "stone",
-                "qty": 2
+                "qty": 2000
               }
             ]
           },
@@ -359,7 +359,7 @@
             "materials": [
               {
                 "item": "stone",
-                "qty": 10
+                "qty": 10000
               },
               {
                 "item": "pine_log",
@@ -430,11 +430,11 @@
               },
               {
                 "item": "stone",
-                "qty": 5
+                "qty": 5000
               },
               {
                 "item": "rubble",
-                "qty": 3
+                "qty": 3000
               }
             ]
           },
@@ -484,7 +484,7 @@
               },
               {
                 "item": "iron_ore",
-                "qty": 6
+                "qty": 6000
               }
             ]
           },
@@ -584,7 +584,7 @@
               },
               {
                 "item": "stone",
-                "qty": 6
+                "qty": 6000
               }
             ]
           },
@@ -630,7 +630,7 @@
             "materials": [
               {
                 "item": "stone",
-                "qty": 10
+                "qty": 10000
               },
               {
                 "item": "pine_log",
@@ -684,7 +684,7 @@
               },
               {
                 "item": "stone",
-                "qty": 2
+                "qty": 2000
               }
             ]
           }
@@ -757,7 +757,7 @@
               },
               {
                 "item": "stone",
-                "qty": 3
+                "qty": 3000
               }
             ]
           },
@@ -919,7 +919,7 @@
               },
               {
                 "item": "stone",
-                "qty": 18
+                "qty": 18000
               }
             ]
           },
@@ -932,7 +932,7 @@
               },
               {
                 "item": "stone",
-                "qty": 10
+                "qty": 10000
               },
               {
                 "item": "brick",
@@ -989,7 +989,7 @@
               },
               {
                 "item": "stone",
-                "qty": 16
+                "qty": 16000
               }
             ]
           },
@@ -1056,7 +1056,7 @@
               },
               {
                 "item": "stone",
-                "qty": 28
+                "qty": 28000
               }
             ]
           },
@@ -1126,7 +1126,7 @@
               },
               {
                 "item": "stone",
-                "qty": 16
+                "qty": 16000
               }
             ]
           },
@@ -1193,7 +1193,7 @@
               },
               {
                 "item": "stone",
-                "qty": 3
+                "qty": 3000
               }
             ]
           },
@@ -1239,7 +1239,7 @@
             "materials": [
               {
                 "item": "stone",
-                "qty": 16
+                "qty": 16000
               }
             ]
           }
@@ -1276,7 +1276,7 @@
               },
               {
                 "item": "stone",
-                "qty": 2
+                "qty": 2000
               }
             ]
           },
@@ -1328,7 +1328,7 @@
               },
               {
                 "item": "stone",
-                "qty": 4
+                "qty": 4000
               }
             ]
           },
@@ -1368,7 +1368,7 @@
             },
             {
               "item": "stone",
-              "qty": 4
+              "qty": 4000
             }
           ],
           "buildMs": 600000,
@@ -1383,7 +1383,7 @@
               "units": 200
             },
             {
-              "item": "peat",
+              "item": "pine_log",
               "units": 60
             }
           ],
@@ -1428,7 +1428,7 @@
               "units": 200
             },
             {
-              "item": "peat",
+              "item": "pine_log",
               "units": 60
             }
           ],
@@ -1480,7 +1480,7 @@
               "units": 200
             },
             {
-              "item": "peat",
+              "item": "pine_log",
               "units": 60
             }
           ],
@@ -1548,7 +1548,7 @@
               },
               {
                 "item": "stone",
-                "qty": 6
+                "qty": 6000
               }
             ]
           },
@@ -1600,7 +1600,7 @@
               },
               {
                 "item": "stone",
-                "qty": 3
+                "qty": 3000
               }
             ]
           },
@@ -1651,7 +1651,7 @@
               },
               {
                 "item": "stone",
-                "qty": 7
+                "qty": 7000
               }
             ]
           },
@@ -1702,7 +1702,7 @@
               },
               {
                 "item": "stone",
-                "qty": 7
+                "qty": 7000
               }
             ]
           },
@@ -1753,7 +1753,7 @@
               },
               {
                 "item": "stone",
-                "qty": 7
+                "qty": 7000
               }
             ]
           },
@@ -1804,7 +1804,7 @@
               },
               {
                 "item": "stone",
-                "qty": 7
+                "qty": 7000
               }
             ]
           },

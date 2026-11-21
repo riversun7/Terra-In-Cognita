@@ -31,10 +31,7 @@ export function beaconFacilityView(
     })),
   };
   const items = new Map((content.items ?? []).map((item) => [item.id, item]));
-  const weightOf = (id: string): number | undefined => {
-    const item = items.get(id);
-    return item?.weight === undefined ? undefined : item.weight * (item.lotSize ?? 1);
-  };
+  const weightOf = (id: string): number | undefined => items.get(id)?.weight;
   return {
     enabled: true,
     materials: buildCostAt(json, 1),

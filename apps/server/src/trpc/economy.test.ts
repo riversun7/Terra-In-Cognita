@@ -109,7 +109,7 @@ describe("economy 라우터", () => {
     expect(book.bids.length).toBeGreaterThan(3);
     expect(book.candles.length).toBe(48);
     expect(book.taxBp).toBe(200);
-    expect(book.mine).toEqual({ goods: "310", cash: "1250000" });
+    expect(book.mine).toEqual({ goods: "31", cash: "1250000" });
     expect(book.expiryDays).toEqual([1, 3, 7]);
     const orders = await caller.economy.orders({ preview: true });
     expect(orders.open.length + orders.done.length).toBe(5);

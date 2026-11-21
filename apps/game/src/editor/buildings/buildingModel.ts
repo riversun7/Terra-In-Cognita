@@ -395,10 +395,10 @@ export function levelRows(
   gatherLevelBonus: number,
 ): LevelRow[] {
   const byId = new Map(items.map((item) => [item.id, item]));
-  // 재료 한 단위 = 묶음 하나(기본 단위 무게 × 묶음 크기)
+  // 건설 재료 수량은 기본 단위(광석은 g)이므로 기본 단위 무게(g)를 쓴다
   const weightOf = (id: string): number | undefined => {
     const item = byId.get(id);
-    return item?.weight === null || item === undefined ? undefined : item.weight * item.lotSize;
+    return item?.weight === null || item === undefined ? undefined : item.weight;
   };
   return Array.from({ length: maxLevelOf(entry) }, (_, index) => {
     const level = index + 1;

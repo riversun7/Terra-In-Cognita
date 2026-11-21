@@ -46,9 +46,9 @@
       "category": "raw",
       "subcategory": "ore",
       "tier": 3,
-      "startPrice": 8,
+      "startPrice": 80,
       "weight": 1,
-      "lotSize": 1000,
+      "lotSize": 10000,
       "enabled": true
     },
     {
@@ -83,8 +83,8 @@
         "ko": "벽돌",
         "en": "Brick"
       },
-      "category": "construction",
-      "subcategory": "building_material",
+      "category": "processed",
+      "subcategory": "metal",
       "tier": 0,
       "startPrice": 3,
       "weight": 1500,
@@ -581,8 +581,9 @@
       "category": "raw",
       "subcategory": "ore",
       "tier": 0,
-      "startPrice": 1,
-      "weight": 1000,
+      "startPrice": 10,
+      "weight": 1,
+      "lotSize": 10000,
       "bareHand": true,
       "enabled": true
     },
@@ -595,8 +596,9 @@
       "category": "raw",
       "subcategory": "ore",
       "tier": 1,
-      "startPrice": 1,
-      "weight": 1000,
+      "startPrice": 10,
+      "weight": 1,
+      "lotSize": 10000,
       "bareHand": true,
       "enabled": true
     },
@@ -609,9 +611,9 @@
       "category": "raw",
       "subcategory": "ore",
       "tier": 2,
-      "startPrice": 1,
+      "startPrice": 10,
       "weight": 1,
-      "lotSize": 1000,
+      "lotSize": 10000,
       "enabled": true
     },
     {
@@ -623,9 +625,9 @@
       "category": "raw",
       "subcategory": "ore",
       "tier": 4,
-      "startPrice": 1,
+      "startPrice": 10,
       "weight": 1,
-      "lotSize": 1000,
+      "lotSize": 10000,
       "enabled": true
     },
     {
@@ -637,9 +639,9 @@
       "category": "raw",
       "subcategory": "ore",
       "tier": 5,
-      "startPrice": 1,
+      "startPrice": 10,
       "weight": 1,
-      "lotSize": 1000,
+      "lotSize": 10000,
       "enabled": true
     },
     {
@@ -651,9 +653,9 @@
       "category": "raw",
       "subcategory": "ore",
       "tier": 6,
-      "startPrice": 1,
+      "startPrice": 10,
       "weight": 1,
-      "lotSize": 1000,
+      "lotSize": 10000,
       "enabled": true
     },
     {
@@ -665,9 +667,9 @@
       "category": "raw",
       "subcategory": "ore",
       "tier": 7,
-      "startPrice": 1,
+      "startPrice": 10,
       "weight": 1,
-      "lotSize": 1000,
+      "lotSize": 10000,
       "enabled": true
     },
     {
@@ -679,9 +681,9 @@
       "category": "raw",
       "subcategory": "ore",
       "tier": 8,
-      "startPrice": 1,
+      "startPrice": 10,
       "weight": 1,
-      "lotSize": 1000,
+      "lotSize": 10000,
       "enabled": true
     },
     {
@@ -693,9 +695,9 @@
       "category": "raw",
       "subcategory": "ore",
       "tier": 9,
-      "startPrice": 1,
+      "startPrice": 10,
       "weight": 1,
-      "lotSize": 1000,
+      "lotSize": 10000,
       "enabled": true
     },
     {
@@ -2560,19 +2562,6 @@
       "enabled": true
     },
     {
-      "id": "salt",
-      "name": {
-        "ko": "소금",
-        "en": "Salt"
-      },
-      "category": "raw",
-      "subcategory": "ore",
-      "tier": 1,
-      "startPrice": 1,
-      "weight": 100,
-      "enabled": true
-    },
-    {
       "id": "plant_fiber",
       "name": {
         "ko": "식물 섬유",
@@ -2583,19 +2572,6 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 50,
-      "enabled": true
-    },
-    {
-      "id": "peat",
-      "name": {
-        "ko": "이탄",
-        "en": "Peat"
-      },
-      "category": "raw",
-      "subcategory": "ore",
-      "tier": 1,
-      "startPrice": 1,
-      "weight": 1000,
       "enabled": true
     },
     {
@@ -2635,19 +2611,6 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 50,
-      "enabled": true
-    },
-    {
-      "id": "fossil",
-      "name": {
-        "ko": "화석",
-        "en": "Fossil"
-      },
-      "category": "raw",
-      "subcategory": "ore",
-      "tier": 4,
-      "startPrice": 1,
-      "weight": 2000,
       "enabled": true
     },
     {

@@ -253,7 +253,7 @@ describe("레벨 표", () => {
       gatherBonus: 10,
       disabled: ["plank"],
     });
-    // 묶음 크기가 있는 아이템(광석 1kg 묶음)은 묶음 하나 무게로 셈하고, 모르는 아이템은 0으로 셈하고 알린다
+    // 건설 재료 수량은 기본 단위(광석 1g)이므로 1,000g = 1kg(10초)로 셈하고, 모르는 아이템은 0으로 셈하고 알린다
     const ore = levelRows(
       {
         ...MINE,
@@ -263,7 +263,7 @@ describe("레벨 표", () => {
             {
               from: 1,
               materials: [
-                { item: "iron_ore", qty: 1 },
+                { item: "iron_ore", qty: 1000 },
                 { item: "x", qty: 1 },
               ],
             },

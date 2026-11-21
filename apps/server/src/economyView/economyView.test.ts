@@ -32,7 +32,7 @@ describe("economyCatalogFromPack", () => {
     const smelt = catalog.recipes.find((recipe) => recipe.id === "smelt_iron");
     expect(smelt).toMatchObject({
       facility: "smelter",
-      inputs: [{ item: "iron_ore", qty: "10" }],
+      inputs: [{ item: "iron_ore", qty: "1" }],
       outputs: [{ item: "iron_ingot", qty: "7" }],
       tier: 1,
       // 작업량 1000 ÷ 기준 일꾼 1000 = 1시간
@@ -44,11 +44,11 @@ describe("economyCatalogFromPack", () => {
     expect(catalog.contentVersion).toMatch(/^core@\d+$/);
   });
 
-  it("묶음 크기·무게와 채집 티어 추첨(302·D-506): 철광석 1g·1kg 묶음, 광산 레시피는 추첨, 원목 베기는 아님", () => {
+  it("묶음 크기·무게와 채집 티어 추첨(302·D-506): 철광석 1g·10kg 묶음, 광산 레시피는 추첨, 원목 베기는 아님", () => {
     const catalog = packCatalog();
     expect(catalog.items.find((item) => item.id === "iron_ore")).toMatchObject({
       tier: 3,
-      lotSize: "1000",
+      lotSize: "10000",
       weight: 1,
     });
     expect(catalog.items.find((item) => item.id === "grain")?.lotSize).toBe("1");
@@ -63,18 +63,18 @@ describe("economyCatalogFromPack", () => {
     expect(catalog.recipes.find((recipe) => recipe.id === "cut_logs")?.gather?.subcategory).toBe("wood");
   });
 
-  it("일꾼 스탯 효과(D-507): 광산 = 새 유닛 10 → 속도 ×1·한 번에 2개, 한 번 T0 30분·T3 2시간. 원목 베기는 시간표 없음", () => {
+  it("일꾼 스탯 효과(D-507): 광산 = 새 유닛 10 → 속도 ×1·한 번에 100g(50 + 10×5), 한 번 T0 30분·T3 2시간. 원목 베기는 시간표 없음", () => {
     const catalog = packCatalog();
     expect(catalog.recipes.find((recipe) => recipe.id === "mine_iron_ore")?.worker).toEqual({
       primary: "str",
       secondary: "vit",
       progressDivisor: 20,
-      yieldBase: 1,
-      yieldPerStatPm: 100,
-      yieldCap: 10,
+      yieldBase: 50,
+      yieldPerStatPm: 5000,
+      yieldCap: 500,
       unitStat: 10,
       unitProgress: 1,
-      unitYield: 2,
+      unitYield: 100,
       tierHarvestMs: [30, 60, 90, 120, 150, 180, 210, 240, 270, 300].map((progress) => progress * 60_000),
       unitTier: null,
     });
@@ -101,11 +101,11 @@ describe("economyCatalogFromPack", () => {
       qty: "310000",
       locked: "40000",
     });
-    // 곡물 1,240 + 철광석 310묶음 + 철 주괴 96 + 원목 220 + 생활용품 14 + 시험 칼 1
-    expect(nova?.capacity?.used).toBe(String(1240 + 310 + 96 + 220 + 14 + 1));
+    // 곡물 1,240 + 철광석 31묶음(310,000g ÷ 10kg) + 철 주괴 96 + 원목 220 + 생활용품 14 + 시험 칼 1
+    expect(nova?.capacity?.used).toBe(String(1240 + 31 + 96 + 220 + 14 + 1));
     expect(
       previewGoods("101", "iron_ore") / lotSizeOfItem(catalog.items.find((item) => item.id === "iron_ore")),
-    ).toBe(310n);
+    ).toBe(31n);
   });
 });
 

@@ -57,6 +57,8 @@ export interface NpcCityHouses {
   headOf(houseId: number): number | undefined;
   /** 그 가문의 가문원 유닛(유닛 ID 차례 — 국가 지도자는 가문원 줄이 없어 들지 않는다) */
   membersOf(houseId: number): readonly number[];
+  /** NPC 지배 가문마다 그 가문장인 국가 지도자 유닛(랭킹 자산 — 지도자 지갑은 가문 재산, house-10 기획 대조 2313). 가문 ID 차례 */
+  rulingHeads(): { readonly house: number; readonly unit: number }[];
   /** 가문 세우기·가문 없는 NPC 휴먼 넣기·모자란 가문 나누기·죽은 휴먼 빼기(바뀐 줄만 쓰기 대기열에) */
   sync(nowMs: number): {
     readonly created: number;
@@ -257,6 +259,15 @@ export function createNpcCityHouses(o: {
       return house ? headOf(house) : undefined;
     },
     membersOf: (houseId) => [...(roster.get(houseId) ?? [])].toSorted((a, b) => a - b),
+    rulingHeads() {
+      const out: { house: number; unit: number }[] = [];
+      for (const [cityId, city] of o.world.cities) {
+        const house = rulingOfCity(cityId);
+        const unit = house === undefined ? undefined : o.leaderOf?.(city.owner);
+        if (house !== undefined && unit !== undefined) out.push({ house, unit });
+      }
+      return out.toSorted((a, b) => a.house - b.house);
+    },
     rulingHouseOf(owner) {
       const capital = o.capitalOf?.(owner);
       const id = capital === undefined ? undefined : rulingOfCity(capital);

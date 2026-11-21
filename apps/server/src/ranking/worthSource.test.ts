@@ -38,7 +38,7 @@ describe("createAssetPricer", () => {
 });
 
 describe("worthRows", () => {
-  it("소유 주체(0) → 유닛(1), ID 차례, 둘 다 0이면 뺀다", () => {
+  it("소유 주체(0) → 유닛(1, 주인·이름) → 플레이어 가문(2) → NPC 가문(3), ID 차례, 둘 다 0이면 뺀다", () => {
     expect(
       worthRows({
         owners: new Map([
@@ -46,12 +46,20 @@ describe("worthRows", () => {
           [2, { power: 3n, assets: 0n }],
           [7, { power: 0n, assets: 0n }],
         ]),
-        units: new Map([[40, { power: 1n, assets: 2n }]]),
+        units: new Map([
+          [40, { power: 1n, assets: 2n }],
+          [41, { power: 0n, assets: 0n }],
+        ]),
+        unitInfo: new Map([[40, { owner: 5, name: "가람" }]]),
+        houses: new Map([[11, { power: 0n, assets: 30n }]]),
+        npcHouses: new Map([[9, { power: 4n, assets: 6n }]]),
       }),
     ).toEqual([
-      { kind: 0, id: 2, power: 3n, assets: 0n },
-      { kind: 0, id: 5, power: 0n, assets: 9n },
-      { kind: 1, id: 40, power: 1n, assets: 2n },
+      { kind: 0, id: 2, power: 3n, assets: 0n, owner: null, name: null },
+      { kind: 0, id: 5, power: 0n, assets: 9n, owner: null, name: null },
+      { kind: 1, id: 40, power: 1n, assets: 2n, owner: 5, name: "가람" },
+      { kind: 2, id: 11, power: 0n, assets: 30n, owner: null, name: null },
+      { kind: 3, id: 9, power: 4n, assets: 6n, owner: null, name: null },
     ]);
   });
 });

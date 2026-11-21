@@ -3,9 +3,16 @@
 // - 자료: ranking.board 하나(판마다 다시 받는다 — 판 주소가 바뀌면 key로 새로 그린다). 셈은 서버 집계(하루 한 번 [임시]).
 // - 배치(모바일 우선): 판 고르기 → 재는 것 → 내 자리 → 등급 문턱 → 순위(위 50줄, 내 줄이 밖이면 끝에 한 줄 더) → 집계 안내.
 // - 바뀜(house-9, D-576): 줄마다 전투력·자산(마지막 집계 값, 가문 줄은 가문원 합)을 덧붙임 글로 보인다.
+// - 바뀜(house-10, 기획 대조 2316 — D-569 1746 "랭킹은 가문별 유닛별 모두 존재"): 판 고르기에 유닛 판(전투력·자산). 유닛 줄은 이름(없으면 "유닛 #ID")·
+//   주인·전투력·자산, 점수 칸 = 그 지표 값. 지난 순위가 없는 규모 판이라 순위 변화 표를 숨긴다.
 // - 안 연 경로는 "곧 열림"(D-392). 시간제 버프는 빼고 센다는 안내(D-7022). 세력 명성은 정원사 2 값, 유저 명성은 칸만(값 없음 — 확인 대기).
 import type { RouteMatch } from "@terra/shared";
-import type { RankingBoardRequest, RankingBoardResponse, RankingRow } from "@terra/shared/ranking";
+import {
+  RANKING_UNIT_MEASURES,
+  type RankingBoardRequest,
+  type RankingBoardResponse,
+  type RankingRow,
+} from "@terra/shared/ranking";
 import { useId, useState } from "react";
 import { formatCount } from "../home/numbers.ts";
 import { formatAmount } from "../roster/rosterText.ts";
@@ -34,8 +41,11 @@ import {
   pathsByArea,
   rankChange,
   rankChangeText,
+  rowName,
   tierPercent,
   tierText,
+  UNIT_BOARD_NAMES,
+  UNIT_MEASURE_NAMES,
 } from "./rankingText.ts";
 import "../sections/screenParts.css";
 import "./ranking.css";
@@ -56,7 +66,8 @@ function Change({ row }: { row: Pick<RankingRow, "rank" | "prevRank"> }) {
 function BoardPicker({ view }: { view: RankingBoardResponse }) {
   const id = useId();
   const board = view.board;
-  const known = board.kind === "faction" || view.paths.some((path) => path.id === board.path);
+  const known =
+    board.kind === "faction" || board.kind === "unit" || view.paths.some((path) => path.id === board.path);
   return (
     <div className="ranking-picker">
       <label className="field-label" htmlFor={id}>
@@ -83,6 +94,14 @@ function BoardPicker({ view }: { view: RankingBoardResponse }) {
               </option>
             ))}
         </optgroup>
+        {/* 유닛 판(house-10, D-569 1746): 지표마다 유닛 순위 */}
+        <optgroup label={m.ranking_group_unit()}>
+          {RANKING_UNIT_MEASURES.map((measure) => (
+            <option key={measure} value={`unit:${measure}`}>
+              {UNIT_BOARD_NAMES[measure]()}
+            </option>
+          ))}
+        </optgroup>
         {pathsByArea(view.paths).map((group) => (
           <optgroup key={group.area} label={AREA_NAMES[group.area]()}>
             {group.paths.map((path) => (
@@ -101,6 +120,13 @@ function BoardPicker({ view }: { view: RankingBoardResponse }) {
 /** 이 판이 재는 것 */
 function Measures({ view }: { view: RankingBoardResponse }) {
   const board = view.board;
+  if (board.kind === "unit")
+    return (
+      <p className="ranking-measures">
+        <span className="ranking-measures-label">{m.ranking_measures_title()}</span>{" "}
+        {m.ranking_unit_measures({ measure: UNIT_MEASURE_NAMES[board.measure]() })}
+      </p>
+    );
   const measures =
     board.kind === "faction"
       ? m.ranking_faction_measures()
@@ -154,7 +180,14 @@ const ME_TEXT = {
   faction: { title: m.ranking_me_faction_title, none: m.ranking_me_no_faction },
   house: { title: m.ranking_me_house_title, none: m.ranking_me_no_house },
   path: { title: m.ranking_me_title, none: m.ranking_me_none },
+  unit: { title: m.ranking_me_unit_title, none: m.ranking_me_no_unit },
 } as const;
+
+/** 유닛 줄 덧붙임 글: 주인(house-10 — 유닛 판에만) */
+function unitTexts(row: RankingRow): string[] {
+  if (row.kind !== "unit" || row.owner === undefined || row.owner === null) return [];
+  return [m.ranking_unit_owner({ owner: nameText(row.owner) })];
+}
 
 /** 내 자리 판 */
 function MyStanding({ view }: { view: RankingBoardResponse }) {
@@ -172,7 +205,7 @@ function MyStanding({ view }: { view: RankingBoardResponse }) {
         <>
           {group ? (
             <p className="ranking-me-name" translate="no">
-              {nameText(me.name)}
+              {rowName(me)}
             </p>
           ) : null}
           <p className="ranking-me-rank">
@@ -181,14 +214,17 @@ function MyStanding({ view }: { view: RankingBoardResponse }) {
           <p className="ranking-chips">
             <StateChip tone={me.tierPm === null ? "plain" : "good"} label={tierText(me.tierPm)} />
             {me.top ? <StateChip tone="warn" label={m.ranking_top()} /> : null}
-            <Change row={me} />
+            {kind === "unit" ? null : <Change row={me} />}
           </p>
           <p className="ranking-me-score">
-            {[
-              m.ranking_score({ score: formatCount(me.score) }),
-              ...factionSizeTexts(me),
-              ...houseTexts(me),
-            ].join(" · ")}
+            {(kind === "unit"
+              ? [...unitTexts(me), ...worthTexts(me)]
+              : [
+                  m.ranking_score({ score: formatCount(me.score) }),
+                  ...factionSizeTexts(me),
+                  ...houseTexts(me),
+                ]
+            ).join(" · ")}
           </p>
         </>
       )}
@@ -228,15 +264,19 @@ function Row({ row }: { row: RankingRow }) {
       <span className="ranking-rank">{formatCount(row.rank)}</span>
       <span className="ranking-who">
         <span className="ranking-name" translate="no">
-          {nameText(row.name)}
+          {rowName(row)}
         </span>
         <span className="ranking-meta">
           {row.me ? <StateChip tone="good" label={m.ranking_me_tag()} /> : null}
-          {row.kind === "user" ? null : <StateChip tone="plain" label={KIND_NAMES[row.kind]()} />}
+          {row.kind === "user" || row.kind === "unit" ? null : (
+            <StateChip tone="plain" label={KIND_NAMES[row.kind]()} />
+          )}
           {row.faction === null ? null : <span translate="no">{nameText(row.faction)}</span>}
-          {[...factionSizeTexts(row), ...houseTexts(row), ...worthTexts(row)].map((text) => (
-            <span key={text}>{text}</span>
-          ))}
+          {[...factionSizeTexts(row), ...houseTexts(row), ...unitTexts(row), ...worthTexts(row)].map(
+            (text) => (
+              <span key={text}>{text}</span>
+            ),
+          )}
           {row.preview === true ? <PreviewTag /> : null}
         </span>
       </span>
@@ -245,7 +285,7 @@ function Row({ row }: { row: RankingRow }) {
         <span className="ranking-tier" data-tier={row.tierPm === null ? undefined : "in"}>
           {tierText(row.tierPm)}
         </span>
-        <Change row={row} />
+        {row.kind === "unit" ? null : <Change row={row} />}
       </span>
     </li>
   );
@@ -267,7 +307,7 @@ function Leaderboard({ view }: { view: RankingBoardResponse }) {
       ) : (
         <ol className="ranking-list">
           {view.rows.map((row) => (
-            <Row key={`${row.rank}-${nameText(row.name)}-${row.me}`} row={row} />
+            <Row key={`${row.rank}-${rowName(row)}-${row.me}`} row={row} />
           ))}
           {meOutside ? (
             <>
@@ -298,11 +338,14 @@ function Notes({ view }: { view: RankingBoardResponse }) {
               next: relativeText(snapshot.nextAtMs, view.generatedAt),
             })}
           </p>
-          <p>{m.ranking_rules_note({ decay: formatCount(snapshot.decayPm / 10) })}</p>
+          {view.board.kind === "unit" ? null : (
+            <p>{m.ranking_rules_note({ decay: formatCount(snapshot.decayPm / 10) })}</p>
+          )}
         </>
       )}
       {view.board.kind === "faction" ? <p>{m.ranking_renown_note()}</p> : null}
       {view.board.kind === "house" ? <p>{m.ranking_house_note()}</p> : null}
+      {view.board.kind === "unit" ? <p>{m.ranking_unit_note()}</p> : null}
     </footer>
   );
 }

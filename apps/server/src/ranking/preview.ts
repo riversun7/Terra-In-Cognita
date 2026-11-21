@@ -125,6 +125,43 @@ export function previewBoard(
       tiers: tierCuts(PREVIEW_FACTION_TOTAL, c),
     };
   }
+  if (board.kind === "unit") {
+    // 유닛 판 시안(house-10, 2316): 값 순위 — 이름 없는 유닛("유닛 #ID")·세력 주인·내 유닛을 섞는다
+    const scale = board.measure === "assets" ? 1_000 : 10;
+    const rows = Array.from({ length: RANKING_BOARD_ROWS }, (_, index) => {
+      const rank = index + 1;
+      const value = scoreAt(rank) * scale;
+      const row: RankingRow = {
+        ...userRow(rank, PREVIEW_TOTAL, c, rank === PREVIEW_ME_RANK % RANKING_BOARD_ROWS),
+        kind: "unit",
+        prevRank: null,
+        faction: null,
+        score: value,
+        name: rank % 3 === 0 ? null : (NAMES[rank % NAMES.length] ?? null),
+        unitId: 9_000_000 + rank,
+        owner:
+          rank % 4 === 2
+            ? (FACTIONS[rank % FACTIONS.length] ?? null)
+            : (NAMES[(rank + 2) % NAMES.length] ?? null),
+        worth: {
+          power: String(board.measure === "combat_power" ? value : scoreAt(rank + 7) * 10),
+          assets: String(board.measure === "assets" ? value : scoreAt(rank + 3) * 1_000),
+        },
+      };
+      return row;
+    });
+    return {
+      ...base,
+      status: "ready",
+      total: PREVIEW_TOTAL,
+      rows,
+      me: rows.find((row) => row.me) ?? null,
+      tiers: tierCuts(PREVIEW_TOTAL, c).map((cut) => ({
+        ...cut,
+        minScore: cut.minScore === null ? null : cut.minScore * scale,
+      })),
+    };
+  }
   const path = paths.find((entry) => entry.id === board.path);
   const status = path === undefined ? "unknown" : path.open ? "ready" : "closed";
   if (status !== "ready") return { ...base, status, total: 0, rows: [], me: null, tiers: tierCuts(0, c) };

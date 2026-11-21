@@ -164,10 +164,11 @@ export const ROUTES = {
   },
   faction: { path: "/faction", search: [], parent: "home", frame: "shown", access: "everyone" },
   cyborg: { path: "/cyborg", search: [], parent: "home", frame: "shown", access: "everyone" },
-  // 랭킹 판(docs/adr/2026-11-07-ranking.md): 메뉴가 아니라 사이보그·세력 화면 안에서 연다(D-6010). ?path=<경로 ID>는 그 경로 판을 바로 연다
+  // 랭킹 판(docs/adr/2026-11-07-ranking.md): 메뉴가 아니라 사이보그·세력 화면 안에서 연다(D-6010). ?path=<경로 ID>는 그 경로 판을 바로 연다.
+  // ?unit=<지표>는 유닛 판(house-10 — D-569 1746, combat_power·assets)
   cyborg_ranking: {
     path: "/cyborg/ranking",
-    search: ["path"],
+    search: ["path", "unit"],
     parent: "cyborg",
     frame: "shown",
     access: "everyone",

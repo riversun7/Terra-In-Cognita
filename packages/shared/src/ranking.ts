@@ -37,22 +37,35 @@ export function isRankingMeasure(value: unknown): value is RankingMeasure {
 }
 
 /**
+ * 유닛 판이 재는 것(house-10, 기획 대조 2316 — D-569 1746 "랭킹은 가문별 유닛별 모두 존재"): 유닛마다 이미 세는 전투력·자산(유닛 지갑)부터 연다.
+ * 새 것은 끝에 더한다(주소 ?unit=에 남는다)
+ */
+export const RANKING_UNIT_MEASURES = ["combat_power", "assets"] as const;
+export type RankingUnitMeasure = (typeof RANKING_UNIT_MEASURES)[number];
+
+export function isRankingUnitMeasure(value: unknown): value is RankingUnitMeasure {
+  return typeof value === "string" && (RANKING_UNIT_MEASURES as readonly string[]).includes(value);
+}
+
+/**
  * 화면이 고르는 판: 경로 하나(유저·세력 주체마다) · 세력 판 · 경로 하나의 가문 판(D-569 1746 "랭킹은 가문별 유닛별 모두 존재" — 가문원 점수의
- * 합, 가문마다 한 줄, 소속 도시 표시)
+ * 합, 가문마다 한 줄, 소속 도시 표시) · 유닛 판(지표 하나 — 유닛마다 한 줄, 마지막 집계 때의 값 순위, 감쇠 없음)
  */
 export type RankingBoardKey =
   | { readonly kind: "path"; readonly path: string }
   | { readonly kind: "faction" }
-  | { readonly kind: "house"; readonly path: string };
+  | { readonly kind: "house"; readonly path: string }
+  | { readonly kind: "unit"; readonly measure: RankingUnitMeasure };
 
 /** 판 요청: 경로를 비우면(null) 서버가 고른다 — 내 점수가 가장 높은 경로, 없으면 연 경로의 첫째 */
 export type RankingBoardRequest =
   | { readonly kind: "path"; readonly path: string | null }
   | { readonly kind: "faction" }
-  | { readonly kind: "house"; readonly path: string | null };
+  | { readonly kind: "house"; readonly path: string | null }
+  | { readonly kind: "unit"; readonly measure: RankingUnitMeasure };
 
-/** 판에 오른 주체의 종류: 유저(사이보그) · NPC 세력 · 유저 세력(D-043: NPC도 같은 판에 같은 규칙으로) · 가문(가문 판) */
-export type RankingSubjectKind = "user" | "npc_faction" | "player_faction" | "house";
+/** 판에 오른 주체의 종류: 유저(사이보그) · NPC 세력 · 유저 세력(D-043: NPC도 같은 판에 같은 규칙으로) · 가문(가문 판) · 유닛(유닛 판) */
+export type RankingSubjectKind = "user" | "npc_faction" | "player_faction" | "house" | "unit";
 
 /** 경로 하나(팩 자료). 안 연 경로는 지표가 없어도 된다(D-392 "곧 열림") */
 export interface RankingPathInfo {
@@ -127,6 +140,9 @@ export interface RankingRow {
    * 경로·가문 판: 마지막 집계 때의 전투력·자산(house-9, D-576 — 정수 글자, 자산은 기준 통화 최소 단위). 가문 줄은 가문원 합. 집계에 값이 없으면 없다
    */
   readonly worth?: RankingWorth | undefined;
+  /** 유닛 판에만: 그 유닛 ID(이름이 없을 때 "유닛 #ID")와 주인 이름(사이보그 이름·세력 이름, 모르면 null) */
+  readonly unitId?: number | undefined;
+  readonly owner?: LocalizedName | null | undefined;
   /** 시안 자료(dev·admin이 켰을 때)면 true */
   readonly preview?: boolean | undefined;
 }

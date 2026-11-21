@@ -88,6 +88,9 @@ export const rankingUnitScores = pgTable(
  * 전투력·자산 값 한 줄(house-9, 기획 D-576 "전투력, 자산, 등" — 질문 2258 다안). kind 0 = 소유 주체(경로 판 주체), 1 = 세계 유닛(NPC 가문원).
  * combat_power = 버프·부상을 뺀 기본 수치 합(D-7022), assets = 기준 통화 최소 단위(D-555 1512 — 사업장 금고는 지분만큼). 판 줄의 전투력·자산 칸과
  * 가문 판 합을 읽는다. 랭킹 집계가 같은 트랜잭션에서 통째로 바꾼다(ranking/worth.ts). 둘 다 0인 주체는 없다. 새 표라 직전 판 앱은 모른 채 돈다
+ * 바뀜(house-10, 기획 대조 2313·2316 — D-576·D-338·D-569 1746): kind 1은 모든 세계 유닛(유닛 판), 2 = 플레이어 가문 금고(세력 행 ID), 3 = NPC 가문
+ * 금고 + 가문장(국가 지도자) 지갑·전투력(NPC 가문 ID). owner_id·name = 유닛 줄의 주인·이름(집계 때 값, 다른 줄은 null). 열·값을 더하기만 해서 직전 판
+ * 앱은 그대로 돈다(kind 0·1만 쓰고, 지우고 다시 쓰는 표라 남은 2·3 줄은 다음 집계에 지운다 — 판 줄은 kind로 골라 읽는다)
  */
 export const rankingWorth = pgTable(
   "ranking_worth",
@@ -96,10 +99,14 @@ export const rankingWorth = pgTable(
     subjectId: bigint("subject_id", { mode: "number" }).notNull(),
     combatPower: bigint("combat_power", { mode: "bigint" }).notNull(),
     assets: bigint("assets", { mode: "bigint" }).notNull(),
+    /** 유닛 줄(kind 1)의 주인 소유 주체(집계 때). 다른 줄은 null */
+    ownerId: bigint("owner_id", { mode: "number" }),
+    /** 유닛 줄(kind 1)의 이름(집계 때 — 사이보그 이름·NPC 휴먼 이름, 모르면 null) */
+    name: text("name"),
   },
   (table) => [
     primaryKey({ columns: [table.kind, table.subjectId] }),
-    check("ranking_worth_kind", sql`${table.kind} in (0, 1)`),
+    check("ranking_worth_kind", sql`${table.kind} in (0, 1, 2, 3)`),
     check("ranking_worth_values", sql`${table.combatPower} >= 0 and ${table.assets} >= 0`),
   ],
 );

@@ -7,7 +7,9 @@ import type {
   RankingMeasure,
   RankingPathInfo,
   RankingSubjectKind,
+  RankingUnitMeasure,
 } from "@terra/shared/ranking";
+import { isRankingUnitMeasure } from "@terra/shared/ranking";
 import type { RouteMatch, RouteTarget } from "@terra/shared";
 import { formatCount } from "../home/numbers.ts";
 import { m } from "../paraglide/messages.js";
@@ -38,7 +40,29 @@ export const KIND_NAMES: Record<RankingSubjectKind, () => string> = {
   npc_faction: m.ranking_kind_npc_faction,
   player_faction: m.ranking_kind_player_faction,
   house: m.ranking_kind_house,
+  unit: m.ranking_kind_unit,
 };
+
+/** 유닛 판 지표(house-10, D-569 1746): 고르기 칸 이름·재는 것 글 */
+export const UNIT_BOARD_NAMES: Record<RankingUnitMeasure, () => string> = {
+  combat_power: m.ranking_board_unit_combat_power,
+  assets: m.ranking_board_unit_assets,
+};
+export const UNIT_MEASURE_NAMES: Record<RankingUnitMeasure, () => string> = {
+  combat_power: m.ranking_unit_measure_combat_power,
+  assets: m.ranking_unit_measure_assets,
+};
+
+/** 판 줄 이름: 이름 없는 유닛은 "유닛 #ID", 그 밖은 nameText */
+export function rowName(row: {
+  readonly kind: RankingSubjectKind;
+  readonly name: LocalizedName | null;
+  readonly unitId?: number | undefined;
+}): string {
+  if (row.kind === "unit" && row.name === null && row.unitId !== undefined)
+    return m.ranking_unit_unnamed({ id: String(row.unitId) });
+  return nameText(row.name);
+}
 
 /** 등급 문턱(‰) → 퍼센트 글자(10 → "1", 5 → "0.5") */
 export const tierPercent = (tierPm: number): string => formatCount(tierPm / 10);
@@ -89,7 +113,12 @@ export function boardRequestOf(match: RouteMatch): RankingBoardRequest {
     const house = match.search.house;
     return house === undefined || house === "" ? { kind: "faction" } : { kind: "house", path: house };
   }
-  if (match.id === "cyborg_ranking") return { kind: "path", path: match.search.path ?? null };
+  if (match.id === "cyborg_ranking") {
+    // 유닛 판(house-10): ?unit=<지표>
+    const unit = match.search.unit;
+    if (isRankingUnitMeasure(unit)) return { kind: "unit", measure: unit };
+    return { kind: "path", path: match.search.path ?? null };
+  }
   return { kind: "path", path: null };
 }
 
@@ -97,15 +126,23 @@ export function boardRequestOf(match: RouteMatch): RankingBoardRequest {
 export function boardTarget(board: RankingBoardKey): RouteTarget {
   if (board.kind === "faction") return { route: "faction_ranking" };
   if (board.kind === "house") return { route: "faction_ranking", search: { house: board.path } };
+  if (board.kind === "unit") return { route: "cyborg_ranking", search: { unit: board.measure } };
   return { route: "cyborg_ranking", search: { path: board.path } };
 }
 
-/** 판 고르기 칸 값(세력 = "faction:", 경로 = "path:<ID>", 가문 판 = "house:<ID>") ↔ 판 */
-export const boardValue = (board: RankingBoardKey): string =>
-  board.kind === "faction" ? "faction:" : `${board.kind}:${board.path}`;
+/** 판 고르기 칸 값(세력 = "faction:", 경로 = "path:<ID>", 가문 판 = "house:<ID>", 유닛 판 = "unit:<지표>") ↔ 판 */
+export function boardValue(board: RankingBoardKey): string {
+  if (board.kind === "faction") return "faction:";
+  if (board.kind === "unit") return `unit:${board.measure}`;
+  return `${board.kind}:${board.path}`;
+}
 
 export function boardFromValue(value: string): RankingBoardKey | null {
   if (value === "faction:") return { kind: "faction" };
+  if (value.startsWith("unit:")) {
+    const measure = value.slice("unit:".length);
+    return isRankingUnitMeasure(measure) ? { kind: "unit", measure } : null;
+  }
   for (const kind of ["path", "house"] as const)
     if (value.startsWith(`${kind}:`) && value.length > kind.length + 1)
       return { kind, path: value.slice(kind.length + 1) };

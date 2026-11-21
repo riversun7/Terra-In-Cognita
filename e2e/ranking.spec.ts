@@ -2,6 +2,7 @@
 // - 플레이어(실제 자료): 서버가 켜질 때 센 첫 집계(바로 앞 하루 + 지금 재고). 세력 화면 옆 판의 세력 순위 칸 → 세력 순위표(내 세력 줄),
 //   판 고르기로 정복자(NPC 세력이 도시를 가져 판에 있다)·전투력(house-9 — 줄마다 전투력·자산 칸)·안 연 경로(곧 열림)로 옮긴다. 사이보그 화면 랭킹 칸 → 모든 경로 순위.
 // - dev + 시안 자료: 50줄 + 내 줄(63위, 위 50줄 밖이라 끝에 한 줄 더), 세력 판 16줄·세력 명성(위 12개만, 나머지 "아직 없음").
+// - 유닛 판(house-10, D-569 1746): 판 고르기 → ?unit=combat_power, 50줄·내 유닛 자리·이름 없는 유닛 "유닛 #ID"·주인·순위 변화 표 없음.
 // - 긴 이름·큰 수는 ranking.board 응답을 고쳐 넣는다(helpers/trpc.ts rewriteTrpc).
 // - 사진: 390·1440 × 파스텔·다크(경로 판·세력 판, 390은 한국어·1440은 영어) + 세력 화면 옆 판(E2E_SHOTS_DIR).
 // 자리는 화면 부품의 class로 찾는다(apps/game/src/ranking/RankingScreen.tsx, faction/FactionRanking.tsx). 문구는 메시지 원본.
@@ -57,6 +58,7 @@ const worstCase = (data: unknown): void => {
       Reflect.set(row, "rank", 123_456_789);
       Reflect.set(row, "prevRank", 1);
       Reflect.set(row, "worth", { power: "987654321098765", assets: "123456789012345678901" });
+      Reflect.set(row, "owner", long);
     }
   }
 };
@@ -206,6 +208,47 @@ test.describe("dev 시안 자료", () => {
   });
 });
 
+test.describe("dev 시안 자료 — 유닛 판", () => {
+  test.use({ account: "dev", preview: "dev" });
+
+  test("유닛 판(house-10): 고르기 → 주소 ?unit=, 50줄·내 유닛 자리·주인·이름 없는 유닛, 자산 판으로", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await rewriteTrpc(page, { "summary.get": hideSummary });
+    await page.goto("/cyborg/ranking?path=mercenary");
+    await rankingReady(page);
+    const screen = page.locator("section.ranking");
+    await screen.locator(".ranking-picker select").selectOption("unit:combat_power");
+    await rankingReady(page);
+    await expect(page).toHaveURL(/\/cyborg\/ranking\?unit=combat_power/);
+    await expect(screen.locator(".ranking-row")).toHaveCount(50);
+    await expect(screen.locator(".ranking-row[data-me]")).toHaveCount(1);
+    await expect(screen.locator("#ranking-me-title")).toHaveText(message("ko", "ranking_me_unit_title"));
+    // 3위는 이름 없는 유닛(시안) — "유닛 #ID", 주인 칸
+    await expect(screen.locator(".ranking-row").nth(2).locator(".ranking-name")).toHaveText(
+      message("ko", "ranking_unit_unnamed", { id: "9000003" }),
+    );
+    await expect(screen.locator(".ranking-row").first()).toContainText(
+      message("ko", "ranking_unit_owner", { owner: "모래여우" }),
+    );
+    // 규모 판이라 순위 변화 표가 없다
+    await expect(screen.locator(".ranking-row .ranking-change")).toHaveCount(0);
+    await expect(screen.locator(".ranking-notes")).toContainText(message("ko", "ranking_unit_note"));
+    await expect(screen.locator(".ranking-measures")).toContainText(
+      message("ko", "ranking_unit_measures", {
+        measure: message("ko", "ranking_unit_measure_combat_power"),
+      }),
+    );
+    expect(await horizontalOverflow(page)).toEqual([]);
+    await screen.locator(".ranking-picker select").selectOption("unit:assets");
+    await rankingReady(page);
+    await expect(page).toHaveURL(/\/cyborg\/ranking\?unit=assets/);
+    await expect(screen.locator(".ranking-row")).toHaveCount(50);
+    expect(deviceErrors).toEqual([]);
+  });
+});
+
 test.describe("나쁜 자료(긴 이름·큰 수) 390", () => {
   for (const language of ["ko", "en"] as const) {
     test.describe(language, () => {
@@ -214,6 +257,11 @@ test.describe("나쁜 자료(긴 이름·큰 수) 390", () => {
       test(`넘치지 않는다 (${language})`, async ({ page, deviceErrors }) => {
         await rewriteTrpc(page, { "summary.get": hideSummary, "ranking.board": worstCase });
         await page.goto("/cyborg/ranking?path=landlord");
+        await rankingReady(page);
+        await expect(page.locator("section.ranking .ranking-row").first()).toBeVisible();
+        expect(await horizontalOverflow(page)).toEqual([]);
+        // 유닛 판(house-10): 긴 주인 이름·큰 값
+        await page.goto("/cyborg/ranking?unit=assets");
         await rankingReady(page);
         await expect(page.locator("section.ranking .ranking-row").first()).toBeVisible();
         expect(await horizontalOverflow(page)).toEqual([]);
@@ -254,6 +302,10 @@ test.describe("사진", () => {
         await rankingReady(page);
         await expect(page.locator("section.ranking .ranking-row").first()).toBeVisible();
         await tallShot(page, `ranking-house-${theme}-${language}-${String(width)}`);
+        await page.goto("/cyborg/ranking?unit=combat_power");
+        await rankingReady(page);
+        await expect(page.locator("section.ranking .ranking-row").first()).toBeVisible();
+        await tallShot(page, `ranking-unit-${theme}-${language}-${String(width)}`);
         await page.goto("/faction");
         await expect(page.locator("section.faction .faction-ranking")).toBeVisible({ timeout: 20_000 });
         await page.locator("section.faction .faction-ranking").scrollIntoViewIfNeeded();

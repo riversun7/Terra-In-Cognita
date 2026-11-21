@@ -247,3 +247,49 @@ describe("NPC 짓기 투자 판단(npc-invest-2, 질문 2508 나)", () => {
     expect(upgradeDemand(at("mine", 2, 5), 3, false, 0, 2)).toBe(false);
   });
 });
+
+const gain = { dailyValue: 1000n, dailyUpkeep: 10n };
+const loss = { dailyValue: 0n, dailyUpkeep: 10n };
+const lumberLoses = (facility: string) => (facility === "lumber_camp" ? loss : gain);
+const withReturn = (returnOf: (facility: string) => typeof gain | undefined) => ({
+  ...RULES,
+  invest: { ...invest(1000n, 0), returnOf },
+});
+
+describe("NPC 짓기 기대 수익(npc-fix-3, 질문 2566)", () => {
+  const c = TEST_NPC_COEFFICIENTS;
+  const gatherPm = new Map([
+    ["farm", 0],
+    ["lumber_camp", 900],
+    ["mine", 600],
+  ]);
+  const needs = { humans: 12, workers: 12, foodPm: 1000, gatherPm };
+  const pick = (have: Record<string, number>, rules: Parameters<typeof chooseCityBuild>[4]) =>
+    chooseCityBuild({ ...needs, counts: counts(have) }, OPTIONS, TRAITS, c, rules);
+
+  it("유지비가 산출보다 큰 앞선 투자(같은 채집 시설 더 짓기)는 굴림이 넘어도 하지 않는다", () => {
+    const have = { farm: 1, lodging: 2, lumber_camp: 1, mine: 1 };
+    expect(
+      pick(
+        have,
+        withReturn(() => gain),
+      ),
+    ).toBe("lumber_camp");
+    expect(pick(have, withReturn(lumberLoses))).toBe("mine");
+    expect(
+      pick(
+        have,
+        withReturn(() => loss),
+      ),
+    ).toBeUndefined();
+  });
+
+  it("회수 기간 안에 못 돌려받는 수요 후보는 점수가 내려가 다른 후보가 앞선다", () => {
+    // 첫 채집 시설 둘(수요): 몫이 큰 벌목장이 먼저지만, 벌목장이 손해면 광산
+    const have = { farm: 1, lodging: 2 };
+    expect(pick(have, { ...RULES, invest: invest(10n ** 9n, 999) })).toBe("lumber_camp");
+    expect(pick(have, { ...RULES, invest: { ...invest(10n ** 9n, 999), returnOf: lumberLoses } })).toBe(
+      "mine",
+    );
+  });
+});

@@ -229,3 +229,37 @@ describe("구인 카드 투자 판단(npc-invest-2, 질문 2508 다)", () => {
     expect(slots(base, c)).toEqual([1]);
   });
 });
+
+/** 토탈 1마다 하루 1 더 번다(늘어난 값과 견줌) */
+const workerReturnOf = (
+  card: { total: number; cost: bigint },
+  cheapest: { total: number; cost: bigint },
+) => ({
+  dailyValue: BigInt(card.total - cheapest.total),
+  dailyUpkeep: 0n,
+  basis: card.cost - cheapest.cost,
+});
+
+describe("구인 카드 기대 수익(npc-fix-3, 질문 2566)", () => {
+  const cards = [
+    { slot: 1, total: 60, cost: 600n },
+    { slot: 2, total: 44, cost: 120n },
+    { slot: 3, total: 30, cost: 50n },
+  ];
+  const base = { cards, taken: 0, population: 9, housing: 10, treasury: 100_000n };
+
+  it("늘어난 값을 회수 기간 안에 못 돌려받는 더 좋은 일꾼 카드는 도전하지 않는다", () => {
+    // 600짜리: 하루 +30 × 30일 = 900 < 550 아님 → 돌려받는다. 회수 기간 10일이면 300 < 550 → 못 돌려받아 120짜리(+14 × 10 = 140 ≥ 70)
+    expect(slots({ ...base, invest: { ...invest(0), workerReturnOf } }, c)).toEqual([1]);
+    expect(
+      slots({ ...base, invest: { ...invest(0), workerReturnOf } }, { ...c, investPaybackDays: 10 }),
+    ).toEqual([2]);
+  });
+
+  it("경비대 카드(군사)는 기대 수익을 보지 않는다", () => {
+    const guard = { ...base, population: 10, guards: 0, guardTarget: 1 };
+    expect(
+      slots({ ...guard, invest: { ...invest(0), workerReturnOf } }, { ...c, investPaybackDays: 1 }),
+    ).toEqual([1]);
+  });
+});

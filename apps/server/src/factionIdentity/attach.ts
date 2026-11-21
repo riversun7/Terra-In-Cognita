@@ -249,26 +249,35 @@ export function attachHouses(options: {
     log: options.log,
   });
   diplomacyRef = diplomacy;
-  // 가문 연맹(조약 — npc-invest-2, 질문 2502·2503): 플레이어 명령은 같은 소켓, NPC 가문 판단은 한 시간마다(세계가 준비된 뒤)
-  const leagues = createHouseLeagueService({ pool, now: options.now });
+  // 가문 연맹(조약 — npc-invest-2, 질문 2502·2503): 플레이어 명령은 같은 소켓, NPC 가문 판단은 한 시간마다(세계가 준비된 뒤 — npc-fix-3: 사라진 가문 빼기·
+  // NPC 나가기·표도 같은 때)
+  const leagues = createHouseLeagueService({
+    pool,
+    now: options.now,
+    voteRules: () => options.rules().leagueVote,
+  });
   const leagueSocket = createHouseLeagueSocket({
     service: () => leagues,
     now: options.now,
     log: options.log,
   });
+  // npc-fix-3(2568): NPC 런타임이 없어도(세계는 준비됨) 해산한 플레이어 가문은 뺀다 — 그때는 NPC 가문을 빼지 않는다(모르므로)
   const leagueTimer = setInterval(() => {
     const world = options.world;
-    const npc = world?.status().state === "ready" ? world.npc : undefined;
-    if (!npc) return;
+    if (world?.status().state !== "ready") return;
+    const npc = world.npc;
     const houses: NpcLeagueHouse[] = [];
-    for (const place of npc.world.cities.values())
-      for (const houseId of npc.cityHouses.housesOfCity(place.id)) {
-        const head = npc.cityHouses.headOf(houseId);
-        const traits = head === undefined ? undefined : npc.unitTraits(head);
-        if (traits) houses.push({ houseId, traits });
-      }
+    const liveNpcHouses = npc ? new Set<number>() : undefined;
+    if (npc)
+      for (const place of npc.world.cities.values())
+        for (const houseId of npc.cityHouses.housesOfCity(place.id)) {
+          liveNpcHouses?.add(houseId);
+          const head = npc.cityHouses.headOf(houseId);
+          const traits = head === undefined ? undefined : npc.unitTraits(head);
+          if (traits) houses.push({ houseId, traits });
+        }
     leagues
-      .npcSweep(houses, options.rules().npcLeague)
+      .npcSweep({ houses, liveNpcHouses }, options.rules().npcLeague)
       .catch((error: unknown) => options.log.error({ err: error }, "npc house leagues failed"));
   }, LEAGUE_SWEEP_MS);
   leagueTimer.unref();

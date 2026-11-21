@@ -4143,6 +4143,60 @@
       "source": "ADR 2026-11-21-npc-needs-drives · 질문 2465(D-587) [임시]"
     },
     {
+      "id": "npc_invest_payback_days",
+      "code": "",
+      "name": {
+        "ko": "NPC 투자 회수 기간(일)",
+        "en": "NPC investment payback horizon (days)"
+      },
+      "value": 30,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 3650,
+      "desc": {
+        "ko": "기대 수익 몫 = ((하루 기대 산출 값 − 하루 유지비) × 이 날 수 − 값) ÷ 값. 산출 값은 시설 일꾼 자리만큼의 레시피 산출 − 먹는 재료(그 도시 지난 값), 유지비는 일꾼 하루 임금이다. 더 좋은 일꾼 구인 카드는 늘어나는 효율의 임금 시세 대 늘어나는 값.",
+        "en": "Expected return share = ((daily expected output value − daily upkeep) × this many days − cost) ÷ cost. Output value is the recipe output of the facility's worker slots minus consumed inputs (city last prices); upkeep is the workers' daily wage. A better worker recruit card compares the extra efficiency's wage value with its extra cost."
+      },
+      "source": "ADR 2026-11-21-npc-needs-drives · 질문 2566(D-587 8) [임시]"
+    },
+    {
+      "id": "npc_invest_return_weight_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 투자 기대 수익 감점 가중치(‰)",
+        "en": "NPC investment return shortfall weight (‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "기대 수익 몫이 0 아래(회수 기간 안에 값을 못 돌려받음)인 짓기 후보의 점수에서 (−몫) × 이 값 ÷ 1000을 뺀다. 0 위는 더하지 않는다.",
+        "en": "A build candidate whose expected return share is below 0 (does not pay back within the horizon) loses (−share) × this ÷ 1000 points. Positive shares add nothing."
+      },
+      "source": "ADR 2026-11-21-npc-needs-drives · 질문 2566(D-587 8) [임시]"
+    },
+    {
+      "id": "npc_invest_return_min_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 앞선 투자의 기대 수익 문턱(‰)",
+        "en": "NPC ahead-of-need investment return threshold (‰)"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "pm",
+      "min": -1000,
+      "max": 1000,
+      "desc": {
+        "ko": "수요 없는 앞선 투자(같은 채집 시설 더 짓기, 처음 다다르는 레벨 올리기, 더 좋은 일꾼 카드)는 하루 산출 값이 유지비보다 크고 기대 수익 몫이 이 값 이상일 때만 도전 굴림을 한다. 0 = 회수 기간 안에 값을 돌려받아야 한다. 경비대 카드(군사)·수요 있는 투자는 보지 않는다.",
+        "en": "Ahead-of-need investments (another of the same gathering facility, a first-reached level, a better worker card) roll the challenge only when daily output value exceeds upkeep and the expected return share is at least this. 0 = must pay back within the horizon. Guard cards (military) and needed investments skip this."
+      },
+      "source": "ADR 2026-11-21-npc-needs-drives · 질문 2566(D-587 8) [임시]"
+    },
+    {
       "id": "npc_share_sale_score",
       "code": "",
       "name": {
@@ -11100,6 +11154,78 @@
         "en": "An NPC house not yet in a league joins the league with the most member houses on its own when its head's joining score ((openness + communalism) ÷ 2, 0-1000) is at least this. NPC houses join one league only. 1001 means NPCs never join."
       },
       "source": "ADR 2026-11-21-npc-needs-drives \"바뀜 (npc-invest-2)\" · D-587 4·5 · 질문 2502 · D-323 성향 규칙식 [임시]"
+    },
+    {
+      "id": "house_npc_league_leave_score",
+      "code": "",
+      "name": {
+        "ko": "NPC 가문 연맹 나가기 문턱(대표와의 성향 친밀도)",
+        "en": "NPC house league leaving threshold (affinity with representative)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1001,
+      "desc": {
+        "ko": "연맹에 든 NPC 가문(대표 말고)은 대표 가문장과의 성향 친밀도(1000 − 7축 차이의 합 ÷ 7, 성향을 모르는 플레이어 가문은 500)가 이 값 아래면 나간다. 이 값 아래인 대표의 연맹에는 들지 않는다. 0이면 나가지 않는다.",
+        "en": "An NPC house in a league (not the representative) leaves when its affinity with the representative's head (1000 − sum of the 7 trait differences ÷ 7; player houses with unknown traits count as 500) is below this. It does not join a league whose representative is below this. 0 means never leave."
+      },
+      "source": "ADR 2026-11-21-npc-needs-drives \"바뀜 (npc-fix-3)\" · D-555 1509 · 질문 2563 다 · D-323 성향 규칙식 [임시]"
+    },
+    {
+      "id": "house_npc_league_vote_start_score",
+      "code": "",
+      "name": {
+        "ko": "NPC 가문 연맹 투표 열기 문턱(대표와의 성향 친밀도)",
+        "en": "NPC house league vote-opening threshold (affinity with representative)"
+      },
+      "value": 400,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1001,
+      "desc": {
+        "ko": "열린 대표 투표가 없을 때 연맹에 든 NPC 가문(대표 말고)은 대표와의 성향 친밀도가 이 값 아래면 가장 가까운 가문을 찍어 투표를 연다. 열린 투표가 있으면 NPC 가문은 모두 표를 던진다(대표는 자기, 나머지는 가장 가까운 가문). 0이면 NPC가 투표를 열지 않는다.",
+        "en": "With no open representative vote, an NPC house in a league (not the representative) opens one by voting for the closest house when its affinity with the representative is below this. When a vote is open every NPC house votes (the representative for itself, others for the closest house). 0 means NPCs never open a vote."
+      },
+      "source": "ADR 2026-11-21-npc-needs-drives \"바뀜 (npc-fix-3)\" · D-555 1509 · 질문 2562 라 · D-323 성향 규칙식 [임시]"
+    },
+    {
+      "id": "house_league_vote_period_ms",
+      "code": "",
+      "name": {
+        "ko": "가문 연맹 대표 투표 기간(ms)",
+        "en": "House league representative vote period (ms)"
+      },
+      "value": 259200000,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 2592000000,
+      "desc": {
+        "ko": "연맹 대표 투표는 첫 표부터 이 시간 동안 열린다. 그동안 든 가문의 과반이 한 가문을 찍지 않으면 투표가 끝나고 표를 모두 지운다. 0이면 끝나지 않는다.",
+        "en": "A league representative vote stays open for this long from its first ballot. If no house gets a majority of member houses by then, the vote ends and all ballots are cleared. 0 means it never ends."
+      },
+      "source": "ADR 2026-11-21-npc-needs-drives \"바뀜 (npc-fix-3)\" · 질문 2562(기간·정족수 = 기술 기본값) [임시]"
+    },
+    {
+      "id": "house_league_vote_quorum_pm",
+      "code": "",
+      "name": {
+        "ko": "가문 연맹 대표 투표 정족수(‰)",
+        "en": "House league representative vote quorum (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "표를 던진 가문이 든 가문의 이 몫 이상이어야 대표가 뽑힌다. 지금 세는 꼴(든 가문의 과반)에서는 500 이하면 늘 찬다.",
+        "en": "A representative is elected only when at least this share of member houses has voted. Under the current count (a majority of member houses) 500 or less is always met."
+      },
+      "source": "ADR 2026-11-21-npc-needs-drives \"바뀜 (npc-fix-3)\" · 질문 2562(기간·정족수 = 기술 기본값) [임시]"
     },
     {
       "id": "house_npc_city_houses_l1",

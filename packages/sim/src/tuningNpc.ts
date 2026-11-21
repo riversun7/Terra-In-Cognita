@@ -128,6 +128,28 @@ export const NPC_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 투자 도전 확률 상한(‰)",
     "NPC investment challenge cap (‰)",
   ),
+  // 기대 수익·유지비(npc/invest.ts investReturnPm — 질문 2566 나 + 다, npc-fix-3) [임시]
+  k(
+    "npc_invest_payback_days",
+    "",
+    "investPaybackDays",
+    "NPC 투자 회수 기간(일)",
+    "NPC investment payback horizon (days)",
+  ),
+  k(
+    "npc_invest_return_weight_pm",
+    "",
+    "investReturnWeightPm",
+    "NPC 투자 기대 수익 감점 가중치(‰)",
+    "NPC investment return shortfall weight (‰)",
+  ),
+  k(
+    "npc_invest_return_min_pm",
+    "",
+    "investReturnMinPm",
+    "NPC 앞선 투자의 기대 수익 문턱(‰)",
+    "NPC ahead-of-need investment return threshold (‰)",
+  ),
   k(
     "npc_share_sale_score",
     "",

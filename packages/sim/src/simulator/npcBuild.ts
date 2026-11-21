@@ -54,6 +54,7 @@ import type { SimLoop } from "./loop.ts";
 import type { NpcContext, SimEvent } from "./npcRun.ts";
 import { retierFacility, tierTemperOf } from "./npcGatherTier.ts";
 import { growthTemperOf } from "./npcGrowthTemper.ts";
+import { facilityReturn, npcWorkerDailyWage } from "./npcReturn.ts";
 import { marketRefPrice } from "./npcTrade.ts";
 import type { SimFaction, SimWorld } from "./world.ts";
 
@@ -306,6 +307,8 @@ export function buildPolicy(
   /** 투자 판단의 자본(판단을 시작할 때 국고 — 같은 판단의 도시마다 같은 값) */
   const capital = funds;
   const temperPm = investTemperPm(faction.traits.commerce, c.npc);
+  /** 일꾼 하루 임금(기대 수익의 유지비 — npc-fix-3, npcReturn.ts) */
+  const wage = npcWorkerDailyWage(c);
   const produced = producedAssets(economy);
   // 도시 성장 성향 몫(기획 D-554 1187·1188, D-572 질문 1995): 건물 수 상한 ± 채, 붐빔 숙소 점수 ±
   const temper = growthTemperOf(world.seed, faction, c.npc);
@@ -427,6 +430,14 @@ export function buildPolicy(
                   capital,
                   roll: investRoll,
                   temperPm,
+                  returnOf: (facility) =>
+                    facilityReturn(
+                      economy,
+                      cityId,
+                      facility,
+                      economy.catalog.facilities.get(facility)?.slotsPerLevel ?? 0,
+                      wage,
+                    ),
                 },
         },
       );
@@ -494,7 +505,8 @@ export function buildPolicy(
         const level = target.level + 1;
         const materials = buildCostAt(build, level).filter((stack) => stack.qty > 0);
         if (!canObtain(materials)) continue;
-        // 투자 판단(질문 2508 나): 수요 없는 올리기는 그 레벨 재료 값으로 도전 굴림 — 높은 레벨일수록 비싸 덜 넘는다
+        // 투자 판단(질문 2508 나): 수요 없는 올리기는 그 레벨 재료 값으로 도전 굴림 — 높은 레벨일수록 비싸 덜 넘는다. 기대 수익(npc-fix-3, 질문 2566):
+        // 늘어나는 일꾼 자리(레벨당 자리)만큼의 하루 산출 값이 그 임금보다 크고 회수 기간 몫이 문턱을 넘을 때만 굴린다(숙소는 산출이 없어 보지 않는다)
         if (
           investRoll !== undefined &&
           !investGate(
@@ -504,6 +516,7 @@ export function buildPolicy(
             investRoll,
             temperPm,
             c.npc,
+            facilityReturn(economy, cityId, target.facility, spec.slotsPerLevel, wage),
           )
         )
           continue;

@@ -27,6 +27,7 @@ import { rebuildCost } from "../society/warOutcomes.ts";
 import { inTruce, recordFight } from "../society/wars.ts";
 import type { CombatRun } from "./combatRun.ts";
 import { type NpcBuildRun, buildPolicy } from "./npcBuild.ts";
+import { workerCardReturn } from "./npcReturn.ts";
 import type { MetricsRecorder } from "./metrics.ts";
 import type { ScenarioSociety, ScenarioTrips } from "./scenario.ts";
 import type { SimLoop } from "./loop.ts";
@@ -519,10 +520,15 @@ export function recruitPolicy(
   const society = ctx.society;
   if (!society) return;
   // 투자 판단(npc/invest.ts, 질문 2508 다): 더 좋은(비싼) 카드는 도전 굴림 — 경비대 = 공격 성향, 일꾼 = 상업 성향
+  // 더 좋은 일꾼 카드의 덧붙는 기대 수익(npc-fix-3, 질문 2566 — npcReturn.ts): 늘어나는 효율의 임금 시세 대 늘어나는 값
   const invest = {
     roll: rolls.recruit,
     guardTemperPm: investTemperPm(faction.traits.aggression, ctx.c.npc),
     workerTemperPm: investTemperPm(faction.traits.commerce, ctx.c.npc),
+    workerReturnOf: (
+      card: { readonly total: number; readonly cost: bigint },
+      base: { readonly total: number; readonly cost: bigint },
+    ) => workerCardReturn(card, base, ctx.c),
   };
   const byCity = citizens(ctx, faction);
   const guardTarget = faction.guardsPerCity ?? 0;

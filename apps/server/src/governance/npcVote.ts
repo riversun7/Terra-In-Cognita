@@ -4,6 +4,7 @@
 // - 만족도 차 = 그 가문 도시 휴먼 평균 만족도 − 설정 칸 gov_npc_keep_satisfaction(0~100). 높으면 현직 편(D-219·D-253 만족도 = 충성도).
 // - 성향(나라 성향 4축 ‰, 팩 국가 프리셋 성향이 얹힌 값 — presetTemper.ts): 신앙은 현상 유지 쪽, 상업은 자본주의 쪽, 공격은 독재 쪽.
 // - 선전포고: 공격 성향 ≥ 설정 칸 gov_npc_war_trait_pm이면 찬성, 아래면 반대.
+// - 세율 안건: 만족도 차 > 0이면 찬성(지도자 편), < 0이면 반대, 0이면 기권 [임시 질문 2436].
 // - 선출: 자기 가문이 후보면 자기 가문. 아니면 현직이 후보이고 만족도 차 ≥ 0이면 현직, 아니면 먼저 등록한 도전자.
 // - loyal(지배 가문 편 — 지금 쓰는 곳 없음, 국고 지분은 표를 던지지 않고 다른 주주에게 나눈다 D-581): 현직·반대(선전포고는 성향 규칙 그대로).
 // 판정에 난수를 쓰지 않는다(같은 입력 = 같은 표).
@@ -63,6 +64,9 @@ function motionScore(input: NpcVoteInput, rules: NpcVoteRules, keep: number): nu
     case "war_declaration":
       // 공격 성향이 문턱 이상이면 찬성, 아래면 반대(만족도는 보지 않는다)
       return traits.aggression >= rules.npcWarTraitPm ? 1 : -1;
+    case "tax_change":
+      // 세율 안건(질문 2407 가 — 줄기 governance-2) [임시 질문 2436]: 만족하면 지도자 편(찬성), 아니면 반대
+      return keep;
     default:
       return 0;
   }

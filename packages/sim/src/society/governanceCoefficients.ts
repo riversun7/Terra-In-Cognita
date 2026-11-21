@@ -42,6 +42,8 @@ export interface GovernanceCoefficients {
   readonly vacancySplitMs: number;
   /** 군사 쿠데타 충성도 벌칙(만족도 점, 질문 2401 답 D-582 "충성도 크게 떨어짐"). 쿠데타 길은 아직 없다(도우미만, 질문 2433) */
   readonly coupSatisfactionDrop: number;
+  /** 세율 안건 폭(‰, 질문 2407 가): 민주주의·자본주의에서 지도자가 나라 세율 칸 하나라도 이만큼 이상 바꾸면 안건(투표), 아래는 바로. 소득세는 bp ÷ 10 */
+  readonly taxAgendaWidthPm: number;
 }
 
 export const START_GOVERNANCE: GovernanceCoefficients = {
@@ -65,4 +67,5 @@ export const START_GOVERNANCE: GovernanceCoefficients = {
   npcRunMax: 1,
   vacancySplitMs: 14 * 86_400_000,
   coupSatisfactionDrop: 30,
+  taxAgendaWidthPm: 50,
 };

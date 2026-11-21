@@ -30,7 +30,18 @@ describe("나라 의결 메시지", () => {
     expect(decodeClientMessage(encodeMessage(propose))).toEqual(propose);
     const war = { t: "gov_propose", id: 2, kind: "war_declaration", targetNationId: 7 } as const;
     expect(decodeClientMessage(encodeMessage(war))).toEqual(war);
-    expect(decodes(decodeClientMessage, { ...propose, kind: "tax_change" })).toBe(false);
+    // 세율 안건(질문 2407 가 — 98판, 줄기 governance-2): taxes 칸과 함께 왕복, 범위 밖 값은 거절
+    const tax = {
+      t: "gov_propose",
+      id: 3,
+      kind: "tax_change",
+      taxes: { incomeTaxBp: 500, residentTaxPm: null, residentEveryDays: 7, residentNationPm: 100 },
+    } as const;
+    expect(decodeClientMessage(encodeMessage(tax))).toEqual(tax);
+    expect(decodes(decodeClientMessage, { ...tax, taxes: { ...tax.taxes, incomeTaxBp: 10_001 } })).toBe(
+      false,
+    );
+    expect(decodes(decodeClientMessage, { ...propose, kind: "peace_treaty" })).toBe(false);
     expect(decodes(decodeClientMessage, { ...propose, regime: "monarchy" })).toBe(false);
     for (const choice of ["yes", "no", "abstain", "p:12", "n:3"]) {
       const vote = { t: "gov_vote", id: 3, agendaId: 9, choice } as const;

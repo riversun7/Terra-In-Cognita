@@ -128,7 +128,14 @@ function recruitText(id: number, result: HouseRecruitResult): string {
 
 function nationTaxText(id: number, result: NationTaxResult): string {
   return result.ok
-    ? encodeMessage({ t: "nation_tax_result", id, ok: true, factionId: result.factionId })
+    ? encodeMessage({
+        t: "nation_tax_result",
+        id,
+        ok: true,
+        factionId: result.factionId,
+        // 세율 안건을 열었으면(질문 2407 가 — 98판(줄기 판)부터, 더 낮은 판은 모른 채 받는다)
+        ...(result.agendaId === undefined ? {} : { agendaId: result.agendaId }),
+      })
     : encodeMessage({ t: "nation_tax_result", id, ok: false, code: result.code });
 }
 

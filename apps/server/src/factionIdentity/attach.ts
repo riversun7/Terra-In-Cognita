@@ -21,7 +21,7 @@ import { createHouseMembers } from "./members.ts";
 import { createHouseSuccession } from "./succession.ts";
 import { houseTiesOf } from "../world/houseTies.ts";
 import { attachNationTaxes, nationTaxesOf } from "../government/nationTax.ts";
-import { createNationTaxPolicy } from "../government/nationTaxPolicy.ts";
+import { applyNationTaxes, createNationTaxPolicy } from "../government/nationTaxPolicy.ts";
 import type { HouseRules } from "./rules.ts";
 import { type GovernanceAttached, attachGovernance } from "../governance/attach.ts";
 import { type HouseGovernanceGateway, withGovernance } from "../governance/gateway.ts";
@@ -108,13 +108,26 @@ export function attachHouses(options: {
     now: options.now,
     persistence,
   });
+  const taxTable = () => {
+    const ledger = options.world?.persistence?.ledger;
+    return ledger ? nationTaxesOf(ledger) : undefined;
+  };
+  // 나라 의결(아래에서 선다 — 세율 안건을 열고 가결되면 쓴다, 질문 2407 가)
+  let governanceRef: GovernanceAttached | undefined;
   const nationTax = createNationTaxPolicy({
     pool,
     db: options.db,
     now: options.now,
-    table: () => {
-      const ledger = options.world?.persistence?.ledger;
-      return ledger ? nationTaxesOf(ledger) : undefined;
+    table: taxTable,
+    agendaWidthPm: () => options.rules().governance.taxAgendaWidthPm,
+    openAgenda: async (userId, row) => {
+      const result = await governanceRef?.service.propose(userId, { kind: "tax_change", taxes: row });
+      if (!result) return { ok: false, code: "busy" };
+      if (result.ok) return { ok: true, agendaId: result.agendaId };
+      return {
+        ok: false,
+        code: result.code === "busy" || result.code === "internal_error" ? result.code : "not_leader",
+      };
     },
   });
   // 가문세 표(houseTax.ts — 배당·임금이 원장으로 찾는다): 세계가 준비되면 원장에 붙이고 세율을 읽는다(5초마다 보고, 붙으면 멈춘다)
@@ -172,7 +185,12 @@ export function attachHouses(options: {
     presets: options.presets,
     now: options.now,
     log: options.log,
+    applyTaxes: async (nationRow, taxes, nowMs) => {
+      await applyNationTaxes(pool, taxTable(), nationRow, taxes, nowMs, null);
+      return true;
+    },
   });
+  governanceRef = governance;
   return {
     gateway: withGovernance(gateway, governance.gateway),
     governance,

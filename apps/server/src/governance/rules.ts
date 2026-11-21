@@ -26,6 +26,8 @@ export interface GovernanceRules {
   readonly vacancySplitMs: number;
   /** 군사 쿠데타 만족도 감소(점, 2401 답 D-582 — 쿠데타 길은 아직 없음) */
   readonly coupSatisfactionDrop: number;
+  /** 세율 안건이 되는 한 번 바꾸기 폭(‰ — 질문 2407 가) */
+  readonly taxAgendaWidthPm: number;
 }
 
 const whole = (value: number): number => (Number.isSafeInteger(value) && value > 0 ? value : 0);
@@ -62,16 +64,14 @@ export function governanceRulesFrom(c: SocietyCoefficients): GovernanceRules {
     npcRunMax: Math.min(10, whole(g.npcRunMax)),
     vacancySplitMs: period(g.vacancySplitMs),
     coupSatisfactionDrop: Math.min(100, whole(g.coupSatisfactionDrop)),
+    taxAgendaWidthPm: Math.max(1, permille(g.taxAgendaWidthPm)),
   };
 }
 
 /** 팩 없이 띄운 서버·시험 */
 export const TEST_GOVERNANCE_RULES: GovernanceRules = governanceRulesFrom(TEST_SOCIETY_COEFFICIENTS);
 
-/**
- * 세율 크게 바꾸기 안건의 문턱(질문 2407 가 — 한 번에 바꾸는 폭이 설정 칸 이상이면 안건, 아래는 지도자가 바로). 나라 세율 저장(줄기 tax-2)이 들어온 뒤
- * 세율 바꾸기 명령이 이 함수로 고르고, 설정 칸(gov_tax_agenda_width_pm)·안건 종류(tax_change)를 그때 더한다 — TODO(tax-2 뒤). 지금 부르는 곳은 없다.
- */
+/** 세율 크게 바꾸기 안건의 문턱(질문 2407 가 — 한 번에 바꾸는 폭이 설정 칸 gov_tax_agenda_width_pm 이상이면 안건, 아래는 지도자가 바로) */
 export function taxChangeNeedsAgenda(fromPm: number, toPm: number, widthPm: number): boolean {
   return Math.abs(Math.trunc(toPm) - Math.trunc(fromPm)) >= Math.max(1, Math.trunc(widthPm));
 }

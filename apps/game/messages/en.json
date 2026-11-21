@@ -8612,5 +8612,8 @@
   "government_tax_clear": "All default",
   "government_tax_done": "National taxes set.",
   "government_tax_done_reopen": "National taxes set. Fields reset to default show their values when you reopen.",
-  "government_tax_invalid": "Rates must be numbers in range (income tax 0–100%, up to two decimals · resident tax and national share 0–1000‰ · period 1–365 days)."
+  "government_tax_invalid": "Rates must be numbers in range (income tax 0–100%, up to two decimals · resident tax and national share 0–1000‰ · period 1–365 days).",
+  "gov_kind_tax_change": "Major tax change",
+  "gov_tax_target": "New rates: income tax {income} · resident tax {resident}",
+  "government_tax_agenda_opened": "The change is large, so a tax agenda was opened. It applies if the vote passes."
 }

@@ -135,4 +135,11 @@ export const GOVERNANCE_TUNING_KEYS: readonly TuningKey[] = [
     "군사 쿠데타 만족도 감소(점)",
     "Military coup satisfaction drop (points)",
   ),
+  k(
+    "gov_tax_agenda_width_pm",
+    "",
+    "governance.taxAgendaWidthPm",
+    "세율 안건 폭(‰)",
+    "Tax change agenda width (‰)",
+  ),
 ];

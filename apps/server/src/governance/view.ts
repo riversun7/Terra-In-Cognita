@@ -132,6 +132,7 @@ export function createGovernanceView(o: {
         status: agenda.status,
         regime: agenda.regime,
         targetRegime: agenda.payload.regime ?? null,
+        taxes: agenda.payload.taxes ?? null,
         targetNation: target === undefined ? null : { id: target, name: names.get(target) ?? null },
         byAuthority: agenda.payload.byAuthority === true,
         proposer: agenda.proposerKey && isHouseKey(agenda.proposerKey) ? house(agenda.proposerKey) : null,
@@ -179,7 +180,10 @@ export function createGovernanceView(o: {
           ? ["regime_change"]
           : []
         : o.service.mayPropose(s)
-          ? AGENDA_KINDS.filter((kind) => kind !== "war_declaration" || rules.warAgenda)
+          ? // 세율 안건은 나라 세금 명령(nation_tax)이 연다(질문 2407 가) — 의결 칸의 올리기 목록에는 없다
+            AGENDA_KINDS.filter(
+              (kind) => kind !== "tax_change" && (kind !== "war_declaration" || rules.warAgenda),
+            )
           : [];
     return {
       status: "ready",

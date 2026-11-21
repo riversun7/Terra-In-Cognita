@@ -15,6 +15,7 @@
 import {
   type AgendaKind,
   type GovernanceRegime,
+  type GovernanceTaxes,
   type HouseKey,
   isHouseKey,
   tallyElection,
@@ -39,6 +40,8 @@ export interface ProposeInput {
   readonly kind: AgendaKind;
   readonly regime?: GovernanceRegime | undefined;
   readonly targetNationId?: number | undefined;
+  /** 세율 안건 값(질문 2407 가) */
+  readonly taxes?: GovernanceTaxes | undefined;
 }
 
 const fail = (code: GovernanceResultCode): GovernanceResult => ({ ok: false, code });
@@ -78,6 +81,10 @@ export function createGovernanceService(o: {
   readonly now: () => number;
   readonly db?: Database | undefined;
   readonly log?: { error(obj: object, message: string): void } | undefined;
+  /** 가결된 세율 안건을 나라 세금에 쓴다(government/nationTaxPolicy.ts applyNationTaxes). 없으면 세율 안건을 집행하지 못한다(취소) */
+  readonly applyTaxes?:
+    | ((nationRowId: number, taxes: GovernanceTaxes, nowMs: number) => Promise<boolean>)
+    | undefined;
 }) {
   const tools = createElectorate(o);
   let chain: Promise<unknown> = Promise.resolve();
@@ -239,7 +246,7 @@ export function createGovernanceService(o: {
     if (open.filter((agenda) => agenda.proposerKey === proposerKey).length >= rules.openPerProposer)
       return fail("limit");
     const payload: { -readonly [K in keyof AgendaPayload]: AgendaPayload[K] } = {};
-    // TODO(질문 2407 가, 줄기 tax-2 뒤): 세율 크게 바꾸기 안건 — rules.ts taxChangeNeedsAgenda로 폭이 문턱 이상일 때만 안건
+    // 세율 크게 바꾸기(질문 2407 가): 나라 세금 명령(nation_tax)이 폭이 문턱 이상일 때 이 길로 연다(rules.ts taxChangeNeedsAgenda)
     switch (input.kind) {
       case "leader_election":
         if (open.some((agenda) => agenda.kind === "leader_election")) return fail("already_open");
@@ -262,6 +269,11 @@ export function createGovernanceService(o: {
         payload.regime = input.regime;
         break;
       }
+      case "tax_change":
+        if (!input.taxes) return fail("invalid_choice");
+        if (open.some((agenda) => agenda.kind === "tax_change")) return fail("already_open");
+        payload.taxes = input.taxes;
+        break;
       case "war_declaration": {
         const target = input.targetNationId === undefined ? undefined : o.port.nation(input.targetNationId);
         if (!target || target.rowId === nation.rowId) return fail("unknown_target");
@@ -470,6 +482,15 @@ export function createGovernanceService(o: {
             nationId: nation.rowId,
             targetNationId: target?.rowId,
           });
+        return;
+      }
+      case "tax_change": {
+        // 가결된 세율을 나라 세금에(질문 2407 가) — 쓰지 못하면 취소
+        const taxes = agenda.payload.taxes;
+        const applied = taxes && o.applyTaxes ? await o.applyTaxes(nation.rowId, taxes, nowMs) : false;
+        await o.store.finish(agenda.id, { status: applied ? "enacted" : "cancelled", enactedAtMs: nowMs });
+        if (applied)
+          await audit(null, "governance.tax_enacted", { nationId: nation.rowId, agendaId: agenda.id, taxes });
         return;
       }
       default:

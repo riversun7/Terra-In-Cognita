@@ -471,4 +471,57 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결(governance)", () => {
       expect(npc.cityHouses.rulingHouseOf(demo.id)?.id).toBe(Number(winner.slice(2)));
     gov.stop();
   }, 120_000);
+  it("세율 안건(질문 2407 가): 가문장이 올리고 가결되면 나라 세금에 쓴다", async () => {
+    const world = await boot();
+    const { npc } = parts(world);
+    for (let i = 0; i < 4; i += 1) {
+      clock += 30 * 60_000;
+      await npc.tick(true);
+    }
+    const rules: GovernanceRules = { ...TEST_GOVERNANCE_RULES, npcKeepSatisfaction: 0 };
+    const applied: { nation: number; taxes: unknown }[] = [];
+    const gov = attachGovernance({
+      db: test.db,
+      world: () => world,
+      rules: () => rules,
+      now: () => clock,
+      log: silentLog,
+      manual: true,
+      applyTaxes: async (nation, taxes) => {
+        applied.push({ nation, taxes });
+        return true;
+      },
+    });
+    const head = await citizen(world, "Taxone");
+    const faction = npc.world.factions.get(npc.houses.ownerOfRow(head.nation) ?? -1);
+    if (!faction) throw new Error("nation");
+    faction.regime = "democracy";
+    await house(world, head.userId, "세금가문", "TAX");
+    await gov.service.tick();
+    const taxes = { incomeTaxBp: 800, residentTaxPm: 5, residentEveryDays: 7, residentNationPm: 100 };
+    expect(await gov.service.propose(head.userId, { kind: "tax_change" })).toEqual({
+      ok: false,
+      code: "invalid_choice",
+    });
+    const opened = await gov.service.propose(head.userId, { kind: "tax_change", taxes });
+    if (!opened.ok) throw new Error(opened.code);
+    // 의결 칸 올리기 목록에는 없다(나라 세금 명령이 연다)
+    expect((await gov.view(head.userId)).canPropose).not.toContain("tax_change");
+    expect(
+      (await gov.view(head.userId)).agendas.find((agenda) => agenda.id === opened.agendaId)?.taxes,
+    ).toEqual(taxes);
+    await gov.service.vote(head.userId, opened.agendaId, "yes");
+    await gov.service.tick();
+    if (
+      (await gov.view(head.userId)).agendas.find((agenda) => agenda.id === opened.agendaId)?.status === "open"
+    ) {
+      clock += rules.periodOf("tax_change");
+      await gov.service.tick();
+    }
+    expect(
+      (await gov.view(head.userId)).agendas.find((agenda) => agenda.id === opened.agendaId)?.status,
+    ).toBe("enacted");
+    expect(applied).toEqual([{ nation: head.nation, taxes }]);
+    gov.stop();
+  }, 120_000);
 });

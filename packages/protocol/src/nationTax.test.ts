@@ -62,6 +62,9 @@ describe("나라 세금 메시지(프로토콜 57)", () => {
 
   it("결과: 성공(나라)·실패 코드", () => {
     const ok = { t: "nation_tax_result", id: 4, ok: true, factionId: 12 } as const;
+    // 세율 안건을 열었으면 agendaId(질문 2407 가 — 98판, 줄기 governance-2)
+    const agenda = { t: "nation_tax_result", id: 5, ok: true, factionId: 12, agendaId: 9 } as const;
+    expect(decodeServerMessage(encodeMessage(agenda))).toEqual(agenda);
     expect(decodeServerMessage(encodeMessage(ok))).toEqual(ok);
     for (const code of NATION_TAX_RESULT_CODES) {
       const fail = { t: "nation_tax_result", id: 4, ok: false, code } as const;

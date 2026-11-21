@@ -392,6 +392,7 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "governance.npcRunMax",
   "governance.vacancySplitMs",
   "governance.coupSatisfactionDrop",
+  "governance.taxAgendaWidthPm",
 ];
 
 const LIVE = new Set(SERVER_LIVE_PATHS);

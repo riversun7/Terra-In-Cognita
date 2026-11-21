@@ -2,6 +2,7 @@
 // 도시 이름(창고 곳 이름 — 아는 도시만 보내는 거르기는 services.ts cityNames, 기획 답 621 나).
 // 월드 원장은 메모리 장부 + 쓰기 대기열이다(src/economy/ledger.ts). 장부를 바꾸지 않고 계정만 훑는다(주체 정산도 하지 않는다:
 // 시험 자원 산출은 정시 정산 뒤에 보인다, src/world/settlement.ts).
+import { creditBookOf } from "../credit/book.ts";
 import type { MarketViews } from "../market/views.ts";
 import type { World } from "../world/world.ts";
 import type { EconomyAccountRow, EconomyWorldSource } from "./services.ts";
@@ -31,5 +32,10 @@ export function worldEconomySource(
         .flatMap(([id, place]) => (place.name === undefined ? [] : [{ id, name: place.name }]))
         .toSorted((a, b) => a.id - b.id),
     knownCityIds,
+    // 신용 장부는 원장에 붙어 있다(사업장 장부가 붙인다 — credit/book.ts)
+    creditBook: () => {
+      const ledger = world.persistence?.ledger;
+      return ledger ? creditBookOf(ledger) : undefined;
+    },
   };
 }

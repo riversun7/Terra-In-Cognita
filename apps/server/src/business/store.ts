@@ -1,4 +1,6 @@
 // 사업장 표 읽기(부팅 — facilities/state.ts loadFacilities가 함께 부른다) — docs/adr/2026-11-15-business-ledger.md
+import type { CreditMark } from "../credit/book.ts";
+import { loadCreditMarks } from "../credit/store.ts";
 import type { QueryPool } from "../world/persist/load.ts";
 import type { BusinessPrice, BusinessState } from "./core.ts";
 import { type LoadedShares, SHARE_ROUND_WINDOW_MS } from "./shares.ts";
@@ -8,6 +10,8 @@ export interface LoadedBusiness {
   readonly prices: readonly BusinessPrice[];
   /** 생산시설 지분 주문·회차(docs/adr/2026-11-15-building-screen.md). 없으면 빈 것 */
   readonly shares?: LoadedShares | undefined;
+  /** 신용 점수 깎은 몫(docs/adr/2026-11-21-credit.md — 사업장 장부가 신용 장부를 붙인다). 없으면 빈 것 */
+  readonly credit?: readonly CreditMark[] | undefined;
 }
 
 /** DB 큰 정수 칸 → BigInt(글자·숫자·BigInt, 그 밖은 0) */
@@ -29,8 +33,10 @@ export async function loadBusiness(pool: QueryPool): Promise<LoadedBusiness> {
     `select building_id, item, price from business_prices order by building_id, item`,
   );
   const shares = await loadShares(pool, Date.now());
+  const credit = await loadCreditMarks(pool);
   return {
     shares,
+    credit,
     states: states.rows.map((row) => ({
       buildingId: Number(row.building_id),
       debtSinceMs: numOrNull(row.debt_since_ms),

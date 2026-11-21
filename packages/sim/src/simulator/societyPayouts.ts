@@ -9,7 +9,7 @@
 // - 공물 = 봉신 국고 × tributePm ÷ 1000(D-443 설정값, 기획 값 없음).
 // - 주민세(D-579·D-581, society/residentTax.ts): 나라마다 주기 날 끝에 그 도시에 사는 유닛이 집 몫(고리 residentHomes)을, 사는 유닛이 있는 주인이 그 도시
 //   사업장 몫(고리 residentProperty)을 국고에 낸다. 국세 몫을 뺀 나머지는 그 도시 세금 수입으로 다음 도시 세금 정산(기간 세금)에 더한다. 세율 0(설정 칸·
-//   나라 값 모두)이면 아무것도 하지 않는다. 도시가 넘어가면 그 도시의 옛 나라 빚을 지운다(cityMoved — 2375 다).
+//   나라 값 모두)이면 아무것도 하지 않는다. 도시가 넘어가거나 폐허가 되면 그 도시의 옛 나라 빚을 지운다(cityMoved — 2375 다·2427 나).
 import { type CityRevenue, payCityProfit, profitRecipient, settleCityTaxes } from "../society/dividends.ts";
 import {
   type ResidentHome,
@@ -35,7 +35,7 @@ export interface PayoutCounts {
 
 export interface SocietyPayouts {
   readonly counts: PayoutCounts;
-  /** 도시 주인이 바뀐 바로 뒤(from = 옛 나라 — 그 도시의 옛 나라 주민세 빚을 지운다, D-581 2375 다) */
+  /** 도시 주인이 바뀐 바로 뒤·폐허가 된 바로 뒤(from = 옛 나라 — 그 도시의 옛 나라 주민세 빚을 지운다, D-581 2375 다·질문 2427 나) */
   cityMoved(cityId: number, from?: SimFaction, nowMs?: number): void;
   /** 그 도시에 쓴 운영비(연구 시설 짓기 값) */
   spent(cityId: number, amount: bigint): void;

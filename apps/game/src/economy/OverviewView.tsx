@@ -1,7 +1,7 @@
 // 경제 한눈에(/economy) — 자산·생산·거래·환전 요약 카드. 누르면 그 칸으로 간다(바꾸기).
 // [자산] 카드는 추정 가치 합계·지갑·물건 종류를 보이고 인벤토리 화면(/inventory)으로 간다(쌓기) — 옛 [창고] 칸은 인벤토리로 옮겼다
 // (사용자 결정 2026-11-14 "기존 창고도 이전 후 제거. 경제페이지에는 자산가치 합계 등의 정보", docs/adr/2026-11-14-inventory-screen.md).
-// 조회는 같은 틱에 나가 HTTP 요청 하나로 묶인다(httpBatchLink).
+// [신용] 카드(CreditCard.tsx — D-581)는 누르는 곳이 없다. 조회는 같은 틱에 나가 HTTP 요청 하나로 묶인다(httpBatchLink).
 import type { RouteTarget } from "@terra/shared";
 import { m } from "../paraglide/messages.js";
 import { AppLink } from "../shell/AppLink.tsx";
@@ -10,6 +10,7 @@ import { MoneyList } from "../ui/Money.tsx";
 import type { ReactNode } from "react";
 import { estimateValue, totalLines } from "../inventory/inventoryModel.ts";
 import { priceLookup, valueParts } from "../inventory/inventoryValue.ts";
+import { CreditCard } from "./CreditCard.tsx";
 import { assetName, indexCatalog } from "./economyText.ts";
 import { Amount, PreviewTag } from "./parts.tsx";
 import {
@@ -185,6 +186,7 @@ export default function OverviewView() {
             </span>
           ) : null}
         </OverviewCard>
+        <CreditCard />
       </ul>
       {catalog.data?.placeholder ? <p className="eco-footnote">{m.economy_placeholder_pack()}</p> : null}
     </>

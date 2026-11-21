@@ -39,6 +39,7 @@ import {
   residentSourceOf,
   withResidentProperty,
 } from "./residentProperty.ts";
+import { withCredit } from "../credit/hooks.ts";
 import { withNationTaxes } from "../government/nationTax.ts";
 import { withGovernanceHooks } from "./governanceHooks.ts";
 import {
@@ -276,12 +277,16 @@ export const npcRulingHooks = (
       : undefined;
   // 주민세 재산 값(D-579·2371 나, residentProperty.ts — 그 도시 건물 지은 값)과 나라 세금(2373 가, government/nationTax.ts — 나라 세율·주기·국세 몫)도
   // 여기서 얹는다(runtime.ts 1,000줄 상한)
-  const taxed = withNationTaxes(
-    withResidentProperty(
-      base,
-      residentSourceOf(o.economy?.build, o.econ, o.rules, { sim: o.world, ledger: o.ledger }),
+  // 주민세 빚이 남으면 신용 점수를 깎는다(D-581 — credit/hooks.ts)
+  const taxed = withCredit(
+    withNationTaxes(
+      withResidentProperty(
+        base,
+        residentSourceOf(o.economy?.build, o.econ, o.rules, { sim: o.world, ledger: o.ledger }),
+      ),
+      { ledger: o.ledger, rules: o.rules },
     ),
-    { ledger: o.ledger, rules: o.rules },
+    { ledger: o.ledger },
   );
   // 의결 고리(governanceHooks.ts — 점령 몰수·독립 투표 가문 지분·나라 단위 판단 멈춤·독재 지분 팔기, 줄기 governance-3)
   const governed = withGovernanceHooks(taxed, {

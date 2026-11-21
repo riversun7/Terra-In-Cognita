@@ -22,6 +22,7 @@
     "./characterLook": "./src/characterLook.ts",
     "./citizenship": "./src/citizenship.ts",
     "./contentEdit": "./src/contentEdit.ts",
+    "./credit": "./src/credit.ts",
     "./creatureEditor": "./src/creatureEditor.ts",
     "./cyborg": "./src/cyborg.ts",
     "./dashboard": "./src/dashboard.ts",

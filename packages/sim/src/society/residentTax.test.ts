@@ -89,7 +89,9 @@ describe("주민세(D-579)", () => {
       nationSharePm: 0,
       atMs: 1,
     });
-    expect(out.arrears).toEqual([{ city: 7, payer: 40, unit: 11, owed: 7n, added: 7n }]);
+    expect(out.arrears).toEqual([
+      { city: 7, payer: 40, unit: 11, owed: 7n, added: 7n, code: residentDebtCode(NATION, 7, 40, CUR, 11) },
+    ]);
     expect(book.balance(purse)).toBe(0n);
     expect(book.balanceOf(NATION, CUR)).toBe(3n);
     expect(book.balance(book.systemAccount(residentDebtCode(NATION, 7, 40, CUR, 11), CUR))).toBe(-7n);
@@ -140,7 +142,9 @@ describe("주민세(D-579)", () => {
       { city: 3, due: 100n, paid: 100n, cityPart: 80n, nationPart: 20n },
       { city: 7, due: 150n, paid: 100n, cityPart: 80n, nationPart: 20n },
     ]);
-    expect(first.arrears).toEqual([{ city: 7, payer: 40, owed: 50n, added: 50n }]);
+    expect(first.arrears).toEqual([
+      { city: 7, payer: 40, owed: 50n, added: 50n, code: residentDebtCode(NATION, 7, 40, CUR) },
+    ]);
     expect(book.balanceOf(NATION, CUR)).toBe(200n);
     expect(book.balance(book.systemAccount(residentDebtCode(NATION, 7, 40, CUR), CUR))).toBe(-50n);
     expect(book.balance(book.systemAccount(residentClaimCode(NATION, CUR), CUR))).toBe(50n);
@@ -162,7 +166,9 @@ describe("주민세(D-579)", () => {
       atMs: 3,
     });
     expect(second.cities).toEqual([{ city: 7, due: 0n, paid: 30n, cityPart: 30n, nationPart: 0n }]);
-    expect(second.arrears).toEqual([{ city: 7, payer: 40, owed: 20n, added: -30n }]);
+    expect(second.arrears).toEqual([
+      { city: 7, payer: 40, owed: 20n, added: -30n, code: residentDebtCode(NATION, 7, 40, CUR) },
+    ]);
     expect(book.balance(book.systemAccount(residentClaimCode(NATION, CUR), CUR))).toBe(20n);
   });
 

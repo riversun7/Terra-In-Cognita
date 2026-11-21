@@ -66,7 +66,11 @@ test.describe("플레이어(실제 자료)", () => {
   }) => {
     const calls = watchTrpc(page);
     await page.goto("/economy");
-    await expect(economy(page).locator(".eco-card")).toHaveCount(4);
+    // 카드 넷(자산·생산·거래·환전) + [신용](D-581 — 누르는 곳 없음, 빚이 없는 새 플레이어는 시작값 한 줄)
+    await expect(economy(page).locator(".eco-card")).toHaveCount(5);
+    await expect(economy(page).locator('[data-card="credit"] .eco-card-metric')).toHaveText(
+      message("ko", "economy_credit_clean", { score: 1000 }),
+    );
     await expect(page.locator("#economy-title")).toHaveText(message("ko", "nav_economy"));
     await page.getByRole("link", { name: message("ko", "economy_tab_market"), exact: true }).click();
     await expect(page).toHaveURL(/\/economy\/market$/);

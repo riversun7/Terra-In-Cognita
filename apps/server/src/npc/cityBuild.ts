@@ -18,6 +18,8 @@
 // 없다. SIM_VERSION 그대로).
 // 바뀜 (house-10, 기획 대조 2301 — D-555 1505·1509·D-554): 그 도시 운반 수요가 크면(기다리는 NPC 운반 일 × 상업 성향 배율 ≥ 설정 칸, 도시 휴먼 ≥ 설정 칸)
 // 목표에 물류센터 하나(npcLogistics.ts wantsCenter — 서버만, SIM_VERSION 그대로).
+// 바뀜(fixes-1116t, 기획 대조 2348 다 — D-554 "고정 규칙 대신 성향 변수"): 하나 상한을 없앤다. 목표 수 = npcLogistics.ts centerTarget(지금 그 세력의 그 도시
+// 물류센터 수 k — 짓는 중 포함 — 에서 문턱·하한 × (k + 1)을 넘으면 k + 1).
 import type { CityCell } from "@terra/shared/goodsPlaces";
 import type {
   Economy,
@@ -39,7 +41,7 @@ import type { GatherKind } from "../gather/kinds.ts";
 import { isBerth, isShipyard } from "../boats/rules.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { LogisticsCoefficients } from "@terra/sim";
-import { wantsCenter } from "./npcLogistics.ts";
+import { centerTarget } from "./npcLogistics.ts";
 
 /** 월드가 넘기는 짓기 입력(market/worldInput.ts — NPC 도시 경제 입력의 build 칸) */
 export interface NpcBuildWorld {
@@ -313,21 +315,24 @@ export function npcBuildRunOf(o: {
         berth === undefined ? undefined : coast.shipyard(),
       );
       for (const exchange of exchangeTargets(world)) targets = withCoastalDock(targets, exchange);
-      // 물류센터(2301): 운반 수요가 크고 상업 성향이 받쳐 줄 때 하나
+      // 물류센터(2301·2348 다): 운반 수요가 크고 상업 성향이 받쳐 줄 때 — 수요가 계속 크면 둘째·셋째도
       const rules = o.rules();
       const center = logisticsTarget(world);
-      if (center !== undefined && rules.logistics && rules.npc && econ.carry)
-        if (
-          wantsCenter(
-            {
-              waiting: econ.carry.waitingIn(cityId),
-              humans: econ.economy.cityUnits.get(cityId) ?? 0,
-              commerce: faction.traits.commerce,
-            },
-            { ...rules.npc, ...rules.logistics },
-          )
-        )
-          targets = withCoastalDock(targets, center);
+      // 기다리는 일이 없으면 더 지을 까닭이 없다(지금 수 그대로 — 시설 훑기를 건너뛴다)
+      const waiting = econ.carry?.waitingIn(cityId) ?? 0;
+      if (center !== undefined && rules.logistics && rules.npc && waiting > 0) {
+        const existing = builder.site(faction, cityId)?.counts.get(center) ?? 0;
+        const want = centerTarget(
+          {
+            waiting,
+            humans: econ.economy.cityUnits.get(cityId) ?? 0,
+            commerce: faction.traits.commerce,
+            existing,
+          },
+          { ...rules.npc, ...rules.logistics },
+        );
+        targets = withTarget(targets, center, want);
+      }
       return targets;
     },
   };
@@ -359,6 +364,18 @@ export function withCoastalDock(
   if (dock === undefined || (targets?.get(dock) ?? 0) >= 1) return targets;
   const out = new Map(targets ?? []);
   out.set(dock, 1);
+  return out;
+}
+
+/** 목표에 그 시설 n개(이미 더 큰 목표면 그대로, n이 0 이하면 그대로) */
+export function withTarget(
+  targets: ReadonlyMap<string, number> | undefined,
+  facility: string,
+  n: number,
+): ReadonlyMap<string, number> | undefined {
+  if (n <= 0 || (targets?.get(facility) ?? 0) >= n) return targets;
+  const out = new Map(targets ?? []);
+  out.set(facility, n);
   return out;
 }
 

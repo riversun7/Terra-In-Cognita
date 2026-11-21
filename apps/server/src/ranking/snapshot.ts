@@ -9,6 +9,8 @@
 //   판 줄의 전투력·자산 칸)를 같은 트랜잭션에서 바꾼다.
 // - 바뀜(house-10, 기획 대조 2313·2316): 값 표에 모든 유닛(유닛 판)·가문 금고·NPC 가문장 몫도 싣는다(worth.ts). 유닛 재고 지표는 모든 유닛에 싣지만
 //   유닛 점수는 가문원만 센다(computeUnitScores가 members로 거른다).
+// - 바뀜(fixes-1116t, 기획 대조 2341 나): 가문 금고·NPC 가문장 몫을 가문 하나의 재고 지표로 보고 감쇠형 가문 몫 점수(ranking_house_scores,
+//   houseScores.ts)를 같은 기간·같은 감쇠로 쌓아 같은 트랜잭션에 쓴다(가문 판 점수 = 가문원 합 + 가문 몫).
 import type { RankingPathInfo } from "@terra/shared/ranking";
 import {
   type RankingCoefficients,
@@ -37,6 +39,7 @@ import {
   readUnitFlows,
   writeUnitScores,
 } from "./unitScores.ts";
+import { computeHouseScores, readLiveHouses, readPrevHouses, writeHouseScores } from "./houseScores.ts";
 import { type WorthSource, type WorthValues, readWorth, writeWorth } from "./worth.ts";
 
 /** 집계 주기 하한(설정 칸 범위와 같다) */
@@ -191,6 +194,8 @@ export interface SnapshotReport {
   readonly unitRows: number;
   /** 전투력·자산 값 표 줄 수(house-9) */
   readonly worthRows: number;
+  /** 가문 몫 점수 줄 수(fixes-1116t 2341) */
+  readonly houseRows: number;
 }
 
 /** 전투력·자산을 재고 지표에 싣는다(없는 주체는 새 줄) */
@@ -222,13 +227,15 @@ export async function runSnapshot(
   const state = await readSnapshotState(pool);
   const window = dueWindow(state, options.nowMs, c.periodMs);
   if (window === null) return null;
-  const [flows, stocks, factions, prev, members, prevUnits] = await Promise.all([
+  const [flows, stocks, factions, prev, members, prevUnits, prevHouses, liveHouses] = await Promise.all([
     readFlows(pool, window.fromMs, window.toMs, c.underdogCapPm),
     readStocks(pool),
     readFactionScales(pool, options.creditAsset),
     readPrev(pool),
     readHouseUnits(pool),
     readPrevUnits(pool),
+    readPrevHouses(pool),
+    readLiveHouses(pool),
   ]);
   // NPC 도시 가문원 유닛 점수(질문 2146 → 고침, unitScores.ts) — 같은 기간·같은 감쇠, 같은 트랜잭션에 쓴다. 바뀜(D-576): 도시 산출·NPC 시설 몫도
   const unitFlows = await readUnitFlows(pool, window.fromMs, window.toMs, c.underdogCapPm, members);
@@ -249,6 +256,16 @@ export async function runSnapshot(
     flows: unitFlows,
     stocks: unitStocks,
     members,
+    coefficients: c,
+    periods: window.periods,
+  });
+  // 가문 몫 점수(2341 나 — 가문 금고·NPC 가문장 몫, 감쇠형)
+  const houseRows = computeHouseScores({
+    paths: options.paths,
+    prev: prevHouses,
+    houses: worth.houses,
+    npcHouses: worth.npcHouses,
+    live: liveHouses,
     coefficients: c,
     periods: window.periods,
   });
@@ -303,6 +320,7 @@ export async function runSnapshot(
         ],
       );
     await writeUnitScores(client, unitRows);
+    await writeHouseScores(client, houseRows);
     worthRows = await writeWorth(client, worth);
     await client.query(
       `insert into ranking_state (id, period_from_ms, period_to_ms, computed_at_ms) values (1, $1, $2, $3)
@@ -323,5 +341,6 @@ export async function runSnapshot(
     factionRows: next.factions.length,
     unitRows: unitRows.length,
     worthRows,
+    houseRows: houseRows.length,
   };
 }

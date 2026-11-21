@@ -72,7 +72,7 @@ import { type CarryBoard, type CarryBoardOptions, createCarryBoard, peopleCounte
 import { EVENT_NPC_DELIVER, type NpcBusiness, createNpcDeliveries } from "./npcDelivery.ts";
 import { shopPriceSource } from "./npcShopPrice.ts";
 import { createNpcWages } from "./npcWages.ts";
-import { createNpcLogistics } from "./npcLogistics.ts";
+import { type NpcLogistics, createNpcLogistics, payCenterHaulers } from "./npcLogistics.ts";
 import type { NpcBuildWorld } from "./cityBuild.ts";
 import type { ServerEconomyCatalog } from "../market/catalog.ts";
 import { rulingVaultOf } from "../factionIdentity/houseVault.ts";
@@ -321,7 +321,11 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   const { currencyOf, taxOf, issuer } = nationCurrencies(world, catalog, ASSET_CREDIT);
   const isUser = (ownerId: number): boolean => (o.owners.get(ownerId)?.userId ?? null) !== null;
   // NPC 운반꾼 화물(2052·2088): 시설 산출·거래소 운반이 같이 쓴다. 빈 일꾼 운반꾼 = 그 도시 휴먼 중 운반하지 않는 사람(2155)
-  const people = peopleCounter(o.now, () => world.units.values());
+  // NPC 물류센터 운반꾼은 자기 짐 운반꾼에서 뺀다(fixes-1116t — 물류센터에 맡긴 짐을 진다, npcLogistics.ts staffIn). 물류센터 표는 아래에서 만든다
+  const centersRef: { current?: NpcLogistics } = {};
+  const allPeople = peopleCounter(o.now, () => world.units.values());
+  const people = (cityId: number): number =>
+    Math.max(0, allPeople(cityId) - (centersRef.current?.staffIn(cityId) ?? 0));
   const carry = createCarryBoard(book, { peopleOf: people, outsource: o.input.haulOutsource?.(book) });
   // 거래소 모음: 호가창 물건 + 있는 도시에만. 화폐·세율·국고 = 그 도시 주인
   const registry = createMarketRegistry({
@@ -521,6 +525,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     cityOf: (buildingId) => o.input.build?.service.facilities.get(buildingId)?.cityId,
     now: o.now,
   });
+  centersRef.current = centers;
   wagesRef.current = createNpcWages({
     book,
     world,
@@ -891,6 +896,20 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       const fees = wagesRef.current?.chargeLodgingFees(nowMs);
       if (fees && (fees.paid > 0n || fees.short > 0))
         o.log.info({ npcLodgingFees: { day, ...fees, paid: String(fees.paid) } }, "npc lodging fees");
+      // NPC 물류센터 운반꾼 임금(2347 나, npcLogistics.ts): 그 물류센터 금고(모자라면 국고가 넣음)에서 휴먼 지갑으로
+      const haul = payCenterHaulers(
+        {
+          book,
+          world,
+          business: o.input.business,
+          logistics: centers,
+          currencyOf: (owner) => currencyOf.get(owner) ?? ASSET_CREDIT,
+          rules: o.rules,
+        },
+        nowMs,
+      );
+      if (haul.paidHaulers + haul.unpaidHaulers > 0)
+        o.log.info({ npcHaulWages: { day, ...haul, paid: String(haul.paid) } }, "npc haul wages");
       syncAll(nowMs);
     },
     restPlan: (cityId) => restPlans.get(cityId),

@@ -1,6 +1,7 @@
 // 랭킹 전투력·자산 시험(DB, house-9 — 기획 D-576·D-7022·D-555 1512·D-097): 원장 묶음 읽기(지갑·물건·사업장 금고 지분 나누기·유닛 지갑),
 // 유닛 전투력(배 빼고), 집계가 값 표·재고 지표·NPC 가문원 점수에 싣는지, 경로 판·가문 판 줄의 전투력·자산 칸. TEST_DATABASE_URL이 있을 때만 돈다.
 // 바뀜(house-10, 2313·2316): 걸어 둔 주문 몫(거래소·환전·지분)·가문 금고·NPC 가문장(국가 지도자) 지갑·전투력, 모든 유닛 몫과 유닛 판.
+// 바뀜(fixes-1116t, 2341 나·2345 나): 가문 몫 감쇠형 점수(ranking_house_scores)가 가문 판 점수에 더해지는지, 규모 시험 봇이 유닛 몫에서 빠지는지.
 import type { RankingPathInfo } from "@terra/shared/ranking";
 import { TEST_RANKING_COEFFICIENTS } from "@terra/sim";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -8,6 +9,7 @@ import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase } from "../tes
 import { readHouseBoard } from "./houseBoard.ts";
 import { runSnapshot } from "./snapshot.ts";
 import { readUnitBoard } from "./unitBoard.ts";
+import { testMapKey } from "../world/testMaps.ts";
 import { type WorthSource, readWorth } from "./worth.ts";
 
 const NOW = Date.UTC(2026, 10, 16, 12);
@@ -209,6 +211,56 @@ describe.skipIf(!TEST_DATABASE_URL)("랭킹 전투력·자산 (DB)", () => {
     expect(board.rows).toHaveLength(1);
     // 가문원 합 + 지배 가문 몫(금고 70 + 지도자 지갑 33, 지도자 전투력 200 — 2313)
     expect(board.rows[0]).toMatchObject({ npc: true, members: 2, worth: { power: "270", assets: "128" } });
+    // 가문 몫 점수(2341 나): 금고·지도자 몫을 재고 지표로 쌓은 감쇠형 점수 — 전투력 경로는 NPC 가문만(플레이어 가문 금고는 전투력 0),
+    // 자산 경로는 둘 다. 가문 판 점수 = 가문원 합 + 가문 몫
+    const own = await sql(
+      `select path_id, npc, house_id, score from ranking_house_scores order by path_id, npc, house_id`,
+    );
+    const ownRows = own.rows.map((row) => [row.path_id, row.npc, Number(row.house_id), Number(row.score)]);
+    expect(ownRows.map((row) => row.slice(0, 3))).toEqual([
+      ["strongest", true, 9],
+      ["wealthiest", false, house],
+      ["wealthiest", true, 9],
+    ]);
+    const npcStrong = Number(ownRows[0]?.[3]);
+    expect(npcStrong).toBeGreaterThan(0);
+    expect(board.rows[0]?.score).toBe(4954 + 5357 + npcStrong);
+    const wealth = await readHouseBoard(
+      {
+        db: test.db.$client,
+        nations: new Map(),
+        coefficients: { tiersPm: TEST_RANKING_COEFFICIENTS.tiersPm, topRanks: 3 },
+      },
+      "00000000-0000-0000-0000-000000000000",
+      "wealthiest",
+    );
+    // 플레이어 가문은 가문원 점수가 없어도 가문 몫 점수(금고 200)로 줄이 선다(가문원 0명). NPC 가문은 가문원 자산 점수 + 가문 몫(금고 70 + 지도자 지갑 33)
+    const playerRow = wealth.rows.find((row) => row.npc !== true);
+    expect(playerRow).toMatchObject({ members: 0, score: Number(ownRows[1]?.[3]), worth: { assets: "200" } });
+    expect(wealth.rows.find((row) => row.npc === true)?.score).toBeGreaterThan(Number(ownRows[2]?.[3]));
+  });
+
+  it("규모 시험 봇(2345 나): 시험 2차맵의 휴먼 줄 없는 봇은 유닛 몫에서 빠지고, 같은 자리의 NPC 휴먼은 든다", async () => {
+    const testKey = testMapKey(0);
+    await sql(
+      `insert into world_units (id, owner_id, kind, size, speed, map_key, path, depart_at_ms) values
+         (30, 1, 0, 1, 1000, $1, '{0,0,1,1}', 0), (31, 1, 0, 1, 1000, $1, '{0,0,1,1}', 0)`,
+      [testKey],
+    );
+    await sql(
+      `insert into world_humans (unit_id, city_id, satisfaction_milli, born_at_ms, lifespan_ms) values (31, 1, 50000, 0, 1)`,
+    );
+    try {
+      const worth = await readWorth(test.db.$client, SOURCE, "credit");
+      expect(worth.units.has(30)).toBe(false);
+      expect(worth.unitInfo.has(30)).toBe(false);
+      expect(worth.units.get(31)).toEqual({ power: 310n, assets: 0n });
+      // 주인(나라) 전투력 합에는 옛처럼 든다: 270 + 300 + 310
+      expect(worth.owners.get(1)?.power).toBe(880n);
+    } finally {
+      await sql(`delete from world_humans where unit_id = 31`);
+      await sql(`delete from world_units where id in (30, 31)`);
+    }
   });
 
   it("유닛 판(2316): 지표 값 순위·주인 이름·내 유닛 줄·등급 문턱", async () => {

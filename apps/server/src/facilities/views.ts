@@ -68,6 +68,8 @@ export interface FacilityViewSource {
   readonly lodgingOccupants?: ((buildingId: number, cityId: number | null) => number | undefined) | undefined;
   /** 그 도시의 고를 수 있는 물류센터(거래소 넣기 운반 맡기기 — 기획 D-576, logistics/haulService.ts centersView). 없으면 칸 없이 */
   readonly haulCenters?: ((cityId: number, viewerOwnerId: number) => HaulCenterView[]) | undefined;
+  /** 그 주체의 계정 자동 맡기기(기획 대조 2272 — haulService.auto). 없으면 칸 없이 */
+  readonly autoHaulOf?: ((ownerId: number) => boolean) | undefined;
   /** 빈 2차맵 알박기의 편·가문이 정한 상태(폐허 서비스 claimOf·claimLockedOf — 짓는 중 고르기 바꾸기 칸, D-577). 없으면 kind null·locked null */
   readonly claimOf?: ((ownerId: number, mapKey: number) => FacilityLandClaim | null) | undefined;
   readonly claimLockedOf?: ((ownerId: number) => "vassal" | "independent" | null) | undefined;
@@ -140,6 +142,8 @@ function placesOf(
         exchange = facilityId === null ? undefined : catalog.facility(facilityId)?.exchange;
         // 내 사업장 물건은 판매만(D-569 1781). 거래소 건물 창고는 맡긴 물건이라 꺼낸다
         sale = found?.ownerId === ownerId && facilityId !== null && !storage && exchange === undefined;
+        // 꺼낼 때 맡길 수 있는 물류센터(기획 대조 2273 — 남의 건물 몫·거래소 건물 창고 꺼내기)
+        if (cityId !== null && !storage && !sale) centers = haulCenters?.(cityId, ownerId);
       } else if (place.kind === "cargo" && place.id !== null)
         for (const map of world.maps.values()) if (map.unitInfo(place.id)) mapKey = map.mapKey;
       entry = {
@@ -563,5 +567,6 @@ export function facilitiesOverview(
     holdings,
     targets,
     dev: input.dev,
+    ...(ownerId === undefined || !source.autoHaulOf ? {} : { autoHaul: source.autoHaulOf(ownerId) }),
   };
 }

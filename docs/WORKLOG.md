@@ -5,7 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
-| 2026-11-21 09:20 (KST) — 2026-11-17 00:40에 바탕 `0efec8a4a7`에서 끝내고(사용량 제한으로 멈춤) 11-21에 커밋·새 main 합치기 | 가문 9 — 랭킹 전투력·자산 지표(2258 다안·D-576)·NPC 지배 가문장 꺼내기·쓰기(2255 다안)·군단장 분대별 명령(2265 나)·지도자 [임시] 표시(2254) | Claude Code | [21-0920-house-9](worklog/2026/11/21-0920-house-9.md) |
+| 2026-11-17 00:20 ~ 2026-11-21 09:25 (KST, 사용량 제한으로 멈췄다가 이어서 끝냄) | 물류센터 2차: 요금 나라 화폐·꺼내기·사업장 판매 맡기기·계정 자동 맡기기·NPC 맡기기 (기획 대조 2272·2273·2274·2277) | Claude Code | [21-0925-haul-2](worklog/2026/11/21-0925-haul-2.md) |
 | 2026-11-20 15:20 | 홈 대시보드 테라 인코그니타 독자 비대칭 커맨드 벤토 개편 및 VIT·DEX 스탯 색상 분리 | Antigravity | [20-1520-dashboard-original-bento-and-stat-colors](worklog/2026/11/20-1520-dashboard-original-bento-and-stat-colors.md) |
 | 2026-11-20 13:55 | 건물 티어별 재료 2의 제곱수 밸런스 · 유닛 공통 경험치 테이블 및 시각화 에디터 | Antigravity | [20-1355-balance-buildings-exp-table](worklog/2026/11/20-1355-balance-buildings-exp-table.md) |
 | 2026-11-20 13:00 | 홈 대시보드 프로 터미널 개편 및 전역 타이포그래피·사이드바 정돈 | Antigravity | [20-1300-pro-dashboard-and-shell-overhaul](worklog/2026/11/20-1300-pro-dashboard-and-shell-overhaul.md) |

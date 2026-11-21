@@ -57,6 +57,12 @@ export const LAND_CLAIM_PROTOCOL_VERSION = 53;
  */
 export const LOGISTICS_PROTOCOL_VERSION = 54;
 /**
+ * 물류센터 맡기기 넓히기(기획 대조 2273·2272 — 묶음 1116r 55, 줄기 haul-2 판 84): storage_move 꺼내기(out)·business_buy(사업장 판매 운반)의 via, via "own"(내 운반꾼만 —
+ * 계정의 자동 맡기기를 켜 두었어도 이번 명령은 맡기지 않는다). via가 없으면 서버가 계정 설정(자동 맡기기)을 따른다. 더 낮은 판 기기는 이 값들을 보내지
+ * 않는다(서버는 계정 설정으로)
+ */
+export const HAUL_OUT_PROTOCOL_VERSION = 55;
+/**
  * 짓는 중 알박기 고르기 바꾸기(facility_claim, 기획 D-577 — "정부 건물 완성 때 발효, 완성 전에는 언제든 바꿀 수 있게")가 생긴 판. 더 낮은 판
  * 기기는 보내지 않는다(그 판은 짓기 때 고른 것이 그대로 간다)
  */
@@ -163,9 +169,10 @@ const assetCode = z
 
 /**
  * 운반 맡기기 칸(54부터, D-576): 물류센터 건물 ID(명령에서 직접 고름 — 같은 도시의 물류센터) 또는 auto(설정의 자동 맡기기 — 내 운반꾼이 없으면 같은 도시의
- * 받는 물류센터 가운데 한 단위 요금이 가장 싼 곳, 없으면 예전처럼). 없으면 내 운반꾼만
+ * 받는 물류센터 가운데 한 단위 요금이 가장 싼 곳, 없으면 예전처럼). 55부터 own(내 운반꾼만)과, 칸이 없으면 계정 설정(자동 맡기기 — 켜면 auto, 끄면 own,
+ * 기획 대조 2272)
  */
-export const haulViaSchema = z.union([rowId, z.literal("auto")]);
+export const haulViaSchema = z.union([rowId, z.literal("auto"), z.literal("own")]);
 
 /**
  * 창고 옮기기(프로토콜 11, 49 N50·D-121·D-516 382): direction in = 그 건물이 선 도시의 내 도시 창고 → 그 2차맵 내 유닛 화물 차례로 꺼내
@@ -179,7 +186,7 @@ export const storageMoveMessage = z.object({
   asset: assetCode,
   qty: z.number().int().min(1).max(1_000_000),
   direction: z.enum(["in", "out"]),
-  /** 물류센터에 맡기기(54부터 — 물자 거래소 건물 넣기만 쓴다, 다른 옮기기는 무시) */
+  /** 물류센터에 맡기기(54부터 물자 거래소 건물 넣기, 55부터 꺼내기도 — 기획 대조 2273. 창고 시설 넣기는 무시) */
   via: haulViaSchema.optional(),
 });
 

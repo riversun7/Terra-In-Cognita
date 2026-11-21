@@ -141,3 +141,58 @@ describe("NPC 시설 판매가(2153)", () => {
     expect(npcShopPrice({ ...base, base: 1n, stock: 1000n, commerceTiltPm: 0 })).toBe(1n);
   });
 });
+
+describe("운반 일 판 — 운반꾼이 없으면 물류센터에 맡긴다(2274)", () => {
+  it("빈 일꾼 운반만 맡기고, 맡긴 일은 휴먼 자리·싣기에서 빠지며 닿음은 맡긴 쪽이 알린다", () => {
+    let ids = 1;
+    const book = createLedgerBook({ nextAccountId: () => ids++, nextTxId: () => ids++ });
+    book.post({
+      kind: "grant",
+      atMs: 0,
+      entries: [
+        { account: book.systemAccount("source", GRAIN), amount: -100n },
+        { account: book.ownerAccount(OWNER, GRAIN, FROM), amount: 100n },
+      ],
+    });
+    let open = false;
+    let landed = false;
+    const asked: string[] = [];
+    const board = createCarryBoard(book, {
+      peopleOf: () => 1,
+      outsource: (req, nowMs) => {
+        asked.push(req.key);
+        if (!open) return undefined;
+        // 실제 운반 길이 물건을 옮긴다(여기서는 바로 to로 — 닿음은 landed가 알린다)
+        book.post({
+          kind: "test",
+          atMs: nowMs,
+          entries: [
+            { account: book.ownerAccount(OWNER, GRAIN, FROM), amount: -10n },
+            { account: book.ownerAccount(OWNER, GRAIN, TO), amount: 10n },
+          ],
+        });
+        return { arriveAtMs: nowMs + 5000, done: () => landed };
+      },
+    });
+    // 휴먼 하나가 먼저 진다 → 둘째는 맡겨 보지만 물류센터가 없어 기다림
+    expect(board.post(request("x:1", 0))).toBe(1000);
+    expect(board.post(request("x:2", 0))).toBeUndefined();
+    expect(asked).toEqual(["x:2"]);
+    // 일꾼 운반은 맡기지 않는다
+    expect(board.post(request("f:1", 0, { worker: 7 }))).toBe(1000);
+    expect(board.post(request("f:2", 0, { worker: 7 }))).toBeUndefined();
+    expect(asked).toEqual(["x:2"]);
+    // 물류센터가 생기면 pump가 맡긴다 — 도시 휴먼 자리를 쓰지 않는다
+    open = true;
+    expect(board.pump(100)).toBe(1);
+    expect(board.stateOf("x:2")).toBe("waiting");
+    expect(board.idle(3, 200).map((job) => job.key)).toEqual(["x:1"]);
+    expect(board.load("x:2", 55, 200)).toBe(false);
+    landed = true;
+    expect(board.stateOf("x:2")).toBe(100);
+    // 끝은 원장을 옮기지 않고 to에 있는 만큼(요청 양까지)
+    expect(board.finish("x:2", 6000)).toEqual([{ asset: GRAIN, qty: 10n }]);
+    expect(book.balanceOf(OWNER, GRAIN, TO)).toBe(10n);
+    expect(book.balanceOf(OWNER, GRAIN, FROM)).toBe(90n);
+  });
+});

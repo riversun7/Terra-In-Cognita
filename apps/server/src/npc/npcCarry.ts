@@ -15,6 +15,11 @@
 // - 떠난 일은 끝까지 간다(판 주문을 거두어도 — 보는지와 상관없이 같은 판정). 기다리는 일만 옮기지 않고 지운다(drop).
 // - 일은 메모리다. 다시 켜면 잊는다: 시설 창고에 남은 NPC 물건은 켤 때 훑어 그 도시 창고로 보낸다(npcDelivery.ts sweep). 화물에 실린 채 다시 켜면 그 화물은
 //   운반꾼에게 남는다(잃지 않는다 — 미검증·TODO: 켤 때 NPC 휴먼 화물 돌려놓기, 질문 2156).
+// - 바뀜 (기획 대조 2274 — D-555 1509 "NPC도 똑같다", D-576 물류센터, 줄기 haul-2): 빈 일꾼 운반이 운반꾼이 없어 기다리게 되면(건 때·pump 때) 같은 도시
+//   물류센터에 맡겨 본다(outsource — 플레이어 것 포함, 한 단위 요금이 싼 차례, 요금은 그 세력 국고 = 나라 화폐 지갑 → 그 물류센터 금고, logistics/npcOutsource.ts).
+//   맡긴 일은 물류센터 일꾼이 실제 운반 길(gather/station.ts carry)로 진다 — NPC 휴먼이 싣지 않고(load·idle에서 뺀다) 도시 휴먼 자리도 쓰지 않는다. 닿았는지는
+//   맡긴 쪽이 알린다(done — 운반꾼 화물이 비면). 끝(finish)은 원장을 옮기지 않고(운반 길이 이미 내려놓았다) to에 있는 만큼(요청 양까지)을 닿은 양으로 돌려준다
+//   [임시] — 약탈로 덜 닿았는데 to에 같은 물건이 이미 있으면 더 많게 셀 수 있다.
 // 정수·BigInt만 쓴다.
 import { cargoLocation } from "@terra/shared/goodsPlaces";
 import type { LedgerBook } from "@terra/sim";
@@ -54,11 +59,21 @@ export interface CarryRequest {
 export interface CarryJob extends CarryRequest {
   readonly fromMs: number;
   readonly untilMs: number;
+  /** 물류센터에 맡긴 일(2274): 닿았나(운반꾼 화물이 비었나). 없으면 NPC 휴먼 일 */
+  readonly outsourced?: (() => boolean) | undefined;
+}
+
+/** 물류센터에 맡긴 결과(logistics/npcOutsource.ts): 닿는 시각과 닿았는지 묻기 */
+export interface OutsourcedCarry {
+  readonly arriveAtMs: number;
+  readonly done: () => boolean;
 }
 
 export interface CarryBoardOptions {
   /** 그 도시 휴먼 수(경비대 빼고 — 운반꾼이 될 수 있는 사람, 보는지와 상관없는 셈). 없으면 빈 일꾼 운반은 하나씩 */
   readonly peopleOf?: ((cityId: number) => number) | undefined;
+  /** 빈 일꾼 운반꾼이 없을 때 같은 도시 물류센터에 맡겨 본다(2274). 맡겼으면 결과, 못 맡기면 undefined. 없으면 맡기지 않는다 */
+  readonly outsource?: ((request: CarryRequest, nowMs: number) => OutsourcedCarry | undefined) | undefined;
 }
 
 export interface CarryBoard {
@@ -86,9 +101,13 @@ export interface CarryBoard {
   readonly waiting: () => number;
 }
 
-/** 운반꾼 줄: 일꾼 운반은 시설마다, 빈 일꾼 운반은 도시마다 */
-const laneOf = (request: CarryRequest): string =>
-  request.worker === undefined ? `c:${String(request.cityId)}` : `w:${String(request.worker)}`;
+/** 운반꾼 줄: 일꾼 운반은 시설마다, 빈 일꾼 운반은 도시마다, 물류센터에 맡긴 일은 일마다(도시 휴먼 자리를 쓰지 않는다) */
+const laneOf = (request: CarryRequest | CarryJob): string =>
+  "outsourced" in request && request.outsourced
+    ? `o:${request.key}`
+    : request.worker === undefined
+      ? `c:${String(request.cityId)}`
+      : `w:${String(request.worker)}`;
 
 export function createCarryBoard(ledger: LedgerBook, options: CarryBoardOptions = {}): CarryBoard {
   const jobs = new Map<string, CarryJob>();
@@ -139,6 +158,22 @@ export function createCarryBoard(ledger: LedgerBook, options: CarryBoardOptions 
     job.onStart?.(job);
     return job;
   };
+  /** 빈 일꾼 운반을 물류센터에 맡겨 본다(2274). 맡겼으면 그 일 */
+  const outsource = (request: CarryRequest, nowMs: number): CarryJob | undefined => {
+    if (request.worker !== undefined || !options.outsource) return undefined;
+    const fromMs = Math.max(nowMs, request.atMs);
+    const handed = options.outsource(request, fromMs);
+    if (!handed) return undefined;
+    const job: CarryJob = {
+      ...request,
+      fromMs,
+      untilMs: Math.max(fromMs, handed.arriveAtMs),
+      outsourced: handed.done,
+    };
+    jobs.set(job.key, job);
+    job.onStart?.(job);
+    return job;
+  };
   /** 그 줄에 빈 자리가 있는 만큼 기다리던 일을 freedMs에 띄운다 */
   const promote = (lane: string, freedMs: number): number => {
     let started = 0;
@@ -169,12 +204,22 @@ export function createCarryBoard(ledger: LedgerBook, options: CarryBoardOptions 
       // 앞에 기다리는 일이 있으면 그 뒤에(차례를 지킨다)
       const ahead = queue.some((entry) => laneOf(entry) === lane);
       if (!ahead && used(lane) < capacity(request)) return start(request, request.atMs).untilMs;
+      // 운반꾼이 없으면 같은 도시 물류센터에(2274), 못 맡기면 기다린다
+      const handed = ahead ? undefined : outsource(request, request.atMs);
+      if (handed) return handed.untilMs;
       queue.push(request);
       return undefined;
     },
     load(key, unitId, nowMs) {
       const job = jobs.get(key);
-      if (!job || carriers.has(key) || busy.has(unitId) || nowMs >= job.untilMs || nowMs < job.fromMs)
+      if (
+        !job ||
+        job.outsourced ||
+        carriers.has(key) ||
+        busy.has(unitId) ||
+        nowMs >= job.untilMs ||
+        nowMs < job.fromMs
+      )
         return false;
       const at = cargoLocation(unitId);
       let any = false;
@@ -189,6 +234,13 @@ export function createCarryBoard(ledger: LedgerBook, options: CarryBoardOptions 
       const job = jobs.get(key);
       if (!job) return [];
       jobs.delete(key);
+      // 물류센터에 맡긴 일(2274): 운반 길이 이미 내려놓았다 — to에 있는 만큼(요청 양까지)
+      if (job.outsourced)
+        return job.stacks.flatMap((stack) => {
+          const have = ledger.balanceOf(job.owner, stack.asset, job.to);
+          const qty = have < stack.qty ? have : stack.qty;
+          return qty > 0n ? [{ asset: stack.asset, qty }] : [];
+        });
       const unitId = carriers.get(key);
       carriers.delete(key);
       if (unitId !== undefined) busy.delete(unitId);
@@ -204,20 +256,27 @@ export function createCarryBoard(ledger: LedgerBook, options: CarryBoardOptions 
     },
     ofWorker(facilityId, nowMs) {
       for (const job of jobs.values())
-        if (job.worker === facilityId && nowMs < job.untilMs && nowMs >= job.fromMs) return job;
+        if (job.worker === facilityId && !job.outsourced && nowMs < job.untilMs && nowMs >= job.fromMs)
+          return job;
       return undefined;
     },
     idle(cityId, nowMs) {
       return [...jobs.values()]
         .filter(
           (job) =>
-            job.cityId === cityId && job.worker === undefined && nowMs < job.untilMs && nowMs >= job.fromMs,
+            job.cityId === cityId &&
+            job.worker === undefined &&
+            !job.outsourced &&
+            nowMs < job.untilMs &&
+            nowMs >= job.fromMs,
         )
         .toSorted((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
     },
     carrierOf: (key) => carriers.get(key),
     stateOf(key) {
       const job = jobs.get(key);
+      // 맡긴 일은 운반꾼 화물이 비어야 닿은 것(늦게 닿으면 그때까지 기다림)
+      if (job?.outsourced) return job.outsourced() ? job.fromMs : "waiting";
       if (job) return job.untilMs;
       return queue.some((request) => request.key === key) ? "waiting" : undefined;
     },
@@ -226,6 +285,22 @@ export function createCarryBoard(ledger: LedgerBook, options: CarryBoardOptions 
       let started = 0;
       const lanes = new Set(queue.filter((request) => request.worker === undefined).map(laneOf));
       for (const lane of lanes) started += promote(lane, nowMs);
+      // 그래도 기다리는 빈 일꾼 운반은 물류센터에 맡겨 본다(2274 — 물류센터 일꾼이 쉬게 됐을 수 있다)
+      // 한 도시에서 못 맡기면 그 도시의 다음 일은 이번에 묻지 않는다(차례를 지킨다)
+      const refused = new Set<number>();
+      if (options.outsource)
+        for (let i = 0; i < queue.length; ) {
+          const request = queue[i];
+          if (request && request.worker === undefined && !refused.has(request.cityId)) {
+            if (outsource(request, nowMs)) {
+              queue.splice(i, 1);
+              started += 1;
+              continue;
+            }
+            refused.add(request.cityId);
+          }
+          i += 1;
+        }
       return started;
     },
     pending: () => jobs.size + queue.length,

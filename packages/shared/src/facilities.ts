@@ -261,7 +261,10 @@ export interface GoodsPlaceView {
   readonly exchange?: ExchangeKind | undefined;
   /** 도시 창고: 그 도시 물자 거래소 건물 ID(없으면 null — [거래소로 옮기기]를 숨긴다). 칸이 없으면 옛 서버 */
   readonly exchangeId?: number | null | undefined;
-  /** 도시 창고: 거래소로 옮길 때 맡길 수 있는 그 도시 물류센터(기획 D-576 — 건물 ID 차례). 칸이 없으면 옛 서버 */
+  /**
+   * 도시 창고: 거래소로 옮길 때 맡길 수 있는 그 도시 물류센터(기획 D-576 — 건물 ID 차례). 남의 건물 몫·거래소 건물 창고: 꺼낼 때 맡길 수 있는 곳(기획 대조
+   * 2273). 칸이 없으면 옛 서버
+   */
   readonly haulCenters?: readonly HaulCenterView[] | undefined;
   readonly lines: readonly {
     /** 원장 자산 코드(item:<ID>, 시험 광석 등) */
@@ -289,6 +292,8 @@ export interface FacilitiesOverviewResponse {
   readonly cities: readonly CityCell[];
   /** 내 물건이 있는 자리(잔고 0은 뺀다). 재료는 그 도시 창고 + 그 도시의 내 창고 시설 + 그 2차맵 내 유닛 화물에서만 꺼낸다(D-516 361) */
   readonly places: readonly GoodsPlaceView[];
+  /** 내 계정 자동 맡기기(기획 대조 2272 — 운반 고르기의 기본값). 칸이 없으면 옛 서버·모름(끔으로 본다) */
+  readonly autoHaul?: boolean | undefined;
   /** 건설·수리 재료로 쓰는 물자와 내 잔고(모든 자리 합, 10진 글자 — 옛 화면용. 짓는 자리의 재료는 places로 센다) */
   readonly materials: readonly {
     readonly item: string;

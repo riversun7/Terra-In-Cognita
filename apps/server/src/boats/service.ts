@@ -147,7 +147,7 @@ export interface BoatService {
     boatId: number,
     buildingId: number,
     operator: boolean,
-    via?: number | "auto",
+    via?: number | "auto" | "own",
   ): BoatCommandResult;
   /** 배 창고 싣기(cargo.ts — D-570 1823, 소유 주체로 부른다) */
   load(
@@ -157,7 +157,7 @@ export interface BoatService {
     item: string,
     lots: number,
     operator: boolean,
-    via?: number | "auto",
+    via?: number | "auto" | "own",
   ): BoatCommandResult;
   /** 함포 칸 포획 장비 달기·떼기(gear.ts — D-570 1821, 소유 주체로 부른다) */
   gear(

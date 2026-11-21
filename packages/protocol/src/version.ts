@@ -228,10 +228,15 @@
  *      코드는 있던 것). 53판 기기는 보내지 않는다(labor.ts LABOR_WAIT_PROTOCOL_VERSION).
  *    - 기획 D-577(줄기 fixes-1116o) — 짓는 중 알박기 고르기 바꾸기 facility_claim(buildingId·claim → facility_result, 코드는 있던 것). 53판 기기는 보내지
  *      않는다(facilities.ts FACILITY_CLAIM_PROTOCOL_VERSION). 다른 메시지 꼴은 그대로.
- * 55: (묶음 1116r, 줄기 house-9 판 88) 군단장 분대 명령(기획 D-574 "군단소속이면 군단장 명령 가능하나 2순위", 질문 2265 나):
- *    battle_order에 선택 칸 legion(true + party = 정원 안 남의 분대 하나에 군단 명령), battle_list 파티 줄에 선택 칸 squad(내가 지휘관 + 정원 안)·
- *    owned(소유주 명령이 서 있음). 새 결과 코드 없음(정원 밖·소유주 명령 = rejected). 낮은 기기는 보내지 않는다(battleOrder.ts
- *    BATTLE_SQUAD_PROTOCOL_VERSION). 다른 메시지 꼴은 그대로.
+ * 55: (묶음 1116r) 줄기 둘을 묶은 판:
+ *    - 줄기 house-9(줄기 판 88) — 군단장 분대 명령(기획 D-574 "군단소속이면 군단장 명령 가능하나 2순위", 질문 2265 나):
+ *      battle_order에 선택 칸 legion(true + party = 정원 안 남의 분대 하나에 군단 명령), battle_list 파티 줄에 선택 칸 squad(내가 지휘관 + 정원 안)·
+ *      owned(소유주 명령이 서 있음). 새 결과 코드 없음(정원 밖·소유주 명령 = rejected). 54판 기기는 보내지 않는다(battleOrder.ts
+ *      BATTLE_SQUAD_PROTOCOL_VERSION).
+ *    - 줄기 haul-2(줄기 판 84) — 물류센터 2차(기획 대조 2272·2273, docs/adr/2026-11-16-logistics-center.md "바뀜 (haul-2)"): via에 "own"(내 운반꾼만),
+ *      storage_move 꺼내기(out)·business_buy에 선택 칸 via(facilities.ts HAUL_OUT_PROTOCOL_VERSION). via가 없으면 서버가 계정 설정(자동 맡기기 — 새 열
+ *      user_settings.auto_haul)을 따른다. 54판 기기는 이 값들을 보내지 않는다. 새 결과 코드 없음(사업장 사기의 물류센터 실패는 no_carrier·insufficient_funds).
+ *    다른 메시지 꼴은 그대로.
  */
 export const PROTOCOL_VERSION = 55;
 

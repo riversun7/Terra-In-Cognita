@@ -201,6 +201,8 @@ export interface FacilityService extends PlotCommands, ClaimCommands {
     asset: string,
     qty: bigint,
     atMs: number,
+    via?: StorageMoveInput["via"],
+    keep?: { readonly asset: string; readonly amount: bigint },
   ): FacilityResultCode | null | undefined;
   /** 채집소 자동 옮김의 주인 구매(기획 D-569 1781, business/commands.ts sellTo). 장부 고리가 없으면 qty 그대로(값 없이 옮김 — 시험) */
   ownerSale(ownerId: number, buildingId: number, asset: string, qty: bigint, atMs: number): bigint;
@@ -555,9 +557,10 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
     },
     ownerSale: (ownerId, buildingId, asset, qty, atMs) =>
       business ? business.sellTo(ownerId, buildingId, asset, qty, atMs) : qty,
-    carryOut(sellerId, buyerId, buildingId, asset, qty, atMs) {
+    carryOut(sellerId, buyerId, buildingId, asset, qty, atMs, via, keep) {
       if (qty <= 0n || qty > BigInt(Number.MAX_SAFE_INTEGER)) return undefined;
-      return storageOut?.(buyerId, { buildingId, asset, qty: Number(qty), direction: "out" }, atMs, sellerId);
+      const input = { buildingId, asset, qty: Number(qty), direction: "out" as const, via };
+      return storageOut?.(buyerId, input, atMs, sellerId, keep);
     },
     attachBusiness(commands) {
       business = commands;

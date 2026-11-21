@@ -36,6 +36,8 @@ type Carry = (
   asset: string,
   qty: bigint,
   atMs: number,
+  via?: number | "auto" | "own",
+  keep?: { readonly asset: string; readonly amount: bigint },
 ) => string | null | undefined;
 
 function setup(
@@ -192,6 +194,27 @@ describe("사업장 장부 명령", () => {
     expect(ledger.balanceOf(BUYER, WOOD, cityLocation(CITY))).toBe(0n);
     expect(ledger.balanceOf(OWNER, ASSET, businessLocation(FARM))).toBe(30n);
     expect(calls).toEqual([`${OWNER}>${BUYER}:${FARM}:${WOOD}:10`, `${OWNER}>${BUYER}:${FARM}:${WOOD}:10`]);
+  });
+
+  it("산 물건 운반을 물류센터에 맡기기(기획 대조 2273): via·사기 값(keep)을 넘기고 물류센터 실패는 no_carrier·insufficient_funds", async () => {
+    const seen: unknown[] = [];
+    let answer: string | null | undefined = "no_shop_worker";
+    const { commands, grant } = setup(4, (_seller, _buyer, _building, _asset, _qty, _atMs, via, keep) => {
+      seen.push([via, keep]);
+      return answer;
+    });
+    grant(OWNER, WOOD, 50n, businessLocation(FARM));
+    grant(BUYER, ASSET, 1000n);
+    const buy = { kind: "buy", buildingId: FARM, item: WOOD, qty: 10, via: 44 } as const;
+    expect(await commands.run("buyer", buy)).toEqual({ ok: false, code: "no_carrier" });
+    answer = "service_closed";
+    expect(await commands.run("buyer", buy)).toEqual({ ok: false, code: "no_carrier" });
+    answer = "insufficient_funds";
+    expect(await commands.run("buyer", buy)).toEqual({ ok: false, code: "insufficient_funds" });
+    answer = null;
+    expect(await commands.run("buyer", { ...buy, via: "own" })).toEqual({ ok: true, paid: 30n });
+    expect(seen[0]).toEqual([44, { asset: ASSET, amount: 30n }]);
+    expect(seen.at(-1)).toEqual(["own", { asset: ASSET, amount: 30n }]);
   });
 
   it("자동 옮김의 주인 구매(sellTo): 지갑이 되는 만큼·최소 묶음, 값 0이면 0", async () => {

@@ -33,6 +33,12 @@ export const facilitiesRouter = router({
     .query(({ ctx, input }) =>
       (ctx.facilities ?? notReady).books(ctx.viewer, input.buildingId, input.days, ctx.now()),
     ),
+  /** 물류센터 자동 맡기기 계정 설정(기획 D-576·대조 2272 — 모든 기기에서 같다). 세계가 서지 않았으면 status not_ready */
+  autoHaul: signedInProcedure.query(({ ctx }) => (ctx.facilities ?? notReady).autoHaul(ctx.viewer)),
+  /** 자동 맡기기 켜기·끄기(계정 설정 — 게임 상태가 아니라 계정 설정이라 settings.set처럼 tRPC). 바꾼 뒤의 값 */
+  setAutoHaul: signedInProcedure
+    .input(z.strictObject({ on: z.boolean() }))
+    .mutation(({ ctx, input }) => (ctx.facilities ?? notReady).autoHaul(ctx.viewer, input.on)),
   /** 건물 판 머리 이름표(주인·대주주 이름·몫, 누구나 — docs/adr/2026-11-15-building-screen.md) */
   owner: signedInProcedure
     .input(z.strictObject({ buildingId: z.int().min(1).max(Number.MAX_SAFE_INTEGER) }))

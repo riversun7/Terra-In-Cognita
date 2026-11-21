@@ -114,6 +114,7 @@ function sampleBooks(data: unknown): void {
     unitG: 100_000,
     unitCells: 10,
     workers: 3,
+    currency: "AAA",
   });
 }
 

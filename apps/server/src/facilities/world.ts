@@ -42,6 +42,8 @@ import { DEFAULT_TAX_BP } from "../npc/currency.ts";
 import { TEST_PLANET_ID } from "../world/testMaps.ts";
 import type { LoadedFacilities } from "./state.ts";
 import { type HaulService, createHaulService } from "../logistics/haulService.ts";
+import { createAutoHaulPrefs } from "../logistics/autoHaul.ts";
+import { type HaulEconomy, haulMoneyOf } from "../logistics/haulMoney.ts";
 
 /** 월드 설정의 건물 칸(app.ts가 실효 콘텐츠 접근자를 넘긴다) */
 export interface FacilitiesConfig {
@@ -240,9 +242,9 @@ export function createWorldFacilities(input: {
               /** 도시 주인 세력·행정 레벨(사업장 소득세의 국고·소매 도시 — docs/adr/2026-11-15-business-ledger.md) */
               readonly cities?: ReadonlyMap<number, { readonly owner: number; readonly adminLevel: number }>;
             };
-            /** 도시 경제(세력마다 거래세 — 사업장 소득세율로 쓴다 [임시]) */
+            /** 도시 경제(세력마다 거래세 — 사업장 소득세율로 쓴다 [임시]; 나라 화폐·환전 체결가 — 물류센터 요금 화폐, 기획 대조 2277) */
             readonly economy?:
-              | { readonly economy: { readonly taxOf: ReadonlyMap<number, number> } }
+              | { readonly economy: { readonly taxOf: ReadonlyMap<number, number> } & HaulEconomy }
               | undefined;
           }
         | undefined)
@@ -354,8 +356,8 @@ export function createWorldFacilities(input: {
     place: (buildingId) => buildingPlace(service.places, buildingId),
     isBusiness: (buildingId) => service.facilities.has(buildingId),
     // 산 물건은 운반꾼이 나른다(기획 D-569 1784 — 채집 세계가 잇는 창고 꺼내기 고리)
-    carry: (seller, buyer, buildingId, asset, qty, atMs) =>
-      service.carryOut(seller, buyer, buildingId, asset, qty, atMs),
+    carry: (seller, buyer, buildingId, asset, qty, atMs, via, keep) =>
+      service.carryOut(seller, buyer, buildingId, asset, qty, atMs, via, keep),
     cityAdminLevel: (cityId) => npcCity(cityId)?.adminLevel,
     ownerOf: (userId, atMs) => input.settlement.ownerOfUser(userId, atMs).id,
     fallbackAsset: ASSET_CREDIT,
@@ -399,9 +401,25 @@ export function createWorldFacilities(input: {
     freeStaff: (buildingId, mapKey, nowMs) =>
       haulStaff?.(buildingId, mapKey, nowMs) ?? labor?.workersAt(buildingId).length ?? 0,
     rules: input.rules,
-    charge: (ownerId, buildingId, fee, kind, atMs) =>
-      commands.chargeService(ownerId, buildingId, fee, kind, atMs),
+    charge: (ownerId, buildingId, fee, kind, atMs, asset, keep) =>
+      commands.chargeService(ownerId, buildingId, fee, kind, atMs, asset, keep),
+    fallbackAsset: ASSET_CREDIT,
     now: input.now,
+  });
+  // 요금 화폐(기획 대조 2277 — 그 도시 주인 나라 화폐)·계정 자동 맡기기(2272 — user_settings.auto_haul, 켤 때 한 번 읽는다)
+  haul.attachMoney(
+    haulMoneyOf(
+      () => input.npc?.(),
+      (buildingId) => service.facilities.get(buildingId)?.cityId,
+    ),
+  );
+  const autoHaul = createAutoHaulPrefs({
+    pool: input.battles.pool,
+    userOf: (ownerId) => input.battles.owners.get(ownerId)?.userId,
+  });
+  haul.attachPrefs(autoHaul);
+  void autoHaul.load().catch(() => {
+    // 읽지 못하면 모두 끔으로 시작한다(설정 화면에서 다시 켜면 메모리에 든다)
   });
   const attack = createBuildingAttack({
     ...input.battles,

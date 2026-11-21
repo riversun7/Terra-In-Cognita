@@ -33,6 +33,8 @@ export type StorageOutHook = (
   input: StorageMoveInput,
   atMs: number,
   sellerId?: number,
+  /** 물류센터 요금을 낸 뒤에도 받는 사람 지갑에 남아야 할 돈(사업장 사기의 물건 값 — gather/carrySpec.ts keep) */
+  keep?: { readonly asset: string; readonly amount: bigint },
 ) => FacilityResultCode | null | undefined;
 
 /** 행정 건물(폐허 정부) 짓기 고리 — 폐허 서비스(src/ruins/service.ts)가 붙인다 */

@@ -37,6 +37,17 @@ export interface HaulCenterView {
   readonly workers: number;
   readonly unitG: number;
   readonly unitCells: number;
+  /** 요금 화폐 코드(그 도시 나라 화폐 — 기획 D-559 1524 "요금은 그 나라 화폐", 기획 대조 2277). 칸이 없으면 옛 서버(서버 기준 화폐) */
+  readonly currency?: string | undefined;
+}
+
+/**
+ * 계정 자동 맡기기(기획 대조 2272 — tRPC facilities.autoHaul·setAutoHaul). 켜면 via 없는 운반 명령이 내 운반꾼이 없을 때 같은 도시의 가장 싼 물류센터에
+ * 맡긴다(서버가 판정). not_ready = 세계가 아직 서지 않음(바꾸지 못한다)
+ */
+export interface AutoHaulResponse {
+  readonly status: "ready" | "not_ready";
+  readonly on: boolean;
 }
 
 /** 자동으로 맡길 물류센터(위 머리 주석): 받는 곳 가운데 한 단위 요금이 가장 싼 곳. 없으면 undefined */

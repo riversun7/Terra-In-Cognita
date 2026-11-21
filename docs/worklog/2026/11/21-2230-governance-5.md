@@ -50,7 +50,19 @@
 - `credit_marks.city_points`는 옛 줄 호환으로만 남았다(0을 적는다). 점수는 `nation_points` 하나.
 
 ## 검사 (Verified — 실행)
-- (마지막에 채운다)
+- 전체 `pnpm check`(TEST_DATABASE_URL, DB 시험 포함, main 합치기 전 741310aed4) **통과**: 시험 파일 **850/850**, 시험 **6,141/6,141**(`@terra/sim` 골든 포함 — 시뮬 판정 그대로, SIM_VERSION
+  올리지 않음). 처음 한 번은 oxlint `no-shadow`(새 DB 시험 변수 이름)로 멈춰 고친 뒤 다시 돌렸다.
+- main 6a91da1ad9(NPC 욕구·가문 연맹, 팩 136·SIM 70) 합침 — 충돌은 `content/core/tuning.json`(양쪽 칸 다 남김, 내 칸 고침·뺌을 main 판 위에 다시 얹음)·`manifest.json`(줄기 판 176). 손으로
+  푼 충돌이라 전체 `pnpm check`를 한 번 더 돌렸다: 포맷·린트·타입·경계·크기·다국어(8,703키)·디자인 값·콘텐츠(core@176 8363902a18ba) 통과, 시험 파일 **856/857**, 시험 **6,175/6,176** — 실패
+  1개 `npc/npcClaims.db.test.ts`(알박기 새 도시 주인이 새 가문이 아니라 지은 세력, 다른 줄기가 함께 돌던 부하 중)는 따로 다시 돌리니 **1/1 통과**(흔들리는 시험으로 봄 — Assumed, 이 줄기는
+  알박기 코드를 건드리지 않음).
+- 새·바꾼 시험: `governance5.db.test.ts` 3(직권 강화·화폐 단계·거래세·신임도 / 가문 독립 플레이어·NPC / 쿠데타 보호·병력·새 나라), `governance3.db.test.ts` 빈자리 시험을 자동 선출로 바꿈,
+  `credit/book.test.ts` 10, `credit.db.test.ts` 1, `approval.test.ts` 2, `business/core.test.ts` +1(탕감), sim `economyRules.test.ts` +1(손 조절), 프로토콜 `governance.test.ts` +1.
+- `pnpm check:content`(core@176, 단계 1·2·4a·4b 기준 ea76f0e), `pnpm check:docs 154c22be52`, `pnpm settings:cells --check`, `pnpm wiki:index --check`, `pnpm --filter @terra/server db:generate` =
+  "No schema changes" 모두 통과.
+- `pnpm build` 통과(check-pwa 포함), `pnpm check:bundle` 첫 화면 JS **110,770 B** / 131,416 B(1116y 110,735 B에서 +35 B — 신용 카드 문구 키).
+- 화면 시험(한 번씩): `e2e/economy.spec.ts` + `e2e/governance.spec.ts` **31/33 통과**(4.8분). 실패 2개는 시세 색(D-442) 둘 — 호가창 매수 색 `rgb(184, 29, 56)` ≠ 기대 `rgb(184, 40, 63)`(영어
+  `rgb(22, 101, 52)` ≠ `rgb(34, 107, 51)`), 묶음 1116y 기록과 같은 알려진 실패(이 줄기는 토큰·호가창을 건드리지 않음). 신용 카드 줄(시작값 100) 시험 통과.
 
 ## NAS 첫 켬 영향 (Assumed — 코드 읽기·DB 시험)
 - 마이그레이션: 새 표 셋·칸 둘·검사 넓히기(직전 판 앱 그대로).

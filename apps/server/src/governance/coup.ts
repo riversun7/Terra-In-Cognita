@@ -33,6 +33,15 @@
 //   [임시 — 질문 2542].
 // - "누구나"(기존 진입 규칙을 그대로 — 질문 2544): 일으키기 = 그 나라에 속한 플레이어 가문의 장(어느 가문이든, 지배 가문 빼고 — 이기면 그 가문이 새 나라 지배 가문) 또는
 //   NPC 가문, 편 들기 = 누구나. 비용·쿨타임·보호 기간·나라마다 하나·플레이어 가문 나라 빼기는 그대로.
+// 바뀜(gov-fix-2 — 기획 답 2542·2545·2549, 아래가 위를 대신한다):
+// - 2542(D-585 8 "도시만"): 시작 도시(수도 포함)에서 이겨도 그 도시만 새 나라로 떨어져 나간다(D-341 예외 — society.cityIndependence coup). "옛 나라 전체" 길은 없앴다.
+//   수도를 잃은 옛 나라는 점령으로 수도를 잃을 때와 같은 길로 수도를 옮긴다(npc/capitals.ts capitalOf가 남은 도시에서 바로 다시 고르고, 하루 끝 review가 적고 지도자를
+//   옮긴다 — D-528). 떼어 내지 못하면(세계 준비 안 됨 등) 이겨도 아무것도 바뀌지 않는다(결과 reason no_split).
+// - 2545(D-585 1 "누구든 가능하다"·D-588 6): 플레이어 가문 나라도 쿠데타 대상이다 — 그 나라에 속한 다른 플레이어 가문의 장이 일으킨다(그 나라에는 NPC 가문이 없다).
+//   정부군의 지배 가문 유닛 = 그 나라(= 그 가문) 소유 주체의 유닛. 이기면 싸운 도시가 새 독재 나라(지배 가문 = 쿠데타 가문)로 떨어져 나간다.
+// - 2549(D-583 "누구나 참전가능. 정부군 vs 혁명군"): 정부군도 혁명군과 같은 참전 길이다 — 편을 든 쪽은 병력을 어디에 있든 보낸다(그 도시에 이미 있는 유닛으로 막지 않는다).
+//   혁명군 = 일으킨 가문 유닛 + 혁명군 참가자 병력, 정부군 = 지배 가문 유닛 + 그 도시 경비대 + 정부군 참가자 병력. 플레이어 병력 = 고른 유닛(unitIds), 고르지 않으면 내
+//   유닛 모두 [임시 — 질문 2571]. NPC 가문 = 가문원. 경비대만 그 도시 것이다. 빨리감기 전투라 보내는 이동 시간은 없다 [임시 — 질문 2571].
 import type { HouseKey } from "@terra/shared/governance";
 import type { CoupRow, CoupSide, CoupStore } from "./coupStore.ts";
 import type { ElectorateTools } from "./electorate.ts";
@@ -51,11 +60,37 @@ export interface CoupCredit {
   won(userId: string, nationOwnerId: number | undefined, amount: number, nowMs: number): void;
 }
 
+/** 쿠데타가 쓰는 포트 몫(시험이 가짜로 채운다 — coup.test.ts) */
+export type CoupPort = Pick<
+  GovernancePort,
+  | "addRenown"
+  | "applyRuling"
+  | "capitalOf"
+  | "cityGuards"
+  | "cityIndependence"
+  | "citySatisfaction"
+  | "confiscateToHouse"
+  | "coupBattle"
+  | "dropSatisfaction"
+  | "houseUnits"
+  | "nation"
+  | "nationUnits"
+  | "npcHousesOf"
+  | "payCoupCost"
+  | "powerOf"
+  | "ready"
+  | "setRegime"
+  | "userUnits"
+>;
+
 export interface CoupDeps {
-  readonly port: GovernancePort;
+  readonly port: CoupPort;
   readonly store: Pick<GovernanceStore, "saveState" | "states">;
   readonly leader: Pick<LeaderStore, "houseHomes">;
-  readonly coups: CoupStore;
+  readonly coups: Pick<
+    CoupStore,
+    "coup" | "finishCoup" | "gathering" | "insertCoup" | "join" | "lastCoupOf" | "saveShareHouse" | "sides"
+  >;
   readonly tools: Pick<ElectorateTools, "ruling">;
   readonly rules: () => GovernanceRules;
   readonly now: () => number;
@@ -87,29 +122,22 @@ const npcScore = (
   );
 
 export function createCoupService(d: CoupDeps) {
-  /** 그 도시에 있는 유닛만(도시를 모르면 모두 [임시]) */
-  const inCity = (ids: readonly number[], city: number | undefined): number[] =>
-    city === undefined ? [...ids] : ids.filter((id) => d.port.unitCity(id) === city);
-
   /** 쿠데타 전투 도시(쿠데타 줄 도시 — 옛 줄은 수도) */
   const battleCityOf = (coup: CoupRow, nation: GovernanceNation): number | undefined =>
     coup.cityId ?? d.port.capitalOf(nation);
 
-  /** 정부군 유닛(그 도시의 지배 가문 유닛 + 그 도시 경비대) */
+  /** 정부군 유닛(지배 가문 유닛 — 어디에 있든 보낸다, 2549 + 그 도시 경비대) */
   const governmentUnits = (
     nation: GovernanceNation,
     ruling: HouseKey | null,
     city: number | undefined,
   ): number[] => [
-    ...new Set([
-      ...inCity(ruling ? d.port.houseUnits(nation, ruling) : [], city),
-      ...d.port.cityGuards(nation, city),
-    ]),
+    ...new Set([...(ruling ? d.port.houseUnits(nation, ruling) : []), ...d.port.cityGuards(nation, city)]),
   ];
 
-  /** 플레이어가 데려갈 수 있는 병력: 쿠데타 도시에 있는 그 사람 유닛, 고른 것이 있으면 그 가운데 */
-  const troopsOf = (userId: string, city: number | undefined, picked?: readonly number[]): number[] => {
-    const mine = inCity(d.port.userUnits(userId), city);
+  /** 플레이어가 보내는 병력(2549 — 어디에 있든): 그 사람 유닛, 고른 것이 있으면 그 가운데 */
+  const troopsOf = (userId: string, picked?: readonly number[]): number[] => {
+    const mine = [...d.port.userUnits(userId)];
     if (!picked) return mine;
     const want = new Set(picked);
     return mine.filter((id) => want.has(id));
@@ -157,7 +185,7 @@ export function createCoupService(d: CoupDeps) {
       cityId: city ?? null,
     });
     if (userId) {
-      const units = troopsOf(userId, city);
+      const units = troopsOf(userId);
       await d.coups.join({
         coupId: coup.id,
         joinerKey: `u:${userId}`,
@@ -184,8 +212,8 @@ export function createCoupService(d: CoupDeps) {
     if (!d.rules().coupEnabled) return fail("coup_disabled");
     const s = await d.standing(userId);
     if (!s) return fail("no_nation");
-    if (s.nation.playerHouse || s.ownHouse === null || s.ownHouse === s.ruling.key)
-      return fail("not_eligible");
+    // 플레이어 가문 나라도 대상이다(2545 — 바뀜 gov-fix-2)
+    if (s.ownHouse === null || s.ownHouse === s.ruling.key) return fail("not_eligible");
     if (cityId !== undefined && !s.nation.cities.includes(cityId)) return fail("invalid_choice");
     const city = cityId ?? (await seatCityOf(s.nation, s.ownHouse)) ?? d.port.capitalOf(s.nation);
     const nowMs = d.now();
@@ -196,7 +224,7 @@ export function createCoupService(d: CoupDeps) {
     return { ok: true, agendaId: coup.id, action: "coup_started" };
   };
 
-  /** 누구나 편을 든다(gov_coup_join — D-583 2433 나 가). 병력 = 수도에 있는 내 유닛(고른 것) */
+  /** 누구나 편을 든다(gov_coup_join — D-583 2433 나 가). 병력 = 내 유닛(고른 것 — 어디에 있든 보낸다, 2549) */
   const join = async (
     userId: string,
     coupId: number,
@@ -209,8 +237,7 @@ export function createCoupService(d: CoupDeps) {
     if (!coup || coup.status !== "gathering" || nowMs >= coup.gatherUntilMs) return fail("unknown_coup");
     // 일으킨 사람은 혁명군에서 빠질 수 없다
     if (coup.userId === userId && side !== "rebel") return fail("invalid_choice");
-    const nation = d.port.nation(coup.nationId);
-    const units = nation ? troopsOf(userId, battleCityOf(coup, nation), unitIds) : [];
+    const units = d.port.nation(coup.nationId) ? troopsOf(userId, unitIds) : [];
     const before = (await d.coups.sides(coupId)).find((row) => row.joinerKey === `u:${userId}`);
     await d.coups.join({
       coupId,
@@ -225,7 +252,7 @@ export function createCoupService(d: CoupDeps) {
     return { ok: true, agendaId: coupId, action: "coup_joined" };
   };
 
-  /** NPC 가문이 일으킨다(나라마다 많아야 하나 — 점수 높은 가문, 어느 가문이든 D-585). 그 가문 도시에서, 힘 비도 그 도시 안(D-588 2492 가) */
+  /** NPC 가문이 일으킨다(나라마다 많아야 하나 — 점수 높은 가문, 어느 가문이든 D-585). 그 가문 도시에서(D-588 2492 가), 힘 비 = 양쪽이 보낼 병력(2549) */
   const npcLaunch = async (
     nation: GovernanceNation,
     ruling: HouseKey | null,
@@ -239,7 +266,7 @@ export function createCoupService(d: CoupDeps) {
       const score = npcScore(d, nation, house);
       if (score < rules.coupNpcScore) continue;
       const defense = d.port.powerOf(governmentUnits(nation, ruling, house.cityId), nowMs);
-      const power = d.port.powerOf(inCity(d.port.houseUnits(nation, key), house.cityId), nowMs);
+      const power = d.port.powerOf(d.port.houseUnits(nation, key), nowMs);
       if (power <= 0 || power * 1000 < defense * rules.coupNpcPowerPm) continue;
       if (!(await cooledDown(key, nowMs))) continue;
       picks.push({ key, id: house.id, city: house.cityId, score });
@@ -248,10 +275,9 @@ export function createCoupService(d: CoupDeps) {
     if (best) await open(nation, best.key, null, best.city, nowMs);
   };
 
-  /** NPC 가문이 편을 든다(성향 규칙식 — 낸 힘은 그 도시에 있는 가문원만) */
+  /** NPC 가문이 편을 든다(성향 규칙식 — 가문원을 보낸다, 2549) */
   const npcJoin = async (coup: CoupRow, nation: GovernanceNation, ruling: HouseKey | null, nowMs: number) => {
     const rules = d.rules();
-    const city = battleCityOf(coup, nation);
     const joined = new Set((await d.coups.sides(coup.id)).map((row) => row.joinerKey));
     for (const house of d.port.npcHousesOf(nation)) {
       const key: HouseKey = `n:${house.id}`;
@@ -265,47 +291,45 @@ export function createCoupService(d: CoupDeps) {
         joinerKey: key,
         userId: null,
         side,
-        power: d.port.powerOf(inCity(d.port.houseUnits(nation, key), city), nowMs),
+        power: d.port.powerOf(d.port.houseUnits(nation, key), nowMs),
         joinedAtMs: nowMs,
       });
     }
   };
 
-  /** 쿠데타가 차지할 도시 = 싸운 도시(D-588 2492 가). 시작 도시·옛 나라 도시가 아님·모름이면 undefined(옛 나라 전체 [임시 2542]) */
+  /** 쿠데타가 차지할 도시 = 싸운 도시(D-588 2492 가 — 시작 도시·수도도, 2542). 옛 나라 도시가 아니거나 모르면 undefined */
   const seizedCityOf = (coup: CoupRow, nation: GovernanceNation): number | undefined => {
-    const city = coup.cityId ?? undefined;
-    return city !== undefined && nation.cities.includes(city) && !d.port.isStartCity(city) ? city : undefined;
+    const city = coup.cityId ?? d.port.capitalOf(nation);
+    return city !== undefined && nation.cities.includes(city) ? city : undefined;
   };
 
-  /** 이긴 쿠데타: 싸운 도시를 새 독재 나라로(D-585·D-588), 못 하면 옛 나라 전체 [임시]. 새 나라 소유 주체 ID(없으면 undefined) */
+  /** 이긴 쿠데타: 싸운 도시만 새 독재 나라로(D-585·D-588, 2542 — 옛 나라 전체는 없다). 새 나라 소유 주체 ID(못 떼면 undefined) */
   const seize = async (
     coup: CoupRow,
     nation: GovernanceNation,
-    state: StateRow | undefined,
     nowMs: number,
     result: Record<string, unknown>,
   ): Promise<number | undefined> => {
     const rules = d.rules();
     const city = seizedCityOf(coup, nation);
-    const child = city === undefined ? undefined : await d.port.cityIndependence(nation, city, nowMs);
-    const childNation = child === undefined ? undefined : d.port.nation(child);
-    const target = childNation ?? nation;
-    const current = (childNation ? undefined : state) ?? {
-      nationId: target.rowId,
-      rulingHouseKey: null,
-      electedAtMs: null,
-      termEndsAtMs: null,
-      shareVotesSuspended: false,
-      vacantSinceMs: null,
-    };
+    const child = city === undefined ? undefined : await d.port.cityIndependence(nation, city, nowMs, true);
+    const target = child === undefined ? undefined : d.port.nation(child);
+    result.city = city ?? null;
+    result.newNationId = target?.rowId ?? null;
+    if (!target) {
+      result.seized = "0";
+      result.reason = "no_split";
+      return undefined;
+    }
     await d.store.saveState(
       {
-        ...current,
+        nationId: target.rowId,
         rulingHouseKey: coup.houseKey,
         electedAtMs: nowMs,
         termEndsAtMs: null,
         shareVotesSuspended: false,
         vacantSinceMs: null,
+        npcHeadUnit: null,
       },
       nowMs,
     );
@@ -318,9 +342,7 @@ export function createCoupService(d: CoupDeps) {
     d.port.dropSatisfaction(d.port.nationUnits(target), rules.coupSatisfactionDrop);
     if (!target.playerHouse) d.port.applyRuling(target, coup.houseKey);
     result.seized = seized.toString();
-    result.newNationId = childNation?.rowId ?? null;
-    result.city = city ?? null;
-    return childNation?.ownerId;
+    return target.ownerId;
   };
 
   /** 참가 받기가 끝난 쿠데타의 전투와 결과 */
@@ -343,24 +365,21 @@ export function createCoupService(d: CoupDeps) {
     const rules = d.rules();
     const sides = await d.coups.sides(coup.id);
     const city = battleCityOf(coup, nation);
-    /** 참가 줄의 병력(그 도시에 아직 있는 것만): 플레이어 = 데려온 유닛 가운데 아직 그 사람 것(옛 줄은 그 사람 유닛 모두), NPC 가문 = 가문원 */
+    /** 참가 줄의 병력(어디에 있든 보낸다 — 2549): 플레이어 = 보낸 유닛 가운데 아직 그 사람 것(옛 줄은 그 사람 유닛 모두), NPC 가문 = 가문원 */
     const unitsOf = (row: (typeof sides)[number]): readonly number[] => {
       if (row.joinerKey.startsWith("u:")) {
         const owned = d.port.userUnits(row.joinerKey.slice(2));
-        if (row.units === null || row.units === undefined) return inCity(owned, city);
+        if (row.units === null || row.units === undefined) return owned;
         const still = new Set(owned);
-        return inCity(
-          row.units.filter((id) => still.has(id)),
-          city,
-        );
+        return row.units.filter((id) => still.has(id));
       }
       return row.joinerKey.startsWith("n:")
-        ? inCity(d.port.houseUnits(nation, `n:${Number(row.joinerKey.slice(2))}`), city)
+        ? d.port.houseUnits(nation, `n:${Number(row.joinerKey.slice(2))}`)
         : [];
     };
     const rebels = [
       ...new Set([
-        ...inCity(d.port.houseUnits(nation, coup.houseKey), city),
+        ...d.port.houseUnits(nation, coup.houseKey),
         ...sides.filter((row) => row.side === "rebel").flatMap(unitsOf),
       ]),
     ];
@@ -383,7 +402,7 @@ export function createCoupService(d: CoupDeps) {
       government: sides.filter((row) => row.side === "government").map((row) => row.joinerKey),
     };
     let newNationOwner: number | undefined;
-    if (won) newNationOwner = await seize(coup, nation, state, nowMs, result);
+    if (won) newNationOwner = await seize(coup, nation, nowMs, result);
     else {
       const paid = d.port.payCoupCost(nation, coup.houseKey, rules.coupFailCost, nowMs);
       d.port.dropSatisfaction(d.port.houseUnits(nation, coup.houseKey), rules.coupFailSatisfactionDrop);
@@ -428,8 +447,7 @@ export function createCoupService(d: CoupDeps) {
     if (!d.rules().coupEnabled) return;
     const busy = new Set(gathering.map((row) => row.nationId));
     for (const nation of nations.values()) {
-      if (nation.playerHouse || busy.has(nation.rowId) || protectedNow(states.get(nation.rowId), nowMs))
-        continue;
+      if (busy.has(nation.rowId) || protectedNow(states.get(nation.rowId), nowMs)) continue;
       await npcLaunch(nation, (await d.tools.ruling(nation, states.get(nation.rowId))).key, nowMs);
     }
   };

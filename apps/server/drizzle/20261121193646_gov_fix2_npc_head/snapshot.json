@@ -1,0 +1,47 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "8279a039-89b4-4d54-b4be-e0486d58e334",
+  "prevIds": [
+    "1e0baccb-fd0f-4de9-b479-ad67274e5a40"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "governance_state",
+        "npc_head_unit_id"
+      ],
+      "writes": [
+        "s|col|public.governance_state.npc_head_unit_id",
+        "n|col|public.governance_state.npc_head_unit_id",
+        "e|col|public.governance_state.npc_head_unit_id"
+      ],
+      "reads": [
+        "n|tbl|public.governance_state",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_state",
+        "name": "npc_head_unit_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

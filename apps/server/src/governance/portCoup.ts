@@ -1,7 +1,8 @@
 // 의결 포트 둘째 묶음(줄기 governance-3 — port.ts 줄 수 때문에 따로 둔다): 쿠데타(질문 2433 답·D-583 나 가)·지배 쪽 지분 따라가기(2432 나)·빈자리 도시 독립
 // (2434 (가) 답 D-583)·국고 지분 팔기(2438 답 D-583)가 세계에서 읽고 바꾸는 것. 읽기는 거울 세계 메모리, 쓰기는 원장·거울 세계(다음 NPC 틱이 저장한다 —
 // 도시 독립은 바로 틱을 민다).
-// - 가문 유닛: NPC 가문 = 가문원 + 가문장(지배 가문은 국가 지도자 유닛 — 거울 세계 유닛 표에 없으면 빠진다), 플레이어 가문 = 그 가문 소유 주체의 유닛.
+// - 가문 유닛: NPC 가문 = 가문원 + 가문장(지배 가문은 국가 지도자 유닛 — 거울 세계 유닛 표에 없으면 빠진다), 플레이어 가문 = 그 가문 소유 주체의 유닛(플레이어 가문
+//   나라의 지배 가문이면 그 나라 소유 주체 — 바뀜 gov-fix-2, 질문 2545).
 // - 정부군(D-583 2433 나 가): 지배 가문원 + 수도 경비대(그 나라 경비대 유닛 가운데 수도에 있는 것).
 //   바뀜(줄기 gov-coup — D-588 2492 가): 쿠데타 도시의 경비대(cityGuards — 도시를 모르면 수도). 도시 이름(cityName — 의결 칸 쿠데타 도시 고르기).
 // - 힘(질문 2433 가 기술 기본값 — 랭킹 전투력 D-576과 같은 몸): 유닛마다 전투력 몸(battleBodies basePower — 버프 없는 기본 수치) 합. 몸을 모르면 유닛마다 1.
@@ -65,8 +66,15 @@ export interface GovernancePortCoup {
   addRenown(userId: string, nationRow: number, amount: number, nowMs: number): void;
   /** 시작 도시인가(D-341 — 독립 투표에서 뺀다) */
   isStartCity(cityId: number): boolean;
-  /** 빈자리 도시 독립(D-583 2434 (가) 가 — 새 도시국가, 체제는 옛 나라 체제). 새 세력 행 ID(못 했으면 undefined) */
-  cityIndependence(nation: GovernanceNation, cityId: number, nowMs: number): Promise<number | undefined>;
+  /**
+   * 도시 독립(D-583 2434 (가) 가 — 새 도시국가, 체제는 옛 나라 체제). coup = 쿠데타 성공(시작 도시도 그 도시만 — 2542 gov-fix-2). 새 세력 행 ID(못 했으면 undefined)
+   */
+  cityIndependence(
+    nation: GovernanceNation,
+    cityId: number,
+    nowMs: number,
+    coup?: boolean,
+  ): Promise<number | undefined>;
   /** 그 도시 국고 지분(국고 지분 팔기 — 2438) */
   treasuryShares(nation: GovernanceNation, cityId: number): bigint;
 }
@@ -99,8 +107,9 @@ export function worldGovernancePortCoup(
         if (head !== undefined && !members.includes(head)) members.push(head);
         return members.filter((unit) => l.npc.world.units.has(unit)).toSorted((a, b) => a - b);
       }
+      // 플레이어 가문 나라의 지배 가문 = 그 나라 소유 주체(2545 — gov-fix-2)
       const owner = l.npc.houses.ownerOfRow(id);
-      return owner === undefined || owner === nation.ownerId ? [] : unitsOf(owner);
+      return owner === undefined ? [] : unitsOf(owner);
     },
     cityGuards(nation, cityId) {
       const l = live();
@@ -220,10 +229,10 @@ export function worldGovernancePortCoup(
       if (amount > 0) live()?.persistence.cyborgs.addRenown(userId, nationRow, amount, nowMs);
     },
     isStartCity: (cityId) => live()?.npc.world.cities.get(cityId)?.start === true,
-    async cityIndependence(nation, cityId, nowMs) {
+    async cityIndependence(nation, cityId, nowMs, coup) {
       const l = live();
       if (!l) return undefined;
-      const child = l.npc.society.cityIndependence(cityId, nowMs);
+      const child = l.npc.society.cityIndependence(cityId, nowMs, coup === true);
       if (child === undefined) return undefined;
       await l.npc.tick(true);
       return l.persistence.owners.get(child)?.factionId ?? undefined;

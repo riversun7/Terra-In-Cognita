@@ -379,19 +379,31 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결(governance)", () => {
     );
     expect(snap?.barred?.key).toBe(before);
     expect(snap?.candidates.some((row) => row.key === before)).toBe(false);
-    // 다시 뽑기에 후보가 없어 실패 → 지도자 빈자리(2403 답 D-582) → NPC 런타임에도 지배 가문이 없다
+    // 다시 뽑기에 후보가 없어 실패 → 지배 가문(NPC)의 다음 가문장이 잇는다(gov-fix-2 — 질문 2532 (3) 기획 답: D-588 5 NPC 예외 없음).
+    // 해임된 사람 = 그때의 NPC 지배 가문장 유닛(barredUnit)은 잇지 못한다. 이을 가문원이 없을 때만 빈자리(2403 답 D-582)
+    const barredUnit =
+      Number(before?.slice(2)) > 0 ? npc.cityHouses.headOf(Number(before?.slice(2))) : undefined;
     clock += rules.periodOf("leader_election");
     await gov.service.tick();
     await gov.service.tick();
-    const vacant = await gov.view(leader.userId);
-    expect(vacant.agendas.find((agenda) => agenda.id === snap?.id)?.status).toBe("failed");
-    expect(vacant.nation?.rulingHouse).toBeNull();
-    expect(npc.cityHouses.rulingHouseOf(owner)).toBeUndefined();
-    const vacantAudit = await rows<{ action: string }>(
+    const succeeded = await gov.view(leader.userId);
+    expect(succeeded.agendas.find((agenda) => agenda.id === snap?.id)?.status).toBe("failed");
+    expect(succeeded.nation?.rulingHouse?.key).toBe(before);
+    const head = await rows<{ npc_head_unit_id: string | null }>(
       test.db,
-      "select action from audit_log where action = 'governance.vacant'",
+      "select npc_head_unit_id from governance_state where nation_id = $1",
+      [leader.nation],
     );
-    expect(vacantAudit.length).toBe(1);
+    const unit = Number(head[0]?.npc_head_unit_id);
+    expect(npc.cityHouses.membersOf(Number(before?.slice(2)))).toContain(unit);
+    expect(unit).not.toBe(barredUnit);
+    expect(npc.cityHouses.rulingHouseOf(owner)?.id).toBe(Number(before?.slice(2)));
+    expect(npc.cityHouses.headOf(Number(before?.slice(2)))).toBe(unit);
+    const audits = await rows<{ action: string }>(
+      test.db,
+      "select action from audit_log where action in ('governance.vacant', 'governance.successor') order by id",
+    );
+    expect(audits.map((row) => row.action)).toEqual(["governance.successor"]);
     gov.stop();
   }, 120_000);
   it("독재 나라 국고 지분 → 지배 가문 계정(D-338, 첫 틱·멱등), NPC 도전자가 나서고 이기면 NPC 런타임 지배 가문이 바뀐다(2404 나·2406)", async () => {

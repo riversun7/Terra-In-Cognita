@@ -247,3 +247,87 @@ export function collectResidentTax(
     arrears,
   };
 }
+
+// 도시 운영비 금고(바뀜 gov-fix-2 — 질문 2537 기획 답: 주민세 도시 몫은 다시 켜도 남아야 한다). 주민세 도시 몫(국세 몫을 뺀 것 — 질문 2484 다·D-588 2)을 걷는 날
+// 국고에서 시스템 계정 cityfund:<나라>:<도시>:<화폐>로 옮기고(city_fund), 도시 세금 정산 때 그 기간 그 도시 운영비(국고가 이미 낸 연구 시설 짓기 값)만큼 금고 → 국고로
+// 되돌린다(city_fund_draw — 운영비를 금고가 낸 셈). D-304 이익 나눔에는 넣지 않는다. 원장 계정이라 서버를 다시 켜도 남는다. 도시가 다른 나라로 넘어가면 남은 몫을 옛 나라
+// 국고로 돌려준다(city_fund_refund — 예전 메모리 몫이 국고 몫이 되던 것과 같다). 폐허가 되어도 금고는 남고(옛 나라가 복원하면 다시 쓴다), 다른 나라가 복원하면
+// 옛 나라 국고로 돌려준다(societyRuins.ts — 빚 지우기와 같은 때).
+
+/** 도시 운영비 금고 계정 코드 */
+export function cityFundCode(nation: number, city: number, asset: string): string {
+  return `cityfund:${nation}:${city}:${asset}`;
+}
+
+/** 도시 운영비 금고 계정 찾기(코드 → 계정 ID). 계정을 만들지 않으려고 한 번 훑는다(정산 주기마다 한 번) */
+export function cityFundIndex(book: LedgerBook): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const account of book.accounts())
+    if (account.systemCode?.startsWith("cityfund:") === true) out.set(account.systemCode, account.id);
+  return out;
+}
+
+/** 주민세 도시 몫을 국고 → 그 도시 운영비 금고(0 이하면 아무것도 안 함) */
+export function depositCityFund(
+  book: LedgerBook,
+  nation: number,
+  city: number,
+  asset: string,
+  amount: bigint,
+  atMs: number,
+): void {
+  if (amount <= 0n) return;
+  book.post({
+    kind: "city_fund",
+    atMs,
+    entries: [
+      { account: book.ownerAccount(nation, asset), amount: -amount },
+      { account: book.systemAccount(cityFundCode(nation, city, asset), asset), amount },
+    ],
+  });
+}
+
+/** 운영비 cost를 금고에서 메운다(금고 → 국고, 있는 만큼). 메운 양. account = cityFundIndex로 찾은 계정(없으면 0) */
+export function drawCityFund(
+  book: LedgerBook,
+  nation: number,
+  account: number | undefined,
+  asset: string,
+  cost: bigint,
+  atMs: number,
+): bigint {
+  if (account === undefined || cost <= 0n) return 0n;
+  const fund = book.balance(account);
+  const covered = fund < cost ? fund : cost;
+  if (covered <= 0n) return 0n;
+  book.post({
+    kind: "city_fund_draw",
+    atMs,
+    entries: [
+      { account, amount: -covered },
+      { account: book.ownerAccount(nation, asset), amount: covered },
+    ],
+  });
+  return covered;
+}
+
+/** 그 나라의 그 도시 운영비 금고를 모두(화폐마다) 나라 국고로 돌려준다(도시의 나라가 바뀜). 돌려준 양(화폐 → 양) */
+export function refundCityFund(
+  book: LedgerBook,
+  nation: number,
+  city: number,
+  atMs: number,
+): Map<string, bigint> {
+  const head = `cityfund:${nation}:${city}:`;
+  const refunded = new Map<string, bigint>();
+  const entries: { account: number; amount: bigint }[] = [];
+  for (const account of book.accounts()) {
+    if (account.balance <= 0n || account.systemCode?.startsWith(head) !== true) continue;
+    entries.push({ account: account.id, amount: -account.balance });
+    refunded.set(account.asset, (refunded.get(account.asset) ?? 0n) + account.balance);
+  }
+  for (const [asset, amount] of [...refunded].toSorted((a, b) => (a[0] < b[0] ? -1 : 1)))
+    entries.push({ account: book.ownerAccount(nation, asset), amount });
+  if (entries.length > 0) book.post({ kind: "city_fund_refund", atMs, entries });
+  return refunded;
+}

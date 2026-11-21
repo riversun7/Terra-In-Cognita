@@ -65,8 +65,15 @@ export interface GovernancePort extends GovernancePortCoup, GovernancePortLeader
   citySatisfaction(cityId: number): number | undefined;
   /** 그 나라 모든 도시 지분의 주체·가문별 합(주체 ID 차례 → 가문 열쇠 차례) */
   holdingsOf(nation: GovernanceNation): readonly GovernanceHolding[];
-  /** 의결이 정한 지배 가문을 NPC 런타임에 알린다(NPC 나라만 — null = 처음 규칙, "vacant" = 빈자리) */
-  applyRuling(nation: GovernanceNation, ruling: HouseKey | "vacant" | null): void;
+  /**
+   * 의결이 정한 지배 가문을 NPC 런타임에 알린다(NPC 나라만 — null = 처음 규칙, "vacant" = 빈자리). head = 계승으로 선 NPC 지배 가문장 유닛(바뀜 gov-fix-2 —
+   * 질문 2532 (3), 없으면 NPC 국가 지도자)
+   */
+  applyRuling(nation: GovernanceNation, ruling: HouseKey | "vacant" | null, head?: number | null): void;
+  /** NPC 가문의 지금 가문장 유닛(npc/cityHouses.ts headOf). 없으면 undefined */
+  npcHouseHead(houseId: number): number | undefined;
+  /** NPC 가문의 다음 가문장(계승 서열 — npc/cityHouses.ts successorOf, 빼는 유닛을 뺀 가문원). 없으면 undefined */
+  npcHouseSuccessor(houseId: number, excluded: ReadonlySet<number>): number | undefined;
   /** 그 도시들의 국고 지분을 그 가문 계정으로(도시마다 옮긴 주 수) */
   moveTreasuryShares(
     nation: GovernanceNation,
@@ -202,12 +209,14 @@ export function worldGovernancePort(
           .map(([holder, amount]) => ({ holder, amount })),
       ];
     },
-    applyRuling(nation, ruling) {
+    applyRuling(nation, ruling, head) {
       const l = live();
       if (!l || nation.playerHouse) return;
       const parsed = ruling === null || ruling === "vacant" ? undefined : parseHouseKey(ruling);
-      l.npc.cityHouses.setRuling(nation.ownerId, ruling === "vacant" ? "vacant" : parsed);
+      l.npc.cityHouses.setRuling(nation.ownerId, ruling === "vacant" ? "vacant" : parsed, head);
     },
+    npcHouseHead: (houseId) => live()?.npc.cityHouses.headOf(houseId),
+    npcHouseSuccessor: (houseId, excluded) => live()?.npc.cityHouses.successorOf(houseId, excluded),
     moveTreasuryShares(nation, cities, key, nowMs) {
       const l = live();
       return l ? treasurySharesToHouse(l.npc.world.book, cities, nation.ownerId, key, nowMs) : [];

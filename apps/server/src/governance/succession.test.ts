@@ -80,7 +80,7 @@ describe("빈자리 자동 계승(D-584·D-588 5 — 먼저 지배 가문, 없�
     expect(audits).toEqual(["governance.successor"]);
   });
 
-  it("그 가문에 다른 사람이 없거나 NPC 가문이면 빈자리(자동 선출은 service.ts 틱이 연다)", async () => {
+  it("그 가문에 다른 사람이 없거나 NPC 런타임 몫이 없으면 빈자리(자동 선출은 service.ts 틱이 연다)", async () => {
     const lone = fake([member("u-h", "leader", 0)]);
     expect(
       await lone.succession.afterElection(
@@ -135,5 +135,89 @@ describe("빈자리 자동 계승(D-584·D-588 5 — 먼저 지배 가문, 없�
     // 옛 빈자리: 지금 가문장(해임된 사람으로 본다)을 빼고 잇는다
     expect(await later.succession.tick(DEMOCRACY, vacant, false, 100)).toMatchObject({ vacantSinceMs: null });
     expect(later.promoted).toEqual(["u-m"]);
+  });
+});
+
+/** NPC 가문 3(가문원 유닛 11·12·13 — 서열은 작은 ID 차례로 둔 가짜) */
+function npcFake(alive: number[] = [11, 12, 13]) {
+  const saved: StateRow[] = [];
+  const applied: number[] = [];
+  let head: number | undefined = 900;
+  const succession = createSuccession({
+    store: {
+      houseMembersOf: async () => [],
+      heirOf: async () => undefined,
+      saveState: async (state) => {
+        saved.push(state);
+      },
+    },
+    audit: async () => {},
+    npc: {
+      head: () => head,
+      successor: (_house, excluded) => alive.find((unit) => !excluded.has(unit)),
+      apply: (_nation, _house, unit) => {
+        applied.push(unit);
+        head = unit;
+      },
+    },
+  });
+  return { succession, saved, applied, setHead: (unit: number | undefined) => (head = unit) };
+}
+
+describe("NPC 지배 가문 계승(gov-fix-2 — 질문 2532 (3), D-588 5 NPC 예외 없음)", () => {
+  const NPC_STATE: StateRow = { ...STATE, rulingHouseKey: "n:3" };
+
+  it("해임 뒤 다시 뽑기가 실패하면 해임된 가문장 유닛을 뺀 다음 가문원이 잇고 빈자리가 아니다", async () => {
+    const { succession, applied } = npcFake();
+    const next = await succession.afterElection(
+      DEMOCRACY,
+      NPC_STATE,
+      { barred: "n:3", barredUnit: 11 },
+      null,
+      100,
+      500,
+    );
+    expect(next).toMatchObject({ rulingHouseKey: "n:3", vacantSinceMs: null, npcHeadUnit: 12 });
+    expect(applied).toEqual([12]);
+  });
+
+  it("이을 가문원이 없을 때만 빈자리(자동 선출)", async () => {
+    const { succession } = npcFake([]);
+    expect(
+      await succession.afterElection(
+        DEMOCRACY,
+        NPC_STATE,
+        { barred: "n:3", barredUnit: 900 },
+        null,
+        100,
+        500,
+      ),
+    ).toMatchObject({ vacantSinceMs: 100, rulingHouseKey: "n:3" });
+  });
+
+  it("틱: 옛 빈자리는 가문원 서열로 잇고, 계승한 가문장이 사라지면 다음 사람을 세운다", async () => {
+    const vacant = npcFake();
+    expect(
+      await vacant.succession.tick(DEMOCRACY, { ...NPC_STATE, vacantSinceMs: 50 }, false, 100),
+    ).toMatchObject({ vacantSinceMs: null, npcHeadUnit: 11 });
+    const gone = npcFake([12, 13]);
+    gone.setHead(12);
+    // 기록된 가문장 11이 사라졌다(런타임 가문장이 다른 사람) → 11을 빼고 다음 사람
+    expect(
+      await gone.succession.tick(DEMOCRACY, { ...NPC_STATE, npcHeadUnit: 11 }, false, 100),
+    ).toMatchObject({
+      npcHeadUnit: 12,
+    });
+    // 기록 = 런타임 가문장이면 그대로, 기록이 없으면(국가 지도자) 그대로
+    const same = { ...NPC_STATE, npcHeadUnit: 12 };
+    expect(await gone.succession.tick(DEMOCRACY, same, false, 200)).toBe(same);
+    expect(await gone.succession.tick(DEMOCRACY, NPC_STATE, false, 200)).toBe(NPC_STATE);
+  });
+
+  it("선출로 지배 가문이 바뀌면 계승 기록을 지운다", async () => {
+    const { succession } = npcFake();
+    expect(
+      await succession.afterElection(DEMOCRACY, { ...NPC_STATE, npcHeadUnit: 12 }, {}, "n:4", 100, 500),
+    ).toMatchObject({ rulingHouseKey: "n:4", npcHeadUnit: null });
   });
 });

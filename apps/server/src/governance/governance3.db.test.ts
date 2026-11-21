@@ -198,12 +198,26 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 3(governance-3)", () => {
     expect(done?.status === "won" || done?.status === "lost").toBe(true);
     const key = `p:${row}`;
     if (done?.status === "won") {
-      expect(faction.regime).toBe("dictatorship");
-      expect(view.nation?.rulingHouse?.key).toBe(key);
-      for (const cityId of faction.cities) {
-        expect(holdingsOf(npc.world.book, cityId)).toEqual([]);
-        expect(houseHoldingsOf(npc.world.book, cityId).map((h) => h.house)).toEqual([`${row}:`]);
-      }
+      // 바뀜(gov-fix-2 — 질문 2542 답 나 D-585 8 "도시만"): 시작 도시(수도)에서 이겨도 그 도시만 새 독재 나라로, 옛 나라는 체제 그대로
+      const result = await rows<{ result: { city: number | null; newNationId: number | null } }>(
+        test.db,
+        "select result from governance_coups where id = $1",
+        [started.agendaId],
+      );
+      const coupCity = result[0]?.result.city;
+      const child = result[0]?.result.newNationId;
+      if (coupCity === null || coupCity === undefined || child === null || child === undefined)
+        throw new Error("no split");
+      expect(faction.cities.has(coupCity)).toBe(false);
+      expect(faction.regime).toBe("democracy");
+      expect(
+        await rows(test.db, "select ruling_house_key from governance_state where nation_id = $1", [child]),
+      ).toEqual([{ ruling_house_key: key }]);
+      expect(holdingsOf(npc.world.book, coupCity)).toEqual([]);
+      expect(houseHoldingsOf(npc.world.book, coupCity).map((h) => h.house)).toEqual([`${row}:`]);
+      // 수도를 잃은 옛 나라는 남은 도시에서 수도를 다시 고른다(D-528 — 점령과 같은 길)
+      const capital = npc.capitalOf(faction.id);
+      if (faction.cities.size > 0) expect(capital !== undefined && faction.cities.has(capital)).toBe(true);
     } else {
       expect(faction.regime).toBe("democracy");
       expect(view.nation?.rulingHouse?.key).not.toBe(key);

@@ -385,10 +385,10 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
 
   return {
     ruins,
-    cityIndependence(cityId, nowMs) {
+    cityIndependence(cityId, nowMs, coup = false) {
       const city = world.cities.get(cityId);
       const parent = city ? world.factions.get(city.owner) : undefined;
-      if (!city || !parent?.alive || city.start) return undefined;
+      if (!city || !parent?.alive || (city.start && !coup)) return undefined;
       return independence(city, parent, parent.regime, nowMs).id;
     },
     occupy(attacker, target, cityId, decision: OccupationChoice, nowMs) {

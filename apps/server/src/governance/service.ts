@@ -34,7 +34,7 @@ import type { Database } from "../db/client.ts";
 import { type CoupCredit, createCoupService } from "./coup.ts";
 import type { CoupSide, CoupStore } from "./coupStore.ts";
 import { type TreatyHooks, createLeaderAgendas } from "./leaderAgendas.ts";
-import { createSuccession } from "./succession.ts";
+import { barredUnitOf, createSuccession, npcSuccessionOf } from "./succession.ts";
 import type { LeaderStore } from "./leaderStore.ts";
 import { electionDecided, motionDecided } from "./early.ts";
 import { type Electorate, type Ruling, createElectorate } from "./electorate.ts";
@@ -184,7 +184,7 @@ export function createGovernanceService(o: {
     treaties: o.treaties,
   });
   // 빈자리 자동 계승(succession.ts — 줄기 governance-6, 질문 2491)
-  const succession = createSuccession({ store: o.store, audit, db: o.db });
+  const succession = createSuccession({ store: o.store, audit, db: o.db, npc: npcSuccessionOf(o.port) });
 
   const standing = async (userId: string): Promise<Standing | undefined> => {
     const nationId = o.port.viewerNation(userId);
@@ -629,9 +629,12 @@ export function createGovernanceService(o: {
         await o.store.finish(agenda.id, { status: "enacted", enactedAtMs: nowMs });
         const ruling = await tools.ruling(nation, state);
         const barred = agenda.payload.barred ?? ruling.key;
-        // 해임된 사람(barredUser)은 빈자리 후임이 못 된다(질문 2491 — succession.ts)
+        // 해임된 사람(barredUser·NPC 가문장 유닛 barredUnit — gov-fix-2)은 빈자리 후임이 못 된다(질문 2491·2532 — succession.ts)
         const payload = barred
-          ? { barred, ...(ruling.leaderUser ? { barredUser: ruling.leaderUser } : {}) }
+          ? {
+              barred,
+              ...(ruling.leaderUser ? { barredUser: ruling.leaderUser } : barredUnitOf(o.port, barred)),
+            }
           : {};
         await openElection(nation, { key: null, user: null }, nowMs, payload, ruling.key);
         return;

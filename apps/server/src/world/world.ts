@@ -2,6 +2,8 @@
 // ADR 2026-10-28-s1-second-map.md(S1), 2026-10-31-s3-server-stage.md 1·2절(S3 저장·복구)
 // - DB가 없으면 S1처럼 메모리에만 둔다(시험·DB 없는 서버).
 // - DB가 있으면 부팅 때 건물·유닛을 다시 놓고 예약을 다시 건 뒤 준비 완료(ready). 바뀜은 쓰기 대기열이 0.25초마다 커밋, 10초마다 생존 시각, 끌 때 비운다.
+import { createOfflineSteward } from "../labor/offlineSteward.ts";
+import { startHeartbeat } from "./heartbeat.ts";
 import { randomInt, randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import { EARTH_FACE_LEVEL } from "@terra/planet";
@@ -804,13 +806,10 @@ export function startWorld(
       await writer.durable();
     }
 
-    const writeHeartbeat = () => writer.upsert("heartbeat", { id: 1, boot_id: bootId, alive_at_ms: now() });
-    writeHeartbeat();
-    heartbeat = setInterval(() => {
-      writeHeartbeat();
-      ties.reload().catch((error: unknown) => log.warn({ err: error }, "house ties reload failed"));
-    }, HEARTBEAT_MS);
-    heartbeat.unref();
+    const beat = () => writer.upsert("heartbeat", { id: 1, boot_id: bootId, alive_at_ms: now() });
+    const steward = createOfflineSteward({ rules: societyRules, settlement, labor, maps, log });
+    const tasks = { "house ties reload": () => ties.reload(), "offline steward": () => steward.sweep(now()) };
+    heartbeat = startHeartbeat({ everyMs: HEARTBEAT_MS, beat, tasks, log });
 
     const problems = [
       ...checkMemoryInvariants(memoryChecks({ badUnits, badBuildings })),

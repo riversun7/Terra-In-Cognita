@@ -73,6 +73,8 @@ export interface Settlement {
   connect(userId: string, nowMs: () => number): () => void;
   /** 모든 연결이 끊긴 시각(접속 중이면 null, 모르면 undefined) */
   offlineSince(userId: string): number | null | undefined;
+  /** 지금 접속을 끊은 유저와 끊긴 시각(비접속 유저 유닛 관리인 — labor/offlineSteward.ts) */
+  offlineUsers(): { userId: string; sinceMs: number }[];
   /** 시험 명령: 시험 화폐를 발행해 준다 */
   grantCredit(ownerId: number, amount: bigint, nowMs: number): void;
   /**
@@ -374,6 +376,13 @@ export function createSettlement(options: {
       const state = presence.get(userId);
       if (!state) return undefined;
       return state.connections > 0 ? null : state.offlineSinceMs;
+    },
+    offlineUsers() {
+      const out: { userId: string; sinceMs: number }[] = [];
+      for (const [userId, state] of presence)
+        if (state.connections === 0 && state.offlineSinceMs !== null)
+          out.push({ userId, sinceMs: state.offlineSinceMs });
+      return out;
     },
     grantCredit(ownerId, amount, nowMs) {
       ledger.post({

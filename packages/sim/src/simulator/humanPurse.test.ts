@@ -127,6 +127,41 @@ describe("NPC 휴먼 지갑(humanPurse.ts)", () => {
     for (const unit of units) expect(seen.get(unit.id)).toBe(0);
   });
 
+  it("그날 받은 몫(fedPm, 판 69): 받는 차례 앞사람만 받은 날은 그 사람만 가득, 끈 판은 비운다", () => {
+    const { world, economy, units } = setup();
+    // 경계마다 앞에서 2명만 받았다
+    feed(economy, world.cities.keys(), 2);
+    livingDay(economy, world, DAY, RULES);
+    const fed = units.map((unit) => unit.fedPm);
+    expect(fed.filter((pm) => pm === 1000)).toHaveLength(2);
+    expect(fed.filter((pm) => pm === 0)).toHaveLength(units.length - 2);
+    // 끈 판은 지난 값을 남기지 않는다(만족도는 도시 평균을 본다)
+    livingDay(economy, world, 2 * DAY, { ...RULES, wageMode: 0 });
+    for (const unit of units) expect(unit.fedPm).toBeUndefined();
+  });
+
+  it("그날 받은 임금(paidToday, 판 70): 일꾼은 받은 임금, 일 없는 휴먼은 0, 짓고 있던 도시의 일 없는 휴먼은 도우미 임금", () => {
+    const { world, economy, cityId, units } = setup();
+    feed(economy, world.cities.keys(), units.length);
+    const plain = livingDay(economy, world, DAY, { ...RULES, buildersMax: 2 });
+    const workers = new Set(cityWorkerUnits(world, economy, cityId).map((worker) => worker.unitId));
+    const idle = units.filter((unit) => !workers.has(unit.id) && unit.guard !== true);
+    expect(idle.length).toBeGreaterThan(0);
+    expect(plain.paidBuilders).toBe(0);
+    for (const unit of units) {
+      if (unit.guard === true) expect(unit.paidToday).toBeUndefined();
+      else if (workers.has(unit.id)) expect(unit.paidToday).toBeGreaterThan(0);
+      else expect(unit.paidToday).toBe(0);
+    }
+    // 그날 짓고 있던 도시: 일 없는 휴먼 2명까지 국고에서 임금
+    feed(economy, world.cities.keys(), units.length);
+    economy.today.building = new Set([cityId]);
+    const building = livingDay(economy, world, 2 * DAY, { ...RULES, buildersMax: 2 });
+    expect(building.paidBuilders).toBe(Math.min(2, idle.length));
+    expect(idle.filter((unit) => (unit.paidToday ?? 0) > 0)).toHaveLength(Math.min(2, idle.length));
+    expect(economy.today.building).toBeUndefined();
+  });
+
   it("임금이 생활비보다 크면 남는 돈은 지갑에 남고, 다음 숙박비 몫은 생필품에 쓰지 않는다", () => {
     const { world, economy, faction, cityId, currency } = setup();
     feed(economy, world.cities.keys(), 100);

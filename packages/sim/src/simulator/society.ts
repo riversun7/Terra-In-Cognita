@@ -10,7 +10,7 @@ import type { LedgerBook } from "../ledger/ledgerBook.ts";
 import { type OccupationChoice, answerOffer, foundingChoice, independenceYes } from "../npc/policy.ts";
 import { inheritTraits } from "../npc/traits.ts";
 import { declareWar, endWar, endedWars, makePeace, recordFight, warCost } from "../society/wars.ts";
-import { satisfactionTarget, satisfactionToward, shiftSatisfaction } from "../society/labor.ts";
+import { satisfactionTarget, satisfactionToward, shiftSatisfaction, topPaidWage } from "../society/labor.ts";
 import { NO_INJURY, injuryNow } from "../society/injury.ts";
 import { cityHousingCap } from "../society/logistics.ts";
 import {
@@ -727,13 +727,17 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
         // 만족도(D-433·D-438 5): 포만감 = 생필품 충족, 주거 = 주거 수 안이면 1등급, 넘으면 노숙, 전쟁
         // 경제가 없으면 생필품을 모델하지 않는다([임시] 충족으로 본다: S3 시험 유지비는 생필품이 아니다)
         const foodPm = o.hooks?.foodPmOf?.(city.id) ?? 1000;
+        // 임금 요소(판 70, D-433): 그날 받은 임금을 그 도시에서 받은 사람들의 상위 몫 평균과 견준다. 못 받은 휴먼은 격차 불이익
+        const topWage = topPaidWage(units, c);
         units.forEach((unit, index) => {
           const target = satisfactionTarget(
             {
-              foodPm,
+              // 포만감 = 그 휴먼이 그날 받은 몫(판 69 — 없으면 도시 평균)
+              foodPm: unit.fedPm ?? foodPm,
               housing: index < cityHousingCap(city) ? 1 : 0,
-              wage: 0,
-              topAverageWage: 0,
+              wage: unit.paidToday ?? 0,
+              topAverageWage: unit.paidToday === undefined ? 0 : topWage,
+              unpaid: unit.paidToday === 0,
               faith: false,
               war: owner.wars.size > 0,
               injured: injuryNow(unit.injury ?? NO_INJURY, nowMs, c.injury).stage > 0,

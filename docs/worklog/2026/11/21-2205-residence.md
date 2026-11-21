@@ -27,7 +27,7 @@
    질문 2483). 나라가 바뀌는 길(`moveCity → cityMoved(…, from, now) → cancelResidentDebts`)은 그대로. 시험: 폐허 = 빚 남음, 점령(INTEGRATE) = 빚 사라짐.
 
 ## 판·마이그레이션·리셋
-- 줄기 판(묶음 때 다시 붙인다): 프로토콜 **99**(최소 **98** — main 59 + 40), 팩 **core@177**(설정 칸 설명 둘 — [임시], 값 그대로), SIM_VERSION **그대로(68)**, 시뮬 출력 형식 그대로.
+- 줄기 판(묶음 때 다시 붙인다): 프로토콜 **99**(최소 **98** — main 59 + 40), 팩 **core@177**(설정 칸 설명 둘 — [임시], 값 그대로), SIM_VERSION **그대로(68 — main 합친 뒤 70, 이 줄기는 올리지 않음)**, 시뮬 출력 형식 그대로.
   `id-changes.json` 그대로.
 - 마이그레이션 `20261121131627_unit_residences`(새 표만, prevIds `ee4d36aa-5559-4825-ab82-9ce79bf8db2c`·`ace6aeb5-b447-493e-affb-6e24cd0be200` — Verified 스냅숏). 직전 판 앱은 이 표를 모른 채 돈다.
 - **리셋 필요 없음.** 배포 뒤 바뀌는 것: 주거 건물 판에 [사는 곳] 카드, 정부 판 주기 칸이 고르기(하루·한 주). 주민세율 기본 0이라 돈은 그대로. 폐허 도시의 주민세 빚이 남는다(지금 빚 없음).
@@ -43,7 +43,7 @@ Verified — 실행, `node cli/sim.ts econ16 --seed N --days 30 --out … --summ
 | 2 | 바탕 | 77fe739078906ed991ec7d7f220b21bc | 163effbdd94855470129605477f51ee7 | 950 |
 | 2 | 이 줄기 | 17e88ce6c81dc19efb44248f94c0e72d | 163effbdd94855470129605477f51ee7 | 950 |
 
-- 시뮬은 주민세 고리가 없어 폐허 길 탕감을 원래도 훑지 않았다 → **SIM_VERSION 그대로(68)**.
+- 시뮬은 주민세 고리가 없어 폐허 길 탕감을 원래도 훑지 않았다 → **SIM_VERSION 그대로(68 — main 합친 뒤 70, 이 줄기는 올리지 않음)**.
 
 ## 바꾼 파일과 이유
 | 파일 | 이유 |
@@ -82,6 +82,7 @@ Verified — 실행, `node cli/sim.ts econ16 --seed N --days 30 --out … --summ
 - 화면 시험 `e2e/building-screen.spec.ts --grep "사는 곳"` 한 번: **2/2 통과**(390 파스텔 한국어·다크 영어 — NPC 숙소 판에 카드, 고를 단추 없음, 가로 넘침·작은 단추 없음).
   사진 `building-residence-390-{pastel-ko,dark-en}`(두 기본 테마 눈으로 확인 — 넘침 없음). 정부 판 주기 고르기는 지도자 고정 자료가 없어 화면 시험·사진 없음(미실행 — 단위 시험만).
 - 시뮬 전·후 위 표(econ16 시드 1·2 × 30일).
+- main `6a91da1ad9`(SIM_VERSION 70·팩 136) 합침: 충돌은 문구 파일 둘(양쪽 키 다)·팩 판(core@177 유지)뿐 — 다국어·콘텐츠 검사와 고친 꾸러미 시험만 다시 돌림— 다국어 8,716키·콘텐츠 core@177(2144ae7e9323)·설정 칸 목록 최신, sim `society.test.ts` 18/18, 서버 사는 곳·게이트웨이·거주·정부 24/24(DB 4 건너뜀) 통과.
 - 작업 중: `@terra/sim` `society.test.ts`, 프로토콜 31파일, 서버 `residence`(DB 시험 포함)·`gather/gateway`·`npc/residentProperty`·`government`·`factionIdentity/gateway`, 게임
   `nationTaxData`·`residenceData`, 게임 타입 검사.
 

@@ -21,7 +21,7 @@ import { exchangeRoom } from "../market/lockerRoom.ts";
 import { withNpcStaff } from "../npc/npcLogistics.ts";
 import { attachResidence, registerResidenceService } from "../residence/attach.ts";
 import { floorQuoteOf } from "../residence/floorQuote.ts";
-import { npcRentWorldOf } from "../residence/npcRentWorld.ts";
+import { npcFloorWorldOf, npcRentWorldOf } from "../residence/npcRentWorld.ts";
 import { loadResidenceRents } from "../residence/rent.ts";
 import { loadResidences } from "../residence/store.ts";
 import { ASSET_CREDIT } from "../world/settlement.ts";
@@ -244,6 +244,10 @@ export function startWorldGather(
         runtime: undefined,
         world: undefined,
       };
+      let npcFloor: { runtime: unknown; world: ReturnType<typeof npcFloorWorldOf> } = {
+        runtime: undefined,
+        world: undefined,
+      };
       const residence = attachResidence({
         rows: residenceRows,
         rentRows,
@@ -270,6 +274,13 @@ export function startWorldGather(
             npcRent = { runtime: world.npc, world: npcRentWorldOf(world.npc, rules, ASSET_CREDIT) };
           return npcRent.world;
         },
+        // NPC 층 올리기(fixes-1117k 2762 — D-555 1509): 같은 층 공사 길(건물 서비스 npcJob kind floor)
+        npcFloor: () => {
+          if (world.npc !== npcFloor.runtime)
+            npcFloor = { runtime: world.npc, world: npcFloorWorldOf(world.npc, rules) };
+          return npcFloor.world;
+        },
+        npcFloorJob: (input) => facilities.service.npcJob({ kind: "floor", ...input }).ok,
       });
       registerResidenceService(service, residence.service);
       stopResidence = () => residence.stop();

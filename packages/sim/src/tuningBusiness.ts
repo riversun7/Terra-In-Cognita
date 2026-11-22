@@ -282,6 +282,14 @@ export const BUSINESS_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 집주인 상업 성향 무게(‰)",
     "NPC landlord commerce weight (‰)",
   ),
+  // NPC 층 올리기(기획 검토 2762 — D-555 1509, 줄기 fixes-1117k): 서버 residence/npcFloors.ts만 읽는다
+  k("npc_floor_mode", "npcFloorMode", "NPC 층 올리기(1 켬·0 끔)", "NPC floor raising (1 on, 0 off)"),
+  k(
+    "npc_floor_demand_pm",
+    "npcFloorDemandPm",
+    "NPC 층 올리기 수요 문턱(정원 대비 ‰)",
+    "NPC floor raising demand threshold (‰ of capacity)",
+  ),
   // 나라 세금(tax-2 — 질문 2371 나·2373 가): NPC 나라 주민세 규칙식 범위, 주민세 재산의 건물 값(지은 값·감가)
   k(
     "npc_resident_tax_min_pm",

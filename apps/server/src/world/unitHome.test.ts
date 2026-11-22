@@ -106,7 +106,10 @@ describe("바로 옮기기 (battleReturn.ts returnHome — D-594 보충 3, D-591
  */
 function homeWorld(o: {
   lodging?: Map<number, { buildingId: number; cityId: number }>;
+  /** 플레이어 유닛(21·22) 가문의 소속 도시(D-569 — fixes-1117k 2755). 없으면 무소속(가문 없음) */
   startCityId?: number;
+  /** 시민권 나라를 둔다(가문 없는 플레이어도 — 기본은 startCityId가 있을 때만) */
+  citizen?: boolean;
   npcCity?: number;
   capital?: number;
   hall?: boolean;
@@ -116,6 +119,8 @@ function homeWorld(o: {
   cityOwners?: ReadonlyMap<number, number>;
   /** 부팅 도시 표의 수도(시작 도시 5)를 둔다(기본 둔다) */
   bootCapital?: boolean;
+  /** 띄우지 않은 2차맵(99)을 띄울 수 있다(봇 귀환 — fixes-1117k 2752) */
+  spawn?: boolean;
 }) {
   const a = createTestMap({ mapKey: 9 }).map;
   const b = createTestMap({ mapKey: 10 }).map;
@@ -180,7 +185,12 @@ function homeWorld(o: {
   ]);
   // 가던 길 버리기 기록(플레이어 = cancel, NPC = cancelNpc)
   const cancelled: string[] = [];
-  const travel: Pick<TravelService, "cancel" | "cancelNpc"> = {
+  /** 띄우지 않은 2차맵 좌표 유닛으로 세운 기록(fixes-1117k 2752) */
+  const parkedRows: { unitId: number; mapKey: number; x: number; y: number }[] = [];
+  const travel: Pick<TravelService, "cancel" | "cancelNpc" | "parkAt"> = {
+    parkAt(row, mapKey, cell) {
+      parkedRows.push({ unitId: row.id, mapKey, x: cell.x, y: cell.y });
+    },
     cancel(userId, unitId) {
       cancelled.push(`player:${userId}:${unitId}`);
       return { ok: false, code: "not_traveling" };
@@ -207,9 +217,10 @@ function homeWorld(o: {
     ledger,
     owners,
     planetId: "p",
+    houseCityOf: (_unitId, userId) => (userId === "u7" ? o.startCityId : undefined),
     cyborgOf: (userId) =>
-      userId === "u7" && o.startCityId !== undefined
-        ? { startCityId: o.startCityId, factionId: NATION_ROW }
+      userId === "u7" && (o.startCityId !== undefined || o.citizen === true)
+        ? { startCityId: o.startCityId ?? 4, factionId: NATION_ROW }
         : undefined,
     npcCityOf: (unitId) => (unitId === 31 ? o.npcCity : undefined),
     npcCapitalOf: (ownerId) => (ownerId === NPC_OWNER ? o.capital : undefined),
@@ -233,12 +244,21 @@ function homeWorld(o: {
     cityCells: () => cells,
     facilities: () => facilities,
     travel: () => travel,
+    spawn: () =>
+      o.spawn === true
+        ? {
+            canOpen: (mapKey) => mapKey === 99 && !maps.has(99),
+            open: async (mapKey) => {
+              maps.set(mapKey, createTestMap({ mapKey }).map);
+              return "ok";
+            },
+          }
+        : undefined,
   });
   const stop = () => {
-    a.stop();
-    b.stop();
+    for (const map of maps.values()) map.stop();
   };
-  return { home, maps, a, b, cancelled, stop, ledger, owners };
+  return { home, maps, a, b, cancelled, parkedRows, stop, ledger, owners };
 }
 
 describe("돌아갈 곳 차례 (unitHome.ts·unitHomeWorld.ts)", () => {
@@ -253,24 +273,50 @@ describe("돌아갈 곳 차례 (unitHome.ts·unitHomeWorld.ts)", () => {
     w.stop();
   });
 
-  it("2) 소속 도시: 플레이어 = 주인 사이보그의 내 도시, NPC = 거울 휴먼의 사는 도시(시청 칸)", () => {
+  it("2) 소속 도시: 플레이어 = 그 유닛 가문의 소속 도시(fixes-1117k 2755), NPC = 거울 휴먼의 사는 도시(시청 칸)", () => {
     const w = homeWorld({ startCityId: 3, npcCity: 4, capital: 5 });
     expect(w.home.homeOf(21, PLAYER_OWNER)).toEqual({ mapKey: 10, x: 30, y: 30, tier: "home_city" });
     expect(w.home.homeOf(31, NPC_OWNER)).toEqual({ mapKey: 9, x: 160, y: 160, tier: "home_city" });
     w.stop();
   });
 
-  it("3) 소속 국가 정부 건물: 소속 도시가 없거나(노숙 0·폐허·띄우지 않음) 모르면 수도 행정 건물, 건물이 없으면 수도 시청 칸", () => {
-    // NPC 노숙(0)·플레이어 도시가 띄우지 않은 2차맵 → 정부 건물(행정 건물 700 기준 칸)
-    const w = homeWorld({ startCityId: 6, npcCity: 0, capital: 5 });
+  it("3) 소속 국가 정부 건물: 소속 도시가 없거나(노숙 0·폐허·가문 없음) 모르면 수도 행정 건물, 건물이 없으면 수도 시청 칸", () => {
+    // NPC 노숙(0)·가문 없는 플레이어 유닛(무소속 — fixes-1117k 2755) → 정부 건물(행정 건물 700 기준 칸)
+    const w = homeWorld({ citizen: true, npcCity: 0, capital: 5 });
     expect(w.home.homeOf(31, NPC_OWNER)).toEqual({ mapKey: 10, x: 120, y: 120, tier: "government" });
     // 플레이어: 시민권 나라 행 80 → 그 나라 주체(8)의 런타임 수도 5
     expect(w.home.homeOf(21, PLAYER_OWNER)).toEqual({ mapKey: 10, x: 120, y: 120, tier: "government" });
     w.stop();
     // 행정 건물이 없고 런타임 수도도 모름 → 부팅 도시 표 수도(시작 도시 5)의 시청 칸
-    const v = homeWorld({ startCityId: 6, hall: false });
+    const v = homeWorld({ citizen: true, hall: false });
     expect(v.home.homeOf(21, PLAYER_OWNER)).toEqual({ mapKey: 10, x: 100, y: 100, tier: "government" });
     v.stop();
+  });
+
+  it("fixes-1117k 2752: 소속 도시가 띄우지 않은 2차맵이어도 다음 차례로 건너뛰지 않는다 — 그 2차맵 칸의 좌표 유닛으로 세운다", () => {
+    const w = homeWorld({ startCityId: 6, capital: 5 });
+    const target = w.home.homeOf(21, PLAYER_OWNER);
+    expect(target).toEqual({ mapKey: 99, x: 1, y: 1, tier: "home_city" });
+    if (!target) throw new Error("no target");
+    expect(w.home.teleport(w.a, 21, PLAYER_OWNER, target, START)).toBe(true);
+    // 2차맵에서 빠지고 이동 서비스 좌표 유닛 장부에(가던 길은 먼저 버린다)
+    expect(w.a.unitInfo(21)).toBeUndefined();
+    expect(w.parkedRows).toEqual([{ unitId: 21, mapKey: 99, x: 1, y: 1 }]);
+    expect(w.cancelled).toEqual(["player:u7:21"]);
+    w.stop();
+  });
+
+  it("fixes-1117k 2752: 봇(NPC 휴먼)은 좌표 유닛이 되지 않아 띄우지 않은 2차맵을 띄운 뒤 옮긴다", async () => {
+    const w = homeWorld({ npcCity: 6, capital: 5, spawn: true });
+    const target = w.home.homeOf(31, NPC_OWNER);
+    expect(target).toEqual({ mapKey: 99, x: 1, y: 1, tier: "home_city" });
+    if (!target) throw new Error("no target");
+    expect(w.home.teleport(w.a, 31, NPC_OWNER, target, START)).toBe(true);
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+    expect(w.a.unitInfo(31)).toBeUndefined();
+    expect(w.maps.get(99)?.unitInfo(31)?.kind).toBe(UNIT_KIND_BOT);
+    expect(w.parkedRows).toEqual([]);
+    w.stop();
   });
 
   it("4) 소속 국가 정부 건물도 없으면 적대 세력(전쟁 중)이 아닌 가까운 도시 — 같은 2차맵 먼저, 전쟁 중인 세력 도시는 건너뛴다", () => {
@@ -307,10 +353,12 @@ describe("돌아갈 곳 차례 (unitHome.ts·unitHomeWorld.ts)", () => {
         [NPC_OWNER, 41],
         [NPC_OWNER, 42],
       ],
+      // 띄우지 않은 2차맵 도시 6도 센다(fixes-1117k 2752)
       cityOwners: new Map([
         [3, 41],
         [4, 40],
         [5, 42],
+        [6, 42],
       ]),
     });
     expect(u.home.homeOf(31, NPC_OWNER, at)).toBeUndefined();
@@ -339,10 +387,11 @@ describe("돌아갈 곳 차례 (unitHome.ts·unitHomeWorld.ts)", () => {
     expect(w.b.unitInfo(31)?.kind).toBe(UNIT_KIND_BOT);
     expect(apart(cellOf(w.b, 31), { x: 30, y: 30 })).toBeLessThan(12);
     expect(w.cancelled).toEqual(["player:u7:21", "npc:31"]);
-    // 돌아갈 2차맵을 띄우지 않았으면 옮기지 않는다(그 자리)
+    // 봇은 좌표 유닛이 되지 않는다: 돌아갈 2차맵을 띄울 길(spawn)이 없으면 옮기지 않는다(그 자리)
     expect(w.home.teleport(w.b, 31, NPC_OWNER, { mapKey: 99, x: 1, y: 1, tier: "home_city" }, START)).toBe(
       false,
     );
+    expect(w.parkedRows).toEqual([]);
     expect(w.b.unitInfo(31)).toBeDefined();
     w.stop();
   });
@@ -436,8 +485,8 @@ describe("빨강만 강제 귀환 (battleResults.ts — D-594 보충 2)", () => 
     w.stop();
   });
 
-  it("빨강인데 사는 곳·소속 도시가 없으면 소속 국가 정부 건물로(다른 2차맵 — 플레이어 유닛)", () => {
-    const w = homeWorld({ startCityId: 6, capital: 5 });
+  it("빨강인데 사는 곳·소속 도시(가문)가 없으면 소속 국가 정부 건물로(다른 2차맵 — 플레이어 유닛)", () => {
+    const w = homeWorld({ citizen: true, capital: 5 });
     const applied = battle(w, new Map([[21, 3]]));
     expect(applied.sentHome).toBe(1);
     expect(w.a.unitInfo(21)).toBeUndefined();

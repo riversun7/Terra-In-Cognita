@@ -390,3 +390,14 @@
 - 판: 프로토콜 그대로, 팩 core@150 [줄기 판 198](설정 칸 값·설명: `gov_fixed_coup_loyalty` 100 → 40, `gov_fixed_coup_power_pm` 설명 "NPC 가문도"), 마이그레이션은 이 절과 무관.
 - 시험: `governance/coup.test.ts`(NPC 가문이 성향대로 일으키되 힘 비 문을 못 넘으면 못 연다), `governance/governance3.db.test.ts`(쿠데타 전투 시작 자료의 kin — 가문장 본체 = 그 가문, 가문 없는 사람은 없음),
   `governance5.db.test.ts`(옛 NPC 쿠데타 시험은 힘 비 둘 다 0), `@terra/sim` `combat/kin.test.ts`(같은 kin은 서로 피해 없음, 다른 적은 그대로).
+
+## 바뀜 (fixes-1117k, 2026-11-22 — 기획 검토 2761: 쿠데타 힘은 플레이어·NPC 모두 도착한 병력, 제안 상태라 덧붙인다)
+- 근거: 기획 검토(코디네이터 전달) 2761 — D-555 1509 "똑같이"·D-591 실제 이동: 쿠데타 힘은 플레이어와 NPC가 같게, 그 도시로 실제로 보내 **닿은** 병력만 센다. 위 "바뀜 (fixes-1117i)"·no-teleport-b의
+  [임시 2698] "NPC 가문 힘 = 보낼 가문원 모두"를 대신한다.
+- 셈(`governance/coup.ts comingUnits`): NPC 가문도 플레이어 가문처럼 그 도시 2차맵에 서 있는 가문 유닛만. NPC 일으키기 문의 정부군 = 플레이어 문(`strongEnough`)과 같은 `governmentUnits`(도착한
+  지배 가문 유닛 + 그 도시 경비대). NPC 참가 기록의 힘도 도착한 것.
+- 차례(`npcLaunch`): 점수가 문턱을 넘고 쿨타임이 끝난 NPC 가문은, 도착한 힘이 문(정부군 × 배율)에 못 미치면 먼저 가문원을 자기 가문 도시로 보낸다(모으기 — `coupNpcDispatch.ts dispatchCoupNpcSides`,
+  멱등: 그 도시에 있거나 가는 중이면 그대로). 다음 틱에 닿은 힘이 문을 넘으면 연다. 플레이어가 병력을 그 도시로 옮긴 뒤 `gov_coup`를 누르는 것과 같은 차례로 읽었다 [임시 — 질문 2771].
+  열린 뒤는 그대로(참가 받는 동안·전투 중 편 든 NPC 가문원 보내기, 닿은 병력만 싸움).
+- 판: 프로토콜·팩·SIM 이 절과 무관, 마이그레이션 없음.
+- 시험: `governance/coup.test.ts` +1(다른 도시에 있는 NPC 가문원 — 열지 않고 보냄, 가는 중 다시 보내지 않음, 닿으면 연다).

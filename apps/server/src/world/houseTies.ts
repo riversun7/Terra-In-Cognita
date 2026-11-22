@@ -29,6 +29,8 @@ export interface HouseTies {
   houseOfUser(userId: string): number | undefined;
   /** 유닛의 가문(D-569): 사이보그 본체면 주인의 가문, 아니면 고용할 때 적은 가문(주인이 아직 그 가문원일 때만). 없으면 undefined(무소속) */
   unitHouseOf(unitId: number, userId: string): number | undefined;
+  /** 가문 행 → 그 가문 소속 도시(house_homes, 다시 읽을 때 채운다 — 적색 부상 귀환 소속 도시, unitHome.ts). 없으면 undefined */
+  cityOfHouse(rowId: number): number | undefined;
   /** 고용한 유닛을 고용한 사람의 지금 가문에 적는다(쓰기 대기열 — 부르는 쪽이 유닛과 같은 커밋을 기다린다). 가문이 없으면 아무것도 안 한다 */
   assignUnit(unitId: number, userId: string, nowMs: number): void;
   /** DB에서 다시 읽고 가문원 시민권·내 도시를 맞추고 떠난 사람의 유닛 줄을 지운다 */
@@ -70,6 +72,7 @@ export function attachHouseTies(store: HouseTiesStore, pool: QueryPool): HouseTi
   let leaderOf = new Map<number, string>();
   let memberNations = new Map<string, number>();
   let memberHouses = new Map<string, number>();
+  let houseCities = new Map<number, number>();
   const units = new Map<number, UnitHouse>();
   let unitsLoaded = false;
 
@@ -102,6 +105,7 @@ export function attachHouseTies(store: HouseTiesStore, pool: QueryPool): HouseTi
     leaderOfHouse: (rowId) => leaderOf.get(rowId),
     memberNationOf: (userId) => memberNations.get(userId),
     houseOfUser: (userId) => memberHouses.get(userId),
+    cityOfHouse: (rowId) => houseCities.get(rowId),
     unitHouseOf(unitId, userId) {
       const house = memberHouses.get(userId);
       if (house === undefined) return undefined;
@@ -151,10 +155,13 @@ export function attachHouseTies(store: HouseTiesStore, pool: QueryPool): HouseTi
       const nextMemberNations = new Map<string, number>();
       const nextMemberHouses = new Map<string, number>();
       const homes = new Map<string, number | null>();
+      const nextHouseCities = new Map<number, number>();
       for (const row of members.rows) {
         const userId = String(row.user_id);
         const factionId = Number(row.faction_id);
         nextMemberHouses.set(userId, factionId);
+        if (row.home_city !== null && row.home_city !== undefined)
+          nextHouseCities.set(factionId, Number(row.home_city));
         homes.set(
           userId,
           row.home_city === null || row.home_city === undefined ? null : Number(row.home_city),
@@ -170,6 +177,7 @@ export function attachHouseTies(store: HouseTiesStore, pool: QueryPool): HouseTi
       leaderOf = new Map([...nextLeaders].map(([userId, rowId]) => [rowId, userId]));
       memberNations = nextMemberNations;
       memberHouses = nextMemberHouses;
+      houseCities = nextHouseCities;
       if (align(homes) + detachLeft() > 0) await store.writer?.durable();
     },
   };

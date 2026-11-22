@@ -928,6 +928,7 @@ export function createTravelService(deps: TravelDeps): TravelService {
     touches: (mapKey) => touchesMap(held, journeys, now(), mapKey),
     hiddenAt: (unitId) => hiddenAtOf(journeys, hiddenPlace, unitId),
     parkedAt: (unitId) => parkedAtOf(parked, unitId),
+    parkAt: park,
 
     coordinateUnits: (ownerIds) => coordinateRows(parked, journeys, hiddenPlace, ownerIds),
     carries: (unitId) => carriesUnit(parked, journeys, unitId),

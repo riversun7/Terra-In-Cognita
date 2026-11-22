@@ -559,3 +559,17 @@ WP1~WP4는 답 없이도 [임시] 추천안으로 갈 수 있다(돈이 사라�
 - NPC 숙소의 침대(도시 경제 쉼터 계획)와 사는 곳 정원은 따로 센다(세입자가 든다고 NPC 일꾼 침대가 줄지 않는다 — 플레이어 집과 같다, 2732 가 그대로).
 - 판: 프로토콜 그대로(집세 조회 모양 그대로 — NPC 집도 `rent`가 있는 집으로 보인다), 팩 core@150 [줄기 판 198](설정 칸 +3 `npc_landlord_*`), 마이그레이션 없음, SIM 그대로(시뮬에는 사는 곳·집세가 없다 — 칸 이름만 시뮬 계수표에).
 - 시험: `residence/npcLandlord.test.ts`(규칙식, NPC 나라의 다 지은 숙소만·같으면 다시 쓰지 않음·끄면 NPC 줄만 거둠).
+
+## 바뀜 (fixes-1117k — NPC도 숙소 층을 올린다, 2026-11-22 — 기획 검토 2762, D-555 1509)
+- 위 "바뀜 (fixes-1117j)"의 "NPC는 아직 층을 올리지 않는다 [임시 2762]"를 대신한다.
+- 같은 길: 플레이어 층 올리기 공사(`facilities/floors.ts` — 재료·시간 표, 작업 줄 `facility_jobs` kind floor, 끝나면 층 + 1). NPC는 건물 서비스 `npcJob`에 새 종류 `floor`(자리 규칙 = `floorOpen`,
+  재료 자리 = 그 도시 창고·그 도시 NPC 창고 시설 — NPC 레벨 올리기와 같다, 원장 사유 `facility_floor`)로 건다. 견적은 사는 곳 조회와 같은 `residence/floorQuote.ts floorQuoteOf`(막힘 = 작업 중·최고 층·
+  다 짓지 않음).
+- 판단(새 `residence/npcFloors.ts`, 1분 사는 곳 훑기의 NPC 집주인 다음 — 서버만, 시뮬에는 사는 곳이 없어 SIM 판정 그대로): NPC 투자 판단 틀(`@terra/sim` `npc/invest.ts`, D-587 8·D-323)을 쓴다.
+  ① 수요 = 그 숙소에 사는 유닛(고른 집 + 숙소 배정 — `book.occupants`) ≥ 정원 × `npc_floor_demand_pm` ÷ 1000(수요 없으면 올리지 않음). ② 수요가 있으면 도전 굴림 — 확률 =
+  `investTemperedChallengePm(재료 값, 국고, 상업 성향 배율)`(재료 값 = 그 도시 시장 기준값 `materialsValue` — NPC 레벨 올리기와 같다, 국고 = 그 나라 화폐 잔고, 굴림 = 서버 난수 0~999).
+  층은 산출이 없어 기대 수익 문(`investPays`)은 거치지 않는다. 훑기마다 다시 굴린다(국고가 넉넉하고 상업 성향이 높을수록 빨리) [임시 — 질문 2772].
+- 설정 칸 +2(팩 core@151 — 묶음 1117l [줄기 판 190]): `npc_floor_mode`(1 켬), `npc_floor_demand_pm`(1000 — 다 찼을 때) [임시]. 계수표 기본값(`START_BUSINESS`)도 같게.
+- `@terra/sim` 묶음 내보내기(`simulator/npcBuildEntry.ts`)가 `npc/invest.ts`를 내보낸다(판정 그대로).
+- 판: 프로토콜 그대로, 마이그레이션 없음(작업 줄 kind floor는 residence-3에서 이미 있음).
+- 시험: `residence/npcFloors.test.ts`(수요 문턱, 정원이 찬 NPC 숙소만 같은 견적으로 건다·플레이어/빈 숙소 건너뜀, 굴림 빗나감, 막힘·끄기).

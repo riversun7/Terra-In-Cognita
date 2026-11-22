@@ -8,7 +8,7 @@ import { attachSociety } from "./society.ts";
 import { createSocietyWar } from "./societyWar.ts";
 import { OCCUPATION_END_REASONS } from "@terra/shared/faction";
 import { WAR_STATE_END_REASONS, type WarStateEndReason } from "../society/warOutcomes.ts";
-import { TEST_ASSET_CREDIT, checkWorld, createWorld } from "./world.ts";
+import { TEST_ASSET_CREDIT, checkWorld, createWorld, transferCity } from "./world.ts";
 
 /** 고정 나라 1(시작 도시 1 + 마을 2·3), 유동 세력 2(도시 4·5), 유동 세력 3(도시 6 하나) */
 function setup(c: SocietyCoefficients = TEST_SOCIETY_COEFFICIENTS) {
@@ -293,6 +293,22 @@ describe("공성 결과 셋(D-520·D-527)", () => {
     city.owner = 1;
     expect(faction(1).lostCities?.has(2)).toBe(false);
     expect(faction(2).lostCities).toBeUndefined();
+  });
+
+  it("잃은 도시 기억(fixes-1117k 2764): 독립·쿠데타로 떨어져 나간 도시도 적고(transferCity — 모든 길), 되찾으면 지운다", () => {
+    const { world, faction, society } = setup();
+    // 고정 나라 1의 마을 2가 쿠데타로 떨어져 나간다(시작 도시가 아닌 도시)
+    const child = society.cityIndependence(2, 1000, true);
+    if (child === undefined) throw new Error("no split");
+    expect(world.cities.get(2)?.owner).toBe(child);
+    expect(faction(1).lostCities?.get(2)).toBe(1000);
+    // 유동 세력이 잃은 도시는 적지 않는다(고정 국가만)
+    transferCity(world, 2, faction(2), 2000);
+    expect(faction(child).lostCities).toBeUndefined();
+    expect(faction(1).lostCities?.get(2)).toBe(1000);
+    // 되찾으면(어떤 길이든) 지운다
+    transferCity(world, 2, faction(1), 3000);
+    expect(faction(1).lostCities?.has(2)).toBe(false);
   });
 
   it("잃은 도시 기억: 다른 길(넘겨받기 등)로 다시 내 도시가 되거나 도시가 없어지면 하루 끝에 지운다", () => {

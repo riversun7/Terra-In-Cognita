@@ -6,6 +6,8 @@
 // - 바뀜(npc-rent, 질문 2674 — D-555 1509): NPC 휴먼도 같은 장부로 세 든다(npcRent.ts). 1분 훑기 = 다음 기간 걷기 → NPC 세 들기 → 쉼. NPC 휴먼 값은 그 도시 나라
 //   화폐로 그 휴먼 지갑에서(npcAwarePayer), 장부의 유닛 주인은 2차맵에 없으면 거울 세계 휴먼 주인.
 // - 바뀜(fixes-1117j, 질문 2735 — D-555 1509): NPC 나라도 제 숙소에 집세를 정해 세를 놓는다(npcLandlord.ts). 1분 훑기 = 다음 기간 걷기 → NPC 집주인 → NPC 세 들기 → 쉼.
+// - 바뀜(fixes-1117k, 기획 검토 2762 — D-555 1509): NPC 나라도 정원이 찬 숙소의 층을 올린다(npcFloors.ts — 투자 판단 틀). 1분 훑기의 NPC 집주인 다음.
+import { randomInt } from "node:crypto";
 import type { ResidenceFloorQuote } from "@terra/shared/residence";
 import { unitPurseLocation } from "@terra/shared/businessBooks";
 import type { BusinessCore } from "../business/core.ts";
@@ -36,6 +38,7 @@ import {
   renewResidenceRents,
 } from "./rent.ts";
 import { type NpcRentRules, type NpcRentWorld, createNpcRentSweeper, npcAwarePayer } from "./npcRent.ts";
+import { type NpcFloorRules, type NpcFloorWorld, createNpcFloors } from "./npcFloors.ts";
 import { type NpcLandlordRules, type NpcLandlordWorld, createNpcLandlord } from "./npcLandlord.ts";
 import { type ResidenceService, createResidenceService } from "./service.ts";
 import { markResidencePaused } from "./store.ts";
@@ -66,7 +69,7 @@ export async function sweepResidencePauses(
 }
 
 /** 사는 곳 규칙(설정 칸 — @terra/sim BusinessCoefficients의 같은 이름 칸) */
-export interface ResidenceRules extends FloorRules, NpcRentRules, NpcLandlordRules {
+export interface ResidenceRules extends FloorRules, NpcRentRules, NpcLandlordRules, NpcFloorRules {
   readonly residenceRentPeriodMs?: number | undefined;
 }
 
@@ -105,6 +108,17 @@ export interface ResidenceParts {
   readonly now: () => number;
   /** NPC 세 들기 세계 몫(NPC 런타임이 켜진 뒤 — 없으면 NPC는 세 들지 않는다, npcRent.ts) */
   npc?(): NpcRentWorld | undefined;
+  /** NPC 층 올리기 세계 몫(npcFloors.ts — fixes-1117k 2762, 없으면 NPC는 층을 올리지 않는다) */
+  npcFloor?(): NpcFloorWorld | undefined;
+  /** NPC 층 공사를 건다(건물 서비스 npcJob kind floor). 없으면 걸지 않는다 */
+  npcFloorJob?(input: {
+    readonly ownerId: number;
+    readonly buildingId: number;
+    readonly materials: readonly { readonly item: string; readonly qty: number }[];
+    readonly ms: number;
+  }): boolean;
+  /** NPC 층 올리기 굴림(0 이상 정수 — 없으면 서버 난수) */
+  roll?(): number;
 }
 
 type WorldParts = Pick<ResidenceParts, "facilities" | "maps" | "workerRest" | "rules" | "now" | "npc">;
@@ -244,6 +258,17 @@ export function attachResidence(
     rules: () => parts.rules(),
     periodMs: () => payer.periodMs(),
   });
+  // NPC 층 올리기(fixes-1117k 2762): 집세를 정한 뒤 같은 훑기에서 — 수요(정원이 참)·비용 몫·성향 굴림
+  const npcFloors = createNpcFloors({
+    buildingIds: () => parts.facilities.service.facilities.keys(),
+    building: (buildingId) => world.building(buildingId),
+    occupants: (buildingId) => book.occupants(buildingId),
+    quote: (buildingId, ownerId) => parts.floorQuote?.(buildingId, ownerId) ?? null,
+    start: (input) => parts.npcFloorJob?.(input) ?? false,
+    npc: () => parts.npcFloor?.(),
+    rules: () => parts.rules(),
+    roll: () => parts.roll?.() ?? randomInt(1000),
+  });
   const npcRent = createNpcRentSweeper({
     book,
     rents,
@@ -287,6 +312,7 @@ export function attachResidence(
     const at = parts.now();
     void renewResidenceRents(book, payer, parts.pool, at)
       .then(() => npcLandlord.sweep(at))
+      .then(() => npcFloors.sweep(at))
       .then(() => npcRent.sweep(at))
       .then(() => sweepResidencePauses(book, parts.pool, at))
       .catch(() => undefined)

@@ -91,7 +91,11 @@
 
 ## 검사
 - (작업 중 — Verified 실행) 서버 타입 검사, `governance/coup.test.ts` 3/3, 프로토콜 꾸러미 34파일 205/205.
-- (끝 — 아래 검사 줄에 적는다)
+- (끝 — Verified 실행) touched DB 시험: `governance3.db.test.ts`·`governance5.db.test.ts`·`govFix2.db.test.ts` 3파일 11/11, `facilities/attack.db.test.ts` 통과.
+- 전체 `pnpm check`(TEST_DATABASE_URL, DB 시험 포함, 잠금 안, 바탕 14537f2649 위): 첫 판은 프로토콜 시험 타입(`unitIds` readonly)으로 멈춰 고쳤다. 둘째 판 **통과** — 포맷(3,371파일)·타입·린트·경계·크기·
+  다국어(8,922키)·디자인 값(746쌍)·콘텐츠(core@143), 시험 파일 **888/888**·시험 **6,353/6,353**(`@terra/sim` 골든 포함 — 시뮬 판정 그대로).
+- 화면 시험(Verified 실행): `pnpm e2e e2e/governance.spec.ts e2e/facilities.spec.ts` **16/16 통과**(새: 쿠데타 병력 고르기 → `gov_coup_join unitIds:[101,102,103]`, 사진 390 × 파스텔·다크 × ko·en 4장
+  `governance-coup-troops-*` — 가로 넘침 없음, 다크·영어 사진을 눈으로 확인).
 
 ## 미검증·TODO·알려진 문제
 - 다른 2차맵에서 실제로 걸어 보내는 길은 DB 시험으로 돌리지 않았다: 쿠데타 DB 시험 세계(`governance3.db.test.ts`)는 띄운 2차맵이 하나라 두 나라 시작 도시가 한 2차맵에 있다(531m 떨어진 다른 나라 사람의 본체도 "그 도시 2차맵에 있음"으로 든다 — 도착 판정이 2차맵 단위인 [임시 2651]의 모습). 보내기·도착 판정은 `coup.test.ts`(가짜 포트), 이동 서비스 자체는 기존 시험.

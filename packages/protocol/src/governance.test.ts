@@ -130,7 +130,13 @@ describe("나라 의결 메시지", () => {
   it("쿠데타 병력 파견(줄기 no-teleport 판 125 — D-591): 메시지 모양은 그대로, 뜻만 바뀌어 판을 올린다", () => {
     expect(COUP_DISPATCH_PROTOCOL_VERSION).toBe(125);
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(COUP_DISPATCH_PROTOCOL_VERSION);
-    const join = { t: "gov_coup_join", id: 16, coupId: 3, side: "government", unitIds: [11, 12] } as const;
+    const join = {
+      t: "gov_coup_join" as const,
+      id: 16,
+      coupId: 3,
+      side: "government" as const,
+      unitIds: [11, 12],
+    };
     expect(decodeClientMessage(encodeMessage(join))).toEqual(join);
   });
 

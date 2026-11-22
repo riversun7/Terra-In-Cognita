@@ -75,3 +75,40 @@
   display: grid;
   gap: var(--space-2);
 }
+/* 쿠데타 보낼 병력(CoupJoin.tsx — 줄기 no-teleport, D-591): 유닛마다 고르기·이름·도착 예정, 390px에서 줄바꿈 */
+.gov-troops {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.gov-troops > p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+.gov-troop-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gov-troop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  min-block-size: var(--tap-size);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.gov-troop-name {
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.gov-troop-late {
+  color: var(--color-danger);
+}

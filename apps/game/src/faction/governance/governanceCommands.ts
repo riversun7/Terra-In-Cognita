@@ -29,7 +29,13 @@ export type GovernanceRequest =
   | { readonly t: "gov_candidate"; readonly agendaId: number }
   /** cityId = 쿠데타를 일으킬 도시(줄기 gov-coup — D-588 2492 가, 없으면 서버가 가문 자리 도시 → 수도) */
   | { readonly t: "gov_coup"; readonly cityId?: number }
-  | { readonly t: "gov_coup_join"; readonly coupId: number; readonly side: "rebel" | "government" };
+  /** unitIds = 쿠데타 도시로 실제로 보낼 내 유닛(줄기 no-teleport — D-591, 없으면 이미 그 도시에 있는 내 유닛만) */
+  | {
+      readonly t: "gov_coup_join";
+      readonly coupId: number;
+      readonly side: "rebel" | "government";
+      readonly unitIds?: number[];
+    };
 
 /** 의결 명령 하나를 보내고 결과를 기다린다 */
 export function sendGovernance(

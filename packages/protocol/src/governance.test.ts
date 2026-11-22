@@ -4,6 +4,7 @@ import {
   COUP_PROTOCOL_VERSION,
   GOVERNANCE5_PROTOCOL_VERSION,
   GOV_COUP_PROTOCOL_VERSION,
+  COUP_DISPATCH_PROTOCOL_VERSION,
   MIN_SUPPORTED_PROTOCOL_VERSION,
   GOVERNANCE_PROTOCOL_VERSION,
   GOVERNANCE_RESULT_CODES,
@@ -124,6 +125,13 @@ describe("나라 의결 메시지", () => {
     } as const;
     expect(decodeClientMessage(encodeMessage(nationTax))).toEqual(nationTax);
     expect(decodes(decodeClientMessage, { ...nationTax, tradeTaxBp: 10_001 })).toBe(false);
+  });
+
+  it("쿠데타 병력 파견(줄기 no-teleport 판 125 — D-591): 메시지 모양은 그대로, 뜻만 바뀌어 판을 올린다", () => {
+    expect(COUP_DISPATCH_PROTOCOL_VERSION).toBe(125);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(COUP_DISPATCH_PROTOCOL_VERSION);
+    const join = { t: "gov_coup_join", id: 16, coupId: 3, side: "government", unitIds: [11, 12] } as const;
+    expect(decodeClientMessage(encodeMessage(join))).toEqual(join);
   });
 
   it("쿠데타 도시·손 조절 목표 물가 상한(프로토콜 63 — 묶음 1117c, 줄기 gov-coup 판 121, 사용자 결정 D-588 2492·2499)", () => {

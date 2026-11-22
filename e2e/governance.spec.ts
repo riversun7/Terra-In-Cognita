@@ -3,6 +3,7 @@
 // - 안건이 있는 장면: governance.view 응답을 고쳐(helpers/trpc.ts rewriteTrpc) 선출(후보 둘)·체제 전환(투표 중)·가결 기다림(직권)을 넣는다.
 //   [찬성]은 WebSocket gov_vote를 보낸다(서버는 없는 안건이라 unknown_agenda로 답하고 화면은 오류 문구를 보인다).
 // - 사진: 390 × 파스텔·다크 × 한국어·영어(E2E_SHOTS_DIR). 가로 넘침 없음.
+// - 쿠데타 병력 고르기(줄기 no-teleport — D-591): 참가 받는 쿠데타 하나(응답을 고쳐 넣음)의 내 병력 셋(그 도시에 있음·가는 중·보내면 전투 뒤 도착), 고른 유닛을 gov_coup_join unitIds로 보낸다.
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot } from "./helpers/screen.ts";
@@ -117,6 +118,33 @@ const withAgendas = (data: unknown): void => {
   });
 };
 
+/** governance.view → 안건 없이 참가 받는 쿠데타 하나(내 병력 셋: 그 도시에 있음·가는 중·보내면 전투 뒤 도착 — 줄기 no-teleport, D-591) */
+const withCoup = (data: unknown): void => {
+  withAgendas(data);
+  if (typeof data !== "object" || data === null) return;
+  Object.assign(data, {
+    agendas: [],
+    canCoup: false,
+    coups: [
+      {
+        id: 77,
+        house: { key: "p:5", name: "아주아주긴가문이름의의결가문", npc: false },
+        status: "gathering",
+        gatherUntilMs: NOW + HOUR,
+        rebels: 1,
+        government: 0,
+        mySide: null,
+        city: { id: 3, name: "칼루누이 항구" },
+        troops: [
+          { id: 101, type: "body", state: "here", arriveAt: null, sent: false },
+          { id: 102, type: "human", state: "going", arriveAt: NOW + 20 * 60_000, sent: true },
+          { id: 103, type: "cyborg", state: "away", arriveAt: NOW + 3 * HOUR, sent: false },
+        ],
+      },
+    ],
+  });
+};
+
 test.describe("플레이어(실제 자료)", () => {
   test.use({ account: "player" });
 
@@ -157,6 +185,41 @@ test.describe("플레이어(실제 자료)", () => {
   });
 });
 
+test.describe("쿠데타 병력(no-teleport)", () => {
+  test.use({ account: "player" });
+  test("보낼 병력: 그 도시에 있거나 보낸 유닛이 처음 골라지고, 고른 유닛을 gov_coup_join unitIds로 보낸다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await rewriteTrpc(page, { "summary.get": hideSummary, "governance.view": withCoup });
+    const sent: string[] = [];
+    page.on("websocket", (socket) => {
+      socket.on("framesent", ({ payload }) => {
+        const text = typeof payload === "string" ? payload : payload.toString("utf8");
+        if (text.includes('"gov_coup_join"')) sent.push(text);
+      });
+    });
+    await openVotes(page, "ko");
+    const troops = page.getByTestId("governance-coup-troops");
+    await expect(troops).toBeVisible();
+    const boxes = troops.getByRole("checkbox");
+    await expect(boxes).toHaveCount(3);
+    await expect(boxes.nth(0)).toBeChecked();
+    await expect(boxes.nth(1)).toBeChecked();
+    await expect(boxes.nth(2)).not.toBeChecked();
+    await expect(troops.getByText(message("ko", "gov_coup_troop_late"), { exact: false })).toBeVisible();
+    await boxes.nth(2).check();
+    await page
+      .getByTestId("governance-coups")
+      .getByRole("button", { name: message("ko", "gov_coup_join_government") })
+      .click();
+    await expect.poll(() => sent.length).toBeGreaterThan(0);
+    expect(sent[0]).toContain('"unitIds":[101,102,103]');
+    expect(sent[0]).toContain('"side":"government"');
+    expect(deviceErrors).toEqual([]);
+  });
+});
+
 const LAYOUTS: readonly { theme: Theme; language: Language }[] = [
   { theme: "pastel", language: "ko" },
   { theme: "pastel", language: "en" },
@@ -177,6 +240,16 @@ test.describe("사진 390px", () => {
         await panel.scrollIntoViewIfNeeded();
         expect(await horizontalOverflow(page)).toEqual([]);
         await shot(page, `governance-${theme}-${language}-390`);
+        expect(deviceErrors).toEqual([]);
+      });
+      test("쿠데타 병력: 가로 넘침 없음, 사진", async ({ page, deviceErrors }) => {
+        await rewriteTrpc(page, { "summary.get": hideSummary, "governance.view": withCoup });
+        await openVotes(page, language);
+        const troops = page.getByTestId("governance-coup-troops");
+        await expect(troops.getByRole("checkbox")).toHaveCount(3);
+        await troops.scrollIntoViewIfNeeded();
+        expect(await horizontalOverflow(page)).toEqual([]);
+        await shot(page, `governance-coup-troops-${theme}-${language}-390`);
         expect(deviceErrors).toEqual([]);
       });
     });

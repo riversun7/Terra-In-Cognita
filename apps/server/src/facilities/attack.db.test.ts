@@ -168,6 +168,14 @@ describe.skipIf(!TEST_DATABASE_URL)("건물·영토 비콘 공격(질문 381)", 
 
     // 칠 수 없는 경우
     const attack = p.facilities.attack;
+    // 대상 근처(ATTACK_DEFENDER_RADIUS칸)에 없는 유닛은 칠 수 없다(줄기 no-teleport — D-591: 같은 2차맵 먼 곳에서 전투 구역에 바로 나타나지 않는다)
+    expect(await attack.attack(raider, { buildingId: yard }, raiders)).toEqual({
+      ok: false,
+      code: "out_of_reach",
+    });
+    // 시험: 습격자 유닛을 야적장 곁으로 옮겨 둔다(걸어온 것으로 본다)
+    const yardMap = world.maps.get(TEST_MAP_KEY);
+    for (const unitId of raiders) yardMap?.relocateToSafety(unitId, { x: 66, y: 64 });
     expect(await attack.attack(owner, { buildingId: yard }, raiders)).toEqual({
       ok: false,
       code: "own_target",

@@ -16,6 +16,7 @@ import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "
 import { legacyNationPresets, silentLog } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
 import { type DiplomacyAttached, attachDiplomacy } from "./attach.ts";
+import { npcJoinsWar } from "./clauses.ts";
 
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
 if (!loaded.source || !loaded.pack) throw new Error("content pack");
@@ -277,13 +278,22 @@ describe.skipIf(!TEST_DATABASE_URL)("지도자끼리 조약(diplomacy)", () => {
     if (!ctx) throw new Error("npc context");
     const mine = factionView(ctx, targetFaction, clock).strength;
     const theirs = factionView(ctx, enemyFaction, clock).strength;
+    // 관계 점수(줄기 npc-diplo — 질문 2663): 우리 나라의 무명분 선포로 동맹과의 호감이 내려가 힘 비 문턱이 오른다(npc_relation_join_*)
+    const affinity = dip.service.affinity();
+    const before = affinity?.get(target.id, me.nation) ?? 0;
+    expect(before).toBe(-rules.noCauseAffinity);
+    const joins = npcJoinsWar(mine, theirs, { affinity: before, trust: 0 }, rules);
     const asked = await dip.service.requestWar(me.userId, { treatyId: made.ref, enemyNationId: enemy.id });
-    expect(asked).toMatchObject({ ok: true, action: mine >= theirs ? "joined" : "refused" });
-    expect(targetFaction.wars.has(enemyFaction.id)).toBe(mine >= theirs);
+    expect(asked).toMatchObject({ ok: true, action: joins ? "joined" : "refused" });
+    expect(targetFaction.wars.has(enemyFaction.id)).toBe(joins);
     expect((await dip.view(me.userId)).warJoins[0]).toMatchObject({
-      state: mine >= theirs ? "joined" : "declined",
+      state: joins ? "joined" : "declined",
       auto: false,
     });
+    // 받으면 호감이 오르고(dip_join_accept_affinity), 거절하면 내려간다(D-291)
+    expect(affinity?.get(target.id, me.nation)).toBe(
+      before + (joins ? rules.joinAcceptAffinity : -rules.joinRefuseAffinity),
+    );
     // 동맹 상대에게 선포하면(조약은 공격을 막지 않는다 — D-329 86) 다음 틱에 위반(broken)
     expect(
       await gov.service.propose(me.userId, { kind: "war_declaration", targetNationId: target.id }),
@@ -397,11 +407,16 @@ describe.skipIf(!TEST_DATABASE_URL)("지도자끼리 조약(diplomacy)", () => {
     const auto = (await dip.view(b.userId)).warJoins[0];
     expect(auto).toMatchObject({ auto: true, state: "requested", canAnswer: true, enemy: { id: third.id } });
     if (!auto) throw new Error("auto");
+    // 보호 조약을 지킨 날마다 호감이 올랐다(dip_treaty_kept_affinity — 틱이 날을 넘겼다)
+    const keptAffinity = dip.service.affinity()?.get(a.nation, b.nation) ?? 0;
+    expect(keptAffinity).toBeGreaterThan(0);
     expect(await dip.service.respondWar(b.userId, { requestId: auto.id, accept: true })).toMatchObject({
       ok: true,
       action: "joined",
     });
     expect(b.faction.wars.has(thirdFaction.id)).toBe(true);
+    // 사람이 참전 요청을 받아도 호감이 오른다(줄기 npc-diplo — dip_join_accept_affinity)
+    expect(dip.service.affinity()?.get(a.nation, b.nation)).toBe(keptAffinity + rules.joinAcceptAffinity);
     // 기한 지남: B가 셋째 나라(NPC가 아닌 길은 이미 봤다) 대신 A에게 불가침을 새로 내면 열린 조약이 없어 낼 수 있다 — 이미 맺은 조약은 막지 않는다
     const second = await dip.service.propose(b.userId, {
       targetNationId: a.nation,

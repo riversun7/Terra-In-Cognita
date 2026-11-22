@@ -64,6 +64,16 @@ export interface NpcCoefficients {
   readonly peaceWinningPenalty: number;
   /** 강화를 받는 쪽 기준값(점수 > 0이면 받음) */
   readonly peaceAcceptBase: number;
+  /**
+   * 관계 점수 몫(npc/relationScore.ts — 줄기 npc-diplo, 기획 D-255 "NPC 외교 AI는 점수로 판단한다", 질문 2663 [임시] 출발값): 호감·신뢰가 ±100일 때의 점수.
+   * 새 선포 치기 점수에서 빼는 몫(war), 강화 점수에 더하는 몫(peace), 참전 힘 비 문턱(‰)을 옮기는 몫(join). 서버만 호감·신뢰를 준다(시뮬은 0 — 몫 0). 없으면 0
+   */
+  readonly relationWarAffinity?: number | undefined;
+  readonly relationWarTrust?: number | undefined;
+  readonly relationPeaceAffinity?: number | undefined;
+  readonly relationPeaceTrust?: number | undefined;
+  readonly relationJoinAffinityPm?: number | undefined;
+  readonly relationJoinTrustPm?: number | undefined;
   /** 봉신 독립 힘 비(‰): 내 힘 ≥ 상위 × 이 값 ÷ 1000 */
   readonly breakRatioPm: number;
   /** 무명분 선포 비용(국고 만분율, S3, 질문 196 가 5%) */
@@ -222,6 +232,12 @@ export const TEST_NPC_COEFFICIENTS: NpcCoefficients = {
   peaceWeakerScore: 300,
   peaceWinningPenalty: 300,
   peaceAcceptBase: 200,
+  relationWarAffinity: 150,
+  relationWarTrust: 100,
+  relationPeaceAffinity: 150,
+  relationPeaceTrust: 100,
+  relationJoinAffinityPm: 500,
+  relationJoinTrustPm: 300,
   breakRatioPm: 800,
   warCostBp: 500,
   whitePeaceMs: 7 * DAY_MS,

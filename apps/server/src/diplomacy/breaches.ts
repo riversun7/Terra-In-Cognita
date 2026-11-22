@@ -77,6 +77,8 @@ export interface BreachBook {
   markLoaded(): void;
   /** 그 세력의 남은 위반 수(잊는 기간이 지난 기록은 빼고 — 2583 다) */
   breachesOf(owner: number, nowMs: number): number;
+  /** 그 세력의 세력 신뢰(남은 위반 수 × dip_breach_trust_penalty — trustOf, 줄기 npc-diplo) */
+  trust(owner: number, nowMs: number): number;
   /**
    * attacker가 target에 제재 명분이 있나(몫 설정 칸과 무관, 2585 gov-fix-3): target의 남은 위반 기록 가운데 제재 기간 안이고 피해 나라가 attacker이거나 attacker의
    * 동맹인 것이 있으면(2584 다)
@@ -137,6 +139,10 @@ export function createBreachBook(rules: () => BreachRules): BreachBook {
         (row.victim === attacker || allies.has(pairKey(attacker, row.victim))),
     );
   };
+  const liveBreaches = (owner: number, nowMs: number): number => {
+    const expireMs = rules().breachExpireMs;
+    return (breaches.get(owner) ?? []).filter((row) => breachLive(row.atMs, nowMs, expireMs)).length;
+  };
   const declare = (attacker: number, target: number, atMs: number): void => {
     if (attacker === target) return;
     remember(attacker, target, atMs);
@@ -177,10 +183,8 @@ export function createBreachBook(rules: () => BreachRules): BreachBook {
     markLoaded() {
       ready = true;
     },
-    breachesOf(owner, nowMs) {
-      const expireMs = rules().breachExpireMs;
-      return (breaches.get(owner) ?? []).filter((row) => breachLive(row.atMs, nowMs, expireMs)).length;
-    },
+    breachesOf: liveBreaches,
+    trust: (owner, nowMs) => trustOf(liveBreaches(owner, nowMs), rules().breachTrustPenalty),
     hasCause,
     causeBonus(attacker, target, nowMs) {
       return hasCause(attacker, target, nowMs) ? Math.max(0, Math.trunc(rules().sanctionCauseBonus)) : 0;
@@ -239,6 +243,27 @@ export function withTreatyHooks(base: SimHooks, o: { readonly ledger: object }):
       if (base.warCause?.(attacker, target, nowMs) === true) return true;
       return warCauseOf(o.ledger, attacker.id, target.id, nowMs);
     },
+    // 관계 점수(줄기 npc-diplo — D-255 "NPC 외교 AI는 점수로 판단한다", 질문 2663): 두 나라 호감·상대 세력 신뢰. 장부를 다 읽기 전에는 중립(0)
+    relationOf(faction: SimFaction, other: SimFaction, nowMs: number) {
+      return relationOfOwners(o.ledger, faction.id, other.id, nowMs);
+    },
+  };
+}
+
+/**
+ * 두 거울 세계 세력(소유 주체 ID)의 관계 점수: 호감(affinity.ts — 쌍)·other의 세력 신뢰(위반 장부). 장부가 없거나 다 읽기 전이면 0(중립 — NPC 판단·참전 답이 같이 쓴다, 줄기 npc-diplo)
+ */
+export function relationOfOwners(
+  ledger: object,
+  owner: number,
+  other: number,
+  nowMs: number,
+): { readonly affinity: number; readonly trust: number } {
+  const affinities = affinityBookOf(ledger);
+  const breaches = breachBookOf(ledger);
+  return {
+    affinity: affinities?.loaded() === true ? affinities.getByOwner(owner, other) : 0,
+    trust: breaches?.loaded() === true ? breaches.trust(other, nowMs) : 0,
   };
 }
 

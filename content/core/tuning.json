@@ -4341,6 +4341,114 @@
       "source": "ADR 2026-11-01-npc-brain-r5 · 질문 192~198"
     },
     {
+      "id": "npc_relation_war_affinity",
+      "code": "",
+      "name": {
+        "ko": "NPC 새 선포: 호감 몫(±100일 때 점수)",
+        "en": "NPC new war: affinity weight (points at ±100)"
+      },
+      "value": 150,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "NPC가 새로 선포할 상대를 고를 때 치기 점수에서 호감 × 이 값 ÷ 100을 뺀다(호감 −100~100). 호감이 낮을수록 선포 쪽, 높을수록 덜 친다. 0 = 호감을 보지 않음.",
+        "en": "When an NPC picks a new war target, the attack score loses affinity × this ÷ 100 (affinity −100..100). Low affinity leans toward war, high affinity away from it. 0 = ignore affinity."
+      },
+      "source": "ADR 2026-11-21-diplomacy-treaties 바뀜(npc-diplo) · 질문 2663·2721 [임시]"
+    },
+    {
+      "id": "npc_relation_war_trust",
+      "code": "",
+      "name": {
+        "ko": "NPC 새 선포: 상대 신뢰 몫(±100일 때 점수)",
+        "en": "NPC new war: target trust weight (points at ±100)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "NPC가 새로 선포할 상대를 고를 때 치기 점수에서 상대의 세력 신뢰 × 이 값 ÷ 100을 뺀다(신뢰 −100~100, 조약을 어길수록 낮다). 신뢰가 낮은 나라를 더 친다. 0 = 신뢰를 보지 않음.",
+        "en": "When an NPC picks a new war target, the attack score loses the target's faction trust × this ÷ 100 (trust −100..100, lower after treaty breaches). Untrusted nations get attacked more. 0 = ignore trust."
+      },
+      "source": "ADR 2026-11-21-diplomacy-treaties 바뀜(npc-diplo) · 질문 2663·2721 [임시]"
+    },
+    {
+      "id": "npc_relation_peace_affinity",
+      "code": "",
+      "name": {
+        "ko": "NPC 강화: 호감 몫(±100일 때 점수)",
+        "en": "NPC peace: affinity weight (points at ±100)"
+      },
+      "value": 150,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "NPC 강화 점수(제안·받기 같은 식)에 호감 × 이 값 ÷ 100을 더한다. 호감이 높을수록 강화 쪽, 낮을수록 강화하지 않는다. 0 = 호감을 보지 않음.",
+        "en": "Adds affinity × this ÷ 100 to the NPC peace score (same rule for offering and accepting). High affinity leans toward peace, low affinity away. 0 = ignore affinity."
+      },
+      "source": "ADR 2026-11-21-diplomacy-treaties 바뀜(npc-diplo) · 질문 2663·2721 [임시]"
+    },
+    {
+      "id": "npc_relation_peace_trust",
+      "code": "",
+      "name": {
+        "ko": "NPC 강화: 상대 신뢰 몫(±100일 때 점수)",
+        "en": "NPC peace: counterpart trust weight (points at ±100)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "NPC 강화 점수에 상대의 세력 신뢰 × 이 값 ÷ 100을 더한다. 조약을 어긴 나라와는 덜 강화한다. 0 = 신뢰를 보지 않음.",
+        "en": "Adds the counterpart's faction trust × this ÷ 100 to the NPC peace score. NPCs make peace less readily with treaty breakers. 0 = ignore trust."
+      },
+      "source": "ADR 2026-11-21-diplomacy-treaties 바뀜(npc-diplo) · 질문 2663·2721 [임시]"
+    },
+    {
+      "id": "npc_relation_join_affinity_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 참전 답: 호감 몫(±100일 때 힘 비 ‰)",
+        "en": "NPC war join: affinity weight (strength ratio ‰ at ±100)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 2000,
+      "desc": {
+        "ko": "NPC가 참전 요청에 답할 때 드는 힘 비 문턱(‰, 기본 1000 = 힘이 적 이상)에서 요청한 나라와의 호감 × 이 값 ÷ 100을 뺀다. 호감이 높으면 약해도 들고, 낮으면 더 세야 든다. 0 = 호감을 보지 않음.",
+        "en": "When an NPC answers a war join request, the strength ratio it needs (‰, base 1000 = at least as strong as the enemy) drops by affinity with the requester × this ÷ 100. High affinity joins even when weaker, low affinity needs more strength. 0 = ignore affinity."
+      },
+      "source": "ADR 2026-11-21-diplomacy-treaties 바뀜(npc-diplo) · 질문 2663·2721 [임시]"
+    },
+    {
+      "id": "npc_relation_join_trust_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 참전 답: 요청국 신뢰 몫(±100일 때 힘 비 ‰)",
+        "en": "NPC war join: requester trust weight (strength ratio ‰ at ±100)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 2000,
+      "desc": {
+        "ko": "NPC가 참전 요청에 답할 때 드는 힘 비 문턱(‰)에서 요청한 나라의 세력 신뢰 × 이 값 ÷ 100을 뺀다. 조약을 어긴 나라의 요청에는 덜 든다. 0 = 신뢰를 보지 않음.",
+        "en": "When an NPC answers a war join request, the strength ratio it needs (‰) drops by the requester's faction trust × this ÷ 100. NPCs join treaty breakers' wars less readily. 0 = ignore trust."
+      },
+      "source": "ADR 2026-11-21-diplomacy-treaties 바뀜(npc-diplo) · 질문 2663·2721 [임시]"
+    },
+    {
       "id": "npc_break_ratio_pm",
       "code": "",
       "name": {
@@ -17430,6 +17538,78 @@
         "en": "A treaty breach is forgotten after this long. Faction trust and sanction causes are computed from the remaining records, so trust recovers as breaches are forgotten. 0 keeps them forever."
       },
       "source": "사용자 결정 D-592 (질문 2583 다) · ADR 2026-11-21-diplomacy-treaties \"바뀜 (fixes-d592, D-592)\" · 줄기 fixes-d592 [임시 출발값]"
+    },
+    {
+      "id": "dip_affinity_drift_per_day",
+      "code": "",
+      "name": {
+        "ko": "호감: 하루마다 0 쪽으로 돌아오는 몫",
+        "en": "Affinity: daily drift toward neutral"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 200,
+      "desc": {
+        "ko": "세력 쌍 호감(−100~100)은 하루(UTC 0시)마다 이만큼 0 쪽으로 돌아온다(0을 넘지 않음). 그날 지킨 불가침·동맹·보호 조약이 있는 쌍은 돌아오는 대신 조약 몫을 받는다. 0 = 돌아오지 않음.",
+        "en": "Faction-pair affinity (−100..100) moves this much toward 0 each day (UTC midnight), never past 0. Pairs keeping a non-aggression, alliance or protection treaty that day get the treaty gain instead. 0 = no drift."
+      },
+      "source": "질문 2662·2722 · ADR 2026-11-21-diplomacy-treaties 바뀜(npc-diplo) [임시]"
+    },
+    {
+      "id": "dip_treaty_kept_affinity",
+      "code": "",
+      "name": {
+        "ko": "호감: 지킨 불가침·동맹·보호 조약 하루 몫",
+        "en": "Affinity: daily gain per kept non-aggression, alliance or protection treaty"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 200,
+      "desc": {
+        "ko": "맺은 채 지킨 불가침·동맹·보호 조약이 있는 두 나라는 하루마다 호감이 이만큼 오른다(그날은 0 쪽으로 돌아오지 않는다). 조약이 여럿이어도 쌍마다 한 번. 0 = 오르지 않음.",
+        "en": "Two nations with a live non-aggression, alliance or protection treaty gain this much affinity each day (no drift toward 0 that day). Once per pair, however many treaties. 0 = no gain."
+      },
+      "source": "질문 2662·2722 · ADR 2026-11-21-diplomacy-treaties 바뀜(npc-diplo) [임시]"
+    },
+    {
+      "id": "dip_peace_affinity",
+      "code": "",
+      "name": {
+        "ko": "호감: 강화 몫",
+        "en": "Affinity: gain when peace is made"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 200,
+      "desc": {
+        "ko": "살아 있는 두 나라의 전쟁이 끝나면(강화 조약·의결 강화·NPC 강화·백지 강화) 두 나라 호감이 이만큼 오른다. 0 = 오르지 않음.",
+        "en": "When a war between two living nations ends (peace treaty, peace agenda, NPC peace or white peace), their affinity rises this much. 0 = no gain."
+      },
+      "source": "질문 2662·2722 · ADR 2026-11-21-diplomacy-treaties 바뀜(npc-diplo) [임시]"
+    },
+    {
+      "id": "dip_join_accept_affinity",
+      "code": "",
+      "name": {
+        "ko": "호감: 참전 요청 수락 몫",
+        "en": "Affinity: gain when a war join request is accepted"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 200,
+      "desc": {
+        "ko": "참전 요청을 받아 전쟁에 들어가면(사람·NPC) 들어간 나라와 요청한 나라의 호감이 이만큼 오른다. 0 = 오르지 않음.",
+        "en": "When a nation accepts a war join request and enters the war (player or NPC), its affinity with the requester rises this much. 0 = no gain."
+      },
+      "source": "질문 2662·2722 · ADR 2026-11-21-diplomacy-treaties 바뀜(npc-diplo) [임시]"
     },
     {
       "id": "npc_ai_drive_work_mood_floor_pm",

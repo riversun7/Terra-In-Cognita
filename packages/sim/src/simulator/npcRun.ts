@@ -168,6 +168,15 @@ export interface SimHooks {
    * 서버가 위반 기록으로 준다. 시뮬은 붙이지 않는다(판정 그대로)
    */
   warCause?(attacker: SimFaction, target: SimFaction, nowMs: number): boolean;
+  /**
+   * 관계 점수(줄기 npc-diplo — 기획 D-255 "관계 점수: 호감·신뢰. NPC의 판단에 쓴다", 질문 2663): faction이 본 other — 두 나라 호감(−100~100)·other의 세력 신뢰(−100~100).
+   * 새 선포 치기 점수·강화 점수에 몫을 더한다(npc/relationScore.ts). 서버 diplomacy/가 준다. 시뮬은 붙이지 않는다(호감·신뢰 모형 없음 — 중립, 판정 그대로)
+   */
+  relationOf?(
+    faction: SimFaction,
+    other: SimFaction,
+    nowMs: number,
+  ): { readonly affinity: number; readonly trust: number } | undefined;
 }
 
 /** 판단 실행 횟수(요약 npc 칸) */
@@ -429,6 +438,7 @@ export function rivalView(
     related: top === (blocs.topOf.get(faction.id) ?? faction.id),
     rebel: other.rebelOf === faction.id,
     ...(ctx.hooks?.causeBonus ? { causeBonus: ctx.hooks.causeBonus(faction, other, nowMs) } : {}),
+    ...ctx.hooks?.relationOf?.(faction, other, nowMs),
   };
 }
 

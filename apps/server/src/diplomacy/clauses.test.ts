@@ -97,6 +97,13 @@ describe("참전·공물", () => {
     expect(npcJoinsWar(10, 10)).toBe(true);
     expect(npcJoinsWar(9, 10)).toBe(false);
   });
+  it("NPC 참전 = 요청국과의 호감·그 나라 신뢰가 힘 비 문턱을 옮긴다(줄기 npc-diplo — 질문 2663)", () => {
+    const weights = { relationJoinAffinityPm: 500, relationJoinTrustPm: 300 };
+    expect(npcJoinsWar(8, 10, { affinity: 40 }, weights)).toBe(true);
+    expect(npcJoinsWar(11, 10, { affinity: -40 }, weights)).toBe(false);
+    expect(npcJoinsWar(10, 10, { trust: -30 }, weights)).toBe(false);
+    expect(npcJoinsWar(10, 10, { affinity: -40 })).toBe(true);
+  });
   it("공물 = 국고 × ‰ ÷ 1000(내림), 국고·‰가 0 이하면 0", () => {
     expect(tributeAmount(12_345n, 50)).toBe(617n);
     expect(tributeAmount(0n, 50)).toBe(0n);

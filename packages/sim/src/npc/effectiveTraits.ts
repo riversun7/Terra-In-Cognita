@@ -27,6 +27,7 @@ import {
 } from "./brain.ts";
 import type { NpcCoefficients } from "./coefficients.ts";
 import type { FoundingChoice, OccupationChoice, TradePolicy } from "./policy.ts";
+import { peaceRelationOffset, warRelationOffset } from "./relationScore.ts";
 import type { Traits } from "./traits.ts";
 
 /** 행동 후보 하나의 점수 분해(에디터 AI 판단 실험실 시각화용) */
@@ -111,6 +112,12 @@ export function explainActions7(
       const warDelta = r.atWar ? c.attackWarBonus : -c.attackDeclarePenalty + causeOffset(r, c);
       factors.push({ key: r.atWar ? "at_war" : "declare_penalty", delta: warDelta });
       score += warDelta;
+      // 관계 점수 몫(새 선포만 — brain.ts attackScore와 같다, 줄기 npc-diplo)
+      const relation = r.atWar ? 0 : warRelationOffset(r, c);
+      if (relation !== 0) {
+        factors.push({ key: "relation", delta: relation });
+        score += relation;
+      }
       const cityPen = Math.max(0, me.cities - c.attackComfortCities) * c.attackCityPenalty;
       if (cityPen > 0) {
         factors.push({ key: "city_comfort_penalty", delta: -cityPen });
@@ -195,6 +202,12 @@ export function explainActions7(
       { key: "communalism", delta: commBonus },
     ];
     let score = peaceTilt + commBonus;
+    // 관계 점수 몫(brain.ts peaceBase와 같다, 줄기 npc-diplo)
+    const relation = peaceRelationOffset(r, c);
+    if (relation !== 0) {
+      factors.push({ key: "relation", delta: relation });
+      score += relation;
+    }
     if (me.satisfaction < WEARY_SATISFACTION) {
       factors.push({ key: "weary", delta: c.peaceWearyScore });
       score += c.peaceWearyScore;

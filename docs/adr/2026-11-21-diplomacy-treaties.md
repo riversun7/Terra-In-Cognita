@@ -131,3 +131,28 @@
   전체 검사의 `@terra/sim` 골든).
 - 시험: `breaches.test.ts`(+3 — 피해 나라·동맹만 명분, 잊기·신뢰 회복, 재건 책임), DB `diplomacy.db.test.ts`(잊기 뒤 위반 0, 상관없는 나라는 명분 없음 → 피해 나라와 동맹을 맺고 틱이 지나면 명분 → 의결 선포
   `caused = true`), DB `npc/warOutcomes.db.test.ts`(재건 뒤 장부의 전쟁을 연 쪽 = 약탈한 세력).
+
+## 바뀜 (npc-diplo — NPC 외교 판단에 호감·신뢰, 호감이 오르는 길, 2026-11-22 — 기획 검토 2662·2663)
+- 근거: 기획 검토(2026-11-22, 코디네이터 전달): 2663 — NPC는 호감·신뢰를 조약 답에만 쓴다 → 선전포고·강화·참전 답에도 쓴다(D-255 "관계 점수: 호감·신뢰. NPC의 판단과 화면 표시에 쓴다",
+  "NPC 외교 AI는 점수로 판단한다(P0)"). 2662 — 호감이 오르는 길이 없다 → 기술 기본값으로 만든다. 위 "바뀜 (gov-fix-4)"의 "NPC 선전포고 고르기·강화 수락·참전 답에는 호감을 넣지 않았다"·
+  "오르는 길은 아직 없다"를 아래가 대신한다. 위 본문은 고치지 않는다.
+- **NPC 판단 점수(2663)** — 몫 = 호감 × 가중 ÷ 100 + 신뢰 × 가중 ÷ 100(정수, 0 쪽 자름 — `@terra/sim` `npc/relationScore.ts`, 시뮬·서버 같은 함수):
+  - 새 선포(`npc/brain.ts attackScore` — 전쟁 중이 아닌 상대, 반란 소탕은 빼고): 두 나라 호감·상대 세력 신뢰의 몫을 뺀다 → 낮을수록 그 나라를 치고, 높을수록 덜 친다. 판단 분해표(`effectiveTraits.ts explainActions7`)도 같은 몫(`relation`).
+  - 강화(`brain.ts peaceBase` — 제안하는 쪽·받는 쪽 같은 식): 몫을 더한다. 받는 쪽 식(`peaceScore`)은 NPC끼리 강화·의결 강화 안건(`governance/portLeader.ts npcAcceptsPeace`)·휴전 조약 답(`clauses.ts npcTreatyAnswer` ceasefire)이 모두 쓴다.
+  - 참전 답(`clauses.ts npcJoinsWar` → `npcJoinsWarScored`): 힘 비 문턱 = 1000‰ − 몫(‰ — 요청한 나라와의 호감·요청한 나라의 신뢰). 중립이면 옛 규칙(힘이 적 이상) 그대로. 감사 기록에 호감·신뢰를 함께 남긴다.
+  - 값 전달: 새 선택 고리 `SimHooks.relationOf(faction, other)` → `RivalView.affinity·trust`(`simulator/npcRun.ts rivalView`). 서버 `diplomacy/breaches.ts withTreatyHooks`가 얹는다(`relationOfOwners` — 호감 장부
+    `getByOwner`, 위반 장부 새 `trust(owner)` = 남은 위반 × 벌점). 장부를 다 읽기 전·붙기 전에는 중립(0). 참전 답은 외교 서비스가 장부에서 바로 읽는다.
+  - 설정 칸 여섯(`npc.*` — 시뮬·서버 같이 읽음): `npc_relation_war_affinity` 150·`npc_relation_war_trust` 100·`npc_relation_peace_affinity` 150·`npc_relation_peace_trust` 100(±100일 때 점수),
+    `npc_relation_join_affinity_pm` 500·`npc_relation_join_trust_pm` 300(±100일 때 ‰) — 모두 [임시] 기술 출발값(질문 2721). NPC 판단 편집기 "전쟁 · 강화 · 반란" 묶음에 넣었다.
+  - 조약 답(불가침·동맹·보호)은 앞 판 그대로 호감 띠 "적대"만 본다(신뢰는 질문 2723).
+- **호감이 오르는 길(2662 — `diplomacy/affinityRise.ts`, 장부 `affinity.ts`)** — 설정 칸 넷(`governance.*`, 서버만):
+  - 하루(UTC 0시)마다 0 쪽으로 `dip_affinity_drift_per_day`(1, 0을 넘지 않음). 그날 맺은 채 지킨 불가침·동맹·보호 조약이 있는 쌍은 0 쪽으로 돌아오는 대신 `dip_treaty_kept_affinity`(1 — 쌍마다 하루 한 번).
+    하루 걸음은 외교 틱이 날이 바뀐 것을 볼 때 한 번. 켤 때 마지막 걸음 날 = 표 `diplomacy_affinity`의 가장 최근 `updated_at_ms`의 날(걸음·사건이 바꾼 줄이 그 시각을 쓴다 — 마이그레이션 없음).
+    끈 동안 밀린 날은 7날까지 따라잡고(앞쪽 날은 0 쪽으로, 조약을 맺은 뒤 날만 조약 몫).
+  - 강화: 외교 틱마다 전쟁 쌍을 지난 틱과 견줘, 끝난 쌍이 둘 다 살아 있으면 `dip_peace_affinity`(10) — 강화 조약·의결 강화·NPC 강화·백지 강화 모두(질문 2724). 켠 뒤 첫 틱은 기준만.
+  - 참전 요청 수락(사람 `respondWar`·NPC 답): 들어간 나라와 요청한 나라 `dip_join_accept_affinity`(10).
+  - 신뢰는 따로 오르지 않는다 — 위반 기록이 `dip_breach_expire_ms`(90일) 뒤 잊히면 돌아온다(fixes-d592, 확인: `breaches.test.ts`).
+- 시뮬: 고리 `relationOf`를 붙이지 않아(호감·신뢰 모형 없음) 몫이 0 — 판정 그대로(SIM_VERSION 그대로 75; war16 시드 1~3 × 30일 출력이 머리·요약의 팩 판·해시 말고 같음 — Verified 실행. 질문 2725).
+- 판: 팩 core@196(줄기 판 main+50 — 설정 칸 열), 프로토콜 그대로, 마이그레이션 없음, 리셋 필요 없음(배포 뒤 호감은 그대로 이어 쓰고, 첫 하루 걸음은 표의 가장 최근 시각 다음 날부터).
+- 시험: sim `relationScore.test.ts`(7 — 몫·치기 상대 고르기·강화·참전 문턱), 서버 `affinity.test.ts`(+4 — 하루 걸음·켤 때 따라잡기·강화·수락), `breaches.test.ts`(+1 — 고리·신뢰 회복),
+  `clauses.test.ts`(+1), DB `diplomacy.db.test.ts`(무명분 선포로 내려간 호감이 NPC 참전 답 문턱을 옮김·수락하면 오름, 지킨 보호 조약 하루 몫·사람 수락 몫).

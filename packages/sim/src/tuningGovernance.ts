@@ -444,4 +444,33 @@ export const GOVERNANCE_TUNING_KEYS: readonly TuningKey[] = [
     "조약 위반 기록을 잊는 기간(ms, 0 = 잊지 않음)",
     "How long a treaty breach is remembered (ms, 0 = forever)",
   ),
+  // 호감이 오르는 길(줄기 npc-diplo — 질문 2662·2722) [임시]
+  k(
+    "dip_affinity_drift_per_day",
+    "",
+    "governance.affinityDriftPerDay",
+    "호감: 하루마다 0 쪽으로 돌아오는 몫",
+    "Affinity: daily drift toward neutral",
+  ),
+  k(
+    "dip_treaty_kept_affinity",
+    "",
+    "governance.treatyKeptAffinity",
+    "호감: 지킨 불가침·동맹·보호 조약 하루 몫",
+    "Affinity: daily gain per kept non-aggression, alliance or protection treaty",
+  ),
+  k(
+    "dip_peace_affinity",
+    "",
+    "governance.peaceAffinity",
+    "호감: 강화 몫",
+    "Affinity: gain when peace is made",
+  ),
+  k(
+    "dip_join_accept_affinity",
+    "",
+    "governance.joinAcceptAffinity",
+    "호감: 참전 요청 수락 몫",
+    "Affinity: gain when a war join request is accepted",
+  ),
 ];

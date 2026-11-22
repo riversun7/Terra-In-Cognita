@@ -2,6 +2,7 @@
 // 바뀜(fixes-d592 — D-592): 피해 나라·동맹만 명분(2584 다), 잊는 기간(2583 다), 재건 전쟁 책임(2582 나)
 import type { SimFaction, SimHooks } from "@terra/sim";
 import { describe, expect, it } from "vitest";
+import { attachAffinityBook } from "./affinity.ts";
 import {
   type Declaration,
   attachBreachBook,
@@ -9,6 +10,7 @@ import {
   breachBookOf,
   breachLive,
   createBreachBook,
+  relationOfOwners,
   trustOf,
   warCauseOf,
   withTreatyHooks,
@@ -160,5 +162,36 @@ describe("조약 위반 장부", () => {
     expect(warCauseOf(ledger, 3, 1, 30)).toBe(true);
     expect(warCauseOf(ledger, 1, 3, 30)).toBe(false);
     expect(warCauseOf(ledger, 3, 1, 20 + rules.sanctionWindowMs + 1)).toBe(false);
+  });
+
+  it("관계 점수 고리(줄기 npc-diplo — 질문 2663): 두 나라 호감·상대 세력 신뢰, 장부를 다 읽기 전에는 중립", () => {
+    const ledger = {};
+    const hooks = withTreatyHooks(
+      {
+        treasuryAsset: () => "credit",
+        beforeCityTransfer: () => undefined,
+        factionBorn: () => undefined,
+        factionDied: () => undefined,
+      },
+      { ledger },
+    );
+    expect(hooks.relationOf?.(faction(101), faction(102), 0)).toEqual({ affinity: 0, trust: 0 });
+    const breaches = attachBreachBook(ledger, () => ({ ...RULES, breachExpireMs: 500 }));
+    breaches.record(102, 100, 103);
+    const affinity = attachAffinityBook(ledger, {
+      rules: () => ({ independenceAffinity: 80, noCauseAffinity: 30, joinRefuseAffinity: 20 }),
+      nations: () => [1, 2, 3],
+      rowOfOwner: (owner) => owner - 100,
+    });
+    affinity.restore(1, 2, -45);
+    // 다 읽기 전에는 0
+    expect(relationOfOwners(ledger, 101, 102, 200)).toEqual({ affinity: 0, trust: 0 });
+    breaches.markLoaded();
+    affinity.markLoaded();
+    expect(hooks.relationOf?.(faction(101), faction(102), 200)).toEqual({ affinity: -45, trust: -30 });
+    expect(breaches.trust(102, 200)).toBe(-30);
+    // 잊는 기간이 지나면 신뢰가 돌아온다(fixes-d592 — 2583 다)
+    expect(relationOfOwners(ledger, 101, 102, 700)).toEqual({ affinity: -45, trust: 0 });
+    expect(relationOfOwners(ledger, 102, 103, 200)).toEqual({ affinity: 0, trust: 0 });
   });
 });

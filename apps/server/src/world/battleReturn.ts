@@ -5,6 +5,10 @@
 // - 걷는 동안은 쓰지 못한다(유닛 상태 returningUntilMs — 명령·일·전투·파견에 들지 않는다, unitCondition.ts unavailable). 길 결과가 오기 전에는
 //   RETURN_PLAN_HOLD_MS 동안 잡아 두고, 길이 나오면 닿는 시각으로, 길이 없으면 풀고 그 자리에 남긴다(순간이동하지 않는다).
 // - 표시는 world_units.returning_until_ms에 저장해 다시 켜도 이어진다(움직임도 저장된다).
+// - 바뀜(fixes-1117i, 사용자 결정 D-594 "부상입고 주거지 귀환"): 사이보그 본체는 자기 사는 곳으로 돌아간다(returnHome — cyborgHome.ts). 같은 2차맵이면 위 걷기,
+//   다른 2차맵이면 이동 서비스로 보내고(돌아가는 중 표시가 있어도 그 길은 간다) 닿는 예상 시각까지 쓰지 못한다.
+import type { SizeClass } from "@terra/sim";
+import type { CyborgHome } from "./cyborgHome.ts";
 import type { SecondMap } from "./secondMap.ts";
 
 /** 길 결과가 오기 전 돌아가는 중으로 잡아 두는 시간(ms) [임시 — 길 찾기는 보통 수 ms] */
@@ -33,4 +37,41 @@ export function walkBack(
   const started = map.walkToSafety(unitId, near, (arriveAtMs) => markReturning(map, unitId, arriveAtMs));
   if (!started) markReturning(map, unitId, undefined);
   return started;
+}
+
+/** returnHome이 읽는 세계 몫(battleResults.ts BattleWorld) */
+interface HomeWorld {
+  mapOf(unitId: number): SecondMap | undefined;
+  cyborgHome?: (() => CyborgHome | undefined) | undefined;
+}
+
+/**
+ * 진 사이보그 본체를 자기 사는 곳으로 보낸다(D-594). 보냈거나 보내는 중이면 true, 사는 곳이 없으면 false(부르는 쪽이 가장 가까운 안전 도시로 — walkBack).
+ * 다른 2차맵이면 길 결과를 기다리는 동안 RETURN_PLAN_HOLD_MS로 잡아 두고, 보내면 도착 예상까지, 못 보내면 fallback 자리로 걷는다(순간이동 없음)
+ */
+export function returnHome(
+  world: HomeWorld,
+  map: SecondMap,
+  unitId: number,
+  info: { readonly ownerId: number; readonly size: SizeClass },
+  fallback: () => { readonly x: number; readonly y: number } | undefined,
+  nowMs: number,
+): boolean {
+  const home = world.cyborgHome?.();
+  const target = home?.homeOf(unitId);
+  if (!home || !target) return false;
+  if (target.mapKey === map.mapKey) return walkBack(map, unitId, target, nowMs);
+  markReturning(map, unitId, nowMs + RETURN_PLAN_HOLD_MS);
+  const giveUp = (): void => {
+    const here = world.mapOf(unitId);
+    if (!here) return;
+    markReturning(here, unitId, undefined);
+    walkBack(here, unitId, here === map ? fallback() : undefined, nowMs);
+  };
+  void home.send(unitId, info.ownerId, info.size, target).then((arriveAt) => {
+    const here = world.mapOf(unitId);
+    if (arriveAt === undefined) giveUp();
+    else if (here) markReturning(here, unitId, arriveAt);
+  }, giveUp);
+  return true;
 }

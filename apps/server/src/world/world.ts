@@ -114,6 +114,8 @@ import type { ServerEconomyCatalog } from "../market/catalog.ts";
 import { npcEconomyInputOf } from "../market/worldInput.ts";
 import type { TravelService } from "../travel/service.ts";
 import { createWorldTravel } from "../travel/worldTravel.ts";
+import { npcTravelOf } from "../travel/npcTravel.ts";
+import { createCyborgHome } from "./cyborgHome.ts";
 
 // 시험 2차맵 자리·시험 행성은 testMaps.ts(다른 모듈·시험이 world.ts에서 가져오던 이름을 그대로 다시 내보낸다)
 export { RETIRED_TEST_MAPS, TEST_MAP_KEY, TEST_MAP_ORIGIN, TEST_PLANET_ID, retiredTestMapKey, testMapKey };
@@ -461,7 +463,18 @@ export function startWorld(
       // 유지비 무게: 사이보그 유닛은 비싸고(D-470) 배는 싸다(D-541 1277 다) — 설정 칸 실효 값을 정산할 때마다 읽는다
       upkeepWeightPm: upkeepWeightOf(config.cyborgRules ?? defaultCyborgRules),
     });
-    const battleWorld = createBattleWorld({ maps, cities: () => cities, owners, npcOwnerId, ledger, now });
+    // 진 사이보그 본체는 자기 사는 곳으로 실제로 돌아간다(D-594 — cyborgHome.ts). 이동 서비스는 아래에서 만든다(전투 결과 적용은 그 뒤에 돈다)
+    const travelRef: { current?: TravelService } = {};
+    const cyborgHome = createCyborgHome({ maps, ledger, owners, travel: () => travelRef.current });
+    const battleWorld = createBattleWorld({
+      maps,
+      cities: () => cities,
+      owners,
+      npcOwnerId,
+      ledger,
+      now,
+      cyborgHome: () => cyborgHome,
+    });
     // 끝 시각에 한 번: 부상·귀환·포로·탈취·장비 닳기·물약·탄·생명 수치·건물 피해를 세계에 적용한다(battleApply.ts, 결과 기록과 같은 커밋).
     // 전투 물건(287): 보유 물건 서비스를 만든 뒤 채운다(그 전에는 아무것도 붙이지 않는다)
     let items: BattleItems = { battleStart: (init) => init, apply: () => ({ potions: 0, shots: 0 }) };
@@ -680,6 +693,7 @@ export function startWorld(
     });
     const travelParts = { maps, writer, pool: db, now, log, settlement, cyborgs, planetId: TEST_PLANET_ID };
     const travel = createWorldTravel({ ...travelParts, ready: () => status.state === "ready" });
+    travelRef.current = travel;
     // 옆 2차맵을 그때 띄우기(730 다, mapSpawnWorld.ts): 이동 서비스에 잇고 부팅이 함께 띄운 플레이어 2차맵을 센다
     const spawnParts = { maps, factory, paths, pool: db, planetId: TEST_PLANET_ID, travel, owners, now, log };
     const spawnRules = {
@@ -862,6 +876,8 @@ export function startWorld(
             void leaderToCapital({ maps, facilities, travel, ownerId, capital, log }),
           // 국력 등급 반영 요청이 든 부팅(world/tierApply.ts): 이미 채운 시작 도시도 등급 값까지 주거·휴먼·경비대를 더한다
           tierApply: seeded?.tierApply !== undefined,
+          // 죽은 휴먼이 2차맵 사이 이동 중이면 길을 바로 버린다(질문 2696 — travel/npcTravel.ts cancel(drop))
+          onHumanDied: (unitId) => void npcTravelOf(travel).cancel(unitId, true),
         });
         attachDeliveryRenown(npc.economy, { owners, cyborgs, rules: societyRules }); // 납품 명성(D-326)
         await finishTierApply(db, TEST_PLANET_ID, now(), seeded?.tierApply, npc.seedReport, log);

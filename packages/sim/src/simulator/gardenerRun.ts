@@ -135,7 +135,9 @@ export function attachGardener(o: GardenerOptions): GardenerRun {
 
   const unitsIn = (cityId: number): SimUnit[] => {
     const out: SimUnit[] = [];
-    for (const unit of world.units.values()) if (unit.city === cityId) out.push(unit);
+    // 서버는 그 도시에 실제로 있는 휴먼만(o.defends — 질문 2697 나). 시뮬은 없어 모두
+    for (const unit of world.units.values())
+      if (unit.city === cityId && (o.defends?.(unit) ?? true)) out.push(unit);
     // 경비대가 먼저 수비로 나선다(수비 상한 안에서 앞에서부터 뽑는다)
     return out.toSorted(defenseOrder);
   };

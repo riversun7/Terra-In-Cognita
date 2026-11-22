@@ -269,6 +269,7 @@ export function createLaborService(options: {
     rules: options.rules,
     now,
     payFrom: (unitId, atMs) => shiftPayStart(contracts.values(), unitId, atMs, save),
+    commutes: options.loaded.commutes,
   });
 
   /** 유닛 주인(없으면 undefined) */

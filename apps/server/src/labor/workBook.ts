@@ -23,7 +23,7 @@ import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { UNIT_KIND_CYBORG, UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
 import { type GatherSite, type LotRoll, gatherLots, gatherSettingsOf } from "./gatherWork.ts";
-import { type WalkToWork, createWalkToWork } from "./walkToWork.ts";
+import { type CommuteRecord, type WalkToWork, createWalkToWork } from "./walkToWork.ts";
 import { type WorkRecord, workRow } from "./work.ts";
 
 /** 채집 산출 자료(건물 서비스가 잇는다 — facilities/world.ts attachLabor) */
@@ -163,11 +163,19 @@ export function createWorkBook(options: {
   readonly now: () => number;
   /** 일터에 닿는 시각을 알면(노동 계약 임금 시작을 미룬다 — walkToWork.ts shiftPayStart) */
   readonly payFrom?: ((unitId: number, atMs: number) => void) | undefined;
+  /** 저장된 일터 가는 길(walkToWork.ts — 질문 2699). 없으면 빈 것 */
+  readonly commutes?: readonly CommuteRecord[] | undefined;
 }): WorkBook {
   const { maps, ledger, writer } = options;
   const records = new Map<number, WorkRecord>(options.loaded.map((record) => [record.unitId, { ...record }]));
   let production: ProductionSource | undefined;
-  const commute = createWalkToWork({ maps, now: options.now, payFrom: options.payFrom });
+  const commute = createWalkToWork({
+    maps,
+    now: options.now,
+    payFrom: options.payFrom,
+    loaded: options.commutes,
+    writer,
+  });
   let station: StationHook | undefined;
   const save = (record: WorkRecord): void => writer.upsert("unitWork", workRow(record));
   const recordOf = (unitId: number, ownerId: number): WorkRecord => {

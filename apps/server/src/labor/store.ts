@@ -17,6 +17,7 @@ import {
 } from "@terra/sim";
 import type { QueryPool } from "../world/persist/load.ts";
 import type { Row } from "../world/persist/tables.ts";
+import { type CommuteRecord, commuteRecordOf } from "./walkToWork.ts";
 import { type WorkRecord, workRecordOf } from "./work.ts";
 
 /** 시설 임대 조건(건물마다 시간당 임대료, 0 = 빌려주지 않음) */
@@ -39,6 +40,8 @@ export interface LoadedLabor {
   readonly maxJobId: number;
   /** 유닛 직무 줄(직무 배치·채집 진행, work.ts). 없으면 빈 것 */
   readonly work?: readonly WorkRecord[] | undefined;
+  /** 일터로 걸어가는 길(walkToWork.ts — 질문 2699, 다시 켜도 남게). 없으면 빈 것 */
+  readonly commutes?: readonly CommuteRecord[] | undefined;
 }
 
 /** 비어 있는 노동 계약 자료(DB 없는 부팅) */
@@ -49,6 +52,7 @@ export const EMPTY_LABOR: LoadedLabor = {
   jobs: [],
   maxJobId: 0,
   work: [],
+  commutes: [],
 };
 
 /** 끝난 계약을 화면에 남기는 기간(이보다 오래 끝난 줄은 읽지 않는다, DB에는 남는다). 유예를 거쳤으면 유예 끝부터 센다 */
@@ -77,8 +81,10 @@ export async function loadLabor(pool: QueryPool, nowMs: number): Promise<LoadedL
   const maxJob = await pool.query(`select coalesce(max(id), 0) as id from labor_postings`);
   const jobs = await pool.query(`select * from labor_postings where state = 'open' order by id`);
   const work = await pool.query(`select * from unit_work order by unit_id`);
+  const commutes = await pool.query(`select * from unit_commutes order by unit_id`);
   return {
     work: work.rows.map(workRecordOf),
+    commutes: commutes.rows.map(commuteRecordOf),
     maxId: num(max.rows[0]?.id ?? 0),
     maxJobId: num(maxJob.rows[0]?.id ?? 0),
     jobs: jobs.rows.map((row) => ({

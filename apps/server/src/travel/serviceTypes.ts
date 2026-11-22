@@ -102,7 +102,8 @@ export interface TravelService {
   start(
     userId: string,
     request: TravelTarget & { readonly unitId: number; readonly kind: TravelKind },
-    options?: { readonly speedFactor?: number },
+    /** returning = 진 사이보그 본체가 사는 곳으로 돌아가는 서버 판단 길(D-594 — 쓰지 못하는 상태여도 보낸다, world/cyborgHome.ts) */
+    options?: { readonly speedFactor?: number; readonly returning?: boolean },
   ): Promise<TravelCommandResult>;
   /**
    * 운영자 텔레포트(기획 D-560 1239, 프로토콜 36): 내 유닛을 걷지 않고 목적 칸 둘레의 설 칸으로 바로 옮긴다(가던 길은 버린다). 목적 2차맵을

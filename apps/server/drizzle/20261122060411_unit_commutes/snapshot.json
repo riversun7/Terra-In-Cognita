@@ -1,0 +1,149 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "6692c0a0-eba0-4ba6-96d6-b4933995d933",
+  "prevIds": [
+    "92440859-bb93-4abb-8bfa-e82e44e30f4f",
+    "79f15f68-68dc-45b0-b490-2cc41e6757fa",
+    "58acae9a-00f8-4cfc-9eed-fe370f769b8e",
+    "a74a580d-0e90-4570-86de-a4d25e13f18a",
+    "dd3656c0-8f69-4d66-9e59-8428866e0b8b",
+    "2110cf87-ab35-4e1e-9369-214a912806a9"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "unit_commutes"
+      ],
+      "writes": [
+        "s|tbl|public.unit_commutes",
+        "n|tbl|public.unit_commutes",
+        "e|tbl|public.unit_commutes",
+        "n|rel|public.unit_commutes",
+        "n|type|public.unit_commutes",
+        "n|rel|public.unit_commutes_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "unit_commutes",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_commutes",
+        "name": "unit_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_commutes",
+        "name": "owner_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_commutes",
+        "name": "building_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_commutes",
+        "name": "from_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_commutes",
+        "name": "until_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_commutes",
+        "name": "unit_commutes_pkey",
+        "columns": [
+          "unit_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_commutes",
+        "name": "unit_commutes_span",
+        "value": "\"until_ms\" > \"from_ms\"",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

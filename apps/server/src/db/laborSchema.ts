@@ -153,3 +153,20 @@ export const unitWork = pgTable(
     check("unit_work_gather", sql`${table.gatherPoints} >= 0 and ${table.gatherSeq} >= 0`),
   ],
 );
+
+/**
+ * 일터로 걸어가는 길(사용자 결정 D-591 — 질문 2656 나·2699, 줄기 fixes-1117i "되도록 저장"): 일을 맡은 유닛이 시설 둘레로 걷는 동안(from_ms ~ until_ms)은
+ * 일하지 않은 것으로 센다(산출·작업 중 부상·계약 임금 — labor/walkToWork.ts). 다시 켜도 그 구간이 남도록 유닛마다 한 줄. owner_id = 정산하는 유닛 주인 주체,
+ * building_id = 일터 시설. 정산되지 않은 지난 길도 7일은 남기고 그 뒤 지운다. 새 표라 직전 판 앱은 모른 채 돈다(그 앱은 메모리 길만 쓴다)
+ */
+export const unitCommutes = pgTable(
+  "unit_commutes",
+  {
+    unitId: bigint("unit_id", { mode: "number" }).primaryKey(),
+    ownerId: bigint("owner_id", { mode: "number" }).notNull(),
+    buildingId: bigint("building_id", { mode: "number" }).notNull(),
+    fromMs: bigint("from_ms", { mode: "number" }).notNull(),
+    untilMs: bigint("until_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [check("unit_commutes_span", sql`${table.untilMs} > ${table.fromMs}`)],
+);

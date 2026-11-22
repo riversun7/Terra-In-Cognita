@@ -619,6 +619,12 @@ export const WORLD_TABLES = {
     ],
     key: ["unit_id"],
   },
+  /** 일터로 걸어가는 길(labor/walkToWork.ts — D-591·질문 2699, 다시 켜도 일하지 않은 구간이 남게) */
+  unitCommutes: {
+    name: "unit_commutes",
+    columns: ["unit_id", "owner_id", "building_id", "from_ms", "until_ms"],
+    key: ["unit_id"],
+  },
   /** 건물(시설) 상태(docs/adr/2026-11-07-buildings-runtime.md) — 짓기·수리 재료 거래와 같은 묶음 */
   facilities: {
     name: "world_facilities",
@@ -932,6 +938,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "laborPostings",
   "laborRents",
   "unitWork",
+  "unitCommutes",
   "facilities",
   "facilityJobs",
   "claimCities",

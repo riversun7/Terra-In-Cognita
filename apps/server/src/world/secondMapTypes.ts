@@ -207,7 +207,11 @@ export interface SecondMap {
   moveUnit(
     unitId: number,
     target: Point,
-    options?: { readonly speedFactor?: number },
+    /**
+     * ignoreCondition = 포로·중태·돌아가는 중이어도 걷는다(서버 판단의 걸음만 — 진 사이보그 본체가 다른 2차맵의 사는 곳으로 돌아가는 이동 구간, D-594,
+     * travel/service.ts beginLeg). 명령 길은 넘기지 않는다
+     */
+    options?: { readonly speedFactor?: number; readonly ignoreCondition?: boolean },
   ): Promise<CommandResult>;
   /** 유닛 빠르기를 몸에서 다시 읽어 넣는다(D-540, 길 예상 시간 전에 — travel/service.ts). 지금 빠르기(유닛이 없으면 undefined) */
   refreshSpeed(unitId: number): number | undefined;
@@ -253,6 +257,10 @@ export interface SecondMap {
         aboard: number | undefined;
         /** 수호신 상태(기획 D-589 — unitKinds.ts isGuardianUnit) */
         guardian: boolean;
+        /** NPC 2차맵 사이 이동 중(held — travel/npcTravel.ts). 그 2차맵에 서 있어도 지나가는 중이다(질문 2697, fixes-1117i) */
+        held?: boolean | undefined;
+        /** 봇(NPC 휴먼)의 집·일터(npc/humanPlaces.ts). 일터가 있으면 도시 경제 일꾼(작업 중 부상 — 질문 2702, fixes-1117i) */
+        home?: BotHome | undefined;
       }
     | undefined;
   /** 배 하나를 물 칸 (x, y)(기준 칸, 크기 등급 2)에 세운다(docs/adr/2026-11-13-boats.md 3절). 물 격자가 없거나 설 수 없으면 false */

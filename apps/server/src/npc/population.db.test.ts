@@ -11,6 +11,7 @@ import { DAY_MS, TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { silentLog } from "../world/testSupport.ts";
+import { npcTravelOf } from "../travel/npcTravel.ts";
 import { type World, startWorld } from "../world/world.ts";
 
 let test: TestDatabase;
@@ -227,5 +228,38 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 처음 인구·시장 (DB)", () 
     await again.persistence.writer.durable();
     expect(npc.cityHouses.of(dead)).toBeUndefined();
     expect(await rows(test.db, "select unit_id from npc_house_units where unit_id = $1", [dead])).toEqual([]);
+  });
+
+  it("2차맵 사이 이동 중인 휴먼이 죽으면 저장할 때 길을 바로 버린다(질문 2696 — 줄기 fixes-1117i)", async () => {
+    const world = await boot(12, 500);
+    const npc = world.npc;
+    const travel = world.persistence?.travel;
+    if (!npc || !travel || !world.persistence) throw new Error("npc runtime");
+    const cityId = Number((await cityLines())[0]?.id);
+    const place = npc.places.get(cityId);
+    if (!place) throw new Error("place");
+    const walker = [...npc.world.units.values()].find((unit) => unit.city === cityId && unit.guard !== true);
+    if (!walker) throw new Error("human");
+    const send = npcTravelOf(travel);
+    let sent = false;
+    for (const dx of [40, -40, 30, -30, 20, -20]) {
+      const result = await send.send(walker.id, {
+        mapKey: place.mapKey,
+        x: place.cellX + dx,
+        y: place.cellY,
+      });
+      if (result.ok && send.trip(walker.id)) {
+        sent = true;
+        break;
+      }
+    }
+    expect(sent).toBe(true);
+    // 거울에서 죽음 → 다음 저장이 2차맵에서 지우기 전에 길을 버린다(닿을 때까지 남아 있지 않다)
+    npc.world.units.delete(walker.id);
+    npc.world.factions.get(walker.owner)?.units.delete(walker.id);
+    await npc.tick(true);
+    await world.persistence.writer.durable();
+    expect(send.trip(walker.id)).toBeUndefined();
+    expect(world.maps.get(place.mapKey)?.unitInfo(walker.id)).toBeUndefined();
   });
 });

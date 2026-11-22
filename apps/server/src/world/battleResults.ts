@@ -1,6 +1,8 @@
 // 전투 결과를 세계에 적용 — docs/adr/2026-10-31-combat-core.md 8절, 기획 D-099·D-145·D-521(부상)·D-173(탈취)·D-187(포로)·
 // D-190(퇴각 손실 없음)·D-351(사이보그 즉시 귀환)·질문 108 기본안(D-381: 진 유닛은 같은 때 안전한 곳으로, 전쟁이면 포로 — 수호신은 빼고)
 // 바뀜(줄기 no-teleport-a — 사용자 결정 D-591 "어떠한 경우에도 순간이동은 없다", 질문 2655): 돌아갈 곳은 그대로, 바로 옮기지 않고 실제로 걸어간다(battleReturn.ts)
+// 바뀜(줄기 fixes-1117i — 사용자 결정 D-594 "부상입고 주거지 귀환", D-351 대체): 사이보그 본체는 다쳐서(같은 부상 굴림) 자기 사는 곳으로 실제로 돌아간다
+// (cyborgHome.ts — 같은 2차맵이면 걷기, 다른 2차맵이면 이동 서비스). 사는 곳이 없으면 가장 가까운 안전 도시 [임시 — 질문 2744]
 // 전투 서비스(battles.ts)가 끝 시각에 한 번 부른다. 모든 바뀜(유닛 상태·자리, 탈취 거래)은 동기로 쓰기 대기열에 들어가고,
 // 전투 서비스가 같은 묶음에 결과 기록(world_battle_results)을 더한다 → 한 커밋이라 두 번 적용되지 않는다.
 // 전투에서 죽지 않는다(D-099: 사망은 수명만). 전투 유닛 ID = 세계 유닛 ID, 편의 faction = 소유 주체 ID([임시] 서버 해석).
@@ -13,11 +15,12 @@ import {
   postLoot,
 } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
-import { walkBack } from "./battleReturn.ts";
+import { returnHome, walkBack } from "./battleReturn.ts";
 import type { BattleOutcome } from "./battles.ts";
 import type { SecondMap } from "./secondMap.ts";
 import { type UnitCondition, injure, injuryRules } from "./unitCondition.ts";
-import { isGuardianUnit } from "./unitKinds.ts";
+import type { CyborgHome } from "./cyborgHome.ts";
+import { UNIT_KIND_CYBORG, isGuardianUnit } from "./unitKinds.ts";
 
 export interface BattleWorld {
   /** 세계 유닛이 있는 2차맵 */
@@ -26,6 +29,8 @@ export interface BattleWorld {
   safeCellFor(unitId: number, ownerId: number, map: SecondMap): { x: number; y: number } | undefined;
   ownerExists(ownerId: number): boolean;
   ledger: Ledger;
+  /** 진 사이보그 본체가 돌아갈 사는 곳(D-594 — cyborgHome.ts). 없으면 다른 유닛처럼 가장 가까운 안전 도시 */
+  cyborgHome?: (() => CyborgHome | undefined) | undefined;
 }
 
 export interface AppliedOutcome {
@@ -94,7 +99,13 @@ export function applyBattleOutcome(
       // 질문 108 기본안·D-351이 정한 곳(가장 가까운 안전 도시, 포로는 잡은 쪽 세력의 도시)으로 실제로 걸어간다(D-591 순간이동 없음 — 질문 2655,
       // battleReturn.ts). 닿을 때까지 쓰지 못한다
       const owner = next.heldBy ?? info.ownerId;
-      walkBack(map, result.unit, world.safeCellFor(result.unit, owner, map), atMs);
+      const fallback = () => world.safeCellFor(result.unit, owner, map);
+      // 사이보그 본체(포로가 아니면)는 자기 사는 곳으로(D-594 — D-351 즉시 귀환 대체). 사는 곳이 없거나 보내지 못하면 가장 가까운 안전 도시 [임시 2744]
+      const home =
+        info.kind === UNIT_KIND_CYBORG && next.heldBy === null
+          ? returnHome(world, map, result.unit, info, fallback, atMs)
+          : false;
+      if (!home) walkBack(map, result.unit, fallback(), atMs);
       losers.push({ unit: result.unit, owner: info.ownerId });
       if (next.heldBy !== null) prisoners += 1;
       else returned += 1;

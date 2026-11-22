@@ -228,6 +228,8 @@ export interface ServerGardenerOptions {
    * 자료에 수호신을 수비 편으로 넣는다, temple/cityDefense.ts). 없으면 수비 휴먼이 없는 도시는 전투 없이 진다
    */
   readonly hasGuardians?: ((cityId: number) => boolean) | undefined;
+  /** 그 휴먼이 지금 그 도시에 있어 수비로 나설 수 있나(질문 2697 나 — 다른 2차맵·이동 중인 휴먼은 빼고). 없으면 모두 */
+  readonly defends?: ((unitId: number, cityId: number) => boolean) | undefined;
   /**
    * 도시의 실제 2차맵 건물 배치(D-533·질문 1046 가, facilities/siegeLayout.ts). 있으면 웨이브 공성 전투맵 = 그 구역(넥서스 = 행정 건물),
    * 없으면(행정 건물 없음·2차맵 없음) 옛 열린 맵
@@ -295,6 +297,7 @@ export function attachServerGardener(o: ServerGardenerOptions): ServerGardener {
     cancel: (eventId) => o.loop.cancel(eventId),
     treasuryOf: (faction) => o.treasuryOf(faction.id),
     hasGuardians: o.hasGuardians,
+    defends: o.defends ? (unit) => o.defends?.(unit.id, unit.city) ?? true : undefined,
     timeScale: o.timeScale,
     seed: o.seed,
     restore: {

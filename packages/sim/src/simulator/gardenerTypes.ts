@@ -121,6 +121,11 @@ export interface GardenerOptions {
    * 서비스, 전투 시작 길이 수호신을 수비 편에 넣는다). 없으면(시뮬) 수비 휴먼이 없는 도시는 전투 없이 웨이브가 이긴다(질문 218 가)
    */
   readonly hasGuardians?: ((cityId: number) => boolean) | undefined;
+  /**
+   * 그 도시 휴먼이 지금 수비로 나설 수 있나(서버 = 그 도시 2차맵에 실제로 서 있고 2차맵 사이 이동 중이 아님 — 사용자 결정 D-591 실제 이동,
+   * 질문 2697 나, 줄기 fixes-1117i). 없으면(시뮬 — 휴먼이 집 도시를 떠나지 않는다) 그 도시 휴먼 모두
+   */
+  readonly defends?: ((unit: SimUnit) => boolean) | undefined;
   /** 세력 국고(질문 220 가: 그 세력 화폐 그대로) */
   readonly treasuryOf: (faction: SimFaction) => bigint;
   /** 시간 배율(예고·쉬는 시간·유목 제외 기간에 곱한다). 서버 측정용 하루 줄이기(NPC_DAY_MS)만 1 아래로 쓴다 */

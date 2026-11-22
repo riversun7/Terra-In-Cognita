@@ -81,6 +81,7 @@ import { nationBuildTargets, npcBuildRunOf } from "./cityBuild.ts";
 import { npcClaimsOf } from "./npcClaims.ts";
 import { createDecideClock, resumeDecides } from "./decideSchedule.ts";
 import { type ServerGardener, attachServerGardener } from "./gardener.ts";
+import { createNpcWorkInjury } from "./npcWorkInjury.ts";
 import { type WaveRewardItems, grantWaveReward } from "./waveRewards.ts";
 import { type NationPreset, nationPresetOf, nationStartOf, presetOfCode } from "./nations.ts";
 import { applyPresetTemper } from "./presetTemper.ts";
@@ -103,6 +104,8 @@ const ADOPT_SATISFACTION = 60_000;
 const EVENT_DAY = "npc_day";
 /** 걸어 둔 거래소 주문의 만료를 거두는 간격(ms) */
 const EXPIRE_EVERY_MS = 60_000;
+/** [임시] 도시에 없는 휴먼(2차맵 사이 이동)을 다시 세는 간격(ms, 질문 2697 나) — 떠난 휴먼은 최대 이만큼 늦게 일꾼에서 빠진다 */
+const PRESENCE_EVERY_MS = 30_000;
 /** 1분 지표 누적 칸(지표를 내면 0으로 되돌린다) */
 const zeroMetrics = () => ({
   decisions: 0,
@@ -115,6 +118,7 @@ const zeroMetrics = () => ({
   gardenerMs: 0,
   waveResults: 0,
   catchmentRows: 0,
+  workInjuries: 0,
 });
 
 export interface NpcRuntimeOptions {
@@ -180,6 +184,8 @@ export interface NpcRuntimeOptions {
    * 시작 도시도 등급 값까지 주거·휴먼·경비대를 더한다(모자란 만큼만, 지우지 않는다). 없으면 새 시작 도시만 채운다
    */
   readonly tierApply?: boolean | undefined;
+  /** 죽은 휴먼을 저장할 때(2차맵 사이 이동 중이면 길을 버린다 — persist.ts onHumanDied, 질문 2696) */
+  readonly onHumanDied?: ((unitId: number) => void) | undefined;
 }
 
 /** 켤 때 세운 것(국력 등급 씨앗 — 요청 결과 기록·시험이 본다) */
@@ -453,6 +459,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       takenNames,
       territory: () => territoryOf(o.rules().territory),
       territoryClaim: o.territoryClaim,
+      onHumanDied: o.onHumanDied,
     },
     { rowOf, places, spares: state.spares },
   );
@@ -662,6 +669,15 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   const catchmentStarted = performance.now();
   const catchmentSaved = o.economy?.land ? await loadCatchment(o.pool, o.planetId) : undefined;
   const catchmentLoadMs = Math.round((performance.now() - catchmentStarted) * 10) / 10;
+  // 그 도시 휴먼이 지금 그 도시에 없나(질문 2697 나 — D-591 실제 이동): 그 도시 2차맵에 서 있지 않거나 2차맵 사이 이동 중(held)이면 없다.
+  // 도시 자리·2차맵을 모르면 있는 것으로 센다(옛 판과 같다). 일꾼 수(도시 경제)·정원사 웨이브 수비가 본다
+  const awayFromCity = (unitId: number, cityId: number): boolean => {
+    const place = persist.places.get(cityId);
+    const map = place ? maps.get(place.mapKey) : undefined;
+    if (!map) return false;
+    const info = map.unitInfo(unitId);
+    return !info || info.held === true;
+  };
   // 도시 경제(사회 규칙보다 먼저: 사회·판단이 경제 고리를 받는다)
   const econ = o.economy
     ? await startServerEconomy({
@@ -679,6 +695,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         // 배후지 채집 다툼(npc/catchmentGeometry.ts): 도시 2차맵
         cityMapOf: (cityId) => persist.places.get(cityId)?.mapKey,
         catchmentSaved,
+        away: awayFromCity,
       })
     : undefined;
   const catchmentState = econ?.economy.catchment;
@@ -784,6 +801,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     timeScale: dayMs / DAY_MS,
     startBattle: o.startBattle,
     hasGuardians: o.ruins?.hasGuardians,
+    defends: (unitId, cityId) => !awayFromCity(unitId, cityId),
     isFacility: o.isFacility,
     siegeLayout: (cityId) => {
       const place = persist.places.get(cityId);
@@ -856,6 +874,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   reviewCapitals();
   const first = await persist.flush(society.currentDay());
   warPersist.flush(o.now());
+  // 처음 저장이 세운 휴먼(처음 인구·구인)이 2차맵에 선 뒤 도시에 없는 휴먼을 다시 센다(질문 2697 나 — 경제가 켤 때 센 값은 세우기 전)
+  econ?.refreshPresence(o.now());
   // 집·일터(740 나)·시장(744 나)·개별 유닛 7축 자율행동(ADR 2026-11-20): 저장이 2차맵을 맞춘 뒤에
   const aiBridge = createNpcAiBridge({
     worldSeed: world.seed,
@@ -904,6 +924,9 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   let busy = false;
   let stopped = false;
   let expiredAt = startMs;
+  let presenceAt = startMs;
+  // NPC 일꾼의 작업 중 부상(질문 2702 나 — D-521·D-555 1509, npcWorkInjury.ts): 틱마다 지난 작업 주기 경계만 굴린다
+  const workInjury = createNpcWorkInjury({ units: world.units, places: persist.places, maps, startMs });
   const tick = async (force = false): Promise<void> => {
     if (busy || stopped) return;
     busy = true;
@@ -914,13 +937,20 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       metrics.waveResults += results;
       const lifted = liftGovernments(world, o.ruins, o.now()) + (claims?.tick(o.now()) ?? 0);
       loop.runUntil(o.now() + 1);
+      metrics.workInjuries += workInjury.roll(o.now()); // 다치면 2차맵 유닛 상태로 바로 쓴다(월드 쓰기 대기열)
       // 걸어 둔 거래소 주문의 만료(쓰기 대기열로 바로 간다)
       if (econ && o.now() - expiredAt >= EXPIRE_EVERY_MS) {
         expiredAt = o.now();
         econ.expire(expiredAt);
       }
       const labored = aiBridge.laborTick(o.now(), econ); // 가문 일 지시 점검(바뀐 도시만 일꾼을 다시 센다)
-      if (loop.processed === before && results === 0 && lifted + labored === 0 && !force) return;
+      // 도시를 떠나거나 돌아온 휴먼(2차맵 사이 이동 — 질문 2697 나): 바뀐 도시만 일꾼을 다시 나눈다
+      let moved = 0;
+      if (econ && o.now() - presenceAt >= PRESENCE_EVERY_MS) {
+        presenceAt = o.now();
+        moved = econ.refreshPresence(presenceAt);
+      }
+      if (loop.processed === before && results === 0 && lifted + labored + moved === 0 && !force) return;
       const started = performance.now();
       const result = await persist.flush(society.currentDay());
       warPersist.flush(o.now());
@@ -983,6 +1013,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         gardenerWaveResults: metrics.waveResults,
         pollutionCells: gardener.run.layer().size,
         catchmentRows: metrics.catchmentRows,
+        npcWorkInjuries: metrics.workInjuries,
         catchmentCells: catchmentState?.stock.size ?? 0,
         ...econ?.takeMetrics(),
         ...claims?.takeMetrics(), // 알박기(npc-claim-3, npcClaims.ts)

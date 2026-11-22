@@ -253,6 +253,10 @@ export interface SecondMap {
         aboard: number | undefined;
         /** 수호신 상태(기획 D-589 — unitKinds.ts isGuardianUnit) */
         guardian: boolean;
+        /** NPC 2차맵 사이 이동 중(held — travel/npcTravel.ts). 그 2차맵에 서 있어도 지나가는 중이다(질문 2697, fixes-1117i) */
+        held?: boolean | undefined;
+        /** 봇(NPC 휴먼)의 집·일터(npc/humanPlaces.ts). 일터가 있으면 도시 경제 일꾼(작업 중 부상 — 질문 2702, fixes-1117i) */
+        home?: BotHome | undefined;
       }
     | undefined;
   /** 배 하나를 물 칸 (x, y)(기준 칸, 크기 등급 2)에 세운다(docs/adr/2026-11-13-boats.md 3절). 물 격자가 없거나 설 수 없으면 false */

@@ -253,6 +253,14 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 3(governance-3)", () => {
     expect(battles[0]?.units.find((unit) => unit.id === headBody)?.side).toBe(1);
     expect(battles[0]?.units.find((unit) => unit.id === otherBody)?.side).toBe(2);
     expect((await gov.view(head.userId)).coups[0]?.battleEndsAtMs).toBe(Number(battles[0]?.ends_at_ms));
+    // 넥서스(그 도시 행정 건물)도 세계 시설 목표다 — 누가 이기든 깎인 만큼 세계 건물이 깎인다(질문 2692, D-570 "건물포함", 줄기 fixes-1117i)
+    const targeted = await rows<{
+      targets: { building: number; kind: string; id: number; defendedOnly?: boolean }[] | null;
+    }>(test.db, "select init->'targets' as targets from world_battles where id = $1", [battleId]);
+    const nexus = targeted[0]?.targets?.find((target) => target.building === 1);
+    expect(nexus).toMatchObject({ kind: "facility" });
+    expect(nexus?.defendedOnly).toBeUndefined();
+    expect(parts(world).persistence.facilities.service.facilities.has(nexus?.id ?? -1)).toBe(true);
     // 전투 중에도 편을 들고 병력을 보낸다(D-176 지원 참전 — 2652): 그 도시에 닿아 있는 새 유닛은 바로 정부군으로 참전(실제 몸·생명 수치)
     const mapKey = gov.port.unitMapOf(otherBody) ?? -1;
     const [late = 0] = addTestUnits(world, other.userId, mapKey, 1, clock);

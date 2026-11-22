@@ -231,6 +231,10 @@ export interface ServerEconomy {
   afterDay(nowMs: number, day: number): void;
   /** 그 도시의 생산 시설을 지금 건물대로 다시 맞춘다(NPC 증축이 다 지은 건물을 다음 판단에 넣는다 — 질문 1101 나, cityBuild.ts) */
   refreshCity(cityId: number, nowMs: number): void;
+  /**
+   * 도시에 없는 휴먼 수(away)를 다시 세고 바뀐 도시만 일꾼을 다시 나눈다(질문 2697 나 — 떠난 휴먼은 일꾼에서 빠지고 돌아오면 다시 든다). 바뀐 도시 수
+   */
+  refreshPresence(nowMs: number): number;
   /** 그 도시 주인 나라의 특산 줄(나라 성격 칸 cityJobs, 없으면 기본 셋 — NPC 증축 목표 질문 1142 다가 본다) */
   cityJobsOf(cityId: number): readonly { readonly facility: string; readonly recipe: string }[];
   /** 그 도시의 생산 시설(화면용, 시설 ID 차례) */
@@ -273,6 +277,11 @@ export interface ServerEconomyOptions {
   readonly goodsHome?: RuinedGoodsHome | undefined;
   /** 저장한 배후지 칸 재고·도시 결과(질문 1061 나, catchmentStore.ts). 배후지 다툼을 켤 때 시설을 놓기 전에 넣는다 */
   readonly catchmentSaved?: CatchmentSaved | undefined;
+  /**
+   * 그 도시 휴먼이 지금 그 도시에 없나(다른 2차맵에 있거나 2차맵 사이 이동 중 — 사용자 결정 D-591 실제 이동, 질문 2697 나, 줄기 fixes-1117i).
+   * 없는 휴먼은 일꾼으로 세지 않는다(생필품은 그대로 그 도시 몫으로 쓴다 [임시]). 없으면 모두 있는 것으로 센다(시험)
+   */
+  readonly away?: ((unitId: number, cityId: number) => boolean) | undefined;
 }
 
 /** 세력·사회 계수표 → 채집 손잡이(시뮬 run.ts와 같은 칸) */
@@ -484,14 +493,19 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   const cityGuards = new Map<number, number>();
   /** 도시마다 그날 가문 지시를 따르지 않는 휴먼 수(npc/laborOrders.ts — 일꾼으로 세지 않는다, 경비대는 불복이 없다) */
   const cityStrikes = new Map<number, number>();
+  /** 도시마다 지금 그 도시에 없는 휴먼 수(경비대·불복 빼고 — 일꾼으로 세지 않는다, 질문 2697 나) */
+  const cityAway = new Map<number, number>();
   const recount = (): void => {
     economy.cityUnits.clear();
     cityGuards.clear();
     cityStrikes.clear();
+    cityAway.clear();
     for (const unit of world.units.values()) {
       economy.cityUnits.set(unit.city, (economy.cityUnits.get(unit.city) ?? 0) + 1);
       if (unit.guard === true) cityGuards.set(unit.city, (cityGuards.get(unit.city) ?? 0) + 1);
       else if (unit.onStrike === true) cityStrikes.set(unit.city, (cityStrikes.get(unit.city) ?? 0) + 1);
+      else if (o.away?.(unit.id, unit.city) === true)
+        cityAway.set(unit.city, (cityAway.get(unit.city) ?? 0) + 1);
     }
   };
   recount();
@@ -622,7 +636,10 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       slots,
       Math.max(
         0,
-        (economy.cityUnits.get(cityId) ?? 0) - (cityGuards.get(cityId) ?? 0) - (cityStrikes.get(cityId) ?? 0),
+        (economy.cityUnits.get(cityId) ?? 0) -
+          (cityGuards.get(cityId) ?? 0) -
+          (cityStrikes.get(cityId) ?? 0) -
+          (cityAway.get(cityId) ?? 0),
       ),
       catalog.necessities,
     );
@@ -953,6 +970,18 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     refreshCity(cityId, nowMs) {
       recount();
       syncCity(cityId, nowMs);
+    },
+    refreshPresence(nowMs) {
+      if (!o.away) return 0;
+      const before = new Map(cityAway);
+      recount();
+      let changed = 0;
+      for (const cityId of [...world.cities.keys()].toSorted((a, b) => a - b)) {
+        if ((before.get(cityId) ?? 0) === (cityAway.get(cityId) ?? 0)) continue;
+        syncCity(cityId, nowMs);
+        changed += 1;
+      }
+      return changed;
     },
     production(cityId) {
       const out: FacilityRun[] = [];

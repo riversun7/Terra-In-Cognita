@@ -7,7 +7,9 @@
 //   그대로 흐른다 [임시 — 질문 2699].
 // - 화면은 그 일꾼 줄에 "가는 중 · 도착 …"을 보인다(commuteOf → 시설 조회 FacilityWorkerView.commuteUntil).
 // - NPC 휴먼(봇)은 스스로 일터·집을 오간다(npc/humanPlaces.ts·world/bots.ts "WP-NPC4") — 여기서 보내지 않는다.
-// - 가는 길(멈춤 구간)은 메모리에만 있다. 다시 켜면 남은 길의 멈춤이 사라진다(유닛은 저장된 움직임대로 계속 걷는다 — 계약 임금 시작은 저장된다) [임시 2699].
+// - 바뀜 (fixes-1117i, 질문 2699 기술 기본값 "되도록 저장"): 가는 길(멈춤 구간)을 표 unit_commutes에 유닛마다 한 줄로 저장한다(월드 쓰기 대기열 —
+//   길을 정할 때 넣고, 지난 길을 지울 때 지운다). 다시 켜면 store.ts가 읽어 그대로 이어 간다(산출 멈춤·부상 빼기·화면 "가는 중"). 예전에는 메모리에만 있어
+//   다시 켜면 남은 길의 멈춤이 사라졌다.
 //   길이 없거나 가는 중에 다른 명령으로 떠나도 일은 그대로다(같은 2차맵 조건 — 예전 규칙) [임시 2699].
 import type { LaborContract } from "@terra/sim";
 import {
@@ -20,6 +22,8 @@ import {
   footprintRect,
   positionAt,
 } from "@terra/sim";
+import type { WorldWriter } from "../world/persist/writer.ts";
+import type { Row } from "../world/persist/tables.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { OutputPauses, PauseWindow, WorkInjuryHook } from "../world/settlement.ts";
 import { UNIT_KIND_BOT } from "../world/unitKinds.ts";
@@ -39,6 +43,33 @@ interface Trip {
   readonly buildingId: number;
   readonly fromMs: number;
   readonly untilMs: number;
+}
+
+/** 저장된 가는 길 한 줄(unit_commutes) */
+export interface CommuteRecord extends Trip {
+  readonly unitId: number;
+}
+
+/** 가는 길 → 표 줄 */
+export function commuteRow(unitId: number, trip: Trip): Row {
+  return {
+    unit_id: unitId,
+    owner_id: trip.ownerId,
+    building_id: trip.buildingId,
+    from_ms: trip.fromMs,
+    until_ms: trip.untilMs,
+  };
+}
+
+/** 표 줄 → 가는 길(pg는 int8을 글자로 준다) */
+export function commuteRecordOf(row: Readonly<Record<string, unknown>>): CommuteRecord {
+  return {
+    unitId: Number(row.unit_id),
+    ownerId: Number(row.owner_id),
+    buildingId: Number(row.building_id),
+    fromMs: Number(row.from_ms),
+    untilMs: Number(row.until_ms),
+  };
 }
 
 export interface WalkToWork {
@@ -113,12 +144,27 @@ export function createWalkToWork(deps: {
   readonly now: () => number;
   /** 도착 시각을 알면(계약 임금 시작을 미룬다 — shiftPayStart). 없으면 미루지 않는다 */
   readonly payFrom?: ((unitId: number, atMs: number) => void) | undefined;
+  /** 저장된 가는 길(다시 켤 때 — store.ts). 없으면 빈 것 */
+  readonly loaded?: readonly CommuteRecord[] | undefined;
+  /** 가는 길을 저장할 쓰기 대기열(unit_commutes). 없으면 메모리에만(시험) */
+  readonly writer?: Pick<WorldWriter, "upsert" | "remove"> | undefined;
 }): WalkToWork {
-  const trips = new Map<number, Trip>();
+  const trips = new Map<number, Trip>(
+    (deps.loaded ?? []).map((row) => [
+      row.unitId,
+      { ownerId: row.ownerId, buildingId: row.buildingId, fromMs: row.fromMs, untilMs: row.untilMs },
+    ]),
+  );
   const prune = (): void => {
     const cutoff = deps.now() - KEEP_MS;
-    for (const [unitId, trip] of trips) if (trip.untilMs < cutoff) trips.delete(unitId);
+    for (const [unitId, trip] of trips)
+      if (trip.untilMs < cutoff) {
+        trips.delete(unitId);
+        deps.writer?.remove("unitCommutes", { unit_id: unitId });
+      }
   };
+  // 켤 때 오래된 길을 한 번 거른다
+  prune();
   return {
     begin(unitId, buildingId) {
       for (const map of deps.maps.values()) {
@@ -136,7 +182,9 @@ export function createWalkToWork(deps: {
           const motion = result.ok ? map.unitInfo(unitId)?.motion : undefined;
           if (!motion || arrivalAt(motion) <= at) return;
           prune();
-          trips.set(unitId, { ownerId, buildingId, fromMs: at, untilMs: arrivalAt(motion) });
+          const trip = { ownerId, buildingId, fromMs: at, untilMs: arrivalAt(motion) };
+          trips.set(unitId, trip);
+          deps.writer?.upsert("unitCommutes", commuteRow(unitId, trip));
           deps.payFrom?.(unitId, arrivalAt(motion));
         });
         return;

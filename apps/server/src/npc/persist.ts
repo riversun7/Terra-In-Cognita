@@ -106,6 +106,11 @@ export interface NpcPersistOptions {
   readonly territoryClaim?:
     | ((mapKey: number, x: number, y: number) => { readonly faction: number } | null | undefined)
     | undefined;
+  /**
+   * 죽은 휴먼(거울에서 사라짐)을 저장할 때 2차맵에서 지우기 전에 부른다(같은 동기 처리): 2차맵 사이 이동 중이면 그 길을 바로 멈추고 버린다
+   * (travel/npcTravel.ts cancel(drop) — 질문 2696, 줄기 fixes-1117i: 건너뛰는 동안 죽은 휴먼이 닿을 때 잠깐 나타나지 않게). 없으면 길은 닿을 때 거른다
+   */
+  readonly onHumanDied?: ((unitId: number) => void) | undefined;
 }
 
 export interface NpcPersist {
@@ -660,6 +665,8 @@ export function createNpcPersist(
       for (const id of savedHumans.keys()) {
         if (world.units.has(id)) continue;
         writer.remove("humans", { unit_id: id });
+        // 가는 중이면 길부터 버린다(2696 — 건너뛰는 중이면 2차맵 위에 없어 아래 지우기가 닿지 않는다)
+        o.onHumanDied?.(id);
         for (const map of maps.values()) if (map.removeUnit(id)) break;
         savedHumans.delete(id);
         count.deaths += 1;

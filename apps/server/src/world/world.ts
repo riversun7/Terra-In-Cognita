@@ -114,6 +114,7 @@ import type { ServerEconomyCatalog } from "../market/catalog.ts";
 import { npcEconomyInputOf } from "../market/worldInput.ts";
 import type { TravelService } from "../travel/service.ts";
 import { createWorldTravel } from "../travel/worldTravel.ts";
+import { npcTravelOf } from "../travel/npcTravel.ts";
 
 // 시험 2차맵 자리·시험 행성은 testMaps.ts(다른 모듈·시험이 world.ts에서 가져오던 이름을 그대로 다시 내보낸다)
 export { RETIRED_TEST_MAPS, TEST_MAP_KEY, TEST_MAP_ORIGIN, TEST_PLANET_ID, retiredTestMapKey, testMapKey };
@@ -862,6 +863,8 @@ export function startWorld(
             void leaderToCapital({ maps, facilities, travel, ownerId, capital, log }),
           // 국력 등급 반영 요청이 든 부팅(world/tierApply.ts): 이미 채운 시작 도시도 등급 값까지 주거·휴먼·경비대를 더한다
           tierApply: seeded?.tierApply !== undefined,
+          // 죽은 휴먼이 2차맵 사이 이동 중이면 길을 바로 버린다(질문 2696 — travel/npcTravel.ts cancel(drop))
+          onHumanDied: (unitId) => void npcTravelOf(travel).cancel(unitId, true),
         });
         attachDeliveryRenown(npc.economy, { owners, cyborgs, rules: societyRules }); // 납품 명성(D-326)
         await finishTierApply(db, TEST_PLANET_ID, now(), seeded?.tierApply, npc.seedReport, log);

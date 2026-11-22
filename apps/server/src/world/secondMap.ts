@@ -985,6 +985,8 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
             domain: unit.domain,
             aboard: unit.aboard,
             guardian: unit.guardian,
+            held: unit.held,
+            home: unit.home,
           }
         : undefined;
     },

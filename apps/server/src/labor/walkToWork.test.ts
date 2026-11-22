@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WorkInjuryHook } from "../world/settlement.ts";
 import { createTestMap } from "../world/testSupport.ts";
 import { UNIT_KIND_BOT, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
-import { WORK_REACH_CELLS, cellGap, createWalkToWork, shiftPayStart } from "./walkToWork.ts";
+import { WORK_REACH_CELLS, cellGap, commuteRecordOf, createWalkToWork, shiftPayStart } from "./walkToWork.ts";
 
 const START = 1_798_000_000_000;
 const OWNER = 7;
@@ -100,6 +100,61 @@ describe("일터로 걸어가기 (D-591, 질문 2656 나)", () => {
     await settle();
     expect(bot.walk.commuteOf(21)).toBeUndefined();
     bot.map.stop();
+  });
+});
+
+describe("일터 가는 길 저장 (질문 2699 — 줄기 fixes-1117i)", () => {
+  it("길을 정하면 unit_commutes 줄로 쓰고, 다시 켜면 읽은 길로 이어 간다(멈춤 구간·가는 중). 7일 지난 길은 지운다", async () => {
+    const { map } = createTestMap({ mapKey: 9 });
+    map.placeBuilding({ x: 150, y: 100, width: 6, height: 6, rotation: 0 }, OWNER);
+    map.addUnit({
+      id: 21,
+      size: 1,
+      speed: WALK_SPEED,
+      cellX: 40,
+      cellY: 100,
+      ownerId: OWNER,
+      kind: UNIT_KIND_HUMAN,
+    });
+    const writes: { op: string; table: string; row: Record<string, unknown> }[] = [];
+    const writer = {
+      upsert: (table: string, row: Record<string, unknown>) => void writes.push({ op: "upsert", table, row }),
+      remove: (table: string, row: Record<string, unknown>) => void writes.push({ op: "remove", table, row }),
+    };
+    const walk = createWalkToWork({ maps: new Map([[9, map]]), now: () => Date.now(), writer });
+    walk.begin(21, 1);
+    await settle();
+    const until = walk.commuteOf(21) ?? 0;
+    expect(until).toBeGreaterThan(START);
+    expect(writes).toEqual([
+      {
+        op: "upsert",
+        table: "unitCommutes",
+        row: { unit_id: 21, owner_id: OWNER, building_id: 1, from_ms: START, until_ms: until },
+      },
+    ]);
+    // 다시 켬: 저장된 줄(pg 글자 int8)로 같은 길 — 메모리 길이 사라지지 않는다
+    const row = commuteRecordOf({
+      unit_id: "21",
+      owner_id: String(OWNER),
+      building_id: "1",
+      from_ms: String(START),
+      until_ms: String(until),
+    });
+    const stale = { unitId: 22, ownerId: OWNER, buildingId: 1, fromMs: 1, untilMs: 2 };
+    const again = createWalkToWork({
+      maps: new Map([[9, map]]),
+      now: () => Date.now(),
+      loaded: [row, stale],
+      writer,
+    });
+    expect(again.commuteOf(21)).toBe(until);
+    expect(again.pauses(() => undefined)(OWNER)).toEqual(
+      new Map([[21, [{ fromMs: START, untilMs: until }]]]),
+    );
+    // 켤 때 7일 지난 길은 지운다
+    expect(writes.at(-1)).toEqual({ op: "remove", table: "unitCommutes", row: { unit_id: 22 } });
+    map.stop();
   });
 });
 

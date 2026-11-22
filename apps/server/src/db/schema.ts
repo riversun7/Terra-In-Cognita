@@ -920,7 +920,7 @@ export {
   tuningRevision,
 } from "./devToolsSchema.ts";
 /** 노동 계약 표(docs/adr/2026-11-03-labor-contracts.md) */
-export { laborContracts, laborPostings, laborRents, unitWork } from "./laborSchema.ts";
+export { laborContracts, laborPostings, laborRents, unitCommutes, unitWork } from "./laborSchema.ts";
 /** 건물(시설) 상태·작업 표(docs/adr/2026-11-07-buildings-runtime.md) */
 export { claimCities, facilityJobs, worldFacilities } from "./facilitySchema.ts";
 /** 랭킹 집계 표(docs/adr/2026-11-07-ranking.md — 유닛 점수·전투력·자산 값 표 포함) */

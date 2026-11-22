@@ -1,6 +1,6 @@
 // 세력 쌍 호감 장부 시험(affinity.ts — 줄기 gov-fix-4, 사용자 결정 D-591 2531·기획 D-255·D-290·D-291). 메모리 가짜로 본다.
 import { describe, expect, it } from "vitest";
-import { type AffinityRecord, createAffinityBook } from "./affinity.ts";
+import { type AffinityRecord, createAffinityBook, pairKey } from "./affinity.ts";
 import { npcTreatyAnswer } from "./clauses.ts";
 
 const RULES = { independenceAffinity: 80, noCauseAffinity: 30, joinRefuseAffinity: 20 };
@@ -92,5 +92,81 @@ describe('NPC 조약 답과 호감(D-255 "NPC의 판단에 쓴다" — [임시 2
         affinity: -100,
       }),
     ).toBe(true);
+  });
+});
+
+describe("호감이 오르는 길(줄기 npc-diplo — 질문 2662 [임시])", () => {
+  const DAY = 86_400_000;
+  const RISE = {
+    ...RULES,
+    affinityDriftPerDay: 1,
+    treatyKeptAffinity: 1,
+    peaceAffinity: 10,
+    joinAcceptAffinity: 10,
+  };
+  function riseBook(nations = [1, 2, 3, 4]) {
+    const b = createAffinityBook({
+      rules: () => RISE,
+      nations: () => nations,
+      rowOfOwner: (owner) => (owner >= 100 ? owner - 100 : undefined),
+    });
+    b.persistWith(async () => {});
+    return b;
+  }
+
+  it("하루마다 0 쪽으로 돌아오고(0을 넘지 않음), 지킨 조약이 있는 쌍은 그 대신 오른다", () => {
+    const b = riseBook();
+    b.add(1, 2, -3, 0);
+    b.add(1, 3, 2, 0);
+    b.daily(10 * DAY, new Map()); // 첫 걸음은 날만 정한다(켤 때 읽은 줄이 없음)
+    expect([b.get(1, 2), b.get(1, 3)]).toEqual([-3, 2]);
+    b.daily(10 * DAY + 3_600_000, new Map([[pairKey(1, 4), 5 * DAY]]));
+    expect([b.get(1, 2), b.get(1, 3), b.get(1, 4)]).toEqual([-3, 2, 0]);
+    b.daily(11 * DAY + 60_000, new Map([[pairKey(1, 4), 5 * DAY]]));
+    expect([b.get(1, 2), b.get(1, 3), b.get(1, 4)]).toEqual([-2, 1, 1]);
+    b.daily(12 * DAY + 60_000, new Map());
+    b.daily(13 * DAY + 60_000, new Map());
+    b.daily(14 * DAY + 60_000, new Map());
+    expect([b.get(1, 2), b.get(1, 3), b.get(1, 4)]).toEqual([0, 0, 0]);
+  });
+
+  it("켤 때 읽은 줄의 가장 최근 시각이 마지막 걸음 날 — 밀린 날은 7날까지, 조약 몫은 맺은 뒤 날만", () => {
+    const b = riseBook();
+    b.restore(1, 2, -50, 3 * DAY + 500);
+    b.restore(1, 3, 20, 1 * DAY);
+    b.markLoaded();
+    b.daily(20 * DAY + 60_000, new Map([[pairKey(2, 3), 18 * DAY + 1]]));
+    expect([b.get(1, 2), b.get(1, 3), b.get(2, 3)]).toEqual([-43, 13, 2]);
+  });
+
+  it("강화(두 나라 전쟁이 끝남): 첫 번은 기준만, 그 뒤 끝난 쌍이 둘 다 살아 있으면 오른다", () => {
+    const nations = [1, 2, 3, 4];
+    const b = riseBook(nations);
+    b.observeWars([[2, 1]], 0);
+    expect(b.get(1, 2)).toBe(0);
+    b.observeWars(
+      [
+        [1, 2],
+        [3, 4],
+      ],
+      10,
+    );
+    b.observeWars([], 20);
+    expect(b.get(1, 2)).toBe(10);
+    // 4는 사라졌다 — 강화가 아니다
+    nations.pop();
+    expect(b.get(3, 4)).toBe(10);
+    b.observeWars([[1, 3]], 30);
+    nations.splice(2, 1);
+    b.observeWars([], 40);
+    expect(b.get(1, 3)).toBe(0);
+  });
+
+  it("참전 요청 수락은 들어간 나라와 요청한 나라를 올리고, 거울 세계 세력 ID로도 읽는다", () => {
+    const b = riseBook();
+    b.joinAccepted(2, 1, 100);
+    expect(b.get(1, 2)).toBe(10);
+    expect(b.getByOwner(101, 102)).toBe(10);
+    expect(b.getByOwner(101, 7)).toBe(0);
   });
 });

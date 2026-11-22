@@ -9,3 +9,4 @@ export * from "./houseOrders.ts";
 export * from "./diplomacyAi.ts";
 export { chooseCombatTacticFromTraits, moveSkillAllowed, wantsRun } from "../combat/moveAi.ts";
 export { NPC_AI_TUNING_KEYS } from "../tuningNpcAi.ts";
+export * from "./relationScore.ts";

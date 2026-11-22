@@ -443,6 +443,13 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "governance.shareExecMs",
   // 위반 기록 잊기(줄기 fixes-d592 — D-592 2583 다): 외교 1분 틱·조회마다 읽는다
   "governance.breachExpireMs",
+  // 호감이 오르는 길·NPC 참전 답 관계 몫(줄기 npc-diplo — 질문 2662·2663): 외교 1분 틱·참전 답마다 읽는다
+  "governance.affinityDriftPerDay",
+  "governance.treatyKeptAffinity",
+  "governance.peaceAffinity",
+  "governance.joinAcceptAffinity",
+  "npc.relationJoinAffinityPm",
+  "npc.relationJoinTrustPm",
   // NPC 자율행동·7축 성향·조직 합성·충성도 개입(docs/adr/2026-11-20-npc-autonomous-ai.md): 조회·판단마다 읽는다
   "npcAi.unitTraitMin",
   "npcAi.unitTraitMax",

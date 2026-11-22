@@ -120,6 +120,14 @@ export interface GovernanceCoefficients {
    * 위반 기록을 잊는 기간(ms, 0 = 잊지 않음 — 줄기 fixes-d592, 사용자 결정 D-592 2583 다 "기간이 지나면 위반을 잊고 신뢰가 돌아온다") [임시 출발값]. 신뢰·제재 명분은 남은 기록에서 셈한다
    */
   readonly breachExpireMs: number;
+  /**
+   * 호감이 오르는 길(줄기 npc-diplo — 질문 2662, 기술 출발값 [임시] — 모양은 질문 2722): 하루마다 0 쪽으로 돌아오는 몫, 그날 맺은 채 지킨 불가침·동맹·보호 조약이 있는 쌍이
+   * 0 쪽으로 돌아오는 대신 받는 몫, 강화(두 나라 전쟁이 끝남)마다 몫, 참전 요청을 받아 들어간 두 나라 몫
+   */
+  readonly affinityDriftPerDay: number;
+  readonly treatyKeptAffinity: number;
+  readonly peaceAffinity: number;
+  readonly joinAcceptAffinity: number;
 }
 
 export const START_GOVERNANCE: GovernanceCoefficients = {
@@ -186,4 +194,8 @@ export const START_GOVERNANCE: GovernanceCoefficients = {
   joinRefuseAffinity: 20,
   shareExecMs: 14 * 86_400_000,
   breachExpireMs: 90 * 86_400_000,
+  affinityDriftPerDay: 1,
+  treatyKeptAffinity: 1,
+  peaceAffinity: 10,
+  joinAcceptAffinity: 10,
 };

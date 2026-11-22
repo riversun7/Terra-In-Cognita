@@ -209,11 +209,18 @@ export function createDiplomacyStore(pool: GovernanceQueryable) {
       );
     },
     /** 세력 쌍 호감(호감 장부를 켤 때 읽는다) */
-    async affinities(): Promise<{ readonly a: number; readonly b: number; readonly score: number }[]> {
+    async affinities(): Promise<
+      { readonly a: number; readonly b: number; readonly score: number; readonly atMs: number }[]
+    > {
       const { rows } = await pool.query(
-        `select nation_a, nation_b, score from diplomacy_affinity order by nation_a, nation_b`,
+        `select nation_a, nation_b, score, updated_at_ms from diplomacy_affinity order by nation_a, nation_b`,
       );
-      return rows.map((row) => ({ a: num(row.nation_a), b: num(row.nation_b), score: num(row.score) }));
+      return rows.map((row) => ({
+        a: num(row.nation_a),
+        b: num(row.nation_b),
+        score: num(row.score),
+        atMs: num(row.updated_at_ms),
+      }));
     },
     /** 열린 조약과 맺은 조약(틱 — 차례대로) */
     async liveTreaties(): Promise<TreatyRow[]> {

@@ -73,6 +73,14 @@ export interface GovernanceRules {
   readonly shareExecMs: number;
   /** 위반 기록을 잊는 기간(ms, 0 = 잊지 않음 — 줄기 fixes-d592 D-592 2583 다, 설정 칸 dip_breach_expire_ms) */
   readonly breachExpireMs: number;
+  /** 호감이 오르는 길(줄기 npc-diplo — 질문 2662, 설정 칸 dip_affinity_drift_per_day·dip_treaty_kept_affinity·dip_peace_affinity·dip_join_accept_affinity — diplomacy/affinityRise.ts) */
+  readonly affinityDriftPerDay: number;
+  readonly treatyKeptAffinity: number;
+  readonly peaceAffinity: number;
+  readonly joinAcceptAffinity: number;
+  /** NPC 참전 답의 관계 몫(‰ — 세력·사회 npc 칸 npc_relation_join_*, @terra/sim/npcAi npcJoinsWarScored, 줄기 npc-diplo) */
+  readonly relationJoinAffinityPm: number;
+  readonly relationJoinTrustPm: number;
   /** 강화 조약 불가침 기간(ms — 세력·사회 d292_truce, 휴전·강화 조약의 기본 기간) */
   readonly truceMs: number;
 }
@@ -173,6 +181,12 @@ export function governanceRulesFrom(c: SocietyCoefficients): GovernanceRules {
     joinRefuseAffinity: Math.min(200, whole(g.joinRefuseAffinity)),
     shareExecMs: Math.min(30 * 86_400_000, Math.max(7 * 86_400_000, whole(g.shareExecMs))),
     breachExpireMs: whole(g.breachExpireMs),
+    affinityDriftPerDay: Math.min(200, whole(g.affinityDriftPerDay)),
+    treatyKeptAffinity: Math.min(200, whole(g.treatyKeptAffinity)),
+    peaceAffinity: Math.min(200, whole(g.peaceAffinity)),
+    joinAcceptAffinity: Math.min(200, whole(g.joinAcceptAffinity)),
+    relationJoinAffinityPm: whole(c.npc.relationJoinAffinityPm ?? 0),
+    relationJoinTrustPm: whole(c.npc.relationJoinTrustPm ?? 0),
     truceMs: period(c.npc.truceMs),
   };
 }

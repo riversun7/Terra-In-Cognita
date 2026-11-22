@@ -8,7 +8,10 @@
 // - NPC 참전 답(npcJoinsWar) [임시 2556]: 힘(휴먼 수 — NPC 판단의 strength)이 적 이상이면 참가한다.
 // - 바뀜(gov-fix-4 — D-591 2531·D-255 "관계 점수는 NPC의 판단에 쓴다"): 받는 NPC 나라와 보낸 나라의 호감(affinity.ts) 띠가 "적대"면 차분함이 넉넉해도 불가침·동맹·보호(차분함을
 //   보는 조항)를 받지 않는다 [임시 2663]. 휴전·강화는 그대로 강화 규칙식만 본다.
+// - 바뀜(npc-diplo — 질문 2663, D-255 P0): NPC 참전 답은 요청한 나라와의 호감·그 나라 신뢰로 힘 비 문턱을 옮긴다(@terra/sim/npcAi npcJoinsWarScored — 설정 칸
+//   npc_relation_join_*). 중립이면 옛 규칙(힘이 적 이상) 그대로.
 import { relationBand } from "@terra/shared/faction";
+import { type RelationInput, npcJoinsWarScored } from "@terra/sim/npcAi";
 import { TREATY_CLAUSE_KINDS, type TreatyClause, type TreatyClauseKind } from "@terra/shared/treaty";
 
 /** 보내는 나라 기준 조항 칸(프로토콜 dip_propose·dip_counter) */
@@ -144,9 +147,16 @@ export function npcTreatyAnswer(input: NpcTreatyInput): boolean {
   return true;
 }
 
-/** NPC가 이끄는 나라가 참전 요청을 받는가 [임시 2556]: 힘이 적 이상이면 */
-export const npcJoinsWar = (myStrength: number, enemyStrength: number): boolean =>
-  myStrength >= enemyStrength;
+/**
+ * NPC가 이끄는 나라가 참전 요청을 받는가 [임시 2556]: 힘 비가 문턱(1000‰ − 관계 몫) 이상이면. relation = 요청한 나라와의 호감·요청한 나라의 신뢰(없으면 중립 —
+ * 힘이 적 이상), weights = 설정 칸 npc_relation_join_*(‰)
+ */
+export const npcJoinsWar = (
+  myStrength: number,
+  enemyStrength: number,
+  relation: RelationInput = {},
+  weights: { readonly relationJoinAffinityPm?: number; readonly relationJoinTrustPm?: number } = {},
+): boolean => npcJoinsWarScored(myStrength, enemyStrength, relation, weights);
 
 /** 공물 한 번(보호받는 쪽 국고 × ‰ ÷ 1000, 내림) */
 export const tributeAmount = (treasury: bigint, tributePm: number): bigint =>

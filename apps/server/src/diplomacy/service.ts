@@ -31,6 +31,7 @@ import {
   npcTreatyAnswer,
   protectionOf,
 } from "./clauses.ts";
+import { pairKey } from "./affinity.ts";
 import type { DiplomacyPort } from "./port.ts";
 import type { DiplomacyStore, TreatyRow, WarJoinRow } from "./store.ts";
 
@@ -178,7 +179,7 @@ export function createDiplomacyService(o: {
   const affinityBook = async () => {
     const book = o.port.affinity();
     if (!book || book.loaded()) return book;
-    for (const row of await o.store.affinities()) book.restore(row.a, row.b, row.score);
+    for (const row of await o.store.affinities()) book.restore(row.a, row.b, row.score, row.atMs);
     book.persistWith(async (record) => {
       try {
         await o.store.saveAffinity(record.a, record.b, record.score, record.atMs);
@@ -450,12 +451,21 @@ export function createDiplomacyService(o: {
     if (!joiner || !enemy || !(await npcLed(joiner))) return undefined;
     const mine = o.port.strengthOf(joiner, nowMs);
     const theirs = o.port.strengthOf(enemy, nowMs);
-    if (npcJoinsWar(mine, theirs) && (await o.port.joinWar(joiner, enemy, nowMs))) {
-      await o.store.finishJoin(join.id, "joined", nowMs, { npc: true, mine, theirs });
+    // 관계 점수(줄기 npc-diplo — 질문 2663): 요청한 나라와의 호감·그 나라 세력 신뢰가 힘 비 문턱을 옮긴다
+    const requester = o.port.nation(join.requesterNation);
+    const relation = {
+      affinity: (await affinityBook())?.get(join.joinerNation, join.requesterNation) ?? 0,
+      trust: requester ? ((await breachBook())?.trust(requester.ownerId, nowMs) ?? 0) : 0,
+    };
+    const note = { npc: true, mine, theirs, ...relation };
+    if (npcJoinsWar(mine, theirs, relation, o.rules()) && (await o.port.joinWar(joiner, enemy, nowMs))) {
+      await o.store.finishJoin(join.id, "joined", nowMs, note);
       await audit(null, "diplomacy.war_joined", { ...joinNote(join), npc: true });
+      // 받아 들어가면 그 동맹과의 호감이 오른다(줄기 npc-diplo — affinityRise.ts)
+      (await affinityBook())?.joinAccepted(join.joinerNation, join.requesterNation, nowMs);
       return "joined";
     }
-    await o.store.finishJoin(join.id, "declined", nowMs, { npc: true, mine, theirs });
+    await o.store.finishJoin(join.id, "declined", nowMs, note);
     await audit(null, "diplomacy.war_join_declined", { ...joinNote(join), npc: true });
     // 거절하면 그 동맹과의 호감이 내려간다(D-291 — affinity.ts, 줄기 gov-fix-4)
     (await affinityBook())?.joinRefused(join.joinerNation, join.requesterNation, nowMs);
@@ -531,6 +541,7 @@ export function createDiplomacyService(o: {
     if (!(await o.port.joinWar(me.nation, enemy, nowMs))) return fail("already_at_war");
     await o.store.finishJoin(join.id, "joined", nowMs, { userId });
     await audit(userId, "diplomacy.war_joined", joinNote(join));
+    (await affinityBook())?.joinAccepted(join.joinerNation, join.requesterNation, nowMs);
     return done("joined", join.id);
   };
 
@@ -587,9 +598,11 @@ export function createDiplomacyService(o: {
     const nowMs = o.now();
     const rules = o.rules();
     const book = await breachBook();
-    await affinityBook();
+    const affinities = await affinityBook();
     // 맺은 채 남은 동맹 조약 쌍(제재 명분은 피해 나라와 그 동맹만 — 2584 다, fixes-d592)
     const allies: (readonly [number, number])[] = [];
+    // 지킨 불가침·동맹·보호 조약 쌍 → 맺은 시각(호감 하루 몫 — 줄기 npc-diplo, affinityRise.ts)
+    const kept = new Map<string, number>();
     for (const treaty of await o.store.liveTreaties()) {
       if (isOpenTreaty(treaty.state)) {
         if (treaty.agendaId !== null) {
@@ -615,6 +628,11 @@ export function createDiplomacyService(o: {
       }
       const kinds = kindsOf(treaty.clauses);
       if (kinds.includes("alliance")) allies.push([a.ownerId, b.ownerId]);
+      if (kinds.some((kind) => TRUCE_CLAUSES.has(kind))) {
+        const key = pairKey(a.rowId, b.rowId);
+        const since = treaty.activatedAtMs ?? nowMs;
+        kept.set(key, Math.min(since, kept.get(key) ?? since));
+      }
       if (kinds.some((kind) => TRUCE_CLAUSES.has(kind)) && treaty.expiresAtMs !== null)
         await o.port.setTruce(a, b, treaty.expiresAtMs);
       const protection = protectionOf(treaty.clauses);
@@ -640,6 +658,15 @@ export function createDiplomacyService(o: {
       }
     }
     book?.setAllies(allies);
+    // 호감이 오르는 길(줄기 npc-diplo — 질문 2662): 강화한 쌍(지난 틱과 견줌)·하루 걸음(날이 바뀌었을 때만)
+    if (affinities) {
+      const wars: (readonly [number, number])[] = [];
+      for (const nation of o.port.nations())
+        for (const enemy of o.port.enemiesOf(nation))
+          if (nation.rowId < enemy) wars.push([nation.rowId, enemy]);
+      affinities.observeWars(wars, nowMs);
+      affinities.daily(nowMs, kept);
+    }
     for (const join of await o.store.openJoins()) {
       const requester = o.port.nation(join.requesterNation);
       const enemy = o.port.nation(join.enemyNation);

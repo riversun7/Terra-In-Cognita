@@ -5285,6 +5285,7 @@
   "facility_worker_assign_unit": "유닛 #{id} · 직무 배치",
   "facility_worker_wage": "유닛 #{id} · 임금형 계약",
   "facility_worker_lease": "유닛 #{id} · 임대형 계약",
+  "facility_worker_commute": "일터로 가는 중 — 닿으면 일을 시작합니다 · 도착",
   "facility_worker_other": "남의 유닛 #{id} · 노동 계약",
   "facility_worker_stats": "{primary} {main} · {secondary} {sub}",
   "facility_worker_pick": "유닛",

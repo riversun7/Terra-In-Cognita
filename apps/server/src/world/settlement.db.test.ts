@@ -87,7 +87,8 @@ async function hireSelf(world: World, userId: string, count: number, spare: bigi
   // 재산이 없는 유닛(D-127 — 노동 보상은 소유자가 받는다): 임금이 내 지갑으로 돌아오는 셈을 본다(휴먼이면 유닛 지갑, D-564 1631)
   const units = addTestUnits(world, userId, map.mapKey, count, clock, { kind: UNIT_KIND_TEST });
   expect(units).toHaveLength(count);
-  const placed = map.placeBuilding({ x: 40, y: 40, width: 2, height: 2, rotation: 0 }, ownerId);
+  // 유닛(96~110, 96) 바로 곁 건물 — 일터로 걸어가지 않고 바로 일한다(labor/walkToWork.ts, D-591: 먼 유닛은 걸어가는 동안 일하지 않는다)
+  const placed = map.placeBuilding({ x: 96, y: 92, width: 16, height: 2, rotation: 0 }, ownerId);
   if (!placed.ok || placed.buildingId === undefined) throw new Error("no building");
   // 보증금은 사업장 금고에서 나간다(D-555 1504) → 미리 금고에 넣는다. 첫 임금은 내 지갑으로 돌아오니 그만큼 다시 금고에 넣어 지갑 = spare
   if (spare < WAGE) throw new Error("spare < wage");

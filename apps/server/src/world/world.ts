@@ -21,7 +21,8 @@ import { createBattleWorld, createWorldBattleStart } from "./battleStart.ts";
 import { type BattleItems, createBattleItems } from "./battleItems.ts";
 import { type CityRow, cityCellsOf, loadCities } from "./cities.ts";
 import { attachHouseTies, houseTiesOf } from "./houseTies.ts";
-import { moveLeaderToCapital, seedNpcAtBoot } from "../npc/leaders.ts";
+import { seedNpcAtBoot } from "../npc/leaders.ts";
+import { leaderToCapital } from "../npc/leaderTravel.ts";
 import { villageSeeder } from "../facilities/npcSeed.ts";
 import { applyCityRelayoutAtBoot } from "../facilities/cityRelayout.ts";
 import {
@@ -650,10 +651,10 @@ export function startWorld(
     });
     facilities.attachLabor(labor);
     settlement.routeOutputs((ownerId, fromMs, toMs) => labor.outputsFor(ownerId, fromMs, toMs));
-    // 건물 작업에 묶인 유닛은 그 동안 직무 산출이 없다(D-516 364). 정산 뒤 노동 계약 유예 끝 물건 옮기기(382)
-    settlement.pauseOutputs((ownerId) => facilities.service.pausesFor(ownerId));
+    // 건물 작업에 묶인 유닛·일터로 걸어가는 유닛은 그 동안 직무 산출이 없다(D-516 364, D-591 walkToWork). 정산 뒤 유예 끝 물건 옮기기(382)
+    settlement.pauseOutputs(labor.commute.pauses((ownerId) => facilities.service.pausesFor(ownerId)));
     settlement.afterSettle((ownerId, toMs) => labor.afterSettle(ownerId, toMs));
-    settlement.injureWork(createWorkInjury()); // 작업 중 부상(D-521, docs/adr/2026-11-08-injury.md)
+    settlement.injureWork(labor.commute.injury(createWorkInjury())); // 작업 중 부상(D-521 — 걸어가는 동안 빼고)
     // 사이보그 유닛 융합·유전자(D-516 인스턴스 = 보유 물건, 유저 휴먼 수명): 재료·유전자 = 실효 팩 아이템, 규칙 = 설정 칸 실효 값
     const fusion = createFusionService({
       maps,
@@ -856,10 +857,9 @@ export function startWorld(
           ruins: npcRuinsInputOf(() => persistence, owners, now),
           siegeLayout: citySiegeLayoutOf(maps, facilities, now),
           isFacility: (buildingId) => facilities.service.facilities.has(buildingId),
-          // 수도가 바뀌면 지도자가 새 수도 행정 건물 곁으로(D-528, npc/leaders.ts)
-          onCapitalMoved: (ownerId, capital) => {
-            moveLeaderToCapital({ maps, facilities: facilities.service.facilities, ownerId, capital });
-          },
+          // 수도가 바뀌면 지도자가 새 수도 행정 건물 곁으로 걸어간다(D-528, D-591 — npc/leaderTravel.ts)
+          onCapitalMoved: (ownerId, capital) =>
+            void leaderToCapital({ maps, facilities, travel, ownerId, capital, log }),
           // 국력 등급 반영 요청이 든 부팅(world/tierApply.ts): 이미 채운 시작 도시도 등급 값까지 주거·휴먼·경비대를 더한다
           tierApply: seeded?.tierApply !== undefined,
         });
@@ -869,6 +869,7 @@ export function startWorld(
         log.error({ err: error }, "npc society failed to start; bots keep walking");
       }
     }
+    await travel.restoreNpc((id) => npc?.world.units.has(id) ?? true); // NPC 휴먼 길(휴먼을 읽은 뒤 — travel/npcJourney.ts)
     await territory.warm(TEST_PLANET_ID); // 지방 판정(D-568 provinceAt)이 처음부터 답하게 배치를 셈해 둔다
     status.bootMs = Math.round(performance.now() - started);
     log.info(

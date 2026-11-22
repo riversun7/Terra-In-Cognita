@@ -295,6 +295,12 @@
   같은 뜻으로 처리된다. 팩·SIM·마이그레이션 없음(참가 줄 `units` 칸 그대로 — 보낸 유닛 ID).
 - 순간이동 점검(그 밖의 길 — 쿠데타 밖): `docs/adr/2026-11-15-unloaded-second-maps.md` "바뀜 (no-teleport, D-591)", 표 전체는 작업 기록 `docs/worklog/2026/11/22-1050-no-teleport.md`.
 
+## 바뀜 (no-teleport-b, D-591, 2026-11-22 — 쿠데타 NPC 병력 파견, 질문 2651 나, 제안 상태라 이 ADR에 덧붙인다)
+- 줄기 no-teleport는 NPC 병력을 그 도시 2차맵에 이미 있는 것만 넣었다 [임시 2651 가]. 이제 NPC 2차맵 사이 이동(`travel/npcTravel.ts`)으로 실제로 보낸다(`governance/coupNpcDispatch.ts`):
+  참가 받는 동안 쿠데타 틱마다 일으킨 NPC 가문·NPC 지배 가문·편을 든 NPC 가문의 가문원(NPC 휴먼)을 그 도시 시청 칸으로(이미 그곳·가는 중이면 그대로). 지도자·경비대는 보내지 않는다.
+- 닿은 유닛만 싸우는 것은 그대로(`coupDispatch.ts arrivedIn`, 늦으면 빠진다 2652). 닿은 뒤 전투 중에 드는 길은 줄기 no-teleport-a가 전투 쪽에 붙인다 — 포트에 `sendNpcTroop`·`npcTroopEta`.
+- NPC 일으키기·참가의 힘 = 보낼 가문원 모두(2549 "양쪽이 보낼 병력"), 정부군 힘 = NPC 지배 가문원 모두 + 그 도시에 있는 경비대 [임시 — 질문 2698].
+
 ## 바뀜 (no-teleport-a, D-591, 2026-11-22 — 사용자 결정 D-591 "어떠한 경우에도 순간이동은 없다 파견으로 실제로 이동해서 참전한다", 기획 정리 2652 다·2653 나, 제안 상태라 덧붙인다)
 - 위 "바뀜 (no-teleport)"의 늦은 병력 빠짐 [임시 2652]·기술 단계 스탯·부상 없음 [임시 2653]·반란 전투 틀 빨리감기(`runCoupBattle`)를 대신한다.
 - **쿠데타 전투 = 세계 전투**(새 모듈 `governance/coupWorldBattle.ts`, 의결 포트 `GovernancePortCoupBattle` — `portCoup.ts`가 합친다): 참가 받기 끝 틱에 그 도시 2차맵에 도착한 병력으로 전투 서비스

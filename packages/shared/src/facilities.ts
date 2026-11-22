@@ -148,6 +148,11 @@ export interface FacilityWorkerView {
   readonly mine: boolean;
   /** 사이보그 본체인가 */
   readonly cyborg: boolean;
+  /**
+   * 일터로 걸어가는 중이면 도착 예상 시각(ms). 닿기 전에는 일하지 않은 것으로 센다(산출·부상·임금 없음 — 사용자 결정 D-591, 질문 2656 나). 없으면 그 자리에서
+   * 일하는 중(옛 서버도 없음)
+   */
+  readonly commuteUntil?: number | undefined;
 }
 
 /** 내 세력 영토 비콘(건물 규칙, 기획 336) */

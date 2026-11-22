@@ -3,7 +3,8 @@
 // 단가: D-432는 도시 노동 시장(일손 수요·공급)이 정한다고 했고 식(@terra/sim baseWageRateMilli)도 있지만, 서버에는 아직 도시별
 // 일손 수요·공급을 세는 곳이 없다(옛 프로젝트도 같았다: salary_engine.js:159-163 getMarketRate "현재는 기본 단가 사용").
 // 그래서 지금 단가는 N27 기준 단가 그대로다(도시마다 같다).
-import { type LaborRules, type SocietyCoefficients, defaultGatherStat } from "@terra/sim";
+import type { LaborRulesView } from "@terra/shared/labor";
+import { type LaborRules, type SocietyCoefficients, defaultGatherStat, requiredDeposit } from "@terra/sim";
 
 export interface WageRules {
   readonly labor: LaborRules;
@@ -24,5 +25,22 @@ export function wageRulesOf(c: SocietyCoefficients): WageRules {
     adjustMinPm: c.employerAdjustMinPm,
     adjustMaxPm: c.employerAdjustMaxPm,
     society: c,
+  };
+}
+
+/** 화면 규칙 값(N48·임금 식의 지금 값 — labor/service.ts에서 옮김) */
+export function laborRulesView(society: SocietyCoefficients): LaborRulesView {
+  const rules = wageRulesOf(society);
+  return {
+    wageCycleMs: rules.labor.wageCycleMs,
+    depositDays: rules.labor.depositDays,
+    warnDays: rules.labor.warnDays,
+    rentCycleMs: rules.labor.rentCycleMs,
+    graceMs: rules.labor.graceMs,
+    adjustMinPm: rules.adjustMinPm,
+    adjustMaxPm: rules.adjustMaxPm,
+    efficiency: rules.efficiency,
+    rateMilli: rules.rateMilli,
+    depositCycles: Number(requiredDeposit(1n, rules.labor)),
   };
 }

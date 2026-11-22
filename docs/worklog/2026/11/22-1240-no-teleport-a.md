@@ -4,7 +4,7 @@
 - 작업 도구: Claude Code
 - 관련: 사용자 결정 **D-591**("어떠한 경우에도 순간이동은 없다 파견으로 실제로 이동해서 참전한다"), 기획 정리 2652 다·2653 나·2655 나·2657 가·2659 가(코디네이터 전달 — 질문 `docs/questions/2026-11-22-no-teleport.md`
   상태 줄), D-099·D-176·D-351·D-381. ADR `docs/adr/2026-11-21-governance.md`·`docs/adr/2026-11-15-unloaded-second-maps.md` "바뀜 (no-teleport-a, D-591)", 새 질문 `docs/questions/2026-11-22-no-teleport-a.md`(2691~2695).
-- 가지 `work/no-teleport-a`, 바탕 `work/no-teleport` 35cc916ee8(그 바탕 main 14537f2649)
+- 가지 `work/no-teleport-a`, 바탕 `work/no-teleport` 35cc916ee8(그 바탕 main 14537f2649), 뒤에 `work/no-teleport-b` 0ce23b84ba를 합침
 
 ## 한 일
 1. **2652 늦게 닿은 병력 참전** — 끝남. 쿠데타 전투를 세계 전투로 옮겼다(새 `governance/coupWorldBattle.ts`). 참가 받기 끝 틱에 그 도시 2차맵에 닿은 병력으로 공성 전투를 열고(혁명군이 없으면 전투 없이 짐),
@@ -53,11 +53,13 @@
 - no-teleport-b(NPC 2차맵 사이 이동)와 맞출 곳(아래 "no-teleport-b 맞춤").
 
 ## no-teleport-b 맞춤(묶는 사람에게)
-- 2655(진 유닛 돌아가기)는 **같은 2차맵 안**이라 NPC 2차맵 사이 이동 길이 필요 없었다 — 그래서 `npcTravel.send` 같은 고리를 만들지 않았다. NPC 봇도 `secondMap.walkToSafety`로 걷는다(봇은 닿으면 원래처럼 다시 돌아다닌다).
-- 돌아가는 중인 유닛은 `unavailable`(`returningUntilMs`)이다: no-teleport-b가 NPC를 보내거나 일터로 걸게 할 때 `unavailable`을 보면 걷는 중 유닛을 빼앗지 않는다(`secondMap.moveUnit`은 이미 막는다).
-- 2651(NPC 쿠데타 병력): NPC 가문원·경비대를 쿠데타 도시로 보내는 곳 = `governance/coup.ts openBattle`(전투 전)·`npcJoin`. 보내기 고리가 생기면 거기서 보내고, 닿은 유닛은 이 줄기의 참전 길(`fight` → `joinCoupBattle`)로
-  자동으로 든다(도착 판정 = 그 도시 2차맵 `unitMapOf`).
-- 2657 계획 ①이 no-teleport-b 결과물이다.
+- **이 가지에 `work/no-teleport-b`(0ce23b84ba)를 합쳤다**(코디네이터 안내 — 두 줄기가 같은 `coup.ts`를 고쳐서). 손으로 푼 충돌: `governance/coup.ts`(머리 주석 둘 다, import, `CoupPort`에 `npcTroopEta`·`openCoupBattle` 둘 다,
+  `sendNpcSides`(b) + `armies`(a) 둘 다 — b의 `seize`·`seizedCityOf`는 a가 `coupOutcome.ts`로 옮겨 뺐다, 틱 = a의 세계 전투 틱 + 참가 받는 동안·전투 중 NPC 참가 뒤 `sendNpcSides`), `coup.test.ts`(가짜 포트 둘 다,
+  시험 둘 다 + b 시험에 "전투 중에 닿은 NPC 가문원은 참전" 한 줄 더함), `world/secondMap.ts`(a `walkToSafety` + b `transferOut(carry)` 둘 다 — 993줄), ADR 둘(b 절 → a 절 차례), `docs/WORKLOG.md`(다시 만듦).
+- 결과: NPC 가문원은 b의 NPC 파견(`travel/npcTravel.ts`)으로 쿠데타 도시로 걷고, 닿으면 전투 전이면 시작 유닛, 전투 중이면 a의 참전 길(`fight` → `joinCoupBattle`, 1분 틱 — NPC 도착 깨우기는 없음 [임시])로 든다.
+- 2655(진 유닛 돌아가기)는 **같은 2차맵 안**이라 NPC 2차맵 사이 이동이 필요 없었다 — `npcTravel`을 쓰지 않고 NPC 봇도 `secondMap.walkToSafety`로 걷는다(닿으면 원래처럼 다시 돌아다닌다).
+- 돌아가는 중인 유닛은 `unavailable`(`returningUntilMs`)이다: NPC 파견·일터 걷기(b)가 유닛을 고를 때 `unavailable`을 보면 걷는 중 유닛을 빼앗지 않는다(`secondMap.moveUnit`은 이미 막는다) — b 코드는 확인하지 않았다(Unknown).
+- 2657 계획 ①(NPC 2차맵 사이 이동)은 b로 생겼다 — 다음 줄기는 ②부터.
 
 ## 건드리지 말 것
 - 시뮬 `runCoupBattle`·`attachCombat` — 바꾸지 않았다(서버가 더 부르지 않을 뿐).

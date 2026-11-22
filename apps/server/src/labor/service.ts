@@ -33,7 +33,6 @@ import type {
   LaborOverviewResponse,
   LaborBuildingView,
   LaborJobsResponse,
-  LaborRulesView,
   LaborUnitView,
 } from "@terra/shared/labor";
 import {
@@ -71,7 +70,8 @@ import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { ASSET_CREDIT, ASSET_ORE, type Settlement } from "../world/settlement.ts";
 import { type JobBoardFilter, type LaborPostInput, createJobBoard } from "./jobBoard.ts";
-import { wageRulesOf } from "./rules.ts";
+import { laborRulesView, wageRulesOf } from "./rules.ts";
+import { type WalkToWork, shiftPayStart } from "./walkToWork.ts";
 import { npcQuits } from "./npcWait.ts";
 import { fundDueWages } from "./wageFunding.ts";
 import { wageNetView, wageWalletOf, withWageTaxes } from "./wagePurse.ts";
@@ -94,6 +94,8 @@ export interface LaborCreateInput {
 }
 
 export interface LaborService {
+  /** 일터로 걸어가기(D-591·질문 2656 나 — walkToWork.ts): 가는 중 도착 예상·정산 멈춤 구간·부상 구간 */
+  readonly commute: WalkToWork;
   /** 소유 주체 정산의 고리: 그 주체가 유닛 소유 주체인 계약을 toMs까지 정산하고, 유닛 ID → 산출 구간. 없으면 undefined */
   outputsFor(ownerId: number, fromMs: number, toMs: number): ReadonlyMap<number, OutputSegment[]> | undefined;
   create(userId: string, input: LaborCreateInput): Promise<LaborCommandResult>;
@@ -266,6 +268,7 @@ export function createLaborService(options: {
     writer,
     rules: options.rules,
     now,
+    payFrom: (unitId, atMs) => shiftPayStart(contracts.values(), unitId, atMs, save),
   });
 
   /** 유닛 주인(없으면 undefined) */
@@ -504,23 +507,6 @@ export function createLaborService(options: {
       return { ok: true, ownerId: owner };
     return { ok: false, code: "forbidden" };
   };
-  /** 화면 규칙 값 */
-  const rulesView = (): LaborRulesView => {
-    const rules = wageRulesOf(options.rules());
-    return {
-      wageCycleMs: rules.labor.wageCycleMs,
-      depositDays: rules.labor.depositDays,
-      warnDays: rules.labor.warnDays,
-      rentCycleMs: rules.labor.rentCycleMs,
-      graceMs: rules.labor.graceMs,
-      adjustMinPm: rules.adjustMinPm,
-      adjustMaxPm: rules.adjustMaxPm,
-      efficiency: rules.efficiency,
-      rateMilli: rules.rateMilli,
-      depositCycles: Number(requiredDeposit(1n, rules.labor)),
-    };
-  };
-
   const done = async (result: LaborCommandResult): Promise<LaborCommandResult> => {
     // 돈·소유가 바뀌는 명령은 커밋 뒤에 답한다(S3 U2)
     await writer.durable();
@@ -546,7 +532,7 @@ export function createLaborService(options: {
       contracts.set(c.id, c);
       save(c);
       // 받은 유닛이 일을 시작한다(직무 = 채집)
-      work.startJob(c.unitId);
+      work.startJob(c.unitId, c.buildingId);
     },
     fundDeposit: (buildingId, ownerId, asset, perCycle, atMs) =>
       depositFor(buildingId, ownerId, asset, perCycle, atMs),
@@ -566,6 +552,7 @@ export function createLaborService(options: {
   return {
     outputsFor,
     contracts,
+    commute: work.commute,
     unitBusy: (unitId) => working(unitId) || (options.unitAway?.(unitId) ?? false),
     assignedTo: (unitId) => work.assignedTo(unitId) ?? openContractOf(unitId)?.buildingId,
     unitAway: (unitId) => options.unitAway?.(unitId) ?? false,
@@ -702,7 +689,7 @@ export function createLaborService(options: {
       contracts.set(result.contract.id, result.contract);
       save(result.contract);
       // 계약한 유닛이 일을 시작한다(직무 = 채집). 정산은 위에서 이 시각까지 했다
-      work.startJob(input.unitId);
+      work.startJob(input.unitId, input.buildingId);
       return done({ ok: true, contractId: result.contract.id });
     },
     async terminate(userId, contractId, operator = false) {
@@ -835,7 +822,7 @@ export function createLaborService(options: {
         buildingId,
         generatedAt: at,
         currency: ASSET_CREDIT,
-        rules: rulesView(),
+        rules: laborRulesView(options.rules()),
         canManage: manager,
         ownerless: owner === null,
         rent: posted,
@@ -977,7 +964,7 @@ export function createLaborService(options: {
       // 바꾸기 전에 지금까지 정산한다(배치 구간이 이 시각에서 시작한다)
       settlement.settleOwner(me, at);
       work.assign(unitId, me, buildingId, at);
-      work.startJob(unitId);
+      work.startJob(unitId, buildingId);
       return done({ ok: true });
     },
     async unassign(userId, unitId) {

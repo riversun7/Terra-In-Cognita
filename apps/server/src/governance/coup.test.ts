@@ -23,7 +23,7 @@ const PLAYER_NATION: GovernanceNation = {
   cities: [1, 2],
 };
 
-function fake(options: { split?: boolean; away?: readonly number[] } = {}) {
+function fake(options: { split?: boolean; away?: readonly number[]; ruling?: HouseKey } = {}) {
   const nations = new Map<number, GovernanceNation>([[10, PLAYER_NATION]]);
   const coups: CoupRow[] = [];
   const sides: CoupSideRow[] = [];
@@ -37,12 +37,14 @@ function fake(options: { split?: boolean; away?: readonly number[] } = {}) {
   const joins: { side: string; units: readonly number[] }[] = [];
   const wakes: number[] = [];
   /** 가문 → 유닛: 지배 가문 p:10 = 나라 소유 주체 유닛 50·51, 쿠데타 가문 p:30 = 60 */
-  const houseUnits: Record<string, number[]> = { "p:10": [50, 51], "p:30": [60] };
+  const houseUnits: Record<string, number[]> = { "p:10": [50, 51], "p:30": [60], "n:7": [50, 51] };
   /** 도시 → 2차맵(도시 1 = 2차맵 1001, 도시 2 = 1002). 유닛이 선 2차맵(없으면 2차맵 사이를 가는 중) — 처음에는 모두 도시 1 */
   const where = new Map<number, number | undefined>(
     [50, 51, 60, 70, 80, 90, 91].map((id) => [id, options.away?.includes(id) ? 1002 : 1001]),
   );
   const sends: { userId: string; unitId: number; mapKey: number }[] = [];
+  /** NPC 파견(no-teleport-b): 보낸 NPC 유닛 → 목적 2차맵(닿을 때까지 어느 2차맵에도 없다) */
+  const npcSends = new Map<number, number>();
   const port: CoupPort = {
     ready: () => true,
     nation: (rowId) => nations.get(rowId),
@@ -62,6 +64,13 @@ function fake(options: { split?: boolean; away?: readonly number[] } = {}) {
       where.set(unitId, undefined);
       return 5000;
     },
+    sendNpcTroop: async (unitId, place) => {
+      npcSends.set(unitId, place.mapKey);
+      where.set(unitId, undefined);
+      return 7000;
+    },
+    npcTroopEta: (unitId, mapKey) =>
+      npcSends.get(unitId) === mapKey && where.get(unitId) !== mapKey ? 7000 : undefined,
     npcHousesOf: () => [],
     citySatisfaction: () => undefined,
     powerOf: (ids) => ids.length,
@@ -139,7 +148,9 @@ function fake(options: { split?: boolean; away?: readonly number[] } = {}) {
         if (row) coups[at] = { ...row, battleId };
       },
     },
-    tools: { ruling: async () => ({ key: "p:10" satisfies HouseKey, leaderUser: "u-lead" }) },
+    tools: {
+      ruling: async () => ({ key: options.ruling ?? ("p:10" satisfies HouseKey), leaderUser: "u-lead" }),
+    },
     rules: () => ({ ...TEST_GOVERNANCE_RULES, coupEnabled: true, coupGatherMs: 100, coupProtectMs: 0 }),
     now: () => clock,
     standing: async (userId) =>
@@ -166,6 +177,11 @@ function fake(options: { split?: boolean; away?: readonly number[] } = {}) {
     battle.rebelsWon = rebelsWon;
     await resolve();
   };
+  /** 참가 받는 동안의 틱(NPC 참가·NPC 파견) */
+  const gatherTick = async () => {
+    clock += 10;
+    await service.tick(new Map([[10, nations.get(10) ?? PLAYER_NATION]]), new Map(), clock);
+  };
   return {
     service,
     coups,
@@ -181,6 +197,8 @@ function fake(options: { split?: boolean; away?: readonly number[] } = {}) {
     sends,
     joins,
     wakes,
+    npcSends,
+    gatherTick,
   };
 }
 
@@ -290,5 +308,37 @@ describe("늦게 닿은 병력 참전(no-teleport-a — D-591, 질문 2652)", ()
     await f.resolve();
     expect(f.battles).toEqual([]);
     expect(f.coups[0]).toMatchObject({ status: "lost", result: { reason: "no_rebels", rebelUnits: 0 } });
+  });
+});
+
+describe("쿠데타 NPC 병력 파견(no-teleport-b — D-591·질문 2651 나)", () => {
+  it("NPC 지배 가문의 다른 도시 가문원을 참가 받는 동안 쿠데타 도시로 보내고(한 번만), 닿은 유닛만 싸운다", async () => {
+    // 지배 가문 n:7 = 50(도시 1)·51(도시 2)
+    const f = fake({ away: [51], ruling: "n:7" });
+    expect(await f.service.launch("u-rebel", 1)).toMatchObject({ ok: true });
+    await f.gatherTick();
+    // 도시 1에 있는 50은 그대로, 51만 보낸다
+    expect([...f.npcSends]).toEqual([[51, 1001]]);
+    // 가는 중이면 다시 보내지 않는다
+    f.npcSends.clear();
+    f.npcSends.set(51, 1001);
+    await f.gatherTick();
+    expect([...f.npcSends]).toEqual([[51, 1001]]);
+    // 닿기 전에 전투면 빠진다(닿은 뒤에는 든다 — 다음 시험 줄)
+    await f.resolve();
+    expect(f.battles).toEqual([{ rebels: [60, 80], loyal: [50, 70] }]);
+    // 전투 중에 닿으면 정부군으로 참전한다(no-teleport-a — 2652)
+    f.where.set(51, 1001);
+    await f.service.arrivals();
+    expect(f.joins).toEqual([{ side: "government", units: [51] }]);
+  });
+
+  it("전투 전에 닿은 NPC 가문원은 정부군으로 싸운다", async () => {
+    const f = fake({ away: [51], ruling: "n:7" });
+    await f.service.launch("u-rebel", 1);
+    await f.gatherTick();
+    f.where.set(51, 1001);
+    await f.resolve();
+    expect(f.battles).toEqual([{ rebels: [60, 80], loyal: [50, 51, 70] }]);
   });
 });

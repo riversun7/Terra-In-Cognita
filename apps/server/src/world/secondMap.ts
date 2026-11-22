@@ -362,7 +362,8 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     if (event.kind === "wake") unit.wakeAtMs = undefined;
     // 배에 탄 봇(NPC 배 어부 — boats/npcFleet.ts)은 스스로 걷지 않는다(내리면 다시 깨운다). 지도자도 순회 집이 있으면 걷는다
     const autoRoam = unit.bot || (unit.kind === UNIT_KIND_NPC_LEADER && unit.home?.role === "leader");
-    if (!autoRoam || unit.aboard !== undefined) return;
+    // NPC 2차맵 사이 이동 중(held — travel/npcTravel.ts)이면 그 길을 덮어쓰지 않는다
+    if (!autoRoam || unit.aboard !== undefined || unit.held === true) return;
     if (event.kind === "arrive") {
       const rest = arrivalIdleMs(nextRng(unit), unit, lastPoint(unit.motion), now());
       scheduleEvent(unit, "wake", now() + rest);
@@ -800,10 +801,10 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       );
       return true;
     },
-    transferOut(unitId) {
+    transferOut(unitId, carry) {
       const unit = units.get(unitId);
-      // 승객은 혼자 넘지 않는다 — 배가 승객을 데리고 넘는다(바다 건너기, 기획 D-541 1283 나)
-      if (!unit || unit.bot || unit.aboard !== undefined) return undefined;
+      // 승객은 혼자 넘지 않는다 — 배가 승객을 데리고 넘는다(바다 건너기, 기획 D-541 1283 나). 봇은 NPC 이동(carry)만
+      if (!unit || (unit.bot && carry !== true) || unit.aboard !== undefined) return undefined;
       const riders = [...units.values()].filter((rider) => rider.aboard === unitId);
       const take = (taken: UnitState): UnitRow => {
         const row = rowOf(taken);
@@ -820,28 +821,37 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       const row = take(unit);
       return riders.length === 0 ? row : { ...row, riders: riders.map(take) };
     },
-    transferIn(row, cellX, cellY) {
+    transferIn(row, cellX, cellY, carry) {
       const ground = row.domain === "sea" ? ensureBoatGrid() : grid;
       if (
         units.has(row.id) ||
-        row.kind === UNIT_KIND_BOT ||
+        (row.kind === UNIT_KIND_BOT && carry !== true) ||
         !ground ||
         !isPassable(ground, cellX, cellY, row.size)
       )
         return false;
       const unit = createUnit({ ...row, motion: standing(anchorCenter(cellX, cellY, row.size), row.speed) });
+      if (carry === true) unit.held = true;
       save(unit);
       // 배와 함께 온 승객을 다시 태운다(움직임 = 배 움직임)
       for (const rider of row.riders ?? [])
         if (!units.has(rider.id)) save(createUnit({ ...rider, aboardId: unit.id, motion: unit.motion }));
       return true;
     },
+    holdRoam(unitId, held) {
+      const unit = units.get(unitId);
+      if (!unit) return false;
+      unit.held = held ? true : undefined;
+      if (!held && unit.bot && !unit.planning && unit.eventId === undefined)
+        scheduleEvent(unit, "wake", now() + startDelayMs(nextRng(unit)));
+      return true;
+    },
     isStandable: (cellX, cellY, size) => isPassable(grid, cellX, cellY, size),
     halt(unitId) {
-      // 승객을 멈추면 그 배가 선다(D-541 1279 나)
+      // 승객을 멈추면 그 배가 선다(D-541 1279 나). 봇은 NPC 이동 중(held)일 때만
       const rider = units.get(unitId);
       const unit = rider && boatOf(rider);
-      if (!unit || unit.bot) return false;
+      if (!unit || (unit.bot && unit.held !== true)) return false;
       cancelEvent(unit);
       unit.routeSeq += 1;
       unit.planning = false;
@@ -853,7 +863,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     missingEvents() {
       let missing = 0;
       for (const unit of units.values())
-        if (unit.bot && !unit.planning && unit.eventId === undefined) missing += 1;
+        if (unit.bot && !unit.planning && unit.eventId === undefined && unit.held !== true) missing += 1;
       return missing;
     },
     unitsInBuildings() {

@@ -47,12 +47,15 @@
 // 모두(일으킨 가문·지배 가문·참가자·경비대, 플레이어·NPC). 플레이어 참가자는 고른 유닛을 이동 서비스로 보내고(고르지 않으면 이미 그 도시에 있는 내 유닛만),
 // 일으킨 사람도 처음에는 그 도시에 있는 내 유닛만 든다(더 보내려면 혁명군 참가로 고른다). NPC 유닛은 2차맵 사이로 보내는 길이 없어 그 도시에 있는 것만 [임시 — 질문 2651].
 // 늦게 닿는 유닛은 싸우지 않는다 [임시 — 질문 2652]. NPC 일으키기·참가의 힘 비도 그 도시에 있는 힘으로 본다.
+// 바뀜 (줄기 no-teleport-b — D-591·질문 2651 나): NPC 가문원도 실제로 보낸다(coupNpcDispatch.ts — 참가 받는 동안 틱마다 일으킨 NPC 가문·NPC 지배 가문·
+// 편을 든 NPC 가문의 가문원을 그 도시로, NPC 파견 travel/npcTravel.ts). 닿은 유닛만 싸우는 것은 그대로다. NPC 힘 비 = 보낼 가문원 모두 [임시 — 질문 2698].
 // 바뀜(줄기 no-teleport-a — D-591, 질문 2652·2653 기획 정리, 위 [임시 2652]·반란 전투 틀 빨리감기를 대신한다): 쿠데타 전투는 세계 전투다(coupWorldBattle.ts).
 // - 참가 받기 끝 → 그 도시에 도착한 병력으로 전투를 연다(혁명군이 하나도 없으면 싸우지 않고 진다). 쿠데타는 전투가 끝날 때까지 gathering(결과 칸 battleId).
 // - 늦게 닿은 병력은 진행 중인 전투에 참전한다(D-176 지원 참전 — 1분 틱과 보낸 병력 도착 시각의 깨우기 arrivals). 편 들기·병력 보내기도 전투가 끝날 때까지 받는다.
 // - 플레이어 유닛은 실제 몸으로 싸우고 부상·돌아가기가 세계에 남는다(다른 세계 전투와 같은 판정 — D-099). 보상 = 병력이 전투에 든 이긴 편 참가자(coupOutcome.ts).
 import type { HouseKey } from "@terra/shared/governance";
 import { arrivedIn, dispatchTroops } from "./coupDispatch.ts";
+import { dispatchCoupNpcSides } from "./coupNpcDispatch.ts";
 import { createCoupOutcome } from "./coupOutcome.ts";
 import type { CoupRow, CoupSide, CoupSideRow, CoupStore } from "./coupStore.ts";
 import type { ElectorateTools } from "./electorate.ts";
@@ -89,10 +92,12 @@ export type CoupPort = Pick<
   | "nation"
   | "nationUnits"
   | "npcHousesOf"
+  | "npcTroopEta"
   | "openCoupBattle"
   | "payCoupCost"
   | "powerOf"
   | "ready"
+  | "sendNpcTroop"
   | "sendTroop"
   | "setRegime"
   | "troopEta"
@@ -172,6 +177,14 @@ export function createCoupService(d: CoupDeps) {
   /** 그 도시 2차맵에 도착해 있는 유닛만(D-591 — 순간이동 없음) */
   const here = (ids: readonly number[], city: number | undefined): number[] =>
     arrivedIn(d.port, [...new Set(ids)], placeOf(city));
+
+  /** 그 가문이 쿠데타에 낼 병력: NPC 가문 = 가문원 모두(보낸다 — coupNpcDispatch.ts), 플레이어 가문 = 그 도시에 있는 것(D-591, 2698 [임시]) */
+  const comingUnits = (nation: GovernanceNation, key: HouseKey | null, city: number | undefined): number[] =>
+    key === null
+      ? []
+      : key.startsWith("n:")
+        ? [...d.port.houseUnits(nation, key)]
+        : here(d.port.houseUnits(nation, key), city);
 
   /** 정부군 유닛(지배 가문 유닛 + 그 도시 경비대) 가운데 그 도시에 도착해 있는 것(D-591) */
   const governmentUnits = (
@@ -316,8 +329,9 @@ export function createCoupService(d: CoupDeps) {
       if (key === ruling) continue;
       const score = npcScore(d, nation, house);
       if (score < rules.coupNpcScore) continue;
-      const defense = d.port.powerOf(governmentUnits(nation, ruling, house.cityId), nowMs);
-      const power = d.port.powerOf(here(d.port.houseUnits(nation, key), house.cityId), nowMs);
+      const guards = here(d.port.cityGuards(nation, house.cityId), house.cityId);
+      const defense = d.port.powerOf([...comingUnits(nation, ruling, house.cityId), ...guards], nowMs);
+      const power = d.port.powerOf(comingUnits(nation, key, house.cityId), nowMs);
       if (power <= 0 || power * 1000 < defense * rules.coupNpcPowerPm) continue;
       if (!(await cooledDown(key, nowMs))) continue;
       picks.push({ key, id: house.id, city: house.cityId, score });
@@ -343,10 +357,21 @@ export function createCoupService(d: CoupDeps) {
         joinerKey: key,
         userId: null,
         side,
-        power: d.port.powerOf(here(d.port.houseUnits(nation, key), city), nowMs),
+        power: d.port.powerOf(comingUnits(nation, key, city), nowMs),
         joinedAtMs: nowMs,
       });
     }
+  };
+
+  /** NPC 가문 병력을 쿠데타 도시로 보낸다(일으킨 NPC 가문·NPC 지배 가문·편을 든 NPC 가문 — D-591, coupNpcDispatch.ts) */
+  const sendNpcSides = async (coup: CoupRow, nation: GovernanceNation, ruling: HouseKey | null) => {
+    const joined = (await d.coups.sides(coup.id)).map((row) => row.joinerKey);
+    await dispatchCoupNpcSides(
+      d.port,
+      nation,
+      [coup.houseKey, ruling, ...joined],
+      placeOf(battleCityOf(coup, nation)),
+    );
   };
 
   /** 지금 그 도시 2차맵에 도착한 두 편 병력(D-591 — 순간이동 없음) */
@@ -514,8 +539,12 @@ export function createCoupService(d: CoupDeps) {
         else if (nowMs >= coup.gatherUntilMs) await openBattle(coup, nation, state, nowMs);
         // 전투 중에도 NPC 가문이 편을 들 수 있다(D-176 지원 참전 — 닿은 가문원은 다음에 참전)
         const live = await d.coups.coup(coup.id);
-        if (nation && live?.status === "gathering")
-          await npcJoin(live, nation, (await d.tools.ruling(nation, state)).key, nowMs);
+        if (nation && live?.status === "gathering") {
+          const ruling = (await d.tools.ruling(nation, state)).key;
+          await npcJoin(live, nation, ruling, nowMs);
+          // NPC 가문원을 그 도시로 보낸다(no-teleport-b — 2651 나), 닿으면 전투 중에도 참전(no-teleport-a — 2652)
+          await sendNpcSides(live, nation, ruling);
+        }
       }
       if (!d.rules().coupEnabled) return;
       const busy = new Set(gathering.map((row) => row.nationId));

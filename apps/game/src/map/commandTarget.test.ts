@@ -129,7 +129,7 @@ describe("보낼 수 있는 유닛", () => {
   it("명령할 수 없는 유닛(수호신·포로·중태)은 빼고 차례는 그대로", () => {
     const units = [
       unit({ unitId: 1, kind: "cyborg_body", name: "레온" }),
-      unit({ unitId: 2, kind: "guardian", hold: "guardian" }),
+      unit({ unitId: 2, kind: "human", hold: "guardian" }),
       unit({ unitId: 3, hold: "captive" }),
       unit({ unitId: 4, hold: "critical", injury: 3 }),
       unit({ unitId: 5, injury: 1, moving: true }),

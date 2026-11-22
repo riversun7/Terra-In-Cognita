@@ -713,14 +713,14 @@ export function CityOverlay(props: CityOverlayProps) {
         </button>
       ) : null}
 
-      {/* 내 보유 유닛(휴먼·사이보그 유닛·수호신·배·이동 중) 위치 핀 */}
+      {/* 내 보유 유닛(휴먼(수호신 상태 포함)·사이보그 유닛·배·이동 중) 위치 핀 */}
       {ownedOtherUnits.map((unit) => {
         const isBoat = unit.kind === "boat";
         const iconName = isBoat
           ? "transport"
           : unit.kind === "cyborg_unit"
             ? "cyborg"
-            : unit.kind === "guardian"
+            : unit.guardian === true
               ? "military"
               : "unit";
         const ariaLabel =
@@ -730,8 +730,8 @@ export function CityOverlay(props: CityOverlayProps) {
           ? m.planet_units_kind_boat()
           : unit.kind === "cyborg_unit"
             ? m.planet_units_kind_cyborg_unit()
-            : unit.kind === "guardian"
-              ? m.planet_units_kind_guardian()
+            : unit.guardian === true
+              ? m.unit_guardian_label()
               : unit.kind === "human"
                 ? m.planet_units_kind_human()
                 : m.planet_units_kind_other();

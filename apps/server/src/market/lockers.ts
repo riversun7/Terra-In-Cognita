@@ -17,7 +17,12 @@ import { buildingLocation } from "@terra/shared/goodsPlaces";
 import type { BusinessCoefficients, LedgerBook } from "@terra/sim";
 import type { QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
-import { UNIT_KIND_CYBORG, UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
+import {
+  UNIT_KIND_CYBORG,
+  UNIT_KIND_CYBORG_UNIT,
+  UNIT_KIND_HUMAN,
+  isGuardianUnit,
+} from "../world/unitKinds.ts";
 import type { MarketRegistry } from "./books.ts";
 
 /** 넓힌 칸 줄 하나(exchange_unit_lockers) */
@@ -76,7 +81,12 @@ export const LOCKER_UNIT_KINDS: ReadonlySet<number> = new Set([
 /** 띄운 2차맵에서 쓰는 몫(SecondMap이 맞는다) */
 export interface LockerMap {
   forEachUnit(
-    visit: (unit: { readonly id: number; readonly ownerId: number; readonly kind: number }) => void,
+    visit: (unit: {
+      readonly id: number;
+      readonly ownerId: number;
+      readonly kind: number;
+      readonly guardian?: boolean | undefined;
+    }) => void,
   ): void;
 }
 
@@ -105,7 +115,11 @@ export function lockerUnitsOf(
     seen.add(unitId);
     out.push({ unitId, cyborg: kind === UNIT_KIND_CYBORG, steps: lockers?.steps(cityId, unitId) ?? 0 });
   };
-  for (const map of maps.values()) map.forEachUnit((unit) => add(unit.id, unit.kind, unit.ownerId));
+  // 수호신 상태인 휴먼은 개인 창고를 받지 않는다(일하지 않는다 — D-589)
+  for (const map of maps.values())
+    map.forEachUnit((unit) => {
+      if (!isGuardianUnit(unit)) add(unit.id, unit.kind, unit.ownerId);
+    });
   for (const unit of coords?.coordinateUnits(new Set([ownerId])) ?? [])
     add(unit.unitId, unit.kind, unit.ownerId);
   return out.toSorted((a, b) => Number(b.cyborg) - Number(a.cyborg) || a.unitId - b.unitId);

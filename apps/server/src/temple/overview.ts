@@ -17,7 +17,7 @@ import type { QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
-import { UNIT_KIND_GUARDIAN, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
+import { UNIT_KIND_HUMAN, isGuardianUnit } from "../world/unitKinds.ts";
 import { BIOTECH_STAGE, RELIGION_STAGE } from "./places.ts";
 import { readFaith, readGuardianCounts, readGuardians, readLastPrayer } from "./rows.ts";
 
@@ -132,7 +132,7 @@ export async function buildTempleOverview(
     deifiedAtMs: row.deifiedAtMs,
     mine: row.ownerId === ownerId,
     buff: row.buff,
-    present: [...o.maps.values()].some((map) => map.unitInfo(row.unitId)?.kind === UNIT_KIND_GUARDIAN),
+    present: [...o.maps.values()].some((map) => isGuardianUnit(map.unitInfo(row.unitId))),
   }));
   const ready = lastPrayer === null ? 0 : lastPrayer + Math.max(0, c.prayCooldownMs);
   return {

@@ -592,6 +592,15 @@
       "compensation": {
         "kind": "none"
       }
+    },
+    {
+      "category": "unit_kinds",
+      "id": "guardian",
+      "since": 183,
+      "compensation": {
+        "kind": "replace",
+        "with": "human"
+      }
     }
   ]
 }

@@ -427,6 +427,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     condition?: UnitCondition;
     aboardId?: number | null | undefined;
     traits?: readonly number[] | null | undefined;
+    guardian?: boolean | undefined;
   }): UnitState => {
     const unit: UnitState = {
       id: spec.id,
@@ -449,6 +450,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       home: undefined,
       aboard: spec.aboardId ?? undefined,
       traits: spec.traits ?? undefined,
+      guardian: spec.guardian === true,
     };
     units.set(unit.id, unit);
     rev += 1;
@@ -487,6 +489,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     hasEvent: unit.eventId !== undefined,
     aboard: unit.aboard,
     traits: unit.traits,
+    guardian: unit.guardian,
   });
 
   /** 명령을 받을 유닛: 승객이면 같은 주인의 그 배(없으면 undefined), 아니면 그 유닛 */
@@ -745,6 +748,15 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       else save(unit);
       return true;
     },
+    markGuardian(unitId) {
+      const unit = units.get(unitId);
+      if (!unit || unit.bot) return false;
+      if (!unit.guardian) {
+        unit.guardian = true;
+        save(unit);
+      }
+      return true;
+    },
     removeUnit(unitId) {
       const unit = units.get(unitId);
       if (!unit) return false;
@@ -959,6 +971,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
             job: unit.job,
             domain: unit.domain,
             aboard: unit.aboard,
+            guardian: unit.guardian,
           }
         : undefined;
     },

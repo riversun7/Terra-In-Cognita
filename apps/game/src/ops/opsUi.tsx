@@ -41,7 +41,6 @@ const UNIT_KIND_LABELS: ReadonlyMap<number, () => string> = new Map([
   [3, m.ops_unit_kind_3],
   [4, m.ops_unit_kind_4],
   [5, m.ops_unit_kind_5],
-  [6, m.ops_unit_kind_6],
   [7, m.ops_unit_kind_7],
 ]);
 

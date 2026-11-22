@@ -5,7 +5,7 @@
 //   고를 때 이미 막고(unit_busy) 수비를 고를 때도 빼지만, 이 단계가 모든 길의 마지막 그물이다.
 // - 공격받는 도시: 웨이브 = 그 웨이브의 도시(전투 ID = 웨이브 ID), 건물 공격 = 목표 건물이 선 도시(시설) 또는 비콘의 도시. 서버 NPC 공성은 아직
 //   전투 없이 점령한다(전투가 생기면 같은 길을 지난다).
-// - 수호신 넣기: 그 도시의 수호신 유닛 가운데 싸울 수 있는 것(세계에 있음·수호신 종류·부상·포로·비활성 아님·이미 든 유닛 아님·공격 편 주인의
+// - 수호신 넣기: 그 도시의 수호신 가운데 싸울 수 있는 것(세계에 있음·수호신 상태(휴먼 + world_units.guardian, D-589)·부상·포로·비활성 아님·이미 든 유닛 아님·공격 편 주인의
 //   것이 아님)을 수비 편 새 파티로 수비 유닛 곁(없으면 넥서스 곁)의 빈 칸에 세운다. 몸 = 저장된 스탯 몸(신격화할 때의 1차 스탯·레벨·환생·속성)
 //   + 입은 물건·걸린 효과(세계 전투와 같은 셈).
 // - 방어 버프: 그 도시의 방어 버프 수호신(공격 편 주인의 것 빼고, 유닛이 없는 옛 기록도 든다)마다 설정 칸 d311_guardian_defense_pm ‰을 더해
@@ -26,7 +26,7 @@ import type { QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { unavailable } from "../world/unitCondition.ts";
-import { UNIT_KIND_GUARDIAN } from "../world/unitKinds.ts";
+import { isGuardianUnit } from "../world/unitKinds.ts";
 import { type GuardianRow, readGuardians } from "./rows.ts";
 
 /** 수호신 방어 버프의 걸린 효과 ID(전투 결과·다시보기에서 보인다) */
@@ -39,8 +39,8 @@ const MOVE_INTERVAL_MS = 1000;
 const BUILDING_MUL_PM = 2000;
 /** 빈 칸을 찾는 반지름(전투맵 칸) */
 const PLACE_RADIUS = 12;
-/** 팩 unit_kinds 수호신 ID */
-export const GUARDIAN_UNIT_KIND = "guardian";
+/** 수호신 몸의 팩 unit_kinds ID: 신격화한 휴먼이라 휴먼(유닛 종류는 넷으로 고정 — 사용자 결정 2026-11-22, 기획 D-589·D-018) */
+export const GUARDIAN_UNIT_KIND = "human";
 
 /** 시작 자료에서 비활성 유닛을 뺀다(유닛이 없어진 파티도 뺀다). 뺄 것이 없으면 같은 객체 */
 export function withoutInactive<T extends BattleInit>(init: T, isInactive: (unitId: number) => boolean): T {
@@ -66,7 +66,7 @@ export function guardianBase(row: GuardianRow): BodyBase {
 export interface DefendCityInput {
   /** 그 도시의 수호신 줄(유닛이 없는 옛 기록 포함 — 버프만 든다) */
   readonly guardians: readonly GuardianRow[];
-  /** 수호신 유닛이 싸울 수 있나(세계에 있고 수호신 종류·부상·포로·비활성이 아님) */
+  /** 수호신이 싸울 수 있나(세계에 있고 수호신 상태·부상·포로·비활성이 아님) */
   readonly canFight: (unitId: number) => boolean;
   /** 수호신 하나의 전투 사양(자리·편·파티). 만들 수 없으면 undefined(그 수호신은 빠진다) */
   readonly build: (row: GuardianRow, place: SpecPlace) => CombatUnitSpec | undefined;
@@ -217,7 +217,7 @@ export function createCityDefense(deps: CityDefenseDeps): CityDefense {
           const info = infoOf(unitId);
           return (
             info !== undefined &&
-            info.kind === UNIT_KIND_GUARDIAN &&
+            isGuardianUnit(info) &&
             !unavailable(info.condition, nowMs) &&
             !deps.isInactive(unitId)
           );

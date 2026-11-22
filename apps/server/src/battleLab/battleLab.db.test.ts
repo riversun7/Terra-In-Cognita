@@ -103,7 +103,7 @@ describe.skipIf(!TEST_DATABASE_URL)("전투 실험실 (DB)", () => {
     expect((await trpcMutation(app, "battleLab.savePreset", {}, cookie.player)).statusCode).toBe(403);
     const catalog = obj(resultOf(await trpcQuery(app, "battleLab.catalog", undefined, cookie.dev)));
     const kinds = arr(catalog.unitKinds).map((kind) => obj(kind));
-    expect(kinds.map((kind) => kind.id)).toEqual(["cyborg", "human", "android", "creature", "guardian"]);
+    expect(kinds.map((kind) => kind.id)).toEqual(["cyborg", "human", "android", "creature"]);
     expect(obj(kinds[0]?.name).ko).toBe("사이보그");
     expect(obj(catalog.growth)).toMatchObject({ growthPm: 100, maxLevel: 50 });
     expect(arr(catalog.terrains).map((terrain) => obj(terrain).id)).toEqual(["flat", "test"]);

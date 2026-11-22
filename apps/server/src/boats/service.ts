@@ -21,12 +21,7 @@ import { type CellPoint, type SizeClass, anchorAt, anchorCenter, arrivalAt, posi
 import type { BoatResultCode } from "@terra/protocol";
 import type { SecondMap } from "../world/secondMap.ts";
 import { unavailable } from "../world/unitCondition.ts";
-import {
-  UNIT_KIND_BOAT,
-  UNIT_KIND_BOT,
-  UNIT_KIND_GUARDIAN,
-  UNIT_KIND_NPC_LEADER,
-} from "../world/unitKinds.ts";
+import { UNIT_KIND_BOAT, UNIT_KIND_BOT, UNIT_KIND_NPC_LEADER, isGuardianUnit } from "../world/unitKinds.ts";
 import {
   ARRIVAL_SLACK_MS,
   BOAT_SIZE,
@@ -276,7 +271,7 @@ export function createBoatService(deps: BoatDeps): BoatService {
     if (
       unit.kind === UNIT_KIND_BOAT ||
       (unit.kind === UNIT_KIND_BOT && !bots) ||
-      unit.kind === UNIT_KIND_GUARDIAN ||
+      isGuardianUnit(unit) ||
       unit.kind === UNIT_KIND_NPC_LEADER ||
       unavailable(unit.condition, now()) ||
       deps.unitBusy(unitId)

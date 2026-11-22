@@ -87,10 +87,14 @@ function factionLabel(faction: NonNullable<MapUnitGlance["faction"]>): string {
 }
 
 /** 줄 이름: 사이보그 본체 = "이름 · 내 사이보그"(이름을 모르면 "내 사이보그"), 그 밖 = "종류 #번호"(유닛 이름 칸이 아직 없다) */
-export function unitName(unit: Pick<MapUnit, "unitId" | "kind" | "name">): string {
+export function unitName(
+  unit: Pick<MapUnit, "unitId" | "kind" | "name"> & { readonly hold?: MapUnit["hold"] | undefined },
+): string {
   if (unit.kind === "cyborg_body")
     return unit.name === null ? m.world_my_cyborg() : m.map_unit_cyborg_named({ name: unit.name });
-  return m.roster_unnamed({ type: kindLabel(unit.kind), number: String(unit.unitId) });
+  // 수호신은 종류가 아니라 휴먼의 상태다(hold "guardian" — 기획 D-589)
+  const type = unit.hold === "guardian" ? m.unit_guardian_label() : kindLabel(unit.kind);
+  return m.roster_unnamed({ type, number: String(unit.unitId) });
 }
 
 /**

@@ -144,10 +144,10 @@ describe("도시 방어", () => {
     ).toBe(noDefender);
   });
 
-  it("수호신 몸 바탕 = 신격화할 때의 스탯·레벨·환생·속성(팩 unit_kinds guardian, 성장 없음)", () => {
+  it("수호신 몸 바탕 = 신격화할 때의 스탯·레벨·환생·속성(팩 unit_kinds human — 수호신은 휴먼의 상태, D-589, 성장 없음)", () => {
     expect(guardianBase(guardian(30, 3, "defense"))).toEqual({
       kind: "stats",
-      unitKind: "guardian",
+      unitKind: "human",
       primaries: { str: 12, dex: 11, agi: 10, vit: 14, int: 9, wis: 8 },
       level: 3,
       rebirths: 1,

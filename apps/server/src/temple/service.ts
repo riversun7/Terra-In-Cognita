@@ -7,7 +7,7 @@
 // - 신전 = 신앙 단계 시설(places.ts). 누구의 신전이든 쓴다(D-311 유저·NPC 시설 모두). 요금은 남의 신전 = 주인 수입, 내 신전 = 소각 [임시].
 //   신관 직무가 서버에 없어 신전 시설이 집전한다(질문 453).
 // - 의식: 내 휴먼·비활성·그 유닛이 선 칸의 도시 = 신전이 선 도시·신앙도 문턱·화폐·(신격화) 도시당 상한. 환생 = 레벨 1·태어난 시각 = 지금·수명
-//   다시(T4)·환생 +1·신앙도 0. 신격화(기획 답 456 가) = 수호신 줄(버프 출발값 방어) + 같은 유닛이 수호신 유닛(종류 6)이 되어 그 자리에 멈춰
+//   다시(T4)·환생 +1·신앙도 0. 신격화(기획 답 456 가) = 수호신 줄(버프 출발값 방어) + 같은 휴먼이 수호신 상태(종류는 휴먼 그대로 — 기획 D-589)가 되어 그 자리에 멈춰
 //   그 도시에 남는다(휴먼 행은 지우고 지닌 것·배운 스킬·신앙은 그대로 — 융합과 같은 꼴). 수호신은 일하지 않고(isAway), 주인이 옮기지 못하며,
 //   그 도시가 공격받는 전투에 수비로 든다(cityDefense.ts). 유전자는 들지 않는다(D-517). 유전자로 바꾸는 길(생명과학 연구소)은 유전자 명령
 //   convert(fusion/geneCommands.ts)다.
@@ -51,7 +51,7 @@ import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
 import { unavailable } from "../world/unitCondition.ts";
-import { UNIT_KIND_GUARDIAN, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
+import { UNIT_KIND_HUMAN, isGuardianUnit } from "../world/unitKinds.ts";
 import { buildTempleOverview } from "./overview.ts";
 import { RELIGION_STAGE, payServiceFee, serviceFacility, unitCity } from "./places.ts";
 import {
@@ -126,7 +126,7 @@ export interface TempleService {
   /** 그 건물이 선 도시의 수호신 생산 버프(산출 + ‰, 470 가). 없으면 0 */
   buildingProductionPm(buildingId: number): number;
   /**
-   * 그 도시에 싸울 수 있는 수호신 유닛이 있나(기획 답 472 가 — 수비 휴먼이 없어도 웨이브 전투를 연다): 세계에 있고 수호신 종류·부상·포로·
+   * 그 도시에 싸울 수 있는 수호신 유닛이 있나(기획 답 472 가 — 수비 휴먼이 없어도 웨이브 전투를 연다): 세계에 있고 수호신 상태·부상·포로·
    * 비활성이 아님(도시 방어 cityDefense.ts가 전투에 넣는 조건과 같다)
    */
   hasFightingGuardian(cityId: number, nowMs: number): boolean;
@@ -187,11 +187,11 @@ export function createTempleService(o: TempleServiceOptions): TempleService {
     return { ok: false, code: found.reason === "closed" ? "temple_closed" : "not_temple" };
   };
 
-  /** 내 휴먼(종류 4, 포로 아님) */
+  /** 내 휴먼(종류 4, 수호신 아님, 포로 아님) */
   const myHuman = (ownerId: number, unitId: number): TempleResultCode | undefined => {
     const found = unitOf(unitId);
     if (!found || found.info.ownerId !== ownerId) return "unknown_unit";
-    if (found.info.kind !== UNIT_KIND_HUMAN) return "wrong_kind";
+    if (found.info.kind !== UNIT_KIND_HUMAN || isGuardianUnit(found.info)) return "wrong_kind";
     if (found.info.condition.heldBy !== null) return "captive";
     return undefined;
   };
@@ -204,7 +204,8 @@ export function createTempleService(o: TempleServiceOptions): TempleService {
     const humans: number[] = [];
     for (const map of o.maps.values())
       map.forEachUnit((unit) => {
-        if (unit.ownerId === ownerId && unit.kind === UNIT_KIND_HUMAN) humans.push(unit.id);
+        if (unit.ownerId === ownerId && unit.kind === UNIT_KIND_HUMAN && !isGuardianUnit(unit))
+          humans.push(unit.id);
       });
     const faith = await readFaith(o.pool, humans);
     // 읽은 뒤 커밋 전까지 기다림이 없다(한 번의 동기 처리). 그 사이 떠난 유닛은 건너뛴다
@@ -337,7 +338,7 @@ export function createTempleService(o: TempleServiceOptions): TempleService {
         if (advantage.kind === "k") writeHumanGrowth(writer, input.unit, grown.kPm);
         writeFaith(writer, input.unit, { faith: next.faith, faithPoints: faith.faithPoints });
       } else {
-        // 수호신 줄 → 같은 유닛이 수호신 유닛(종류 6)이 되어 선 칸에 멈춘다 → 휴먼 행(수명)을 지운다. 지닌 것·배운 스킬·신앙은 그대로
+        // 수호신 줄 → 같은 휴먼이 수호신 상태가 되어(종류는 그대로 — 기획 D-589) 선 칸에 멈춘다 → 휴먼 행(수명)을 지운다. 지닌 것·배운 스킬·신앙은 그대로
         writeGuardian(writer, {
           unitId: input.unit,
           ownerId: owner.ownerId,
@@ -354,7 +355,7 @@ export function createTempleService(o: TempleServiceOptions): TempleService {
         guardianBuffs.set(input.unit, { cityId: temple.cityId, buff: DEFAULT_GUARDIAN_BUFF });
         const found = unitOf(input.unit);
         if (found) {
-          found.map.setKind(input.unit, UNIT_KIND_GUARDIAN);
+          found.map.markGuardian(input.unit);
           const point = positionAt(found.info.motion, at);
           found.map.relocateToSafety(input.unit, {
             x: Math.floor(point.x / CELL_UNITS),
@@ -404,7 +405,7 @@ export function createTempleService(o: TempleServiceOptions): TempleService {
 
     isInactive: (unitId) => inactive.has(unitId),
 
-    isAway: (unitId) => inactive.has(unitId) || unitOf(unitId)?.info.kind === UNIT_KIND_GUARDIAN,
+    isAway: (unitId) => inactive.has(unitId) || isGuardianUnit(unitOf(unitId)?.info),
 
     citySatisfaction() {
       const c = o.rules().temple;
@@ -420,7 +421,7 @@ export function createTempleService(o: TempleServiceOptions): TempleService {
       for (const [unitId, entry] of guardianBuffs) {
         if (entry.cityId !== cityId || inactive.has(unitId)) continue;
         const info = unitOf(unitId)?.info;
-        if (info?.kind === UNIT_KIND_GUARDIAN && !unavailable(info.condition, nowMs)) return true;
+        if (info && isGuardianUnit(info) && !unavailable(info.condition, nowMs)) return true;
       }
       return false;
     },

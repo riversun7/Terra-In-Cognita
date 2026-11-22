@@ -227,6 +227,13 @@ test.describe("개발자", () => {
     await expect(bar.locator(".bl-preset-delete")).toHaveAttribute("aria-disabled", "true");
     await bar.locator(".bl-preset-load").click();
     await expect(page.locator(".bl-kind-select")).toHaveValue("cyborg");
+    // 유닛 종류 고르기는 넷으로 고정(사용자 결정 2026-11-22, 기획 D-589 — 수호신은 종류가 아니라 휴먼의 상태)
+    await expect(page.locator(".bl-kind-select option")).toHaveText([
+      "사이보그",
+      "휴먼",
+      "안드로이드",
+      "크리쳐",
+    ]);
 
     // 새로 저장(이름 창)
     await select.selectOption("");

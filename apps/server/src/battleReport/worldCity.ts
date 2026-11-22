@@ -27,7 +27,7 @@ import type { BattleBodies } from "../world/battleBodies.ts";
 import { afloatIn } from "../world/battleStart.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { unavailable } from "../world/unitCondition.ts";
-import { UNIT_KIND_GUARDIAN } from "../world/unitKinds.ts";
+import { isGuardianUnit } from "../world/unitKinds.ts";
 import type { World } from "../world/world.ts";
 import { readGuardians } from "../temple/rows.ts";
 
@@ -59,7 +59,7 @@ export interface ReportCityWorld {
   readonly items: StartStep;
   /** 비활성 유닛·배 위 유닛인가(세계 전투에서 빼는 유닛) */
   readonly isInactive: (unitId: number) => boolean;
-  /** 수호신 유닛이 지금 싸울 수 있나(세계에 있고 수호신 종류·부상·포로가 아님) */
+  /** 수호신이 지금 싸울 수 있나(세계에 있고 수호신 상태·부상·포로가 아님) */
   readonly guardianCanFight: (unitId: number, nowMs: number) => boolean;
   /** 그 도시 수호신 줄(DB 읽기만) */
   readonly guardians: (cityId: number) => Promise<readonly GuardianRow[]>;
@@ -311,9 +311,7 @@ export function worldReportCities(world: World, now: () => number): ReportCitySo
         isInactive: (unitId) => p.fusion.temple.isInactive(unitId) || afloatIn(world.maps, unitId),
         guardianCanFight: (unitId, nowMs) => {
           const info = unitInfo(unitId);
-          return (
-            info !== undefined && info.kind === UNIT_KIND_GUARDIAN && !unavailable(info.condition, nowMs)
-          );
+          return info !== undefined && isGuardianUnit(info) && !unavailable(info.condition, nowMs);
         },
         guardians: (cityId) => readGuardians(p.pool, { cityId }),
       };

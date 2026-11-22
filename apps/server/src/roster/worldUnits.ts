@@ -8,7 +8,6 @@ import { injuryNowOf, injuryRules } from "../world/unitCondition.ts";
 import {
   UNIT_KIND_CYBORG,
   UNIT_KIND_CYBORG_UNIT,
-  UNIT_KIND_GUARDIAN,
   UNIT_KIND_HUMAN,
   countsAsOwnedUnit,
 } from "../world/unitKinds.ts";
@@ -28,6 +27,8 @@ export interface WorldRosterRow {
   readonly injury: RosterInjury;
   /** 다른 주체에게 잡혔는가 */
   readonly captive: boolean;
+  /** 수호신 상태인 휴먼(D-311·D-589). 아니면 없음 */
+  readonly guardian?: boolean | undefined;
   readonly moving: boolean;
   readonly cargo: readonly RosterCargo[];
   /** AI 작전(판단하는 유닛만 칸 — 저장한 적이 없으면 null, D-5039·D-5040) */
@@ -56,13 +57,12 @@ export const EMPTY_WORLD_ROSTER: WorldRosterSource = {
 const DOMAINS: readonly RosterDomain[] = ["space", "sky", "land", "sea"];
 
 /**
- * 세계 유닛 종류 코드 → 화면 종류: 구인으로 고용한 휴먼(4, D-469), 융합한 사이보그 유닛(5, D-470), 수호신(6, 기획 답 456 가),
+ * 세계 유닛 종류 코드 → 화면 종류: 구인으로 고용한 휴먼(4, D-469 — 수호신도 휴먼이다, 상태는 guardian 칸·D-589), 융합한 사이보그 유닛(5, D-470),
  * 그 밖(관리자 시험 유닛 2, NPC 세력만 갖는 봇 0)은 시험 유닛. 시험 일꾼(1)은 없앴다(부팅이 옛 행을 지운다)
  */
 export function unitTypeOf(kind: number): UnitType {
   if (kind === UNIT_KIND_HUMAN) return "human";
   if (kind === UNIT_KIND_CYBORG_UNIT) return "cyborg";
-  if (kind === UNIT_KIND_GUARDIAN) return "guardian";
   return "test_unit";
 }
 
@@ -125,7 +125,7 @@ export function createWorldRosterSource(world: World): WorldRosterSource {
       const [unitRows, cargoRows] = await Promise.all([
         pool.query(
           `select u.id, u.owner_id, u.kind, u.map_key, u.planet_id, u.domain, u.job, u.job_phase, u.fatigue, u.injury,
-                  u.injury_until_ms, u.injury_heal_pm, u.held_by, t.preset, t.engage, t.pursue, t.cover, t.escort,
+                  u.injury_until_ms, u.injury_heal_pm, u.held_by, u.guardian, t.preset, t.engage, t.pursue, t.cover, t.escort,
                   t.save_skill, t.spread, t.retreat_pct, t.target
              from world_units u left join unit_tactics t on t.unit_id = u.id
             where u.owner_id = $1 or u.held_by = $1 order by u.id`,
@@ -168,11 +168,12 @@ export function createWorldRosterSource(world: World): WorldRosterSource {
             num(row.injury_heal_pm ?? 1000),
           ),
           captive: mine && heldBy !== null,
+          ...(row.guardian === true ? { guardian: true } : {}),
           moving: moving(mapKey, id, now),
           // 화물은 주인 계정이다: 내가 잡은 포로의 화물은 보이지 않는다
           cargo: mine ? (cargo.get(id) ?? []) : [],
           // AI 작전(D-5039·D-5040): 판단하는 내 유닛만
-          ...(mine && TACTICS_KINDS.has(num(row.kind))
+          ...(mine && TACTICS_KINDS.has(num(row.kind)) && row.guardian !== true
             ? {
                 tactics: row.preset === null || row.preset === undefined ? null : (tacticsOfRow(row) ?? null),
               }

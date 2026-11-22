@@ -554,7 +554,7 @@ export const worldUnits = pgTable(
     ownerId: bigint("owner_id", { mode: "number" })
       .notNull()
       .references(() => worldOwners.id),
-    /** 유닛 종류 코드(src/world/unitKinds.ts. 0 시험 봇, 1 없앤 시험 일꾼, 3 사이보그 본체, 4 휴먼 …) */
+    /** 유닛 종류 코드(src/world/unitKinds.ts. 0 시험 봇, 1 없앤 시험 일꾼, 3 사이보그 본체, 4 휴먼 …, 6 = 옛 수호신 — 쓰지 않는다) */
     kind: smallint("kind").notNull(),
     size: smallint("size").notNull(),
     speed: integer("speed").notNull(),
@@ -593,6 +593,8 @@ export const worldUnits = pgTable(
      * belligerence·greed·boldness·communalism·autonomy·openness·discipline, 각 0~1000). null = 미생성(결정적 파생)
      */
     traits: smallint("traits").array(),
+    /** 수호신 상태(D-311·D-589 — 종류는 휴먼 4 그대로, 도시·버프는 temple_guardians 행). 직전 판 앱은 이 칸을 모른 채 쓴다 → 그대로 남는다 */
+    guardian: boolean("guardian").notNull().default(false),
   },
   (table) => [
     index("world_units_owner_idx").on(table.ownerId),

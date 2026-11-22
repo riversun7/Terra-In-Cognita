@@ -42,7 +42,7 @@ import {
   SYSTEM_SINK_CREDIT,
   type Settlement,
 } from "../world/settlement.ts";
-import { UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
+import { UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN, isGuardianUnit } from "../world/unitKinds.ts";
 import type { CyborgService } from "../cyborg/service.ts";
 import type { WorldFacilities } from "../facilities/world.ts";
 import { serviceFacilityViews } from "../temple/overview.ts";
@@ -188,7 +188,8 @@ export function createFusionService(o: FusionServiceOptions): FusionService {
     const found = unitOf(unitId);
     if (ownerId === undefined || !found || found.info.ownerId !== ownerId)
       return { fail: "unknown_unit" as const };
-    if (found.info.kind !== UNIT_KIND_HUMAN) return { fail: "wrong_kind" as const };
+    if (found.info.kind !== UNIT_KIND_HUMAN || isGuardianUnit(found.info))
+      return { fail: "wrong_kind" as const };
     if (found.info.condition.heldBy !== null) return { fail: "captive" as const };
     return { ownerId, map: found.map };
   };

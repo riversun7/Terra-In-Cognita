@@ -89,6 +89,7 @@ export function realUnit(
     energy: { kind: "fatigue", value: row.fatigue, max: FATIGUE_MAX },
     injury: row.injury,
     captive: row.captive,
+    ...(row.guardian === true ? { guardian: true } : {}),
     moving: row.moving,
     cargo: row.cargo,
     satisfaction: null,

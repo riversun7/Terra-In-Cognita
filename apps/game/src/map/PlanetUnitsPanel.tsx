@@ -16,7 +16,9 @@ import { durationText, travelTarget } from "./travelData.ts";
 import { cityLabel } from "./worldMapData.ts";
 import "./planetUnits.css";
 
-const unitKindLabel = (kind: WorldMyUnitKind): string => {
+/** 종류 이름. 수호신은 종류가 아니라 휴먼의 상태라(사용자 결정 2026-11-22, 기획 D-589) 상태 이름을 먼저 본다 */
+const unitKindLabel = (kind: WorldMyUnitKind, guardian?: boolean): string => {
+  if (guardian === true) return m.unit_guardian_label();
   switch (kind) {
     case "cyborg":
       return m.planet_units_kind_cyborg();
@@ -24,8 +26,6 @@ const unitKindLabel = (kind: WorldMyUnitKind): string => {
       return m.planet_units_kind_human();
     case "cyborg_unit":
       return m.planet_units_kind_cyborg_unit();
-    case "guardian":
-      return m.planet_units_kind_guardian();
     case "boat":
       return m.planet_units_kind_boat();
     default:
@@ -33,10 +33,10 @@ const unitKindLabel = (kind: WorldMyUnitKind): string => {
   }
 };
 
-const unitKindIcon = (kind: WorldMyUnitKind): MapIconName => {
+const unitKindIcon = (kind: WorldMyUnitKind, guardian?: boolean): MapIconName => {
+  if (guardian === true) return "military";
   if (kind === "cyborg" || kind === "cyborg_unit") return "cyborg";
   if (kind === "boat") return "transport";
-  if (kind === "guardian") return "military";
   return "unit";
 };
 
@@ -279,12 +279,12 @@ export function PlanetUnitsPanel({
                   data-focused={focused ? "true" : undefined}
                 >
                   <span className="planet-units-icon-box" aria-hidden="true">
-                    <MapIcon name={unitKindIcon(unit.kind)} />
+                    <MapIcon name={unitKindIcon(unit.kind, unit.guardian)} />
                   </span>
                   <div className="planet-units-info">
                     <p className="planet-units-name-row">
                       <span className="planet-units-name">
-                        {unit.name ?? `${unitKindLabel(unit.kind)} #${unit.unitId}`}
+                        {unit.name ?? `${unitKindLabel(unit.kind, unit.guardian)} #${unit.unitId}`}
                       </span>
                     </p>
                     <p className="planet-units-meta">

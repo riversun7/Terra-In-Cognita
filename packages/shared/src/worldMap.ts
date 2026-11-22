@@ -333,7 +333,8 @@ export interface WorldTravel {
 }
 
 /** 1차맵 내 유닛 종류 */
-export type WorldMyUnitKind = "cyborg" | "human" | "cyborg_unit" | "guardian" | "boat" | "other";
+/** 1차맵 내 유닛 종류. 수호신은 종류가 아니라 휴먼의 상태다(WorldMyUnit.guardian — 사용자 결정 2026-11-22, 기획 D-589) */
+export type WorldMyUnitKind = "cyborg" | "human" | "cyborg_unit" | "boat" | "other";
 
 /** 1차맵에 띄우는 내 유닛 한 기(사이보그 본체 + 띄운/안 띄운 2차맵·이동 중인 모든 내 유닛) */
 export interface WorldMyUnit {
@@ -354,6 +355,8 @@ export interface WorldMyUnit {
   readonly working?: boolean | undefined;
   /** 배에 타고 있으면 그 배 유닛 ID(지도에선 배 자리에 묶어 표시) */
   readonly aboardId?: number | null | undefined;
+  /** 수호신 상태인 휴먼(기획 D-311·D-589 — 그 도시에 머문다). 아니면 없음 */
+  readonly guardian?: boolean | undefined;
 }
 
 /**

@@ -56,6 +56,7 @@ export function infoOfRow(row: UnitRow): UnitInfo {
     job: row.job,
     domain: row.domain,
     aboard: undefined,
+    guardian: row.guardian === true,
   };
 }
 

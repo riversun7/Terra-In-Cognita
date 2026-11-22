@@ -31,7 +31,7 @@ import {
 import { type StorageContext, roomGrams } from "../facilities/storage.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { unavailable } from "../world/unitCondition.ts";
-import { UNIT_KIND_BOT, UNIT_KIND_GUARDIAN } from "../world/unitKinds.ts";
+import { UNIT_KIND_BOT, isGuardianUnit } from "../world/unitKinds.ts";
 import { statOf } from "../labor/gatherWork.ts";
 import {
   campDeposit,
@@ -686,7 +686,7 @@ export function createGatherService(deps: GatherDeps): GatherService {
       if (
         ownerId === undefined ||
         info.ownerId !== ownerId ||
-        info.kind === UNIT_KIND_GUARDIAN ||
+        isGuardianUnit(info) ||
         info.kind === UNIT_KIND_BOT
       )
         return { problem: "forbidden" as const };

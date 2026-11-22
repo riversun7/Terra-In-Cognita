@@ -27,11 +27,18 @@ export const UNIT_KIND_HUMAN = 4;
  */
 export const UNIT_KIND_CYBORG_UNIT = 5;
 /**
- * 수호신(기획 답 456 가, D-311·D-5059): 신전에서 신격화한 유저 휴먼. 바탕 휴먼의 유닛 ID를 그대로 쓰고 종류만 4 → 6으로 바뀐다(융합과 같은 꼴).
- * 레벨·스탯·속성·도시·버프는 temple_guardians 행이다. 그 도시에 머물며(주인이 옮기지 못한다) 그 도시가 공격받는 전투에 수비로 들고, 일하지
- * 않는다. 수명이 없다
+ * 옛 수호신 종류 코드(기획 답 456 가 — 2026-11-07부터 신격화한 휴먼이 4 → 6으로 바뀌었다). 유닛 종류는 넷으로 고정이라(사용자 결정 2026-11-22, 기획
+ * D-589 — 기반 D-018) 수호신은 종류가 아니라 휴먼(4)의 상태다(isGuardianUnit). 새로 쓰지 않는다. 마이그레이션 `guardian_state`가 옛 행을 휴먼 +
+ * 수호신 칸으로 바꿨고, 직전 판 앱이 배포 사이에 다시 쓴 6은 부팅(persist/load.ts loadWorld)이 같은 문장으로 바꾼다. 다음 배포에서 그 문장을 지운다. 번호는 다시 쓰지 않는다
  */
-export const UNIT_KIND_GUARDIAN = 6;
+export const LEGACY_UNIT_KIND_GUARDIAN = 6;
+/**
+ * 수호신 상태인가(D-311·D-5059·D-589): 신전에서 신격화한 유저 휴먼(종류 4 그대로, world_units.guardian 칸). 레벨·스탯·속성·도시·버프는
+ * temple_guardians 행이다. 그 도시에 머물며(주인이 옮기지 못한다) 그 도시가 공격받는 전투에 수비로 들고, 일하지 않는다. 수명이 없다(휴먼 행을 지운다)
+ */
+export function isGuardianUnit(info: { readonly guardian?: boolean | undefined } | undefined): boolean {
+  return info?.guardian === true;
+}
 /**
  * NPC 국가 지도자 사이보그(기획 46 §10.1 "NPC 지도자", 30 §5.3 대표 유닛 D-075 — docs/adr/2026-11-07-play-flow.md "WP-NPC"). 고정 NPC 국가마다
  * 하나, 주인 = 그 국가 소유 주체, 수도(그 국가의 가장 작은 ID 시작 도시) 행정 건물 앞에 선다(src/npc/leaders.ts). 스스로 움직이지 않는다

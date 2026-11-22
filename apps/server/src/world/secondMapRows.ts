@@ -54,6 +54,8 @@ export interface UnitRow {
   aboardId?: number | null | undefined;
   /** 개별 유닛 7축 성향(0~1000 길이 7, docs/adr/2026-11-20-npc-autonomous-ai.md). 없으면 null·없음 */
   traits?: readonly number[] | null | undefined;
+  /** 수호신 상태(종류는 휴먼 그대로, 기획 D-311·D-589 — unitKinds.ts isGuardianUnit). 없으면 아니다 */
+  guardian?: boolean | undefined;
 }
 
 /**
@@ -96,6 +98,7 @@ export function unitRowOf(
     readonly job: UnitJob;
     readonly condition: UnitCondition;
     readonly traits?: readonly number[] | null | undefined;
+    readonly guardian?: boolean | undefined;
   },
   mapKey: number,
   planetId: string,
@@ -120,6 +123,7 @@ export function unitRowOf(
     job: unit.job,
     condition: unit.condition,
     traits: unit.traits ? [...unit.traits] : null,
+    ...(unit.guardian === true ? { guardian: true } : {}),
   };
 }
 
@@ -183,5 +187,6 @@ export function unitColumnsOf(row: UnitRow): Record<string, unknown> {
     fatigue: row.job.fatigue,
     ...conditionColumns(row.condition, row.aboardId),
     traits: row.traits ? [...row.traits] : null,
+    guardian: row.guardian === true,
   };
 }

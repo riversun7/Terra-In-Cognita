@@ -31,7 +31,6 @@ import {
   anchorAt,
   anchorCenter,
   applyPlacement,
-  footprintRect,
   arrivalAt,
   createMotion,
   createPlacementGrid,
@@ -59,7 +58,14 @@ import {
   startDelayMs,
   tripArea,
 } from "./bots.ts";
-import { bodyCells, failureCode, lastPoint, rectsOverlap, remainingPathBlocked } from "./mapGeometry.ts";
+import {
+  bodyCells,
+  countUnitsInBuildings,
+  failureCode,
+  lastPoint,
+  rectsOverlap,
+  remainingPathBlocked,
+} from "./mapGeometry.ts";
 import type { TerrainFile } from "./mapTerrain.ts";
 import { createMapStream } from "./mapStream.ts";
 import type { MapReplicaInit } from "./pathMessages.ts";
@@ -878,21 +884,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
         if (unit.bot && !unit.planning && unit.eventId === undefined && unit.held !== true) missing += 1;
       return missing;
     },
-    unitsInBuildings() {
-      const at = now();
-      let count = 0;
-      for (const unit of units.values()) {
-        if (at < arrivalAt(unit.motion)) continue;
-        const cells = bodyCells(positionAt(unit.motion, at), unit.size);
-        for (const building of buildings.values()) {
-          if (rectsOverlap(cells, footprintRect(building.placement))) {
-            count += 1;
-            break;
-          }
-        }
-      }
-      return count;
-    },
+    unitsInBuildings: () => countUnitsInBuildings(units.values(), buildings.values(), now()),
     moveUnit(unitId, target, moveOptions) {
       const commanded = units.get(unitId);
       if (!commanded) return Promise.resolve({ ok: false, code: "unknown_unit" });

@@ -1,7 +1,8 @@
 // 2차맵 서버 상태의 칸·경로 도우미 — secondMap.ts에서 나눴다(파일 1,000줄 상한). ADR 2026-10-28-s1-second-map.md
-// - 경로 결과 상태 → 명령 결과 코드, 유닛 몸이 덮는 칸, 남은 경로가 막혔는지, 움직임의 마지막 점.
+// - 경로 결과 상태 → 명령 결과 코드, 유닛 몸이 덮는 칸, 남은 경로가 막혔는지, 움직임의 마지막 점, 건물 안에 선 유닛 수.
 import type { ResultCode } from "@terra/protocol";
 import {
+  type BuildingPlacement,
   CELL_UNITS,
   HALF_CELL_UNITS,
   type CellRect,
@@ -10,8 +11,11 @@ import {
   type Point,
   type SizeClass,
   anchorAt,
+  arrivalAt,
   distanceAt,
+  footprintRect,
   isPassable,
+  positionAt,
   positionAtDistance,
 } from "@terra/sim";
 import type { PathOutcome } from "./pathService.ts";
@@ -101,4 +105,20 @@ export function remainingPathBlocked(
 /** 움직임의 마지막 점(서 있는 유닛이면 지금 자리) */
 export function lastPoint(motion: Motion): Point {
   return motion.waypoints[motion.waypoints.length - 1] ?? motion.waypoints[0] ?? { x: 0, y: 0 };
+}
+
+/** 멈춰 선 유닛 가운데 몸이 건물 자리와 겹치는 수(secondMap.ts unitsInBuildings — 이 파일로 옮겼다, 1,000줄 상한) */
+export function countUnitsInBuildings(
+  units: Iterable<{ readonly motion: Motion; readonly size: SizeClass }>,
+  buildings: Iterable<{ readonly placement: BuildingPlacement }>,
+  at: number,
+): number {
+  const rects = [...buildings].map((building) => footprintRect(building.placement));
+  let count = 0;
+  for (const unit of units) {
+    if (at < arrivalAt(unit.motion)) continue;
+    const cells = bodyCells(positionAt(unit.motion, at), unit.size);
+    if (rects.some((rect) => rectsOverlap(cells, rect))) count += 1;
+  }
+  return count;
 }

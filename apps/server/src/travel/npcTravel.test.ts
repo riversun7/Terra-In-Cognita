@@ -5,6 +5,7 @@
 import { performance } from "node:perf_hooks";
 import { CELL_UNITS, WALK_SPEED, anchorAt, arrivalAt, positionAt } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { CareNpcTravel, CareNpcTravelDone } from "../labor/stewardCare.ts";
 import { leaderToCapital } from "../npc/leaderTravel.ts";
 import { mapTerrainFromTemp } from "../world/mapTerrain.ts";
 import { createInlinePathService } from "../world/pathService.ts";
@@ -170,6 +171,22 @@ describe("NPC 2차맵 사이 이동 (D-591, 질문 2651 나)", () => {
       ok: false,
       code: "unknown_unit",
     });
+    r.travel.stop();
+  });
+
+  it("다친 NPC 휴먼 병원 다녀오기 길(league-3 CareNpcTravel, 묶음 1117i hospital/attach.ts): 같은 NPC 이동이 그 꼴로 보내고 닿으면 알린다", async () => {
+    const r = rig();
+    place(r, 507, 250, 100);
+    // hospital/attach.ts가 넘기는 것과 같다 — NpcTravel을 CareNpcTravel 자리에 그대로 쓴다(타입 검사가 꼴을 본다)
+    const care: CareNpcTravel = npcTravelOf(r.travel);
+    const done: CareNpcTravelDone[] = [];
+    const sent = await care.send(507, { mapKey: K[1] ?? 0, x: 20, y: 100 }, (event) => done.push(event));
+    expect(sent.ok).toBe(true);
+    // 순간이동 없음: 보낸 때는 아직 출발 2차맵
+    expect(whereIs(r, 507)).toBe(0);
+    for (let step = 0; step < 200 && done.length === 0; step++) await vi.advanceTimersByTimeAsync(5_000);
+    expect(whereIs(r, 507)).toBe(1);
+    expect(done).toEqual([{ unitId: 507, state: "arrived", stop: null, mapKey: K[1] }]);
     r.travel.stop();
   });
 

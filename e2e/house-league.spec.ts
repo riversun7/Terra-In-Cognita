@@ -1,6 +1,6 @@
-// 가문 연맹 화면 시험(league-2, 사용자 결정 D-590 — 질문 2501 다·2502 다·2504 나) — 세력 화면 "내 가문" 칸의 연맹 부분(HouseLeagueBlock.tsx).
+// 가문 연맹 화면 시험(league-2, 사용자 결정 D-590 — 질문 2502 다·2504 나. 조항 카드는 league-3 D-593에서 없앰) — 세력 화면 "내 가문" 칸의 연맹 부분(HouseLeagueBlock.tsx).
 // 차례대로 도는 한 묶음이다(같은 서버·DB — 앞 시험이 남긴 값을 뒤 시험이 본다). 두 계정은 각자 가문을 만든다(ensureHouse — 서로 다른 가문).
-// 1. player: [연맹 만들기] → 연맹 카드(대표 = 내 가문) → 조항 카드 [붙이기](시야 나눔) → 붙음. 390 파스텔·한국어 사진, 넘침·작은 누르는 곳 없음.
+// 1. player: [연맹 만들기] → 연맹 카드(대표 = 내 가문, 든 가문 목록) — 조항 카드 칸 없음. 390 파스텔·한국어 사진, 넘침·작은 누르는 곳 없음.
 // 2. dev: 그 연맹에 [가입 신청] → "보냈습니다"(아직 들지 않음) → 신청함 줄. 390 다크·영어 사진, 넘침 없음.
 // 3. player: 초대·신청 줄에 dev 가문 → [받기] → 든 가문 2곳.
 // 4. dev: [나가기] → 든 가문 1곳(대표 아님 — 대표 승계는 단위·DB 시험이 본다).
@@ -24,11 +24,11 @@ async function openFaction(page: Page): Promise<void> {
 
 test.describe.configure({ mode: "serial" });
 
-test.describe("가문 연맹 — 만들기·카드·신청·승인·나가기", () => {
-  test.describe("1. player: 연맹을 만들고 조항 카드를 붙인다", () => {
+test.describe("가문 연맹 — 만들기·신청·승인·나가기", () => {
+  test.describe("1. player: 연맹을 만든다", () => {
     test.use({ account: "player" });
 
-    test("[연맹 만들기] → 대표 카드 → 시야 나눔 [붙이기]", async ({ page, deviceErrors }) => {
+    test("[연맹 만들기] → 대표 카드·든 가문 목록(조항 카드 없음)", async ({ page, deviceErrors }) => {
       await openFaction(page);
       await expect(leagues(page).locator(".faction-muted").first()).toHaveText(
         message("ko", "fid_league_hint"),
@@ -36,11 +36,7 @@ test.describe("가문 연맹 — 만들기·카드·신청·승인·나가기", 
       await leagues(page).locator('[data-part="league-found"]').click();
       await expect(status(page)).toHaveText(message("ko", "fid_league_ok_found"));
       await expect(firstLeague(page)).toBeVisible();
-      const vision = firstLeague(page).locator('[data-clause="shared_vision"]');
-      await expect(vision).toHaveAttribute("data-on", "0");
-      await vision.locator("button").click();
-      await expect(status(page)).toHaveText(message("ko", "fid_league_ok_done"));
-      await expect(vision).toHaveAttribute("data-on", "1");
+      await expect(firstLeague(page).locator('[data-part="league-clauses"]')).toHaveCount(0);
       await expect(firstLeague(page).locator('[data-part="league-members"] li')).toHaveCount(1);
       expect(await horizontalOverflow(page)).toEqual([]);
       expect(await smallTapTargets(page)).toEqual([]);

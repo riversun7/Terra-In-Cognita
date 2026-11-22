@@ -7,7 +7,6 @@ import { rolesAllow } from "../auth/permissions.ts";
 import type { Viewer } from "../trpc/context.ts";
 import type { WorldDirectory } from "./gateway.ts";
 import { nationLookupOf } from "./nationVision.ts";
-import { allyLookupOf } from "./leagueTies.ts";
 import type { SecondMap } from "./secondMap.ts";
 
 /** 관리자 전체 보기 권한(시야로 거르지 않는다) */
@@ -26,6 +25,5 @@ export async function canViewSecondMap(
     userId: viewer.id,
     ownerId: world.ownerOfUser?.(viewer.id),
     nations: nationLookupOf(world),
-    allies: allyLookupOf(world),
   });
 }

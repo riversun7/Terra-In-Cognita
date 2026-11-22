@@ -24,7 +24,6 @@ const traits = (openness: number, communalism: number, autonomy: number, boldnes
   boldness,
 });
 const RULES = { foundScore: 750, joinScore: 550 };
-const byId = (x: number, y: number) => x - y;
 /** NPC 대표가 부르지 않는 규칙(league-2 — 초대 문턱 1001) */
 const NO_INVITE = { ...RULES, inviteScore: 1001 };
 
@@ -168,25 +167,12 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 연맹 명령 (DB)", () => {
     expect((await service.list())[0]?.requests).toEqual([{ house: `p:${c.id}`, kind: "invite" }]);
     expect(await service.command(c.user, { action: "join", leagueId })).toEqual({ ok: true, leagueId });
     expect((await service.list())[0]?.requests).toEqual([]);
-    // 조항 카드: 대표만, 모르는 카드는 invalid_clause
-    expect(await service.command(b.user, { action: "clause_on", leagueId, clause: "shared_vision" })).toEqual(
-      {
+    // 옛 조항 카드 행동(league-3, 사용자 결정 D-593 — 연맹은 친목, 카드 없앰): 대표가 보내도 invalid_clause, 아무것도 남지 않는다
+    for (const action of ["clause_on", "clause_off"] as const)
+      expect(await service.command(a.user, { action, leagueId, clause: "fee_discount" })).toEqual({
         ok: false,
-        code: "not_representative",
-      },
-    );
-    expect(await service.command(a.user, { action: "clause_on", leagueId, clause: "nope" })).toEqual({
-      ok: false,
-      code: "invalid_clause",
-    });
-    expect(await service.command(a.user, { action: "clause_on", leagueId, clause: "fee_discount" })).toEqual({
-      ok: true,
-      leagueId,
-    });
-    expect([...service.ties.partnersOf("fee_discount", a.id)].toSorted(byId)).toEqual(
-      [b.id, c.id].toSorted(byId),
-    );
-    expect(service.ties.partnersOf("shared_vision", a.id).size).toBe(0);
+        code: "invalid_clause",
+      });
     // 투표: 셋 가운데 둘이 c를 찍으면 c가 대표
     expect(await service.command(b.user, { action: "vote", leagueId, house: `p:${c.id}` })).toEqual({
       ok: true,
@@ -203,7 +189,6 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 연맹 명령 (DB)", () => {
     expect((await service.list())[0]).toMatchObject({
       representative: `p:${a.id}`,
       members: [`p:${a.id}`, `p:${b.id}`],
-      clauses: ["fee_discount"],
     });
     // 가문장이 아니면 못 한다
     expect(await service.command("00000000-0000-4000-8000-000000000000", { action: "found" })).toEqual({

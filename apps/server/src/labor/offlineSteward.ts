@@ -11,9 +11,15 @@
 // 바뀜 (league-2, 사용자 결정 D-590 2507 가): 관리인이 맡은 일도 작업 중 부상을 굴리고(그대로), 다친 유닛은 스스로 병원에 가 치료받거나 경상이면 계속 일한다 —
 //   살필 때마다 stewardCare.ts(2차맵 모음에 붙은 판단 — 병원 서비스가 있을 때만)를 먼저 부른다. 치료 요금은 유저가 누르는 병원 치료와 같다(D-590이 이 일에서
 //   "돈 쓰는 일 없음"을 대신한다).
+// 바뀜 (league-3, 질문 2645 기획 검토 — D-590 "병원가서 치료하고 오든지"·D-591 순간이동 없음·D-555 1509): 그 도시에 쓸 병원이 없으면 다른 도시 병원으로 걸어가 치료하고
+//   돌아온다(stewardCare.ts — 가는·돌아오는 동안은 새 일자리에 넣지 않는다), 요금 상한(설정 칸 house_unit_care_cost_cap_pm), NPC 휴먼도 같은 판단. 그래서 살피기는
+//   비접속 유저가 없어도 자율 치료를 먼저 부른다.
 import type { LaborContract, SocietyCoefficients } from "@terra/sim";
 import { UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN, isGuardianUnit } from "../world/unitKinds.ts";
 import { stewardCareOf } from "./stewardCare.ts";
+
+/** [임시] 자율 치료 요금 상한 기본값(‰ — 설정 칸 house_unit_care_cost_cap_pm이 없을 때) */
+export const DEFAULT_CARE_COST_CAP_PM = 500;
 
 /** [임시] 한 번 살필 때 맺는 계약 수 상한(부하·한꺼번에 몰림 방지) */
 export const STEWARD_ACCEPTS_PER_SWEEP = 20;
@@ -104,17 +110,24 @@ export function createOfflineSteward(o: {
           .offlineUsers()
           .filter((user) => nowMs - user.sinceMs >= ai.offlineStewardAfterMs)
           .toSorted((a, b) => a.sinceMs - b.sinceMs || (a.userId < b.userId ? -1 : 1));
-        if (away.length === 0) return 0;
         const owners = new Map<number, string>();
         for (const user of away) {
           const owner = o.settlement.findOwnerOfUser(user.userId);
           if (owner !== undefined) owners.set(owner, user.userId);
         }
-        // 다친 유닛의 자율 판단(D-590 2507 가 — 병원 치료 또는 계속 일하기). 실패해도 일자리 잇기는 한다
-        if (exempt)
-          await stewardCareOf(o.maps)?.({ owners, stewarded: exempt, kinds: STEWARD_KINDS, nowMs })?.catch(
-            (error: unknown) => o.log?.warn({ err: error }, "offline steward care failed"),
-          );
+        // 다친 유닛의 자율 판단(D-590 2507 가 — 병원 치료·다른 도시 병원 다녀오기 또는 계속 일하기, NPC 휴먼도 league-3). 실패해도 일자리 잇기는 한다
+        const care = stewardCareOf(o.maps);
+        if (care)
+          await care
+            .run({
+              owners,
+              stewarded: exempt ?? (() => false),
+              kinds: STEWARD_KINDS,
+              nowMs,
+              costCapPm: o.rules().house.unitCareCostCapPm ?? DEFAULT_CARE_COST_CAP_PM,
+            })
+            .catch((error: unknown) => o.log?.warn({ err: error }, "offline steward care failed"));
+        if (away.length === 0) return 0;
         // 일 없는 유닛(주체 → 유닛·2차맵)
         const idle = new Map<number, { unitId: number; mapKey: number }[]>();
         for (const map of o.maps.values())
@@ -123,7 +136,8 @@ export function createOfflineSteward(o: {
               !owners.has(unit.ownerId) ||
               !STEWARD_KINDS.has(unit.kind) ||
               isGuardianUnit(unit) ||
-              o.labor.unitBusy(unit.id)
+              o.labor.unitBusy(unit.id) ||
+              care?.busy(unit.id) === true
             )
               return;
             const list = idle.get(unit.ownerId);

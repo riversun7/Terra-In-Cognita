@@ -4,7 +4,6 @@ import { exchangeFeeOf, fxFeeOf, shareFeeOf } from "../market/fxFee.ts";
 import { CONDITION_FULL } from "@terra/shared/facilityRuntime";
 import { nearestFactionCity } from "@terra/shared/territory";
 import { nationLookupOf } from "../world/nationVision.ts";
-import { allyLookupOf } from "../world/leagueTies.ts";
 import { canObserve } from "../world/visibility.ts";
 import { TEST_PLANET_ID, type World } from "../world/world.ts";
 import { mapBuildingLooks, mapOwnerIds } from "./mapLooks.ts";
@@ -154,12 +153,9 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
       const ownerId = settlement.findOwnerOfUser(viewer.id);
       const sighted = observer
         ? undefined
-        : await world.maps.get(mapKey)?.vision.sighted({
-            userId: viewer.id,
-            ownerId,
-            nations: nationLookupOf(world),
-            allies: allyLookupOf(world),
-          });
+        : await world.maps
+            .get(mapKey)
+            ?.vision.sighted({ userId: viewer.id, ownerId, nations: nationLookupOf(world) });
       // 건물 주인 → 국가(NPC 세력 주체는 메모리, 플레이어는 가입한 국가를 DB에서 한 번에)
       const factions = await ownerFactionsOf(pool, owners, mapOwnerIds(world.maps, mapKey));
       return mapBuildingLooks(

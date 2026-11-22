@@ -38,7 +38,6 @@ import type { FacilityCatalog } from "../facilities/catalog.ts";
 import type { BusinessCore } from "./core.ts";
 import { hourlyFair } from "./fairPrice.ts";
 import type { ShareMarkets } from "./shares.ts";
-import { leagueDiscountedFee } from "../world/leagueTies.ts";
 
 export type BusinessCommand =
   | {
@@ -469,9 +468,7 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
       return serviceFeeOf(rate.perHour, ms);
     },
     canPay: (ownerId, fee) => ledger.balance(ledger.ownerAccount(ownerId, deps.fallbackAsset)) >= fee,
-    chargeService(ownerId, buildingId, quoted, kind, atMs, asset = deps.fallbackAsset, keep = 0n) {
-      // 연맹 조항 카드 fee_discount(league-2, D-590 2501 다): 내는 가문과 시설 주인 가문이 그 카드가 붙은 연맹에 함께 들었으면 깎는다
-      const fee = leagueDiscountedFee(core, ownerId, deps.place(buildingId)?.ownerId, quoted);
+    chargeService(ownerId, buildingId, fee, kind, atMs, asset = deps.fallbackAsset, keep = 0n) {
       if (fee <= 0n) return null;
       const wallet = ledger.ownerAccount(ownerId, asset);
       if (ledger.balance(wallet) < fee + (keep > 0n ? keep : 0n)) return "insufficient_funds";

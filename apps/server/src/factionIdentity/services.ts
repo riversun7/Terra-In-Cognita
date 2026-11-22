@@ -476,7 +476,7 @@ export function createFactionIdentityServices(
     },
 
     house: houseOf,
-    leagues: (viewer) => leaguesView(pool, viewer.id, shared.rules().leagueFeeDiscountPm),
+    leagues: (viewer) => leaguesView(pool, viewer.id),
 
     async dismissHouseNotices(viewer, input) {
       await dismissHouseNotices(pool, viewer.id, input.ids ?? null);

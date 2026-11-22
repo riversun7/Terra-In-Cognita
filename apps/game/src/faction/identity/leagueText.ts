@@ -1,5 +1,5 @@
-// 가문 연맹 문구 표(league-2, 사용자 결정 D-590) — 결과 코드·조항 카드 → 메시지(oxlint: 메시지 이름을 계산해 읽지 않는다, 표로 적는다).
-import type { HouseLeagueClause, HouseLeagueResultCode } from "@terra/protocol";
+// 가문 연맹 문구 표(league-2, 사용자 결정 D-590 — 조항 카드는 league-3 D-593에서 없앰) — 결과 코드 → 메시지(oxlint: 메시지 이름을 계산해 읽지 않는다, 표로 적는다).
+import type { HouseLeagueResultCode } from "@terra/protocol";
 import type { HouseLeagueHouse } from "@terra/shared/houseLeague";
 import { m } from "../../paraglide/messages.js";
 
@@ -25,21 +25,6 @@ export const LEAGUE_ERROR_TEXT: Readonly<Record<HouseLeagueResultCode | "offline
   no_request: m.fid_league_error_no_request,
   invalid_clause: m.fid_league_error_clause,
 };
-
-/** 조항 카드 이름 */
-export const LEAGUE_CLAUSE_NAME: Readonly<Record<HouseLeagueClause, Text>> = {
-  shared_vision: m.fid_league_clause_shared_vision,
-  fee_discount: m.fid_league_clause_fee_discount,
-};
-
-/** 조항 카드 설명(할인 몫 ‰ → %) */
-export function leagueClauseHint(clause: HouseLeagueClause, feeDiscountPm: number): string {
-  if (clause === "fee_discount")
-    return m.fid_league_clause_fee_discount_hint({
-      percent: (Math.max(0, Math.trunc(feeDiscountPm)) / 10).toString(),
-    });
-  return m.fid_league_clause_shared_vision_hint();
-}
 
 /** 가문 이름(없으면 "가문 p:12") */
 export const leagueHouseName = (house: HouseLeagueHouse): string =>

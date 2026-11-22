@@ -11282,22 +11282,22 @@
       "source": "ADR 2026-11-21-npc-needs-drives \"바뀜 (league-2, D-590)\" · D-590 2502 다 · D-323 성향 규칙식 [임시]"
     },
     {
-      "id": "house_league_fee_discount_pm",
+      "id": "house_unit_care_cost_cap_pm",
       "code": "",
       "name": {
-        "ko": "가문 연맹 요금 할인 카드: 깎는 몫(‰)",
-        "en": "House league fee discount card: discount (‰)"
+        "ko": "유닛 자율 치료 요금 상한(지갑의 ‰)",
+        "en": "Unit self-care treatment cost cap (‰ of purse)"
       },
-      "value": 200,
+      "value": 500,
       "structural": false,
       "unit": "pm",
       "min": 0,
       "max": 1000,
       "desc": {
-        "ko": "요금 할인 카드(fee_discount)가 붙은 연맹에 함께 든 플레이어 가문끼리는 상대 가문 시설의 사업장 요금·병원·신전 요금·물자 거래소 이용료를 이 몫만큼 덜 낸다(내림). 0이면 깎지 않는다.",
-        "en": "Player houses that share a league with the fee discount card pay this much less (rounded down) for business service fees, hospital and temple fees and goods exchange fees at each other's facilities. 0 means no discount."
+        "ko": "관리인이 맡은 다친 유닛과 다친 NPC 휴먼이 스스로 병원에 갈 때, 치료 요금이 지갑(플레이어 유닛은 주인 지갑, NPC 휴먼은 그 휴먼 지갑) × 이 몫 이하인 병원만 고른다. 그 도시에 그런 병원이 없으면 그런 병원이 있는 가장 가까운 다른 도시로 걸어가 치료하고 돌아온다. 0이면 치료하지 않는다.",
+        "en": "When a steward-managed injured unit or an injured NPC human goes to hospital on its own, it only picks hospitals whose fee is at most the purse (the owner's wallet for player units, the human's own purse for NPC humans) times this. If its city has none, it walks to the nearest other city that has one, gets treated and walks back. 0 means no treatment."
       },
-      "source": "ADR 2026-11-21-npc-needs-drives \"바뀜 (league-2, D-590)\" · D-590 2501 다(연맹 조항 카드) [임시]"
+      "source": "ADR 2026-11-21-npc-needs-drives \"바뀜 (league-3)\" · D-590 2507 가 · 질문 2645 (다) 기술 기본값 [임시]"
     },
     {
       "id": "house_npc_city_houses_l1",

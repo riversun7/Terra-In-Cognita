@@ -421,11 +421,15 @@ export interface SocietyCoefficients {
     readonly leagueVotePeriodMs?: number | undefined;
     readonly leagueVoteQuorumPm?: number | undefined;
     /**
-     * NPC 가문 연맹 초대 문턱(0~1000 — 대표와의 성향 친밀도, npcLeague.ts)과 연맹 조항 카드 fee_discount의 요금 깎는 몫(‰, world/leagueTies.ts) — league-2(D-590
-     * 2502 다·2501 다) [임시]. 없으면 600·200
+     * NPC 가문 연맹 초대 문턱(0~1000 — 대표와의 성향 친밀도, npcLeague.ts) — league-2(D-590 2502 다) [임시]. 없으면 600. (연맹 조항 카드 fee_discount 몫은
+     * league-3 — 사용자 결정 D-593 "연맹은 친목"에서 없앰)
      */
     readonly npcLeagueInviteScore?: number | undefined;
-    readonly leagueFeeDiscountPm?: number | undefined;
+    /**
+     * 다친 유닛 자율 치료의 요금 상한(‰ — 견적 ≤ 지갑 × 이 몫인 병원만, 서버 labor/stewardCare.ts) — league-3(질문 2645 (다) 기술 기본값) [임시]. 없으면 500.
+     * 시뮬 판정에는 쓰지 않는다
+     */
+    readonly unitCareCostCapPm?: number | undefined;
   };
   /**
    * 장비·인공장기 수리(D-5031, 49 F11·F12): 수리 시설 Lv1~5의 최대 내구도 감소(%, 장인 실력 1000‰이면 반으로 줄어든다), 감소 하한(%),
@@ -678,7 +682,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     leagueVotePeriodMs: 259_200_000,
     leagueVoteQuorumPm: 500,
     npcLeagueInviteScore: 600,
-    leagueFeeDiscountPm: 200,
+    unitCareCostCapPm: 500,
   },
   durability: {
     repairLossPct: [30, 25, 20, 15, 10],

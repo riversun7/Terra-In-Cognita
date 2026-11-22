@@ -356,7 +356,7 @@ NPC 가문이 연맹을 만들지도 들지도 않는 것(2502 — D-555 1509 "N
 
 사용자 원문(D-590): "1. 다 2. 다 3. 가 4. 나 5. 가. 유닛이 알아서 병원가서 치료하고 오든지 경미한부상은 계속 일하든지 자율판단". 시뮬 판정은 바뀌지 않는다(연맹·관리인은 서버만의 고리 — `SIM_VERSION` 그대로, 시뮬 계수표에 칸 둘만 더함).
 
-### 1. 연맹 조항 카드 (2501 다)
+### 1. 연맹 조항 카드 (2501 다) — **대체됨**(사용자 결정 D-593 — 아래 "바뀜 (league-3, D-593)" 1절: 연맹은 친목, 카드 없앰)
 - 연맹이 주는 우호 기능은 연맹에 붙이는 **조항 카드**다. 나라 외교 조약(`diplomacy_treaties`, ADR `2026-11-21-diplomacy-treaties.md`)과 따로다(표·명령·집행 모두 따로).
 - 카드 목록 [임시] — 지금 서버가 집행할 수 있는 것만(`@terra/protocol` `HOUSE_LEAGUE_CLAUSES`, 표 `house_league_clauses`):
   - `shared_vision` 시야 나눔: 든 플레이어 가문의 가문원·가문 주체 유닛·건물이 덮는 칸을 서로 남을 보는 시야에 더한다(2차맵 시야 `world/vision.ts` `allies` — 나라 덮개와 같은 꼴, 탐사 기록은 채우지 않는다, 함께 든 가문 유닛이 있는 2차맵은 볼 수 있다).
@@ -454,3 +454,53 @@ NPC 가문이 연맹을 만들지도 들지도 않는 것(2502 — D-555 1509 "N
 ### 2. 기술 기본값 확인 (2601·2602·2603 — 코드 바꿈 없음)
 - 2601: 연구는 그대로(수요·자본 도전만). 연구 시설 유지비나 기술 효과의 값이 정해지면 같은 D-587 8 틀(`investReturnPm`)에 넣는다.
 - 2602·2603: NPC 가문 연맹 표(성향 친밀도로 표·투표 열기)·나가기(친밀도 문턱)는 지금 꼴 그대로 확정([임시] 표시를 떼지는 않는다 — 수치는 설정 칸).
+
+## 바뀜 (league-3, D-593, 2026-11-22 — 사용자 결정 D-593(코디네이터 전달) "연맹은 친목이라고 그런거 아니라고": **D-590 1(2501 다 — 조항 카드)을 대신한다**. 기획 검토 2645, 기술 기본값 확인 2641·2644, 팩 core@147 [줄기 판 245], 프로토콜 68(최소 67 — 묶음 1117i, 연맹 조항 행동 뜻 바뀜) [줄기는 판을 올리지 않음], SIM·마이그레이션 그대로)
+
+### 1. 연맹 = 친목 모임 — 조항 카드를 없앤다 (D-593, D-590 1 대체)
+- 연맹은 가문끼리의 친목 모임일 뿐이다. 위 "바뀜 (league-2, D-590)" 1절(조항 카드 `shared_vision`·`fee_discount`, 대표가 붙이고 뗌, 집행 고리)은 **대체됨**.
+- 없앤 것:
+  - 집행: `world/leagueTies.ts`(+ 시험)를 지웠고, 그 고리를 league-2 전 모양으로 되돌렸다 — 2차맵 시야 `world/vision.ts`(`allies`·연맹 덮개)·`nationVision.ts`·`gateway.ts`·`visibility.ts`·`facilities/appSource.ts`·
+    `visionShare.test.ts`의 연맹 시험, 사업장 요금 `business/commands.ts chargeService`, 병원·신전 요금 `temple/places.ts payServiceFee`, 물자 거래소 이용료 `npc/economy.ts feeDiscount`·`market/worldInput.ts`.
+    `factionIdentity/attach.ts`의 `attachLeagueTies`도 지웠다.
+  - 연맹 서비스: 조항 카드 상태·읽기·쓰기(`leagueService.ts` clauses·`ties.partnersOf`, `leagueStore.ts setClause`·카드 읽기, `houseLeague.ts setHouseLeagueClause`), 조회 모양의 `clauses`·`feeDiscountPm`
+    (`@terra/shared/houseLeague`, `leagueView.ts`), 설정 고리 `rules.ts leagueFeeDiscountPm`.
+  - 설정 칸 `house_league_fee_discount_pm`(팩 `tuning.json`·`tuningHouse.ts`·계수표 `house.leagueFeeDiscountPm`). `id-changes.json`에 tuning `house_league_fee_discount_pm`(since 147 [줄기 판 245], 보상 없음)을 뒤에 더했다.
+  - 화면: 연맹 카드의 조항 카드 칸(`HouseLeagueBlock.tsx`), 카드 이름·설명 문구(`leagueText.ts`, 메시지 `fid_league_clause*` 9키 ko·en), 화면 시험의 카드 붙이기 단계(`e2e/house-league.spec.ts` — 이제 카드 칸이 없음을 본다).
+    연맹 안내 문구(`fid_league_hint`)를 "친목 모임"으로 고쳤다.
+- 남긴 것(그대로): 만들기·초대 → 수락·신청 → 승인·거절·나가기·대표 위임·대표 투표·대표 승계·NPC 가문 절차. 연맹 화면 = 연맹 이름·대표·든 가문 목록 + 들기·나가기·투표 버튼(새 친목 기능은 정해진 것이 없어 만들지 않았다).
+- 옛 기기: 메시지 모양(`house_league`의 `clause_on`·`clause_off` 행동·`clause` 칸, `HOUSE_LEAGUE_CLAUSES`, 답 코드 `invalid_clause`)은 그대로 둔다 — 66판 기기가 보내도 풀리고, 서버는 늘 `invalid_clause`로 답한다
+  (문구는 "연맹 조항 카드는 없어졌습니다"). 모양·답 코드가 같아 `PROTOCOL_VERSION`은 올리지 않았다(묶음이 판을 올릴 때 이 행동을 뺄 수 있다).
+- 표 `house_league_clauses`: 올라간 마이그레이션이라 지우지 않고 쓰지 않는다(새 마이그레이션 없음 — 직전 판 앱이 그 표를 쓰므로 지우는 마이그레이션은 다음 판 정리로 미룬다). 연맹이 끝날 때 그 줄도 지운다(외래 키 cascade와 같음).
+- 기획 검토 2643 (1)(NPC 가문 자산에 카드가 닿게 — 이 줄기에서 먼저 만들던 것)은 카드가 없어져 **멈췄다**(코드에 넣지 않음). 2643 전체가 쓸모없어졌다. 2642(누가 카드를 붙이나)는 D-593으로 답이 났다(카드 없음).
+
+### 2. 다른 도시 병원으로 걸어가 치료하고 돌아온다 (2645 — 기획 검토: D-590 "병원가서 치료하고 오든지"·D-591 "어떠한 경우에도 순간이동은 없다"·NPC도 D-555 1509)
+- `labor/stewardCare.ts`(관리인 살피기마다 — 살피기는 이제 비접속 유저가 없어도 자율 치료를 먼저 부른다):
+  1. 판단은 그대로(위험 감수 대 부상 무게).
+  2. **요금 상한**(2645 (다) 기술 기본값): 견적 ≤ 지갑 × 설정 칸 `house_unit_care_cost_cap_pm`(500‰ [임시])인 병원만.
+  3. 그 도시에 상한 안 병원이 있으면 가장 빠른 곳에서 치료(그대로).
+  4. 없으면 상한 안의 다른 도시 병원 가운데 가장 가까운 곳(행성 위 2차맵 거리 → 칸 거리 → 건물 ID, `travel/encounterHome.ts nearestHome`)으로 **실제로 걸어간다** — 플레이어 유닛은 이동 서비스(`travel.start`, kind move,
+     유저가 보내는 것과 같은 길·시간), NPC 휴먼은 NPC 이동(`CareNpcTravel` — 아래). 닿으면 견적을 다시 받아 그 도시 병원에서 치료하고, 치료했든 못 했든 떠난 자리로 걸어 돌아온다.
+  5. 떠나면 그 시설 2차맵을 떠나므로 계약이 끝난다(`labor/service.ts` 522 ① — 그대로). 돌아오면 관리인이 그 2차맵 일자리에 다시 넣는다("일을 쉬고 돌아온다"). 가는·돌아오는 동안에는 새 일자리에 넣지 않는다(`busy`).
+  6. 길 기억은 메모리(다시 켜면 버린다 — 유닛은 선 자리에 남고 다음 살피기가 다시 판단한다), 3일이 지나도 끝을 모르면 버린다 [임시]. 플레이어 유닛은 유저가 접속하면 그 길을 유저에게 맡기고 잊는다.
+- 병원 서비스(`hospital/service.ts`)에 서버 판단 몫 둘: `careQuotes`(그 유닛의 모든 일하는 병원 견적 — 도시·2차맵·건물 칸), `treatBy`(주인 확인 없이 정한 지갑 계정·화폐로 그 병원 사업장 금고에 낸다 — 주인 없는 병원은 쓰지 않는다).
+- **NPC 휴먼도 같은 판단**(D-555 1509 — "NPC 휴먼은 병원에 가지 않는다"를 대신한다): 2차맵 위 NPC 나라 주체의 거울 세계 휴먼(유닛 종류 0, 플레이어 가문 주체 휴먼 빼고), 성향 = NPC 런타임 유닛 성향.
+  돈 = 그 휴먼 지갑, 나라 화폐(`treatBy` — NPC 숙박비와 같은 꼴로 견적 수치를 나라 화폐로 낸다 [임시 — 질문 2701]). NPC 휴먼은 닿은 뒤 다시 스스로 걷기 때문에 닿았다는 알림(onDone)에서 바로 치료하고 돌려보낸다.
+  한 번 살필 때 NPC는 견적 받기 20번까지(따로, 지난번 다음 유닛부터 돌아가며 — 못 고치는 휴먼이 앞자리를 늘 차지하지 않게).
+- NPC 부상은 따로 굴리지 않는다: NPC 휴먼이 다치는 곳은 지금 전투 결과(`world/battleResults.ts`)·도중 습격이다(작업 중 부상은 소유 주체 정산의 2차맵 직무 상태로 굴리는데, NPC 도시 경제 일꾼은 그 직무 상태로
+  정산되지 않는다고 본다 — Assumed: 정산·NPC 경제 코드 일부만 읽음). 판단은 2차맵 유닛 상태의 부상 단계를 보므로 어디서 다쳤든 같다. NPC 일꾼의 작업 중 부상을 둘지는 질문 2702.
+- **NPC 이동 접점(통합 메모)**: 줄기 no-teleport-b(머리 0ce23b84ba — main 전)가 `travel/npcTravel.ts npcTravelOf(world.persistence.travel)`를 만들었다: `send(unitId, { mapKey, x, y }, onDone?)` →
+  `{ ok: true, arriveAt } | { ok: false, code }`, `onDone({ unitId, state, stop, mapKey })`(메모리에만), 봇·NPC 지도자만, 목적 2차맵은 띄운 것. 이 줄기는 같은 꼴의 `CareNpcTravel`·`CareNpcTravelDone`·`CareNpcSendResult`를 두고
+  `hospital/attach.ts`에서 `travel: () => undefined`(그루터기)를 넘긴다 — 그때까지 NPC 휴먼은 같은 도시 병원만 쓴다. 합칠 때 `travel: () => npcTravelOf(p.travel)`로 바꾼다(병원이 선 2차맵은 건물이 있어 늘 떠 있다).
+
+### 기술 기본값 확인 (코드 바꿈 없음)
+- 2641 초대·신청은 기한·수 상한 없이 그대로, 2644 NPC 가문 들기 절차 그대로.
+
+### 설정 칸 [임시] (팩 core@147 [줄기 판 245])
+- 더함: `house_unit_care_cost_cap_pm` 500(자율 치료 요금 상한 — 지갑의 ‰). 없앰: `house_league_fee_discount_pm`(위 1절).
+
+### 감수할 점·모르는 것
+- 다른 도시 병원 다녀오기는 그동안 임금을 못 받고 계약이 끊긴다(돌아와 새로 받는다 — 같은 일자리가 남아 있다는 보장은 없다).
+- 걸어가는 동안 도중 습격·좌표 조우는 플레이어 이동과 같다(플레이어 유닛). NPC 휴먼은 NPC 이동 규칙을 따른다(no-teleport-b).
+- NPC 휴먼의 병원 요금을 견적 수치 그대로 나라 화폐로 받는 것은 나라 화폐 값이 시험 화폐와 다를 때 싸거나 비쌀 수 있다(질문 2701).
+- 서버 실제 세계에서 NPC 치료 빈도·다른 도시 다녀오기 빈도는 재지 않았다(단위 시험만 — Unknown).

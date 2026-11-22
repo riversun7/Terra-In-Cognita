@@ -15,7 +15,6 @@ import type { ServerEconomyCatalog } from "./catalog.ts";
 import { buildingCenterOf, createExchangeDirectory } from "./exchangeBuildings.ts";
 import { exchangeFeeOf, fxFeeOf } from "./fxFee.ts";
 import { npcOutsourceOf } from "../logistics/npcOutsource.ts";
-import { leagueDiscountedFee } from "../world/leagueTies.ts";
 
 export function npcEconomyInputOf(
   catalog: (() => ServerEconomyCatalog) | undefined,
@@ -77,9 +76,6 @@ export function npcEconomyInputOf(
         facilities.rules().business,
         buildingId,
       ).charged,
-    // 연맹 조항 카드 fee_discount(league-2, D-590 2501 다): 판 쪽 가문과 거래소 건물 주인 가문이 그 카드가 붙은 연맹에 함께 들었으면 이용료를 깎는다
-    feeDiscount: (seller, buildingId, fee) =>
-      leagueDiscountedFee(facilities.business, seller, ownerOf(buildingId), fee),
     // 운반꾼이 없는 NPC 운반은 같은 도시 물류센터에(기획 대조 2274 — 실제 운반 길, 요금은 국고 → 그 물류센터 금고)
     haulOutsource: (ledger) =>
       npcOutsourceOf({ haul: facilities.haul, places: () => facilities.service.places, maps, ledger }),

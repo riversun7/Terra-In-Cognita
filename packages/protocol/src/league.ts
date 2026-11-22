@@ -11,6 +11,9 @@
 // - 조항 카드(2501 다): 대표가 연맹에 우호 기능 카드를 붙이고(clause_on) 뗀다(clause_off). clause = HOUSE_LEAGUE_CLAUSES 하나. 카드 목록은 [임시].
 // - 대표가 나가면 가장 오래 든 가문이 대표가 된다(2504 나) — 옛 결과 코드 representative_must_delegate는 더 보내지 않는다(낮은 판 기기 해석용으로 남긴다).
 // 63판 이하 기기는 이 메시지를 보내지 않고, 65판 기기는 새 행동(invite·approve·decline·clause_on·clause_off)을 보내지 않는다.
+// 바뀜 (league-3, 사용자 결정 D-593 "연맹은 친목이라고 그런거 아니라고" — D-590 1(조항 카드)을 대신한다): 연맹은 친목 모임일 뿐이라 조항 카드를 없앴다. 메시지 모양은
+// 그대로 둔다(옛 판 기기가 clause_on·clause_off·clause를 보내도 풀린다) — 서버는 늘 invalid_clause로 답하고, 새 기기는 보내지 않는다. HOUSE_LEAGUE_CLAUSES는 옛 판 해석용으로만
+// 남는다(모양·답 코드가 그대로라 프로토콜 판은 올리지 않았다).
 import { z } from "zod";
 
 /** 가문 연맹 메시지에 필요한 가장 낮은 프로토콜 버전(묶음 1117d 64 — 줄기 npc-invest-2 판 103) */
@@ -20,7 +23,7 @@ export const HOUSE_LEAGUE_PROTOCOL_VERSION = 64;
 export const HOUSE_LEAGUE_REQUEST_PROTOCOL_VERSION = 66;
 
 /**
- * 연맹 조항 카드(2501 다 — 나라 조약과 따로, 연맹에 붙인다) [임시 — 지금 서버가 집행할 수 있는 것만]:
+ * (옛 판 해석용 — league-3 D-593에서 없앤 기능. 서버는 받아도 invalid_clause) 연맹 조항 카드(2501 다 — 나라 조약과 따로, 연맹에 붙인다):
  * - shared_vision: 든 플레이어 가문의 가문원 유닛·건물 시야를 서로 나눈다(2차맵 시야, 같은 나라 공유처럼).
  * - fee_discount: 든 가문이 다른 든 가문의 시설(사업장 요금·물자 거래소 이용료)을 쓸 때 요금을 깎는다(몫 = 설정 칸 house_league_fee_discount_pm).
  */
@@ -87,7 +90,7 @@ export const HOUSE_LEAGUE_RESULT_CODES = [
   "consent_required",
   /** 받을·거절할 초대·신청이 없다(league-2) */
   "no_request",
-  /** 조항 카드가 없거나(붙이기·떼기에 clause 없음) 이미 붙었다·안 붙었다(league-2) */
+  /** 조항 카드 행동(league-2) — league-3(D-593)부터 카드가 없어 늘 이 답 */
   "invalid_clause",
 ] as const;
 export type HouseLeagueResultCode = (typeof HOUSE_LEAGUE_RESULT_CODES)[number];

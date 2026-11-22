@@ -25,7 +25,6 @@ import { attachHouseExpel } from "./houseExpel.ts";
 import { createHouseMembers } from "./members.ts";
 import { createHouseSuccession } from "./succession.ts";
 import { houseTiesOf } from "../world/houseTies.ts";
-import { attachLeagueTies } from "../world/leagueTies.ts";
 import { attachNationTaxes, nationTaxesOf } from "../government/nationTax.ts";
 import { applyNationTaxes, createNationTaxPolicy } from "../government/nationTaxPolicy.ts";
 import type { HouseRules } from "./rules.ts";
@@ -151,16 +150,6 @@ export function attachHouses(options: {
     const p = options.world?.status().state === "ready" ? options.world.persistence : undefined;
     if (!p) return;
     clearInterval(taxTimer);
-    // 연맹 조항 카드 집행 고리(league-2, D-590 2501 다 — world/leagueTies.ts): 시야는 저장 층으로, 요금은 사업장 장부로 찾는다
-    attachLeagueTies(
-      p,
-      {
-        partnersOf: (clause, house) => leagues.ties.partnersOf(clause, house),
-        version: () => leagues.ties.version(),
-        feeDiscountPm: () => options.rules().leagueFeeDiscountPm,
-      },
-      [p.facilities.business],
-    );
     // 같은 가문원을 친 사람 추방(D-592 2581 (4) [임시 — houseExpel.ts]): 일부러 치기가 세계 저장 층에서 찾는다
     attachHouseExpel(p, {
       expel: (userId, reason) =>

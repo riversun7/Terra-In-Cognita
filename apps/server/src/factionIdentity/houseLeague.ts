@@ -9,7 +9,9 @@
 // 만들고 든다"), 화면·우호 기능은 아직 없다(질문 2501). 가문 ID는 부르는 쪽이 정한 수(서비스는 가문 열쇠 p:/n:를 수로 바꿔 넣는다).
 // [임시] 기술 기본값(질문 2504): 대표는 위임하기 전에는 나가지 못한다(남은 가문이 없으면 나가며 연맹이 끝난다). 한 가문이 드는 연맹 수 상한은 두지 않는다.
 // → 바뀜 (league-2, 사용자 결정 D-590 2504 나): 대표 가문도 그냥 나간다. 남은 가문 가운데 가장 오래 든 가문(든 차례 첫째)이 대표가 된다. 연맹 수 상한은
-//   없다(그대로). 들기 절차(2502 다)·조항 카드(2501 다)는 아래 "바뀜 (league-2)".
+//   없다(그대로). 들기 절차(2502 다)는 아래 "바뀜 (league-2)".
+// → 바뀜 (league-3, 사용자 결정 D-593 "연맹은 친목이라고 그런거 아니라고" — D-590 1(조항 카드)을 대신한다): 연맹은 친목 모임일 뿐이다. 조항 카드(시야 나눔·요금 할인)와
+//   그 규칙(setHouseLeagueClause)을 없앴다. 결과 코드 invalid_clause는 옛 판 기기가 보내는 카드 행동의 답으로만 남는다(leagueService.ts).
 
 /** 연맹 하나 */
 export interface HouseLeague {
@@ -243,24 +245,4 @@ export function declineHouseLeague(
   const target = house ?? actor;
   if (!requests.has(target)) return reqFail("no_request");
   return { ok: true, league, requests: without(requests, target), joined: null };
-}
-
-export type HouseLeagueClauseResult =
-  | { readonly ok: true; readonly clauses: ReadonlySet<string> }
-  | { readonly ok: false; readonly code: HouseLeagueFailure };
-
-/** 대표가 조항 카드를 붙이거나(on) 뗀다. 이미 붙은 것을 붙이거나 없는 것을 떼면 invalid_clause */
-export function setHouseLeagueClause(
-  league: HouseLeague,
-  clauses: ReadonlySet<string>,
-  from: number,
-  clause: string,
-  on: boolean,
-): HouseLeagueClauseResult {
-  if (from !== league.representative) return { ok: false, code: "not_representative" };
-  if (clauses.has(clause) === on) return { ok: false, code: "invalid_clause" };
-  const next = new Set(clauses);
-  if (on) next.add(clause);
-  else next.delete(clause);
-  return { ok: true, clauses: next };
 }

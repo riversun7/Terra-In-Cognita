@@ -142,6 +142,10 @@
   border-radius: var(--radius-panel);
   background: var(--color-surface-2);
 }
+.fid-league > .fid-house-row-main {
+  /* 세로 줄 안에서는 늘이지 않는다(fid-house-row-main의 flex-basis가 높이가 되지 않게) */
+  flex: none;
+}
 .fid-league-member {
   display: flex;
   flex-wrap: wrap;

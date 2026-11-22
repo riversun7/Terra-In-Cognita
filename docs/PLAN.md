@@ -431,7 +431,7 @@ self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·
 ### 10.4 코드 규칙
 - 주석은 한국어, 이름(변수·함수·파일)은 영어.
 - 모듈 경계는 `scripts/check-boundaries.mjs`(package.json 내부 의존 허용 목록 + 타입 전용 의존의 `import type` 검사 + 판정 코드 금지 API) + pnpm 엄격 의존성 + 패키지 `exports`로 강제(4.1 의존 방향, ADR 17·23). 게임 앱 코드의 Node 전역·내장 모듈은 oxlint로 막는다(ADR 23).
-- 파일 크기: 600줄 초과 경고, 1,000줄 초과 CI 실패(자동 생성 파일 제외). 기존 프로젝트는 최대 4,765줄이었다 [V].
+- 파일 크기: 5,000줄 초과 경고만, 실패 없음(자동 생성 파일 제외, 2026-11-22 사용자 결정 — ADR `2026-11-22-file-size-warning-only.md`, 옛 규칙 600줄 경고·1,000줄 실패를 대체). 기존 프로젝트는 최대 4,765줄이었다 [V].
 - 복사해 쓴 코드·데이터의 출처와 라이선스는 `THIRD_PARTY_NOTICES.md`에 적는다(FastNoiseLite 등).
 - 보호 경로(`packages/protocol`, 원장, `packages/planet` 생성기, `packages/sim`)는 ADR 링크 없이 의미를 바꾸지 않는다.
 - AI 지침: `AGENTS.md`가 원본, `CLAUDE.md`는 `@AGENTS.md`로 불러온다 [V: Claude Code 문서]. Antigravity는 `AGENTS.md`를 읽는 것으로 알려져 있다 [A: 3차 출처, IDE 버전 확인 필요]. 스킬은 `.claude/skills/`에 두고 Antigravity는 같은 폴더를 `.agent/skills`(링크)로 읽는다. 구성·사용 순서는 ADR 19와 AGENTS.md 8장.

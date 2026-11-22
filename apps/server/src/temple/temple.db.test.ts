@@ -301,7 +301,7 @@ describe.skipIf(!TEST_DATABASE_URL)("신전·종교(D-517)", () => {
         cost: String(C.deifyCurrency),
       }),
     ).toEqual({ ok: true, unitId: first });
-    // 같은 유닛이 수호신 유닛(종류 6)으로 남는다(휴먼 행만 지움, 버프 출발값 방어, 일하지 않음)
+    // 같은 유닛이 수호신 상태인 휴먼(종류 4 그대로 + guardian 칸, 기획 D-589)으로 남는다(휴먼 행만 지움, 버프 출발값 방어, 일하지 않음)
     view = await temple.overview({ id: userId, devGrant: true }, clock);
     expect(view.rules.guardianDefensePm).toBe(C.guardianDefensePm);
     expect(view.guardians.map((g) => [g.unitId, g.cityId, g.mine, g.buff, g.present])).toEqual([
@@ -309,7 +309,9 @@ describe.skipIf(!TEST_DATABASE_URL)("신전·종교(D-517)", () => {
     ]);
     expect(view.temples[0]?.guardians).toBe(1);
     expect(view.humans.map((h) => h.unitId)).toEqual([second]);
-    expect(await rows(test.db, `select kind from world_units where id = $1`, [first])).toEqual([{ kind: 6 }]);
+    expect(await rows(test.db, `select kind, guardian from world_units where id = $1`, [first])).toEqual([
+      { kind: 4, guardian: true },
+    ]);
     expect(await rows(test.db, `select 1 from world_humans where unit_id = $1`, [first])).toEqual([]);
     expect(temple.isAway(first)).toBe(true);
     expect(persistence.labor.unitBusy(first)).toBe(true);

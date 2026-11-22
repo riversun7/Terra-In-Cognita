@@ -10,7 +10,12 @@ import type { TravelResultCode } from "@terra/protocol";
 import type { QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
-import { UNIT_KIND_CYBORG, UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
+import {
+  UNIT_KIND_CYBORG,
+  UNIT_KIND_CYBORG_UNIT,
+  UNIT_KIND_HUMAN,
+  isGuardianUnit,
+} from "../world/unitKinds.ts";
 
 /** AI 작전을 가질 수 있는 유닛 종류(조우에서 판단하는 유닛 — travel/encounterWorld.ts DECIDER_KINDS와 같다) */
 export const TACTICS_KINDS: ReadonlySet<number> = new Set([
@@ -103,11 +108,11 @@ export function attachUnitTactics(
     })
     .catch((error: unknown) => log?.error({ err: error }, "tactics: load failed"));
 
-  /** 그 사용자의 유닛 종류(띄운 2차맵 → 좌표 유닛). 내 것이 아니거나 없으면 undefined */
+  /** 그 사용자의 유닛 종류(띄운 2차맵 → 좌표 유닛). 내 것이 아니거나 수호신 상태면(판단하지 않는다 — D-589) null, 없으면 undefined */
   const kindOf = (ownerId: number, unitId: number): number | null | undefined => {
     for (const map of world.maps.values()) {
       const info = map.unitInfo(unitId);
-      if (info) return info.ownerId === ownerId ? info.kind : null;
+      if (info) return info.ownerId === ownerId && !isGuardianUnit(info) ? info.kind : null;
     }
     const parked = persistence.travel
       .coordinateUnits(new Set([ownerId]))

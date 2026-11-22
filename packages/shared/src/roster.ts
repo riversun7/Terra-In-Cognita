@@ -60,11 +60,11 @@ export interface LocalizedName {
 }
 
 /**
- * 유닛 종류. human·creature·android·cyborg는 기획 유닛 종류(D-416, 콘텐츠 팩 unit_kinds), guardian은 신격화한 휴먼(수호신, 기획 답 456 가,
- * 팩 unit_kinds guardian), test_unit은 지금 세계에 있는 시험 유닛(서버 world/unitKinds.ts의 관리자 시험 유닛)이다. 시험 일꾼(test_worker)은
- * 없앴다(사용자 지적 2026-11-09 "시험일꾼 다 없애라고").
+ * 유닛 종류. human·creature·android·cyborg는 기획 유닛 종류(D-416, 콘텐츠 팩 unit_kinds — 넷으로 고정, 사용자 결정 2026-11-22·기획 D-589),
+ * test_unit은 지금 세계에 있는 시험 유닛(서버 world/unitKinds.ts의 관리자 시험 유닛)이다. 신격화한 휴먼(수호신, D-311)은 종류가 아니라 휴먼의
+ * 상태다(행 guardian 칸). 시험 일꾼(test_worker)은 없앴다(사용자 지적 2026-11-09 "시험일꾼 다 없애라고").
  */
-export const UNIT_TYPES = ["cyborg", "human", "creature", "android", "guardian", "test_unit"] as const;
+export const UNIT_TYPES = ["cyborg", "human", "creature", "android", "test_unit"] as const;
 export type UnitType = (typeof UNIT_TYPES)[number];
 
 /** 장비 칸 종류(D-422, 콘텐츠 팩 unit_kinds slots) */
@@ -237,6 +237,8 @@ export interface RosterUnit {
   readonly injury: RosterInjury;
   /** 다른 주체에게 포로로 잡혀 있다(D-187, 주인은 그대로) */
   readonly captive: boolean;
+  /** 수호신 상태인 휴먼(D-311·D-589 — 그 도시에 머물고 일하지 않는다). 아니면 없음 */
+  readonly guardian?: boolean | undefined;
   readonly moving: boolean;
   readonly cargo: readonly RosterCargo[];
   /** 만족도(휴먼, D-219·D-253 = 충성도). 0~100. 없으면 null */

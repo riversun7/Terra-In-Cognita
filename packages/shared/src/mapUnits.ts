@@ -8,12 +8,14 @@ import type { NationEmblemView } from "./nationEditor.ts";
 import type { NationEmblemSpec } from "./nationEmblem.ts";
 import type { LocalizedName, PrimaryStat, RosterJob } from "./roster.ts";
 
-/** 목록 한 줄의 종류: 사이보그 본체(플레이어 하나에 하나) + 보유 유닛 종류(roster UnitType 중 세계에 있는 것) */
+/**
+ * 목록 한 줄의 종류: 사이보그 본체(플레이어 하나에 하나) + 보유 유닛 종류(roster UnitType 중 세계에 있는 것). 수호신은 종류가 아니라 휴먼의
+ * 상태다(hold "guardian" — 사용자 결정 2026-11-22, 기획 D-589)
+ */
 export const MAP_UNIT_KINDS = [
   "cyborg_body",
   "cyborg",
   "human",
-  "guardian",
   "test_unit",
   // NPC 국가 지도자 사이보그(남의 유닛 한눈 정보에만 나온다 — docs/adr/2026-11-07-play-flow.md "WP-NPC")
   "npc_leader",
@@ -22,7 +24,7 @@ export const MAP_UNIT_KINDS = [
 ] as const;
 export type MapUnitKind = (typeof MAP_UNIT_KINDS)[number];
 
-/** 지금 명령할 수 없는 까닭: 수호신은 그 도시에 머문다(기획 답 456 가), 포로, 중태(D-145 활동 불가) */
+/** 지금 명령할 수 없는 까닭: 수호신(휴먼의 상태)은 그 도시에 머문다(기획 답 456 가·D-589), 포로, 중태(D-145 활동 불가) */
 export type MapUnitHold = "guardian" | "captive" | "critical";
 
 export interface MapUnit {

@@ -3,7 +3,7 @@
 import { SIZE_SMALL, type Rotation, type SizeClass, isSizeClass } from "@terra/sim";
 import { DEFAULT_WORLD_PLANET_ID, WORLD_DOMAINS, type WorldDomain } from "../../db/schema.ts";
 import type { BuildingRow, UnitRow } from "../secondMap.ts";
-import { TEST_NPC_FACTION_CODE } from "../unitKinds.ts";
+import { LEGACY_UNIT_KIND_GUARDIAN, TEST_NPC_FACTION_CODE, UNIT_KIND_HUMAN } from "../unitKinds.ts";
 
 /** pg Pool에서 쓰는 것만 */
 export interface QueryPool {
@@ -62,7 +62,7 @@ const toRotation = (value: unknown): Rotation => {
 };
 
 const UNIT_COLUMNS = `id, owner_id, kind, size, speed, map_key, planet_id, domain, path, pace, depart_at_ms, motion_speed,
-  motion_depart_at_ms, wake_at_ms, ai_step, job, job_phase, job_progress_ms, fatigue, injury, injury_until_ms, injury_heal_pm, held_by, aboard_id, traits`;
+  motion_depart_at_ms, wake_at_ms, ai_step, job, job_phase, job_progress_ms, fatigue, injury, injury_until_ms, injury_heal_pm, held_by, aboard_id, traits, guardian`;
 const BUILDING_COLUMNS = "id, map_key, planet_id, domain, owner_id, x, y, width, height, rotation";
 
 /**
@@ -109,6 +109,7 @@ function unitRowOf(row: Record<string, unknown>): UnitRow {
     // 타고 있는 배(docs/adr/2026-11-13-boats.md 4절)
     aboardId: numOrNull(row.aboard_id),
     traits: Array.isArray(row.traits) ? row.traits.map(num) : null,
+    ...(row.guardian === true ? { guardian: true } : {}),
   };
 }
 
@@ -176,6 +177,11 @@ export async function loadWorld(pool: QueryPool, nowMs: number): Promise<LoadedW
   );
 
   const presence = await pool.query(`select user_id, offline_since_ms from world_presence`);
+  // 옛 수호신 종류(6)를 휴먼 + 수호신 상태로(마이그레이션 guardian_state와 같은 문장 — 직전 판 앱이 배포 사이에 다시 쓴 줄, 기획 D-589). 다음 배포에서 지운다
+  await pool.query(`update world_units set kind = $1, guardian = true where kind = $2`, [
+    UNIT_KIND_HUMAN,
+    LEGACY_UNIT_KIND_GUARDIAN,
+  ]);
   const owners = await pool.query(
     `select id, user_id, faction_id, settled_at_ms, upkeep_arrears, upkeep_unpaid_at_ms from world_owners`,
   );

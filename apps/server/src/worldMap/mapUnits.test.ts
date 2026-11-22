@@ -9,7 +9,6 @@ import { createTestMap } from "../world/testSupport.ts";
 import {
   UNIT_KIND_BOT,
   UNIT_KIND_CYBORG,
-  UNIT_KIND_GUARDIAN,
   UNIT_KIND_HUMAN,
   UNIT_KIND_NPC_LEADER,
 } from "../world/unitKinds.ts";
@@ -34,7 +33,8 @@ function setup() {
   // 내 주체 5: 휴먼 7(직무), 사이보그 본체 9, 수호신 4, 포로가 된 휴먼 8. 남의 유닛 3
   map.addUnit({ id: 7, size: 1, speed: 437, cellX: 20, cellY: 21, ownerId: 5, kind: UNIT_KIND_HUMAN });
   map.addUnit({ id: 9, size: 1, speed: 437, cellX: 10, cellY: 11, ownerId: 5, kind: UNIT_KIND_CYBORG });
-  map.addUnit({ id: 4, size: 1, speed: 437, cellX: 30, cellY: 30, ownerId: 5, kind: UNIT_KIND_GUARDIAN });
+  map.addUnit({ id: 4, size: 1, speed: 437, cellX: 30, cellY: 30, ownerId: 5, kind: UNIT_KIND_HUMAN });
+  map.markGuardian(4);
   map.addUnit({ id: 8, size: 1, speed: 437, cellX: 40, cellY: 40, ownerId: 5, kind: UNIT_KIND_HUMAN });
   map.addUnit({ id: 3, size: 1, speed: 437, cellX: 50, cellY: 50, ownerId: 6, kind: UNIT_KIND_HUMAN });
   map.setJob(7, { job: JOB_GATHER, phase: 0, progressMs: 0, fatigue: 0 });
@@ -54,7 +54,7 @@ describe("world.mapUnits", () => {
     expect(answer).toMatchObject({ status: "ready", loaded: true, operator: false, mapKey: MAP_KEY });
     expect(answer.units.map((unit) => [unit.unitId, unit.kind, unit.hold])).toEqual([
       [9, "cyborg_body", null],
-      [4, "guardian", "guardian"],
+      [4, "human", "guardian"],
       [7, "human", null],
       [8, "human", "captive"],
     ]);

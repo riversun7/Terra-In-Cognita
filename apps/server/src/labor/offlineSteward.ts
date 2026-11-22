@@ -9,7 +9,7 @@
 // - 대상: 고용 휴먼·사이보그 유닛(유저의 사이보그 본체·수호신·배는 건드리지 않는다).
 // - 부하: 살피는 주기 = 가문 상태 점검 주기(설정 칸 npc_ai_house_check_ms), 한 번에 받는 계약 수 상한.
 import type { LaborContract, SocietyCoefficients } from "@terra/sim";
-import { UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
+import { UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN, isGuardianUnit } from "../world/unitKinds.ts";
 
 /** [임시] 한 번 살필 때 맺는 계약 수 상한(부하·한꺼번에 몰림 방지) */
 export const STEWARD_ACCEPTS_PER_SWEEP = 20;
@@ -19,7 +19,12 @@ const STEWARD_KINDS: ReadonlySet<number> = new Set([UNIT_KIND_HUMAN, UNIT_KIND_C
 interface StewardMap {
   readonly mapKey: number;
   forEachUnit(
-    visit: (unit: { readonly id: number; readonly kind: number; readonly ownerId: number }) => void,
+    visit: (unit: {
+      readonly id: number;
+      readonly kind: number;
+      readonly ownerId: number;
+      readonly guardian?: boolean | undefined;
+    }) => void,
   ): void;
 }
 
@@ -104,7 +109,12 @@ export function createOfflineSteward(o: {
         const idle = new Map<number, { unitId: number; mapKey: number }[]>();
         for (const map of o.maps.values())
           map.forEachUnit((unit) => {
-            if (!owners.has(unit.ownerId) || !STEWARD_KINDS.has(unit.kind) || o.labor.unitBusy(unit.id))
+            if (
+              !owners.has(unit.ownerId) ||
+              !STEWARD_KINDS.has(unit.kind) ||
+              isGuardianUnit(unit) ||
+              o.labor.unitBusy(unit.id)
+            )
               return;
             const list = idle.get(unit.ownerId);
             if (list) list.push({ unitId: unit.id, mapKey: map.mapKey });

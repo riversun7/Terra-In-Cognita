@@ -38,6 +38,8 @@ export interface MapUnitState {
   home: BotHome | undefined;
   aboard: number | undefined;
   traits: readonly number[] | undefined;
+  /** 수호신 상태(종류는 휴먼 그대로, 기획 D-589 — unitKinds.ts isGuardianUnit) */
+  guardian: boolean;
 }
 
 export type CommandResult = { ok: true; buildingId?: number } | { ok: false; code: ResultCode };
@@ -56,6 +58,8 @@ export interface UnitView {
   readonly aboard?: number | undefined;
   /** 개별 유닛 7축 성향(0~1000 길이 7). 없으면 undefined */
   readonly traits?: readonly number[] | undefined;
+  /** 수호신 상태(기획 D-589). 없으면 아니다 */
+  readonly guardian?: boolean | undefined;
 }
 
 export interface MapLog {
@@ -155,6 +159,8 @@ export interface SecondMap {
   setOwner(unitId: number, ownerId: number): boolean;
   /** 유닛 종류 코드를 바꾸고 저장한다(사이보그 융합 D-470: 휴먼 → 사이보그 유닛, 봇 ↔ 봇 아닌 것은 바꾸지 않는다). 없으면 false */
   setKind(unitId: number, kind: number): boolean;
+  /** 유닛을 수호신 상태로 둔다(종류는 그대로, 기획 D-311·D-589 — 신전 신격화). 없거나 봇이면 false */
+  markGuardian(unitId: number): boolean;
   /** 유닛을 지운다(NPC 휴먼 사망). 하던 이동·예약은 버리고 보던 기기에 숨김을 보낸다. 없으면 false */
   removeUnit(unitId: number): boolean;
   /** 안전한 곳(기준 칸 = 가장 가까운 안전 도시, 없으면 가운데)으로 바로 옮긴다(질문 108 기본안·D-351). 하던 이동은 버린다 */
@@ -229,6 +235,8 @@ export interface SecondMap {
         domain: WorldDomain;
         /** 타고 있는 배(없으면 undefined) */
         aboard: number | undefined;
+        /** 수호신 상태(기획 D-589 — unitKinds.ts isGuardianUnit) */
+        guardian: boolean;
       }
     | undefined;
   /** 배 하나를 물 칸 (x, y)(기준 칸, 크기 등급 2)에 세운다(docs/adr/2026-11-13-boats.md 3절). 물 격자가 없거나 설 수 없으면 false */

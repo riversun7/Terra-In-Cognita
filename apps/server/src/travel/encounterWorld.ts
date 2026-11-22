@@ -59,6 +59,7 @@ import {
   UNIT_KIND_CYBORG_UNIT,
   UNIT_KIND_HUMAN,
   isAfloat,
+  isGuardianUnit,
 } from "../world/unitKinds.ts";
 import type { WorldPersistence } from "../world/world.ts";
 import { type HaltedGather, reconsiderTrips, RECHECK_SLACK_MS } from "./afterEncounter.ts";
@@ -100,8 +101,12 @@ const DECIDER_KINDS: ReadonlySet<number> = new Set([
   UNIT_KIND_HUMAN,
   UNIT_KIND_CYBORG_UNIT,
 ]);
-/** 조우에 드는 종류(판단하는 유닛 + NPC 휴먼 봇은 상대로만). 지도자·수호신·시험 유닛·배는 빠진다 */
+/** 조우에 드는 종류(판단하는 유닛 + NPC 휴먼 봇은 상대로만). 지도자·시험 유닛·배는 빠진다 */
 const PARTICIPANT_KINDS: ReadonlySet<number> = new Set([...DECIDER_KINDS, UNIT_KIND_BOT]);
+/** 종류 + 상태: 수호신 상태인 휴먼(기획 D-311·D-589 — 그 도시 방어전에만)은 판단·조우에서 빠진다 */
+type KindOf = { readonly kind: number; readonly guardian?: boolean | undefined };
+const isDecider = (unit: KindOf): boolean => DECIDER_KINDS.has(unit.kind) && !isGuardianUnit(unit);
+const isParticipant = (unit: KindOf): boolean => PARTICIPANT_KINDS.has(unit.kind) && !isGuardianUnit(unit);
 
 export interface CoordinateRules {
   /** 조우 한 번 찾기(시험·타이머). 연 전투 수 */
@@ -384,9 +389,7 @@ export function startCoordinateRules(
     at: number,
     nationOf: (ownerId: number) => number | undefined,
   ): Engagement[] => {
-    const units = travel
-      .coordinateUnits(null)
-      .filter((unit) => DECIDER_KINDS.has(unit.kind) || unit.kind === UNIT_KIND_BOT);
+    const units = travel.coordinateUnits(null).filter(isParticipant);
     if (units.length < 2) return [];
     const out: Engagement[] = [];
     for (const group of groupEncounters(units, nationOf, (mapKey) => world.maps.has(mapKey))) {
@@ -397,7 +400,7 @@ export function startCoordinateRules(
             unitId: unit.unitId,
             ownerId: unit.ownerId,
             kind: unit.kind,
-            decider: DECIDER_KINDS.has(unit.kind),
+            decider: isDecider(unit),
             speed: unit.speed,
           }));
         const found = judge(group.mapKey, false, [a.nation, b.nation], [side(a.units), side(b.units)], at);
@@ -419,11 +422,11 @@ export function startCoordinateRules(
       const kinds = new Map<number, number>();
       let deciders = 0;
       map.forEachUnit((view) => {
-        if (!PARTICIPANT_KINDS.has(view.kind) || view.aboard !== undefined) return;
+        if (!isParticipant(view) || view.aboard !== undefined) return;
         const nation = nationOf(view.ownerId);
         if (nation === undefined) return;
         const point = positionAt(view.motion, at);
-        const decider = DECIDER_KINDS.has(view.kind) && view.job.job === JOB_NONE;
+        const decider = isDecider(view) && view.job.job === JOB_NONE;
         if (decider) deciders += 1;
         kinds.set(view.id, view.kind);
         units.push({
@@ -719,8 +722,7 @@ export function startCoordinateRules(
       }
     const target = map?.unitInfo(input.targetUnitId);
     const targetCell = map ? cellOf(map, input.targetUnitId, at) : undefined;
-    if (!map || !target || !targetCell || !PARTICIPANT_KINDS.has(target.kind) || isAfloat(target))
-      return "unknown_unit";
+    if (!map || !target || !targetCell || !isParticipant(target) || isAfloat(target)) return "unknown_unit";
     if (target.ownerId === ownerId) return "own_target";
     if (unavailable(target.condition, at)) return "unavailable";
     const r = rules();
@@ -732,7 +734,7 @@ export function startCoordinateRules(
       const info = map.unitInfo(unitId);
       const cell = cellOf(map, unitId, at);
       if (!info || !cell) return "out_of_reach";
-      if (info.ownerId !== ownerId || !DECIDER_KINDS.has(info.kind)) return "forbidden";
+      if (info.ownerId !== ownerId || !isDecider(info)) return "forbidden";
       if (unavailable(info.condition, at) || isAfloat(info)) return "unavailable";
       if (!near(cell)) return "out_of_reach";
       mine.push({ unitId, ownerId, kind: info.kind, decider: true, speed: info.speed });
@@ -741,12 +743,12 @@ export function startCoordinateRules(
     // 수비 편: 대상 + 같은 주인의 유닛 가운데 대상 둘레 조우 거리 안(움직일 수 없는 유닛·물 위 유닛 빼고)
     const theirs: SideUnit[] = [];
     map.forEachUnit((view) => {
-      if (view.ownerId !== target.ownerId || !PARTICIPANT_KINDS.has(view.kind)) return;
+      if (view.ownerId !== target.ownerId || !isParticipant(view)) return;
       const info = map.unitInfo(view.id);
       const cell = cellOf(map, view.id, at);
       if (!info || !cell || unavailable(info.condition, at) || isAfloat(info)) return;
       if (view.id !== input.targetUnitId && !near(cell)) return;
-      const decider = DECIDER_KINDS.has(view.kind) && view.job.job === JOB_NONE;
+      const decider = isDecider(view) && view.job.job === JOB_NONE;
       theirs.push({ unitId: view.id, ownerId: view.ownerId, kind: view.kind, decider, speed: info.speed });
     });
     const max = Math.max(1, r.maxSideUnits);

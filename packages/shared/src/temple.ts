@@ -1,7 +1,7 @@
 // 신전·생명과학 연구소 조회 모양(tRPC temple.overview) — 기획 D-517·D-311·D-441·D-451·49 S15, docs/adr/2026-11-07-temple-religion.md.
 // D-517: 수명이 다한 휴먼은 비활성(일하지 않음, 고르지 않으면 그대로 남음) — 신전에서 환생·신격화, 생명과학 연구소에서 유전자로 변환.
 // 바꾸는 명령은 WebSocket temple_pray·temple_offer·temple_rite·dev_inactivate_unit·gene_convert(프로토콜 12)·dev_guardian_buff(프로토콜 13)이다.
-// 금액은 10진 문자열(최소 단위)이다. 수호신(기획 답 456 가)은 같은 유닛이 수호신 유닛이 되어 그 도시에 남고, 도시 버프 하나(수호신마다 편집기 칸).
+// 금액은 10진 문자열(최소 단위)이다. 수호신(기획 답 456 가)은 같은 휴먼이 수호신 상태가 되어(종류는 휴먼 그대로 — D-589) 그 도시에 남고, 도시 버프 하나(수호신마다 편집기 칸).
 import type { LocalizedName } from "./roster.ts";
 
 /** 신전 규칙 값(설정 칸 실효 값) */
@@ -81,7 +81,7 @@ export interface TempleHumanView {
   readonly captive: boolean;
 }
 
-/** 수호신 하나(신격화한 휴먼, D-311·D-5059 — 같은 유닛 ID가 수호신 유닛으로 그 도시에 남는다, 기획 답 456 가) */
+/** 수호신 하나(신격화한 휴먼, D-311·D-5059 — 같은 유닛 ID가 수호신 상태인 휴먼으로 그 도시에 남는다, 기획 답 456 가·D-589) */
 export interface TempleGuardianView {
   /** 수호신 유닛 ID(바탕 휴먼과 같다) */
   readonly unitId: number;

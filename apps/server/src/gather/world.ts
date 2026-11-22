@@ -9,7 +9,7 @@ import type { StorageContext } from "../facilities/storage.ts";
 import type { LaborWorkerEntry } from "../labor/workerEntry.ts";
 import { type WorkerRest, attachWorkerRest } from "../labor/workerRest.ts";
 import { createGatherInjury } from "../world/unitCondition.ts";
-import { UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
+import { UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN, isGuardianUnit } from "../world/unitKinds.ts";
 import { TEST_PLANET_ID, type World } from "../world/world.ts";
 import type { GatherKind } from "./kinds.ts";
 import { registerGather } from "./registry.ts";
@@ -178,6 +178,7 @@ export function startWorldGather(
             if (
               unit.ownerId === ownerId &&
               unit.aboard === undefined &&
+              !isGuardianUnit(unit) &&
               (unit.kind === UNIT_KIND_HUMAN || unit.kind === UNIT_KIND_CYBORG_UNIT)
             )
               found.push(unit.id);

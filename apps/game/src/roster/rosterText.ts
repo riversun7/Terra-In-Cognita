@@ -23,7 +23,6 @@ const TYPE_LABELS = {
   human: (locale) => m.roster_type_human({}, { locale }),
   creature: (locale) => m.roster_type_creature({}, { locale }),
   android: (locale) => m.roster_type_android({}, { locale }),
-  guardian: (locale) => m.roster_type_guardian({}, { locale }),
   test_unit: (locale) => m.roster_type_test_unit({}, { locale }),
 } satisfies Record<UnitType, Text>;
 
@@ -99,13 +98,17 @@ export function unitNumber(id: string): string {
   return id.startsWith("w") ? id.slice(1) : id;
 }
 
-/** 유닛 이름: 지은 이름, 없으면 "종류 #번호"(예: "휴먼 #42") */
+/**
+ * 유닛 이름: 지은 이름, 없으면 "종류 #번호"(예: "휴먼 #42"). 수호신 상태인 휴먼은 "수호신 #번호"(종류가 아니라 상태 — 사용자 결정 2026-11-22,
+ * 기획 D-589·D-5059)
+ */
 export function unitLabel(
-  unit: Pick<RosterUnit, "id" | "name" | "type">,
+  unit: Pick<RosterUnit, "id" | "name" | "type" | "guardian">,
   locale: Locale = getLocale(),
 ): string {
   if (unit.name !== null) return unit.name;
-  return m.roster_unnamed({ type: typeLabel(unit.type, locale), number: unitNumber(unit.id) }, { locale });
+  const type = unit.guardian === true ? m.unit_guardian_label({}, { locale }) : typeLabel(unit.type, locale);
+  return m.roster_unnamed({ type, number: unitNumber(unit.id) }, { locale });
 }
 
 /** 직무 이름(시설 = 팩 이름, 시험 직무 = 메시지) */

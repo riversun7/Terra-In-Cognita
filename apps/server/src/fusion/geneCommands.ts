@@ -5,7 +5,7 @@
 //   고르지 않으면 그대로 남는다. 바뀌는 길은 둘: 신전 환생·신격화(src/temple/service.ts) 또는 생명과학 연구소 유전자 변환(convert) → 그 유닛의
 //   스탯 유전자 하나(총합·분포·속성)와 배운 스킬마다 스킬 유전자 하나를 소유자에게 남기고, 지닌 물건·화물을 소유자에게 옮긴 뒤 유닛이 떠난다
 //   (지워진다). [임시] 남는 곳 = 소유자 사이보그 본체가 듦(창고 자리는 질문 396). 비활성 상한(설정 칸, 출발값 없음 = 상한 없음)을 두면
-//   수명 끝 + 상한에 같은 변환으로 떠난다(expireDue, [임시] 질문). 신격화는 떠나지 않고 수호신 유닛이 된다(기획 답 456 가, src/temple/).
+//   수명 끝 + 상한에 같은 변환으로 떠난다(expireDue, [임시] 질문). 신격화는 떠나지 않고 수호신 상태가 된다(기획 답 456 가·D-589, src/temple/).
 //   NPC 세력 휴먼은 유전자를 남기지 않는다(쓰는 곳이 없다, 질문 397). devExpire = 개발 시험 바로 변환(연구소·비활성·값 없이).
 // - 합성(synthesize): 같은 종 스탯 유전자 둘 → 새 스탯 유전자 하나(둘 다 사라짐). 시드 굴림 하나.
 // - 주입(inject): 스킬 유전자 하나 → 내 휴먼이 그 스킬을 등급 1로 배운다(스킬 칸 규칙 = 팩 unit_kinds skillSlots, 이미 배운 스킬은 거절).
@@ -45,7 +45,7 @@ import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
 import type { WorldFacilities } from "../facilities/world.ts";
 import { buildingCell } from "../facilities/places.ts";
 import { BIOTECH_STAGE, payServiceFee, serviceFacility, unitCity } from "../temple/places.ts";
-import { UNIT_KIND_CYBORG, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
+import { UNIT_KIND_CYBORG, UNIT_KIND_HUMAN, isGuardianUnit } from "../world/unitKinds.ts";
 import { geneItemsOf, statGeneOfPayload } from "./genes.ts";
 import { HUMAN_COLUMNS, HUMAN_SPECIES, type HumanRow, humanOf, readHuman, readSkills } from "./humans.ts";
 
@@ -168,11 +168,11 @@ export function createGeneCommands(o: GeneCommandOptions): GeneCommands {
     return ownerId === undefined ? { fail: "no_cyborg" } : { ownerId };
   };
 
-  /** 내 휴먼(종류 4, 포로 아님) */
+  /** 내 휴먼(종류 4, 수호신 아님, 포로 아님) */
   const myHuman = (ownerId: number, unitId: number): FusionResultCode | undefined => {
     const found = unitOf(unitId);
     if (!found || found.info.ownerId !== ownerId) return "unknown_unit";
-    if (found.info.kind !== UNIT_KIND_HUMAN) return "wrong_kind";
+    if (found.info.kind !== UNIT_KIND_HUMAN || isGuardianUnit(found.info)) return "wrong_kind";
     if (found.info.condition.heldBy !== null) return "captive";
     return undefined;
   };
@@ -188,7 +188,13 @@ export function createGeneCommands(o: GeneCommandOptions): GeneCommands {
     atMs: number,
   ): number[] | undefined => {
     const found = unitOf(human.unitId);
-    if (!found || found.info.kind !== UNIT_KIND_HUMAN || found.info.ownerId !== ownerId) return undefined;
+    if (
+      !found ||
+      found.info.kind !== UNIT_KIND_HUMAN ||
+      isGuardianUnit(found.info) ||
+      found.info.ownerId !== ownerId
+    )
+      return undefined;
     const genes = geneItemsOf(o.items());
     const cyborg = cyborgUnitOf(ownerId);
     const created: number[] = [];

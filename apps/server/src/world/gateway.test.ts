@@ -13,7 +13,7 @@ import {
 } from "./gateway.ts";
 import { createOperatorPace } from "./operatorPace.ts";
 import { createTestMap } from "./testSupport.ts";
-import { UNIT_KIND_GUARDIAN, UNIT_KIND_NPC_LEADER } from "./unitKinds.ts";
+import { UNIT_KIND_HUMAN, UNIT_KIND_NPC_LEADER } from "./unitKinds.ts";
 
 // 2^48 + 9: 셀 키 검사를 통과하는 키(시험 2차맵 키와 같은 값을 쓴다)
 const MAP_KEY = 281_474_976_710_665;
@@ -399,7 +399,8 @@ describe("시야 전송(S3)", () => {
     const { gateway, map } = setup();
     map.addUnit({ id: 1, size: 1, speed: 437, cellX: 10, cellY: 10, ownerId: 5 });
     map.addUnit({ id: 2, size: 1, speed: 437, cellX: 30, cellY: 30 });
-    map.addUnit({ id: 3, size: 1, speed: 437, cellX: 12, cellY: 12, ownerId: 5, kind: UNIT_KIND_GUARDIAN });
+    map.addUnit({ id: 3, size: 1, speed: 437, cellX: 12, cellY: 12, ownerId: 5, kind: UNIT_KIND_HUMAN });
+    map.markGuardian(3);
     const socket = link(PLAYER);
     const session = gateway.open(socket);
     session.handle({ t: "move_unit", id: 1, mapKey: MAP_KEY, unitId: 2, x: 20 * 1024, y: 20 * 1024 });
@@ -432,8 +433,9 @@ function threeUnits() {
     cellX: 12,
     cellY: 12,
     ownerId: 5,
-    kind: UNIT_KIND_GUARDIAN,
+    kind: UNIT_KIND_HUMAN,
   });
+  test.map.markGuardian(3);
   return test;
 }
 
@@ -490,7 +492,8 @@ describe("유닛 조종 권한(docs/adr/2026-11-07-unit-control.md, 프로토콜
     expect(bot).toBeGreaterThan(0);
     map.addUnit({ id: 1, size: 1, speed: 437, cellX: 10, cellY: 10, ownerId: 5 });
     map.addUnit({ id: 2, size: 1, speed: 437, cellX: 30, cellY: 30 });
-    map.addUnit({ id: 3, size: 1, speed: 437, cellX: 12, cellY: 12, ownerId: 5, kind: UNIT_KIND_GUARDIAN });
+    map.addUnit({ id: 3, size: 1, speed: 437, cellX: 12, cellY: 12, ownerId: 5, kind: UNIT_KIND_HUMAN });
+    map.markGuardian(3);
     const socket = link(DEV, 17);
     const session = gateway.open(socket);
     session.handle(move(1, 2));

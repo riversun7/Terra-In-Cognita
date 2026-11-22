@@ -41,13 +41,7 @@ export const CHARACTER_REFERENCE_HEIGHT_M = 1.8;
 const BEAST_MODEL_HEIGHT_M = 1.6;
 const BEAST_HEIGHT_SHARE = 0.7;
 /** 사람 종류(크기와 상관없이 캐릭터 모델) */
-const PERSON_KINDS: ReadonlySet<MapUnitKind> = new Set([
-  "cyborg_body",
-  "cyborg",
-  "human",
-  "guardian",
-  "npc_leader",
-]);
+const PERSON_KINDS: ReadonlySet<MapUnitKind> = new Set(["cyborg_body", "cyborg", "human", "npc_leader"]);
 /** 크기 등급별 탈것 몸 */
 const VEHICLE_BODIES = { 1: "car", 2: "truck", 3: "crawler" } as const;
 /** 화면이 바뀌어도 기억하는 서버 외형(유닛 ID → 외형). 상한을 넘으면 비운다 */

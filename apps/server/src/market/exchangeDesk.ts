@@ -8,7 +8,7 @@ import type { MarketDeskUnit, MarketDeskView, MarketLockerView } from "@terra/sh
 import { stationBonus } from "@terra/shared/exchange";
 import type { BusinessCoefficients, LedgerBook } from "@terra/sim";
 import type { SecondMap } from "../world/secondMap.ts";
-import { UNIT_KIND_CYBORG } from "../world/unitKinds.ts";
+import { UNIT_KIND_CYBORG, isGuardianUnit } from "../world/unitKinds.ts";
 import type { MarketRegistry } from "./books.ts";
 import { buildingCenterOf } from "./exchangeBuildings.ts";
 import {
@@ -117,7 +117,7 @@ export function deskViewOf(src: ExchangeDeskSource): (ownerId: number, buildingI
     const center = buildingCenterOf(src.maps, buildingId);
     for (const map of src.maps.values())
       map.forEachUnit((unit) => {
-        if (!LOCKER_UNIT_KINDS.has(unit.kind)) return;
+        if (!LOCKER_UNIT_KINDS.has(unit.kind) || isGuardianUnit(unit)) return;
         // 나를 위해 일하는 유닛(남의 유닛을 고용했으면 그 유닛도)
         if (mine.has(unit.id)) traders.push(unitOf(unit.id, unit.kind, mine.get(unit.id)));
         else if (

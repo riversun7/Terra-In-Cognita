@@ -9,7 +9,7 @@
 import type { Role } from "@terra/shared";
 import { rolesAllow } from "../auth/permissions.ts";
 import { INJURY_CRITICAL, type UnitCondition, injuryAt } from "./unitCondition.ts";
-import { UNIT_KIND_GUARDIAN } from "./unitKinds.ts";
+import { isGuardianUnit } from "./unitKinds.ts";
 
 /** 운영자: 모든 유닛에 명령할 수 있다(권한 표 secondMap move-unit — dev·admin) */
 export function canCommandAnyUnit(roles: readonly Role[]): boolean {
@@ -24,13 +24,13 @@ export type UnitControlDenial = "not_owner" | "unit_stays";
  * unit = 2차맵의 그 유닛(없으면 undefined), ownerId = 명령한 사용자의 소유 주체(없으면 내 유닛 없음)
  */
 export function unitControlDenial(
-  unit: { readonly ownerId: number; readonly kind: number } | undefined,
+  unit: { readonly ownerId: number; readonly guardian?: boolean | undefined } | undefined,
   ownerId: number | undefined,
   operator: boolean,
 ): UnitControlDenial | null {
   if (operator) return null;
   if (unit === undefined || ownerId === undefined || unit.ownerId !== ownerId) return "not_owner";
-  if (unit.kind === UNIT_KIND_GUARDIAN) return "unit_stays";
+  if (isGuardianUnit(unit)) return "unit_stays";
   return null;
 }
 
@@ -38,10 +38,10 @@ export function unitControlDenial(
 export type UnitHold = "guardian" | "captive" | "critical";
 
 export function unitHold(
-  unit: { readonly kind: number; readonly condition: UnitCondition },
+  unit: { readonly guardian?: boolean | undefined; readonly condition: UnitCondition },
   nowMs: number,
 ): UnitHold | null {
-  if (unit.kind === UNIT_KIND_GUARDIAN) return "guardian";
+  if (isGuardianUnit(unit)) return "guardian";
   if (unit.condition.heldBy !== null) return "captive";
   if (injuryAt(unit.condition, nowMs) >= INJURY_CRITICAL) return "critical";
   return null;

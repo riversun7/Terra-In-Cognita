@@ -381,15 +381,6 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       naturalElementalWeapon: UNARMED_ELEMENTAL,
       naturalWeaponIsWeapon: true,
     },
-    // 수호신(기획 답 456 가: 신격화한 휴먼이 그 도시에 남는 유닛). 칸·스킬 칸·맨손은 휴먼과 같다 [임시]
-    {
-      id: "guardian",
-      slots: COMMON,
-      skillSlots: { base: 3, perRebirth: 1, max: 10 },
-      naturalWeapon: UNARMED,
-      naturalElementalWeapon: UNARMED_ELEMENTAL,
-      naturalWeaponIsWeapon: false,
-    },
   ],
 };
 

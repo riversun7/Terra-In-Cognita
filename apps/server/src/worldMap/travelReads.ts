@@ -21,7 +21,6 @@ import {
   UNIT_KIND_BOAT,
   UNIT_KIND_CYBORG,
   UNIT_KIND_CYBORG_UNIT,
-  UNIT_KIND_GUARDIAN,
   UNIT_KIND_HUMAN,
 } from "../world/unitKinds.ts";
 
@@ -52,7 +51,6 @@ function mapUnitKindOf(kind: number): WorldMyUnitKind {
   if (kind === UNIT_KIND_CYBORG) return "cyborg";
   if (kind === UNIT_KIND_HUMAN) return "human";
   if (kind === UNIT_KIND_CYBORG_UNIT) return "cyborg_unit";
-  if (kind === UNIT_KIND_GUARDIAN) return "guardian";
   if (kind === UNIT_KIND_BOAT) return "boat";
   return "other";
 }
@@ -62,7 +60,8 @@ function unitSortRank(unit: WorldMyUnit): number {
   if (unit.moving) return 1;
   if (unit.kind === "boat") return 2;
   if (unit.kind === "cyborg_unit") return 3;
-  if (unit.kind === "guardian") return 4;
+  // 수호신(휴먼의 상태, 기획 D-589)은 휴먼 앞에
+  if (unit.guardian === true) return 4;
   if (unit.kind === "human") return 5;
   return 6;
 }
@@ -150,6 +149,7 @@ export function createTravelReads(
               moving: going !== undefined,
               working: info.job.job !== 0,
               aboardId: info.aboard ?? null,
+              ...(info.guardian ? { guardian: true } : {}),
             });
           });
         }

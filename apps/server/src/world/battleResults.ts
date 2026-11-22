@@ -15,7 +15,7 @@ import type { Ledger } from "../economy/ledger.ts";
 import type { BattleOutcome } from "./battles.ts";
 import type { SecondMap } from "./secondMap.ts";
 import { type UnitCondition, injure, injuryRules } from "./unitCondition.ts";
-import { UNIT_KIND_GUARDIAN } from "./unitKinds.ts";
+import { isGuardianUnit } from "./unitKinds.ts";
 
 export interface BattleWorld {
   /** 세계 유닛이 있는 2차맵 */
@@ -62,8 +62,8 @@ export function applyBattleOutcome(
       missing += 1;
       continue;
     }
-    // 수호신(기획 답 456 가)은 그 도시에 머문다: 다쳐도 잡히거나 옮겨지지 않는다 [임시]
-    const guardian = info.kind === UNIT_KIND_GUARDIAN;
+    // 수호신(기획 답 456 가, 상태 — D-589)은 그 도시에 머문다: 다쳐도 잡히거나 옮겨지지 않는다 [임시]
+    const guardian = isGuardianUnit(info);
     const spec = init.units.find((unit) => unit.id === result.unit);
     const stage = spec
       ? combatInjuryStage(

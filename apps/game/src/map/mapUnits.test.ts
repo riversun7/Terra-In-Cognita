@@ -39,7 +39,7 @@ describe("줄 이름·상태", () => {
     expect(unitName(unit({ kind: "cyborg_body", name: "레온" }))).toBe("레온 · 내 사이보그");
     expect(unitName(unit({ kind: "cyborg_body" }))).toBe("내 사이보그");
     expect(unitName(unit({ kind: "human", unitId: 42 }))).toBe("휴먼 #42");
-    expect(unitName(unit({ kind: "guardian", unitId: 3 }))).toBe("수호신 #3");
+    expect(unitName(unit({ kind: "human", unitId: 3, hold: "guardian" }))).toBe("수호신 #3");
   });
 
   it("화면 이름 하나: 목록에 있으면 줄 이름(사이보그 = 이름 · 내 사이보그), 없으면 유닛 #번호(문제3)", () => {
@@ -126,7 +126,7 @@ describe("고른 유닛 다룸", () => {
   it("땅을 눌렀을 때 보낼 유닛(2026-11-10): 고른 유닛이 남의 유닛이면 무시하고 기준 유닛(내 유닛)", () => {
     const units = [
       unit({ unitId: 3, kind: "cyborg_body" }),
-      unit({ unitId: 5, kind: "guardian", hold: "guardian" }),
+      unit({ unitId: 5, kind: "human", hold: "guardian" }),
     ];
     const base = { operator: false, units, isOwn: ownThreeOrFive };
     // 내 유닛이 골라져 있으면 그 유닛
@@ -195,7 +195,7 @@ describe("고른 유닛 다룸", () => {
     const sorted = sortMapUnits([
       unit({ unitId: 30, job: { kind: "test_gather", phase: "work" } }),
       unit({ unitId: 11 }),
-      unit({ unitId: 5, kind: "guardian" }),
+      unit({ unitId: 5, kind: "human", hold: "guardian" }),
       unit({ unitId: 20, job: { kind: "test_gather", phase: "rest" } }),
       unit({ unitId: 2, injury: 1 }),
       unit({ unitId: 3, injury: 3, hold: "critical" }),

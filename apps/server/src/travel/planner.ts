@@ -6,7 +6,7 @@ import type { WorldTravelProblem } from "@terra/shared/worldMap";
 import { positionAt } from "@terra/sim";
 import type { SecondMap } from "../world/secondMap.ts";
 import { unavailable } from "../world/unitCondition.ts";
-import { UNIT_KIND_BOT, UNIT_KIND_GUARDIAN } from "../world/unitKinds.ts";
+import { UNIT_KIND_BOT, isGuardianUnit } from "../world/unitKinds.ts";
 import type { ParkedBook } from "./parked.ts";
 import { type Standable, mapRoute, planLegs, routeContext } from "./route.ts";
 import { type UnitInfo, infoOfRow, standsOn } from "./serviceParts.ts";
@@ -70,12 +70,11 @@ export function createPlanner(parts: PlannerParts) {
         ? { problem: "in_transit" as const }
         : { problem: "unknown_unit" as const };
     }
-    const { kind } = where.info;
     if (
       ownerId === undefined ||
       where.info.ownerId !== ownerId ||
-      kind === UNIT_KIND_GUARDIAN ||
-      kind === UNIT_KIND_BOT
+      isGuardianUnit(where.info) ||
+      where.info.kind === UNIT_KIND_BOT
     )
       return { problem: "forbidden" as const };
     return { id, ownerId, ...where };

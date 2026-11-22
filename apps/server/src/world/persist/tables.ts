@@ -54,6 +54,7 @@ export const WORLD_TABLES = {
       "aboard_id",
       // 7축 성향(docs/adr/2026-11-20-npc-autonomous-ai.md)
       "traits",
+      "guardian",
     ],
     key: ["id"],
   },

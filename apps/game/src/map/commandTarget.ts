@@ -111,7 +111,7 @@ export function areaTarget(
  * 서버 이동 서비스도 같은 유닛만 받는다(내 소유, 수호신·봇 아님 — src/travel/service.ts ownUnit). 차례는 받은 그대로(사이보그 본체 먼저)
  */
 export function sendableUnits(units: readonly MapUnit[]): MapUnit[] {
-  return units.filter((unit) => unit.hold === null && unit.kind !== "guardian" && unit.kind !== "npc_leader");
+  return units.filter((unit) => unit.hold === null && unit.kind !== "npc_leader");
 }
 
 /** 명령 판의 판 열쇠: 대상이 바뀌면 판을 새로 만든다(명령·확인 단계·고른 유닛을 처음부터) */

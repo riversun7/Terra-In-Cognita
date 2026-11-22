@@ -85,11 +85,9 @@ export function createPlanner(parts: PlannerParts) {
   const planFor = (
     where: { readonly mapKey: number; readonly info: UnitInfo },
     target: TravelTarget,
-    /** 진 사이보그 본체가 사는 곳으로 돌아가는 길(D-594 — world/cyborgHome.ts): 쓰지 못하는 상태(부상·돌아가는 중)여도 짠다 */
-    returning = false,
   ): { route: number[]; distance: number } | { problem: WorldTravelProblem } => {
     if (!isTarget(target.mapKey)) return { problem: "unknown_map" };
-    if (!returning && unavailable(where.info.condition, now())) return { problem: "unavailable" };
+    if (unavailable(where.info.condition, now())) return { problem: "unavailable" };
     const route = mapRoute(where.mapKey, target.mapKey, routeLoaded(where.mapKey, target.mapKey));
     if (!route) return { problem: "no_route" };
     const sea = where.info.domain === "sea";

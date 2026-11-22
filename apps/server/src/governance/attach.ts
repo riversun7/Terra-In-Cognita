@@ -39,7 +39,7 @@ export interface GovernanceAttached {
 
 export function attachGovernance(o: {
   readonly db: Database;
-  readonly world: () => Pick<World, "status" | "npc" | "persistence"> | undefined;
+  readonly world: () => Pick<World, "status" | "npc" | "persistence" | "maps"> | undefined;
   readonly rules: () => GovernanceRules;
   readonly presets?: (() => readonly NationPreset[]) | undefined;
   readonly now: () => number;

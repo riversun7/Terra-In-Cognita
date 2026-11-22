@@ -8,7 +8,7 @@
 //   (own_target). 전쟁 중인 세력끼리면 전쟁 전투(진 유닛은 포로, D-187). 악명·현상금은 아직 없다(TODO).
 // - 전투: 넥서스 = 대상(지금 내구도 점). 전투맵 = 그 2차맵 구역(D-533·질문 1046 가, sim combat/siegeArena.ts — 대상 건물 실제 칸이 넥서스,
 //   다른 건물은 실제 칸의 장애물, 지형 복사). 공격 편은 내 유닛들이 있는 쪽 변에서 들어온다. 비콘 자리에 건물이 겹치면 옛 열린 맵(가운데 2×2).
-//   공격 = 내 유닛(그 건물·비콘 칸의 2차맵에 있는 것, 비활성·수호신은 unit_busy), 수비 = 그
+//   공격 = 내 유닛(그 건물·비콘 칸의 2차맵에 있는 것, 비활성·수호신은 unit_busy — 바뀜 no-teleport D-591: 대상 근처 ATTACK_DEFENDER_RADIUS칸 안, 아니면 out_of_reach), 수비 = 그
 //   주인(비콘은 그 세력)의 유닛 가운데 근처(ATTACK_DEFENDER_RADIUS칸)에 있는 것(비활성·수호신 빼고 — 그 도시 수호신은 도시 방어가 넣는다,
 //   기획 답 452 다·456 가). [임시] 전투맵 한 변은 일반 크기 64. 몸은 세계 전투와 같은 셈(bodies·생명 수치·물약·탄).
 // - 결과(battleTargets.ts): 전투 서비스가 끝 시각에 결과를 적용할 때 같은 동기 처리로 상태(ppm)를 줄인다(0이면 폐허 = 기능 정지, 366).
@@ -277,10 +277,11 @@ export function createBuildingAttack(options: BuildingAttackOptions): BuildingAt
   /** 공격 유닛 확인: 내 유닛, 겹치지 않음, 그 2차맵, 작업·계약·부상·포로가 아님 */
   const checkAttackers = (
     me: number,
-    map: SecondMap,
+    target: Pick<AttackTarget, "map" | "center">,
     unitIds: readonly number[],
     at: number,
   ): Extract<FacilityCommandResult, { ok: false }>["code"] | null => {
+    const { map } = target;
     if (new Set(unitIds).size !== unitIds.length) return "unknown_unit";
     for (const unitId of unitIds) {
       let home: SecondMap | undefined;
@@ -289,6 +290,15 @@ export function createBuildingAttack(options: BuildingAttackOptions): BuildingAt
       if (!home || !info) return "unknown_unit";
       if (info.ownerId !== me) return "forbidden";
       if (home !== map) return "out_of_reach";
+      // 공격 유닛도 대상 근처(수비와 같은 ATTACK_DEFENDER_RADIUS — C29 참전 '근처')에 걸어와 있어야 한다(줄기 no-teleport — D-591 "어떠한 경우에도 순간이동은 없다":
+      // 같은 2차맵 먼 곳의 유닛이 전투 구역 변에 바로 나타나지 않게)
+      const cell = unitCell(map, unitId, at);
+      if (
+        !cell ||
+        Math.max(Math.abs(cell.x - target.center.x), Math.abs(cell.y - target.center.y)) >
+          ATTACK_DEFENDER_RADIUS
+      )
+        return "out_of_reach";
       // 배·승객은 전투에 들지 않는다(기획 D-541 1278 가)
       if (
         options.service.unitInJob(unitId) ||
@@ -398,7 +408,7 @@ export function createBuildingAttack(options: BuildingAttackOptions): BuildingAt
             : { mapKey: found.map.mapKey, x: found.center.x, y: found.center.y },
         );
       if (urban !== undefined && urban !== null) return fail("safe_zone");
-      const problem = checkAttackers(me, found.map, unitIds, at);
+      const problem = checkAttackers(me, found, unitIds, at);
       if (problem) return fail(problem);
       const defenders = pickDefenders(found, new Set(unitIds), at, (id) => options.unitAway?.(id) ?? false);
       const init = initOf(me, found, unitIds, defenders, at);

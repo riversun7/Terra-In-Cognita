@@ -1,5 +1,6 @@
 // 나라 의결 조회(tRPC governance.view) — 내 나라(가문 소속 → 시민권)의 지배 가문·임기·열린 안건과 최근 끝난 안건, 내 자격. 읽기만 한다.
 // 투표는 공개다(2365 가 — 누가 무엇을 던졌는지 보인다). 다른 나라 안건은 보이지 않는다. docs/adr/2026-11-21-governance.md 5절
+import { coupTroops } from "./coupDispatch.ts";
 import {
   AGENDA_KINDS,
   type AgendaKind,
@@ -254,6 +255,18 @@ export function createGovernanceView(o: {
           government: sides.filter((side) => side.side === "government").length,
           mySide: mine?.side ?? null,
           city: row.cityId === null ? null : { id: row.cityId, name: o.port.cityName(row.cityId) ?? null },
+          // 내 병력(줄기 no-teleport — D-591: 실제로 보내고 닿아야 싸운다, coupDispatch.ts)
+          ...(row.status === "gathering"
+            ? {
+                troops: coupTroops(
+                  o.port,
+                  userId,
+                  row.cityId ?? o.port.capitalOf(nation),
+                  mine?.units,
+                  o.now(),
+                ),
+              }
+            : {}),
         };
       }),
       warTargets: others

@@ -283,6 +283,19 @@ export interface GovernanceAgendaView {
 
 export type GovernanceStatus = "ready" | "not_ready" | "no_nation";
 
+/** 쿠데타 카드의 내 병력 한 줄(줄기 no-teleport — 사용자 결정 D-591 "파견으로 실제로 이동해서 참전한다") */
+export interface GovernanceCoupTroop {
+  readonly id: number;
+  /** body = 내 사이보그 본체, human = 고용 휴먼, cyborg = 사이보그 유닛 */
+  readonly type: "body" | "human" | "cyborg";
+  /** here = 쿠데타 도시 2차맵에 있다(전투에 든다), going = 그 도시로 가는 중, away = 다른 곳 */
+  readonly state: "here" | "going" | "away";
+  /** going = 도착 예정, away = 지금 보내면 도착 예정(못 가거나 셈하지 않았으면 null), here = null */
+  readonly arriveAt: number | null;
+  /** 이 쿠데타에 보낸(참가 줄에 적힌) 유닛인가 */
+  readonly sent: boolean;
+}
+
 /** 군사 쿠데타 하나(질문 2433 답·D-583 — 참가 받는 중이거나 최근 끝남) */
 export interface GovernanceCoupView {
   readonly id: number;
@@ -298,6 +311,8 @@ export interface GovernanceCoupView {
   readonly mySide: "rebel" | "government" | null;
   /** 쿠데타 전투 도시(줄기 gov-coup — D-588 2492 가 "모든 도시에서"). 옛 줄·모르면 null */
   readonly city?: { readonly id: number; readonly name: string | null } | null | undefined;
+  /** 보는 사람의 병력(참가 받는 중일 때만 — 줄기 no-teleport, D-591: 전투 때 그 도시 2차맵에 도착한 유닛만 싸운다). 옛 서버는 없다 */
+  readonly troops?: readonly GovernanceCoupTroop[] | undefined;
 }
 
 export interface GovernanceResponse {

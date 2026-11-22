@@ -183,6 +183,29 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 3(governance-3)", () => {
       ok: false,
       code: "invalid_choice",
     });
+    // 병력 파견(줄기 no-teleport — D-591): 보낼 수 있는 내 유닛 = 사이보그 본체. 일으킨 사람의 본체는 쿠데타 도시(수도) 2차맵에 있어 보내지 않고 든다
+    const headBody = parts(world).persistence.cyborgs.record(head.userId)?.unitId ?? null;
+    const otherBody = parts(world).persistence.cyborgs.record(other.userId)?.unitId ?? null;
+    if (headBody === null || otherBody === null) throw new Error("no cyborg body");
+    expect(gov.port.userTroops(other.userId)).toEqual([{ id: otherBody, type: "body" }]);
+    expect((await gov.view(head.userId)).coups[0]?.troops).toEqual([
+      { id: headBody, type: "body", state: "here", arriveAt: null, sent: true },
+    ]);
+    // 이 시험 세계는 두 나라 시작 도시가 한 2차맵에 있다 — 다른 나라 사람의 본체도 이미 그 2차맵에 있어 보내지 않고 든다(도착 = 쿠데타 도시 2차맵 [임시 2651]).
+    // 다른 2차맵에서 실제로 걸어 보내는 길은 coup.test.ts(가짜 포트)와 이동 서비스 시험이 본다
+    expect(gov.port.unitMapOf(otherBody)).toBe(gov.port.unitMapOf(headBody));
+    expect(
+      await gov.service.coupJoin(other.userId, started.agendaId, "government", [otherBody]),
+    ).toMatchObject({
+      ok: true,
+    });
+    expect(parts(world).persistence.travel.list(other.userId)).toEqual([]);
+    expect(
+      await rows(test.db, "select units from governance_coup_sides where coup_id = $1 and joiner_key = $2", [
+        started.agendaId,
+        `u:${other.userId}`,
+      ]),
+    ).toEqual([{ units: [otherBody] }]);
     // 참가 받는 중: NPC 가문은 성향 규칙식으로 든다(문턱 −1000 → 모두 혁명군)
     rules = { ...rules, coupEnabled: false };
     await gov.service.tick();

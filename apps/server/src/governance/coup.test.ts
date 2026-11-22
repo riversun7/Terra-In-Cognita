@@ -2,6 +2,7 @@
 // - 2545: 플레이어 가문 나라도 대상(그 나라의 다른 플레이어 가문 장이 일으킨다), 정부군의 지배 가문 유닛 = 그 나라 소유 주체 유닛.
 // - 2542: 시작 도시·수도에서 이겨도 그 도시만 떨어져 나간다(옛 나라 전체 없음), 못 떼면 아무것도 바뀌지 않는다.
 // - 2549: 편을 든 쪽은 병력을 어디에 있든 보낸다(정부군도 같은 길).
+// - 바뀜 no-teleport(D-591): 보낸 병력은 실제로 걸어가 쿠데타 도시 2차맵에 닿아야 싸운다(가짜 포트는 보내기만 적고, 시험이 닿은 유닛을 옮긴다).
 import type { HouseKey } from "@terra/shared/governance";
 import { describe, expect, it } from "vitest";
 import { type CoupPort, createCoupService } from "./coup.ts";
@@ -22,7 +23,7 @@ const PLAYER_NATION: GovernanceNation = {
   cities: [1, 2],
 };
 
-function fake(options: { split?: boolean } = {}) {
+function fake(options: { split?: boolean; away?: readonly number[] } = {}) {
   const nations = new Map<number, GovernanceNation>([[10, PLAYER_NATION]]);
   const coups: CoupRow[] = [];
   const sides: CoupSideRow[] = [];
@@ -33,13 +34,30 @@ function fake(options: { split?: boolean } = {}) {
   const battles: { rebels: readonly number[]; loyal: readonly number[] }[] = [];
   /** 가문 → 유닛: 지배 가문 p:10 = 나라 소유 주체 유닛 50·51, 쿠데타 가문 p:30 = 60 */
   const houseUnits: Record<string, number[]> = { "p:10": [50, 51], "p:30": [60] };
+  /** 도시 → 2차맵(도시 1 = 2차맵 1001, 도시 2 = 1002). 유닛이 선 2차맵(없으면 2차맵 사이를 가는 중) — 처음에는 모두 도시 1 */
+  const where = new Map<number, number | undefined>(
+    [50, 51, 60, 70, 80, 90, 91].map((id) => [id, options.away?.includes(id) ? 1002 : 1001]),
+  );
+  const sends: { userId: string; unitId: number; mapKey: number }[] = [];
   const port: CoupPort = {
     ready: () => true,
     nation: (rowId) => nations.get(rowId),
     capitalOf: () => 1,
     cityGuards: (_nation, city) => (city === 1 ? [70] : []),
     houseUnits: (_nation, key) => houseUnits[key] ?? [],
-    userUnits: (userId) => (userId === "u-rebel" ? [80] : userId === "u-gov" ? [90, 91] : []),
+    cityPlace: (cityId) => ({ mapKey: 1000 + cityId, x: 10, y: 10 }),
+    unitMapOf: (unitId) => where.get(unitId),
+    userTroops: (userId) =>
+      (userId === "u-rebel" ? [80] : userId === "u-gov" ? [90, 91] : []).map((id) => ({
+        id,
+        type: "human" as const,
+      })),
+    sendTroop: async (userId, unitId, place) => {
+      sends.push({ userId, unitId, mapKey: place.mapKey });
+      // 보내면 2차맵 사이를 간다(닿을 때까지 어느 2차맵에도 없다)
+      where.set(unitId, undefined);
+      return 5000;
+    },
     npcHousesOf: () => [],
     citySatisfaction: () => undefined,
     powerOf: (ids) => ids.length,
@@ -119,7 +137,7 @@ function fake(options: { split?: boolean } = {}) {
     clock += 1000;
     await service.tick(new Map([[10, nations.get(10) ?? PLAYER_NATION]]), new Map(), clock);
   };
-  return { service, coups, states, regimes, splits, battles, nations, shareHouses, resolve };
+  return { service, coups, states, regimes, splits, battles, nations, shareHouses, resolve, where, sends };
 }
 
 describe("쿠데타(gov-fix-2 — 2542·2545·2549)", () => {
@@ -127,8 +145,9 @@ describe("쿠데타(gov-fix-2 — 2542·2545·2549)", () => {
     const f = fake();
     // 2545: 플레이어 가문 나라에서도 일으킨다(그 나라의 다른 플레이어 가문 장)
     expect(await f.service.launch("u-rebel", 1)).toEqual({ ok: true, agendaId: 1, action: "coup_started" });
-    // 2549: 다른 곳에 있는 내 유닛도 정부군으로 보낸다
-    expect(await f.service.join("u-gov", 1, "government")).toMatchObject({ ok: true });
+    // 2549: 다른 곳에 있는 내 유닛도 정부군으로 보낸다(이미 도시 1에 있으면 보내지 않는다)
+    expect(await f.service.join("u-gov", 1, "government", [90, 91])).toMatchObject({ ok: true });
+    expect(f.sends).toEqual([]);
     await f.resolve();
     // 혁명군 = 쿠데타 가문 60 + 일으킨 사람 80, 정부군 = 지배 가문(= 나라 소유 주체) 50·51 + 도시 1 경비대 70 + 보낸 90·91
     expect(f.battles).toEqual([{ rebels: [60, 80], loyal: [50, 51, 70, 90, 91] }]);
@@ -161,5 +180,32 @@ describe("쿠데타(gov-fix-2 — 2542·2545·2549)", () => {
       status: "won",
       result: { city: 1, newNationId: null, reason: "no_split" },
     });
+  });
+});
+
+describe("쿠데타 병력 파견(no-teleport — D-591)", () => {
+  it("보낸 병력은 쿠데타 도시 2차맵에 닿아야 싸우고, 늦거나 다른 곳에 있는 유닛(NPC·경비대·지배 가문 포함)은 빠진다", async () => {
+    // 지배 가문 유닛 51·일으킨 사람 80·정부군 참가자 90·91은 도시 2(2차맵 1002)에 있다
+    const f = fake({ away: [51, 80, 90, 91] });
+    expect(await f.service.launch("u-rebel", 1)).toMatchObject({ ok: true });
+    // 일으킨 사람은 처음에 그 도시에 있는 내 유닛만(80은 다른 곳 — 보내지 않는다)
+    expect(f.sends).toEqual([]);
+    // 고르지 않고 편을 들면 그 도시에 있는 내 유닛만(없음 — 보내지 않는다)
+    expect(await f.service.join("u-gov", 1, "government")).toMatchObject({ ok: true });
+    expect(f.sends).toEqual([]);
+    // 고르면 실제로 보낸다(이동 서비스)
+    expect(await f.service.join("u-gov", 1, "government", [90, 91, 999])).toMatchObject({ ok: true });
+    expect(f.sends).toEqual([
+      { userId: "u-gov", unitId: 90, mapKey: 1001 },
+      { userId: "u-gov", unitId: 91, mapKey: 1001 },
+    ]);
+    // 일으킨 사람도 혁명군 참가로 더 보낸다
+    expect(await f.service.join("u-rebel", 1, "rebel", [80])).toMatchObject({ ok: true });
+    // 90·80은 전투 전에 닿았고 91은 아직 가는 중
+    f.where.set(90, 1001);
+    f.where.set(80, 1001);
+    await f.resolve();
+    // 혁명군 = 쿠데타 가문 60 + 닿은 80, 정부군 = 지배 가문 50(51은 다른 도시) + 경비대 70 + 닿은 90
+    expect(f.battles).toEqual([{ rebels: [60, 80], loyal: [50, 70, 90] }]);
   });
 });

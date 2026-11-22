@@ -42,7 +42,13 @@
 // - 2549(D-583 "누구나 참전가능. 정부군 vs 혁명군"): 정부군도 혁명군과 같은 참전 길이다 — 편을 든 쪽은 병력을 어디에 있든 보낸다(그 도시에 이미 있는 유닛으로 막지 않는다).
 //   혁명군 = 일으킨 가문 유닛 + 혁명군 참가자 병력, 정부군 = 지배 가문 유닛 + 그 도시 경비대 + 정부군 참가자 병력. 플레이어 병력 = 고른 유닛(unitIds), 고르지 않으면 내
 //   유닛 모두 [임시 — 질문 2571]. NPC 가문 = 가문원. 경비대만 그 도시 것이다. 빨리감기 전투라 보내는 이동 시간은 없다 [임시 — 질문 2571].
+// 바뀜(줄기 no-teleport — 사용자 결정 D-591 "어떠한 경우에도 순간이동은 없다 파견으로 실제로 이동해서 참전한다", 위 2549의 "이동 시간 없음"을 대신한다 —
+// coupDispatch.ts): 병력은 실제로 쿠데타 도시로 걸어가 그 도시 2차맵에 닿아야 싸운다. 전투(참가 받기 끝)에는 그때 그 도시 2차맵에 도착한 유닛만 든다 — 혁명군·정부군
+// 모두(일으킨 가문·지배 가문·참가자·경비대, 플레이어·NPC). 플레이어 참가자는 고른 유닛을 이동 서비스로 보내고(고르지 않으면 이미 그 도시에 있는 내 유닛만),
+// 일으킨 사람도 처음에는 그 도시에 있는 내 유닛만 든다(더 보내려면 혁명군 참가로 고른다). NPC 유닛은 2차맵 사이로 보내는 길이 없어 그 도시에 있는 것만 [임시 — 질문 2651].
+// 늦게 닿는 유닛은 싸우지 않는다 [임시 — 질문 2652]. NPC 일으키기·참가의 힘 비도 그 도시에 있는 힘으로 본다.
 import type { HouseKey } from "@terra/shared/governance";
+import { arrivedIn, dispatchTroops } from "./coupDispatch.ts";
 import type { CoupRow, CoupSide, CoupStore } from "./coupStore.ts";
 import type { ElectorateTools } from "./electorate.ts";
 import { npcRunScore } from "./npcVote.ts";
@@ -67,6 +73,7 @@ export type CoupPort = Pick<
   | "applyRuling"
   | "capitalOf"
   | "cityGuards"
+  | "cityPlace"
   | "cityIndependence"
   | "citySatisfaction"
   | "confiscateToHouse"
@@ -79,8 +86,10 @@ export type CoupPort = Pick<
   | "payCoupCost"
   | "powerOf"
   | "ready"
+  | "sendTroop"
   | "setRegime"
-  | "userUnits"
+  | "unitMapOf"
+  | "userTroops"
 >;
 
 export interface CoupDeps {
@@ -126,22 +135,19 @@ export function createCoupService(d: CoupDeps) {
   const battleCityOf = (coup: CoupRow, nation: GovernanceNation): number | undefined =>
     coup.cityId ?? d.port.capitalOf(nation);
 
-  /** 정부군 유닛(지배 가문 유닛 — 어디에 있든 보낸다, 2549 + 그 도시 경비대) */
+  /** 쿠데타 도시 자리(파견 목표·도착 판정 — D-591) */
+  const placeOf = (city: number | undefined) => (city === undefined ? undefined : d.port.cityPlace(city));
+  /** 그 도시 2차맵에 도착해 있는 유닛만(D-591 — 순간이동 없음) */
+  const here = (ids: readonly number[], city: number | undefined): number[] =>
+    arrivedIn(d.port, [...new Set(ids)], placeOf(city));
+
+  /** 정부군 유닛(지배 가문 유닛 + 그 도시 경비대) 가운데 그 도시에 도착해 있는 것(D-591) */
   const governmentUnits = (
     nation: GovernanceNation,
     ruling: HouseKey | null,
     city: number | undefined,
-  ): number[] => [
-    ...new Set([...(ruling ? d.port.houseUnits(nation, ruling) : []), ...d.port.cityGuards(nation, city)]),
-  ];
-
-  /** 플레이어가 보내는 병력(2549 — 어디에 있든): 그 사람 유닛, 고른 것이 있으면 그 가운데 */
-  const troopsOf = (userId: string, picked?: readonly number[]): number[] => {
-    const mine = [...d.port.userUnits(userId)];
-    if (!picked) return mine;
-    const want = new Set(picked);
-    return mine.filter((id) => want.has(id));
-  };
+  ): number[] =>
+    here([...(ruling ? d.port.houseUnits(nation, ruling) : []), ...d.port.cityGuards(nation, city)], city);
 
   /** 가문 자리 도시(NPC = 그 가문 도시, 플레이어 = 소속 도시 house_homes). 그 나라 도시가 아니면 undefined */
   const seatCityOf = async (nation: GovernanceNation, key: HouseKey): Promise<number | undefined> => {
@@ -185,7 +191,8 @@ export function createCoupService(d: CoupDeps) {
       cityId: city ?? null,
     });
     if (userId) {
-      const units = troopsOf(userId);
+      // 일으킨 사람: 그 도시에 이미 있는 내 유닛만(보내지 않는다 — 더 보내려면 혁명군 참가로 고른다, D-591)
+      const units = await dispatchTroops(d.port, userId, placeOf(city));
       await d.coups.join({
         coupId: coup.id,
         joinerKey: `u:${userId}`,
@@ -224,7 +231,7 @@ export function createCoupService(d: CoupDeps) {
     return { ok: true, agendaId: coup.id, action: "coup_started" };
   };
 
-  /** 누구나 편을 든다(gov_coup_join — D-583 2433 나 가). 병력 = 내 유닛(고른 것 — 어디에 있든 보낸다, 2549) */
+  /** 누구나 편을 든다(gov_coup_join — D-583 2433 나 가). 병력 = 고른 내 유닛을 쿠데타 도시로 실제로 보낸다(D-591 — coupDispatch.ts) */
   const join = async (
     userId: string,
     coupId: number,
@@ -237,7 +244,10 @@ export function createCoupService(d: CoupDeps) {
     if (!coup || coup.status !== "gathering" || nowMs >= coup.gatherUntilMs) return fail("unknown_coup");
     // 일으킨 사람은 혁명군에서 빠질 수 없다
     if (coup.userId === userId && side !== "rebel") return fail("invalid_choice");
-    const units = d.port.nation(coup.nationId) ? troopsOf(userId, unitIds) : [];
+    const nation = d.port.nation(coup.nationId);
+    const units = nation
+      ? await dispatchTroops(d.port, userId, placeOf(battleCityOf(coup, nation)), unitIds)
+      : [];
     const before = (await d.coups.sides(coupId)).find((row) => row.joinerKey === `u:${userId}`);
     await d.coups.join({
       coupId,
@@ -266,7 +276,7 @@ export function createCoupService(d: CoupDeps) {
       const score = npcScore(d, nation, house);
       if (score < rules.coupNpcScore) continue;
       const defense = d.port.powerOf(governmentUnits(nation, ruling, house.cityId), nowMs);
-      const power = d.port.powerOf(d.port.houseUnits(nation, key), nowMs);
+      const power = d.port.powerOf(here(d.port.houseUnits(nation, key), house.cityId), nowMs);
       if (power <= 0 || power * 1000 < defense * rules.coupNpcPowerPm) continue;
       if (!(await cooledDown(key, nowMs))) continue;
       picks.push({ key, id: house.id, city: house.cityId, score });
@@ -275,9 +285,10 @@ export function createCoupService(d: CoupDeps) {
     if (best) await open(nation, best.key, null, best.city, nowMs);
   };
 
-  /** NPC 가문이 편을 든다(성향 규칙식 — 가문원을 보낸다, 2549) */
+  /** NPC 가문이 편을 든다(성향 규칙식 — 가문원 가운데 그 도시에 있는 것, D-591) */
   const npcJoin = async (coup: CoupRow, nation: GovernanceNation, ruling: HouseKey | null, nowMs: number) => {
     const rules = d.rules();
+    const city = battleCityOf(coup, nation);
     const joined = new Set((await d.coups.sides(coup.id)).map((row) => row.joinerKey));
     for (const house of d.port.npcHousesOf(nation)) {
       const key: HouseKey = `n:${house.id}`;
@@ -291,7 +302,7 @@ export function createCoupService(d: CoupDeps) {
         joinerKey: key,
         userId: null,
         side,
-        power: d.port.powerOf(d.port.houseUnits(nation, key), nowMs),
+        power: d.port.powerOf(here(d.port.houseUnits(nation, key), city), nowMs),
         joinedAtMs: nowMs,
       });
     }
@@ -365,10 +376,10 @@ export function createCoupService(d: CoupDeps) {
     const rules = d.rules();
     const sides = await d.coups.sides(coup.id);
     const city = battleCityOf(coup, nation);
-    /** 참가 줄의 병력(어디에 있든 보낸다 — 2549): 플레이어 = 보낸 유닛 가운데 아직 그 사람 것(옛 줄은 그 사람 유닛 모두), NPC 가문 = 가문원 */
+    /** 참가 줄의 병력(보낸 것 — 도착 여부는 아래 here): 플레이어 = 보낸 유닛 가운데 아직 그 사람 것(옛 줄은 그 사람 유닛 모두), NPC 가문 = 가문원 */
     const unitsOf = (row: (typeof sides)[number]): readonly number[] => {
       if (row.joinerKey.startsWith("u:")) {
-        const owned = d.port.userUnits(row.joinerKey.slice(2));
+        const owned = d.port.userTroops(row.joinerKey.slice(2)).map((troop) => troop.id);
         if (row.units === null || row.units === undefined) return owned;
         const still = new Set(owned);
         return row.units.filter((id) => still.has(id));
@@ -377,16 +388,18 @@ export function createCoupService(d: CoupDeps) {
         ? d.port.houseUnits(nation, `n:${Number(row.joinerKey.slice(2))}`)
         : [];
     };
-    const rebels = [
-      ...new Set([
+    // 그 도시 2차맵에 도착한 유닛만 싸운다(D-591 — 순간이동 없음, 늦게 닿는 유닛은 빠진다 [임시 2652])
+    const rebels = here(
+      [
         ...d.port.houseUnits(nation, coup.houseKey),
         ...sides.filter((row) => row.side === "rebel").flatMap(unitsOf),
-      ]),
-    ];
+      ],
+      city,
+    );
     const loyal = [
       ...new Set([
         ...governmentUnits(nation, ruling, city),
-        ...sides.filter((row) => row.side === "government").flatMap(unitsOf),
+        ...here(sides.filter((row) => row.side === "government").flatMap(unitsOf), city),
       ]),
     ];
     // 반란 전투 틀 빨리감기: 거울 세계 유닛 부상만, 포로 없음(내전 — 2456 가, D-099·D-187)
@@ -408,12 +421,12 @@ export function createCoupService(d: CoupDeps) {
       d.port.dropSatisfaction(d.port.houseUnits(nation, coup.houseKey), rules.coupFailSatisfactionDrop);
       result.paid = paid.toString();
     }
-    // 이긴 편 플레이어 참가자 보상(공훈 = 나라 명성, 신용 = 새 나라 시작 가산). 병력 없이 편만 든 사람은 받지 않는다(2455)
+    // 이긴 편 플레이어 참가자 보상(공훈 = 나라 명성, 신용 = 새 나라 시작 가산). 병력 없이 편만 든 사람·병력이 전투 전에 닿지 못한 사람은 받지 않는다(2455, D-591)
     const winners = sides.filter(
       (row) =>
         row.side === (won ? "rebel" : "government") &&
         row.userId !== null &&
-        (row.units === null || row.units === undefined || row.units.length > 0),
+        (row.units === null || row.units === undefined || here(unitsOf(row), city).length > 0),
     );
     for (const row of winners) {
       if (row.userId === null) continue;

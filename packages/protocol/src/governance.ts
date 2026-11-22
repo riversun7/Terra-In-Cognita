@@ -29,6 +29,12 @@ export const SHARE_BUY_PROTOCOL_VERSION = 62;
  * 프로토콜 버전(프로토콜 63 — 묶음 1117c, 줄기 gov-coup 판 121). 더하기만 — 낮은 판 기기는 칸을 보내지 않는다(쿠데타 = 가문 자리 도시 → 수도, 상한 = 앞 값 그대로)
  */
 export const GOV_COUP_PROTOCOL_VERSION = 63;
+/**
+ * 쿠데타 병력 파견(줄기 no-teleport 판 125 — 사용자 결정 D-591 "어떠한 경우에도 순간이동은 없다 파견으로 실제로 이동해서 참전한다"): gov_coup_join unitIds의 뜻이
+ * "전투에 바로 드는 유닛"에서 "쿠데타 도시로 실제로 걸어 보내는 유닛"으로 바뀌었다(전투 때 그 도시 2차맵에 닿은 유닛만 싸운다). 메시지 모양은 그대로 — 낮은 판 기기도
+ * 같은 칸을 보내고 같은 뜻으로 처리된다(서버가 보낸다)
+ */
+export const COUP_DISPATCH_PROTOCOL_VERSION = 125;
 
 const requestId = z.number().int().nonnegative().max(0xffff_ffff);
 const rowId = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
@@ -140,9 +146,9 @@ export const govCoupJoinMessage = z.object({
   coupId: rowId,
   side: z.enum(["rebel", "government"]),
   /**
-   * 데려갈 병력(내 거울 세계 유닛 ID — 줄기 governance-5, 질문 2455 답 D-583 "참전 = 병력을 데려온다"). 없으면 쿠데타 도시(옛 쿠데타는 수도)에 있는 내 유닛 모두. 그 도시에
-   * 없는 유닛은 빠진다(줄기 gov-coup — D-588 2492 가).
-   * 병력이 없으면 편만 들고 보상은 없다. 프로토콜 GOVERNANCE5_PROTOCOL_VERSION부터
+   * 데려갈 병력(줄기 governance-5, 질문 2455 답 D-583 "참전 = 병력을 데려온다"). 바뀜(COUP_DISPATCH_PROTOCOL_VERSION — D-591): 내 실제 유닛 ID(사이보그 본체·고용 휴먼·
+   * 사이보그 유닛)이고, 서버가 쿠데타 도시로 실제로 걸어 보낸다(이동 서비스). 전투 때 그 도시 2차맵에 닿은 유닛만 싸운다. 없으면 이미 그 도시 2차맵에 있는 내 유닛만
+   * 든다(보내지 않는다). 병력이 없거나 전투 전에 닿지 못하면 편만 들고 보상은 없다. 프로토콜 GOVERNANCE5_PROTOCOL_VERSION부터
    */
   unitIds: z.array(rowId).max(200).optional(),
 });

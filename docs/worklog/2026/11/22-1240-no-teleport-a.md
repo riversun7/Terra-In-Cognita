@@ -73,6 +73,10 @@
   `travel/travel.db.test.ts` 통과.
 - 전체 `pnpm check`(TEST_DATABASE_URL, DB 시험 포함, 잠금 안, 이 가지 위 — Verified 실행): 첫 판은 린트 경고 1개(`governance3.db.test.ts` 이름 가림)로 멈춰 고쳤다. 둘째 판 **통과** — 포맷(3,375파일)·타입·린트·
   경계·크기(1,000줄 넘는 파일 없음 — `tables.ts` 999·`secondMap.ts` 984)·다국어(8,927키)·디자인 값(746쌍)·콘텐츠(core@143), 시험 파일 **889/889**·시험 **6,356/6,356**.
+- `work/no-teleport-b`를 합친 뒤(충돌을 손으로 풀어 다시 — Verified 실행): 전체 `pnpm check`(TEST_DATABASE_URL) **통과** — 시험 파일 **891/891**·시험 **6,366/6,366**(`coup.test.ts` 7/7 포함), 1,000줄 넘는 파일 없음
+  (`world.ts` 999·`secondMap.ts` 993).
+- 화면 시험(Verified 실행, 합친 뒤): `pnpm e2e e2e/governance.spec.ts e2e/facilities.spec.ts` **22/22 통과** — 새: 쿠데타 전투 중(끝 예정·"닿으면 참전"·끝난 뒤 도착만 "싸우지 못함"·전투 중 편 들기 전송),
+  공격 대상 먼 유닛("멀어서 못 칩니다 #…"·[공격] 꺼짐), 사진 390 × 파스텔·다크 × ko·en `governance-coup-fighting-*` 4장(가로 넘침 없음, 다크·영어 사진을 눈으로 확인). 빌드 산출물은 지웠다.
 
 ## 미검증·TODO·알려진 문제
 - 쿠데타 DB 시험 세계는 띄운 2차맵이 하나라 "다른 2차맵에서 걸어와 늦게 닿는" 길은 가짜 포트(`coup.test.ts`)로만 봤다. DB 시험은 그 도시에 이미 있는 새 유닛을 전투 중에 보내 참전시키는 길(실제 전투 서비스 `addInput(join)`)을 본다.

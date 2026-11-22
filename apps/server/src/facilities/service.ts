@@ -59,7 +59,7 @@ import {
   plotCommands,
   plotOpen,
 } from "./plots.ts";
-import { addModule } from "./floors.ts";
+import { addModule, floorOpen } from "./floors.ts";
 import { type ClaimCommands, chooseClaim } from "./claimChoice.ts";
 import {
   type PlaceWorld,
@@ -744,8 +744,13 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
         return fail("not_buildable");
       if (!claim && record.level < 1) return fail("under_construction");
       if (input.kind === "upgrade" && (record.level >= def.maxLevel || !def.build)) return fail("max_level");
-      // 면적 모듈(기획 D-569 1768 — 플레이어와 같은 자리 규칙)
-      const closed = input.kind === "plot" ? plotOpen(record, def, options.rules().buildingGather) : null;
+      // 면적 모듈(기획 D-569 1768 — 플레이어와 같은 자리 규칙)·층(fixes-1117k 2762 — 플레이어 층 올리기와 같은 자리 규칙, floors.ts)
+      const closed =
+        input.kind === "plot"
+          ? plotOpen(record, def, options.rules().buildingGather)
+          : input.kind === "floor"
+            ? floorOpen(record, def, options.rules().business)
+            : null;
       if (closed) return fail(closed);
       let restore = 0;
       if (input.kind === "repair") {
@@ -769,7 +774,9 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
           ? "facility_upgrade"
           : input.kind === "plot"
             ? "facility_plot"
-            : "facility_repair";
+            : input.kind === "floor"
+              ? "facility_floor"
+              : "facility_repair";
       if (!spendGoods(ledger, input.ownerId, withAccepts(input.materials), at, reason, scope))
         return fail("insufficient_materials");
       const ms = Math.max(0, Math.trunc(input.ms));

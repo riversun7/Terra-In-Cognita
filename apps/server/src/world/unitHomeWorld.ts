@@ -5,13 +5,18 @@
 // - 적대 세력이 아닌 가까운 도시(4번, 보충 4): 적대 = 그 유닛 나라(NPC = 주인 세력, 플레이어 = 시민권 나라의 주체)와 거울 세계에서 지금 전쟁 중인(faction.wars)
 //   도시 주인 또는 그 위 나라(overlord). 런타임이 없으면 전쟁을 모르니 적대 없음으로 본다 [임시]. 가까움 = 같은 2차맵 칸 거리 → 다른 2차맵 가운데 사이 행성 위
 //   거리(셀 키가 아니면 무한) → 작은 도시 ID.
-// - 도시 칸: 부팅 도시 + 런타임 도시(폐허 뺌, 띄운 2차맵만 — cities.ts cityCellsOf).
+// - 도시 칸: 부팅 도시 + 런타임 도시(폐허 뺌 — cities.ts cityCellsOf).
+// 바뀜(fixes-1117k — 기획 검토 2752·2755):
+// - 2752: 도시 칸은 띄우지 않은 2차맵의 도시도 낸다(그 차례를 건너뛰지 않는다 — unitHome.ts가 좌표 유닛으로 세운다). 가까운 도시(4번)도 띄우지 않은 2차맵 도시를 센다.
+// - 2755(D-569 "유닛은 하나의 가문에만 속함 가문은 하나의 도시에 속함"): 플레이어 유닛의 소속 도시 = 그 유닛 가문의 소속 도시(유닛 → 가문 → 도시 — houseTies.ts
+//   unitHouseOf → cityOfHouse: 사이보그 본체는 주인의 가문, 고용 유닛은 고용할 때 적은 가문). 가문이 없는 유닛(무소속)은 소속 도시가 없어 다음 차례(소속 국가 정부
+//   건물)로 간다. 주인 사이보그의 내 도시(cyborgs.start_city_id)는 더 보지 않는다.
 import type { CityCell } from "@terra/shared/goodsPlaces";
 import { isCellKey } from "@terra/planet";
 import { cellCenter } from "@terra/planet/projection";
 import { HOMELESS } from "@terra/sim";
 import { capitalsOf, hallCell } from "../npc/leaders.ts";
-import type { TravelService } from "../travel/serviceTypes.ts";
+import type { TravelService, TravelSpawn } from "../travel/serviceTypes.ts";
 import type { CityRow } from "./cities.ts";
 import type { OwnerRow } from "./persist/load.ts";
 import type { SecondMap } from "./secondMap.ts";
@@ -22,7 +27,9 @@ export interface UnitHomeWorldInput {
   readonly ledger: object;
   readonly owners: ReadonlyMap<number, OwnerRow>;
   readonly planetId: string;
-  /** 사용자의 사이보그 기록(내 도시·시민권 나라) */
+  /** 그 플레이어 유닛 가문의 소속 도시(유닛 → 가문 → 도시, D-569 — 가문이 없거나 모르면 undefined) */
+  readonly houseCityOf: (unitId: number, userId: string) => number | undefined;
+  /** 사용자의 사이보그 기록(시민권 나라) */
   readonly cyborgOf: (
     userId: string,
   ) => { readonly startCityId: number; readonly factionId: number } | undefined;
@@ -42,13 +49,16 @@ export interface UnitHomeWorldInput {
     | undefined;
   /** 부팅 때 읽은 도시 표(수도 대비) */
   readonly cities: () => readonly CityRow[];
-  /** 띄운 2차맵의 도시 칸(폐허 뺌) */
+  /** 이 행성 도시 칸(폐허 뺌 — 띄우지 않은 2차맵 도시도, fixes-1117k 2752) */
   readonly cityCells: () => readonly CityCell[];
   /** 건물 시설 줄(행정 건물 찾기) */
   readonly facilities: () =>
     | ReadonlyMap<number, { readonly facilityId: string; readonly cityId: number | null }>
     | undefined;
-  readonly travel: () => Pick<TravelService, "cancel" | "cancelNpc"> | undefined;
+  readonly travel: () => Pick<TravelService, "cancel" | "cancelNpc" | "parkAt"> | undefined;
+  /** 2차맵 띄우기(봇이 띄우지 않은 2차맵으로 돌아갈 때) */
+  readonly spawn?: (() => TravelSpawn | undefined) | undefined;
+  readonly log?: { warn(obj: object, message: string): void } | undefined;
 }
 
 /** 두 2차맵 가운데 사이 거리 제곱(행성 위 단위 구 — 셀 키가 아니면 무한) */
@@ -103,7 +113,7 @@ export function createUnitHomeWorld(input: UnitHomeWorldInput): UnitHome {
     userOf,
     homeCityOf(unitId, ownerId) {
       const userId = userOf(ownerId);
-      if (userId !== null) return input.cyborgOf(userId)?.startCityId;
+      if (userId !== null) return input.houseCityOf(unitId, userId);
       const city = input.npcCityOf(unitId);
       return city === undefined || city === HOMELESS ? undefined : city;
     },
@@ -133,7 +143,7 @@ export function createUnitHomeWorld(input: UnitHomeWorldInput): UnitHome {
       const nation = nationSubject(ownerId);
       let best: { cell: CityCell; same: boolean; d: number } | undefined;
       for (const cell of input.cityCells()) {
-        if (!input.maps.has(cell.mapKey) || hostile(nation, cell.id)) continue;
+        if (hostile(nation, cell.id)) continue;
         const same = cell.mapKey === at.mapKey;
         const d = same
           ? (cell.x - at.x) * (cell.x - at.x) + (cell.y - at.y) * (cell.y - at.y)
@@ -145,5 +155,7 @@ export function createUnitHomeWorld(input: UnitHomeWorldInput): UnitHome {
       return best ? { mapKey: best.cell.mapKey, x: best.cell.x, y: best.cell.y } : undefined;
     },
     travel: input.travel,
+    spawn: input.spawn,
+    log: input.log,
   });
 }

@@ -423,4 +423,29 @@ describe("기본 NPC 국가 쿠데타 지키기(d593 — D-593 2621)", () => {
     expect(open.coups).toHaveLength(1);
     expect(open.coups[0]?.houseKey).toBe("n:5");
   });
+
+  it("fixes-1117k 2761: NPC 가문 힘도 그 도시에 도착한 가문원만 센다 — 모자라면 먼저 모으고, 닿은 뒤 문을 넘으면 연다", async () => {
+    // 가문 n:5(유닛 52)는 다른 도시(2차맵 1002)에 있다. 정부군 = 지배 가문 p:10의 50·51 중 도착한 것 + 경비대 70
+    const f = fake({
+      away: [52, 50, 51],
+      fixed: {
+        traits: { aggression: 1000, commerce: 500, faith: 0 },
+        npcHouses: [{ id: 5, cityId: 1 }],
+        rules: { fixedCoupPowerPm: 1000, fixedCoupLoyalty: 40, coupNpcPowerPm: 0 },
+      },
+    });
+    await f.gatherTick();
+    // 도착한 힘 0 → 열지 않고 가문원을 그 도시(2차맵 1001)로 보낸다
+    expect(f.coups).toEqual([]);
+    expect([...f.npcSends]).toEqual([[52, 1001]]);
+    // 가는 중에는 다시 보내지 않고 열지도 않는다
+    await f.gatherTick();
+    expect(f.coups).toEqual([]);
+    expect(f.npcSends.size).toBe(1);
+    // 닿으면(힘 1 ≥ 정부군 경비대 70 힘 1 × 1) 연다
+    f.where.set(52, 1001);
+    await f.gatherTick();
+    expect(f.coups).toHaveLength(1);
+    expect(f.coups[0]?.houseKey).toBe("n:5");
+  });
 });

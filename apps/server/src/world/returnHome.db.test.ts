@@ -10,10 +10,12 @@ import { createContentEditState } from "../contentEdit/state.ts";
 import { economyCatalogFromPack } from "../economyView/catalog.ts";
 import { serverEconomyCatalogAccessor } from "../market/catalog.ts";
 import { nationPresetsOf } from "../npc/presets.ts";
+import { giveTestHouse } from "../factionIdentity/testHouses.ts";
 import { createResidenceBook, registerResidenceBook } from "../residence/book.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { addTestUnits, legacyNationPresets, silentLog, testEncounter } from "./testSupport.ts";
 import { INJURY_CRITICAL, configureInjuryRules, injuryAt } from "./unitCondition.ts";
+import { houseTiesOf } from "./houseTies.ts";
 import { UNIT_KIND_BOT } from "./unitKinds.ts";
 import { type World, startWorld } from "./world.ts";
 
@@ -111,6 +113,23 @@ async function citizen(world: World, name: string) {
   return { userId, nation: faction.id, cityId: city.id };
 }
 
+/**
+ * 그 사용자에게 소속 도시가 있는 가문을 주고 그 유닛들을 가문에 적는다(D-569 유닛 → 가문 → 도시 — 소속 도시 = 가문 도시, fixes-1117k 2755). 가문 행 ID
+ */
+async function houseIn(world: World, userId: string, cityId: number, unitIds: readonly number[]) {
+  const { persistence } = parts(world);
+  const house = await giveTestHouse(test.db.$client, userId);
+  await test.db.$client.query(
+    "insert into house_homes (faction_id, city_id, set_at_ms) values ($1, $2, 0) on conflict (faction_id) do update set city_id = excluded.city_id",
+    [house, cityId],
+  );
+  const ties = houseTiesOf(persistence);
+  await ties?.reload();
+  for (const unitId of unitIds) ties?.assignUnit(unitId, userId, clock);
+  await persistence.writer.durable();
+  return house;
+}
+
 /** 그 도시의 시청 칸(world_cities) */
 async function cityCell(cityId: number) {
   const found = await rows<{ map_key: string; cell_x: string; cell_y: string }>(
@@ -193,12 +212,14 @@ describe.skipIf(!TEST_DATABASE_URL)("적색 부상 귀환 (D-594 보충)", () =>
     const here = buildingOn(world, () => true);
     const otherKey = [...world.maps.keys()].find((key) => key !== here.mapKey);
     if (otherKey === undefined) throw new Error("one map");
-    const [unit = 0] = addTestUnits(world, me.userId, here.mapKey, 1, clock);
+    const [unit = 0, loose = 0] = addTestUnits(world, me.userId, here.mapKey, 2, clock);
     const [far = 0] = addTestUnits(world, me.userId, otherKey, 1, clock);
     const owner = p.settlement.ownerOfUser(me.userId, clock).id;
     const bot = npcHuman(world);
+    // unit·far는 내 가문(소속 도시 = 내 도시)에 든다. loose는 무소속(가문 없음 — fixes-1117k 2755)
+    await houseIn(world, me.userId, me.cityId, [unit, far]);
 
-    // 2) 소속 도시: 플레이어 = 사이보그 내 도시, NPC = 거울 휴먼의 사는 도시(시청 칸)
+    // 2) 소속 도시: 플레이어 = 그 유닛 가문의 소속 도시(D-569), NPC = 거울 휴먼의 사는 도시(시청 칸)
     const myCity = await cityCell(me.cityId);
     expect(p.unitHome.homeOf(unit, owner)).toEqual({ ...myCity, tier: "home_city" });
     const botCity = await cityCell(bot.unit.city);
@@ -231,11 +252,7 @@ describe.skipIf(!TEST_DATABASE_URL)("적색 부상 귀환 (D-594 보충)", () =>
     expect(landed?.info.motion.waypoints).toHaveLength(1);
     lodging.clear();
 
-    // 3) 소속 도시가 없으면(내 도시가 사라짐·NPC 노숙) 소속 국가 수도의 행정 건물
-    // 내 도시가 도시 표에 없다(폐허로 빠진 것처럼 — 메모리 기록만 바꾼다, 저장하지 않음)
-    const record = p.cyborgs.record(me.userId);
-    if (!record) throw new Error("no cyborg");
-    record.startCityId = 987_654;
+    // 3) 소속 도시가 없으면(가문 없는 유닛·NPC 노숙) 소속 국가 수도의 행정 건물
     const nationOwner = [...p.owners.values()].find(
       (row) => row.userId === null && row.factionId === me.nation,
     );
@@ -243,8 +260,7 @@ describe.skipIf(!TEST_DATABASE_URL)("적색 부상 귀환 (D-594 보충)", () =>
     if (capital === undefined) throw new Error("no capital");
     const hall = hallOf(world, capital);
     expect(hall).toBeDefined();
-    expect(p.unitHome.homeOf(unit, owner)).toEqual({ ...hall, tier: "government" });
-    record.startCityId = me.cityId;
+    expect(p.unitHome.homeOf(loose, owner)).toEqual({ ...hall, tier: "government" });
     const city = bot.unit.city;
     bot.unit.city = 0;
     const botCapital = npc.capitalOf(bot.info.ownerId);
@@ -299,13 +315,32 @@ describe.skipIf(!TEST_DATABASE_URL)("적색 부상 귀환 (D-594 보충)", () =>
     const [red = 0, light = 0] = addTestUnits(first, me.userId, fightKey, 2, clock);
     const ownerW = p.settlement.ownerOfUser(winner, clock).id;
     const ownerL = p.settlement.ownerOfUser(me.userId, clock).id;
+    await houseIn(first, me.userId, me.cityId, [red, light]);
     first.maps.get(fightKey)?.setCondition(red, { injury: 3, injuryUntilMs: clock + DAY_MS, heldBy: null });
     const lightAt = whereIs(first, light);
+    // NPC 휴먼(봇)도 빨강으로 진다(기획 검토 2754): 꺼진 동안 끝난 전투도 NPC 사회 런타임이 켜진 뒤 적용 → 소속 도시(거울 세계 사는 도시)로
+    const { npc } = parts(first);
+    const bot = (() => {
+      for (const unit of [...npc.world.units.values()].toSorted((a, b) => a.id - b.id)) {
+        if (unit.city === 0 || npc.capitalOf(unit.owner) === unit.city) continue;
+        for (const map of first.maps.values()) {
+          const info = map.unitInfo(unit.id);
+          if (info?.kind === UNIT_KIND_BOT) return { unit, map };
+        }
+      }
+      throw new Error("no npc human outside a capital");
+    })();
+    const botCity = await cityCell(bot.unit.city);
+    bot.map.setCondition(bot.unit.id, { injury: 3, injuryUntilMs: clock + DAY_MS, heldBy: null });
     const base = testEncounter([w1, w2, red, light], [ownerW, ownerL]);
+    const loser = base.units.find((spec) => spec.id === light);
+    if (!loser) throw new Error("no fighter");
     // 이긴 편이 훨씬 세다 → 진 편 전멸(평화 전투 — 포로 없음)
     const init = {
       ...base,
-      units: base.units.map((spec) => (spec.side === 1 ? { ...spec, maxHp: 5000 } : spec)),
+      units: [...base.units, { ...loser, id: bot.unit.id }].map((spec) =>
+        spec.side === 1 ? { ...spec, maxHp: 5000 } : spec,
+      ),
     };
     const battleId = await p.battles.start(init, { war: false });
     const endsAtMs = (await p.battles.get(battleId))?.endsAtMs ?? 0;
@@ -329,6 +364,10 @@ describe.skipIf(!TEST_DATABASE_URL)("적색 부상 귀환 (D-594 보충)", () =>
     expect(near(redNow, myCity)).toBe(true);
     expect(redNow && injuryAt(redNow.info.condition, clock)).toBeGreaterThanOrEqual(INJURY_CRITICAL);
     expect(redNow?.info.condition.returningUntilMs).toBeUndefined();
+    // 빨강 NPC 휴먼: 소속 도시(사는 도시) 시청 칸 둘레 — 정부 건물(수도)로 가지 않는다(2754)
+    const botNow = whereIs(second, bot.unit.id);
+    expect(botNow?.mapKey).toBe(botCity.mapKey);
+    expect(near(botNow, botCity)).toBe(true);
     // 옮긴 자리는 저장된다
     await q.writer.durable();
     const saved = await rows<{ id: string; map_key: string; returning_until_ms: string | null }>(

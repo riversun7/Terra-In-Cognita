@@ -103,9 +103,9 @@ export interface NpcBuildInput {
 export interface NpcJobInput {
   /**
    * plot = 면적 모듈 붙이기(기획 D-569 1768 — NPC도 모듈). build = NPC 알박기 짓기 시작(npc-claim-3 — 레벨 0·도시 없는 행정 건물, 재료 자리 =
-   * 그 건물 창고: 운반꾼이 날라 온 재료)
+   * 그 건물 창고: 운반꾼이 날라 온 재료). floor = 주거 건물 층 하나 올리기(fixes-1117k 2762 — NPC 집주인, floors.ts와 같은 자리 규칙)
    */
-  readonly kind: "upgrade" | "repair" | "plot" | "build";
+  readonly kind: "upgrade" | "repair" | "plot" | "build" | "floor";
   readonly ownerId: number;
   readonly buildingId: number;
   readonly materials: readonly JobMaterial[];

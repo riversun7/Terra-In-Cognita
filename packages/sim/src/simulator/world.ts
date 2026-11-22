@@ -86,6 +86,7 @@ export interface SimFaction extends WarState {
   /**
    * 잃은 도시 기억(도시 ID → 잃은 시각 — 기본 NPC 국가만, 사용자 결정 D-593 "뺏겨도 되찾을만큼", 기획 검토 2712 fixes-1117j). 점령·귀속으로 도시를 빼앗기면 적고
    * (societyWar.ts annex), 되찾거나 도시가 없어질 때까지 잊지 않는다(점령 기록의 회복 불이익 기간과 상관없다). 되찾기 점수·칠 도시(npc/fixedNation.ts)가 읽는다.
+   * 바뀜(fixes-1117k, 기획 검토 2764): 어떤 길로 잃든(반란·독립·쿠데타로 떨어져 나감·넘김도) 적는다 — transferCity.
    * 서버는 표 npc_lost_cities에 저장한다. 없으면 기억이 없다
    */
   lostCities?: Map<number, number> | undefined;
@@ -523,6 +524,10 @@ export function transferCity(world: SimWorld, cityId: number, to: SimFaction, no
   from.cities.delete(cityId);
   to.cities.add(cityId);
   city.owner = to.id;
+  // 잃은 도시 기억(D-593 "뺏겨도 되찾을만큼" — 기획 검토 2764, fixes-1117k): 어떤 길로 잃든(점령·귀속, 반란, 독립, 쿠데타로 떨어져 나감, 넘김) 기본 NPC 국가는 적고,
+  // 받은 쪽(되찾음)은 지운다. 도시가 넘어가는 모든 길이 여기를 지난다(society.ts moveCity)
+  to.lostCities?.delete(cityId);
+  if (from.fixed) (from.lostCities ??= new Map()).set(cityId, nowMs);
   // Set을 돌면서 지금 항목을 지워도 된다(남은 항목은 그대로 돈다)
   for (const unitId of from.units) {
     const unit = world.units.get(unitId);

@@ -701,14 +701,24 @@ export function startWorld(
       ledger,
       owners,
       planetId: TEST_PLANET_ID,
+      // 소속 도시 = 그 유닛 가문의 도시(D-569 — fixes-1117k 2755)
+      houseCityOf(unitId, userId) {
+        const ties = houseTiesOf(persistence);
+        const house = ties?.unitHouseOf(unitId, userId);
+        return house === undefined ? undefined : ties?.cityOfHouse(house);
+      },
       cyborgOf: (userId) => cyborgs.record(userId),
       npcCityOf: (unitId) => npc?.world.units.get(unitId)?.city,
       npcCapitalOf: (ownerId) => npc?.capitalOf(ownerId),
       npcWorld: () => npc?.world,
       cities: () => cities,
-      cityCells,
+      // 띄우지 않은 2차맵 도시도(fixes-1117k 2752 — 좌표 유닛으로 세운다)
+      cityCells: () =>
+        cityCellsOf(cities, npc?.places, TEST_PLANET_ID, { has: () => true }, npc?.world.ruins),
       facilities: () => facilities.service.facilities,
       travel: () => travel,
+      spawn: () => persistence?.spawn,
+      log,
     });
     homeRef.current = unitHome;
     // 옆 2차맵을 그때 띄우기(730 다, mapSpawnWorld.ts): 이동 서비스에 잇고 부팅이 함께 띄운 플레이어 2차맵을 센다
@@ -829,7 +839,9 @@ export function startWorld(
       seedNpcAtBoot({ ...seedWith, seedOfFaction, planetId: TEST_PLANET_ID, nowMs: now(), ids: nextId });
     paths.start();
     spawnBots();
-    // 유닛을 다시 놓은 뒤에 전투 끝을 다시 건다(지난 끝 시각은 곧바로 적용된다)
+    // 유닛을 다시 놓은 뒤에 전투 끝을 다시 건다. 지난 끝 시각(서버가 꺼진 동안 끝난 전투)은 NPC 사회 런타임이 켜진 뒤에 적용한다(기획 검토 2754 — 적색 부상
+    // NPC 휴먼의 소속 도시·정원사 웨이브 결과 알림이 런타임을 본다, battles.ts holdResults)
+    const releaseBattles = battles.holdResults();
     await battles.restore();
     await travel.restore(units);
     // 유닛 행이 없는 사이보그를 시작 도시에 다시 놓는다(불변 조건 I13). 검사가 DB를 읽기 전에 커밋한다
@@ -904,6 +916,7 @@ export function startWorld(
       }
     }
     await travel.restoreNpc((id) => npc?.world.units.has(id) ?? true); // NPC 휴먼 길(휴먼을 읽은 뒤 — travel/npcJourney.ts)
+    releaseBattles(); // 꺼진 동안 끝난 전투 결과(위 battles.restore — 2754)
     await territory.warm(TEST_PLANET_ID); // 지방 판정(D-568 provinceAt)이 처음부터 답하게 배치를 셈해 둔다
     status.bootMs = Math.round(performance.now() - started);
     log.info(

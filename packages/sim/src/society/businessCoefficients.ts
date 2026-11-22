@@ -195,6 +195,12 @@ export interface BusinessCoefficients {
   readonly npcLandlordFactorPm?: number | undefined;
   readonly npcLandlordTemperPm?: number | undefined;
   /**
+   * NPC 층 올리기(기획 검토 2762 — D-555 1509 "똑같이", 줄기 fixes-1117k, 서버 residence/npcFloors.ts만 읽는다). [임시] 기술 기본값·선택 칸: 켬(1 — 없으면 1),
+   * 수요 문턱 = 사는 유닛 ≥ 정원 × 이 값 ÷ 1000(없으면 1000 — 다 찼을 때)
+   */
+  readonly npcFloorMode?: number | undefined;
+  readonly npcFloorDemandPm?: number | undefined;
+  /**
    * NPC 나라 주민세율 규칙식의 아래·위(‰, 질문 2373 가 — D-323 성향 프리셋 + 규칙식, npc/policy.ts npcResidentTaxPm): 상업 성향이 가장 높으면 min, 가장 낮으면
    * max. 나라 값을 정하지 않은 NPC 나라에 서버가 쓴다. 선택 칸 — 없으면 0(걷지 않음)
    */
@@ -291,6 +297,8 @@ export const START_BUSINESS: BusinessCoefficients = {
   npcLandlordMode: 1,
   npcLandlordFactorPm: 1000,
   npcLandlordTemperPm: 500,
+  npcFloorMode: 1,
+  npcFloorDemandPm: 1000,
   npcResidentTaxMinPm: 0,
   npcResidentTaxMaxPm: 0,
   residentBuildingValuePm: 1000,

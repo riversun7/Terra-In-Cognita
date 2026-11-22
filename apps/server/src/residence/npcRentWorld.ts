@@ -4,12 +4,21 @@
 // - 집세 화폐(서버 시험 화폐 = 기준 통화) → 나라 화폐: 지난 환전 체결가(로트당 기준 통화 값 — npc/cityFundFx.ts와 같은 읽기, 체결가가 없으면 로트 = 같은 값 [임시]), 올림.
 // - 쉼터: 도시 경제 쉼터 계획(npc/cityRest.ts — restPlan)의 일꾼 자리를 휴먼에 맞춘다(@terra/sim cityWorkerUnits — npcWages.ts와 같은 맞춤).
 //   한 기간 숙박비 = 그 기간에 드는 밤 수(기간 ÷ 쉼 바퀴 restPeriodMs) × 하룻밤 요금(설정 칸 lodging_fee_per_night) — 플레이어 일꾼 periodFee와 같은 셈.
-import { type SocietyCoefficients, cityWorkerUnits, restPeriodMs } from "@terra/sim";
+import {
+  type SocietyCoefficients,
+  cityWorkerUnits,
+  investTemperPm,
+  investTemperedChallengePm,
+  materialsValue,
+  restPeriodMs,
+} from "@terra/sim";
 // 바뀜 (fixes-1117j, 기획 검토 2735): NPC 집주인(npcLandlord.ts)이 읽는 세력 상업 성향·숙소 한 기간 숙박비(lodgingPeriodFeeOf — 레벨의 숙소에서 쉬는 밤 수 × 하룻밤 요금)도 낸다.
 import type { CityFundFxEconomy } from "../npc/cityFundFx.ts";
 import type { CityRestPlan } from "../npc/cityRest.ts";
 import type { NpcRuntime } from "../npc/runtime.ts";
+import type { NpcFloorWorld } from "./npcFloors.ts";
 import type { NpcRentWorld, NpcRest } from "./npcRent.ts";
+// 바뀜 (fixes-1117k, 기획 검토 2762): NPC 층 올리기(npcFloors.ts)가 읽는 국고·재료 값·도전 확률(@terra/sim 투자 판단 틀 — npcFloorWorldOf).
 
 /** 화폐 하나의 로트당 기준 통화 값(기준 통화 = 로트, 체결가가 없으면 로트) */
 function lotValue(economy: CityFundFxEconomy, asset: string): bigint {
@@ -108,6 +117,30 @@ export function npcRentWorldOf(
         periodMs,
         rules(),
       );
+    },
+  };
+}
+
+/** NPC 런타임으로 NPC 층 올리기 세계 몫을 만든다(경제가 없으면 undefined — 재료 값을 셀 수 없다) */
+export function npcFloorWorldOf(
+  npc: NpcRuntime | undefined,
+  rules: () => SocietyCoefficients,
+): NpcFloorWorld | undefined {
+  const economy = npc?.economy?.economy;
+  if (!npc || !economy) return undefined;
+  const world = npc.world;
+  return {
+    isNpcOwner: (owner) => {
+      const faction = world.factions.get(owner);
+      return faction !== undefined && faction.player !== true;
+    },
+    capitalOf: (owner) => world.book.balanceOf(owner, economy.currencyOf.get(owner) ?? economy.base),
+    materialsValue: (cityId, materials) => materialsValue(economy, cityId, materials),
+    challengePm(owner, cost, capital) {
+      const c = rules().npc;
+      const commerce =
+        world.factions.get(owner)?.traits.commerce ?? Math.trunc((c.traitMin + c.traitMax) / 2);
+      return investTemperedChallengePm(cost, capital, investTemperPm(commerce, c), c);
     },
   };
 }

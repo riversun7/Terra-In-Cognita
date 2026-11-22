@@ -9,20 +9,26 @@
 //   1) 사는 곳(D-585·D-588 — 표 unit_residences, residence/book.ts residenceOf: 고른 집(쓸 수 있을 때) → 숙소 배정) 건물 가운데 칸.
 //   2) 소속 도시(homeCityOf — unitHomeWorld.ts): 플레이어 유닛 = 주인 사이보그의 "내 도시"(cyborgs.start_city_id — 가문원은 가문 소속 도시, 무소속은 귀화로
 //      바뀌는 내 도시, ADR 2026-11-11-faction-identity.md "바뀜 (D-569)"), NPC 휴먼 = 거울 세계 휴먼의 사는 도시(SimUnit.city, 노숙이면 없음). 그 도시 시청 칸.
+//      (바뀜 fixes-1117k 2755: 플레이어 유닛은 그 유닛 가문의 소속 도시 — 유닛 → 가문 → 도시, D-569. 가문이 없으면 다음 차례 — unitHomeWorld.ts)
 //   3) 소속 국가 정부 건물(capitalOf): 그 나라 수도의 행정 건물(시설 government_hall — 넥서스) 칸, 건물이 없으면 수도 시청 칸. 나라 = 플레이어는 주인 사이보그의
 //      시민권 나라(cyborgs.faction_id), NPC는 주인 세력(NPC 국가 지도자도 여기 — 수도 행정 건물 곁이 늘 서는 곳).
 //   4) 가까운 도시 중 적대 세력이 아닌 곳(보충 4 989a9f2 "소속국가도 없으면 근처 도시(적대세력 아닌곳)" — nearestCity): 적대 = 그 유닛 나라와 지금 전쟁 중인
 //      세력(거울 세계 faction.wars — 도시 주인이나 그 위 나라, 기술 기본값. 호감도 "적대" 띠는 넣지 않았다 [임시 — 질문 2753]). 가까움 = 같은 2차맵 도시 먼저
 //      (칸 거리), 그다음 다른 2차맵(2차맵 가운데 사이 행성 위 거리), 같으면 작은 도시 ID. 그 도시 시청 칸.
-//   도시·건물은 띄운 2차맵에 있어야 한다(폐허 도시 아님). 띄우지 않은 2차맵이면 그 차례를 건너뛴다 [임시 — 질문 2752].
-//   넷 다 없으면 그 자리에 남는다(다친 채) [임시 — 질문 2751].
+//   폐허 도시는 뺀다. 넷 다 없으면 그 자리에 남는다(다친 채) [임시 — 질문 2751 — 기술 기본값 가로 확인].
 // - 옮기기(teleportHome): 가던 길(이동 서비스·NPC 이동)을 버리고, 같은 2차맵이면 그 칸 둘레의 안전한 설 칸으로(secondMap.relocateToSafety), 다른 2차맵이면
 //   그 2차맵에서 빼서(transferOut — 봇도 carry) 돌아갈 2차맵의 설 칸에 세운다(transferIn, 봇은 스스로 걷기를 다시 켠다). 설 칸이 없거나 못 세우면 그 자리에
 //   남는다. 돌아가는 중 표시(returningUntilMs)는 쓰지 않는다 — 빨강 부상이 이미 명령·일·전투를 막는다(unavailable).
+// - 바뀜(fixes-1117k — 기획 검토 2752: 띄우지 않은 2차맵이어도 다음 차례로 건너뛰지 않는다, D-594 차례를 지킨다): 돌아갈 곳(도시 시청 칸 — 건물은 늘 띄운 2차맵에
+//   있다)이 띄우지 않은 2차맵이면 그 2차맵 키·칸의 좌표 유닛(서 있음 — docs/adr/2026-11-15-unloaded-second-maps.md 1절, 이동 서비스 좌표 유닛 장부 travel/parked.ts)
+//   으로 세운다(유닛 행의 2차맵 키·칸이 곧 자리 — 누가 보면 그 자리에 다시 선다). NPC 유닛(봇 = NPC 휴먼, NPC 지도자 — 주인이 사용자가 아님)은 좌표 유닛으로 서지 않으므로
+//   (질문 2696 [임시] — 부팅·NPC 런타임이 2차맵 위 봇·지도자만 센다) 운영자 텔레포트처럼 그 2차맵을 띄운 뒤 옮긴다(비동기 — 띄우는 동안은 그 자리, 띄우지 못하면 그 자리에
+//   남는다) [임시 — 질문 2773].
 import { type SizeClass, anchorAt, footprintRect, positionAt } from "@terra/sim";
 import { residenceBookOf } from "../residence/book.ts";
-import type { TravelService } from "../travel/serviceTypes.ts";
+import type { TravelService, TravelSpawn } from "../travel/serviceTypes.ts";
 import type { SecondMap } from "./secondMap.ts";
+import { UNIT_KIND_BOT } from "./unitKinds.ts";
 
 /** 돌아갈 곳의 차례(1 사는 곳, 2 소속 도시, 3 소속 국가 정부 건물, 4 적대 세력이 아닌 가까운 도시) */
 export type HomeTier = "residence" | "home_city" | "government" | "nearby_city";
@@ -92,36 +98,80 @@ export interface UnitHomeDeps {
   readonly ledger: object;
   /** 주인(소유 주체)의 사용자 ID. NPC 주체·모르면 null */
   readonly userOf: (ownerId: number) => string | null;
-  /** 소속 도시 ID(위 머리 주석 2). 없으면 undefined */
+  /** 소속 도시 ID(위 머리 주석 2 — 플레이어 유닛은 그 유닛 가문의 도시, fixes-1117k). 없으면 undefined */
   readonly homeCityOf: (unitId: number, ownerId: number) => number | undefined;
   /** 소속 국가 수도 도시 ID(위 머리 주석 3). 없으면 undefined */
   readonly capitalOf: (unitId: number, ownerId: number) => number | undefined;
-  /** 도시 시청 칸(띄운 2차맵·폐허 아님. 아니면 undefined) */
+  /** 도시 시청 칸(폐허 아님 — 띄우지 않은 2차맵도, fixes-1117k 2752. 아니면 undefined) */
   readonly cityCell: (cityId: number) => MapCell | undefined;
   /** 그 도시 행정 건물(government_hall) 칸(없으면 undefined) */
   readonly hallOf: (cityId: number) => MapCell | undefined;
-  /** 적대 세력이 아닌 가까운 도시의 시청 칸(위 머리 주석 4, 띄운 2차맵만). 없으면 undefined */
+  /** 적대 세력이 아닌 가까운 도시의 시청 칸(위 머리 주석 4 — 띄우지 않은 2차맵 도시도). 없으면 undefined */
   readonly nearestCity: (unitId: number, ownerId: number, at: MapCell) => MapCell | undefined;
-  /** 이동 서비스(월드가 만든 뒤 — 가던 길을 버린다) */
-  readonly travel: () => Pick<TravelService, "cancel" | "cancelNpc"> | undefined;
+  /** 이동 서비스(월드가 만든 뒤 — 가던 길을 버린다, 띄우지 않은 2차맵의 좌표 유닛으로 세운다) */
+  readonly travel: () => Pick<TravelService, "cancel" | "cancelNpc" | "parkAt"> | undefined;
+  /** 2차맵 띄우기(봇이 띄우지 않은 2차맵으로 돌아갈 때 — 없으면 봇은 그 자리에 남는다) */
+  readonly spawn?: (() => TravelSpawn | undefined) | undefined;
+  /** 비동기 옮기기 실패 기록(없으면 조용히) */
+  readonly log?: { warn(obj: object, message: string): void } | undefined;
+}
+
+/** 다른 2차맵(띄운 것)의 설 칸에 세운다. 못 세우면 떠난 자리로 되돌리고 false */
+function moveTo(from: SecondMap, target: SecondMap, unitId: number, to: MapCell, nowMs: number): boolean {
+  const info = from.unitInfo(unitId);
+  const cell = info ? standNear(target, to, info.size) : undefined;
+  if (!info || !cell) return false;
+  const row = from.transferOut(unitId, true);
+  if (!row) return false;
+  if (!target.transferIn(row, cell.x, cell.y, true)) {
+    // 못 세우면 떠난 자리로 되돌린다
+    const back = anchorAt(positionAt(info.motion, nowMs), info.size);
+    from.transferIn(row, back.x, back.y, true);
+    from.holdRoam(unitId, false);
+    return false;
+  }
+  // 봇(carry로 들어옴)은 스스로 걷기를 다시 켠다(봇이 아니면 아무 일 없음)
+  target.holdRoam(unitId, false);
+  return true;
 }
 
 export function createUnitHome(deps: UnitHomeDeps): UnitHome {
-  const loaded = (cell: MapCell | undefined): cell is MapCell =>
-    cell !== undefined && deps.maps.has(cell.mapKey);
+  /** NPC 유닛: 띄우지 않은 2차맵을 띄운 뒤 옮긴다(비동기 — 운영자 텔레포트와 같은 길). 띄우기를 시작했으면 true */
+  const openThenMove = (from: SecondMap, unitId: number, to: MapCell): boolean => {
+    const spawn = deps.spawn?.();
+    if (!spawn?.canOpen(to.mapKey)) return false;
+    void spawn
+      .open(to.mapKey)
+      .then((opened) => {
+        const target = deps.maps.get(to.mapKey);
+        // 띄우는 동안 다른 2차맵으로 갔거나 사라졌으면 그대로 둔다
+        if (
+          opened !== "ok" ||
+          !target ||
+          !from.unitInfo(unitId) ||
+          !moveTo(from, target, unitId, to, Date.now())
+        )
+          deps.log?.warn({ unitId, mapKey: to.mapKey, opened }, "unit home: bot could not be moved home");
+      })
+      .catch((error: unknown) => {
+        deps.log?.warn({ err: error, unitId, mapKey: to.mapKey }, "unit home: map open failed");
+      });
+    return true;
+  };
   return {
     homeOf(unitId, ownerId, at) {
       const place = residenceBookOf(deps.ledger)?.residenceOf(unitId);
       const house = place ? buildingCenter(deps.maps, place.buildingId) : undefined;
-      if (loaded(house)) return { ...house, tier: "residence" };
+      if (house) return { ...house, tier: "residence" };
+      // 띄우지 않은 2차맵이어도 그 차례를 쓴다(fixes-1117k 2752 — D-594 차례)
       const cityId = deps.homeCityOf(unitId, ownerId);
       const city = cityId === undefined ? undefined : deps.cityCell(cityId);
-      if (loaded(city)) return { ...city, tier: "home_city" };
+      if (city) return { ...city, tier: "home_city" };
       const capital = deps.capitalOf(unitId, ownerId);
       const hall = capital === undefined ? undefined : (deps.hallOf(capital) ?? deps.cityCell(capital));
-      if (loaded(hall)) return { ...hall, tier: "government" };
+      if (hall) return { ...hall, tier: "government" };
       const near = at ? deps.nearestCity(unitId, ownerId, at) : undefined;
-      return loaded(near) ? { ...near, tier: "nearby_city" } : undefined;
+      return near ? { ...near, tier: "nearby_city" } : undefined;
     },
     teleport(from, unitId, ownerId, to, nowMs) {
       const info = from.unitInfo(unitId);
@@ -135,19 +185,13 @@ export function createUnitHome(deps: UnitHomeDeps): UnitHome {
       }
       if (to.mapKey === from.mapKey) return from.relocateToSafety(unitId, to);
       const target = deps.maps.get(to.mapKey);
-      const cell = target ? standNear(target, to, info.size) : undefined;
-      if (!target || !cell) return false;
-      const row = from.transferOut(unitId, true);
+      if (target) return moveTo(from, target, unitId, to, nowMs);
+      // 띄우지 않은 2차맵(fixes-1117k 2752): NPC 유닛(봇·지도자 — 주인이 사용자가 아님)은 띄운 뒤, 플레이어 유닛은 그 칸의 좌표 유닛으로
+      if (info.kind === UNIT_KIND_BOT || userId === null) return openThenMove(from, unitId, to);
+      if (!travel) return false;
+      const row = from.transferOut(unitId);
       if (!row) return false;
-      if (!target.transferIn(row, cell.x, cell.y, true)) {
-        // 못 세우면 떠난 자리로 되돌린다
-        const back = anchorAt(positionAt(info.motion, nowMs), info.size);
-        from.transferIn(row, back.x, back.y, true);
-        from.holdRoam(unitId, false);
-        return false;
-      }
-      // 봇(carry로 들어옴)은 스스로 걷기를 다시 켠다(봇이 아니면 아무 일 없음)
-      target.holdRoam(unitId, false);
+      travel.parkAt(row, to.mapKey, { x: to.x, y: to.y });
       return true;
     },
   };

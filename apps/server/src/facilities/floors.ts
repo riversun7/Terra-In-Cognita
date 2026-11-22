@@ -8,6 +8,7 @@
 //   residence_floor_cost_pm·residence_floor_time_pm ÷ 1000(재료는 줄마다 올림 — 높이 올릴수록 비싸다). 일꾼이 있으면 짓기처럼 시간이 준다.
 // - 최고 층 = 설정 칸 residence_floor_max(넘으면 floor_full). 운영자 모드는 재료·시간 없이(면적 모듈과 같다).
 // - 층을 내리는 길은 없다(철거 규칙 없음 — 질문 2671). NPC는 층을 올리지 않는다(기술 기본값 [임시]).
+//   바뀜(fixes-1117k, 기획 검토 2762 — D-555 1509): NPC 나라도 같은 공사로 올린다(건물 서비스 npcJob kind floor — 판단은 residence/npcFloors.ts).
 import type { FacilityResultCode } from "@terra/protocol";
 import type { PlotDeps, PlotFacility, PlotResult } from "./plots.ts";
 import type { FacilityRecord, JobMaterial } from "./state.ts";

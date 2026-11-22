@@ -69,6 +69,11 @@ export interface ComputeStats {
 export interface BattleService {
   /** 부팅 때 한 번: 다음 ID를 읽고 진행 중인 전투의 끝을 다시 건다. 다시 건 수 */
   restore(): Promise<number>;
+  /**
+   * 결과 적용을 잠시 붙잡는다(부팅 — 서버가 꺼진 동안 끝난 전투를 NPC 사회 런타임이 켜진 뒤에 적용한다, 기획 검토 2754: 적색 부상 NPC 휴먼의 소속 도시 =
+   * 거울 세계). 끝 시각이 와도 돌려받은 함수를 부를 때까지 기다렸다가 적용한다(차례 그대로). 돌려받은 함수 = 풀기(두 번 불러도 된다)
+   */
+  holdResults(): () => void;
   /** 전투를 만든다. 전투 ID */
   start(init: BattleInit, options: { war: boolean }): Promise<number>;
   /** 입력(참전·명령·퇴각)을 더하고 다시 계산한다. 틱은 지금 진행 틱 이상이어야 한다 */
@@ -168,6 +173,8 @@ export function createBattleService(options: {
   const scheduled = new Map<number, number>();
   /** 이 서버가 적용한 전투(커밋 전에도 두 번 하지 않게) */
   const applied = new Set<number>();
+  /** 결과 적용 붙잡기(holdResults — 부팅) */
+  let hold: Promise<void> | undefined;
   const scheduler: Scheduler<{ kind: string; subject: number }> = createScheduler({
     now: options.now,
     handle: (event) => {
@@ -278,6 +285,8 @@ export function createBattleService(options: {
 
   async function finish(battleId: number): Promise<void> {
     scheduled.delete(battleId);
+    // 부팅 붙잡기(holdResults): NPC 사회 런타임이 켜질 때까지 기다린다
+    if (hold) await hold;
     if (applied.has(battleId)) return;
     const battle = await load(battleId);
     if (!battle || battle.status !== "running") return;
@@ -306,6 +315,14 @@ export function createBattleService(options: {
   }
 
   return {
+    holdResults() {
+      const { promise: mine, resolve } = Promise.withResolvers<void>();
+      hold = mine;
+      return () => {
+        if (hold === mine) hold = undefined;
+        resolve();
+      };
+    },
     async restore() {
       const max = await pool.query(`select coalesce(max(id), 0) as id from world_battles`);
       nextId = Number(max.rows[0]?.id ?? 0) + 1;

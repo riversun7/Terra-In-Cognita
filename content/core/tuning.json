@@ -14804,6 +14804,42 @@
       "source": "질문 2735 — D-555 1509 \"똑같이\" 기획 검토 · 줄기 fixes-1117j [임시 기술 기본값]"
     },
     {
+      "id": "npc_floor_mode",
+      "code": "",
+      "name": {
+        "ko": "NPC 층 올리기(1 켬·0 끔)",
+        "en": "NPC floor raising (1 on, 0 off)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1,
+      "desc": {
+        "ko": "켜면 NPC 나라가 정원이 찬 제 숙소의 층을 플레이어와 같은 층 올리기 공사(재료·시간·작업 줄)로 올린다. 판단 = 수요(사는 유닛 ≥ 정원 × npc_floor_demand_pm ÷ 1000) + 투자 판단 틀의 도전 굴림(국고 대비 재료 값 × 상업 성향). [임시] 기술 기본값.",
+        "en": "When on, NPC nations raise floors on their full lodgings using the same floor construction as players (materials, time, job queue). Decision = demand (residents ≥ capacity × npc_floor_demand_pm ÷ 1000) + the investment-frame challenge roll (material cost vs treasury × commerce trait). [temporary] technical default."
+      },
+      "source": "질문 2762 — D-555 1509 \"똑같이\" 기획 검토 · 줄기 fixes-1117k [임시 기술 기본값]"
+    },
+    {
+      "id": "npc_floor_demand_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 층 올리기 수요 문턱(정원 대비 ‰)",
+        "en": "NPC floor raising demand threshold (‰ of capacity)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "그 숙소에 사는 유닛(고른 집 + 숙소 배정)이 정원 × 이 값 ÷ 1000 이상이면 수요가 있다(1000 = 정원이 다 찼을 때). [임시] 기술 기본값.",
+        "en": "Demand exists when units living in the lodging (chosen homes + lodging assignment) are at least capacity × this ÷ 1000 (1000 = completely full). [temporary] technical default."
+      },
+      "source": "질문 2762 — D-555 1509 \"똑같이\" 기획 검토 · 줄기 fixes-1117k [임시 기술 기본값]"
+    },
+    {
       "id": "npc_resident_tax_min_pm",
       "code": "",
       "name": {

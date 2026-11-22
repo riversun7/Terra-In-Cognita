@@ -42,6 +42,7 @@ function fakeService(calls: string[]): TravelService {
     list: () => [],
     hiddenAt: () => undefined,
     parkedAt: () => undefined,
+    parkAt: () => {},
     coordinateUnits: () => [],
     carries: () => false,
     haltOn: () => [],

@@ -135,6 +135,11 @@ export interface TravelService {
   hiddenAt(unitId: number): HiddenPlace | undefined;
   /** 좌표 유닛(서 있음)의 자리(아니면 undefined) */
   parkedAt(unitId: number): HiddenPlace | undefined;
+  /**
+   * 2차맵에서 빼낸 유닛 줄을 띄우지 않은 2차맵 그 칸의 좌표 유닛(서 있음)으로 세운다(적색 부상 귀환 — world/unitHome.ts, 기획 검토 2752). 봇은 넣지 않는다
+   * (봇은 좌표 유닛이 되지 않는다 — 부르는 쪽이 거른다)
+   */
+  parkAt(row: TransferRow, mapKey: number, cell: CellPoint): void;
   /** 그 주인들의(null = 모든 주인) 좌표 유닛(서 있음 + 가는 중, 승객 포함, 유닛 ID 차례) */
   coordinateUnits(ownerIds: ReadonlySet<number> | null): CoordinateUnit[];
   /**

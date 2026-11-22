@@ -53,6 +53,8 @@
 // - 참가 받기 끝 → 그 도시에 도착한 병력으로 전투를 연다(혁명군이 하나도 없으면 싸우지 않고 진다). 쿠데타는 전투가 끝날 때까지 gathering(결과 칸 battleId).
 // - 늦게 닿은 병력은 진행 중인 전투에 참전한다(D-176 지원 참전 — 1분 틱과 보낸 병력 도착 시각의 깨우기 arrivals). 편 들기·병력 보내기도 전투가 끝날 때까지 받는다.
 // - 플레이어 유닛은 실제 몸으로 싸우고 부상·돌아가기가 세계에 남는다(다른 세계 전투와 같은 판정 — D-099). 보상 = 병력이 전투에 든 이긴 편 참가자(coupOutcome.ts).
+// 바뀜(fixes-1117k — 기획 검토 2761, D-555 1509 "똑같이"·D-591 실제 이동): 쿠데타 힘은 플레이어·NPC 모두 그 도시 2차맵에 **도착한** 병력으로 센다(comingUnits). NPC 가문은
+// 점수·쿨타임이 되면 먼저 가문원을 자기 도시로 모으고(npcLaunch — 보내기), 도착한 힘이 문을 넘을 때 연다(플레이어 = 병력을 옮긴 뒤 gov_coup). 참가 기록 힘도 도착한 것.
 // 바뀜(fixes-1117j — 기획 검토 2713: D-592 16-1 "성향에 따라 쿠데타에는 적극 참여", D-555 1509, D-588 6 "모든 도시에서 누구나"): 기본 NPC 국가의 NPC 가문도 성향대로
 // 쿠데타를 일으키고 편을 든다(d593의 "일으키지 않고 정부군으로"를 뺀다). 충성 몫(gov_fixed_coup_loyalty)은 성향 점수 보정으로만 남고(출발값 100 → 40), 쿠데타를 어렵게 하는
 // 것은 D-593의 힘 쪽 수단이다 — 기본 NPC 국가에서는 NPC 가문도 정부군 × gov_fixed_coup_power_pm ÷ 1000 이상 힘이 있어야 일으킨다(npcPowerPm, 플레이어 strongEnough와 같은 배율).
@@ -184,13 +186,12 @@ export function createCoupService(d: CoupDeps) {
   const here = (ids: readonly number[], city: number | undefined): number[] =>
     arrivedIn(d.port, [...new Set(ids)], placeOf(city));
 
-  /** 그 가문이 쿠데타에 낼 병력: NPC 가문 = 가문원 모두(보낸다 — coupNpcDispatch.ts), 플레이어 가문 = 그 도시에 있는 것(D-591, 2698 [임시]) */
+  /**
+   * 그 가문이 쿠데타에 낸 병력 = 그 도시 2차맵에 도착한 가문 유닛(플레이어·NPC 같게 — 기획 검토 2761, D-555 1509 "똑같이"·D-591 실제 이동. 옛 판의 "NPC 가문 =
+   * 보낼 가문원 모두"[임시 2698]를 대신한다)
+   */
   const comingUnits = (nation: GovernanceNation, key: HouseKey | null, city: number | undefined): number[] =>
-    key === null
-      ? []
-      : key.startsWith("n:")
-        ? [...d.port.houseUnits(nation, key)]
-        : here(d.port.houseUnits(nation, key), city);
+    key === null ? [] : here(d.port.houseUnits(nation, key), city);
 
   /** 정부군 유닛(지배 가문 유닛 + 그 도시 경비대) 가운데 그 도시에 도착해 있는 것(D-591) */
   const governmentUnits = (
@@ -357,7 +358,12 @@ export function createCoupService(d: CoupDeps) {
       : rules.coupNpcPowerPm;
   };
 
-  /** NPC 가문이 일으킨다(나라마다 많아야 하나 — 점수 높은 가문, 어느 가문이든 D-585). 그 가문 도시에서(D-588 2492 가), 힘 비 = 양쪽이 보낼 병력(2549) */
+  /**
+   * NPC 가문이 일으킨다(나라마다 많아야 하나 — 점수 높은 가문, 어느 가문이든 D-585). 그 가문 도시에서(D-588 2492 가).
+   * 힘 비는 플레이어 문(strongEnough)과 같은 셈(기획 검토 2761 — D-555 1509 "똑같이"·D-591): 그 도시 2차맵에 **도착한** 가문원 대 도착한 정부군(지배 가문 유닛 +
+   * 그 도시 경비대). 점수가 문턱을 넘고 쿨타임이 끝났는데 힘이 모자라면 먼저 가문원을 그 도시로 보낸다(모으기 — 플레이어가 병력을 그 도시로 옮긴 뒤 여는 것과
+   * 같은 차례, coupNpcDispatch.ts). 다음 틱에 닿은 힘이 문을 넘으면 연다 [임시 — 모으기 모양, 질문 2771]
+   */
   const npcLaunch = async (
     nation: GovernanceNation,
     ruling: HouseKey | null,
@@ -370,11 +376,14 @@ export function createCoupService(d: CoupDeps) {
       if (key === ruling) continue;
       const score = npcScore(d, nation, house);
       if (score < rules.coupNpcScore) continue;
-      const guards = here(d.port.cityGuards(nation, house.cityId), house.cityId);
-      const defense = d.port.powerOf([...comingUnits(nation, ruling, house.cityId), ...guards], nowMs);
-      const power = d.port.powerOf(comingUnits(nation, key, house.cityId), nowMs);
-      if (power <= 0 || power * 1000 < defense * npcPowerPm(nation)) continue;
       if (!(await cooledDown(key, nowMs))) continue;
+      const defense = d.port.powerOf(governmentUnits(nation, ruling, house.cityId), nowMs);
+      const power = d.port.powerOf(comingUnits(nation, key, house.cityId), nowMs);
+      if (power <= 0 || power * 1000 < defense * npcPowerPm(nation)) {
+        // 모으기: 그 도시에 없는 가문원을 보낸다(이미 가는 유닛은 그대로 — 멱등)
+        await dispatchCoupNpcSides(d.port, nation, [key], placeOf(house.cityId));
+        continue;
+      }
       picks.push({ key, id: house.id, city: house.cityId, score });
     }
     const best = picks.toSorted((a, b) => b.score - a.score || a.id - b.id)[0];

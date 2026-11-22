@@ -18,7 +18,8 @@ export type FacilityCommand =
   | Omit<ClientMessageOf<"facility_plot">, "id">
   | Omit<ClientMessageOf<"facility_plot_remove">, "id">
   | Omit<ClientMessageOf<"facility_gather_tier">, "id">
-  | Omit<ClientMessageOf<"facility_claim">, "id">;
+  | Omit<ClientMessageOf<"facility_claim">, "id">
+  | Omit<ClientMessageOf<"facility_floor">, "id">;
 
 export type FacilityCommandOutcome =
   | { readonly ok: true; readonly buildingId?: number; readonly doneAtMs?: number }

@@ -20,9 +20,30 @@ export const unitResidences = pgTable(
      * 있으면 null. 직전 판 앱은 읽지 않는다
      */
     pausedSinceMs: bigint("paused_since_ms", { mode: "number" }),
+    /**
+     * 미리 낸 집세·숙박비가 덮는 끝 시각(D-591 2 — 남의 집 세 들기·고른 숙소, residence/rent.ts). 내 집이거나 아직 내지 않았으면 null. 다른 집을 고르면 새로
+     * 내고 남은 몫은 돌려받지 않는다(2486 가). 직전 판 앱은 읽지 않는다
+     */
+    paidUntilMs: bigint("paid_until_ms", { mode: "number" }),
   },
   (table) => [
     index("unit_residences_owner_idx").on(table.ownerId),
     check("unit_residences_ids", sql`${table.unitId} > 0 and ${table.buildingId} > 0`),
   ],
+);
+
+/**
+ * 주인이 내놓은 집세(D-591 2 — 남의 주거 건물 세 들기, residence/rent.ts). 건물 하나에 한 줄: 한 기간(설정 칸 residence_rent_period_ms) 집세, 화폐는 숙박비와
+ * 같은 서버 시험 화폐 [임시]. 줄이 없으면 세를 놓지 않는다. owner_id = 정할 때의 건물 주인(주인이 바뀌면 그 줄은 쓰지 않는다 — 읽을 때 본다). 외래 키 없음.
+ * 세계 표라 시험 세계 새로 시작에서 지운다. 새 표라 직전 판 앱은 모른다
+ */
+export const residenceRents = pgTable(
+  "residence_rents",
+  {
+    buildingId: bigint("building_id", { mode: "number" }).primaryKey(),
+    ownerId: bigint("owner_id", { mode: "number" }).notNull(),
+    rent: bigint("rent", { mode: "bigint" }).notNull(),
+    setAtMs: bigint("set_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [check("residence_rents_values", sql`${table.buildingId} > 0 and ${table.rent} >= 0`)],
 );

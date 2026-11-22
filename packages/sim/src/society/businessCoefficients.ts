@@ -162,9 +162,21 @@ export interface BusinessCoefficients {
   readonly residentTaxNationPm?: number | undefined;
   /**
    * 사는 곳 정원(질문 2481 가 — 사용자 답 "집마다 살 수 있는 수 상한, 층을 올리면 는다", 줄기 governance-6): 주거 건물 하나에 사는 곳으로 고를 수 있는 유닛 수 =
-   * 건물 레벨(층 [임시] — 따로 층 자료가 없어 레벨로 읽는다, 질문 2535) × 이 값. 서버만 읽는다(apps/server/src/residence/). 기술 기본값 [임시]. 선택 칸 — 없으면 4
+   * 층 수 × 이 값(D-591 1 — 층은 건물 레벨과 따로, 층 올리기 공사로 는다, 줄기 residence-3). 서버만 읽는다(apps/server/src/residence/). 기술 기본값 [임시].
+   * 선택 칸 — 없으면 4
    */
-  readonly residenceCapacityPerLevel?: number | undefined;
+  readonly residenceCapacityPerFloor?: number | undefined;
+  /** 주거 건물 최대 층(D-591 1 — 서버 facilities/floors.ts만 읽는다). [임시] 기술 기본값. 선택 칸 — 없으면 5 */
+  readonly residenceFloorMax?: number | undefined;
+  /** 층 하나 올리는 재료 = 지금 레벨 짓기 재료 × 지금 층 수 × 이 ‰ ÷ 1000(D-591 1 [임시] — facilities/floors.ts). 선택 칸 — 없으면 1000 */
+  readonly residenceFloorCostPm?: number | undefined;
+  /** 층 하나 올리는 시간 = 지금 레벨 짓는 시간 × 지금 층 수 × 이 ‰ ÷ 1000(D-591 1 [임시]). 선택 칸 — 없으면 1000 */
+  readonly residenceFloorTimePm?: number | undefined;
+  /**
+   * 사는 곳 집세·미리 낸 숙박비 한 번의 기간(ms, D-591 2 — 미리 내고 일찍 바꾸면 남은 몫은 돌려받지 않는다, 서버 residence/rent.ts만 읽는다). [임시] 기술
+   * 기본값. 선택 칸 — 없으면 하루
+   */
+  readonly residenceRentPeriodMs?: number | undefined;
   /**
    * NPC 나라 주민세율 규칙식의 아래·위(‰, 질문 2373 가 — D-323 성향 프리셋 + 규칙식, npc/policy.ts npcResidentTaxPm): 상업 성향이 가장 높으면 min, 가장 낮으면
    * max. 나라 값을 정하지 않은 NPC 나라에 서버가 쓴다. 선택 칸 — 없으면 0(걷지 않음)
@@ -249,7 +261,11 @@ export const START_BUSINESS: BusinessCoefficients = {
   residentTaxPm: 0,
   residentTaxEveryMs: 7 * 86_400_000,
   residentTaxNationPm: 0,
-  residenceCapacityPerLevel: 4,
+  residenceCapacityPerFloor: 4,
+  residenceFloorMax: 5,
+  residenceFloorCostPm: 1000,
+  residenceFloorTimePm: 1000,
+  residenceRentPeriodMs: 86_400_000,
   npcResidentTaxMinPm: 0,
   npcResidentTaxMaxPm: 0,
   residentBuildingValuePm: 1000,

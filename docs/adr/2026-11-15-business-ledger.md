@@ -506,3 +506,24 @@ WP1~WP4는 답 없이도 [임시] 추천안으로 갈 수 있다(돈이 사라�
   그래서 켤 때 한 번(`npc/cityFundFx.ts convertStaleCityFunds` — `npc/economy.ts` 처음 발행 다음) 지금 화폐가 아닌 금고를 옮긴다(멱등). 비율 = 지난 환전 체결가(로트당 기준 통화 값, 기준 통화 = 로트,
   체결가가 없으면 로트 — 물류 요금·조선소 적정가와 같은 셈 [임시 — 질문 2614]). 옮겼으면 서버 기록 한 줄 "city funds moved to the nation's current currency".
 - 시뮬은 나라 화폐가 바뀌지 않아 부르지 않는다(판정 그대로). 시험: sim `societyGovFix3.test.ts`(비율·0이면 남김·국고 그대로·창구 맞춤·다시 해도 그대로), 서버 `npc/cityFundFx.test.ts`(비율 셈·켤 때 한 번).
+
+## 바뀜 (residence-3 — 층 올리기 공사·집세·미리 내는 숙박비, 2026-11-22 — 사용자 결정 D-591, 질문 2535 나·2536 다)
+사용자 결정 D-591(코디네이터 전달 — 기획 커밋 88eda2d, 미러에는 아직 없다)을 코드로 옮긴다. 정하지 않은 모양은 [임시] — 새 질문 `docs/questions/2026-11-22-residence-3.md` 2671~2678.
+위 "바뀜 (governance-6)"의 "정원 = 건물 레벨(층 [임시]) × `residence_capacity_per_level`"과 "미리 내는 집세가 없어 몰수할 남은 몫이 없다"를 아래가 대신한다.
+
+| 무엇 | 정한 것 |
+|---|---|
+| 층(D-591 1 — 2535 나) | 주거 건물(팩 생활 단계 시설)에 층 수(`world_facilities.floors`, 기본 1)를 둔다. 층 올리기 공사 = 건물 작업 줄의 새 종류 `floor`(WebSocket `facility_floor` → `facility_result`, 새 코드 `floor_full`) — 면적 모듈 붙이기와 같은 길(소유·작업 겹침·일꾼·재료 자리·운영자 모드), 끝나면 층 + 1(`apps/server/src/facilities/floors.ts`). 재료·시간 = 지금 레벨 짓기 재료·시간 × 지금 층 수 × 설정 칸 `residence_floor_cost_pm`·`residence_floor_time_pm` ÷ 1000, 최고 층 `residence_floor_max`(기본 5) — 기술 기본값 [임시 2671]. 층을 내리는 길은 없다. NPC는 층을 올리지 않는다 |
+| 정원 | 정원 = **층 수** × `residence_capacity_per_floor`(옛 칸 `residence_capacity_per_level`의 이름만 바꿈 — 값 4 그대로, `content/core/id-changes.json` renamed 기록). 레벨은 정원에 들지 않는다. 정원은 쓸 수 있는(값을 낸) 고른 유닛만 센다 |
+| 이미 있던 건물 | 마이그레이션이 이미 있던 숙소(`lodging`, 레벨 1 이상)의 층 = 레벨로 채운다 — 옛 정원(레벨 × 4)을 그대로 남겨 아무도 쉬지 않는다(2677). 새로 짓는 숙소는 1층 |
+| 내는 길(D-591 2 — 2536 다) | `own` = 내 집(값 없음), `lodging` = 배정받은 숙소(하룻밤 숙박비 × 한 기간의 밤 수 — 일꾼 쉼터와 같은 바퀴 셈 `labor/workerRest.ts periodFee`), `rent` = 남의 집(주인이 정한 한 기간 집세). 배정받은 숙소가 먼저(2675). 남의 집은 주인이 세를 놓았을 때만 고를 수 있다(`apps/server/src/residence/book.ts payKindOf`) |
+| 미리 내기 | 한 기간 = 설정 칸 `residence_rent_period_ms`(기본 하루 [임시 2672]). 고를 때 첫 기간을 유닛 지갑(`unitPurseLocation`)에서 바로 낸다 — 모자라면 `residence_result insufficient_funds`(프로토콜 145, 더 낮은 판은 `not_eligible`). 낸 기간 끝 = `unit_residences.paid_until_ms`. 그 기간 안에서만 그 집에 산다(세를 거두거나 배정이 바뀌어도 그 기간 끝까지). 다른 집을 고르면 새로 내고 옛 집 남은 몫은 버린다(2486 가). 같은 집을 기간 안에 다시 고르면 `unchanged` |
+| 받는 곳 | 그 건물 사업장 금고(`BusinessCore.receive` — 들어올 때 소득세). 거래 종류 `residence_rent`·`lodging_prepay`(장부 "수입" 칸 — `@terra/shared/businessBooks`). 화폐 = 숙박비와 같은 서버 시험 화폐 [임시 2673] |
+| 다음 기간 | 1분 훑기(`residence/rent.ts renewResidenceRents` — 쉼 훑기 바로 전)가 낸 기간이 끝난 고른 것마다 걷는다. 다른 조건이 깨졌으면(주인 바뀜·세 거둠·정원) 걷지 않는다. 지갑이 모자라면 걷지 않고 쉰다(숙소 배정 + 처리할 일 `residence_paused`) — 빚으로 적지 않고 돈이 생기면 다시 산다 [임시 2676] |
+| 밤마다 숙박비 | 고른 숙소의 숙박비를 미리 낸 기간에는 일꾼 쉼터가 그 숙소 숙박비를 밤마다 다시 걷지 않는다(`labor/workerRest.ts` — `residenceBookOf(원장).prepaidAt`) |
+| 주인 집세 | 표 `residence_rents`(건물마다 한 줄 — 주인·집세·시각). WebSocket `residence_rent { buildingId, rent | null }` → `residence_rent_result`(결과 코드 8개, 채집 게이트웨이가 함께 받는다). 그 건물 주인만, 바뀐 집세는 다음 기간부터. 정할 때의 주인이 아니게 되면 그 줄은 쓰지 않는다 [2678] |
+| NPC | NPC 휴먼은 고르지 않는다 — NPC 숙박비는 하루 끝 길(`npc/npcWages.ts`) 그대로. NPC가 플레이어 집을 세 드는 길은 없다 [임시 2674] |
+| 화면 | 건물 판 [사는 곳] 카드: 정원 한 줄(사는 수 / 정원 · 층 · 최고 층), 여기 살면 기간마다 낼 집세·숙박비(일찍 바꾸면 손해), 미리 낸 기간 남은 시간·못 내 쉬는 줄, 내 건물이면 주인 칸(집세 정하기·세 거두기, 다음 층 재료·시간 [층 올리기] — `apps/game/src/map/building/ResidenceOwner.tsx`). 조회 tRPC `gather.residence` 응답에 `periodMs`·`choice`·건물 칸(`floors`·`capacity`·`occupants`·`rent`·`mine`·`payKind`·`price`·`floor`)을 더했다(옛 기기는 무시) |
+
+- 시뮬: 판정 그대로 — 사는 곳·층·집세는 서버만 갖는다(시뮬은 설정 칸 이름만 읽어 두고 쓰지 않는다). SIM_VERSION 그대로. 전·후 비교는 작업 기록.
+- 판(줄기 판 — 묶음 때 다시 매긴다): 프로토콜 145(최소 144), 팩 core@223(설정 칸 +4, 1개 이름 바꿈), 마이그레이션 `20261122012636_residence3_floors_rent`(새 표 `residence_rents`, 칸 `unit_residences.paid_until_ms`·`world_facilities.floors`, 작업 종류 검사에 `floor`, 숙소 층 채우기). 리셋 필요 없음.

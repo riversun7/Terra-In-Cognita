@@ -9,6 +9,7 @@ import {
   residenceBookOf,
 } from "./book.ts";
 import { sweepResidencePauses } from "./attach.ts";
+import { type RentPayer, chargeResidence, createRentTable, renewResidenceRents } from "./rent.ts";
 import { createResidenceService } from "./service.ts";
 
 /** 건물 표·유닛 주인·숙소 배정을 바꿀 수 있는 가짜 세계 */
@@ -140,7 +141,13 @@ describe("사는 곳 장부(D-585 1)", () => {
     expect(await service.set("me", 1, 200)).toEqual({ ok: false, code: "not_eligible" });
     expect(await service.set("me", 1, null)).toEqual({ ok: false, code: "unchanged" });
     expect(await service.set("me", 1, 100)).toEqual({ ok: true, unitId: 1, buildingId: 100, cityId: 5 });
-    expect(book.choiceOf(1)).toEqual({ unitId: 1, ownerId: 10, buildingId: 100, chosenAtMs: 42 });
+    expect(book.choiceOf(1)).toEqual({
+      unitId: 1,
+      ownerId: 10,
+      buildingId: 100,
+      chosenAtMs: 42,
+      paidUntilMs: null,
+    });
     expect(await service.set("me", 1, 100)).toEqual({ ok: false, code: "unchanged" });
     // 집을 여럿 가져도 사는 곳은 하나 — 바꾸면 앞의 것을 덮는다
     expect(await service.set("me", 1, 101)).toEqual({ ok: true, unitId: 1, buildingId: 101, cityId: 6 });
@@ -152,6 +159,7 @@ describe("사는 곳 장부(D-585 1)", () => {
       unitId: 2,
       current: { buildingId: 200, cityId: 6, source: "lodging" },
       building: { buildingId: 200, block: null },
+      choice: null,
       generatedAt: 7,
     });
     expect(service.view("me", 3, undefined, 7).status).toBe("unknown_unit");
@@ -174,5 +182,124 @@ describe("사는 곳 장부(D-585 1)", () => {
     book.put({ unitId: 1, ownerId: 10, buildingId: 101, chosenAtMs: 1 });
     expect(withChosenResidences(6, base6, book)).toEqual([{ unit: 1, owner: 10, lodging: 101 }]);
     expect(withChosenResidences(5, [], book)).toEqual([{ unit: 2, owner: 10, lodging: 100 }]);
+  });
+});
+
+/** 집세·숙박비 가짜 지갑(유닛 → 잔고), 낸 기록 */
+function fakePayer(period = 1_000) {
+  const purses = new Map<number, bigint>();
+  const paid: string[] = [];
+  const payer: RentPayer = {
+    periodMs: () => period,
+    priceOf: (unitId, buildingId, kind) =>
+      kind === "own" ? 0n : kind === "lodging" ? 3n : buildingId === 200 ? 7n : undefined,
+    purseBalance: (_owner, unitId) => purses.get(unitId) ?? 0n,
+    pay(input) {
+      purses.set(input.unitId, (purses.get(input.unitId) ?? 0n) - input.amount);
+      paid.push(`${input.kind}:${input.unitId}:${input.buildingId}:${input.amount}`);
+      return true;
+    },
+  };
+  return { payer, purses, paid };
+}
+
+describe("집세·미리 내는 숙박비(D-591 2 — 줄기 residence-3)", () => {
+  it("내는 길: 배정받은 숙소 = lodging, 내 집 = own, 세를 놓은 남의 집 = rent, 아니면 고를 수 없다", () => {
+    const { world, buildings } = fakeWorld();
+    const book = createResidenceBook(world);
+    expect(book.payKindOf(1, 10, 100)).toBe("own");
+    expect(book.payKindOf(2, 10, 200)).toBe("lodging");
+    expect(book.payKindOf(1, 10, 200)).toBeNull();
+    expect(book.blockOf(1, 10, 200)).toBe("not_eligible");
+    buildings.set(200, { cityId: 6, level: 1, living: true, ownerId: 20, capacity: 4, rent: 7n });
+    expect(book.payKindOf(1, 10, 200)).toBe("rent");
+    expect(book.blockOf(1, 10, 200)).toBeNull();
+  });
+
+  it("고르면 첫 기간을 낸다(모자라면 insufficient_funds), 낸 기간 안에서만 쓰고, 다른 집을 고르면 남은 몫은 버린다", async () => {
+    const { world, buildings } = fakeWorld();
+    let now = 100;
+    const timed: ResidenceWorld = { ...world, now: () => now };
+    buildings.set(200, { cityId: 6, level: 1, living: true, ownerId: 20, capacity: 4, rent: 7n });
+    const book = createResidenceBook(timed);
+    const { payer, purses, paid } = fakePayer();
+    const service = createResidenceService({
+      book,
+      ownerOf: () => 10,
+      unitOwner: (unitId) => world.unitOwner(unitId),
+      now: () => now,
+      extras: {
+        rents: createRentTable(),
+        payer,
+        buildingFacts: (id) => world.building(id),
+        floorsOf: () => undefined,
+        floorQuote: () => null,
+      },
+    });
+    // 지갑 비어 있음 → 모자람, 아무것도 적지 않는다
+    expect(await service.set("me", 1, 200)).toEqual({ ok: false, code: "insufficient_funds" });
+    expect(book.choiceOf(1)).toBeUndefined();
+    purses.set(1, 10n);
+    expect(await service.set("me", 1, 200)).toEqual({ ok: true, unitId: 1, buildingId: 200, cityId: 6 });
+    expect(paid).toEqual(["rent:1:200:7"]);
+    expect(book.choiceOf(1)?.paidUntilMs).toBe(1_100);
+    expect(book.chosenPlace(1)).toEqual({ buildingId: 200, cityId: 6 });
+    expect(book.prepaidAt(1, 200, 1_099)).toBe(true);
+    // 같은 집을 다시 고르면 unchanged(다시 내지 않는다)
+    expect(await service.set("me", 1, 200)).toEqual({ ok: false, code: "unchanged" });
+    // 세를 거둬도 낸 기간 끝까지 산다
+    buildings.set(200, { cityId: 6, level: 1, living: true, ownerId: 20, capacity: 4, rent: null });
+    expect(book.chosenPlace(1)).toEqual({ buildingId: 200, cityId: 6 });
+    // 기간이 지나면 쉰다(옛 길)
+    now = 1_100;
+    expect(book.chosenPlace(1)).toBeUndefined();
+    expect(book.renewable(1)).toBe(false);
+    // 내 집으로 바꾸면 값 없음, 옛 집 남은 몫은 버린다
+    now = 500;
+    buildings.set(200, { cityId: 6, level: 1, living: true, ownerId: 20, capacity: 4, rent: 7n });
+    expect(await service.set("me", 1, 100)).toEqual({ ok: true, unitId: 1, buildingId: 100, cityId: 5 });
+    expect(book.choiceOf(1)?.paidUntilMs).toBeNull();
+    expect(paid).toEqual(["rent:1:200:7"]);
+    // 다시 그 남의 집 → 새로 낸다(지갑 3 → 모자람)
+    expect(await service.set("me", 1, 200)).toEqual({ ok: false, code: "insufficient_funds" });
+    // 배정받은 숙소(유닛 2)는 숙박비를 미리
+    purses.set(2, 5n);
+    expect(await service.set("me", 2, 200)).toEqual({ ok: true, unitId: 2, buildingId: 200, cityId: 6 });
+    expect(paid.at(-1)).toBe("lodging:2:200:3");
+    // 조회: 이 유닛이 낼 값·기간·주인 집세
+    const view = service.view("me", 2, 200, now);
+    expect(view.periodMs).toBe(1_000);
+    expect(view.choice).toEqual({ buildingId: 200, paidUntilMs: 1_500, paused: false });
+    expect(view.building).toMatchObject({ payKind: "lodging", price: "3", mine: false, occupants: 1 });
+  });
+
+  it("다음 기간 걷기: 기간이 끝난 고른 것만, 모자라면 걷지 않고 쉰다 — 돈이 생기면 다시 산다", async () => {
+    const { world, buildings } = fakeWorld();
+    let now = 0;
+    buildings.set(200, { cityId: 6, level: 1, living: true, ownerId: 20, capacity: 4, rent: 7n });
+    const book = createResidenceBook({ ...world, now: () => now });
+    const { payer, purses, paid } = fakePayer();
+    book.load([
+      // 기간이 남음
+      { unitId: 2, ownerId: 10, buildingId: 200, chosenAtMs: 1, paidUntilMs: 2_000 },
+      // 기간이 끝남(세 든 남의 집)
+      { unitId: 1, ownerId: 10, buildingId: 200, chosenAtMs: 2, paidUntilMs: 500 },
+    ]);
+    now = 1_000;
+    expect(book.chosenPlace(1)).toBeUndefined();
+    expect(await renewResidenceRents(book, payer, undefined, now)).toBe(0);
+    purses.set(1, 7n);
+    expect(await renewResidenceRents(book, payer, undefined, now)).toBe(1);
+    expect(paid).toEqual(["rent:1:200:7"]);
+    expect(book.choiceOf(1)?.paidUntilMs).toBe(2_000);
+    expect(book.chosenPlace(1)).toEqual({ buildingId: 200, cityId: 6 });
+    // 내 집은 걷지 않는다
+    expect(chargeResidence(payer, { ownerId: 10, unitId: 1, buildingId: 100, kind: "own", atMs: 0 })).toEqual(
+      {
+        ok: true,
+        paidUntilMs: null,
+        amount: 0n,
+      },
+    );
   });
 });

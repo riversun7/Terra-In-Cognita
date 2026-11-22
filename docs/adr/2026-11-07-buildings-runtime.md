@@ -193,3 +193,8 @@
 - 공성 전투맵(도시 실제 배치)의 성벽·둘레 시설도 전투 결과 목표다(질문 1114 가 — ADR `2026-10-31-combat-core.md` "바뀜 (2026-11-12, D-535)"). 결과 적용 길(잃은 내구도 → `damage`)은 그대로.
 - 건물 서비스 `npcJob`: NPC 레벨 올리기·수리(질문 1146 나·1114 가) — 플레이어 `upgrade`·`repair`와 같은 검사·재료 자리(유닛 화물 없음)·작업 줄, 일꾼 유닛 없음.
 - 시설 줄 `seeded`(세계 씨앗이 세운 시설, 마이그레이션 `20261112111806_facility_seeded`) — 씨앗 숙소 침대를 인구 상한에서 뺀다(질문 1131 나).
+
+## 바뀜 (residence-3, D-591 1 — 주거 건물 층 올리기, 2026-11-22)
+- 시설 줄에 층 수(`world_facilities.floors`, 기본 1, 1~100)를 더하고 작업 종류에 `floor`(층 올리기)를 더했다(마이그레이션 `20261122012636_residence3_floors_rent` — 작업 종류 검사를 다시 만들고, 이미 있던 숙소는 층 = 레벨로 채움). 직전 판 앱은 `floor` 작업 줄을 읽지 않고 건너뛴다(면적 모듈 `plot`과 같다).
+- 명령 `facility_floor`(프로토콜 145) → 건물 서비스 `floor`(`facilities/floors.ts addFloor` — `plots.ts`의 면적 모듈 고리 `PlotDeps`를 같이 쓴다, 서비스는 `plotCommands`로 펼친다). 대상 = 내 주거 건물(생활 단계), 다 지은 것, 최고 층(설정 칸 `residence_floor_max`) 아래. 재료 꺼내는 자리·일꾼 단축·운영자 모드·`job_running`은 레벨 올리기·면적 모듈과 같다. 끝나면 층 + 1(`finish → addModule`).
+- 재료·시간(기술 기본값 [임시] — 질문 `docs/questions/2026-11-22-residence-3.md` 2671): 지금 레벨 짓기 재료·시간 × 지금 층 수 × `residence_floor_cost_pm`·`residence_floor_time_pm` ÷ 1000. 거래 종류 `facility_floor`(장부 "유지" 칸). 층은 사는 곳 정원에만 쓴다(ADR `2026-11-15-business-ledger.md` "바뀜 (residence-3, D-591)").

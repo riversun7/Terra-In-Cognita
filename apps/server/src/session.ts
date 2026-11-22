@@ -20,6 +20,7 @@ import {
   LABOR_JOBS_PROTOCOL_VERSION,
   LABOR_WAIT_PROTOCOL_VERSION,
   FACILITY_CLAIM_PROTOCOL_VERSION,
+  FLOOR_PROTOCOL_VERSION,
   ATTACK_PROTOCOL_VERSION,
   FACILITY_PROTOCOL_VERSION,
   STORAGE_PROTOCOL_VERSION,
@@ -49,6 +50,7 @@ import {
   HOSPITAL_PROTOCOL_VERSION,
   CITIZENSHIP_PROTOCOL_VERSION,
   RESIDENCE_PROTOCOL_VERSION,
+  RESIDENCE_RENT_PROTOCOL_VERSION,
   BOAT_PROTOCOL_VERSION,
   GEAR_PROTOCOL_VERSION,
   HARBOR_PROTOCOL_VERSION,
@@ -480,21 +482,24 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "facility_plot":
       case "facility_plot_remove":
       case "facility_gather_tier":
-      case "facility_claim": {
+      case "facility_claim":
+      case "facility_floor": {
         // 건물 명령은 프로토콜 10, 창고 옮기기는 11, 건물·비콘 공격은 12, 면적 모듈은 41, 모듈 떼기·기르는 티어는 45, 짓는 중 알박기 고르기
         // 바꾸기는 72의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
         const needs =
-          message.t === "facility_claim"
-            ? FACILITY_CLAIM_PROTOCOL_VERSION
-            : message.t === "facility_plot_remove" || message.t === "facility_gather_tier"
-              ? GATHER_TIER_PROTOCOL_VERSION
-              : message.t === "facility_plot"
-                ? PLOT_PROTOCOL_VERSION
-                : message.t === "facility_attack"
-                  ? ATTACK_PROTOCOL_VERSION
-                  : message.t === "storage_move"
-                    ? STORAGE_PROTOCOL_VERSION
-                    : FACILITY_PROTOCOL_VERSION;
+          message.t === "facility_floor"
+            ? FLOOR_PROTOCOL_VERSION
+            : message.t === "facility_claim"
+              ? FACILITY_CLAIM_PROTOCOL_VERSION
+              : message.t === "facility_plot_remove" || message.t === "facility_gather_tier"
+                ? GATHER_TIER_PROTOCOL_VERSION
+                : message.t === "facility_plot"
+                  ? PLOT_PROTOCOL_VERSION
+                  : message.t === "facility_attack"
+                    ? ATTACK_PROTOCOL_VERSION
+                    : message.t === "storage_move"
+                      ? STORAGE_PROTOCOL_VERSION
+                      : FACILITY_PROTOCOL_VERSION;
         if (protocolVersion < needs) {
           reject("invalid_message");
           return;
@@ -690,14 +695,20 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         gatherSocket.handle(message);
         return;
       }
-      case "residence_set": {
-        // 사는 곳 고르기는 프로토콜 61의 메시지다(D-585 1 — 채집 게이트웨이가 함께 받는다, residence/)
-        if (protocolVersion < RESIDENCE_PROTOCOL_VERSION) {
+      case "residence_set":
+      case "residence_rent": {
+        // 사는 곳 고르기는 프로토콜 61, 집세 정하기는 145의 메시지다(D-585 1·D-591 2 — 채집 게이트웨이가 함께 받는다, residence/)
+        if (
+          protocolVersion <
+          (message.t === "residence_rent" ? RESIDENCE_RENT_PROTOCOL_VERSION : RESIDENCE_PROTOCOL_VERSION)
+        ) {
           reject("invalid_message");
           return;
         }
         if (!context.gather) {
-          send({ t: "residence_result", id: message.id, ok: false, code: "busy" });
+          if (message.t === "residence_rent")
+            send({ t: "residence_rent_result", id: message.id, ok: false, code: "busy" });
+          else send({ t: "residence_result", id: message.id, ok: false, code: "busy" });
           return;
         }
         gatherSocket ??= context.gather.open({

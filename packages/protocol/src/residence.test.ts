@@ -4,8 +4,12 @@ import {
   HOUSE_HEIR_PROTOCOL_VERSION,
   MIN_SUPPORTED_PROTOCOL_VERSION,
   PROTOCOL_VERSION,
+  FACILITY_RESULT_CODES,
+  FLOOR_PROTOCOL_VERSION,
   ProtocolError,
   RESIDENCE_FULL_PROTOCOL_VERSION,
+  RESIDENCE_RENT_PROTOCOL_VERSION,
+  RESIDENCE_RENT_RESULT_CODES,
   RESIDENCE_PROTOCOL_VERSION,
   RESIDENCE_RESULT_CODES,
   decodeClientMessage,
@@ -90,5 +94,52 @@ describe("사는 곳 정원·가문 후계자(줄기 governance-6 — 프로토�
         factionId: 3,
       }),
     ).toBe(true);
+  });
+});
+
+describe("층 올리기·집세(줄기 residence-3 — 프로토콜 145, D-591)", () => {
+  it("판: 이 줄기 판(145) — 지금 판 이하", () => {
+    expect(FLOOR_PROTOCOL_VERSION).toBe(145);
+    expect(RESIDENCE_RENT_PROTOCOL_VERSION).toBe(145);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(RESIDENCE_RENT_PROTOCOL_VERSION);
+  });
+
+  it("facility_floor: 건물·일꾼(선택), 답 코드 floor_full", () => {
+    const floor = { t: "facility_floor" as const, id: 4, buildingId: 900, unitIds: [41] };
+    expect(decodeClientMessage(encodeMessage(floor))).toEqual(floor);
+    expect(decodes(decodeClientMessage, { t: "facility_floor", id: 4, buildingId: 900 })).toBe(true);
+    expect(decodes(decodeClientMessage, { t: "facility_floor", id: 4, buildingId: 0 })).toBe(false);
+    expect(FACILITY_RESULT_CODES).toContain("floor_full");
+    expect(decodes(decodeServerMessage, { t: "facility_result", id: 4, ok: false, code: "floor_full" })).toBe(
+      true,
+    );
+  });
+
+  it("residence_rent: 집세 정수 글자 또는 null(세 거두기), 결과", () => {
+    const set = { t: "residence_rent", id: 5, buildingId: 900, rent: "120" } as const;
+    expect(decodeClientMessage(encodeMessage(set))).toEqual(set);
+    expect(decodes(decodeClientMessage, { ...set, rent: null })).toBe(true);
+    expect(decodes(decodeClientMessage, { ...set, rent: "0" })).toBe(true);
+    expect(decodes(decodeClientMessage, { ...set, rent: "-1" })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...set, rent: "1.5" })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...set, rent: 120 })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...set, rent: "1".repeat(19) })).toBe(false);
+    const ok = { t: "residence_rent_result", id: 5, ok: true, buildingId: 900, rent: "120" } as const;
+    expect(decodeServerMessage(encodeMessage(ok))).toEqual(ok);
+    for (const code of RESIDENCE_RENT_RESULT_CODES) {
+      const fail = { t: "residence_rent_result", id: 5, ok: false, code } as const;
+      expect(decodeServerMessage(encodeMessage(fail))).toEqual(fail);
+    }
+  });
+
+  it("insufficient_funds는 145판부터, 더 낮은 판은 not_eligible로 낮춘다", () => {
+    expect(RESIDENCE_RESULT_CODES).toContain("insufficient_funds");
+    expect(legacyResidenceCode("insufficient_funds", RESIDENCE_RENT_PROTOCOL_VERSION)).toBe(
+      "insufficient_funds",
+    );
+    expect(legacyResidenceCode("insufficient_funds", RESIDENCE_RENT_PROTOCOL_VERSION - 1)).toBe(
+      "not_eligible",
+    );
+    expect(legacyResidenceCode("full", RESIDENCE_RENT_PROTOCOL_VERSION - 1)).toBe("full");
   });
 });

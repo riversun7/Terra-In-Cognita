@@ -221,12 +221,31 @@ export const BUSINESS_TUNING_KEYS: readonly TuningKey[] = [
     "주민세 국세 몫(‰)",
     "Resident tax national share (‰)",
   ),
-  // 사는 곳 정원(질문 2481 가 — 줄기 governance-6)
+  // 사는 곳 정원·층 올리기·집세 기간(질문 2481 가 — 줄기 governance-6, D-591 — 줄기 residence-3)
   k(
-    "residence_capacity_per_level",
-    "residenceCapacityPerLevel",
-    "사는 곳 정원: 레벨(층)마다 유닛 수",
-    "Residence capacity: units per level (floor)",
+    "residence_capacity_per_floor",
+    "residenceCapacityPerFloor",
+    "사는 곳 정원: 층마다 유닛 수",
+    "Residence capacity: units per floor",
+  ),
+  k("residence_floor_max", "residenceFloorMax", "주거 건물 최대 층", "Housing building max floors"),
+  k(
+    "residence_floor_cost_pm",
+    "residenceFloorCostPm",
+    "층 올리기 재료 배율(층마다, ‰)",
+    "Raise-floor materials multiplier (per floor, ‰)",
+  ),
+  k(
+    "residence_floor_time_pm",
+    "residenceFloorTimePm",
+    "층 올리기 시간 배율(층마다, ‰)",
+    "Raise-floor time multiplier (per floor, ‰)",
+  ),
+  k(
+    "residence_rent_period_ms",
+    "residenceRentPeriodMs",
+    "사는 곳 집세 기간(ms)",
+    "Residence rent period (ms)",
   ),
   // 나라 세금(tax-2 — 질문 2371 나·2373 가): NPC 나라 주민세 규칙식 범위, 주민세 재산의 건물 값(지은 값·감가)
   k(

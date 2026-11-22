@@ -48,8 +48,15 @@ export interface FacilityCatalogView {
   readonly exchangeLock?: "after_launch" | "not_ready" | undefined;
 }
 
-/** plot = 면적 모듈 붙이기(기획 D-569 1765) */
-export type FacilityJobKind = "build" | "upgrade" | "repair" | "beacon_repair" | "equipment" | "plot";
+/** plot = 면적 모듈 붙이기(기획 D-569 1765), floor = 주거 건물 층 올리기(D-591 1) */
+export type FacilityJobKind =
+  | "build"
+  | "upgrade"
+  | "repair"
+  | "beacon_repair"
+  | "equipment"
+  | "plot"
+  | "floor";
 
 export interface FacilityJobView {
   readonly id: number;

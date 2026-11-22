@@ -14390,11 +14390,11 @@
       "source": "D-579 \"도시세 → 국세 2중 구조\"(기획 해석) · 줄기 resident-tax"
     },
     {
-      "id": "residence_capacity_per_level",
+      "id": "residence_capacity_per_floor",
       "code": "",
       "name": {
-        "ko": "사는 곳 정원: 레벨(층)마다 유닛 수",
-        "en": "Residence capacity: units per level (floor)"
+        "ko": "사는 곳 정원: 층마다 유닛 수",
+        "en": "Residence capacity: units per floor"
       },
       "value": 4,
       "structural": false,
@@ -14402,10 +14402,82 @@
       "min": 1,
       "max": 1000,
       "desc": {
-        "ko": "주거 건물 하나를 사는 곳으로 고를 수 있는 유닛 수 = 건물 레벨(층) × 이 값. 다 차면 더 고를 수 없다(full). 층 자료가 따로 없어 레벨을 층으로 읽는다 — [임시] 기술 기본값(질문 2535).",
-        "en": "How many units can pick one housing building as their residence = building level (floor) × this value. When full, no more can pick it (full). There is no separate floor data, so the level counts as floors — [temporary] technical default (question 2535)."
+        "ko": "주거 건물 하나를 사는 곳으로 고를 수 있는 유닛 수 = 층 수 × 이 값(D-591 1 — 층은 건물 레벨과 따로, 층 올리기 공사로 는다). 다 차면 더 고를 수 없다(full). 값은 [임시] 기술 기본값(옛 칸 residence_capacity_per_level의 값 그대로 — 이름만 바꿈).",
+        "en": "How many units can pick one housing building as their residence = floors × this value (D-591 1 — floors are separate from the building level and grow by the raise-floor construction). When full, no more can pick it (full). The value is a [temporary] technical default (same value as the old cell residence_capacity_per_level — renamed only)."
       },
-      "source": "질문 2481 가(사용자 답 — 집마다 살 수 있는 수 상한, 층을 올리면 는다) · 줄기 governance-6 [임시 기술 기본값]"
+      "source": "질문 2481 가 + D-591 1(질문 2535 나 — 층 올리기 공사) · 줄기 governance-6·residence-3 [임시 기술 기본값]"
+    },
+    {
+      "id": "residence_floor_max",
+      "code": "",
+      "name": {
+        "ko": "주거 건물 최대 층",
+        "en": "Housing building max floors"
+      },
+      "value": 5,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 100,
+      "desc": {
+        "ko": "층 올리기 공사로 올릴 수 있는 가장 높은 층(D-591 1). 처음 지은 주거 건물은 1층. [임시] 기술 기본값(건물 최고 레벨 5와 같게 — 옛 판 정원 레벨 × 4를 그대로 남길 수 있게).",
+        "en": "Highest floor the raise-floor construction can reach (D-591 1). A newly built housing building has 1 floor. [temporary] technical default (same as the max building level 5, so the old capacity of level × 4 can be kept)."
+      },
+      "source": "D-591 1(질문 2535 나 — 층 올리기 공사, 정원은 층을 따른다) · 줄기 residence-3 [임시 기술 기본값]"
+    },
+    {
+      "id": "residence_floor_cost_pm",
+      "code": "",
+      "name": {
+        "ko": "층 올리기 재료 배율(층마다, ‰)",
+        "en": "Raise-floor materials multiplier (per floor, ‰)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "층 하나를 올리는 재료 = 그 건물 지금 레벨의 짓기 재료(레벨 올리기와 같은 재료 표) × 지금 층 수 × 이 값 ÷ 1000(줄마다 올림). 높이 올릴수록 비싸다. [임시] 기술 기본값(D-591 1 — 재료·시간·값은 기획이 정하지 않았다, 질문 2671).",
+        "en": "Materials to raise one floor = the building's build materials at its current level (same table as the level upgrade) × current floors × this value ÷ 1000 (rounded up per line). Higher floors cost more. [temporary] technical default (D-591 1 — materials, time and price are not set by design, question 2671)."
+      },
+      "source": "D-591 1(질문 2535 나 — 층 올리기 공사, 정원은 층을 따른다) · 줄기 residence-3 [임시 기술 기본값]"
+    },
+    {
+      "id": "residence_floor_time_pm",
+      "code": "",
+      "name": {
+        "ko": "층 올리기 시간 배율(층마다, ‰)",
+        "en": "Raise-floor time multiplier (per floor, ‰)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "층 하나를 올리는 시간 = 그 건물 지금 레벨의 짓는 시간 × 지금 층 수 × 이 값 ÷ 1000, 일꾼이 있으면 짓기처럼 준다. [임시] 기술 기본값(질문 2671).",
+        "en": "Time to raise one floor = the building's build time at its current level × current floors × this value ÷ 1000, shortened by builders like construction. [temporary] technical default (question 2671)."
+      },
+      "source": "D-591 1(질문 2535 나 — 층 올리기 공사, 정원은 층을 따른다) · 줄기 residence-3 [임시 기술 기본값]"
+    },
+    {
+      "id": "residence_rent_period_ms",
+      "code": "",
+      "name": {
+        "ko": "사는 곳 집세 기간(ms)",
+        "en": "Residence rent period (ms)"
+      },
+      "value": 86400000,
+      "structural": false,
+      "unit": "ms",
+      "min": 3600000,
+      "max": 31536000000,
+      "desc": {
+        "ko": "사는 곳 집세(남의 주거 건물 세 들기 — 주인이 정한 집세)와 고른 숙소의 미리 낸 숙박비를 한 번에 내는 기간(D-591 2 — 미리 낸다, 일찍 바꾸면 남은 몫은 돌려받지 않는다). 숙소 몫 = 이 기간에 드는 밤 수 × 하룻밤 숙박비. [임시] 기술 기본값(하루, 질문 2672).",
+        "en": "Period paid at once for residence rent (renting another owner's housing building — rent set by the owner) and for the prepaid fee of a chosen lodging (D-591 2 — paid in advance, the unused part is not refunded on an early change). Lodging amount = nights in this period × the nightly lodging fee. [temporary] technical default (one day, question 2672)."
+      },
+      "source": "D-591 2(질문 2536 다 — 숙박비 미리 내기 + 남의 집 세 들기) · 줄기 residence-3 [임시 기술 기본값]"
     },
     {
       "id": "npc_resident_tax_min_pm",

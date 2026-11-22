@@ -958,7 +958,7 @@ export { creditMarks, creditStandings } from "./creditSchema.ts";
 // 도시(정부) 지분 시장(D-583 — docs/adr/2026-11-21-share-market.md): cityShareSchema.ts
 export { cityShareOrders, cityShareRounds } from "./cityShareSchema.ts";
 // 사는 곳(D-585 — docs/adr/2026-11-15-business-ledger.md "바뀜 (residence …)"): residenceSchema.ts
-export { unitResidences } from "./residenceSchema.ts";
+export { residenceRents, unitResidences } from "./residenceSchema.ts";
 // 가문 연맹(조약, D-587 — 질문 2502·2503): leagueSchema.ts
 export {
   houseLeagueClauses,

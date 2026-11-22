@@ -5,7 +5,7 @@ import type { ResidenceChoice } from "./book.ts";
 
 export async function loadResidences(pool: QueryPool): Promise<ResidenceChoice[]> {
   const { rows } = await pool.query(
-    "select unit_id, owner_id, building_id, chosen_at_ms, paused_since_ms from unit_residences order by unit_id",
+    "select unit_id, owner_id, building_id, chosen_at_ms, paused_since_ms, paid_until_ms from unit_residences order by unit_id",
   );
   return rows.map((row) => ({
     unitId: Number(row.unit_id),
@@ -14,16 +14,19 @@ export async function loadResidences(pool: QueryPool): Promise<ResidenceChoice[]
     chosenAtMs: Number(row.chosen_at_ms),
     pausedSinceMs:
       row.paused_since_ms === null || row.paused_since_ms === undefined ? null : Number(row.paused_since_ms),
+    paidUntilMs:
+      row.paid_until_ms === null || row.paid_until_ms === undefined ? null : Number(row.paid_until_ms),
   }));
 }
 
-/** 한 유닛의 사는 곳을 적는다(있으면 바꾼다) */
+/** 한 유닛의 사는 곳을 적는다(있으면 바꾼다 — 미리 낸 기간도 새 값으로, 옛 집의 남은 몫은 버린다 D-591 2) */
 export async function saveResidence(pool: QueryPool, choice: ResidenceChoice): Promise<void> {
   await pool.query(
-    `insert into unit_residences (unit_id, owner_id, building_id, chosen_at_ms, paused_since_ms) values ($1, $2, $3, $4, null)
+    `insert into unit_residences (unit_id, owner_id, building_id, chosen_at_ms, paused_since_ms, paid_until_ms)
+     values ($1, $2, $3, $4, null, $5)
      on conflict (unit_id) do update set owner_id = excluded.owner_id, building_id = excluded.building_id,
-       chosen_at_ms = excluded.chosen_at_ms, paused_since_ms = null`,
-    [choice.unitId, choice.ownerId, choice.buildingId, choice.chosenAtMs],
+       chosen_at_ms = excluded.chosen_at_ms, paused_since_ms = null, paid_until_ms = excluded.paid_until_ms`,
+    [choice.unitId, choice.ownerId, choice.buildingId, choice.chosenAtMs, choice.paidUntilMs ?? null],
   );
 }
 

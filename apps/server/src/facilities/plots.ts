@@ -16,10 +16,18 @@
 // 같은 쓰기 묶음.
 import { type BuildingGatherRules, buildingGatherTier, plotSlots } from "@terra/shared/gatherMath";
 import type { FacilityResultCode } from "@terra/protocol";
+import { type FloorRules, addFloor } from "./floors.ts";
 import type { FacilityRecord, JobMaterial } from "./state.ts";
 
-/** 건물 서비스의 면적 모듈·기르는 티어 명령(FacilityService가 잇는다). 결과는 커밋 뒤에 답한다 */
+/** 건물 서비스의 면적 모듈·기르는 티어·층 올리기 명령(FacilityService가 잇는다). 결과는 커밋 뒤에 답한다 */
 export interface PlotCommands {
+  /** 주거 건물 층 하나 올리기(짓기처럼 작업, D-591 1 — floors.ts). operator = 운영자 모드(재료·시간 없이) */
+  floor(
+    userId: string,
+    buildingId: number,
+    unitIds: readonly number[],
+    operator?: { readonly pace: number },
+  ): Promise<PlotResult>;
   /** 면적 모듈 붙이기(짓기처럼 작업). operator = 운영자 모드(재료·시간 없이) */
   plot(
     userId: string,
@@ -42,13 +50,15 @@ export const PLOT_JOB = {
   restorePpm: null,
 } as const;
 
-/** 판정에 보는 시설 정의 칸(팩 gather mode) */
+/** 판정에 보는 시설 정의 칸(팩 gather mode·단계) */
 export interface PlotFacility {
   readonly gather?: { readonly mode?: string | undefined } | undefined;
+  readonly stage?: string | undefined;
 }
 
-/** 모듈 붙이기 작업 하나(건물 서비스가 작업 줄로 만든다) */
+/** 모듈 붙이기·층 올리기 작업 하나(건물 서비스가 작업 줄로 만든다) */
 export interface PlotJobInput {
+  readonly kind: "plot" | "floor";
   readonly ownerId: number;
   readonly buildingId: number;
   readonly unitIds: readonly number[];
@@ -73,12 +83,20 @@ export interface PlotDeps<D extends PlotFacility = PlotFacility> {
   readonly checkUnits: (me: number, unitIds: readonly number[]) => FacilityResultCode | null;
   /** 그 건물에 작업(장비 수리 빼고)이 걸려 있나 */
   readonly jobRunning: (buildingId: number) => boolean;
-  /** 재료를 뺀다(모자라면 false) */
-  readonly spend: (me: number, materials: readonly JobMaterial[], at: number, buildingId: number) => boolean;
+  /** 재료를 뺀다(모자라면 false). reason = 원장 거래 종류(없으면 facility_plot) */
+  readonly spend: (
+    me: number,
+    materials: readonly JobMaterial[],
+    at: number,
+    buildingId: number,
+    reason?: string,
+  ) => boolean;
   /** 모듈 붙이기 작업을 건다(시간 0이면 바로 끝낸다) */
   readonly startJob: (job: PlotJobInput) => void;
   readonly save: (record: FacilityRecord) => void;
   readonly rules: () => BuildingGatherRules;
+  /** 층 규칙(설정 칸 — floors.ts). 없으면 기술 기본값 */
+  readonly floorRules?: (() => FloorRules) | undefined;
 }
 
 export type PlotResult =
@@ -126,6 +144,7 @@ export function addPlot<D extends PlotFacility>(
   if (!deps.spend(me, materials, at, buildingId)) return { ok: false, code: "insufficient_materials" };
   const ms = operator ? 0 : deps.withBuilders(deps.levelMs(def, 1), unitIds.length);
   deps.startJob({
+    kind: "plot",
     ownerId: me,
     buildingId,
     unitIds: [...unitIds],
@@ -177,4 +196,24 @@ export function chooseTier<D extends PlotFacility>(
   record.gatherTier = tier;
   deps.save(record);
   return { ok: true };
+}
+
+/** 면적 모듈·기르는 티어·층 올리기 명령 묶음(건물 서비스가 펼친다 — service.ts 줄 수). done = 커밋 뒤에 답하기 */
+export function plotCommands<D extends PlotFacility, R>(
+  deps: PlotDeps<D>,
+  done: (result: PlotResult) => Promise<R>,
+): {
+  plot(userId: string, buildingId: number, unitIds: readonly number[], operator?: object): Promise<R>;
+  plotRemove(userId: string, buildingId: number): Promise<R>;
+  gatherTier(userId: string, buildingId: number, tier: number | null): Promise<R>;
+  floor(userId: string, buildingId: number, unitIds: readonly number[], operator?: object): Promise<R>;
+} {
+  return {
+    plot: (userId, buildingId, unitIds, operator) =>
+      done(addPlot(deps, userId, buildingId, unitIds, operator !== undefined)),
+    plotRemove: (userId, buildingId) => done(removePlot(deps, userId, buildingId)),
+    gatherTier: (userId, buildingId, tier) => done(chooseTier(deps, userId, buildingId, tier)),
+    floor: (userId, buildingId, unitIds, operator) =>
+      done(addFloor(deps, userId, buildingId, unitIds, operator !== undefined)),
+  };
 }

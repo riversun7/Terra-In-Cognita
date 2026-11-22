@@ -8,6 +8,8 @@
 //   lodging_fee_per_night)을 그 유닛의 사유재산(유닛 지갑 = @terra/shared/businessBooks unitPurseLocation, D-097)에서 그 숙소 금고로 낸다(제 주인 숙소여도
 //   — 유닛 돈과 주인 돈은 다르다). 지갑이 모자라면 남은 만큼만 내고, 그동안 회복이 떨어진다(노숙 회복 [임시]). 주인은 유닛에게 돈을 줄 수 있다
 //   (선물 unit_gift). 화폐 = 서버 시험 화폐 [임시]. 바퀴 나머지 ms·못 낸 표시는 메모리(다시 켜면 0부터) [임시].
+// - 바뀜(residence-3, D-591 2): 그 숙소를 사는 곳으로 골라 숙박비를 기간만큼 미리 냈으면(residence/rent.ts — 사는 곳 장부 prepaidAt) 그 기간에는 밤마다 다시
+//   걷지 않는다. 미리 낼 값 = 그 기간에 드는 밤 수 × 하룻밤 요금(periodFee — 밤마다 걷는 것과 같은 바퀴 셈).
 // - 도시 계획은 짧게(PLAN_TTL_MS) 들고 쓴다 — 정산마다 도시 숙소를 다시 훑지 않게. 정수만 쓴다.
 import {
   type JobRules,
@@ -24,6 +26,7 @@ import type { WorldFacilities } from "../facilities/world.ts";
 import { type CityRestPlaces, cityRestPlacesOf } from "../market/worldInput.ts";
 import { type PlayerRest, type PlayerWorker, planPlayerRest } from "../npc/cityRest.ts";
 import { registerPlayerHomes } from "../npc/residentProperty.ts";
+import { residenceBookOf } from "../residence/book.ts";
 import type { NpcRuntime } from "../npc/runtime.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
@@ -78,6 +81,8 @@ export interface WorkerRest {
     fromMs: number,
     toMs: number,
   ): (JobRules | undefined)[] | undefined;
+  /** 그 일꾼이 지금 숙소(buildingId)에서 periodMs 동안 쉬는 밤 수(1 이상) × 하룻밤 요금. 그 숙소에서 쉬지 않으면 undefined(D-591 2 — 미리 내는 숙박비) */
+  periodFee(unitId: number, buildingId: number, periodMs: number): bigint | undefined;
 }
 
 export function createWorkerRest(deps: WorkerRestDeps): WorkerRest {
@@ -129,6 +134,19 @@ export function createWorkerRest(deps: WorkerRestDeps): WorkerRest {
     };
   };
 
+  /** 하룻밤(일·쉼 한 바퀴, ms) — 그 일꾼의 걷기 빠르기로 오감 시간을 센다 */
+  const nightMs = (unitId: number, rest: WorkerRestView): number =>
+    Math.max(
+      1,
+      restPeriodMs(
+        rest.place,
+        rest.commuteCells,
+        deps.rules(),
+        TEST_JOB_RULES.cycleMs,
+        deps.speedOf?.(unitId),
+      ),
+    );
+
   /** 숙박비를 낸다. 다 냈거나 낼 것이 없으면 true */
   const chargeFee = (
     ownerId: number,
@@ -141,13 +159,19 @@ export function createWorkerRest(deps: WorkerRestDeps): WorkerRest {
     const fee = BigInt(Math.max(0, Math.trunc(c.logistics.lodgingFeePerNight)));
     const ledger = deps.ledger;
     const asset = deps.feeAsset;
-    if (!ledger || !asset || fee <= 0n || rest.lodgingOwner === null || rest.lodgingId === null) {
+    if (
+      !ledger ||
+      !asset ||
+      fee <= 0n ||
+      rest.lodgingOwner === null ||
+      rest.lodgingId === null ||
+      residenceBookOf(ledger)?.prepaidAt(unitId, rest.lodgingId, atMs) === true
+    ) {
       carry.delete(unitId);
       unpaid.delete(unitId);
       return true;
     }
-    const speed = deps.speedOf?.(unitId);
-    const period = Math.max(1, restPeriodMs(rest.place, rest.commuteCells, c, TEST_JOB_RULES.cycleMs, speed));
+    const period = nightMs(unitId, rest);
     const total = (carry.get(unitId) ?? 0) + Math.max(0, spanMs);
     const nights = Math.floor(total / period);
     carry.set(unitId, total % period);
@@ -182,6 +206,12 @@ export function createWorkerRest(deps: WorkerRestDeps): WorkerRest {
 
   return {
     restOf,
+    periodFee(unitId, buildingId, periodMs) {
+      const rest = restOf(unitId);
+      if (!rest || rest.lodgingId !== buildingId) return undefined;
+      const fee = BigInt(Math.max(0, Math.trunc(deps.rules().logistics.lodgingFeePerNight)));
+      return BigInt(Math.max(1, Math.floor(Math.max(0, periodMs) / nightMs(unitId, rest)))) * fee;
+    },
     rulesFor(ownerId, units, fromMs, toMs) {
       const c = deps.rules();
       let any = false;

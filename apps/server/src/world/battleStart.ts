@@ -10,13 +10,13 @@ import { createCityDefense } from "../temple/cityDefense.ts";
 import type { TerritoryService } from "../territory/service.ts";
 import type { BattleBodies } from "./battleBodies.ts";
 import type { BattleWorld } from "./battleResults.ts";
-import type { CyborgHome } from "./cyborgHome.ts";
 import type { BattleService } from "./battles.ts";
 import { type CityRow, nearestSafeCity } from "./cities.ts";
 import type { OwnerRow, QueryPool } from "./persist/load.ts";
 import type { WorldWriter } from "./persist/writer.ts";
 import type { SecondMap } from "./secondMap.ts";
 import { isAfloat } from "./unitKinds.ts";
+import type { UnitHome } from "./unitHome.ts";
 
 /** 시작 자료를 고치는 단계 하나(생명 수치·물약·탄) */
 interface StartStep {
@@ -82,7 +82,7 @@ export function createWorldBattleStart(
   };
 }
 
-/** 전투 결과를 적용할 세계: 유닛 2차맵, 진 유닛이 돌아갈 가장 가까운 안전 도시(그 주인 세력 기준), 주인이 있나 */
+/** 전투 결과를 적용할 세계: 유닛 2차맵, 포로가 걸어갈 가장 가까운 안전 도시(잡은 쪽 세력 기준), 적색 부상 귀환 자리, 주인이 있나 */
 export function createBattleWorld(input: {
   readonly maps: ReadonlyMap<number, SecondMap>;
   readonly cities: () => readonly CityRow[];
@@ -90,11 +90,11 @@ export function createBattleWorld(input: {
   readonly npcOwnerId: number;
   readonly ledger: Ledger;
   readonly now: () => number;
-  /** 진 사이보그 본체가 돌아갈 사는 곳(D-594 — cyborgHome.ts). 없으면 다른 유닛처럼 가장 가까운 안전 도시 */
-  readonly cyborgHome?: (() => CyborgHome | undefined) | undefined;
+  /** 적색 부상으로 진 유닛이 돌아갈 곳(D-594·보충 — unitHome.ts). 없으면 그 자리에 남는다 */
+  readonly unitHome?: (() => UnitHome | undefined) | undefined;
 }): BattleWorld {
   return {
-    cyborgHome: input.cyborgHome,
+    unitHome: input.unitHome,
     mapOf: (unitId) => [...input.maps.values()].find((map) => map.unitInfo(unitId) !== undefined),
     safeCellFor: (unitId, ownerId, map) => {
       const at = map.unitInfo(unitId)?.motion;

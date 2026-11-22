@@ -191,22 +191,6 @@ describe("2차맵 사이 이동", () => {
     r.travel.stop();
   });
 
-  it("D-594: 돌아가는 중(쓰지 못함)인 유닛은 보통 보내기를 못 받지만, 사는 곳으로 돌아가는 길(returning)은 짜고 넘은 뒤 구간도 걷는다", async () => {
-    const r = rig();
-    placeMine(r, 250, 100);
-    const back = START + 3_600_000;
-    mapAt(r, 0).setCondition(1, { injury: 0, injuryUntilMs: null, heldBy: null, returningUntilMs: back });
-    const request = { unitId: 1, mapKey: K[2] ?? 0, x: 10, y: 100, kind: "move" as const };
-    expect(await r.travel.start(USER, request)).toEqual({ ok: false, code: "unavailable" });
-    expect(await r.travel.start(USER, request, { returning: true })).toMatchObject({ ok: true, maps: 3 });
-    // 넘은 뒤 구간(옆 2차맵의 moveUnit)도 돌아가는 중 표시를 넘어 걷고 마지막 2차맵에 닿는다
-    await vi.advanceTimersByTimeAsync(1_000_000);
-    expect(whereIs(r, 1)).toBe(2);
-    expect(r.travel.active).toBe(0);
-    expect(mapAt(r, 2).unitInfo(1)?.condition.returningUntilMs).toBe(back);
-    r.travel.stop();
-  });
-
   it("운영자 빠르기 배수로 보낸 길은 넘은 뒤 구간까지 그 배수로 걷고, 도착 예상도 그만큼 짧다", async () => {
     const r = rig();
     placeMine(r, 250, 100);

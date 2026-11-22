@@ -91,7 +91,6 @@ import { hopPaceDistance } from "./coordPace.ts";
 import { restoreTravels } from "./restore.ts";
 import { travelWriter } from "./store.ts";
 import { parkMapUnits, parkableMap, placeFinder } from "./unloadPark.ts";
-import { returningAt } from "../world/unitCondition.ts";
 
 export { walkSpeed } from "./serviceParts.ts";
 export type {
@@ -324,9 +323,6 @@ export function createTravelService(deps: TravelDeps): TravelService {
     }
     const result = await map.moveUnit(journey.unitId, anchorCenter(cell.x, cell.y, info.size), {
       speedFactor: journey.speedFactor,
-      // 진 사이보그 본체가 사는 곳으로 돌아가는 길(D-594, world/cyborgHome.ts): 돌아가는 중 표시(쓰지 못함)가 있어도 이 길은 걷는다. 돌아가는 중인 유닛은
-      // 새 길을 받지 못하므로(planFor unavailable) 이 표시가 있는 길은 그 돌아가는 길뿐이다
-      ignoreCondition: returningAt(info.condition, at),
     });
     if (journeys.get(journey.unitId) !== journey || journey.seq !== seq) return fail("busy");
     if (!result.ok) {
@@ -860,7 +856,7 @@ export function createTravelService(deps: TravelDeps): TravelService {
       if (stopped || !deps.ready()) return fail("busy");
       const found = ownUnit(userId, request.unitId);
       if ("problem" in found) return fail(startCode(found.problem));
-      const planned = planFor(found, request, startOptions?.returning === true);
+      const planned = planFor(found, request);
       if ("problem" in planned) return fail(startCode(planned.problem));
       return launch(found, planned, request, userId, startOptions?.speedFactor ?? 1, false);
     },

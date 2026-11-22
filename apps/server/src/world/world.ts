@@ -115,7 +115,8 @@ import { npcEconomyInputOf } from "../market/worldInput.ts";
 import type { TravelService } from "../travel/service.ts";
 import { createWorldTravel } from "../travel/worldTravel.ts";
 import { npcTravelOf } from "../travel/npcTravel.ts";
-import { createCyborgHome } from "./cyborgHome.ts";
+import type { UnitHome } from "./unitHome.ts";
+import { createUnitHomeWorld } from "./unitHomeWorld.ts";
 
 // 시험 2차맵 자리·시험 행성은 testMaps.ts(다른 모듈·시험이 world.ts에서 가져오던 이름을 그대로 다시 내보낸다)
 export { RETIRED_TEST_MAPS, TEST_MAP_KEY, TEST_MAP_ORIGIN, TEST_PLANET_ID, retiredTestMapKey, testMapKey };
@@ -223,6 +224,8 @@ export interface WorldPersistence {
   readonly npcOwnerId: number;
   /** 전투 인스턴스(R3 최소: 빨리감기 + 끝 시각에 결과 적용. 유닛 부상·귀환은 R4) */
   readonly battles: BattleService;
+  /** 적색 부상으로 진 유닛이 돌아갈 곳(D-594·보충 — unitHome.ts, 시험·조회용) */
+  readonly unitHome: UnitHome;
   /** 사이보그(계정당 하나, docs/adr/2026-11-01-first-login-cyborg.md) */
   readonly cyborgs: CyborgService;
   /** 영토 비콘·영토 배치(docs/adr/2026-11-03-territory-layer.md) */
@@ -463,9 +466,9 @@ export function startWorld(
       // 유지비 무게: 사이보그 유닛은 비싸고(D-470) 배는 싸다(D-541 1277 다) — 설정 칸 실효 값을 정산할 때마다 읽는다
       upkeepWeightPm: upkeepWeightOf(config.cyborgRules ?? defaultCyborgRules),
     });
-    // 진 사이보그 본체는 자기 사는 곳으로 실제로 돌아간다(D-594 — cyborgHome.ts). 이동 서비스는 아래에서 만든다(전투 결과 적용은 그 뒤에 돈다)
-    const travelRef: { current?: TravelService } = {};
-    const cyborgHome = createCyborgHome({ maps, ledger, owners, travel: () => travelRef.current });
+    // 적색 부상으로 진 유닛은 사는 곳 → 소속 도시 → 소속 국가 정부 건물로 바로 옮겨진다(D-594·보충 3 — D-591의 유일한 예외, unitHome.ts). 사이보그·건물·이동 서비스를 만든 뒤
+    // 채운다(전투 결과 적용은 그 뒤에 돈다)
+    const homeRef: { current?: UnitHome } = {};
     const battleWorld = createBattleWorld({
       maps,
       cities: () => cities,
@@ -473,7 +476,7 @@ export function startWorld(
       npcOwnerId,
       ledger,
       now,
-      cyborgHome: () => cyborgHome,
+      unitHome: () => homeRef.current,
     });
     // 끝 시각에 한 번: 부상·귀환·포로·탈취·장비 닳기·물약·탄·생명 수치·건물 피해를 세계에 적용한다(battleApply.ts, 결과 기록과 같은 커밋).
     // 전투 물건(287): 보유 물건 서비스를 만든 뒤 채운다(그 전에는 아무것도 붙이지 않는다)
@@ -693,7 +696,21 @@ export function startWorld(
     });
     const travelParts = { maps, writer, pool: db, now, log, settlement, cyborgs, planetId: TEST_PLANET_ID };
     const travel = createWorldTravel({ ...travelParts, ready: () => status.state === "ready" });
-    travelRef.current = travel;
+    const unitHome = createUnitHomeWorld({
+      maps,
+      ledger,
+      owners,
+      planetId: TEST_PLANET_ID,
+      cyborgOf: (userId) => cyborgs.record(userId),
+      npcCityOf: (unitId) => npc?.world.units.get(unitId)?.city,
+      npcCapitalOf: (ownerId) => npc?.capitalOf(ownerId),
+      npcWorld: () => npc?.world,
+      cities: () => cities,
+      cityCells,
+      facilities: () => facilities.service.facilities,
+      travel: () => travel,
+    });
+    homeRef.current = unitHome;
     // 옆 2차맵을 그때 띄우기(730 다, mapSpawnWorld.ts): 이동 서비스에 잇고 부팅이 함께 띄운 플레이어 2차맵을 센다
     const spawnParts = { maps, factory, paths, pool: db, planetId: TEST_PLANET_ID, travel, owners, now, log };
     const spawnRules = {
@@ -715,6 +732,7 @@ export function startWorld(
       settlement,
       npcOwnerId,
       battles,
+      unitHome,
       cyborgs,
       territory,
       recruits,

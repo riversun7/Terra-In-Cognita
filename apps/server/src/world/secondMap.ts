@@ -889,7 +889,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       const commanded = units.get(unitId);
       if (!commanded) return Promise.resolve({ ok: false, code: "unknown_unit" });
       // [임시] 포로·중태는 명령을 받지 않는다. 전용 결과 코드는 전투 화면(L1) 때 프로토콜에 더한다
-      if (moveOptions?.ignoreCondition !== true && unavailable(commanded.condition, now()))
+      if (unavailable(commanded.condition, now()))
         return Promise.resolve({ ok: false, code: "invalid_request" });
       // 승객에게 내린 이동은 그 배의 이동(기획 D-541 1279 나). 배가 없거나 주인이 다르면 그대로 aboard
       const unit = boatOf(commanded);

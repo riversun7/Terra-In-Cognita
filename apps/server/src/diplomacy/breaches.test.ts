@@ -1,10 +1,13 @@
-// 조약 위반 장부 시험(줄기 fixes-1117c — 기획 D-255·D-290·D-329 86): 어긴 나라 찾기·세력 신뢰·제재 명분·NPC 고리
+// 조약 위반 장부 시험(줄기 fixes-1117c — 기획 D-255·D-290·D-329 86): 어긴 나라 찾기·세력 신뢰·제재 명분·NPC 고리.
+// 바뀜(fixes-d592 — D-592): 피해 나라·동맹만 명분(2584 다), 잊는 기간(2583 다), 재건 전쟁 책임(2582 나)
 import type { SimFaction, SimHooks } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import {
   type Declaration,
   attachBreachBook,
+  blameRebuiltWar,
   breachBookOf,
+  breachLive,
   createBreachBook,
   trustOf,
   warCauseOf,
@@ -34,14 +37,58 @@ describe("조약 위반 장부", () => {
     expect(book.declarerSince(3, 3, 0)).toBeUndefined();
   });
 
-  it("위반 기록이 기간 안이면 누구든 그 나라에 제재 명분 몫이 있다", () => {
+  it("위반 기록이 기간 안이면 피해 나라에 제재 명분 몫이 있다", () => {
     const book = createBreachBook(() => RULES);
-    book.record(5, 1_000);
-    expect(book.breachesOf(5)).toBe(1);
+    book.record(5, 1_000, 7);
+    expect(book.breachesOf(5, 1_000)).toBe(1);
     expect(book.causeBonus(7, 5, 1_500)).toBe(150);
     expect(book.causeBonus(7, 5, 2_001)).toBe(0);
     expect(book.causeBonus(5, 5, 1_500)).toBe(0);
     expect(book.causeBonus(5, 7, 1_500)).toBe(0);
+  });
+
+  it("제재 명분은 피해 나라와 그 동맹만(2584 다 — D-592): 상관없는 나라는 없고, 동맹이 풀리면 없어진다", () => {
+    const book = createBreachBook(() => RULES);
+    book.record(5, 1_000, 7);
+    expect(book.hasCause(7, 5, 1_200)).toBe(true);
+    expect(book.hasCause(8, 5, 1_200)).toBe(false);
+    book.setAllies([[8, 7]]);
+    expect(book.hasCause(8, 5, 1_200)).toBe(true);
+    expect(book.hasCause(9, 5, 1_200)).toBe(false);
+    book.setAllies([]);
+    expect(book.hasCause(8, 5, 1_200)).toBe(false);
+    expect(book.hasCause(7, 5, 1_200)).toBe(true);
+  });
+
+  it("위반 기록은 잊는 기간이 지나면 세지 않는다 — 신뢰가 돌아오고 명분도 없어진다(2583 다 — D-592, 0 = 잊지 않음)", () => {
+    const rules = { ...RULES, sanctionWindowMs: 10_000, breachExpireMs: 5_000 };
+    const book = createBreachBook(() => rules);
+    book.record(5, 1_000, 7);
+    book.record(5, 3_000, 7);
+    expect(book.breachesOf(5, 4_000)).toBe(2);
+    expect(book.breachesOf(5, 6_000)).toBe(1);
+    expect(book.hasCause(7, 5, 6_000)).toBe(true);
+    expect(book.breachesOf(5, 8_000)).toBe(0);
+    expect(book.hasCause(7, 5, 8_000)).toBe(false);
+    expect(trustOf(book.breachesOf(5, 8_000), rules.breachTrustPenalty)).toBe(0);
+    expect(breachLive(1_000, 1_000_000, 0)).toBe(true);
+    expect(breachLive(1_000, 1_000_000, undefined)).toBe(true);
+    expect(breachLive(1_000, 6_000, 5_000)).toBe(false);
+  });
+
+  it("재건으로 다시 난 전쟁(2582 나 — D-592): 약탈한 쪽이 그 쌍의 전쟁을 연 쪽으로 남는다(선포 기록과 같은 표)", async () => {
+    const ledger = {};
+    blameRebuiltWar(ledger, 3, 4, 100);
+    const book = attachBreachBook(ledger, () => RULES);
+    const saved: Declaration[] = [];
+    book.persistWith(async (declaration) => {
+      saved.push(declaration);
+    });
+    book.declared(4, 3, 50);
+    blameRebuiltWar(ledger, 3, 4, 200);
+    await book.settle();
+    expect(book.declarerSince(4, 3, 150)).toBe(3);
+    expect(saved.at(-1)).toEqual({ attacker: 3, target: 4, atMs: 200 });
   });
 
   it("NPC 고리: 장부가 붙기 전에는 아무것도 하지 않고, 붙으면 선포를 알리고 몫을 준다(켤 때 다 읽은 뒤에만)", () => {
@@ -63,7 +110,7 @@ describe("조약 위반 장부", () => {
     expect(attachBreachBook(ledger, () => RULES)).toBe(book);
     hooks.warDeclared?.(faction(1), faction(2), 20);
     expect(book.declarerSince(1, 2, 15)).toBe(1);
-    book.record(1, 20);
+    book.record(1, 20, 3);
     expect(hooks.causeBonus?.(faction(3), faction(1), 30)).toBe(0);
     book.markLoaded();
     expect(hooks.causeBonus?.(faction(3), faction(1), 30)).toBe(150);
@@ -104,7 +151,7 @@ describe("조약 위반 장부", () => {
     );
     expect(hooks.warCause?.(faction(3), faction(1), 30)).toBe(false);
     const book = attachBreachBook(ledger, () => rules);
-    book.record(1, 20);
+    book.record(1, 20, 3);
     expect(warCauseOf(ledger, 3, 1, 30)).toBe(false);
     book.markLoaded();
     expect(book.causeBonus(3, 1, 30)).toBe(0);

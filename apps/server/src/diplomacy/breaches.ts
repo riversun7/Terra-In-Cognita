@@ -14,6 +14,11 @@
 // 장부는 원장마다 하나(WeakMap — 신용 장부와 같은 자리). 외교 서비스가 붙이고 켤 때 위반 기록을 읽는다. 키는 거울 세계 세력 ID(= 국고 소유 주체).
 // 바뀜(gov-fix-3 — 질문 2582 사용자 답 "다시 켜도 어긴 나라를 알아야"): 선포 기록도 표 diplomacy_declarations에 쓴다. 외교 서비스가 장부를 켤 때 읽고(restoreDeclaration)
 // 쓰는 곳을 붙인다(persistWith — 붙기 전 선포는 붙을 때 쓴다). 선포 길은 동기라 쓰기는 기다리지 않고 장부가 들고 있다가(settle) 잃지 않게 한다.
+// 바뀜(fixes-d592 — 사용자 결정 D-592, 질문 2582 나·2583 다·2584 다):
+// - 2582 나: 시뮬 안 정부 재건(D-527 — 약탈당한 나라가 정부를 다시 세우면 약탈한 나라와 다시 전쟁)으로 조약이 깨지면 약탈한 쪽이 어긴 나라다. 재건 때(npc/warOutcomes.ts
+//   ended "rebuilt") 약탈한 세력을 그 쌍의 전쟁을 연 쪽으로 적는다(blame — 선포 기록과 같은 자리·같은 표, 다시 켜도 안다). 그 밖에 모르는 길(반란 세력 탄생 등)은 그대로 null.
+// - 2583 다: 위반 기록은 설정 칸 dip_breach_expire_ms가 지나면 잊는다(0 = 잊지 않음). 신뢰·명분은 남은 기록에서 셈하므로 잊으면 신뢰가 그만큼 돌아온다.
+// - 2584 다: 제재 명분은 어긴 조약의 상대(피해 나라)와 그 나라의 동맹(맺은 동맹 조약 — 외교 틱이 setAllies로 알린다)만 갖는다(옛 "누구든"을 대신함).
 import type { SimFaction, SimHooks } from "@terra/sim";
 import { affinityBookOf } from "./affinity.ts";
 
@@ -25,6 +30,14 @@ export interface BreachRules {
   readonly breachTrustPenalty: number;
   readonly sanctionWindowMs: number;
   readonly sanctionCauseBonus: number;
+  /** 위반 기록을 잊는 기간(ms, 0 = 잊지 않음 — 2583 다). 없으면 0 */
+  readonly breachExpireMs?: number | undefined;
+}
+
+/** 위반 기록이 아직 남았나(잊는 기간 안 — 2583 다) */
+export function breachLive(atMs: number, nowMs: number, expireMs: number | undefined): boolean {
+  const keep = Math.max(0, Math.trunc(expireMs ?? 0));
+  return keep === 0 || atMs + keep > nowMs;
 }
 
 /** 위반 수 → 세력 신뢰 */
@@ -51,14 +64,23 @@ export interface BreachBook {
   settle(): Promise<void>;
   /** 두 세력 사이에 sinceMs 뒤 가장 최근 선포한 세력(없으면 undefined) */
   declarerSince(a: number, b: number, sinceMs: number): number | undefined;
-  /** 위반 기록 하나(켤 때 읽은 것·새로 적은 것) */
-  record(breaker: number, atMs: number): void;
+  /**
+   * 재건으로 다시 난 전쟁의 책임(2582 나): 약탈한 세력(attacker)을 그 쌍의 전쟁을 연 쪽으로 적는다 — 선포 기록과 같은 자리·같은 표(declared와 같다)
+   */
+  blame(attacker: number, target: number, atMs: number): void;
+  /** 위반 기록 하나(켤 때 읽은 것·새로 적은 것). victim = 어긴 조약의 상대(피해 나라 — 2584 다) */
+  record(breaker: number, atMs: number, victim: number): void;
+  /** 맺은 동맹 조약 쌍(외교 틱마다 통째로 바꾼다 — 2584 다) */
+  setAllies(pairs: Iterable<readonly [number, number]>): void;
   /** 켤 때 다 읽었나 */
   loaded(): boolean;
   markLoaded(): void;
-  /** 그 세력의 위반 수 */
-  breachesOf(owner: number): number;
-  /** attacker가 target에 제재 명분이 있나(위반 기록이 기간 안 — 몫 설정 칸과 무관, 2585 gov-fix-3) */
+  /** 그 세력의 남은 위반 수(잊는 기간이 지난 기록은 빼고 — 2583 다) */
+  breachesOf(owner: number, nowMs: number): number;
+  /**
+   * attacker가 target에 제재 명분이 있나(몫 설정 칸과 무관, 2585 gov-fix-3): target의 남은 위반 기록 가운데 제재 기간 안이고 피해 나라가 attacker이거나 attacker의
+   * 동맹인 것이 있으면(2584 다)
+   */
   hasCause(attacker: number, target: number, nowMs: number): boolean;
   /** attacker가 target에 가진 제재 명분 몫(없으면 0) */
   causeBonus(attacker: number, target: number, nowMs: number): number;
@@ -76,7 +98,10 @@ const pairKey = (a: number, b: number): string => (a < b ? `${a}:${b}` : `${b}:$
 
 export function createBreachBook(rules: () => BreachRules): BreachBook {
   const declarations = new Map<string, { readonly attacker: number; readonly atMs: number }>();
-  const breaches = new Map<number, number[]>();
+  /** 어긴 세력 → 위반 기록(시각·피해 나라) */
+  const breaches = new Map<number, { readonly atMs: number; readonly victim: number }[]>();
+  /** 동맹 쌍 열쇠(pairKey) */
+  let allies = new Set<string>();
   let ready = false;
   /** 쓰는 곳이 붙기 전 선포(붙을 때 쓴다) */
   let unsaved: Declaration[] = [];
@@ -102,15 +127,24 @@ export function createBreachBook(rules: () => BreachRules): BreachBook {
   };
   const hasCause = (attacker: number, target: number, nowMs: number): boolean => {
     if (attacker === target) return false;
-    const since = nowMs - Math.max(0, rules().sanctionWindowMs);
-    return (breaches.get(target) ?? []).some((atMs) => atMs >= since && atMs <= nowMs);
+    const r = rules();
+    const since = nowMs - Math.max(0, r.sanctionWindowMs);
+    return (breaches.get(target) ?? []).some(
+      (row) =>
+        row.atMs >= since &&
+        row.atMs <= nowMs &&
+        breachLive(row.atMs, nowMs, r.breachExpireMs) &&
+        (row.victim === attacker || allies.has(pairKey(attacker, row.victim))),
+    );
+  };
+  const declare = (attacker: number, target: number, atMs: number): void => {
+    if (attacker === target) return;
+    remember(attacker, target, atMs);
+    write({ attacker, target, atMs });
   };
   return {
-    declared(attacker, target, atMs) {
-      if (attacker === target) return;
-      remember(attacker, target, atMs);
-      write({ attacker, target, atMs });
-    },
+    declared: declare,
+    blame: declare,
     restoreDeclaration(attacker, target, atMs) {
       if (attacker === target) return;
       const have = declarations.get(pairKey(attacker, target));
@@ -129,16 +163,24 @@ export function createBreachBook(rules: () => BreachRules): BreachBook {
       const found = declarations.get(pairKey(a, b));
       return found && found.atMs >= sinceMs ? found.attacker : undefined;
     },
-    record(breaker, atMs) {
+    record(breaker, atMs, victim) {
       const list = breaches.get(breaker);
-      if (list) list.push(atMs);
-      else breaches.set(breaker, [atMs]);
+      if (list) list.push({ atMs, victim });
+      else breaches.set(breaker, [{ atMs, victim }]);
+    },
+    setAllies(pairs) {
+      const next = new Set<string>();
+      for (const [a, b] of pairs) if (a !== b) next.add(pairKey(a, b));
+      allies = next;
     },
     loaded: () => ready,
     markLoaded() {
       ready = true;
     },
-    breachesOf: (owner) => breaches.get(owner)?.length ?? 0,
+    breachesOf(owner, nowMs) {
+      const expireMs = rules().breachExpireMs;
+      return (breaches.get(owner) ?? []).filter((row) => breachLive(row.atMs, nowMs, expireMs)).length;
+    },
     hasCause,
     causeBonus(attacker, target, nowMs) {
       return hasCause(attacker, target, nowMs) ? Math.max(0, Math.trunc(rules().sanctionCauseBonus)) : 0;
@@ -198,4 +240,12 @@ export function withTreatyHooks(base: SimHooks, o: { readonly ledger: object }):
       return warCauseOf(o.ledger, attacker.id, target.id, nowMs);
     },
   };
+}
+
+/**
+ * 시뮬 안 정부 재건으로 다시 난 전쟁(2582 나 — D-592, D-527): 약탈한 세력을 그 쌍의 전쟁을 연 쪽으로 적는다(위반 장부 blame). npc/warOutcomes.ts가 남은 상태가 "rebuilt"로
+ * 끝날 때 부른다(재건 직후 시뮬이 다시 전쟁을 건다 — 그 사이 조약이 맺어져 있었으면 다음 외교 틱이 약탈한 쪽을 어긴 나라로 적는다). 장부가 아직 없으면 아무것도 하지 않는다
+ */
+export function blameRebuiltWar(ledger: object, looter: number, rebuilder: number, nowMs: number): void {
+  breachBookOf(ledger)?.blame(looter, rebuilder, nowMs);
 }

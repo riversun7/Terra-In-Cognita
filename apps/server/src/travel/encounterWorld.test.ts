@@ -7,6 +7,7 @@ import { CELL_UNITS, createMotion } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import type { OwnerRow } from "../world/persist/load.ts";
 import type { SecondMap, UnitView } from "../world/secondMap.ts";
+import { attachHouseExpel } from "../factionIdentity/houseExpel.ts";
 import { registerGather } from "../gather/registry.ts";
 import { unitTacticsOf } from "../tactics/store.ts";
 import type { GatherService } from "../gather/serviceTypes.ts";
@@ -14,6 +15,9 @@ import { type CoordinateWorld, startCoordinateRules } from "./encounterWorld.ts"
 import type { CoordinateUnit, TravelService } from "./serviceTypes.ts";
 
 const START = 1_798_000_000_000;
+/** 같은 나라 NPC 치기 굴림은 기본으로 늘 빗나가게(fixes-d592 — 그 길을 보는 시험만 고정값을 넣는다) */
+const start = (...[world, options]: Parameters<typeof startCoordinateRules>) =>
+  startCoordinateRules(world, { rollPpm: () => 999_999, ...options });
 const COORD_MAP = 5050;
 const LOADED_MAP = 6060;
 const log = { info: () => {}, error: () => {} };
@@ -257,7 +261,7 @@ describe("startCoordinateRules — 좌표 유닛", () => {
   it("전쟁 중 다른 나라 편이 만나면: 센 편이 걸어 멈추고 → 띄우고 → 전쟁 전투(공격 편 = 편 1) → 결과까지 붙잡고, 쉬는 시간에는 다시 보지 않는다", async () => {
     let now = START;
     const rig = fakeWorld({ war: true, coords: [coord(1, 1), coord(2, 2), coord(3, 3)] });
-    const rules = startCoordinateRules(rig.world, { now: () => now, log, timer: false, roll: () => 0 });
+    const rules = start(rig.world, { now: () => now, log, timer: false, roll: () => 0 });
     if (!rules) throw new Error("no rules");
     // 지형 빠르기를 붙였다(행성 값이 없으면 1000)
     expect(rig.pace()?.(COORD_MAP)).toBe(1000);
@@ -285,7 +289,7 @@ describe("startCoordinateRules — 좌표 유닛", () => {
 
   it("전쟁이 아니고 짐이 없거나, 나라 없는 플레이어 편뿐이거나, 한 나라뿐이면 싸우지 않는다", async () => {
     const peace = fakeWorld({ war: false, coords: [coord(1, 1), coord(3, 3)] });
-    const a = startCoordinateRules(peace.world, { now: () => START, log, timer: false, roll: () => 0 });
+    const a = start(peace.world, { now: () => START, log, timer: false, roll: () => 0 });
     expect(await a?.scan()).toBe(0);
     expect(peace.calls).toEqual([]);
     expect(a?.takeMetrics()).toMatchObject({ encounterContacts: 1, encounterAvoided: 1 });
@@ -296,11 +300,11 @@ describe("startCoordinateRules — 좌표 유닛", () => {
       owners: [owner(1, null, "u0"), owner(3, null, "u3")],
     });
     // 플레이어 주체의 나라 = 시민권(가짜: u3은 시민권이 없어 나라 없음) → 만나지 않음
-    const b = startCoordinateRules(players.world, { now: () => START, log, timer: false, roll: () => 0 });
+    const b = start(players.world, { now: () => START, log, timer: false, roll: () => 0 });
     expect(await b?.scan()).toBe(0);
     b?.stop();
     const alone = fakeWorld({ war: true, coords: [coord(1, 1), coord(2, 2)] });
-    const c = startCoordinateRules(alone.world, { now: () => START, log, timer: false, roll: () => 0 });
+    const c = start(alone.world, { now: () => START, log, timer: false, roll: () => 0 });
     expect(await c?.scan()).toBe(0);
     expect(alone.calls).toEqual([]);
     c?.stop();
@@ -312,7 +316,7 @@ describe("startCoordinateRules — 좌표 유닛", () => {
       coords: [coord(1, 1), coord(2, 2), coord(3, 3)],
       cargo: [3],
     });
-    const rules = startCoordinateRules(rig.world, { now: () => START, log, timer: false, roll: () => 0 });
+    const rules = start(rig.world, { now: () => START, log, timer: false, roll: () => 0 });
     expect(await rules?.scan()).toBe(1);
     expect(rig.battles).toMatchObject([{ war: false, units: [1, 2, 3] }]);
     rules?.stop();
@@ -329,7 +333,7 @@ describe("startCoordinateRules — 띄운 2차맵(1901)", () => {
         { id: 8, ownerId: 3, kind: KIND_BOT, x: 30, y: 30 },
       ],
     });
-    const rules = startCoordinateRules(rig.world, { now: () => START, log, timer: false, roll: () => 0 });
+    const rules = start(rig.world, { now: () => START, log, timer: false, roll: () => 0 });
     expect(await rules?.scan()).toBe(1);
     expect(rig.calls).toEqual([`halt:${LOADED_MAP}:1,3`]);
     expect(rig.halted).toEqual([1, 3]);
@@ -345,7 +349,7 @@ describe("startCoordinateRules — 띄운 2차맵(1901)", () => {
         { id: 3, ownerId: 3, kind: KIND_CYBORG, x: 140, y: 100 },
       ],
     });
-    const a = startCoordinateRules(far.world, { now: () => START, log, timer: false, roll: () => 0 });
+    const a = start(far.world, { now: () => START, log, timer: false, roll: () => 0 });
     expect(await a?.scan()).toBe(0);
     expect(a?.takeMetrics()).toMatchObject({ encounterContacts: 0 });
     a?.stop();
@@ -357,7 +361,7 @@ describe("startCoordinateRules — 띄운 2차맵(1901)", () => {
         { id: 3, ownerId: 3, kind: KIND_CYBORG, x: 104, y: 100 },
       ],
     });
-    const b = startCoordinateRules(urban.world, { now: () => START, log, timer: false, roll: () => 0 });
+    const b = start(urban.world, { now: () => START, log, timer: false, roll: () => 0 });
     expect(await b?.scan()).toBe(0);
     expect(urban.battles).toEqual([]);
     expect(b?.takeMetrics()).toMatchObject({ encounterSafe: 1 });
@@ -378,7 +382,7 @@ describe("startCoordinateRules — 일부러 치기(unit_attack — fixes-1117c,
 
   it("같은 나라 유저 유닛은 조우 틱이 저절로 싸우게 하지 않고, 일부러 치면 약탈 전투가 열린다(내 편 = 공격 편, 수비 = 대상 + 둘레의 같은 주인 유닛)", async () => {
     const rig = fakeWorld({ war: false, loaded: units, cargo: [2], users: { u1: 1 } });
-    const rules = startCoordinateRules(rig.world, { now: () => START, log, timer: false, roll: () => 0 });
+    const rules = start(rig.world, { now: () => START, log, timer: false, roll: () => 0 });
     if (!rules) throw new Error("no rules");
     expect(await rules.scan()).toBe(0);
     expect(rig.battles).toEqual([]);
@@ -403,7 +407,7 @@ describe("startCoordinateRules — 일부러 치기(unit_attack — fixes-1117c,
       loaded: [...units, { id: 3, ownerId: 3, kind: KIND_CYBORG, x: 98, y: 100 }],
       users: { u1: 1 },
     });
-    const a = startCoordinateRules(war.world, { now: () => START, log, timer: false, roll: () => 0 });
+    const a = start(war.world, { now: () => START, log, timer: false, roll: () => 0 });
     if (!a) throw new Error("no rules");
     const hit = (unitIds: number[], targetUnitId: number, userId = "u1") =>
       a.strike({ userId, unitIds, targetUnitId });
@@ -421,7 +425,7 @@ describe("startCoordinateRules — 일부러 치기(unit_attack — fixes-1117c,
     a.stop();
     expect(await a.strike({ userId: "u1", unitIds: [1], targetUnitId: 3 })).toBe("busy");
     const urban = fakeWorld({ war: false, urban: true, loaded: units, users: { u1: 1 } });
-    const b = startCoordinateRules(urban.world, { now: () => START, log, timer: false, roll: () => 0 });
+    const b = start(urban.world, { now: () => START, log, timer: false, roll: () => 0 });
     expect(await b?.strike({ userId: "u1", unitIds: [1], targetUnitId: 2 })).toBe("safe_zone");
     expect(urban.battles).toEqual([]);
     b?.stop();
@@ -438,14 +442,14 @@ describe("startCoordinateRules — 일부러 치기 수비 편 회피(gov-fix-3 
   it("같은 나라 수비 편도 조우와 같은 판단: 회피를 골랐고 더 빠르면 전투 없이 빠져나가고(escaped), 느리면 전투가 열리고 수비 편이 시작 틱에 퇴각한다", async () => {
     // 공격 편이 짐이 없어 수비 편(NPC 성향 500)은 맞불(약탈)을 걸 거리가 없다 → 회피
     const fast = fakeWorld({ war: false, loaded: pair(1000), users: { u1: 1 } });
-    const a = startCoordinateRules(fast.world, { now: () => START, log, timer: false, roll: () => 0 });
+    const a = start(fast.world, { now: () => START, log, timer: false, roll: () => 0 });
     expect(await a?.strike({ userId: "u1", unitIds: [1], targetUnitId: 2 })).toBe("escaped");
     expect(fast.battles).toEqual([]);
     expect(fast.halted).toEqual([]);
     expect(a?.takeMetrics()).toMatchObject({ encounterEscaped: 1, encounterBattles: 0 });
     a?.stop();
     const slow = fakeWorld({ war: false, loaded: pair(400), users: { u1: 1 } });
-    const b = startCoordinateRules(slow.world, { now: () => START, log, timer: false, roll: () => 0 });
+    const b = start(slow.world, { now: () => START, log, timer: false, roll: () => 0 });
     expect(await b?.strike({ userId: "u1", unitIds: [1], targetUnitId: 2 })).toBe("ok");
     expect(slow.battles).toMatchObject([{ war: false, units: [1, 2] }]);
     expect(slow.inputs).toEqual([{ tick: 0, kind: "order", party: 201, order: { kind: "retreat" } }]);
@@ -455,7 +459,7 @@ describe("startCoordinateRules — 일부러 치기 수비 편 회피(gov-fix-3 
   it("수비 편이 맞불을 걸면(공격 편이 짐을 졌고 전력 비가 약탈 문턱 이상 — 수비 둘 : 공격 하나) 빠르더라도 빠져나가지 않고 그대로 싸운다(퇴각 명령 없음)", async () => {
     const loaded = [...pair(1000), { id: 3, ownerId: 2, kind: KIND_CYBORG, x: 103, y: 100, speed: 1000 }];
     const rig = fakeWorld({ war: false, loaded, cargo: [1], users: { u1: 1 } });
-    const rules = startCoordinateRules(rig.world, { now: () => START, log, timer: false, roll: () => 0 });
+    const rules = start(rig.world, { now: () => START, log, timer: false, roll: () => 0 });
     expect(await rules?.strike({ userId: "u1", unitIds: [1], targetUnitId: 2 })).toBe("ok");
     expect(rig.battles).toMatchObject([{ war: false, units: [1, 2, 3] }]);
     expect(rig.inputs).toEqual([]);
@@ -473,14 +477,14 @@ const near = (speeds: [number, number]): FakeUnit[] => [
 describe("startCoordinateRules — AI 작전·빠져나가기·채집 줄(encounter-4)", () => {
   it("D-573: 회피 편이 더 빠르면 전투 없이 빠져나가고, 느리면 전투가 열리고 그 편 파티는 시작 틱에 퇴각한다", async () => {
     const fast = fakeWorld({ war: false, cargo: [3], loaded: near([500, 1000]) });
-    const a = startCoordinateRules(fast.world, { now: () => START, log, timer: false, roll: () => 0 });
+    const a = start(fast.world, { now: () => START, log, timer: false, roll: () => 0 });
     expect(await a?.scan()).toBe(0);
     expect(fast.battles).toEqual([]);
     expect(fast.halted).toEqual([]);
     expect(a?.takeMetrics()).toMatchObject({ encounterEscaped: 1, encounterBattles: 0 });
     a?.stop();
     const slow = fakeWorld({ war: false, cargo: [3], loaded: near([500, 400]) });
-    const b = startCoordinateRules(slow.world, { now: () => START, log, timer: false, roll: () => 0 });
+    const b = start(slow.world, { now: () => START, log, timer: false, roll: () => 0 });
     expect(await b?.scan()).toBe(1);
     expect(slow.battles).toMatchObject([{ war: false, units: [1, 2, 3], targets: [] }]);
     expect(slow.inputs).toEqual([{ tick: 0, kind: "order", party: 201, order: { kind: "retreat" } }]);
@@ -513,14 +517,14 @@ describe("startCoordinateRules — AI 작전·빠져나가기·채집 줄(encoun
     };
     // 나라 200은 숨어 버티기(교전 1 — 문턱 × 1.4)라 같은 전력에는 걸지 않는다
     const offline = fakeWorld(base);
-    const a = startCoordinateRules(offline.world, { now: () => START, log, timer: false, roll: () => 0 });
+    const a = start(offline.world, { now: () => START, log, timer: false, roll: () => 0 });
     // 게이트웨이·로스터가 찾는 저장소는 세계 저장 층(world.persistence)에 붙는다
     expect(unitTacticsOf(offline.world.persistence)).toBeDefined();
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(await a?.scan()).toBe(0);
     a?.stop();
     const online = fakeWorld({ ...base, online: ["u1"] });
-    const b = startCoordinateRules(online.world, { now: () => START, log, timer: false, roll: () => 0 });
+    const b = start(online.world, { now: () => START, log, timer: false, roll: () => 0 });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(await b?.scan()).toBe(1);
     expect(online.battles).toMatchObject([
@@ -535,7 +539,7 @@ describe("startCoordinateRules — AI 작전·빠져나가기·채집 줄(encoun
     b?.stop();
     // 굴림이 교전 확률(10 × 10%)을 넘으면… 100%라 늘 건다. 균형(6)이면 굴림 600 이상은 회피
     const balanced = fakeWorld({ ...base, online: ["u1"], tactics: [] });
-    const c = startCoordinateRules(balanced.world, { now: () => START, log, timer: false, roll: () => 600 });
+    const c = start(balanced.world, { now: () => START, log, timer: false, roll: () => 600 });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(await c?.scan()).toBe(0);
     c?.stop();
@@ -549,10 +553,90 @@ describe("startCoordinateRules — AI 작전·빠져나가기·채집 줄(encoun
       online: ["u1"],
       gathering: [1, 3],
     });
-    const rules = startCoordinateRules(rig.world, { now: () => START, log, timer: false, roll: () => 0 });
+    const rules = start(rig.world, { now: () => START, log, timer: false, roll: () => 0 });
     expect(await rules?.scan()).toBe(1);
     // 사용자 주체 유닛만(NPC 유닛 3은 채집 줄을 다시 판단하지 않는다)
     expect(rig.suspended).toEqual([1]);
+    rules?.stop();
+  });
+});
+
+describe("startCoordinateRules — 같은 나라 NPC 치기·같은 가문원 추방(fixes-d592 — D-592 2581 (1)·(4))", () => {
+  /** 나라 100: 플레이어 u1의 사이보그 1(느림) · NPC 나라 100 봇 둘(거리 안) */
+  const units: FakeUnit[] = [
+    { id: 1, ownerId: 1, kind: KIND_CYBORG, x: 100, y: 100, speed: 400 },
+    { id: 7, ownerId: 2, kind: KIND_BOT, x: 102, y: 100 },
+    { id: 8, ownerId: 2, kind: KIND_BOT, x: 103, y: 101 },
+  ];
+  const owners = [owner(1, null, "u1"), owner(2, 100)];
+
+  it("굴림이 맞고 도시 밖이면 NPC 편이 공격 편으로 일부러 치기 전투를 연다 — 그 2차맵·나라는 쉬는 시간, 빗나가면 아무 일도 없다", async () => {
+    const miss = fakeWorld({ war: false, loaded: units, owners });
+    const a = start(miss.world, { now: () => START, log, timer: false, roll: () => 0 });
+    expect(await a?.scan()).toBe(0);
+    expect(miss.battles).toEqual([]);
+    a?.stop();
+    const hit = fakeWorld({ war: false, loaded: units, owners });
+    const b = start(hit.world, { now: () => START, log, timer: false, roll: () => 0, rollPpm: () => 0 });
+    expect(await b?.scan()).toBe(1);
+    expect(hit.battles).toMatchObject([
+      {
+        war: false,
+        sides: [
+          { id: 1, faction: 2, defender: false },
+          { id: 2, faction: 1, defender: true },
+        ],
+        units: [7, 8, 1],
+      },
+    ]);
+    expect(b?.takeMetrics()).toMatchObject({ encounterNpcStrikes: 1, encounterBattles: 1 });
+    // 쉬는 시간 동안은 다시 굴리지 않는다
+    expect(await b?.scan()).toBe(0);
+    expect(hit.battles).toHaveLength(1);
+    b?.stop();
+  });
+
+  it("도시(시가지) 안에서는 NPC가 같은 나라 유닛을 치지 않는다", async () => {
+    const urban = fakeWorld({ war: false, urban: true, loaded: units, owners });
+    const rules = start(urban.world, {
+      now: () => START,
+      log,
+      timer: false,
+      roll: () => 0,
+      rollPpm: () => 0,
+    });
+    expect(await rules?.scan()).toBe(0);
+    expect(urban.battles).toEqual([]);
+    expect(rules?.takeMetrics()).toMatchObject({ encounterNpcStrikes: 0, encounterSafe: 0 });
+    rules?.stop();
+  });
+
+  it("같은 가문원 유닛을 일부러 치면 전투는 그대로 열리고 친 사람이 추방된다(추방 고리 — houseExpel.ts)", async () => {
+    const loaded: FakeUnit[] = [
+      { id: 1, ownerId: 1, kind: KIND_CYBORG, x: 100, y: 100, speed: 1000 },
+      { id: 2, ownerId: 2, kind: KIND_CYBORG, x: 102, y: 100, speed: 400 },
+    ];
+    const rig = fakeWorld({
+      war: false,
+      loaded,
+      owners: [owner(1, null, "u1"), owner(2, null, "u2")],
+      users: { u1: 1 },
+    });
+    const expelled: string[] = [];
+    const store = rig.world.persistence;
+    if (!store) throw new Error("persistence");
+    attachHouseExpel(store, {
+      expel: async (userId) => {
+        expelled.push(userId);
+        return { ok: true, action: "kicked", factionId: 9 };
+      },
+      after: async () => {},
+      houseOf: (userId) => (userId === "u1" || userId === "u2" ? 9 : undefined),
+    });
+    const rules = start(rig.world, { now: () => START, log, timer: false, roll: () => 0 });
+    expect(await rules?.strike({ userId: "u1", unitIds: [1], targetUnitId: 2 })).toBe("ok");
+    expect(rig.battles).toHaveLength(1);
+    expect(expelled).toEqual(["u1"]);
     rules?.stop();
   });
 });

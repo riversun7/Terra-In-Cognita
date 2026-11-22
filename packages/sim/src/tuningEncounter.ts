@@ -81,4 +81,11 @@ export const ENCOUNTER_TUNING_KEYS: readonly TuningKey[] = [
     "[임시] 조우 뒤 재정비하러 돌아가는 남은 HP 몫(‰)",
     "[temp] Remaining HP share that sends a unit back to regroup (‰)",
   ),
+  // 같은 나라 유닛을 일부러 치는 NPC(줄기 fixes-d592 — 사용자 결정 D-592 2581 (1) "같은국가 유닛공격은 드뭄 도시외부에서")
+  k(
+    "encounter_npc_same_nation_ppm",
+    "npcSameNationPpm",
+    "[임시] NPC가 같은 나라 유닛을 치는 확률(ppm, 공격 성향 1000 기준)",
+    "[temp] Chance an NPC attacks a same-nation unit (ppm, at aggression 1000)",
+  ),
 ];

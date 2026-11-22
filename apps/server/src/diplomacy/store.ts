@@ -154,12 +154,24 @@ export function createDiplomacyStore(pool: GovernanceQueryable) {
       );
       return rows.map(treatyOf);
     },
-    /** 위반 기록(어긴 나라를 아는 위반 조약 — 어긴 나라·끝난 시각, 차례대로). 위반 장부를 켤 때 읽는다(줄기 fixes-1117c) */
-    async breaches(): Promise<{ readonly nationId: number; readonly atMs: number }[]> {
+    /**
+     * 위반 기록(어긴 나라를 아는 위반 조약 — 어긴 나라·끝난 시각·피해 나라 = 조약의 다른 쪽, 차례대로). 위반 장부를 켤 때 읽는다(줄기 fixes-1117c, 피해 나라는 fixes-d592 —
+     * 2584 다 제재 명분)
+     */
+    async breaches(): Promise<
+      { readonly nationId: number; readonly atMs: number; readonly victim: number }[]
+    > {
       const { rows } = await pool.query(
-        `select broken_by, ended_at_ms from diplomacy_treaties where state = 'broken' and broken_by is not null order by id`,
+        `select broken_by, ended_at_ms, nation_a, nation_b from diplomacy_treaties where state = 'broken' and broken_by is not null order by id`,
       );
-      return rows.map((row) => ({ nationId: num(row.broken_by), atMs: num(row.ended_at_ms) }));
+      return rows.map((row) => {
+        const nationId = num(row.broken_by);
+        return {
+          nationId,
+          atMs: num(row.ended_at_ms),
+          victim: nationId === num(row.nation_a) ? num(row.nation_b) : num(row.nation_a),
+        };
+      });
     },
     /** 선포 기록을 쓴다(쌍마다 가장 최근 하나 — 더 오래된 선포는 덮지 않는다, 줄기 gov-fix-3 질문 2582). 나라는 세력 행 */
     async saveDeclaration(declarer: number, target: number, atMs: number): Promise<void> {

@@ -116,6 +116,10 @@ export interface GovernanceCoefficients {
   readonly joinRefuseAffinity: number;
   /** 국고 지분 사기·팔기 안건의 집행 기간(ms — D-591 2526 "주-월 단위 기간", 기간이 지나면 이어 할지 재투표) [임시 14일] */
   readonly shareExecMs: number;
+  /**
+   * 위반 기록을 잊는 기간(ms, 0 = 잊지 않음 — 줄기 fixes-d592, 사용자 결정 D-592 2583 다 "기간이 지나면 위반을 잊고 신뢰가 돌아온다") [임시 출발값]. 신뢰·제재 명분은 남은 기록에서 셈한다
+   */
+  readonly breachExpireMs: number;
 }
 
 export const START_GOVERNANCE: GovernanceCoefficients = {
@@ -181,4 +185,5 @@ export const START_GOVERNANCE: GovernanceCoefficients = {
   noCauseAffinity: 30,
   joinRefuseAffinity: 20,
   shareExecMs: 14 * 86_400_000,
+  breachExpireMs: 90 * 86_400_000,
 };

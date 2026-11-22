@@ -114,3 +114,20 @@
 - 화면: 외교 칸 제안 상대 고르기 줄에 "호감 N(띠)"(`dip_affinity_short` ko·en 1키, 조회 `diplomacy.view` 상대 칸 `affinity`·`affinityBand` — 낮은 판 서버는 보내지 않는다).
 - 판: 팩 core@146(묶음 1117h — 줄기 판 213; 설정 칸 셋 + `gov_share_exec_ms`), 마이그레이션 `20261122014315_gov_fix4_affinity_runs`(표 `diplomacy_affinity` — 세력 FK cascade, 더하기만). 프로토콜 무관(조회 칸만), SIM 판 그대로
   (시뮬은 호감 장부를 붙이지 않는다 — 고리는 서버 `withTreatyHooks`만).
+
+## 바뀜 (fixes-d592, D-592 — 재건 전쟁의 어긴 쪽·위반 잊기·제재 명분 범위, 2026-11-22)
+- 근거: 사용자 결정 D-592(2026-11-22, 기획 커밋 5d78b7a — "17. 나 18. 다 19. 다"): 질문 2582 나(재건으로 다시 난 전쟁은 약탈한 쪽이 어긴 나라), 2583 다(기간이 지나면 위반을 잊고 신뢰가 돌아온다),
+  2584 다(제재 명분은 피해 나라와 그 동맹). 위 "바뀜 (fixes-1117c)"의 "누구든 명분"·"오르는 길 없음"·"모르면 null(재건)"을 아래가 대신한다. 위 본문은 고치지 않는다.
+- **2582 나**: 시뮬 안 정부 재건(D-527 — 약탈당한 나라가 정부를 다시 세우면 약탈한 나라와 다시 전쟁, `simulator/societyWar.ts`)은 선포 고리를 지나지 않는다. 서버가 남은 상태 끝(`onWarStateEnd`)을
+  받아 까닭이 `rebuilt`(약탈)이면 약탈한 세력을 그 쌍의 전쟁을 연 쪽으로 위반 장부에 적는다(`npc/warOutcomes.ts ended` → `diplomacy/breaches.ts blameRebuiltWar` → 장부 `blame` = 선포 기록과
+  같은 자리·같은 표 `diplomacy_declarations`, 다시 켜도 안다). 그 사이 두 나라가 조약을 맺고 있었으면 다음 외교 틱이 약탈한 쪽을 어긴 나라로 적는다. 거울 세계 원장(`world.book`)이 서버 원장이라 장부를 찾는다.
+  반란 세력 탄생(D-256) 등 그 밖에 모르는 길은 그대로 null(새 세력은 조약이 없어 위반도 없다). `npc/runtime.ts`는 같은 줄에서 `nowMs`만 넘긴다(줄 수 그대로).
+- **2583 다**: 새 설정 칸 `dip_breach_expire_ms`(90일 [임시], 0 = 잊지 않음 — `governance.breachExpireMs`). 위반 기록은 그 기간이 지나면 셈에서 빠진다(`breachLive`): 세력 신뢰(0 − 남은 위반 수 ×
+  `dip_breach_trust_penalty`, 조회 `diplomacy.view`·장부 `breachesOf(owner, nowMs)`)가 그만큼 돌아오고 제재 명분도 없어진다. 저장은 그대로(위반 조약 줄은 남는다 — 마이그레이션 없음). 세부는 질문 2684.
+- **2584 다**: 위반 기록에 피해 나라(깨진 조약의 다른 쪽 — `store.breaches()`가 `nation_a·nation_b`에서 읽음, 새로 깨질 때 `breakTreaty`가 적음)를 함께 둔다. 명분(`hasCause` — 선포 비용 면제 `warCauseOf`·
+  NPC `warCause`·명분 몫 `causeBonus` 모두)은 제재 기간 안·잊지 않은 위반 가운데 피해 나라가 선포하는 나라이거나 그 동맹일 때만. 동맹 = 맺은 채 남은 동맹 조항 조약(외교 틱마다 `setAllies`로 통째로 알림 —
+  보호·불가침은 아님). 세부는 질문 2685.
+- 판: 마이그레이션 없음, 프로토콜 그대로, 팩 core@146(묶음 1117h — 줄기 판 234; 설정 칸 `dip_breach_expire_ms`·`encounter_npc_same_nation_ppm`), SIM_VERSION 그대로(시뮬은 새 칸·고리를 읽지 않는다 —
+  전체 검사의 `@terra/sim` 골든).
+- 시험: `breaches.test.ts`(+3 — 피해 나라·동맹만 명분, 잊기·신뢰 회복, 재건 책임), DB `diplomacy.db.test.ts`(잊기 뒤 위반 0, 상관없는 나라는 명분 없음 → 피해 나라와 동맹을 맺고 틱이 지나면 명분 → 의결 선포
+  `caused = true`), DB `npc/warOutcomes.db.test.ts`(재건 뒤 장부의 전쟁을 연 쪽 = 약탈한 세력).

@@ -436,4 +436,12 @@ export const GOVERNANCE_TUNING_KEYS: readonly TuningKey[] = [
     "국고 지분 안건: 집행 기간(ms)",
     "Treasury share agenda: execution period (ms)",
   ),
+  // 위반 기록 잊기(줄기 fixes-d592 — 사용자 결정 D-592 2583 다)
+  k(
+    "dip_breach_expire_ms",
+    "",
+    "governance.breachExpireMs",
+    "조약 위반 기록을 잊는 기간(ms, 0 = 잊지 않음)",
+    "How long a treaty breach is remembered (ms, 0 = forever)",
+  ),
 ];

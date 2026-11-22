@@ -7438,6 +7438,7 @@
   "fid_house_notice_apply_declined": "{house} declined your application.",
   "fid_house_notice_member_left": "{other} left {house}.",
   "fid_house_notice_kicked": "The leader of {house} removed you from the house.",
+  "fid_house_notice_kicked_attack": "You attacked a member of {house} and were expelled from the house.",
   "fid_house_notice_nation_left": "You left {house} because you and the house are now in different nations.",
   "fid_house_notice_house_moved": "Your house moved with you to your new nation. {count} citizens of the old nation left the house.",
   "fid_house_notice_name_reset": "An operator reset your house name ({house}). You can choose a new name right away.",

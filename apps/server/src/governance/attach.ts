@@ -11,6 +11,7 @@ import { creditOwnerOfUser, sweepCreditStandings } from "../credit/standing.ts";
 import type { CoupCredit } from "./coup.ts";
 import type { TreatyHooks } from "./leaderAgendas.ts";
 import { createCoupStore } from "./coupStore.ts";
+import { refreshCoupTruce } from "./coupTruce.ts";
 import { createLeaderStore } from "./leaderStore.ts";
 import { type GovernanceGateway, createGovernanceGateway } from "./gateway.ts";
 import { type GovernancePort, worldGovernancePort } from "./port.ts";
@@ -107,6 +108,10 @@ export function attachGovernance(o: {
   // 틱마다 신용 소속도 훑는다(credit/standing.ts — 소속 기간·사업장 운영 오름, D-584)
   const tick = async (): Promise<void> => {
     await service.tick();
+    // 열린 쿠데타의 맞선 편(같은 나라 공격 신용 벌점 건너뛰기 — D-592, coupTruce.ts)
+    await refreshCoupTruce({ world: o.world(), coups, states: () => store.states() }).catch(
+      (error: unknown) => o.log.error({ err: error }, "governance: coup truce refresh failed"),
+    );
     await o.diplomacy?.()?.tick();
     sweepCreditStandings(o.world(), o.now());
   };

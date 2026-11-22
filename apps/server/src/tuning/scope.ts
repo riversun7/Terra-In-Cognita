@@ -371,6 +371,7 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "encounter.playerPolicy",
   "encounter.fullPm",
   "encounter.regroupHpPm",
+  "encounter.npcSameNationPpm",
   // 나라 의결(governance/rules.ts, docs/adr/2026-11-21-governance.md): 명령·1분 틱마다 읽는다
   "governance.periodLeaderMs",
   "governance.periodWarMs",
@@ -440,6 +441,8 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "governance.noCauseAffinity",
   "governance.joinRefuseAffinity",
   "governance.shareExecMs",
+  // 위반 기록 잊기(줄기 fixes-d592 — D-592 2583 다): 외교 1분 틱·조회마다 읽는다
+  "governance.breachExpireMs",
   // NPC 자율행동·7축 성향·조직 합성·충성도 개입(docs/adr/2026-11-20-npc-autonomous-ai.md): 조회·판단마다 읽는다
   "npcAi.unitTraitMin",
   "npcAi.unitTraitMax",

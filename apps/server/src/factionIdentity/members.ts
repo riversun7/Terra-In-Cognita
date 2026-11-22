@@ -5,6 +5,7 @@
 //   world/houseTies.ts가 맞춘다). 나가거나 내보내져도 나라·내 도시는 그대로이고, 그 사람 유닛의 이 가문 소속은 지운다(무소속, D-565 1747).
 // - 초대와 신청이 맞으면(가문장이 이미 신청한 사람을 초대, 이미 초대받은 사람이 신청) 바로 든다.
 // - 가문장은 나갈 수 없다(먼저 넘기거나 혼자면 해산한다 — succession.ts, 질문 1003 가). 가문원은 나가고, 가문장은 가문원을 내보낸다.
+// - 바뀜(fixes-d592 — D-592 2581 (4)): 같은 가문원을 친 가문원은 시스템이 추방한다(expel — houseExpel.ts, 감사 기록 faction.house_kick 행위자 시스템 + 사유).
 // - 상한은 설정 칸(rules.ts): 인원(가문장 포함)·가문마다 대기 수·사람마다 신청 수·요청 유효 시간. 지난 요청은 명령마다 지운다.
 // - 한 명령 = 한 트랜잭션(그 가문 세력 행을 잠가 같은 가문의 명령을 차례로 한다). 서로 다른 가문이 같은 사람을 동시에 받으면 가문원 표의
 //   사용자 열쇠(house_members PK)가 하나만 남긴다(already_in_house). 소식(house_notices)은 같은 트랜잭션, 감사 기록은 커밋 뒤.
@@ -41,10 +42,16 @@ export interface HouseMembers {
   withdraw(userId: string, requestId: number): Promise<HouseMemberResult>;
   leave(userId: string): Promise<HouseMemberResult>;
   kick(leaderId: string, targetId: string): Promise<HouseMemberResult>;
+  /**
+   * 시스템 추방(fixes-d592 — 사용자 결정 D-592 2581 (4) "같은 가문원 공격 → 추방", houseExpel.ts): 내보내기와 같은 길(가문원 줄 지우기·소식·감사 기록), 행위자 = 시스템.
+   * 가문장은 추방하지 않는다(leader_cannot_leave — 넘기기 없이 떠날 수 없다)
+   */
+  expel(userId: string, reason: string): Promise<HouseMemberResult>;
 }
 
 interface AuditNote {
-  readonly actor: string;
+  /** 행위자 사용자(null = 시스템 — 추방) */
+  readonly actor: string | null;
   readonly action: string;
   readonly target: string | null;
   readonly after: Record<string, unknown>;
@@ -223,7 +230,7 @@ export function createHouseMembers(o: HouseMemberOptions): HouseMembers {
     if (o.db && result.ok)
       for (const note of audits)
         await writeAudit(o.db, {
-          actor: { kind: "user", id: note.actor, ip: null },
+          actor: { kind: note.actor === null ? "system" : "user", id: note.actor, ip: null },
           action: note.action,
           targetId: note.target,
           before: null,
@@ -480,6 +487,43 @@ export function createHouseMembers(o: HouseMemberOptions): HouseMembers {
           action: "faction.house_kick",
           target: targetId,
           after: { factionId: house.id },
+        });
+        return done("kicked", house.id);
+      });
+    },
+
+    expel(userId, reason) {
+      return run(async (q, now, audits) => {
+        const mine = await membershipOf(q, userId);
+        if (!mine) return fail("not_in_house");
+        if (mine.role === "leader") return fail("leader_cannot_leave");
+        const house = await lockHouse(q, mine.factionId);
+        if (!house) return fail("not_found");
+        await q.query("delete from house_members where user_id = $1 and faction_id = $2", [userId, house.id]);
+        await notify(q, {
+          userId,
+          factionId: house.id,
+          kind: "kicked",
+          houseName: house.name,
+          reason,
+          nowMs: now,
+        });
+        const leader = await leaderOf(q, house.id);
+        if (leader)
+          await notify(q, {
+            userId: leader,
+            factionId: house.id,
+            kind: "member_left",
+            houseName: house.name,
+            other: await cyborgNameOf(q, userId),
+            reason,
+            nowMs: now,
+          });
+        audits.push({
+          actor: null,
+          action: "faction.house_kick",
+          target: userId,
+          after: { factionId: house.id, reason },
         });
         return done("kicked", house.id);
       });

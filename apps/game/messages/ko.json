@@ -7438,6 +7438,7 @@
   "fid_house_notice_apply_declined": "{house} 가문이 가입 신청을 거절했습니다.",
   "fid_house_notice_member_left": "{other} 님이 {house}에서 나갔습니다.",
   "fid_house_notice_kicked": "{house} 가문장이 나를 가문에서 내보냈습니다.",
+  "fid_house_notice_kicked_attack": "{house} 가문원을 공격해 가문에서 추방되었습니다.",
   "fid_house_notice_nation_left": "나와 가문의 나라가 달라져 {house}에서 빠졌습니다.",
   "fid_house_notice_house_moved": "가문이 나를 따라 새 나라로 옮겼습니다. 옛 나라 시민 {count}명이 가문에서 빠졌습니다.",
   "fid_house_notice_name_reset": "운영자가 가문 이름을 되돌렸습니다({house}). 기다리지 않고 새 이름을 정할 수 있습니다.",

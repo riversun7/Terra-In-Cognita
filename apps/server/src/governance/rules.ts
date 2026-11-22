@@ -71,6 +71,8 @@ export interface GovernanceRules {
   readonly joinRefuseAffinity: number;
   /** 국고 지분 안건 집행 기간(ms — D-591 2526, 설정 칸 gov_share_exec_ms — 7~30일로 자른다, cityShares/treasuryRuns.ts) */
   readonly shareExecMs: number;
+  /** 위반 기록을 잊는 기간(ms, 0 = 잊지 않음 — 줄기 fixes-d592 D-592 2583 다, 설정 칸 dip_breach_expire_ms) */
+  readonly breachExpireMs: number;
   /** 강화 조약 불가침 기간(ms — 세력·사회 d292_truce, 휴전·강화 조약의 기본 기간) */
   readonly truceMs: number;
 }
@@ -170,6 +172,7 @@ export function governanceRulesFrom(c: SocietyCoefficients): GovernanceRules {
     noCauseAffinity: Math.min(200, whole(g.noCauseAffinity)),
     joinRefuseAffinity: Math.min(200, whole(g.joinRefuseAffinity)),
     shareExecMs: Math.min(30 * 86_400_000, Math.max(7 * 86_400_000, whole(g.shareExecMs))),
+    breachExpireMs: whole(g.breachExpireMs),
     truceMs: period(c.npc.truceMs),
   };
 }

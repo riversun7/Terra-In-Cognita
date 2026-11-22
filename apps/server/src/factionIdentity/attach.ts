@@ -21,6 +21,7 @@ import { createHouseRecruitService } from "./houseRecruit.ts";
 import { refundOldLeagueFunds } from "./leagueRefund.ts";
 import { type HouseLeagueGateway, createHouseLeagueSocket, withLeagues } from "./leagueGateway.ts";
 import { type HouseLeagueService, type NpcLeagueHouse, createHouseLeagueService } from "./leagueService.ts";
+import { attachHouseExpel } from "./houseExpel.ts";
 import { createHouseMembers } from "./members.ts";
 import { createHouseSuccession } from "./succession.ts";
 import { houseTiesOf } from "../world/houseTies.ts";
@@ -160,6 +161,17 @@ export function attachHouses(options: {
       },
       [p.facilities.business],
     );
+    // 같은 가문원을 친 사람 추방(D-592 2581 (4) [임시 — houseExpel.ts]): 일부러 치기가 세계 저장 층에서 찾는다
+    attachHouseExpel(p, {
+      expel: (userId, reason) =>
+        createHouseMembers({ pool, db: options.db, rules: options.rules, now: options.now, nationOf }).expel(
+          userId,
+          reason,
+        ),
+      after: async () => {
+        await houseTiesOf(p)?.reload();
+      },
+    });
     // 옛 도시 연맹 기금을 낸 가문 금고로 되돌린다(질문 2505 나 — leagueRefund.ts, 한 번·멱등)
     refundOldLeagueFunds(pool, p.ledger, options.now())
       .then((report) => {

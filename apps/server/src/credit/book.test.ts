@@ -13,7 +13,8 @@ import { describe, expect, it } from "vitest";
 import { createLedger } from "../economy/ledger.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import { type CreditMark, attachCreditBook, creditBookOf } from "./book.ts";
-import { creditUnitAttack, withCredit } from "./hooks.ts";
+import { setCoupTruce } from "./coupTruce.ts";
+import { creditAttackHook, creditUnitAttack, withCredit } from "./hooks.ts";
 import { creditLines } from "./view.ts";
 
 const CUR = "cur_test";
@@ -270,6 +271,27 @@ describe("신용 점수 장부(D-581 · D-584 한 점수)", () => {
     // 수비 편은 내리지 않는다, 소속 모르는 공격자는 그대로
     expect(w.book.score({ ownerId: OTHER, unitId: null }, NATION, T0)).toBe(500);
     expect(creditUnitAttack(w.ledger, [77], [OTHER], T0)).toBe(0);
+  });
+
+  it("쿠데타 중 맞선 편끼리의 공격은 같은 나라 공격 벌점이 없다(D-592 2581 (4) — 가담 벌점만): 유닛·건물 고리 둘 다, 편이 아닌 같은 나라 대상은 그대로", () => {
+    const w = world({ rules: { creditStart: 500 } });
+    const RIVAL = 41;
+    const BYSTANDER = 43;
+    w.book.sweep(
+      T0,
+      new Map([
+        [PLAYER, NATION],
+        [RIVAL, NATION],
+        [BYSTANDER, NATION],
+      ]),
+    );
+    setCoupTruce(w.ledger, (a, b) => (a === PLAYER && b === RIVAL) || (a === RIVAL && b === PLAYER));
+    expect(creditUnitAttack(w.ledger, [PLAYER], [RIVAL], T0)).toBe(0);
+    creditAttackHook(w.ledger)(PLAYER, RIVAL, T0);
+    expect(w.book.score(ownerSubject, NATION, T0)).toBe(500);
+    // 쿠데타와 상관없는 같은 나라 사람은 그대로 벌점
+    expect(creditUnitAttack(w.ledger, [PLAYER], [RIVAL, BYSTANDER], T0)).toBe(1);
+    expect(w.book.score(ownerSubject, NATION, T0)).toBe(450);
   });
 
   it("점수는 설정 칸 범위로 자른다", () => {

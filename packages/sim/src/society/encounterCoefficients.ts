@@ -33,6 +33,11 @@ export interface EncounterCoefficients {
   readonly fullPm: number;
   /** [임시] 조우 뒤 다시 판단: 남은 HP가 최대의 이 몫(‰) 아래이거나 부상이면 재정비하러 출발한 자리로 */
   readonly regroupHpPm: number;
+  /**
+   * [임시] 같은 나라 유닛을 일부러 치는 NPC(줄기 fixes-d592 — 사용자 결정 D-592 2581 (1) "같은국가 유닛공격은 드뭄 도시외부에서"): 띄운 2차맵에서 NPC 유닛이 같은 나라 다른 주인의
+   * 유닛과 조우 거리 안이면 조우 찾기마다 이 확률(백만분율) × 공격 성향 ÷ 1000으로 친다. 도시(시가지) 안에서는 치지 않는다. 0 = 끔
+   */
+  readonly npcSameNationPpm: number;
 }
 
 export const START_ENCOUNTER: EncounterCoefficients = {
@@ -48,4 +53,5 @@ export const START_ENCOUNTER: EncounterCoefficients = {
   playerPolicy: 2,
   fullPm: 850,
   regroupHpPm: 500,
+  npcSameNationPpm: 2000,
 };

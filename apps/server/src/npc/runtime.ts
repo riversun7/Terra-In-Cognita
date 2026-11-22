@@ -752,7 +752,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         warPersist.record(event, econ?.hooks.treasuryAsset(payer) ?? ASSET_CREDIT);
       },
       // 남은 상태가 끝난 까닭(D-527): 재건·저절로 회복·몰아냄 등
-      onWarStateEnd: (entry, reason) => warPersist.ended(entry, reason),
+      onWarStateEnd: (entry, reason, nowMs) => warPersist.ended(entry, reason, nowMs),
     },
     startMs,
   );

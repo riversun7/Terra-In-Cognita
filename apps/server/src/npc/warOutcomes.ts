@@ -4,6 +4,8 @@
 // - 결과 하나(attachSociety onWarOutcome): 새 줄을 기다리는 줄에 넣는다(세력 행 ID는 flush 때 잇는다 — 예비 행이 모자라 늦게 넣는 새 세력이
 //   있어서). 남은 상태가 생기면 그 도시의 줄 번호를 적어 둔다.
 // - 남은 상태가 끝남(attachSociety onWarStateEnd): 까닭(재건·저절로 회복·몰아냄·주인 바뀜·사라짐·바뀜·기간 끝)을 적어 두었다가 flush 때 쓴다.
+// - 바뀜(fixes-d592 — D-592 질문 2582 나): 약탈 상태가 정부 재건(rebuilt)으로 끝나면 약탈한 세력을 그 쌍의 전쟁을 연 쪽으로 위반 장부에 적는다(diplomacy/breaches.ts
+//   blameRebuiltWar — 거울 세계 원장 world.book이 서버 원장이다). 재건 뒤 시뮬이 다시 전쟁을 걸어 조약이 깨지면 약탈한 쪽이 어긴 나라가 된다.
 // - flush(세력·도시 저장 뒤): 새 줄을 쓰고, 남은 상태의 다음 세금·가져간 값이 바뀌었으면 고치고, 거울에서 사라진 상태는 ended_at_ms = 지금·까닭.
 // 서버 NPC 공격은 아직 실시간 공성 없이 결과를 고른다(시뮬 "전투 끔"과 같은 규칙, @terra/sim attachSociety occupy).
 import {
@@ -14,6 +16,7 @@ import {
   type WarStateEndReason,
   isWarOutcome,
 } from "@terra/sim";
+import { blameRebuiltWar } from "../diplomacy/breaches.ts";
 import type { QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 
@@ -109,8 +112,8 @@ export async function loadWarOutcomes(
 export interface WarOutcomePersist {
   /** 결과 하나(attachSociety onWarOutcome). asset = 가져간·낸 값의 화폐(약탈·점령 상태 = 대상 국고, 점령·귀속 = 점령자 국고) */
   record(event: WarOutcomeEvent, asset: string): void;
-  /** 남은 상태가 끝남(attachSociety onWarStateEnd) — 까닭을 flush 때 쓴다 */
-  ended(entry: SimOccupation, reason: WarStateEndReason): void;
+  /** 남은 상태가 끝남(attachSociety onWarStateEnd) — 까닭을 flush 때 쓴다. 재건이면 약탈한 쪽을 위반 장부에 적는다(nowMs가 있을 때 — 2582 나) */
+  ended(entry: SimOccupation, reason: WarStateEndReason, nowMs?: number): void;
   /** 새 줄·바뀐 남은 상태·끝난 상태를 쓰기 대기열에(세력 행을 저장한 뒤). 쓴 줄 수 */
   flush(nowMs: number): number;
 }
@@ -178,8 +181,10 @@ export function createWarOutcomePersist(o: {
       pending.push({ id: nextId, event, asset });
     },
 
-    ended(entry, reason) {
+    ended(entry, reason, nowMs) {
       reasons.set(reasonKey(entry.city, entry.sinceMs), reason);
+      if (reason === "rebuilt" && entry.kind === "looted" && nowMs !== undefined)
+        blameRebuiltWar(world.book, entry.occupier, entry.owner, nowMs);
     },
 
     flush(nowMs) {

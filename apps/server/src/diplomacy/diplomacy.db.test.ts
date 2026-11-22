@@ -296,7 +296,9 @@ describe.skipIf(!TEST_DATABASE_URL)("지도자끼리 조약(diplomacy)", () => {
     expect(after.treaties.find((row) => row.id === made.ref)?.brokenBy).toBe("us");
     expect((await dip.view(other.userId)).nation).toMatchObject({ breaches: 1 });
     const book = dip.service.breaches();
-    expect(book?.breachesOf(me.faction.id)).toBe(1);
+    expect(book?.breachesOf(me.faction.id, clock)).toBe(1);
+    // 잊는 기간이 지나면 위반을 세지 않는다 — 신뢰가 돌아온다(D-592 2583 다 — fixes-d592)
+    expect(book?.breachesOf(me.faction.id, clock + rules.breachExpireMs)).toBe(0);
     expect(book?.causeBonus(targetFaction.id, me.faction.id, clock)).toBe(rules.sanctionCauseBonus);
     expect(book?.causeBonus(me.faction.id, targetFaction.id, clock)).toBe(0);
     expect(book?.causeBonus(targetFaction.id, me.faction.id, clock + rules.sanctionWindowMs + 1)).toBe(0);
@@ -483,14 +485,26 @@ describe.skipIf(!TEST_DATABASE_URL)("지도자끼리 조약(diplomacy)", () => {
     await tick();
     expect(await treatyRow(made.ref)).toMatchObject({ state: "broken", broken_by: String(me.nation) });
     const book = dip.service.breaches();
-    expect(book?.breachesOf(meOwner)).toBe(1);
+    expect(book?.breachesOf(meOwner, clock)).toBe(1);
     expect(book?.hasCause(targetOwner, meOwner, clock)).toBe(true);
 
-    // 명분이 있는 의결 선포(제재 — 우리를 어긴 나라로 본 다른 지도자 나라): 세력·사회 declareWar에 caused = true로 부른다(선포 비용 없음 — 시뮬 시험이 금액을 본다)
+    // 명분이 있는 의결 선포(제재 — 피해 나라의 동맹인 다른 지도자 나라, D-592 2584 다): 세력·사회 declareWar에 caused = true로 부른다(선포 비용 없음 — 시뮬 시험이 금액을 본다)
     const choices = parts(world).persistence.cyborgs.creation("probe", clock).factions;
     const otherIndex = choices.findIndex((row) => row.id !== me.nation && row.id !== target.id);
     expect(otherIndex).toBeGreaterThanOrEqual(0);
     const other = await leader(world, "Dipsan", "DPS", otherIndex, "dictatorship");
+    // 상관없는 나라는 명분이 없다 — 피해 나라(target)와 동맹을 맺고 틱이 동맹을 알리면 생긴다
+    expect(book?.hasCause(other.faction.id, meOwner, clock)).toBe(false);
+    const targetNow = npc.world.factions.get(targetOwner);
+    if (targetNow) targetNow.traits = { ...targetNow.traits, aggression: 100 };
+    const allied = await dip.service.propose(other.userId, {
+      targetNationId: target.id,
+      clauses: [{ kind: "alliance" }],
+      days: 10,
+    });
+    expect(allied).toMatchObject({ ok: true, action: "active" });
+    await tick();
+    expect(book?.hasCause(other.faction.id, meOwner, clock)).toBe(true);
     const seen: (boolean | undefined)[] = [];
     const original = npc.society.declareWar.bind(npc.society);
     npc.society.declareWar = (attacker, victim, nowMs, caused) => {

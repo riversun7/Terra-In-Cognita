@@ -317,6 +317,36 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 가입·소속 도시 (DB)", () => {
     expect((await identity().dismissHouseNotices(viewer(leader), {})).notices).toEqual([]);
   });
 
+  it("시스템 추방(D-592 2581 (4) — 같은 가문원 공격): 가문원은 빠지고 사유가 붙은 소식·가문장 소식·감사 기록(행위자 시스템), 가문장은 추방하지 않는다", async () => {
+    const leader = await citizen("Expela6", nationA);
+    const houseId = await found(leader, "추방가문", "EXP");
+    const member = await citizen("Expelbb6", nationA);
+    const service = members();
+    await service.apply(member, houseId);
+    const request = (await view(leader)).house?.requests.find((row) => row.userId === member);
+    await service.answer(leader, request?.id ?? 0, true);
+    expect(await service.expel(leader, "attacked_member")).toEqual({
+      ok: false,
+      code: "leader_cannot_leave",
+    });
+    expect(await service.expel(member, "attacked_member")).toEqual({
+      ok: true,
+      action: "kicked",
+      factionId: houseId,
+    });
+    expect(await service.expel(member, "attacked_member")).toEqual({ ok: false, code: "not_in_house" });
+    const notice = (await view(member)).notices.find((row) => row.kind === "kicked");
+    expect(notice?.reason).toBe("attacked_member");
+    expect((await view(leader)).notices.find((row) => row.kind === "member_left")?.other).toBe("Expelbb6");
+    expect(
+      await rows(
+        test.db,
+        "select actor_kind, actor_id, target_id, after->>'reason' as reason from audit_log where action = 'faction.house_kick' and target_id = $1",
+        [member],
+      ),
+    ).toEqual([{ actor_kind: "system", actor_id: null, target_id: member, reason: "attacked_member" }]);
+  });
+
   it("소속 도시(D-565): 창설 때 고르면 그 도시의 나라 가문, 가문장이 바꾸면 나라도 바뀜(대기·소식·감사 기록), 시야 나라·구인 자격", async () => {
     const leader = await citizen("Homea8", nationA);
     // 고른 도시가 없으면 unknown_city, 다른 나라 도시를 고르면 그 나라 가문(시민권과 별개)

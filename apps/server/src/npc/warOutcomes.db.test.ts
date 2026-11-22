@@ -1,9 +1,10 @@
 // 공성 결과 셋 DB 통합 시험(docs/adr/2026-11-07-war-outcomes.md, 기획 D-520·D-527) — TEST_DATABASE_URL이 있을 때만. 값은 모두 시험용 가짜다.
 // 서버 NPC 공격과 같은 규칙(attachSociety occupy)으로 약탈·점령 상태·점령·귀속을 넣고, war_outcomes 줄·다시 켤 때 남은 상태(약탈 = 정부가 무너진
 // 도시, 하루 끝마다 꺼내 감, 재건되면 끝·까닭·다시 전쟁)·태어날 때 부모
-// (기획 답 620 나)·세력 화면 점령 칸·복귀 요약 습격 칸을 본다.
+// (기획 답 620 나)·세력 화면 점령 칸·복귀 요약 습격 칸을 본다. 재건으로 다시 난 전쟁은 약탈한 쪽이 위반 장부에 전쟁을 연 쪽으로 남는다(fixes-d592 — D-592 2582 나).
 import { DAY_MS, TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { attachBreachBook } from "../diplomacy/breaches.ts";
 import { readOccupationRows } from "../factionScreen/occupations.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { createWorldSummaryBackend } from "../world/summarySources.ts";
@@ -229,9 +230,16 @@ describe.skipIf(!TEST_DATABASE_URL)("공성 결과 셋(D-520·D-527)", () => {
     // 재건할 날이 지난 하루 끝: 옛 세력이 재건 비용을 내고 정부를 다시 세운다 → 끝(까닭 rebuilt)·다시 전쟁
     clock = untilMs;
     calm();
+    // 조약 위반 장부(diplomacy/breaches.ts — 서버 원장에 붙는다): 재건으로 다시 난 전쟁은 약탈한 쪽이 전쟁을 연 쪽(D-592 2582 나 — fixes-d592)
+    const breaches = attachBreachBook(persistence.ledger, () => ({
+      breachTrustPenalty: 30,
+      sanctionWindowMs: DAY_MS,
+      sanctionCauseBonus: 0,
+    }));
     npc.society.endOfDay(untilMs);
     // 다시 전쟁은 하루 끝에서 바로 본다. 이어지는 틱의 NPC 판단이 강화를 맺을 수 있다(정상 규칙, 판단 시각에 따라 갈려 CI에서 가끔 실패했다)
     expect(npc.world.factions.get(second.id)?.wars.has(first.id)).toBe(true);
+    expect(breaches.declarerSince(second.id, first.id, untilMs)).toBe(first.id);
     await npc.tick(true);
     await persistence.writer.durable();
     const rebuilt = await lootRow();

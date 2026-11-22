@@ -10,6 +10,7 @@
 //   불가침 다시 걸기(켤 때), 공물, 보호 저절로 참전 요청, 참전 요청 기한 지남.
 //   바뀜(fixes-1117c — D-255 "어기면 모두가 보는 신뢰가 떨어진다"·D-290 "조약 위반 기록"): broken이면 맺은 뒤 상대에게 선포한 나라를 어긴 나라로 적는다(broken_by,
 //   위반 장부 breaches.ts — 세력 신뢰·제재 명분). 모르면 null [임시 2582]. 바뀜(gov-fix-3): 선포 기록을 표 diplomacy_declarations에 써 다시 켜도 안다.
+//   바뀜(fixes-d592 — D-592): 재건으로 다시 난 전쟁은 약탈한 쪽(2582 나), 위반 기록에 피해 나라를 적고 틱마다 맺은 동맹 쌍을 장부에 알린다(제재 명분 — 2584 다).
 // 쓰기는 DB 바로. 명령·틱은 의결 사슬(governance service.run)에서 돈다 — 의결 틱의 조약 비준 집행(enact)과 겹치지 않는다.
 import { DAY_MS } from "@terra/sim";
 import type { DiplomacyAction, DiplomacyResultCode } from "@terra/protocol";
@@ -166,7 +167,8 @@ export function createDiplomacyService(o: {
     }
     for (const row of await o.store.breaches()) {
       const owner = o.port.nation(row.nationId)?.ownerId;
-      if (owner !== undefined) book.record(owner, row.atMs);
+      const victim = o.port.nation(row.victim)?.ownerId;
+      if (owner !== undefined && victim !== undefined) book.record(owner, row.atMs, victim);
     }
     book.markLoaded();
     return book;
@@ -183,7 +185,7 @@ export function createDiplomacyService(o: {
     const declarer = book?.declarerSince(a.ownerId, b.ownerId, treaty.activatedAtMs ?? 0);
     const breaker = declarer === a.ownerId ? a : declarer === b.ownerId ? b : undefined;
     await end(treaty, "broken", nowMs, null, breaker?.rowId ?? null);
-    if (breaker) book?.record(breaker.ownerId, nowMs);
+    if (breaker) book?.record(breaker.ownerId, nowMs, (breaker === a ? b : a).ownerId);
   };
 
   /** 맺는다(D-292 서버가 바로 집행). 조건이 바뀌어 맺을 수 없으면 거절로 끝낸다 */
@@ -564,7 +566,9 @@ export function createDiplomacyService(o: {
     if (!o.port.ready()) return;
     const nowMs = o.now();
     const rules = o.rules();
-    await breachBook();
+    const book = await breachBook();
+    // 맺은 채 남은 동맹 조약 쌍(제재 명분은 피해 나라와 그 동맹만 — 2584 다, fixes-d592)
+    const allies: (readonly [number, number])[] = [];
     for (const treaty of await o.store.liveTreaties()) {
       if (isOpenTreaty(treaty.state)) {
         if (treaty.agendaId !== null) {
@@ -589,6 +593,7 @@ export function createDiplomacyService(o: {
         continue;
       }
       const kinds = kindsOf(treaty.clauses);
+      if (kinds.includes("alliance")) allies.push([a.ownerId, b.ownerId]);
       if (kinds.some((kind) => TRUCE_CLAUSES.has(kind)) && treaty.expiresAtMs !== null)
         await o.port.setTruce(a, b, treaty.expiresAtMs);
       const protection = protectionOf(treaty.clauses);
@@ -613,6 +618,7 @@ export function createDiplomacyService(o: {
         await openJoin(treaty, ward, protector, enemy, true, null, nowMs);
       }
     }
+    book?.setAllies(allies);
     for (const join of await o.store.openJoins()) {
       const requester = o.port.nation(join.requesterNation);
       const enemy = o.port.nation(join.enemyNation);

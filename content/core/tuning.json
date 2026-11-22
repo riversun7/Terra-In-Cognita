@@ -14948,6 +14948,24 @@
       "source": "기획 D-564 1641·D-570 · 질문 1905 · ADR 2026-11-15-unloaded-second-maps \"바뀜 (D-570, 좌표 이동 3)\" [임시]"
     },
     {
+      "id": "encounter_npc_same_nation_ppm",
+      "code": "",
+      "name": {
+        "ko": "[임시] NPC가 같은 나라 유닛을 치는 확률(ppm, 공격 성향 1000 기준)",
+        "en": "[temp] Chance an NPC attacks a same-nation unit (ppm, at aggression 1000)"
+      },
+      "value": 2000,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1000000,
+      "desc": {
+        "ko": "띄운 2차맵에서 NPC 유닛이 같은 나라 다른 주인의 유닛과 조우 거리 안에 있을 때, 조우 찾기마다 이 확률(백만분율)에 공격 성향(‰)을 곱한 만큼 일부러 친다. 도시(시가지) 안에서는 치지 않는다. 0이면 치지 않는다.",
+        "en": "On a loaded map, when an NPC unit is within encounter reach of a same-nation unit of another owner, each encounter scan it deliberately attacks with this chance (parts per million) scaled by its aggression (‰). Never inside a city (urban area). 0 disables it."
+      },
+      "source": "사용자 결정 D-592 (질문 2581 (1) \"같은국가 유닛공격은 드뭄 도시외부에서\") · ADR 2026-11-15-unloaded-second-maps \"바뀜 (fixes-d592, D-592)\" [임시 출발값]"
+    },
+    {
       "id": "gov_period_leader_ms",
       "code": "S34",
       "name": {
@@ -17178,6 +17196,24 @@
         "en": "When an NPC nation newly declares war on a target it has a sanction cause against, its attack score drops this much of the no-cause penalty (npc_attack_declare_penalty), never more than the whole penalty."
       },
       "source": "기획 D-255·D-290 · 질문 2558 · ADR 2026-11-21-diplomacy-treaties \"바뀜 (fixes-1117c)\" · 줄기 fixes-1117c [임시 출발값]"
+    },
+    {
+      "id": "dip_breach_expire_ms",
+      "code": "",
+      "name": {
+        "ko": "조약 위반 기록을 잊는 기간(ms, 0 = 잊지 않음)",
+        "en": "How long a treaty breach is remembered (ms, 0 = forever)"
+      },
+      "value": 7776000000,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 315360000000,
+      "desc": {
+        "ko": "조약 위반 기록은 이 기간이 지나면 잊는다. 세력 신뢰와 제재 명분은 남은 기록에서 셈하므로 잊으면 그만큼 신뢰가 돌아온다. 0이면 잊지 않는다.",
+        "en": "A treaty breach is forgotten after this long. Faction trust and sanction causes are computed from the remaining records, so trust recovers as breaches are forgotten. 0 keeps them forever."
+      },
+      "source": "사용자 결정 D-592 (질문 2583 다) · ADR 2026-11-21-diplomacy-treaties \"바뀜 (fixes-d592, D-592)\" · 줄기 fixes-d592 [임시 출발값]"
     },
     {
       "id": "npc_ai_drive_work_mood_floor_pm",

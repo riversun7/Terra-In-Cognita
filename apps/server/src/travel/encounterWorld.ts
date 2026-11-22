@@ -29,6 +29,8 @@
 // 바뀜 (gov-fix-3 — 질문 2581 (3) 사용자 답, D-570 1904 "무조건 전투가 아니라 현재 전투세팅상태나 전력차, 성향에 따라 판정"·D-573 2022 나): 일부러 치기의 수비 편도
 //    조우와 같은 판단을 한다(clashDecide.ts resolveStrike — 같은 나라 수비 편도). 회피를 골랐고 공격 편보다 빠르면 전투 없이 빠져나가고(결과 코드 escaped — 프로토콜 65,
 //    낮은 판 연결은 out_of_reach), 느리면 전투가 열리고 수비 편 파티는 시작 틱에 퇴각을 시도한다(조우와 같은 flee). 빠져나간 뒤 다시 치는 것을 막는 쉬는 시간은 없다 [임시 2611].
+// 바뀜 (fixes-d592 — D-592 2581 (1)·(4)): NPC가 같은 나라 유닛을 드물게 도시 밖에서 친다(npcStrikes — npcStrike.ts, 일부러 치기와 같은 길 strikeOn). 같은 가문원을
+//    일부러 친 사람은 가문에서 추방된다(공격은 막지 않는다 — factionIdentity/houseExpel.ts [임시 — 해석 확인 중]).
 import { randomInt } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import {
@@ -45,6 +47,7 @@ import type { PlanetCellValues } from "@terra/planet/secondMap";
 import { creditUnitAttack } from "../credit/hooks.ts";
 import { DEFENSE_STAGE } from "../facilities/cityWalls.ts";
 import { OBSTACLE_DURABILITY, facilityPoints, mapLayers } from "../facilities/siegeLayout.ts";
+import { houseExpelOf } from "../factionIdentity/houseExpel.ts";
 import { gatherOf } from "../gather/registry.ts";
 import { attachUnitTactics } from "../tactics/store.ts";
 import { type WorldBattleInit, siegeFacilityTargets } from "../world/battleTargets.ts";
@@ -85,6 +88,7 @@ import {
 import { nearestBase, nearestWarehouse } from "./encounterPlaces.ts";
 import { type SideBody, type SideUnit, sideView, unitRetreats } from "./encounterSides.ts";
 import { buildEncounterInit } from "./encounterInit.ts";
+import { type NpcStrikeUnit, npcStrikeCandidates, npcStrikeChancePpm } from "./npcStrike.ts";
 import type { HaltedTrip } from "./serviceTypes.ts";
 
 /** 전투 결과를 적용한 뒤에도 그 2차맵을 붙잡는 여유(ms) */
@@ -228,6 +232,8 @@ export function startCoordinateRules(
     readonly timer?: boolean | undefined;
     /** ① 교전 굴림(0 이상 1000 미만, 기본 서버 난수 — 시험이 고정한다) */
     readonly roll?: (() => number) | undefined;
+    /** 같은 나라 NPC 치기 굴림(0 이상 1,000,000 미만, 기본 서버 난수 — 시험이 고정한다, fixes-d592) */
+    readonly rollPpm?: (() => number) | undefined;
   },
 ): CoordinateRules | undefined {
   const persistence = world.persistence;
@@ -237,6 +243,7 @@ export function startCoordinateRules(
   const society = (): SocietyCoefficients | undefined => persistence.facilities?.rules();
   const rules = (): EncounterCoefficients => society()?.encounter ?? START_ENCOUNTER;
   const roll = options.roll ?? (() => randomInt(1000));
+  const rollPpm = options.rollPpm ?? (() => randomInt(1_000_000));
   // AI 작전 저장소(질문 2021·2023 답): 세계 저장 층에 붙인다 — 게이트웨이(unit_tactics)가 같은 저장소에 쓴다
   const { pool, writer, settlement } = persistence;
   const tactics =
@@ -264,7 +271,16 @@ export function startCoordinateRules(
   // 2. 조우
   const cooldown = new Map<string, number>();
   const timers = new Set<ReturnType<typeof setTimeout>>();
-  const counts = { scans: 0, scanMs: 0, contacts: 0, avoided: 0, battles: 0, safe: 0, escaped: 0 };
+  const counts = {
+    scans: 0,
+    scanMs: 0,
+    contacts: 0,
+    avoided: 0,
+    battles: 0,
+    safe: 0,
+    escaped: 0,
+    npcStrikes: 0,
+  };
   let busy = false;
   let stopped = false;
 
@@ -708,56 +724,38 @@ export function startCoordinateRules(
     return "ok";
   };
 
-  /** 일부러 치기(unit_attack — 위 머리 주석 "바뀜 (fixes-1117c)") */
-  const strike = async (input: StrikeInput): Promise<StrikeCode> => {
-    if (stopped || world.status().state !== "ready") return "busy";
-    const ownerId = persistence.settlement?.findOwnerOfUser(input.userId);
-    if (ownerId === undefined) return "forbidden";
-    const at = now();
-    let map: SecondMap | undefined;
-    for (const candidate of world.maps.values())
-      if (candidate.unitInfo(input.targetUnitId)) {
-        map = candidate;
-        break;
-      }
-    const target = map?.unitInfo(input.targetUnitId);
-    const targetCell = map ? cellOf(map, input.targetUnitId, at) : undefined;
-    if (!map || !target || !targetCell || !isParticipant(target) || isAfloat(target)) return "unknown_unit";
-    if (target.ownerId === ownerId) return "own_target";
-    if (unavailable(target.condition, at)) return "unavailable";
+  /** 고른 치는 편(mine)으로 대상을 친다(일부러 치기·NPC 같은 나라 치기): 수비 편 = 대상 + 둘레의 같은 주인 유닛, 수비 편은 조우와 같은 판단(gov-fix-3) */
+  const strikeOn = async (
+    map: SecondMap,
+    mine: readonly SideUnit[],
+    attackerOwner: number,
+    targetUnitId: number,
+    targetOwner: number,
+    near: (cell: ArenaUnit) => boolean,
+    at: number,
+  ): Promise<StrikeCode> => {
     const r = rules();
-    const reach = Math.max(1, r.radiusCells);
-    const near = (cell: ArenaUnit): boolean =>
-      Math.max(Math.abs(cell.x - targetCell.x), Math.abs(cell.y - targetCell.y)) <= reach;
-    const mine: SideUnit[] = [];
-    for (const unitId of new Set(input.unitIds)) {
-      const info = map.unitInfo(unitId);
-      const cell = cellOf(map, unitId, at);
-      if (!info || !cell) return "out_of_reach";
-      if (info.ownerId !== ownerId || !isDecider(info)) return "forbidden";
-      if (unavailable(info.condition, at) || isAfloat(info)) return "unavailable";
-      if (!near(cell)) return "out_of_reach";
-      mine.push({ unitId, ownerId, kind: info.kind, decider: true, speed: info.speed });
-    }
-    if (mine.length === 0) return "unknown_unit";
-    // 수비 편: 대상 + 같은 주인의 유닛 가운데 대상 둘레 조우 거리 안(움직일 수 없는 유닛·물 위 유닛 빼고)
     const theirs: SideUnit[] = [];
     map.forEachUnit((view) => {
-      if (view.ownerId !== target.ownerId || !isParticipant(view)) return;
+      if (view.ownerId !== targetOwner || !isParticipant(view)) return;
       const info = map.unitInfo(view.id);
       const cell = cellOf(map, view.id, at);
       if (!info || !cell || unavailable(info.condition, at) || isAfloat(info)) return;
-      if (view.id !== input.targetUnitId && !near(cell)) return;
+      if (view.id !== targetUnitId && !near(cell)) return;
       const decider = isDecider(view) && view.job.job === JOB_NONE;
       theirs.push({ unitId: view.id, ownerId: view.ownerId, kind: view.kind, decider, speed: info.speed });
     });
     const max = Math.max(1, r.maxSideUnits);
-    const target0 = theirs.filter((unit) => unit.unitId === input.targetUnitId);
+    const target0 = theirs.filter((unit) => unit.unitId === targetUnitId);
     const sides: [SideUnit[], SideUnit[]] = [
       mine.slice(0, max),
-      [...target0, ...theirs.filter((unit) => unit.unitId !== input.targetUnitId)].slice(0, max),
+      [...target0, ...theirs.filter((unit) => unit.unitId !== targetUnitId)].slice(0, max),
     ];
-    const nations = [nationOfOwner(world, ownerId) ?? 0, nationOfOwner(world, target.ownerId) ?? 0] as const;
+    if (sides[1].length === 0) return "unknown_unit";
+    const nations = [
+      nationOfOwner(world, attackerOwner) ?? 0,
+      nationOfOwner(world, targetOwner) ?? 0,
+    ] as const;
     const war = nations[0] !== nations[1] && atWar(nations[0], nations[1]);
     const bodies = bodiesOf([...sides[0], ...sides[1]], at);
     // 수비 편도 조우와 같은 판단(바뀜 gov-fix-3 — 2581 (3)): 공격 편 짐(약탈 맞불 거리)·수비 편 ① 굴림
@@ -793,6 +791,119 @@ export function startCoordinateRules(
     if (opened === "safe") return "safe_zone";
     return opened === "ok" ? "ok" : "busy";
   };
+
+  /** 일부러 치기(unit_attack — 위 머리 주석 "바뀜 (fixes-1117c)") */
+  const strike = async (input: StrikeInput): Promise<StrikeCode> => {
+    if (stopped || world.status().state !== "ready") return "busy";
+    const ownerId = persistence.settlement?.findOwnerOfUser(input.userId);
+    if (ownerId === undefined) return "forbidden";
+    const at = now();
+    let map: SecondMap | undefined;
+    for (const candidate of world.maps.values())
+      if (candidate.unitInfo(input.targetUnitId)) {
+        map = candidate;
+        break;
+      }
+    const target = map?.unitInfo(input.targetUnitId);
+    const targetCell = map ? cellOf(map, input.targetUnitId, at) : undefined;
+    if (!map || !target || !targetCell || !isParticipant(target) || isAfloat(target)) return "unknown_unit";
+    if (target.ownerId === ownerId) return "own_target";
+    if (unavailable(target.condition, at)) return "unavailable";
+    const reach = Math.max(1, rules().radiusCells);
+    const near = (cell: ArenaUnit): boolean =>
+      Math.max(Math.abs(cell.x - targetCell.x), Math.abs(cell.y - targetCell.y)) <= reach;
+    const mine: SideUnit[] = [];
+    for (const unitId of new Set(input.unitIds)) {
+      const info = map.unitInfo(unitId);
+      const cell = cellOf(map, unitId, at);
+      if (!info || !cell) return "out_of_reach";
+      if (info.ownerId !== ownerId || !isDecider(info)) return "forbidden";
+      if (unavailable(info.condition, at) || isAfloat(info)) return "unavailable";
+      if (!near(cell)) return "out_of_reach";
+      mine.push({ unitId, ownerId, kind: info.kind, decider: true, speed: info.speed });
+    }
+    if (mine.length === 0) return "unknown_unit";
+    const code = await strikeOn(map, mine, ownerId, input.targetUnitId, target.ownerId, near, at);
+    // 같은 가문원을 친 사람은 가문에서 추방된다(공격은 막지 않는다 — 사용자 결정 D-592 2581 (4) [임시 — 해석 확인 중], factionIdentity/houseExpel.ts)
+    if (code === "ok")
+      await houseExpelOf(persistence)?.(input.userId, [target.ownerId], at).catch((error: unknown) =>
+        log.error({ err: error }, "travel: house expel failed"),
+      );
+    return code;
+  };
+
+  /**
+   * 같은 나라 유닛을 일부러 치는 NPC(바뀜 fixes-d592 — D-592 2581 (1) "같은국가 유닛공격은 드뭄 도시외부에서", npcStrike.ts): 띄운 2차맵마다 후보를 찾고 후보 하나에 한 번
+   * 굴린다(설정 칸 × 공격 성향). 맞으면 도시(시가지) 밖일 때만 일부러 치기와 같은 길로 친다. 한 틱에 많아야 하나. 연 전투 수(0·1)
+   */
+  const npcStrikes = async (
+    at: number,
+    nationOf: (ownerId: number) => number | undefined,
+  ): Promise<number> => {
+    const r = rules();
+    if (r.npcSameNationPpm <= 0) return 0;
+    const reach = Math.max(1, r.radiusCells);
+    for (const map of world.maps.values()) {
+      const units: NpcStrikeUnit[] = [];
+      map.forEachUnit((view) => {
+        if (!isParticipant(view) || view.aboard !== undefined) return;
+        const nation = nationOf(view.ownerId);
+        if (nation === undefined) return;
+        const info = map.unitInfo(view.id);
+        if (!info || unavailable(info.condition, at) || isAfloat(info)) return;
+        const point = positionAt(view.motion, at);
+        units.push({
+          unitId: view.id,
+          ownerId: view.ownerId,
+          nation,
+          x: Math.floor(point.x / CELL_UNITS),
+          y: Math.floor(point.y / CELL_UNITS),
+          decider: isDecider(view) && view.job.job === JOB_NONE,
+          npc: !playerOwned(view.ownerId),
+        });
+      });
+      for (const found of npcStrikeCandidates(units, reach)) {
+        const key = pairKey(map.mapKey, found.nation, found.nation);
+        if (cooling(key, at)) continue;
+        const chance = npcStrikeChancePpm(r.npcSameNationPpm, aggressionOf(found.npcOwner, found.nation));
+        if (rollPpm() >= chance) continue;
+        // 도시(시가지) 안에서는 치지 않는다(D-592 "도시외부에서" — open도 다시 본다)
+        const urban = await persistence.territory
+          ?.urbanCity(map.planetId ?? TEST_PLANET_ID, {
+            mapKey: map.mapKey,
+            x: found.target.x,
+            y: found.target.y,
+          })
+          .catch(() => null);
+        if (urban !== undefined && urban !== null) continue;
+        const near = (cell: ArenaUnit): boolean =>
+          Math.max(Math.abs(cell.x - found.target.x), Math.abs(cell.y - found.target.y)) <= reach;
+        const mine: SideUnit[] = [];
+        for (const unit of found.attackers) {
+          const info = map.unitInfo(unit.unitId);
+          const cell = cellOf(map, unit.unitId, at);
+          if (!info || !cell || !near(cell)) continue;
+          const { unitId, ownerId, decider } = unit;
+          mine.push({ unitId, ownerId, kind: info.kind, decider, speed: info.speed });
+        }
+        if (mine.length === 0) continue;
+        const code = await strikeOn(
+          map,
+          mine,
+          found.npcOwner,
+          found.target.unitId,
+          found.targetOwner,
+          near,
+          at,
+        );
+        counts.npcStrikes += 1;
+        log.info({ mapKey: map.mapKey, nation: found.nation, code }, "travel: npc same-nation strike");
+        rest(key, at);
+        return code === "ok" ? 1 : 0;
+      }
+    }
+    return 0;
+  };
   strikes.set(travel, strike);
 
   const scan = async (): Promise<number> => {
@@ -821,6 +932,11 @@ export function startCoordinateRules(
           log.error({ err: error, mapKey: engagement.mapKey }, "travel: encounter failed");
         }
       }
+      if (!stopped)
+        opened += await npcStrikes(at, nationOf).catch((error: unknown) => {
+          log.error({ err: error }, "travel: npc same-nation strike failed");
+          return 0;
+        });
       return opened;
     } finally {
       busy = false;
@@ -851,6 +967,7 @@ export function startCoordinateRules(
         encounterBattles: counts.battles,
         encounterSafe: counts.safe,
         encounterEscaped: counts.escaped,
+        encounterNpcStrikes: counts.npcStrikes,
       };
       counts.scans = 0;
       counts.scanMs = 0;
@@ -859,6 +976,7 @@ export function startCoordinateRules(
       counts.battles = 0;
       counts.safe = 0;
       counts.escaped = 0;
+      counts.npcStrikes = 0;
       return out;
     },
     stop() {

@@ -26,6 +26,7 @@ function fakeMembers(calls: string[]): HouseMembers {
       return Promise.resolve({ ok: false, code: "leader_cannot_leave" });
     },
     kick: (userId, target) => ok(`kick:${userId}:${target}`, "kicked"),
+    expel: (userId, reason) => ok(`expel:${userId}:${reason}`, "kicked"),
   };
 }
 

@@ -107,6 +107,10 @@ export interface GovernanceCoefficients {
   readonly breachTrustPenalty: number;
   readonly sanctionWindowMs: number;
   readonly sanctionCauseBonus: number;
+  /**
+   * 위반 기록을 잊는 기간(ms, 0 = 잊지 않음 — 줄기 fixes-d592, 사용자 결정 D-592 2583 다 "기간이 지나면 위반을 잊고 신뢰가 돌아온다") [임시 출발값]. 신뢰·제재 명분은 남은 기록에서 셈한다
+   */
+  readonly breachExpireMs: number;
 }
 
 export const START_GOVERNANCE: GovernanceCoefficients = {
@@ -168,4 +172,5 @@ export const START_GOVERNANCE: GovernanceCoefficients = {
   breachTrustPenalty: 30,
   sanctionWindowMs: 30 * 86_400_000,
   sanctionCauseBonus: 150,
+  breachExpireMs: 90 * 86_400_000,
 };

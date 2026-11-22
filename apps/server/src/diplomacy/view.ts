@@ -15,7 +15,7 @@ import type { GovernanceRules } from "../governance/rules.ts";
 import type { GovernanceService } from "../governance/service.ts";
 import type { GovernanceStore } from "../governance/store.ts";
 import { type NationPreset, nationName } from "../npc/nations.ts";
-import { trustOf } from "./breaches.ts";
+import { breachLive, trustOf } from "./breaches.ts";
 import { kindsOf, protectionOf } from "./clauses.ts";
 import type { DiplomacyPort } from "./port.ts";
 import { type DiplomacyService, awaitingReceiver, isParty, otherOf } from "./service.ts";
@@ -80,10 +80,11 @@ export function createDiplomacyView(o: {
     const ended = all.filter((row) => !isOpenTreaty(row.state) && row.state !== "active").slice(0, RECENT);
     const treaties = [...live, ...ended].toSorted((a, b) => b.id - a.id);
     const joins = await o.store.joinsOf(us, 30);
-    // 세력 신뢰(위반 기록에서 셈 — breaches.ts, 모두가 같은 값을 본다)
+    // 세력 신뢰(위반 기록에서 셈 — breaches.ts, 모두가 같은 값을 본다). 잊는 기간이 지난 기록은 세지 않는다(2583 다 — fixes-d592)
     const breachCount = new Map<number, number>();
     for (const row of await o.store.breaches())
-      breachCount.set(row.nationId, (breachCount.get(row.nationId) ?? 0) + 1);
+      if (breachLive(row.atMs, nowMs, rules.breachExpireMs))
+        breachCount.set(row.nationId, (breachCount.get(row.nationId) ?? 0) + 1);
     const trustRow = (id: number) => {
       const breaches = breachCount.get(id) ?? 0;
       return { trust: trustOf(breaches, rules.breachTrustPenalty), breaches };

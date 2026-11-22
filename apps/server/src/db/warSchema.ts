@@ -2,7 +2,7 @@
 // factions는 schema.ts에서 오고, 참조는 함수 안에서만 읽어 순환 가져오기가 문제되지 않는다. 쓰기는 월드 쓰기 대기열(src/world/persist/writer.ts)
 // 하나다. 직전 판 앱은 이 표를 모른 채 그대로 돈다(더하기만).
 import { sql } from "drizzle-orm";
-import { type AnyPgColumn, bigint, check, index, pgTable, text } from "drizzle-orm/pg-core";
+import { type AnyPgColumn, bigint, check, index, pgTable, primaryKey, text } from "drizzle-orm/pg-core";
 import { factions } from "./schema.ts";
 
 /**
@@ -52,4 +52,22 @@ export const warOutcomes = pgTable(
       sql`${table.endReason} is null or ${table.endReason} in ('rebuilt', 'recovered', 'expelled', 'owner_changed', 'gone', 'replaced', 'expired')`,
     ),
   ],
+);
+
+/**
+ * 기본(시작) NPC 국가의 잃은 도시 기억(기획 검토 2712, fixes-1117j — 사용자 결정 D-593 "뺏겨도 되찾을만큼"). 점령·귀속으로 도시를 빼앗기면 한 줄을 적고, 되찾거나 다른 길로
+ * 다시 그 나라 도시가 되거나 도시가 없어지면 지운다(@terra/sim SimFaction.lostCities — npc/lostCities.ts가 거울 세계와 맞춘다). 점령 기록(war_outcomes)의 회복 불이익
+ * 기간과 상관없이 남아 되찾기 점수·칠 도시 먼저가 이어진다. 도시는 폐허가 될 수 있어 외래 키를 두지 않는다. 직전 판 앱은 이 표를 모른 채 그대로 돈다(더하기만)
+ */
+export const npcLostCities = pgTable(
+  "npc_lost_cities",
+  {
+    factionId: bigint("faction_id", { mode: "number" })
+      .notNull()
+      .references((): AnyPgColumn => factions.id),
+    cityId: bigint("city_id", { mode: "number" }).notNull(),
+    /** 빼앗긴 시각 */
+    lostAtMs: bigint("lost_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.factionId, table.cityId] })],
 );

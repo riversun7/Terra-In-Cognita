@@ -83,6 +83,12 @@ export interface SimFaction extends WarState {
    * 넣는다. 없으면 (세계 시드, 세력)으로 굴린다(npcGatherTier.ts leaderTemperOf — D-327). 시뮬 시나리오는 넣지 않는다(결과 그대로)
    */
   leaderPm?: number | undefined;
+  /**
+   * 잃은 도시 기억(도시 ID → 잃은 시각 — 기본 NPC 국가만, 사용자 결정 D-593 "뺏겨도 되찾을만큼", 기획 검토 2712 fixes-1117j). 점령·귀속으로 도시를 빼앗기면 적고
+   * (societyWar.ts annex), 되찾거나 도시가 없어질 때까지 잊지 않는다(점령 기록의 회복 불이익 기간과 상관없다). 되찾기 점수·칠 도시(npc/fixedNation.ts)가 읽는다.
+   * 서버는 표 npc_lost_cities에 저장한다. 없으면 기억이 없다
+   */
+  lostCities?: Map<number, number> | undefined;
 }
 
 /**

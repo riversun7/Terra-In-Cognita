@@ -5,6 +5,7 @@
 // - 바뀜(residence-3, D-591): 정원 = 층 × 설정 칸(facilities/floors.ts), 집세·미리 내는 숙박비(rent.ts) — 1분 훑기가 다음 기간을 걷은 뒤 쉼을 훑는다.
 // - 바뀜(npc-rent, 질문 2674 — D-555 1509): NPC 휴먼도 같은 장부로 세 든다(npcRent.ts). 1분 훑기 = 다음 기간 걷기 → NPC 세 들기 → 쉼. NPC 휴먼 값은 그 도시 나라
 //   화폐로 그 휴먼 지갑에서(npcAwarePayer), 장부의 유닛 주인은 2차맵에 없으면 거울 세계 휴먼 주인.
+// - 바뀜(fixes-1117j, 질문 2735 — D-555 1509): NPC 나라도 제 숙소에 집세를 정해 세를 놓는다(npcLandlord.ts). 1분 훑기 = 다음 기간 걷기 → NPC 집주인 → NPC 세 들기 → 쉼.
 import type { ResidenceFloorQuote } from "@terra/shared/residence";
 import { unitPurseLocation } from "@terra/shared/businessBooks";
 import type { BusinessCore } from "../business/core.ts";
@@ -35,6 +36,7 @@ import {
   renewResidenceRents,
 } from "./rent.ts";
 import { type NpcRentRules, type NpcRentWorld, createNpcRentSweeper, npcAwarePayer } from "./npcRent.ts";
+import { type NpcLandlordRules, type NpcLandlordWorld, createNpcLandlord } from "./npcLandlord.ts";
 import { type ResidenceService, createResidenceService } from "./service.ts";
 import { markResidencePaused } from "./store.ts";
 
@@ -64,7 +66,7 @@ export async function sweepResidencePauses(
 }
 
 /** 사는 곳 규칙(설정 칸 — @terra/sim BusinessCoefficients의 같은 이름 칸) */
-export interface ResidenceRules extends FloorRules, NpcRentRules {
+export interface ResidenceRules extends FloorRules, NpcRentRules, NpcLandlordRules {
   readonly residenceRentPeriodMs?: number | undefined;
 }
 
@@ -223,6 +225,25 @@ export function attachResidence(
     business: parts.facilities.business,
     world,
   });
+  // NPC 집주인(fixes-1117j 2735): NPC 세계 몫이 상업 성향·숙소 숙박비를 낼 때만
+  const landlordWorld = (): NpcLandlordWorld | undefined => {
+    const npc = parts.npc?.();
+    if (!npc?.commerceOf || !npc.lodgingPeriodFee) return undefined;
+    return {
+      isNpcOwner: (owner) => npc.isNpcOwner(owner),
+      commerceOf: (owner) => npc.commerceOf?.(owner),
+      lodgingPeriodFee: (level, periodMs) => npc.lodgingPeriodFee?.(level, periodMs),
+    };
+  };
+  const npcLandlord = createNpcLandlord({
+    buildingIds: () => parts.facilities.service.facilities.keys(),
+    world,
+    rents,
+    npc: landlordWorld,
+    pool: parts.pool,
+    rules: () => parts.rules(),
+    periodMs: () => payer.periodMs(),
+  });
   const npcRent = createNpcRentSweeper({
     book,
     rents,
@@ -258,13 +279,14 @@ export function attachResidence(
       floorQuote: (buildingId, ownerId) => parts.floorQuote?.(buildingId, ownerId) ?? null,
     },
   });
-  // 1분 훑기(D-591 2·질문 2485 가): 낸 기간이 끝난 고른 것의 다음 기간을 걷고, NPC 세 들기(npc-rent)를 본 뒤 쉼을 훑는다. 하나씩 차례로(겹치지 않게)
+  // 1분 훑기(D-591 2·질문 2485 가): 낸 기간이 끝난 고른 것의 다음 기간을 걷고, NPC 집주인(fixes-1117j)·NPC 세 들기(npc-rent)를 본 뒤 쉼을 훑는다. 하나씩 차례로(겹치지 않게)
   let sweeping = false;
   const timer = setInterval(() => {
     if (sweeping) return;
     sweeping = true;
     const at = parts.now();
     void renewResidenceRents(book, payer, parts.pool, at)
+      .then(() => npcLandlord.sweep(at))
       .then(() => npcRent.sweep(at))
       .then(() => sweepResidencePauses(book, parts.pool, at))
       .catch(() => undefined)

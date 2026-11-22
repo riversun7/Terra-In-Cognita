@@ -93,6 +93,7 @@ import { npcRulingHooks } from "./rulingVault.ts";
 import { type NpcAiBridge, bridgeTies, createNpcAiBridge } from "./aiBridge.ts";
 import { loadNpcState, recruitOf } from "./state.ts";
 import { createWarOutcomePersist, loadWarOutcomes } from "./warOutcomes.ts";
+import { applyLostCities, createLostCityPersist, loadLostCities } from "./lostCities.ts";
 
 /** 루프를 미는 간격(ms). 판단·하루 끝은 그 시각에만 돌고, 나머지 틱은 할 일이 없으면 바로 끝난다 */
 export const TICK_MS = 5_000;
@@ -282,6 +283,9 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   }
   // 공성 결과의 남은 상태(D-520·D-527, war_outcomes): 약탈(정부가 무너진 도시)·점령 상태·점령·귀속 회복 불이익
   const warState = await loadWarOutcomes(o.pool, ownerOfRow);
+  // 기본 NPC 국가의 잃은 도시 기억(fixes-1117j 2712 — D-593 되찾기, npc_lost_cities): 되찾을 때까지 남는다
+  const lostState = await loadLostCities(o.pool, ownerOfRow);
+  applyLostCities(factions, lostState);
   for (const war of state.wars) {
     const a = factions.get(ownerOfRow.get(war.a) ?? -1);
     const b = factions.get(ownerOfRow.get(war.b) ?? -1);
@@ -466,6 +470,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   persistRef.current = persist;
   // 공성 결과 저장(warOutcomes.ts): 세력 행을 저장한 뒤 flush한다
   const warPersist = createWarOutcomePersist({ world, writer, rowOf: persist.rowOf, state: warState, log });
+  const lostPersist = createLostCityPersist({ factions, writer, rowOf: persist.rowOf, state: lostState });
   // 수도(D-528): 저장된 수도를 읽고, 하루 끝마다 발전도로 다시 고른다
   const capitals = createNpcCapitals({
     world,
@@ -874,6 +879,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   reviewCapitals();
   const first = await persist.flush(society.currentDay());
   warPersist.flush(o.now());
+  lostPersist.flush();
   // 처음 저장이 세운 휴먼(처음 인구·구인)이 2차맵에 선 뒤 도시에 없는 휴먼을 다시 센다(질문 2697 나 — 경제가 켤 때 센 값은 세우기 전)
   econ?.refreshPresence(o.now());
   // 집·일터(740 나)·시장(744 나)·개별 유닛 7축 자율행동(ADR 2026-11-20): 저장이 2차맵을 맞춘 뒤에
@@ -954,6 +960,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       const started = performance.now();
       const result = await persist.flush(society.currentDay());
       warPersist.flush(o.now());
+      lostPersist.flush();
       metrics.catchmentRows += catchmentStore?.flush(o.now()) ?? 0;
       syncPeople();
       await persist.refillSpares(SPARE_FACTIONS);

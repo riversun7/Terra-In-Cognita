@@ -58,6 +58,19 @@ export interface SocietyWar {
   summary(): WarSummary;
 }
 
+/** 잃은 도시 기억 정리(하루 끝): 다시 내 도시가 되었거나(넘겨받기·독립 등 다른 길) 도시가 없어지면 지운다. 사라진 세력은 기억을 비운다 */
+export function forgetRetaken(world: SimWorld): void {
+  for (const faction of world.factions.values()) {
+    const lost = faction.lostCities;
+    if (!lost || lost.size === 0) continue;
+    // 지금 항목을 지우며 돌아도 Map 차례는 안전하다
+    for (const cityId of lost.keys()) {
+      const city = world.cities.get(cityId);
+      if (!faction.alive || !city || city.owner === faction.id) lost.delete(cityId);
+    }
+  }
+}
+
 export function createSocietyWar(o: {
   readonly world: SimWorld;
   readonly c: SocietyCoefficients;
@@ -200,6 +213,9 @@ export function createSocietyWar(o: {
 
     annex(attacker, target, city, nowMs) {
       end(city.id, "replaced", nowMs);
+      // 잃은 도시 기억(D-593 되찾기 — 기본 NPC 국가만, 되찾을 때까지 — 기획 검토 2712): 빼앗긴 쪽은 적고, 되찾은 쪽은 지운다
+      attacker.lostCities?.delete(city.id);
+      if (target.fixed) (target.lostCities ??= new Map()).set(city.id, nowMs);
       const cost = burn(attacker, rebuildCost(city.housing, c.war), nowMs);
       if (cost > 0n) counts.rebuilt += 1;
       const untilMs = annexPenaltyUntil(nowMs, c.war);
@@ -224,6 +240,7 @@ export function createSocietyWar(o: {
     },
 
     endOfDay(nowMs) {
+      forgetRetaken(world);
       for (const entry of [...world.occupations.values()].toSorted((a, b) => a.city - b.city)) {
         const city = world.cities.get(entry.city);
         if (entry.kind === "annexed") {

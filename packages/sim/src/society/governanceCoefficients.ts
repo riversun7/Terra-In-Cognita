@@ -130,7 +130,8 @@ export interface GovernanceCoefficients {
   readonly joinAcceptAffinity: number;
   /**
    * 기본(시작) NPC 국가 지키기(줄기 d593 — 사용자 결정 D-593 2621 "쿠데타가 일어나지않게 최적화 되게 관리한다. 유저보다는 npc유닛들의 국가내 서열을 확보한다") [임시 출발값]:
-   * 그 나라 NPC 가문의 쿠데타 점수 낮춤(충성 — 일으키지 않고 정부군에 든다), 플레이어 쿠데타를 여는 힘 비(‰ — 그 도시에 와 있는 내 병력 ≥ 정부군 × 이 값 ÷ 1000, 0 = 보지 않음),
+   * 그 나라 NPC 가문의 쿠데타 점수 낮춤(충성 — 성향 보정, 막기가 아니다: fixes-1117j 2713), 쿠데타를 여는 힘 비(‰ — 그 도시에 와 있는 내 병력 ≥ 정부군 × 이 값 ÷ 1000, NPC 가문도
+   * 같은 배율 — fixes-1117j, 0 = 보지 않음),
    * NPC 서열 지키기(1 = 플레이어 가문은 지도자 선출에 나서지 못하고 NPC 표는 NPC 가문 후보 먼저, 0 = 끔)
    */
   readonly fixedCoupLoyalty?: number | undefined;
@@ -206,7 +207,7 @@ export const START_GOVERNANCE: GovernanceCoefficients = {
   treatyKeptAffinity: 1,
   peaceAffinity: 10,
   joinAcceptAffinity: 10,
-  fixedCoupLoyalty: 100,
+  fixedCoupLoyalty: 40,
   fixedCoupPowerPm: 3000,
   fixedNpcRank: 1,
 };

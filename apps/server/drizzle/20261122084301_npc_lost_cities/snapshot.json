@@ -1,0 +1,146 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "8c414816-db08-43d6-91e0-171a93d148b2",
+  "prevIds": [
+    "6692c0a0-eba0-4ba6-96d6-b4933995d933"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "npc_lost_cities"
+      ],
+      "writes": [
+        "s|tbl|public.npc_lost_cities",
+        "n|tbl|public.npc_lost_cities",
+        "e|tbl|public.npc_lost_cities",
+        "n|rel|public.npc_lost_cities",
+        "n|type|public.npc_lost_cities",
+        "n|rel|public.npc_lost_cities_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "npc_lost_cities"
+      ],
+      "writes": [
+        "s|fk|public.npc_lost_cities.npc_lost_cities_faction_id_factions_id_fkey",
+        "n|fk|public.npc_lost_cities.npc_lost_cities_faction_id_factions_id_fkey",
+        "e|fk|public.npc_lost_cities.npc_lost_cities_faction_id_factions_id_fkey",
+        "n|con|public.npc_lost_cities.npc_lost_cities_faction_id_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.npc_lost_cities",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.npc_lost_cities.faction_id",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "npc_lost_cities",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "npc_lost_cities",
+        "name": "faction_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "npc_lost_cities",
+        "name": "city_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "npc_lost_cities",
+        "name": "lost_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "npc_lost_cities",
+        "name": "npc_lost_cities_faction_id_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "faction_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "npc_lost_cities",
+        "name": "npc_lost_cities_pkey",
+        "columns": [
+          "faction_id",
+          "city_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    }
+  ]
+}

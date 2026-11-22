@@ -20,6 +20,7 @@ import { hasStatus, modifiersOf, moveIntervalMs, shieldRegenPerMinute, tickEffec
 import { buildingDamage, resolveAttack, withAttackModifiers, withDefenseModifiers } from "./formula.ts";
 import { lineClear } from "./los.ts";
 import { visibleEnemies } from "./sight.ts";
+import { sameKin } from "./kin.ts";
 import { pickSkill, resolveSkill, singleAlly, skillReaches, startSkill, takeDamage } from "./skills.ts";
 import type { BattleTrace } from "./battleTrace.ts";
 import { newAttackStages, recordApplied } from "./attackStages.ts";
@@ -379,6 +380,8 @@ function makeBattle(
     gone: ReadonlySet<number>,
     nowMs: number,
   ): boolean => {
+    // 같은 무리(같은 가문 — kin.ts)는 치지 않는다
+    if (sameKin(attacker, target)) return false;
     if (chebyshev(attacker.x, attacker.y, target.x, target.y) > attacker.range) return false;
     if (attacker.range > 1 && !attacker.arc && !lineClear(map, attacker, target, gone)) return false;
     const rolls = {
@@ -427,7 +430,7 @@ function makeBattle(
     let bestD = 0;
     for (const id of visible) {
       const enemy = unitById(id);
-      if (!enemy || !active(enemy)) continue;
+      if (!enemy || !active(enemy) || sameKin(unit, enemy)) continue;
       const d = chebyshev(unit.x, unit.y, enemy.x, enemy.y);
       if (!best || d < bestD) {
         best = enemy;
@@ -489,7 +492,12 @@ function makeBattle(
     if (!cast || !skill || !goal || !active(goal)) return;
     if (skill.target === "enemy") {
       const visible = state.sides.find((side) => side.id === unit.side)?.visible ?? [];
-      if (!visible.includes(goal.id) || !skillReaches(unit, skill, goal, reach(unit, gone))) return;
+      if (
+        sameKin(unit, goal) ||
+        !visible.includes(goal.id) ||
+        !skillReaches(unit, skill, goal, reach(unit, gone))
+      )
+        return;
     } else if (singleAlly(skill) && !reach(unit, gone)(goal, skill.range)) return;
     fire(unit, cast.skill, goal, rng, nowMs);
   };
@@ -550,7 +558,9 @@ function makeBattle(
     const visibleNow = (id: number): UnitState | undefined => {
       const chosen = unitById(id);
       const visible = state.sides.find((side) => side.id === unit.side)?.visible ?? [];
-      return chosen && active(chosen) && visible.includes(chosen.id) ? chosen : undefined;
+      return chosen && active(chosen) && visible.includes(chosen.id) && !sameKin(unit, chosen)
+        ? chosen
+        : undefined;
     };
     if (command?.kind === "attack" && command.target > 0) {
       target = visibleNow(command.target);
@@ -652,7 +662,7 @@ function makeBattle(
     const enemies: UnitState[] = [];
     for (const id of side?.visible ?? []) {
       const enemy = unitById(id);
-      if (enemy && active(enemy)) enemies.push(enemy);
+      if (enemy && active(enemy) && !sameKin(unit, enemy)) enemies.push(enemy);
     }
     const commanders = new Set(
       state.sides.filter((entry) => entry.id !== unit.side).map((entry) => entry.commander),

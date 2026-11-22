@@ -31,6 +31,7 @@ import {
   withDefenseModifiers,
 } from "./formula.ts";
 import type { UnitState } from "./battleTypes.ts";
+import { sameKin } from "./kin.ts";
 import type { BattleTrace } from "./battleTrace.ts";
 import { newAttackStages, recordApplied } from "./attackStages.ts";
 
@@ -503,14 +504,15 @@ function chainTargets(
   units: readonly UnitState[],
   chain: SkillChain,
 ): UnitState[] {
-  if (primary.side === unit.side || primary.status !== "alive") return [];
+  if (primary.side === unit.side || primary.status !== "alive" || sameKin(unit, primary)) return [];
   const hit = [primary];
   let last = primary;
   while (hit.length < chain.targets) {
     let next: UnitState | undefined;
     let best = 0;
     for (const other of units) {
-      if (other.side === unit.side || other.status !== "alive" || hit.includes(other)) continue;
+      if (other.side === unit.side || other.status !== "alive" || hit.includes(other) || sameKin(unit, other))
+        continue;
       const d = chebyshev(last, other);
       if (d > chain.jump || (next && d >= best)) continue;
       next = other;
@@ -597,6 +599,7 @@ export function resolveSkill(
         (other) =>
           other.side !== unit.side &&
           other.status === "alive" &&
+          !sameKin(unit, other) &&
           (other.id === primary.id || chebyshev(primary, other) <= skill.radius),
       );
   const shots = skill.shots ?? 1;

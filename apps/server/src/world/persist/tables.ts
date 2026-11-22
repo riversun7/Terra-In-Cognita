@@ -497,6 +497,12 @@ export const WORLD_TABLES = {
     key: ["id"],
     updateOnly: true,
   },
+  /** 기본 NPC 국가의 잃은 도시 기억(npc/lostCities.ts — 기획 검토 2712, fixes-1117j): 되찾을 때까지 남는다 */
+  npcLostCities: {
+    name: "npc_lost_cities",
+    columns: ["faction_id", "city_id", "lost_at_ms"],
+    key: ["faction_id", "city_id"],
+  },
   /**
    * 보유 물건(아이템 인스턴스, docs/adr/2026-11-03-item-holdings.md 2절). stats·gene(유전자 값 D-516)은 JSON 글자로 넣는다(pg가 배열을
    * Postgres 배열로 바꾸지 않게)
@@ -918,6 +924,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "warOutcomes",
   "warOutcomeState",
   "warOutcomeEnds",
+  "npcLostCities",
   "beacons",
   "buildings",
   "presence",

@@ -5,6 +5,7 @@
 // - 쉼터: 도시 경제 쉼터 계획(npc/cityRest.ts — restPlan)의 일꾼 자리를 휴먼에 맞춘다(@terra/sim cityWorkerUnits — npcWages.ts와 같은 맞춤).
 //   한 기간 숙박비 = 그 기간에 드는 밤 수(기간 ÷ 쉼 바퀴 restPeriodMs) × 하룻밤 요금(설정 칸 lodging_fee_per_night) — 플레이어 일꾼 periodFee와 같은 셈.
 import { type SocietyCoefficients, cityWorkerUnits, restPeriodMs } from "@terra/sim";
+// 바뀜 (fixes-1117j, 기획 검토 2735): NPC 집주인(npcLandlord.ts)이 읽는 세력 상업 성향·숙소 한 기간 숙박비(lodgingPeriodFeeOf — 레벨의 숙소에서 쉬는 밤 수 × 하룻밤 요금)도 낸다.
 import type { CityFundFxEconomy } from "../npc/cityFundFx.ts";
 import type { CityRestPlan } from "../npc/cityRest.ts";
 import type { NpcRuntime } from "../npc/runtime.ts";
@@ -64,6 +65,16 @@ export function npcRestsOf(
   return out;
 }
 
+/** 그 레벨 숙소에서 한 기간에 드는 밤 수 × 하룻밤 요금(일터와 숙소 사이 거리 0 — 숙소 자체 값) */
+export function lodgingPeriodFeeOf(level: number, periodMs: number, rules: SocietyCoefficients): bigint {
+  const fee = BigInt(Math.max(0, Math.trunc(rules.logistics.lodgingFeePerNight)));
+  const nights = Math.max(
+    1,
+    Math.floor(Math.max(1, periodMs) / Math.max(1, restPeriodMs({ kind: "lodging", level }, 0, rules))),
+  );
+  return BigInt(nights) * fee;
+}
+
 /** NPC 런타임으로 세 들기 세계 몫을 만든다(없으면 undefined) */
 export function npcRentWorldOf(
   npc: NpcRuntime | undefined,
@@ -86,6 +97,8 @@ export function npcRentWorldOf(
       return economy?.economy.currencyOf.get(city.owner) ?? economy?.economy.base;
     },
     toLocal: (amount, asset) => convertUp(economy?.economy, amount, rentAsset, asset),
+    commerceOf: (owner) => world.factions.get(owner)?.traits.commerce,
+    lodgingPeriodFee: (level, periodMs) => lodgingPeriodFeeOf(level, periodMs, rules()),
     traits: (unitId) => npc.unitTraits(unitId),
     restsIn(cityId, periodMs) {
       if (!economy) return new Map();

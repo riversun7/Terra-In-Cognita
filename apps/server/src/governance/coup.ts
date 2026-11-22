@@ -53,6 +53,9 @@
 // - 참가 받기 끝 → 그 도시에 도착한 병력으로 전투를 연다(혁명군이 하나도 없으면 싸우지 않고 진다). 쿠데타는 전투가 끝날 때까지 gathering(결과 칸 battleId).
 // - 늦게 닿은 병력은 진행 중인 전투에 참전한다(D-176 지원 참전 — 1분 틱과 보낸 병력 도착 시각의 깨우기 arrivals). 편 들기·병력 보내기도 전투가 끝날 때까지 받는다.
 // - 플레이어 유닛은 실제 몸으로 싸우고 부상·돌아가기가 세계에 남는다(다른 세계 전투와 같은 판정 — D-099). 보상 = 병력이 전투에 든 이긴 편 참가자(coupOutcome.ts).
+// 바뀜(fixes-1117j — 기획 검토 2713: D-592 16-1 "성향에 따라 쿠데타에는 적극 참여", D-555 1509, D-588 6 "모든 도시에서 누구나"): 기본 NPC 국가의 NPC 가문도 성향대로
+// 쿠데타를 일으키고 편을 든다(d593의 "일으키지 않고 정부군으로"를 뺀다). 충성 몫(gov_fixed_coup_loyalty)은 성향 점수 보정으로만 남고(출발값 100 → 40), 쿠데타를 어렵게 하는
+// 것은 D-593의 힘 쪽 수단이다 — 기본 NPC 국가에서는 NPC 가문도 정부군 × gov_fixed_coup_power_pm ÷ 1000 이상 힘이 있어야 일으킨다(npcPowerPm, 플레이어 strongEnough와 같은 배율).
 import type { HouseKey } from "@terra/shared/governance";
 import { arrivedIn, dispatchTroops } from "./coupDispatch.ts";
 import { dispatchCoupNpcSides } from "./coupNpcDispatch.ts";
@@ -139,7 +142,10 @@ const fail = (code: Extract<GovernanceResult, { ok: false }>["code"]): Governanc
   code,
 });
 
-/** NPC 가문 하나의 쿠데타 점수(출마 점수와 같은 성향 규칙식 — D-323). 기본 NPC 국가는 충성 몫을 뺀다(D-593 2621 — gov_fixed_coup_loyalty) */
+/**
+ * NPC 가문 하나의 쿠데타 점수(출마 점수와 같은 성향 규칙식 — D-323). 기본 NPC 국가는 충성 몫을 뺀다(D-593 2621 — gov_fixed_coup_loyalty). 막기가 아니라 성향 점수
+ * 보정이다(fixes-1117j 2713 — D-592 16-1 "성향에 따라 쿠데타에는 적극 참여"): 성향이 아주 쿠데타 쪽이면 일으키고 혁명군에도 든다
+ */
 const npcScore = (
   d: CoupDeps,
   nation: GovernanceNation,
@@ -219,7 +225,10 @@ export function createCoupService(d: CoupDeps) {
     );
   };
 
-  /** 기본 NPC 국가에서 플레이어 쿠데타를 열 만큼 센가(D-593 2621 — 그 도시에 이미 있는 내 병력 대 정부군, 칸 0이면 보지 않음) [임시 — 질문 2713] */
+  /**
+   * 기본 NPC 국가에서 플레이어 쿠데타를 열 만큼 센가(D-593 2621 — 그 도시에 이미 있는 내 병력 대 정부군, 칸 0이면 보지 않음) [임시 — 질문 2713]. NPC 가문도 같은 배율을
+   * 넘어야 일으킨다(npcPowerPm — fixes-1117j)
+   */
   const strongEnough = (
     nation: GovernanceNation,
     ruling: HouseKey | null,
@@ -337,6 +346,17 @@ export function createCoupService(d: CoupDeps) {
     return { ok: true, agendaId: coupId, action: "coup_joined" };
   };
 
+  /**
+   * NPC 가문이 일으킬 힘 비(‰): gov_coup_npc_power_pm, 기본 NPC 국가는 플레이어와 같은 문(gov_fixed_coup_power_pm)도 넘어야 한다 — 둘 가운데 큰 것(fixes-1117j 2713,
+   * D-593 "쿠데타가 일어나지않게" = 막기가 아니라 힘으로 어렵게, D-588 6 "모든 도시에서 누구나")
+   */
+  const npcPowerPm = (nation: GovernanceNation): number => {
+    const rules = d.rules();
+    return nation.fixed === true
+      ? Math.max(rules.coupNpcPowerPm, rules.fixedCoupPowerPm)
+      : rules.coupNpcPowerPm;
+  };
+
   /** NPC 가문이 일으킨다(나라마다 많아야 하나 — 점수 높은 가문, 어느 가문이든 D-585). 그 가문 도시에서(D-588 2492 가), 힘 비 = 양쪽이 보낼 병력(2549) */
   const npcLaunch = async (
     nation: GovernanceNation,
@@ -353,7 +373,7 @@ export function createCoupService(d: CoupDeps) {
       const guards = here(d.port.cityGuards(nation, house.cityId), house.cityId);
       const defense = d.port.powerOf([...comingUnits(nation, ruling, house.cityId), ...guards], nowMs);
       const power = d.port.powerOf(comingUnits(nation, key, house.cityId), nowMs);
-      if (power <= 0 || power * 1000 < defense * rules.coupNpcPowerPm) continue;
+      if (power <= 0 || power * 1000 < defense * npcPowerPm(nation)) continue;
       if (!(await cooledDown(key, nowMs))) continue;
       picks.push({ key, id: house.id, city: house.cityId, score });
     }

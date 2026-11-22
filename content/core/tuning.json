@@ -14750,6 +14750,60 @@
       "source": "질문 2674 — D-555 1509 \"똑같이\" 기획 검토 · 줄기 npc-rent [임시 기술 기본값]"
     },
     {
+      "id": "npc_landlord_mode",
+      "code": "",
+      "name": {
+        "ko": "NPC 집주인 세 놓기(1 켬·0 끔)",
+        "en": "NPC landlords (1 on, 0 off)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1,
+      "desc": {
+        "ko": "켜면 NPC 나라가 가진 주거 건물(숙소)에 1분 훑기마다 집세를 정해 세를 놓는다(플레이어·다른 나라 NPC 휴먼이 세 든다). 끄면 NPC가 정한 집세를 거둬들인다. [임시] 기술 기본값.",
+        "en": "When on, NPC nations set a rent on the residential buildings (lodgings) they own every 1-minute sweep, so players and other nations' NPC humans can rent them. When off, rents set by NPCs are withdrawn. [temporary] technical default."
+      },
+      "source": "질문 2735 — D-555 1509 \"똑같이\" 기획 검토 · 줄기 fixes-1117j [임시 기술 기본값]"
+    },
+    {
+      "id": "npc_landlord_factor_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 집주인 집세(숙박비 대비 ‰)",
+        "en": "NPC landlord rent (‰ of lodging fee)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "NPC 집주인 집세 = 한 기간 숙박비(그 숙소 레벨의 밤 수 × 하룻밤 요금) × (이 값 + 성향 몫) ÷ 1000, 올림. [임시] 기술 기본값.",
+        "en": "NPC landlord rent = one period's lodging fee (nights at that lodging level × nightly fee) × (this value + temper share) ÷ 1000, rounded up. [temporary] technical default."
+      },
+      "source": "질문 2735 — D-555 1509 \"똑같이\" 기획 검토 · 줄기 fixes-1117j [임시 기술 기본값]"
+    },
+    {
+      "id": "npc_landlord_temper_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 집주인 상업 성향 무게(‰)",
+        "en": "NPC landlord commerce weight (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "성향 몫 = (나라 상업 성향 − 500) × 이 값 ÷ 500 — 상업 성향이 높은 나라는 비싸게, 낮은 나라는 싸게 놓는다. [임시] 기술 기본값.",
+        "en": "Temper share = (nation commerce trait − 500) × this ÷ 500 — commerce-minded nations charge more, others less. [temporary] technical default."
+      },
+      "source": "질문 2735 — D-555 1509 \"똑같이\" 기획 검토 · 줄기 fixes-1117j [임시 기술 기본값]"
+    },
+    {
       "id": "npc_resident_tax_min_pm",
       "code": "",
       "name": {
@@ -17780,14 +17834,14 @@
         "ko": "기본 NPC 국가: NPC 가문 쿠데타 점수 낮춤(충성)",
         "en": "Default NPC nation: NPC house coup score drop (loyalty)"
       },
-      "value": 100,
+      "value": 40,
       "structural": false,
       "unit": "points",
       "min": 0,
       "max": 1000,
       "desc": {
-        "ko": "기본(시작) NPC 국가의 NPC 가문 쿠데타 점수(성향 규칙식)에서 이만큼 뺀다. 문턱(gov_coup_npc_score)보다 크면 그 나라 NPC 가문은 쿠데타를 일으키지 않고, 열린 쿠데타에는 정부군으로 든다.",
-        "en": "Subtracted from the coup score (trait rule) of NPC houses in a default (start) NPC nation. Above the threshold (gov_coup_npc_score) those houses never launch coups and join open coups on the government side."
+        "ko": "기본(시작) NPC 국가의 NPC 가문 쿠데타 점수(성향 규칙식)에서 이만큼 뺀다. 막기가 아니라 성향 보정이다 — 성향이 아주 쿠데타 쪽이면 일으키고(힘 비 gov_fixed_coup_power_pm도 넘어야 한다) 혁명군에도 들며, 중립에 가까운 가문은 정부군 쪽으로 기운다.",
+        "en": "Subtracted from the coup score (trait rule) of NPC houses in a default (start) NPC nation. A temper modifier, not a block: houses with a strongly pro-coup temper still launch (they must also pass gov_fixed_coup_power_pm) and join rebels; near-neutral houses lean to the government side."
       },
       "source": "ADR 2026-11-21-governance · 질문 2621(D-593) [임시]"
     },
@@ -17795,8 +17849,8 @@
       "id": "gov_fixed_coup_power_pm",
       "code": "",
       "name": {
-        "ko": "기본 NPC 국가: 플레이어 쿠데타를 여는 힘 비(‰)",
-        "en": "Default NPC nation: player coup launch strength ratio (‰)"
+        "ko": "기본 NPC 국가: 쿠데타를 여는 힘 비(‰)",
+        "en": "Default NPC nation: coup launch strength ratio (‰)"
       },
       "value": 3000,
       "structural": false,
@@ -17804,8 +17858,8 @@
       "min": 0,
       "max": 100000,
       "desc": {
-        "ko": "기본 NPC 국가에서 플레이어 가문장이 쿠데타를 열려면 그 도시에 와 있는 내 병력의 힘이 정부군(지배 가문 유닛 + 그 도시 경비대, 그 도시에 있는 것)의 힘 × 이 값 ÷ 1000 이상이어야 한다(아니면 coup_protected). 0 = 보지 않음.",
-        "en": "To launch a coup in a default NPC nation, a player house head's troops already in that city need strength ≥ the government side's (ruling house units + that city's guards, present there) × this ÷ 1000 (otherwise coup_protected). 0 = not checked."
+        "ko": "기본 NPC 국가에서 쿠데타를 열려면(플레이어 가문장 — NPC 가문도 같은 배율을 넘어야 한다, gov_coup_npc_power_pm보다 크면 이 값) 그 도시에 와 있는 내 병력의 힘이 정부군(지배 가문 유닛 + 그 도시 경비대, 그 도시에 있는 것)의 힘 × 이 값 ÷ 1000 이상이어야 한다(아니면 coup_protected). 0 = 보지 않음.",
+        "en": "To launch a coup in a default NPC nation (player house heads; NPC houses must pass the same ratio, this value when above gov_coup_npc_power_pm), a player house head's troops already in that city need strength ≥ the government side's (ruling house units + that city's guards, present there) × this ÷ 1000 (otherwise coup_protected). 0 = not checked."
       },
       "source": "ADR 2026-11-21-governance · 질문 2621(D-593) [임시]"
     },

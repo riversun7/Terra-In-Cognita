@@ -268,6 +268,20 @@ export const BUSINESS_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 세 들기 지갑 여유(집세 ‰)",
     "NPC renting purse reserve (‰ of rent)",
   ),
+  // NPC 집주인(기획 검토 2735 — D-555 1509, 줄기 fixes-1117j): 서버 residence/npcLandlord.ts만 읽는다
+  k("npc_landlord_mode", "npcLandlordMode", "NPC 집주인 세 놓기(1 켬·0 끔)", "NPC landlords (1 on, 0 off)"),
+  k(
+    "npc_landlord_factor_pm",
+    "npcLandlordFactorPm",
+    "NPC 집주인 집세(숙박비 대비 ‰)",
+    "NPC landlord rent (‰ of lodging fee)",
+  ),
+  k(
+    "npc_landlord_temper_pm",
+    "npcLandlordTemperPm",
+    "NPC 집주인 상업 성향 무게(‰)",
+    "NPC landlord commerce weight (‰)",
+  ),
   // 나라 세금(tax-2 — 질문 2371 나·2373 가): NPC 나라 주민세 규칙식 범위, 주민세 재산의 건물 값(지은 값·감가)
   k(
     "npc_resident_tax_min_pm",

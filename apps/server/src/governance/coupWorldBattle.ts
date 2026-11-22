@@ -12,6 +12,9 @@
 // - 편: 1 = 혁명군(들어오는 변 = 혁명군 유닛 평균 자리 쪽), 2 = 정부군(수비 — 넥서스를 지킨다). 내전이라 편 faction은 0(포로·탈취·방어 명성 없음 — 2456 가).
 // - 늦게 닿은 병력(2652 — D-176 "전투중인경우 … 다른 유저가 클릭하여 지원하여 참전가능"): 진행 중인 전투에 참전 입력(join)으로 넣는다. 자리는 그 편 변의
 //   다음 시작 자리(공성 시작 자리 고르기 siegePlacer). 편마다 유닛 수 상한 = 설정 칸 gov_coup_battle_units(시작·참전 합) [임시].
+// - 바뀜 (fixes-1117j, 기획 검토 2715 — D-593 같은 가문 공격 불가): 같은 가문원이 혁명군·정부군으로 갈려도 서로 싸우지 않는다. 몸마다 주인의 플레이어 가문 번호를
+//   kin으로 단다(factionIdentity/houseGuard.ts houseOfOwner — 가문 소유 주체·가문원 사용자). 전투 엔진(@terra/sim combat/kin.ts)이 같은 kin끼리 목표로 삼거나 피해를
+//   주지 않는다(다른 적은 그대로). NPC 나라 유닛(NPC 가문·경비대)은 가문 번호가 없어 kin이 없다(NPC 가문은 가문째 한 편만 든다). 연맹은 사교라 쿠데타와 상관없다(그대로).
 import { randomInt } from "node:crypto";
 import {
   type BattleInit,
@@ -31,6 +34,7 @@ import {
   siegeNexusDurability,
   siegePlacer,
 } from "@terra/sim/siegeArena";
+import { houseOfOwner } from "../factionIdentity/houseGuard.ts";
 import { citySiegeLayoutOf } from "../facilities/siegeLayout.ts";
 import { type WorldBattleInit, siegeFacilityTargets } from "../world/battleTargets.ts";
 import { arrivalEdge } from "../facilities/attack.ts";
@@ -171,20 +175,25 @@ export function worldGovernancePortCoupBattle(
     };
   };
 
-  /** 유닛 몸(실제 몸 — battleBodies build). 만들 수 없으면 undefined */
+  /** 유닛 몸(실제 몸 — battleBodies build) + 같은 가문 번호(kin — 2715). 만들 수 없으면 undefined */
   const bodyOf = (
     l: Live,
+    map: SecondMap,
     id: number,
     side: number,
     party: number,
     cell: { x: number; y: number },
     at: number,
-  ) =>
-    l.persistence.bodies.build(
+  ): CombatUnitSpec | undefined => {
+    const spec = l.persistence.bodies.build(
       id,
       { id, side, party, ...cell, moveIntervalMs: MOVE_INTERVAL_MS, buildingMulPm: BUILDING_MUL_PM },
       at,
     );
+    const owner = map.unitInfo(id)?.ownerId;
+    const kin = owner === undefined ? undefined : houseOfOwner(l.persistence, owner);
+    return spec && kin !== undefined ? { ...spec, kin } : spec;
+  };
 
   return {
     async openCoupBattle(_nation, cityId, rebels, loyal, nowMs, unitsPerSide) {
@@ -211,7 +220,7 @@ export function worldGovernancePortCoupBattle(
           ? placer.attacker(index)
           : { x: 2 + Math.floor(index / 24), y: spread(index, center) };
         const spec = cell
-          ? bodyOf(l, id, REBEL_SIDE, 1 + Math.floor(index / PARTY_SIZE), cell, nowMs)
+          ? bodyOf(l, where.map, id, REBEL_SIDE, 1 + Math.floor(index / PARTY_SIZE), cell, nowMs)
           : undefined;
         if (spec) units.push(spec);
       }
@@ -223,6 +232,7 @@ export function worldGovernancePortCoupBattle(
         const spec = cell
           ? bodyOf(
               l,
+              where.map,
               id,
               GOVERNMENT_SIDE,
               GOVERNMENT_PARTY_BASE + Math.floor(index / PARTY_SIZE),
@@ -314,7 +324,7 @@ export function worldGovernancePortCoupBattle(
       const specs: CombatUnitSpec[] = [];
       for (const [i, id] of ids.entries()) {
         const cell = place(side, onSide + i);
-        const spec = cell ? bodyOf(l, id, sideId, party, cell, nowMs) : undefined;
+        const spec = cell ? bodyOf(l, where.map, id, sideId, party, cell, nowMs) : undefined;
         if (spec) specs.push(spec);
       }
       if (specs.length === 0) return [];

@@ -142,6 +142,11 @@ export interface BotHome {
   readonly y: number;
   /** 일터 네모(도시 경제가 일꾼으로 둔 시설 건물 둘레, npc/humanPlaces.ts). 없으면 일하지 않는 휴먼(집 둘레) */
   readonly work?: TripArea | undefined;
+  /**
+   * 건물 없는 도시 직무 일꾼(도시 경제가 일꾼으로 셌지만 일터 건물이 없다 — 시청 칸 둘레에서 일한다, npc/humanPlaces.ts). 움직임은 일하지 않는 휴먼과 같고(집 둘레),
+   * 작업 중 부상(npc/npcWorkInjury.ts — fixes-1117j 2741)만 이 표시로 일꾼으로 센다
+   */
+  readonly cityJob?: true | undefined;
   /** 일하는 때(그 2차맵 경도·설정 칸). 없으면 DEFAULT_WORK_SHIFT */
   readonly shift?: WorkShift | undefined;
   /** 집 둘레 반경(칸). 없으면 HOME_RADIUS_CELLS(도시 시청 칸 둘레). 숙소가 집인 일꾼은 숙소 둘레(docs/adr/2026-11-11-city-building-layout.md) */

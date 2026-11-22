@@ -398,4 +398,29 @@ describe("기본 NPC 국가 쿠데타 지키기(d593 — D-593 2621)", () => {
     await plain.gatherTick();
     expect(plain.sides.find((row) => row.joinerKey === "n:5")?.side).toBe("rebel");
   });
+
+  it("fixes-1117j 2713: 기본 NPC 국가의 NPC 가문도 성향대로 일으킨다 — 다만 정부군 × gov_fixed_coup_power_pm ÷ 1000 힘이 있어야 한다", async () => {
+    const houses = [{ id: 5, cityId: 1 }];
+    // 가문 n:5 힘 1(유닛 52) 대 정부군 50·51·70(힘 3): 충성 몫이 보정일 뿐이라 성향(fierce)은 넘지만, 힘 비 3배 문을 못 넘는다
+    const weak = fake({
+      fixed: {
+        traits: fierce,
+        npcHouses: houses,
+        rules: { fixedCoupPowerPm: 3000, fixedCoupLoyalty: 40, coupNpcPowerPm: 0 },
+      },
+    });
+    await weak.gatherTick();
+    expect(weak.coups).toEqual([]);
+    // 문을 끄면(칸 0) 같은 성향의 NPC 가문이 쿠데타를 연다 — 기본 NPC 국가에서도 막는 규칙은 없다(D-588 6)
+    const open = fake({
+      fixed: {
+        traits: fierce,
+        npcHouses: houses,
+        rules: { fixedCoupPowerPm: 0, fixedCoupLoyalty: 40, coupNpcPowerPm: 0 },
+      },
+    });
+    await open.gatherTick();
+    expect(open.coups).toHaveLength(1);
+    expect(open.coups[0]?.houseKey).toBe("n:5");
+  });
 });

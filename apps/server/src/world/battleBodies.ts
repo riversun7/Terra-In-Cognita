@@ -123,7 +123,9 @@ export function createBattleBodies(input: {
           },
           nowMs,
         );
-        return spec.start ? { ...rebuilt, start: spec.start } : rebuilt;
+        // 남은 생명 수치(start)·같은 가문 번호(kin — 쿠데타 전투가 단다, fixes-1117j 2715)는 다시 만든 몸에도 그대로
+        const kept = spec.kin === undefined ? rebuilt : { ...rebuilt, kin: spec.kin };
+        return spec.start ? { ...kept, start: spec.start } : kept;
       });
       return changed ? { ...init, units } : init;
     },

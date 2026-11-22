@@ -941,7 +941,7 @@ export { boatFacilities, boatJobs, boatResets, boatStates } from "./boatSchema.t
 export { businessPrices, businessStates } from "./businessSchema.ts";
 export { businessShareOrders, businessShareRounds } from "./businessSchema.ts";
 /** 공성 결과 표(docs/adr/2026-11-07-war-outcomes.md) */
-export { warOutcomes } from "./warSchema.ts";
+export { npcLostCities, warOutcomes } from "./warSchema.ts";
 /** 국적 바꾸기(귀화) 기록 표(docs/adr/2026-11-08-citizenship.md) */
 export { nationalityChanges, userNationRenown, userNationStandings } from "./citizenshipSchema.ts";
 

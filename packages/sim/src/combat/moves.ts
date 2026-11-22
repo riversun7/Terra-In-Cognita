@@ -9,6 +9,7 @@
 import type { BattleMap } from "./battleMap.ts";
 import type { BattleTrace } from "./battleTrace.ts";
 import type { UnitState } from "./battleTypes.ts";
+import { sameKin } from "./kin.ts";
 import { type CombatCoefficients, specStaminaCostMilli } from "./coefficients.ts";
 import { DEFAULT_DISPLACE_RESIST, displacedCells, moveCoefficientsOf, scalePm } from "./curves.ts";
 import { type EffectDef, applyEffect, moveIntervalMs, statusResistPm } from "./effects.ts";
@@ -342,7 +343,8 @@ export function displaceTarget(
       const amount = scalePm(hitDamage, k.unitPm);
       impact(world, source, target, amount);
       const blocker = world.units.find((other) => other.id === stop.blocker);
-      if (blocker && blocker.side !== source.side) impact(world, source, blocker, amount);
+      if (blocker && blocker.side !== source.side && !sameKin(source, blocker))
+        impact(world, source, blocker, amount);
     }
     return;
   }

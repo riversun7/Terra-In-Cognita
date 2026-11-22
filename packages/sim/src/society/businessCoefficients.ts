@@ -188,6 +188,13 @@ export interface BusinessCoefficients {
   readonly npcRentTemperPm?: number | undefined;
   readonly npcRentReservePm?: number | undefined;
   /**
+   * NPC 집주인(기획 검토 2735 — D-555 1509 "똑같이", 줄기 fixes-1117j, 서버 residence/npcLandlord.ts만 읽는다). 모두 [임시] 기술 기본값·선택 칸: 켬(1 — 없으면 1),
+   * 집세 = 한 기간 숙박비(그 숙소 레벨의 밤 수 × 하룻밤 요금) × 몫 ÷ 1000(없으면 1000), 몫 += (상업 성향 − 500) × 이 값 ÷ 500(없으면 500 — 상업 성향이 높은 나라가 비싸게)
+   */
+  readonly npcLandlordMode?: number | undefined;
+  readonly npcLandlordFactorPm?: number | undefined;
+  readonly npcLandlordTemperPm?: number | undefined;
+  /**
    * NPC 나라 주민세율 규칙식의 아래·위(‰, 질문 2373 가 — D-323 성향 프리셋 + 규칙식, npc/policy.ts npcResidentTaxPm): 상업 성향이 가장 높으면 min, 가장 낮으면
    * max. 나라 값을 정하지 않은 NPC 나라에 서버가 쓴다. 선택 칸 — 없으면 0(걷지 않음)
    */
@@ -281,6 +288,9 @@ export const START_BUSINESS: BusinessCoefficients = {
   npcRentFactorPm: 1000,
   npcRentTemperPm: 200,
   npcRentReservePm: 2000,
+  npcLandlordMode: 1,
+  npcLandlordFactorPm: 1000,
+  npcLandlordTemperPm: 500,
   npcResidentTaxMinPm: 0,
   npcResidentTaxMaxPm: 0,
   residentBuildingValuePm: 1000,

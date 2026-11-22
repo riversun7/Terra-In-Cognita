@@ -207,7 +207,11 @@ export interface SecondMap {
   moveUnit(
     unitId: number,
     target: Point,
-    options?: { readonly speedFactor?: number },
+    /**
+     * ignoreCondition = 포로·중태·돌아가는 중이어도 걷는다(서버 판단의 걸음만 — 진 사이보그 본체가 다른 2차맵의 사는 곳으로 돌아가는 이동 구간, D-594,
+     * travel/service.ts beginLeg). 명령 길은 넘기지 않는다
+     */
+    options?: { readonly speedFactor?: number; readonly ignoreCondition?: boolean },
   ): Promise<CommandResult>;
   /** 유닛 빠르기를 몸에서 다시 읽어 넣는다(D-540, 길 예상 시간 전에 — travel/service.ts). 지금 빠르기(유닛이 없으면 undefined) */
   refreshSpeed(unitId: number): number | undefined;

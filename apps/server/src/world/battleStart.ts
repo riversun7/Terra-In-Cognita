@@ -10,6 +10,7 @@ import { createCityDefense } from "../temple/cityDefense.ts";
 import type { TerritoryService } from "../territory/service.ts";
 import type { BattleBodies } from "./battleBodies.ts";
 import type { BattleWorld } from "./battleResults.ts";
+import type { CyborgHome } from "./cyborgHome.ts";
 import type { BattleService } from "./battles.ts";
 import { type CityRow, nearestSafeCity } from "./cities.ts";
 import type { OwnerRow, QueryPool } from "./persist/load.ts";
@@ -89,8 +90,11 @@ export function createBattleWorld(input: {
   readonly npcOwnerId: number;
   readonly ledger: Ledger;
   readonly now: () => number;
+  /** 진 사이보그 본체가 돌아갈 사는 곳(D-594 — cyborgHome.ts). 없으면 다른 유닛처럼 가장 가까운 안전 도시 */
+  readonly cyborgHome?: (() => CyborgHome | undefined) | undefined;
 }): BattleWorld {
   return {
+    cyborgHome: input.cyborgHome,
     mapOf: (unitId) => [...input.maps.values()].find((map) => map.unitInfo(unitId) !== undefined),
     safeCellFor: (unitId, ownerId, map) => {
       const at = map.unitInfo(unitId)?.motion;

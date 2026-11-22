@@ -697,7 +697,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       }
       case "residence_set":
       case "residence_rent": {
-        // 사는 곳 고르기는 프로토콜 61, 집세 정하기는 145의 메시지다(D-585 1·D-591 2 — 채집 게이트웨이가 함께 받는다, residence/)
+        // 사는 곳 고르기는 프로토콜 61, 집세 정하기는 67의 메시지다(D-585 1·D-591 2 — 채집 게이트웨이가 함께 받는다, residence/)
         if (
           protocolVersion <
           (message.t === "residence_rent" ? RESIDENCE_RENT_PROTOCOL_VERSION : RESIDENCE_PROTOCOL_VERSION)

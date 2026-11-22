@@ -1,7 +1,7 @@
 // 사는 곳(거주지) 자료 — 조회(tRPC gather.residence)·고르기 명령(WebSocket residence_set, 프로토콜 61)·문구. 사용자 답 D-585 1(사는 곳은 하나만 고른다 — 그 집이 선
 // 도시·나라의 주민이 되고 주민세·신용이 그곳을 따른다). 건물 판(ResidenceCard.tsx)이 쓴다. 바꾸는 명령은 WebSocket으로만 보낸다(AGENTS.md 4장).
 // 명령 틀은 나라 세금 명령(government/nationTaxCommands.ts)과 같다: 인사 전이면 기다렸다 보내고, 끊기면 "offline", TIMEOUT_MS 안에 답이 없으면 "timeout".
-// 바뀜(residence-3, D-591 2): 집세 정하기(residence_rent, 프로토콜 145 — 내 주거 건물), 첫 기간 값이 모자람(insufficient_funds).
+// 바뀜(residence-3, D-591 2): 집세 정하기(residence_rent, 프로토콜 67 — 내 주거 건물), 첫 기간 값이 모자람(insufficient_funds).
 import type { ResidenceRentResultCode, ResidenceResultCode } from "@terra/protocol";
 import type { ResidenceBlock, ResidenceResponse } from "@terra/shared/residence";
 import { api } from "../../net/api.ts";

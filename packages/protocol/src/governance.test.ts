@@ -127,8 +127,8 @@ describe("나라 의결 메시지", () => {
     expect(decodes(decodeClientMessage, { ...nationTax, tradeTaxBp: 10_001 })).toBe(false);
   });
 
-  it("쿠데타 병력 파견(줄기 no-teleport 판 125 — D-591): 메시지 모양은 그대로, 뜻만 바뀌어 판을 올린다", () => {
-    expect(COUP_DISPATCH_PROTOCOL_VERSION).toBe(125);
+  it("쿠데타 병력 파견(묶음 1117h 판 67, 줄기 no-teleport 판 125 — D-591): 메시지 모양은 그대로, 뜻만 바뀌어 판을 올린다", () => {
+    expect(COUP_DISPATCH_PROTOCOL_VERSION).toBe(67);
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(COUP_DISPATCH_PROTOCOL_VERSION);
     const join = {
       t: "gov_coup_join" as const,

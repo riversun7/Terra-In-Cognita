@@ -308,7 +308,7 @@
   코드 읽기). 도착한 플레이어 유닛을 거울 유닛 모양으로 넣는다(`portCoup.ts troopUnit` — 스탯은 거울 휴먼과 같은 기술 단계 값, 부상은 남지 않음 [임시 2653]). `userUnits`는 지웠다.
 - 조회: 참가 받는 쿠데타 카드에 `troops`(내 유닛마다 here·going·away, 가는 중이면 도착 예정, 다른 곳이면 지금 보내면 도착 예정 — 이동 서비스 확인 단계, 앞 40개만). 화면 `CoupJoin.tsx`(보낼 병력 고르기·
   도착 예정·"전투 뒤 도착 — 싸우지 못함", 문구 13개 ko·en).
-- 판: 프로토콜 **125(최소 124)** — 줄기 판(main 65+60). 메시지 모양 그대로, `gov_coup_join unitIds`의 뜻이 바뀌어 올린다(`governance.ts COUP_DISPATCH_PROTOCOL_VERSION`). 낮은 판 기기도 같은 칸을 보내고
+- 판: 프로토콜 **67(최소 66)**(묶음 1117h — 줄기 판 125/124). 메시지 모양 그대로, `gov_coup_join unitIds`의 뜻이 바뀌어 올린다(`governance.ts COUP_DISPATCH_PROTOCOL_VERSION`). 낮은 판 기기도 같은 칸을 보내고
   같은 뜻으로 처리된다. 팩·SIM·마이그레이션 없음(참가 줄 `units` 칸 그대로 — 보낸 유닛 ID).
 - 순간이동 점검(그 밖의 길 — 쿠데타 밖): `docs/adr/2026-11-15-unloaded-second-maps.md` "바뀜 (no-teleport, D-591)", 표 전체는 작업 기록 `docs/worklog/2026/11/22-1050-no-teleport.md`.
 

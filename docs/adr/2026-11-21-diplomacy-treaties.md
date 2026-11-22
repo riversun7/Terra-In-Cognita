@@ -112,5 +112,5 @@
 - NPC 판단(D-255 "NPC의 판단에 쓴다", 2583 (1)(3)): 이미 고리가 있는 곳 하나만 — NPC가 받은 조약 답(`clauses.ts npcTreatyAnswer`)에서 호감 띠가 "적대"면 불가침·동맹·보호를 받지 않는다(휴전·강화는
   강화 규칙식 그대로) [임시 2663]. NPC 선전포고 고르기·강화 수락·참전 답에는 호감을 넣지 않았다(새 가중치를 지어내지 않음 — 질문 2663).
 - 화면: 외교 칸 제안 상대 고르기 줄에 "호감 N(띠)"(`dip_affinity_short` ko·en 1키, 조회 `diplomacy.view` 상대 칸 `affinity`·`affinityBand` — 낮은 판 서버는 보내지 않는다).
-- 판: 팩 core@213(설정 칸 셋 + `gov_share_exec_ms`), 마이그레이션 `20261122014315_gov_fix4_affinity_runs`(표 `diplomacy_affinity` — 세력 FK cascade, 더하기만). 프로토콜 무관(조회 칸만), SIM 판 그대로
+- 판: 팩 core@146(묶음 1117h — 줄기 판 213; 설정 칸 셋 + `gov_share_exec_ms`), 마이그레이션 `20261122014315_gov_fix4_affinity_runs`(표 `diplomacy_affinity` — 세력 FK cascade, 더하기만). 프로토콜 무관(조회 칸만), SIM 판 그대로
   (시뮬은 호감 장부를 붙이지 않는다 — 고리는 서버 `withTreatyHooks`만).

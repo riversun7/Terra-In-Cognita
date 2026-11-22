@@ -97,10 +97,10 @@ describe("사는 곳 정원·가문 후계자(줄기 governance-6 — 프로토�
   });
 });
 
-describe("층 올리기·집세(줄기 residence-3 — 프로토콜 145, D-591)", () => {
-  it("판: 이 줄기 판(145) — 지금 판 이하", () => {
-    expect(FLOOR_PROTOCOL_VERSION).toBe(145);
-    expect(RESIDENCE_RENT_PROTOCOL_VERSION).toBe(145);
+describe("층 올리기·집세(묶음 1117h 프로토콜 67 — 줄기 residence-3 판 145, D-591)", () => {
+  it("판: 묶음 판(67) — 지금 판 이하", () => {
+    expect(FLOOR_PROTOCOL_VERSION).toBe(67);
+    expect(RESIDENCE_RENT_PROTOCOL_VERSION).toBe(67);
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(RESIDENCE_RENT_PROTOCOL_VERSION);
   });
 
@@ -132,7 +132,7 @@ describe("층 올리기·집세(줄기 residence-3 — 프로토콜 145, D-591)"
     }
   });
 
-  it("insufficient_funds는 145판부터, 더 낮은 판은 not_eligible로 낮춘다", () => {
+  it("insufficient_funds는 67판부터, 더 낮은 판은 not_eligible로 낮춘다", () => {
     expect(RESIDENCE_RESULT_CODES).toContain("insufficient_funds");
     expect(legacyResidenceCode("insufficient_funds", RESIDENCE_RENT_PROTOCOL_VERSION)).toBe(
       "insufficient_funds",

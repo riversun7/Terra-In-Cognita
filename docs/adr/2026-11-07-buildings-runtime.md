@@ -196,5 +196,5 @@
 
 ## 바뀜 (residence-3, D-591 1 — 주거 건물 층 올리기, 2026-11-22)
 - 시설 줄에 층 수(`world_facilities.floors`, 기본 1, 1~100)를 더하고 작업 종류에 `floor`(층 올리기)를 더했다(마이그레이션 `20261122012636_residence3_floors_rent` — 작업 종류 검사를 다시 만들고, 이미 있던 숙소는 층 = 레벨로 채움). 직전 판 앱은 `floor` 작업 줄을 읽지 않고 건너뛴다(면적 모듈 `plot`과 같다).
-- 명령 `facility_floor`(프로토콜 145) → 건물 서비스 `floor`(`facilities/floors.ts addFloor` — `plots.ts`의 면적 모듈 고리 `PlotDeps`를 같이 쓴다, 서비스는 `plotCommands`로 펼친다). 대상 = 내 주거 건물(생활 단계), 다 지은 것, 최고 층(설정 칸 `residence_floor_max`) 아래. 재료 꺼내는 자리·일꾼 단축·운영자 모드·`job_running`은 레벨 올리기·면적 모듈과 같다. 끝나면 층 + 1(`finish → addModule`).
+- 명령 `facility_floor`(프로토콜 67(묶음 1117h — 줄기 판 145)) → 건물 서비스 `floor`(`facilities/floors.ts addFloor` — `plots.ts`의 면적 모듈 고리 `PlotDeps`를 같이 쓴다, 서비스는 `plotCommands`로 펼친다). 대상 = 내 주거 건물(생활 단계), 다 지은 것, 최고 층(설정 칸 `residence_floor_max`) 아래. 재료 꺼내는 자리·일꾼 단축·운영자 모드·`job_running`은 레벨 올리기·면적 모듈과 같다. 끝나면 층 + 1(`finish → addModule`).
 - 재료·시간(기술 기본값 [임시] — 질문 `docs/questions/2026-11-22-residence-3.md` 2671): 지금 레벨 짓기 재료·시간 × 지금 층 수 × `residence_floor_cost_pm`·`residence_floor_time_pm` ÷ 1000. 거래 종류 `facility_floor`(장부 "유지" 칸). 층은 사는 곳 정원에만 쓴다(ADR `2026-11-15-business-ledger.md` "바뀜 (residence-3, D-591)").

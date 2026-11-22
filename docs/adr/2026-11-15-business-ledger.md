@@ -517,7 +517,7 @@ WP1~WP4는 답 없이도 [임시] 추천안으로 갈 수 있다(돈이 사라�
 | 정원 | 정원 = **층 수** × `residence_capacity_per_floor`(옛 칸 `residence_capacity_per_level`의 이름만 바꿈 — 값 4 그대로, `content/core/id-changes.json` renamed 기록). 레벨은 정원에 들지 않는다. 정원은 쓸 수 있는(값을 낸) 고른 유닛만 센다 |
 | 이미 있던 건물 | 마이그레이션이 이미 있던 숙소(`lodging`, 레벨 1 이상)의 층 = 레벨로 채운다 — 옛 정원(레벨 × 4)을 그대로 남겨 아무도 쉬지 않는다(2677). 새로 짓는 숙소는 1층 |
 | 내는 길(D-591 2 — 2536 다) | `own` = 내 집(값 없음), `lodging` = 배정받은 숙소(하룻밤 숙박비 × 한 기간의 밤 수 — 일꾼 쉼터와 같은 바퀴 셈 `labor/workerRest.ts periodFee`), `rent` = 남의 집(주인이 정한 한 기간 집세). 배정받은 숙소가 먼저(2675). 남의 집은 주인이 세를 놓았을 때만 고를 수 있다(`apps/server/src/residence/book.ts payKindOf`) |
-| 미리 내기 | 한 기간 = 설정 칸 `residence_rent_period_ms`(기본 하루 [임시 2672]). 고를 때 첫 기간을 유닛 지갑(`unitPurseLocation`)에서 바로 낸다 — 모자라면 `residence_result insufficient_funds`(프로토콜 145, 더 낮은 판은 `not_eligible`). 낸 기간 끝 = `unit_residences.paid_until_ms`. 그 기간 안에서만 그 집에 산다(세를 거두거나 배정이 바뀌어도 그 기간 끝까지). 다른 집을 고르면 새로 내고 옛 집 남은 몫은 버린다(2486 가). 같은 집을 기간 안에 다시 고르면 `unchanged` |
+| 미리 내기 | 한 기간 = 설정 칸 `residence_rent_period_ms`(기본 하루 [임시 2672]). 고를 때 첫 기간을 유닛 지갑(`unitPurseLocation`)에서 바로 낸다 — 모자라면 `residence_result insufficient_funds`(프로토콜 67(묶음 1117h — 줄기 판 145), 더 낮은 판은 `not_eligible`). 낸 기간 끝 = `unit_residences.paid_until_ms`. 그 기간 안에서만 그 집에 산다(세를 거두거나 배정이 바뀌어도 그 기간 끝까지). 다른 집을 고르면 새로 내고 옛 집 남은 몫은 버린다(2486 가). 같은 집을 기간 안에 다시 고르면 `unchanged` |
 | 받는 곳 | 그 건물 사업장 금고(`BusinessCore.receive` — 들어올 때 소득세). 거래 종류 `residence_rent`·`lodging_prepay`(장부 "수입" 칸 — `@terra/shared/businessBooks`). 화폐 = 숙박비와 같은 서버 시험 화폐 [임시 2673] |
 | 다음 기간 | 1분 훑기(`residence/rent.ts renewResidenceRents` — 쉼 훑기 바로 전)가 낸 기간이 끝난 고른 것마다 걷는다. 다른 조건이 깨졌으면(주인 바뀜·세 거둠·정원) 걷지 않는다. 지갑이 모자라면 걷지 않고 쉰다(숙소 배정 + 처리할 일 `residence_paused`) — 빚으로 적지 않고 돈이 생기면 다시 산다 [임시 2676] |
 | 밤마다 숙박비 | 고른 숙소의 숙박비를 미리 낸 기간에는 일꾼 쉼터가 그 숙소 숙박비를 밤마다 다시 걷지 않는다(`labor/workerRest.ts` — `residenceBookOf(원장).prepaidAt`) |
@@ -526,4 +526,4 @@ WP1~WP4는 답 없이도 [임시] 추천안으로 갈 수 있다(돈이 사라�
 | 화면 | 건물 판 [사는 곳] 카드: 정원 한 줄(사는 수 / 정원 · 층 · 최고 층), 여기 살면 기간마다 낼 집세·숙박비(일찍 바꾸면 손해), 미리 낸 기간 남은 시간·못 내 쉬는 줄, 내 건물이면 주인 칸(집세 정하기·세 거두기, 다음 층 재료·시간 [층 올리기] — `apps/game/src/map/building/ResidenceOwner.tsx`). 조회 tRPC `gather.residence` 응답에 `periodMs`·`choice`·건물 칸(`floors`·`capacity`·`occupants`·`rent`·`mine`·`payKind`·`price`·`floor`)을 더했다(옛 기기는 무시) |
 
 - 시뮬: 판정 그대로 — 사는 곳·층·집세는 서버만 갖는다(시뮬은 설정 칸 이름만 읽어 두고 쓰지 않는다). SIM_VERSION 그대로. 전·후 비교는 작업 기록.
-- 판(줄기 판 — 묶음 때 다시 매긴다): 프로토콜 145(최소 144), 팩 core@223(설정 칸 +4, 1개 이름 바꿈), 마이그레이션 `20261122012636_residence3_floors_rent`(새 표 `residence_rents`, 칸 `unit_residences.paid_until_ms`·`world_facilities.floors`, 작업 종류 검사에 `floor`, 숙소 층 채우기). 리셋 필요 없음.
+- 판: 프로토콜 67(최소 66 — 묶음 1117h, 줄기 판 145/144), 팩 core@146(묶음 1117h — 줄기 판 223; 설정 칸 +4, 1개 이름 바꿈 — `id-changes.json` since 146), 마이그레이션 `20261122012636_residence3_floors_rent`(새 표 `residence_rents`, 칸 `unit_residences.paid_until_ms`·`world_facilities.floors`, 작업 종류 검사에 `floor`, 숙소 층 채우기). 리셋 필요 없음.

@@ -38,6 +38,8 @@ export interface MapUnitState {
   home: BotHome | undefined;
   aboard: number | undefined;
   traits: readonly number[] | undefined;
+  /** 스스로 걷기를 멈춤(NPC 2차맵 사이 이동 중 — travel/npcTravel.ts, D-591). 봇·지도자 순회가 그 길을 덮어쓰지 않게 */
+  held?: boolean | undefined;
 }
 
 export type CommandResult = { ok: true; buildingId?: number } | { ok: false; code: ResultCode };
@@ -164,12 +166,17 @@ export interface SecondMap {
    * (곧 옆 2차맵의 transferIn이 같은 줄을 새 2차맵 키로 쓴다 — 같은 쓰기 묶음). 봇·승객이거나 없으면 undefined. 배는 승객을 데리고 나간다
    * (riders, 기획 D-541 1283 나)
    */
-  transferOut(unitId: number): TransferRow | undefined;
+  transferOut(unitId: number, carry?: boolean): TransferRow | undefined;
   /**
    * 다른 2차맵에서 넘어온 유닛을 기준 칸 (x, y)에 세운다(직무·상태·판단 횟수 그대로, 저장한다). 배(영역 sea)는 물 칸에 서고 승객을 다시 태운다.
    * ID가 있거나 설 수 없으면 false
    */
-  transferIn(row: TransferRow, cellX: number, cellY: number): boolean;
+  transferIn(row: TransferRow, cellX: number, cellY: number, carry?: boolean): boolean;
+  /**
+   * NPC 2차맵 사이 이동(travel/npcTravel.ts, D-591): carry = 봇(NPC 휴먼)도 transferOut·transferIn으로 옮기고, 들어온 봇은 스스로 걷지 않는다(held).
+   * holdRoam(id, false)는 스스로 걷기를 다시 켠다(봇이면 곧 깨운다). 없으면 false
+   */
+  holdRoam(unitId: number, held: boolean): boolean;
   /** 그 크기 등급이 기준 칸 (x, y)에 설 수 있나(지형·건물만 본다, 유닛은 보지 않는다) */
   isStandable(cellX: number, cellY: number, size: SizeClass): boolean;
   /** 하던 이동을 멈추고 지금 자리에 세운다(2차맵 사이 이동 취소). 봇이거나 없으면 false */

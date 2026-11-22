@@ -2,13 +2,14 @@
 // docs/adr/2026-11-15-unloaded-second-maps.md 4절(좌표 유닛도 보낼 수 있고, 띄우지 않은 목적지는 좌표 이동으로 간다 — map_full 없음).
 // - 유닛 찾기(locate·ownUnit): 띄운 2차맵 위 유닛, 아니면 좌표 유닛 장부(서 있음). 승객에게 보낸 길은 그 배의 길(D-541 1279 나).
 // - 길(planFor): 지나는 2차맵 줄과 곧은 거리. 띄우지 않은 2차맵은 설 수 있다고 본다(좌표 구간 — 띄울 때 실제 지형으로 다시 고른다).
-import type { WorldTravelProblem } from "@terra/shared/worldMap";
-import { positionAt } from "@terra/sim";
+import { AVERAGE_CELL_EDGE_METERS } from "@terra/planet/territory";
+import type { WorldTravelProblem, WorldTravelRoute } from "@terra/shared/worldMap";
+import { JOB_NONE, positionAt } from "@terra/sim";
 import type { SecondMap } from "../world/secondMap.ts";
 import { unavailable } from "../world/unitCondition.ts";
 import { UNIT_KIND_BOT, UNIT_KIND_GUARDIAN } from "../world/unitKinds.ts";
 import type { ParkedBook } from "./parked.ts";
-import { type Standable, mapRoute, planLegs, routeContext } from "./route.ts";
+import { type Standable, distanceMeters, mapRoute, planLegs, routeContext, travelMs } from "./route.ts";
 import { type UnitInfo, infoOfRow, standsOn } from "./serviceParts.ts";
 import type { Journey, TravelDeps, TravelTarget } from "./serviceTypes.ts";
 
@@ -103,4 +104,25 @@ export function createPlanner(parts: PlannerParts) {
   };
 
   return { locate, ownUnit, planFor, planStandable, routeLoaded };
+}
+
+/** 확인 단계 한 줄(보내지 않는다): 지나는 2차맵·곧은 거리(m)·걸리는 시간·도착 예상·일하는 중인가·건너뛸 2차맵 수 */
+export function routePlan(
+  found: { readonly id: number; readonly info: UnitInfo },
+  planned: { readonly route: number[]; readonly distance: number },
+  targetMapKey: number,
+  loaded: (mapKey: number) => boolean,
+  nowMs: number,
+): WorldTravelRoute {
+  const durationMs = travelMs(planned.distance, found.info.speed);
+  return {
+    unitId: found.id,
+    route: planned.route,
+    distanceM: distanceMeters(planned.distance, AVERAGE_CELL_EDGE_METERS),
+    durationMs,
+    arriveAt: nowMs + durationMs,
+    working: found.info.job.job !== JOB_NONE,
+    hiddenMaps: planned.route.filter((key) => !loaded(key) && key !== targetMapKey).length,
+    cost: "walk",
+  };
 }

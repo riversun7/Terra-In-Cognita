@@ -21,6 +21,7 @@ import type { World } from "../world/world.ts";
 import { houseKeyOfTail, treasurySharesToHouse } from "./houseShares.ts";
 import type { NpcTraits } from "./npcVote.ts";
 import { type GovernancePortTroops, worldGovernancePortTroops } from "./coupDispatch.ts";
+import { type GovernancePortNpcTroops, worldGovernancePortNpcTroops } from "./coupNpcDispatch.ts";
 import { type GovernancePortCoup, worldGovernancePortCoup } from "./portCoup.ts";
 import { type GovernancePortLeader, worldGovernancePortLeader } from "./portLeader.ts";
 
@@ -54,7 +55,11 @@ export interface GovernanceOwner {
   readonly satisfaction: number | undefined;
 }
 
-export interface GovernancePort extends GovernancePortCoup, GovernancePortLeader, GovernancePortTroops {
+export interface GovernancePort
+  extends GovernancePortCoup,
+    GovernancePortLeader,
+    GovernancePortTroops,
+    GovernancePortNpcTroops {
   /** 세계·NPC 사회 런타임이 준비됐나 */
   ready(): boolean;
   nations(): readonly GovernanceNation[];
@@ -159,6 +164,8 @@ export function worldGovernancePort(
     ...worldGovernancePortCoup(world, combat),
     // 쿠데타 병력 파견(줄기 no-teleport — D-591, coupDispatch.ts)
     ...worldGovernancePortTroops(world),
+    // 쿠데타 NPC 병력 파견(줄기 no-teleport-b — D-591·질문 2651 나, coupNpcDispatch.ts)
+    ...worldGovernancePortNpcTroops(world),
     // 강화·거래세·화폐 단계·가문 독립·신임도(줄기 governance-5 — portLeader.ts)
     ...worldGovernancePortLeader(world),
     ready: () => live() !== undefined,

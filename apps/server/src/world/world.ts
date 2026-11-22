@@ -21,7 +21,8 @@ import { createBattleWorld, createWorldBattleStart } from "./battleStart.ts";
 import { type BattleItems, createBattleItems } from "./battleItems.ts";
 import { type CityRow, cityCellsOf, loadCities } from "./cities.ts";
 import { attachHouseTies, houseTiesOf } from "./houseTies.ts";
-import { moveLeaderToCapital, seedNpcAtBoot } from "../npc/leaders.ts";
+import { seedNpcAtBoot } from "../npc/leaders.ts";
+import { leaderToCapital } from "../npc/leaderTravel.ts";
 import { villageSeeder } from "../facilities/npcSeed.ts";
 import { applyCityRelayoutAtBoot } from "../facilities/cityRelayout.ts";
 import {
@@ -856,10 +857,9 @@ export function startWorld(
           ruins: npcRuinsInputOf(() => persistence, owners, now),
           siegeLayout: citySiegeLayoutOf(maps, facilities, now),
           isFacility: (buildingId) => facilities.service.facilities.has(buildingId),
-          // 수도가 바뀌면 지도자가 새 수도 행정 건물 곁으로(D-528, npc/leaders.ts)
-          onCapitalMoved: (ownerId, capital) => {
-            moveLeaderToCapital({ maps, facilities: facilities.service.facilities, ownerId, capital });
-          },
+          // 수도가 바뀌면 지도자가 새 수도 행정 건물 곁으로 걸어간다(D-528, D-591 — npc/leaderTravel.ts)
+          onCapitalMoved: (ownerId, capital) =>
+            void leaderToCapital({ maps, facilities, travel, ownerId, capital, log }),
           // 국력 등급 반영 요청이 든 부팅(world/tierApply.ts): 이미 채운 시작 도시도 등급 값까지 주거·휴먼·경비대를 더한다
           tierApply: seeded?.tierApply !== undefined,
         });
@@ -869,6 +869,7 @@ export function startWorld(
         log.error({ err: error }, "npc society failed to start; bots keep walking");
       }
     }
+    await travel.restoreNpc((id) => npc?.world.units.has(id) ?? true); // NPC 휴먼 길(휴먼을 읽은 뒤 — travel/npcJourney.ts)
     await territory.warm(TEST_PLANET_ID); // 지방 판정(D-568 provinceAt)이 처음부터 답하게 배치를 셈해 둔다
     status.bootMs = Math.round(performance.now() - started);
     log.info(

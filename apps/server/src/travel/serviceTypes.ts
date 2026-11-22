@@ -24,6 +24,7 @@ import type { SecondMap, UnitRow } from "../world/secondMap.ts";
 import type { TransferRow } from "../world/secondMapRows.ts";
 import type { TravelRaids } from "./raid.ts";
 import type { Hop } from "./route.ts";
+import type { NpcTravelDone, NpcTrip } from "./npcJourney.ts";
 import type { TravelRecord } from "./store.ts";
 
 /** 목적지: 목적 2차맵과 그 안 배치 칸 */
@@ -110,6 +111,22 @@ export interface TravelService {
   teleport(userId: string, request: TravelTarget & { readonly unitId: number }): Promise<TravelCommandResult>;
   /** 운영자 모드를 껐다: 그 유닛들의 가는 길 빠르기를 1로(기획 D-560 1248 — 다음 구간부터 보통) */
   releasePace(unitIds: readonly number[]): void;
+  /**
+   * NPC 2차맵 사이 이동(npcJourney.ts·npcTravel.ts, D-591 — 순간이동 없음): NPC 휴먼(봇)·NPC 국가 지도자를 플레이어 이동과 같은 길·시간으로 그 칸까지
+   * 보낸다(주인 확인 없음, 같은 2차맵이면 그 안에서 걷기만). 목적 2차맵은 띄운 것이어야 한다. 가는 중이면 새 길로 바꾼다(건너뛰는 중이면 busy)
+   */
+  startNpc(request: TravelTarget & { readonly unitId: number }): Promise<TravelCommandResult>;
+  /** NPC 이동이 끝났을 때(도착·멈춤) 알린다 */
+  onNpcDone(listener: (done: NpcTravelDone) => void): void;
+  /** 그 NPC 유닛이 가는 중이면 목적 2차맵·도착 예상 */
+  npcTrip(unitId: number): NpcTrip | undefined;
+  /** NPC 이동을 멈춘다(그 자리에 선다). drop = 유닛이 사라졌다(사망 — 건너뛰던 행을 버리고 유닛 행을 지운다). 가는 중이 아니면 false */
+  cancelNpc(unitId: number, drop?: boolean): boolean;
+  /**
+   * 부팅 둘째 단계(NPC 사회 런타임이 휴먼을 읽은 뒤 — npcJourney.ts 머리 주석): 저장한 NPC 휴먼(봇) 길을 다시 잇는다. alive = 그 휴먼이 아직 있나(건너뛰는
+   * 동안 죽은 휴먼은 나타나지 않고 유닛 행을 지운다 — 없으면 늘 있다고 본다). 다시 시작한 수
+   */
+  restoreNpc(alive?: (unitId: number) => boolean): Promise<number>;
   /** 멈추기: 그 자리에 선다(건너뛰는 중이면 나타난 자리에서) */
   cancel(userId: string, unitId: number): TravelCommandResult;
   /** 내 유닛의 길(가는 중 + 최근 끝난 것), 유닛 ID 차례 */
@@ -222,6 +239,11 @@ export interface Journey extends TravelRecord {
    * 다시 정한다
    */
   sea?: boolean | undefined;
+  /**
+   * NPC 이동(npcJourney.ts — NPC 휴먼·지도자, D-591): 정산·탐사·도중 습격·좌표 조우에서 빠지고, 가는 동안 스스로 걷지 않는다. 저장하지 않는다 — 다시 켜면
+   * 유닛 종류로 다시 정한다
+   */
+  npc?: boolean | undefined;
 }
 
 export interface Finished {

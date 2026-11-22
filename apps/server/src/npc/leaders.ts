@@ -4,9 +4,11 @@
 // - 자리 = 수도의 행정 건물(government_hall) 바로 곁. 수도 = NPC가 고른 수도(D-528, 세력 행 capital_city_id — capitals.ts가 발전도로
 //   고르고 옮긴다). 아직 고르지 않았으면 그 국가의 가장 작은 ID 시작 도시(세계 배치가 수도를 먼저 세운다 — docs/adr/2026-11-07-world-layout.md).
 //   행정 건물이 없으면 도시 시청 칸 둘레.
-// - 켤 때 한 번(기본 시설 씨앗 다음, 봇을 채우기 전): 띄운 2차맵 어디에도 그 국가 지도자가 없으면 세우고, 있는데 수도가 아닌 2차맵에
-//   서 있으면 수도 행정 건물 곁으로 옮긴다(멱등). 실행 중에 수도가 바뀌면(하루 끝) moveLeaderToCapital이 옮긴다(D-528 "수도를 따라간다").
-//   스스로 걷지 않는다(봇이 아니다 — 수도가 바뀌면 바로 옮겨 선다 [임시, 질문 865]). 판단·대사·교체는 아직 없다(질문 742).
+// - 켤 때 한 번(기본 시설 씨앗 다음, 봇을 채우기 전): 띄운 2차맵 어디에도 그 국가 지도자가 없으면 세운다(멱등). 실행 중에 수도가 바뀌면(하루 끝)
+//   지도자가 새 수도로 걸어간다(D-528 "수도를 따라간다" — leaderTravel.ts).
+//   바뀜 (줄기 no-teleport-b — 사용자 결정 D-591 "어떠한 경우에도 순간이동은 없다", 질문 2654 가): 예전에는 수도가 바뀌면 지도자를 새 수도 2차맵에 바로
+//   옮겼고(moveLeaderToCapital, 질문 865 [임시]) 켤 때도 수도가 아닌 2차맵에 선 지도자를 옮겼다. 이제 NPC 이동(travel/npcTravel.ts — 플레이어 이동과 같은
+//   길·시간)으로 걸어가고, 가는 동안 옛 자리·길 위에 있다. 켤 때 옮기던 것은 지웠다(가던 길은 이동 복구가 잇는다). 판단·대사·교체는 아직 없다(질문 742).
 // - 이름은 저장하지 않는다: 팩 국가 프리셋 leaderName(nations.ts nationLeaderName)을 화면마다 읽는다.
 import { createRng } from "@terra/shared";
 import { DEFAULT_ROLE_TRAIT_RANGES, rollUnitTraits, unitTraitsToArray } from "@terra/shared/unitTraits";
@@ -28,9 +30,7 @@ export interface LeaderUnits {
 }
 
 /** 지도자 씨앗이 읽는 2차맵 몫 */
-export type LeaderMap = LeaderUnits &
-  Pick<SecondMap, "mapKey" | "forEachBuilding" | "addUnit"> &
-  Partial<Pick<SecondMap, "transferOut" | "transferIn">>;
+export type LeaderMap = LeaderUnits & Pick<SecondMap, "mapKey" | "forEachBuilding" | "addUnit">;
 
 /** 국가(세력 행 ID)마다 수도: 고른 수도(capital 표시, D-528) → 없으면 그 행성 시작 도시 가운데 가장 작은 ID */
 export function capitalsOf(cities: readonly CityRow[], planetId: string): Map<number, CityRow> {
@@ -45,8 +45,8 @@ export function capitalsOf(cities: readonly CityRow[], planetId: string): Map<nu
   return out;
 }
 
-/** 그 소유 주체의 지도자가 선 2차맵과 유닛 ID(없으면 undefined) */
-function findLeader(
+/** 그 소유 주체의 지도자가 선 2차맵과 유닛 ID(없으면 undefined — 2차맵 사이를 건너뛰는 중이면 없다) */
+export function findLeader(
   maps: Iterable<LeaderMap>,
   ownerId: number,
 ): { readonly map: LeaderMap; readonly id: number } | undefined {
@@ -89,7 +89,7 @@ export interface LeaderSeedResult {
 }
 
 /** 그 도시 행정 건물의 기준 칸(없으면 undefined) */
-function hallCell(
+export function hallCell(
   map: LeaderMap,
   cityId: number,
   facilities: LeaderSeedInput["facilities"],
@@ -112,38 +112,7 @@ export interface CapitalSpot {
   readonly cellY: number;
 }
 
-/**
- * 지도자를 수도 행정 건물 곁으로 옮긴다(D-528 — 수도가 바뀌면 지도자가 따라간다). 이미 수도 2차맵에 서 있으면 그대로("stay").
- * 지도자가 없으면 "none", 수도 2차맵을 띄우지 않았거나 설 곳이 없으면 "blocked"(그 자리에 둔다)
- */
-export function moveLeaderToCapital(input: {
-  readonly maps: ReadonlyMap<number, LeaderMap>;
-  readonly facilities: LeaderSeedInput["facilities"];
-  readonly ownerId: number;
-  readonly capital: CapitalSpot;
-}): "moved" | "stay" | "none" | "blocked" {
-  const found = findLeader(input.maps.values(), input.ownerId);
-  if (!found) return "none";
-  if (found.map.mapKey === input.capital.mapKey) return "stay";
-  const target = input.maps.get(input.capital.mapKey);
-  if (!target?.transferIn || !found.map.transferOut) return "blocked";
-  const at = hallCell(target, input.capital.id, input.facilities) ?? {
-    x: input.capital.cellX,
-    y: input.capital.cellY,
-  };
-  const row = found.map.transferOut(found.id);
-  if (!row) return "blocked";
-  for (const cell of spiralCells(at.x, at.y, PLACE_RADIUS))
-    if (target.transferIn({ ...row, mapKey: target.mapKey }, cell.x, cell.y)) return "moved";
-  // 새 수도에 설 곳이 없으면 옛 자리로 되돌린다(뺀 줄 그대로)
-  const back =
-    row.path.length >= 2 ? { x: Math.floor(row.path[0] ?? 0), y: Math.floor(row.path[1] ?? 0) } : at;
-  for (const cell of spiralCells(back.x, back.y, PLACE_RADIUS))
-    if (found.map.transferIn?.(row, cell.x, cell.y)) break;
-  return "blocked";
-}
-
-/** 지도자가 없는 고정 국가마다 수도 행정 건물 곁에 지도자를 세우고, 수도가 아닌 2차맵에 선 지도자는 수도로 옮긴다(위 머리 주석) */
+/** 지도자가 없는 고정 국가마다 수도 행정 건물 곁에 지도자를 세운다(있으면 그대로 — 위 머리 주석) */
 export function seedNationLeaders(input: LeaderSeedInput): LeaderSeedResult {
   let placed = 0;
   let missing = 0;
@@ -151,10 +120,7 @@ export function seedNationLeaders(input: LeaderSeedInput): LeaderSeedResult {
   for (const capital of capitals) {
     const ownerId = input.ownerOfFaction(capital.factionId);
     if (ownerId === undefined) continue;
-    if (leaderUnitOf(input.maps.values(), ownerId) !== undefined) {
-      moveLeaderToCapital({ maps: input.maps, facilities: input.facilities, ownerId, capital });
-      continue;
-    }
+    if (leaderUnitOf(input.maps.values(), ownerId) !== undefined) continue;
     const map = input.maps.get(capital.mapKey);
     if (!map) {
       missing += 1;

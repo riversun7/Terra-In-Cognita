@@ -132,6 +132,11 @@ export function ItemBasicSections({
   const description = draft.description ?? { ko: "", en: "" };
   const subcategories = list.subcategories.filter((row) => row.entry.major === draft.category);
   const sub = subcategories.find((row) => row.entry.id === draft.subcategory)?.entry;
+  const microcategories = list.weaponTypes.filter(
+    (row) => row.entry.subcategory !== undefined && row.entry.subcategory === draft.subcategory,
+  );
+  const hasWeaponSlotType =
+    draft.category === "equipment" && (draft.equip?.slot === "weapon" || draft.equip?.slot === "offhand");
   const storage = sub?.storage ?? defaultStorageOf(draft.category, sub?.food === true);
   const tags = new Set(draft.tags ?? []);
   const equipment = draft.category === "equipment";
@@ -192,7 +197,7 @@ export function ItemBasicSections({
         name="class"
         desc={m.dev_items_section_class_desc()}
         source="D-487"
-        paths={["category", "subcategory", "tags"]}
+        paths={["category", "subcategory", "weaponType", "tags"]}
       >
         <div className="ie-grid">
           {categoryLocked ? (
@@ -232,10 +237,35 @@ export function ItemBasicSections({
             path="subcategory"
             problem={problem("subcategory")}
             onChange={(value) => {
-              const { subcategory: _drop, ...rest } = draft;
+              const { subcategory: _drop, weaponType: _dropKind, ...rest } = draft;
               onChange(value === "" ? rest : { ...rest, subcategory: value });
             }}
           />
+          {hasWeaponSlotType ? null : (
+            <SelectField
+              label={m.dev_items_field_weapon_type()}
+              value={draft.weaponType ?? ""}
+              options={[
+                { value: "", label: m.dev_items_none() },
+                ...microcategories.map((row) => ({
+                  value: row.entry.id,
+                  label: row.entry.enabled
+                    ? row.entry.name[locale]
+                    : `${row.entry.name[locale]} (${m.dev_items_disabled()})`,
+                })),
+                ...(draft.weaponType !== undefined &&
+                !microcategories.some((row) => row.entry.id === draft.weaponType)
+                  ? [{ value: draft.weaponType, label: draft.weaponType }]
+                  : []),
+              ]}
+              path="weaponType"
+              problem={problem("weaponType")}
+              onChange={(value) => {
+                const { weaponType: _drop, ...rest } = draft;
+                onChange(value === "" ? rest : { ...rest, weaponType: value });
+              }}
+            />
+          )}
         </div>
         <fieldset className="ie-tags">
           <legend className="field-label">{m.dev_items_field_tags()}</legend>

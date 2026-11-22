@@ -27,7 +27,7 @@ import type { EquipSlot } from "@terra/shared/roster";
 
 export const ITEM_ORIGIN_FILTERS = ["all", "pack", "edited", "created"] as const;
 export type ItemOriginFilter = (typeof ITEM_ORIGIN_FILTERS)[number];
-export const ITEM_SORTS = ["name", "id", "tier", "startPrice", "weight"] as const;
+export const ITEM_SORTS = ["tier", "name", "id", "startPrice", "weight"] as const;
 export type ItemSort = (typeof ITEM_SORTS)[number];
 
 /** 목록 찾기·거르기(설계안 3.3). 등급으로는 거르지 않는다(등급은 만든 물건마다, D-5003) */
@@ -203,9 +203,9 @@ export function withSlot(equip: ItemEquipJson, slot: EquipSlot): ItemEquipJson {
   };
 }
 
-/** 대분류를 바꾸면 맞지 않는 묶음을 뺀다(장비 칸·신선도·사용 효과·중분류), 장비면 스택 1과 장비 칸 */
+/** 대분류를 바꾸면 맞지 않는 묶음을 뺀다(장비 칸·신선도·사용 효과·중분류·소분류), 장비면 스택 1과 장비 칸 */
 export function withCategory(item: ItemJson, category: ItemCategoryId): ItemJson {
-  const { equip, perish, use, subcategory: _subcategory, stackMax, ...rest } = item;
+  const { equip, perish, use, subcategory: _subcategory, weaponType: _weaponType, stackMax, ...rest } = item;
   const next: ItemJson = { ...rest, category };
   return {
     ...next,
@@ -431,7 +431,8 @@ export function isTaxonomyJson(category: TaxonomyCategory, value: unknown): valu
   )
     return false;
   if (category === "item_subcategories") return ITEM_CATEGORY_IDS.some((major) => major === value.major);
-  if (category === "weapon_types") return value.slot === "weapon" || value.slot === "offhand";
+  if (category === "weapon_types")
+    return value.slot === undefined || value.slot === "weapon" || value.slot === "offhand";
   return true;
 }
 

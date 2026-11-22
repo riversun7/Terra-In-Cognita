@@ -88,7 +88,7 @@ export const treeItemOfJson = (item: ItemJson): TreeItem => ({
   name: item.name,
   category: item.category,
   subcategory: item.subcategory ?? null,
-  weaponType: item.equip?.weaponType ?? null,
+  weaponType: item.weaponType ?? item.equip?.weaponType ?? null,
   tier: item.tier,
 });
 
@@ -126,7 +126,7 @@ export function taxEntries<T extends TaxonomyJson>(
 }
 
 export const isSubcategoryJson = (value: TaxonomyJson): value is SubcategoryJson => "major" in value;
-export const isWeaponTypeJson = (value: TaxonomyJson): value is WeaponTypeJson => "slot" in value;
+export const isWeaponTypeJson = (value: TaxonomyJson): value is WeaponTypeJson => !("major" in value);
 
 /** order가 있으면 작은 것부터, 없으면 팩 차례(안정 정렬). order 없는 것은 order 있는 것 뒤 */
 function byOrder<T extends { readonly entry: { readonly order?: number | undefined } }>(
@@ -137,8 +137,11 @@ function byOrder<T extends { readonly entry: { readonly order?: number | undefin
   );
 }
 
-/** 장비 종류의 상위 중분류 ID(자료 칸, 없으면 null) */
+/** 소분류의 상위 중분류 ID(자료 칸, 없으면 null) */
 export const kindParentId = (kind: WeaponTypeJson): string | null => kind.subcategory ?? null;
+
+const canPlaceUnder = (kind: KindNode, subId: string, major: ItemCategoryId): boolean =>
+  kindParentId(kind.entry) === subId && (kind.entry.slot === undefined || major === "equipment");
 
 /**
  * 나무 만들기. subs·kinds는 실효 보기(taxEntries)의 항목, items는 실효 아이템(treeItems).
@@ -170,10 +173,11 @@ export function buildItemTree(
   const kindNodes = byOrder(kinds).map(
     (kind): KindNode => ({ id: kind.id, entry: kind.entry, count: perKind.get(kind.id) ?? 0 }),
   );
-  const equipmentSubs = new Set(subs.filter((sub) => sub.entry.major === "equipment").map((sub) => sub.id));
   const placed = (kind: KindNode): boolean => {
     const parent = kindParentId(kind.entry);
-    return parent !== null && equipmentSubs.has(parent);
+    if (parent === null || !subIds.has(parent)) return false;
+    const major = subMajor.get(parent);
+    return major !== undefined && (kind.entry.slot === undefined || major === "equipment");
   };
   return ITEM_CATEGORY_IDS.map((major): MajorNode => {
     const mine = byOrder(subs.filter((sub) => sub.entry.major === major)).map(
@@ -181,7 +185,7 @@ export function buildItemTree(
         id: sub.id,
         entry: sub.entry,
         count: perSub.get(sub.id) ?? 0,
-        kinds: major === "equipment" ? kindNodes.filter((kind) => kindParentId(kind.entry) === sub.id) : [],
+        kinds: kindNodes.filter((kind) => canPlaceUnder(kind, sub.id, major)),
       }),
     );
     return {
@@ -259,7 +263,7 @@ export function findKind(
  * 중분류 마디에서 새로 만드는 장비 종류의 칸: 그 중분류 아래 이미 있는 종류의 칸 중 많은 쪽(같으면 무기 칸), 없으면 무기 칸.
  * 이름 관례를 보지 않는다(D-497 정리 896)
  */
-export function slotForNewKind(kinds: readonly KindNode[]): WeaponTypeJson["slot"] {
+export function slotForNewKind(kinds: readonly KindNode[]): "weapon" | "offhand" {
   const offhand = kinds.filter((kind) => kind.entry.slot === "offhand").length;
   return offhand * 2 > kinds.length ? "offhand" : "weapon";
 }

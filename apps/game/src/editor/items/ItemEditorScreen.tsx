@@ -125,7 +125,7 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
   const [history, setHistory] = useState<readonly ItemEditorHistoryRow[] | null>(null);
   const [creating, setCreating] = useState(false);
   const [query, setQueryState] = useState<ItemQuery>(EMPTY_QUERY);
-  const [sort, setSort] = useState<ItemSort>("name");
+  const [sort, setSort] = useState<ItemSort>("tier");
   const [mode, setMode] = useState<ItemViewMode>("rows");
   const [taxFocus, setTaxFocus] = useState<TaxonomyFocus | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);

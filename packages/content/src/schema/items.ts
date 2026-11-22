@@ -198,6 +198,8 @@ export const itemEntrySchema = z
     category: z.enum(ITEM_CATEGORIES),
     /** 중분류(D-5033): 그 대분류의 중분류만(팩 검사). 보관 창고·식품 판정이 이 칸을 본다 */
     subcategory: ref("item_subcategories").optional(),
+    /** 소분류(대분류 → 중분류 → 소분류). 장비는 equip.weaponType이나 이 칸으로 가리킨다 */
+    weaponType: ref("weapon_types").optional(),
     /** 태그(거래소 거르기, D-5033) */
     tags: z.array(ref("item_tags")).max(ITEM_SCHEMA_LIMITS.tags).optional(),
     tier,
@@ -292,10 +294,11 @@ export const weaponTypeEntrySchema = z
   .strictObject({
     id: contentId,
     name: localizedText,
-    slot: z.enum(WEAPON_TYPE_SLOTS),
+    /** 장비(무기·보조 칸) 소분류일 때만 장착 칸. 일반 소분류(원료·가공품·소모품·방어구 등)는 비운다 */
+    slot: z.enum(WEAPON_TYPE_SLOTS).optional(),
     /**
-     * 상위 중분류(D-497 기획 정리 896: 나무 = 대분류 → 중분류 → 무기 종류). 장비 대분류의 중분류만(팩 검사 weapon_type_subcategory_major).
-     * 이 종류가 붙은 장비의 중분류는 이 값이어야 한다(item_weapon_type_subcategory). 선택 칸이라 없으면 나무에서 "상위 중분류 없음"
+     * 상위 중분류(대분류 → 중분류 → 소분류). 이 소분류가 붙은 아이템의 중분류는 이 값이어야 한다(item_weapon_type_subcategory).
+     * 선택 칸이라 없으면 나무에서 "상위 중분류 없음"
      */
     subcategory: ref("item_subcategories").optional(),
     order: z.int().min(0).max(ITEM_SCHEMA_LIMITS.order).optional(),

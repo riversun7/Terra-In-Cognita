@@ -216,9 +216,11 @@ export function gatherBandViews(
   });
 }
 
-/** 수리 줄 무기 종류 고르기(실효 무기 종류, 파일 차례, D-512 323) */
+/** 수리 줄 무기 종류 고르기(실효 무기 종류 가운데 장착 칸이 있는 장비 소분류만, 파일 차례, D-512 323) */
 export function weaponTypeOptions(entries: readonly WeaponTypeEntry[]): BuildingEditorWeaponType[] {
-  return entries.map((entry) => ({ id: entry.id, name: nameOf(entry), slot: entry.slot }));
+  return entries.flatMap((entry) =>
+    entry.slot === undefined ? [] : [{ id: entry.id, name: nameOf(entry), slot: entry.slot }],
+  );
 }
 
 /** 화면 스탯 차례(STR·VIT·INT·WIS·DEX·AGI, @terra/shared PRIMARY_STATS) */

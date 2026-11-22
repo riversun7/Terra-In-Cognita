@@ -233,7 +233,8 @@ function majorOf(tree: readonly MajorNode[], node: TreeNodeRef | null): ItemCate
   if (!node) return null;
   if (node.kind === "major" || node.kind === "unsorted") return node.id;
   if (node.kind === "sub") return findSub(tree, node.id)?.entry.major ?? null;
-  return findKind(tree, node.id) ? "equipment" : null;
+  const found = findKind(tree, node.id);
+  return found ? (found.parent?.entry.major ?? "equipment") : null;
 }
 
 export function ItemTaxonomy({

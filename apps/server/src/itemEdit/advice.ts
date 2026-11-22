@@ -92,6 +92,8 @@ export function itemAdvice(ctx: AdviceContext, item: ItemEntry): ContentIssueVie
       item.subcategory.id,
       enabledIds(effective.itemSubcategories),
     );
+  if (item.weaponType)
+    disabledRef("weaponType", "weapon_types", item.weaponType.id, enabledIds(effective.weaponTypes));
   (item.tags ?? []).forEach((tag, index) => {
     disabledRef(`tags[${index}]`, "item_tags", tag.id, enabledIds(effective.itemTags));
   });

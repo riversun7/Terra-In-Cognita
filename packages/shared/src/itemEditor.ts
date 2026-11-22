@@ -76,6 +76,7 @@ export const ITEM_FIELD_USES: Readonly<Record<string, "combat" | "economy" | "sc
   bound: "economy",
   enabled: "economy",
   subcategory: "screen",
+  weaponType: "screen",
   tags: "screen",
   weight: "none",
   lotSize: "economy",
@@ -229,6 +230,7 @@ export interface ItemJson {
   readonly description?: LocalizedName | undefined;
   readonly category: ItemCategoryId;
   readonly subcategory?: string | undefined;
+  readonly weaponType?: string | undefined;
   readonly tags?: readonly string[] | undefined;
   readonly tier: number;
   /** 시작 시세(295: 그 세계 시장이 처음 열릴 때의 첫 가격, 최소 단위). 팩 core@27까지 baseValue */
@@ -278,8 +280,8 @@ export interface ItemTagJson {
 export interface WeaponTypeJson {
   readonly id: string;
   readonly name: LocalizedName;
-  readonly slot: WeaponTypeSlotId;
-  /** 상위 중분류 ID(장비 대분류의 중분류, D-497 기획 정리 896). 없으면 나무에서 "상위 중분류 없음" */
+  readonly slot?: WeaponTypeSlotId | undefined;
+  /** 상위 중분류 ID(대분류 → 중분류 → 소분류). 없으면 나무에서 "상위 중분류 없음" */
   readonly subcategory?: string | undefined;
   readonly order?: number | undefined;
   /** 탄약 종류(D-497: 이 보조 칸 종류의 장비는 내구도 = 남은 탄 수, 최대 내구도 = 담는 탄 수) */

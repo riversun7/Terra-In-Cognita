@@ -10,7 +10,7 @@ import { ItemCategoryTiles } from "./ItemCategoryTiles.tsx";
 import { ActionIcon } from "./itemIcons.tsx";
 import { CATEGORY_TEXT, SLOT_TEXT } from "./itemMessages.ts";
 import { EMPTY_QUERY, ITEM_ORIGIN_FILTERS, ITEM_SORTS, type ItemQuery, type ItemSort } from "./itemModel.ts";
-import { type MajorNode, NO_SUBCATEGORY, findSub, treeCounts } from "./itemTree.ts";
+import { type MajorNode, NO_SUBCATEGORY, findKind, findSub, treeCounts } from "./itemTree.ts";
 
 export type ItemViewMode = "rows" | "cards";
 
@@ -103,12 +103,11 @@ export function ItemBrowseBar({
     query.subcategory === "all" || query.subcategory === NO_SUBCATEGORY
       ? null
       : findSub(tree, query.subcategory);
-  const equipment = tree.find((major) => major.id === "equipment");
-  // 무기 종류: 고른 중분류 아래 종류, 장비 대분류만 골랐으면 장비의 모든 무기 종류(이을 중분류가 없는 것 포함)
+  // 소분류: 고른 중분류 아래 소분류, 중분류가 전체면 고른 대분류(또는 전체)의 모든 소분류
   const kinds = pickedSub
     ? pickedSub.kinds
-    : query.category === "equipment" && query.subcategory === "all" && equipment
-      ? [...equipment.subs.flatMap((sub) => sub.kinds), ...equipment.looseKinds]
+    : query.subcategory === "all"
+      ? majors.flatMap((major) => [...major.subs.flatMap((sub) => sub.kinds), ...major.looseKinds])
       : [];
   const more = moreOf(query);
   const subOption = (major: MajorNode) => [
@@ -210,7 +209,20 @@ export function ItemBrowseBar({
                 className="ce-filter-select ie-kind-filter"
                 value={query.weaponType}
                 disabled={kinds.length === 0 && query.weaponType === "all"}
-                onChange={(event) => onQuery({ weaponType: event.target.value })}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (value === "all") {
+                    onQuery({ weaponType: "all" });
+                    return;
+                  }
+                  const found = findKind(tree, value);
+                  onQuery({
+                    weaponType: value,
+                    ...(found?.parent
+                      ? { category: found.parent.entry.major, subcategory: found.parent.id }
+                      : {}),
+                  });
+                }}
               >
                 <option value="all">{m.dev_items_filter_weapon_type_all()}</option>
                 {kinds.map((kind) => (

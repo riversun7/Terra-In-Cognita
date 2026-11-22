@@ -658,7 +658,10 @@ test.describe("화면 개편(넓은 폭)", () => {
     await page.locator(".ie-sub-filter").selectOption("ore");
     await expect(page.locator(".ie-item")).toHaveCount(10);
     await expect(row(page, "iron_ore").locator(".ie-chain")).toContainText(message("ko", "economy_cat_raw"));
-    // 장비 타일 → 무기 종류 칸은 장비의 무기 종류(검·도 등)를 고를 수 있다
+    await expect(row(page, "iron_ore").locator(".ie-chain")).toContainText("일반 금속광");
+    await page.locator(".ie-kind-filter").selectOption("base_metal_ore");
+    await expect(page.locator(".ie-item")).toHaveCount(3);
+    // 장비 타일 → 소분류 칸은 장비의 소분류(검·도 등)를 고를 수 있다
     await page.locator('.ie-browse .ie-tile[data-category="equipment"]').click();
     await expect(page.locator(".ie-sub-filter")).toHaveValue("all");
     const kind = page.locator(".ie-kind-filter");

@@ -45,14 +45,15 @@ export function checkItems(pack: ContentPack): ContentIssue[] {
     const parent = refId(get(type, "subcategory"));
     if (parent === undefined || !majorOf.has(parent)) continue;
     const major = majorOf.get(parent);
-    if (major !== "equipment") {
+    const typeSlot = text(get(type, "slot"));
+    if (typeSlot !== undefined && major !== "equipment") {
       issues.push({
         stage: "references",
         level: "error",
         file: "weapon_types.json",
         id: type.id,
         path: "subcategory",
-        message: `상위 중분류 ${parent}는 대분류 ${major ?? "?"}의 것입니다. 무기 종류는 장비(equipment) 중분류 아래에만 둡니다.`,
+        message: `상위 중분류 ${parent}는 대분류 ${major ?? "?"}의 것입니다. 장착 칸이 있는 소분류는 장비(equipment) 중분류 아래에만 둡니다.`,
         code: "weapon_type_subcategory_major",
         params: { subcategory: parent, major: major ?? "" },
       });
@@ -76,14 +77,17 @@ export function checkItems(pack: ContentPack): ContentIssue[] {
       );
     const equip = get(item, "equip");
     const slot = text(get(equip, "slot"));
-    const type = refId(get(equip, "weaponType"));
+    const equipType = refId(get(equip, "weaponType"));
+    const itemType = refId(get(item, "weaponType"));
+    const type = equipType ?? itemType;
+    const typePath = equipType !== undefined ? "equip.weaponType" : "weaponType";
     const typeSlot = type === undefined ? undefined : typeSlotOf.get(type);
     if (type !== undefined && typeSlot !== undefined && typeSlot !== slot)
       error(
         item.id,
-        "equip.weaponType",
+        typePath,
         "item_weapon_type_slot",
-        `무기 종류 ${type}는 ${typeSlot} 칸 종류입니다(이 장비는 ${slot ?? "?"} 칸).`,
+        `소분류 ${type}는 ${typeSlot} 칸 종류입니다(이 장비는 ${slot ?? "?"} 칸).`,
         { weaponType: type, slot: typeSlot },
       );
     const parent = type === undefined ? undefined : typeParentOf.get(type);
@@ -92,7 +96,7 @@ export function checkItems(pack: ContentPack): ContentIssue[] {
         item.id,
         "subcategory",
         "item_weapon_type_subcategory",
-        `무기 종류 ${type ?? "?"}는 중분류 ${parent} 아래 종류입니다(이 아이템 중분류는 ${sub ?? "없음"}). 중분류를 ${parent}로 고르세요.`,
+        `소분류 ${type ?? "?"}는 중분류 ${parent} 아래 종류입니다(이 아이템 중분류는 ${sub ?? "없음"}). 중분류를 ${parent}로 고르세요.`,
         { weaponType: type ?? "", subcategory: parent },
       );
     const ammo = refId(get(get(equip, "weapon"), "ammo"));

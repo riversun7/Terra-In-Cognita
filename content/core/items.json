@@ -11,7 +11,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 20,
-      "enabled": false
+      "enabled": false,
+      "weaponType": "draft_doc"
     },
     {
       "id": "grain",
@@ -49,7 +50,8 @@
       "startPrice": 80,
       "weight": 1,
       "lotSize": 10000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "base_metal_ore"
     },
     {
       "id": "iron_ingot",
@@ -62,7 +64,8 @@
       "tier": 1,
       "startPrice": 14,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "ingot_bar"
     },
     {
       "id": "plank",
@@ -75,7 +78,8 @@
       "tier": 0,
       "startPrice": 3,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "sawn_plank"
     },
     {
       "id": "brick",
@@ -88,7 +92,8 @@
       "tier": 0,
       "startPrice": 3,
       "weight": 1500,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "masonry_block"
     },
     {
       "id": "ration",
@@ -101,7 +106,8 @@
       "tier": 0,
       "startPrice": 4,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "basic_ration"
     },
     {
       "id": "household_goods",
@@ -114,7 +120,8 @@
       "tier": 1,
       "startPrice": 40,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "daily_supply"
     },
     {
       "id": "test_sword",
@@ -152,7 +159,8 @@
           "arc": false,
           "staminaCost": 10,
           "mpCost": 0
-        }
+        },
+        "weaponType": "blade"
       },
       "enabled": true
     },
@@ -194,7 +202,8 @@
           "mpCost": 5,
           "skillElementsPm": [0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         },
-        "skills": ["fire_bolt"]
+        "skills": ["fire_bolt"],
+        "weaponType": "staff"
       },
       "enabled": true
     },
@@ -224,7 +233,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "body_armor"
     },
     {
       "id": "test_helmet",
@@ -247,7 +257,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "head_armor"
     },
     {
       "id": "test_ring",
@@ -270,7 +281,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "ring_accessory"
     },
     {
       "id": "test_heart",
@@ -303,7 +315,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "cyber_organ"
     },
     {
       "id": "fire_staff",
@@ -343,7 +356,8 @@
           "mpCost": 5,
           "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         },
-        "skills": ["flame_burst"]
+        "skills": ["flame_burst"],
+        "weaponType": "staff"
       },
       "enabled": true
     },
@@ -390,7 +404,8 @@
           "mpCost": 5,
           "skillElementsPm": [50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         },
-        "skills": ["frost_bolt"]
+        "skills": ["frost_bolt"],
+        "weaponType": "staff"
       },
       "enabled": true
     },
@@ -432,7 +447,8 @@
           "mpCost": 5,
           "skillElementsPm": [0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0]
         },
-        "skills": ["chain_lightning"]
+        "skills": ["chain_lightning"],
+        "weaponType": "staff"
       },
       "enabled": true
     },
@@ -479,7 +495,8 @@
           "mpCost": 5,
           "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0]
         },
-        "skills": ["stone_spike"]
+        "skills": ["stone_spike"],
+        "weaponType": "staff"
       },
       "enabled": true
     },
@@ -526,7 +543,8 @@
           "mpCost": 5,
           "skillElementsPm": [0, 0, 0, 0, 0, 0, 0, 0, 50, 0, 0, 0]
         },
-        "skills": ["light_heal", "radiant_ward"]
+        "skills": ["light_heal", "radiant_ward"],
+        "weaponType": "staff"
       },
       "enabled": true
     },
@@ -568,7 +586,8 @@
           "mpCost": 5,
           "skillElementsPm": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 50, 0]
         },
-        "skills": ["dark_curse"]
+        "skills": ["dark_curse"],
+        "weaponType": "staff"
       },
       "enabled": true
     },
@@ -585,7 +604,8 @@
       "weight": 1,
       "lotSize": 10000,
       "bareHand": true,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "stone_mineral"
     },
     {
       "id": "stone",
@@ -600,7 +620,8 @@
       "weight": 1,
       "lotSize": 10000,
       "bareHand": true,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "stone_mineral"
     },
     {
       "id": "copper_ore",
@@ -614,7 +635,8 @@
       "startPrice": 10,
       "weight": 1,
       "lotSize": 10000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "base_metal_ore"
     },
     {
       "id": "silver_ore",
@@ -628,7 +650,8 @@
       "startPrice": 10,
       "weight": 1,
       "lotSize": 10000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "precious_ore"
     },
     {
       "id": "titanium_ore",
@@ -642,7 +665,8 @@
       "startPrice": 10,
       "weight": 1,
       "lotSize": 10000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "base_metal_ore"
     },
     {
       "id": "gold_ore",
@@ -656,7 +680,8 @@
       "startPrice": 10,
       "weight": 1,
       "lotSize": 10000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "precious_ore"
     },
     {
       "id": "platinum_ore",
@@ -670,7 +695,8 @@
       "startPrice": 10,
       "weight": 1,
       "lotSize": 10000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "precious_ore"
     },
     {
       "id": "mithril",
@@ -684,7 +710,8 @@
       "startPrice": 10,
       "weight": 1,
       "lotSize": 10000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "precious_ore"
     },
     {
       "id": "orichalcum",
@@ -698,7 +725,8 @@
       "startPrice": 10,
       "weight": 1,
       "lotSize": 10000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "precious_ore"
     },
     {
       "id": "pine_log",
@@ -711,7 +739,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "softwood"
     },
     {
       "id": "birch_log",
@@ -724,7 +753,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "softwood"
     },
     {
       "id": "cypress_log",
@@ -737,7 +767,8 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "softwood"
     },
     {
       "id": "maple_log",
@@ -750,7 +781,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "hardwood"
     },
     {
       "id": "oak_log",
@@ -763,7 +795,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "hardwood"
     },
     {
       "id": "ash_log",
@@ -776,7 +809,8 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "hardwood"
     },
     {
       "id": "walnut_log",
@@ -789,7 +823,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "hardwood"
     },
     {
       "id": "teak_log",
@@ -802,7 +837,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "precious_wood"
     },
     {
       "id": "rosewood_log",
@@ -815,7 +851,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "precious_wood"
     },
     {
       "id": "ebony_log",
@@ -828,7 +865,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "precious_wood"
     },
     {
       "id": "hay",
@@ -841,7 +879,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "grain_crop"
     },
     {
       "id": "bean",
@@ -854,7 +893,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "grain_crop"
     },
     {
       "id": "barley",
@@ -867,7 +907,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "grain_crop"
     },
     {
       "id": "potato",
@@ -880,7 +921,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "vegetable_crop"
     },
     {
       "id": "napa_cabbage",
@@ -893,7 +935,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 300,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "vegetable_crop"
     },
     {
       "id": "carrot",
@@ -906,7 +949,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "vegetable_crop"
     },
     {
       "id": "wheat",
@@ -919,7 +963,8 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "grain_crop"
     },
     {
       "id": "onion",
@@ -932,7 +977,8 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "vegetable_crop"
     },
     {
       "id": "tomato",
@@ -945,7 +991,8 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "vegetable_crop"
     },
     {
       "id": "rice",
@@ -958,7 +1005,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "grain_crop"
     },
     {
       "id": "garlic",
@@ -971,7 +1019,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "vegetable_crop"
     },
     {
       "id": "green_onion",
@@ -984,7 +1033,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "vegetable_crop"
     },
     {
       "id": "corn",
@@ -997,7 +1047,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "grain_crop"
     },
     {
       "id": "asparagus",
@@ -1010,7 +1061,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "vegetable_crop"
     },
     {
       "id": "celery",
@@ -1023,7 +1075,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "vegetable_crop"
     },
     {
       "id": "soybean",
@@ -1036,7 +1089,8 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "grain_crop"
     },
     {
       "id": "olive",
@@ -1049,7 +1103,8 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "fruit_crop"
     },
     {
       "id": "sesame",
@@ -1062,7 +1117,8 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 50,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "grain_crop"
     },
     {
       "id": "kabocha",
@@ -1075,7 +1131,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "vegetable_crop"
     },
     {
       "id": "artichoke",
@@ -1088,7 +1145,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 400,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "vegetable_crop"
     },
     {
       "id": "shallot",
@@ -1101,7 +1159,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "vegetable_crop"
     },
     {
       "id": "quinoa",
@@ -1114,7 +1173,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "grain_crop"
     },
     {
       "id": "fresh_wasabi",
@@ -1127,7 +1187,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "vegetable_crop"
     },
     {
       "id": "ginger",
@@ -1140,7 +1201,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "vegetable_crop"
     },
     {
       "id": "black_maca",
@@ -1153,7 +1215,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 300,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "vegetable_crop"
     },
     {
       "id": "white_truffle",
@@ -1166,7 +1229,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "vegetable_crop"
     },
     {
       "id": "lotus_seed",
@@ -1179,7 +1243,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "grain_crop"
     },
     {
       "id": "divine_grain",
@@ -1192,7 +1257,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "grain_crop"
     },
     {
       "id": "ambrosia",
@@ -1205,7 +1271,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "fruit_crop"
     },
     {
       "id": "golden_apple",
@@ -1218,7 +1285,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "fruit_crop"
     },
     {
       "id": "wild_herb",
@@ -1231,7 +1299,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "medicinal_herb"
     },
     {
       "id": "wild_chive",
@@ -1244,7 +1313,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "culinary_herb"
     },
     {
       "id": "clover",
@@ -1257,7 +1327,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "medicinal_herb"
     },
     {
       "id": "aloe",
@@ -1270,7 +1341,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 300,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "medicinal_herb"
     },
     {
       "id": "peppermint",
@@ -1283,7 +1355,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "culinary_herb"
     },
     {
       "id": "chamomile",
@@ -1296,7 +1369,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "culinary_herb"
     },
     {
       "id": "lavender",
@@ -1309,7 +1383,8 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "culinary_herb"
     },
     {
       "id": "rosemary",
@@ -1322,7 +1397,8 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "culinary_herb"
     },
     {
       "id": "thyme",
@@ -1335,7 +1411,8 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "culinary_herb"
     },
     {
       "id": "angelica_root",
@@ -1348,7 +1425,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "medicinal_herb"
     },
     {
       "id": "licorice_root",
@@ -1361,7 +1439,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "medicinal_herb"
     },
     {
       "id": "sweet_basil",
@@ -1374,7 +1453,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "culinary_herb"
     },
     {
       "id": "belladonna",
@@ -1387,7 +1467,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "medicinal_herb"
     },
     {
       "id": "wolfsbane",
@@ -1400,7 +1481,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "medicinal_herb"
     },
     {
       "id": "star_anise",
@@ -1413,7 +1495,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "culinary_herb"
     },
     {
       "id": "mandrake",
@@ -1426,7 +1509,8 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "medicinal_herb"
     },
     {
       "id": "saffron",
@@ -1439,7 +1523,8 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 50,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "culinary_herb"
     },
     {
       "id": "hemlock",
@@ -1452,7 +1537,8 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "medicinal_herb"
     },
     {
       "id": "ginseng",
@@ -1465,7 +1551,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "medicinal_herb"
     },
     {
       "id": "fo_ti_root",
@@ -1478,7 +1565,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 300,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "medicinal_herb"
     },
     {
       "id": "black_truffle",
@@ -1491,7 +1579,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "culinary_herb"
     },
     {
       "id": "gastrodia",
@@ -1504,7 +1593,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "medicinal_herb"
     },
     {
       "id": "agarwood",
@@ -1517,7 +1607,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "medicinal_herb"
     },
     {
       "id": "moonlight_laurel",
@@ -1530,7 +1621,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "culinary_herb"
     },
     {
       "id": "ancient_ginseng",
@@ -1543,7 +1635,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "medicinal_herb"
     },
     {
       "id": "blood_lotus",
@@ -1556,7 +1649,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "medicinal_herb"
     },
     {
       "id": "reishi",
@@ -1569,7 +1663,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 300,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "medicinal_herb"
     },
     {
       "id": "snow_ginseng",
@@ -1582,7 +1677,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "medicinal_herb"
     },
     {
       "id": "world_tree_dew_leaf",
@@ -1595,7 +1691,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "medicinal_herb"
     },
     {
       "id": "starlight_moss",
@@ -1608,7 +1705,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "medicinal_herb"
     },
     {
       "id": "loach",
@@ -1621,7 +1719,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 20,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "freshwater_fish"
     },
     {
       "id": "minnow",
@@ -1634,7 +1733,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 10,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "freshwater_fish"
     },
     {
       "id": "carp",
@@ -1647,7 +1747,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 1500,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "freshwater_fish"
     },
     {
       "id": "crucian_carp",
@@ -1660,7 +1761,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "freshwater_fish"
     },
     {
       "id": "salmon",
@@ -1673,7 +1775,8 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 4000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "freshwater_fish"
     },
     {
       "id": "trout",
@@ -1686,7 +1789,8 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 1500,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "freshwater_fish"
     },
     {
       "id": "saury",
@@ -1699,7 +1803,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 150,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "sea_fish"
     },
     {
       "id": "mackerel",
@@ -1712,7 +1817,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "sea_fish"
     },
     {
       "id": "squid",
@@ -1725,7 +1831,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 400,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "mollusk_shellfish"
     },
     {
       "id": "rockfish",
@@ -1738,7 +1845,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "sea_fish"
     },
     {
       "id": "olive_flounder",
@@ -1751,7 +1859,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "sea_fish"
     },
     {
       "id": "sea_bream",
@@ -1764,7 +1873,8 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 2500,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "sea_fish"
     },
     {
       "id": "sea_bass",
@@ -1777,7 +1887,8 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 3000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "sea_fish"
     },
     {
       "id": "octopus",
@@ -1790,7 +1901,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 5000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "mollusk_shellfish"
     },
     {
       "id": "yellowtail",
@@ -1803,7 +1915,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 10000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "sea_fish"
     },
     {
       "id": "marlin",
@@ -1816,7 +1929,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 150000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "sea_fish"
     },
     {
       "id": "ocean_sunfish",
@@ -1829,7 +1943,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 200000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "sea_fish"
     },
     {
       "id": "sturgeon",
@@ -1842,7 +1957,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 30000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "sea_fish"
     },
     {
       "id": "sailfish",
@@ -1855,7 +1971,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 80000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "sea_fish"
     },
     {
       "id": "white_shark",
@@ -1868,7 +1985,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 500000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "giant_marine"
     },
     {
       "id": "bluefin_tuna",
@@ -1881,7 +1999,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 80000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "sea_fish"
     },
     {
       "id": "grouper",
@@ -1894,7 +2013,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 20000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "sea_fish"
     },
     {
       "id": "giant_sea_bass",
@@ -1907,7 +2027,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 100000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "sea_fish"
     },
     {
       "id": "whale_shark",
@@ -1920,7 +2041,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 150000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "giant_marine"
     },
     {
       "id": "megalodon",
@@ -1933,7 +2055,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 1000000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "giant_marine"
     },
     {
       "id": "coelacanth",
@@ -1946,7 +2069,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 50000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "giant_marine"
     },
     {
       "id": "raw_meat",
@@ -1959,7 +2083,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "raw_meat_cut"
     },
     {
       "id": "egg",
@@ -1972,7 +2097,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "egg_dairy"
     },
     {
       "id": "feather",
@@ -1985,7 +2111,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 50,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "horn_fang_feather"
     },
     {
       "id": "venison",
@@ -1998,7 +2125,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "raw_meat_cut"
     },
     {
       "id": "deer_hide",
@@ -2011,7 +2139,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "hide_fur"
     },
     {
       "id": "deer_antler",
@@ -2024,7 +2153,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "horn_fang_feather"
     },
     {
       "id": "mutton",
@@ -2037,7 +2167,8 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "raw_meat_cut"
     },
     {
       "id": "wool",
@@ -2050,7 +2181,8 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "hide_fur"
     },
     {
       "id": "sheep_milk",
@@ -2063,7 +2195,8 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "egg_dairy"
     },
     {
       "id": "prime_beef",
@@ -2076,7 +2209,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 1500,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "raw_meat_cut"
     },
     {
       "id": "bison_hide",
@@ -2089,7 +2223,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 3500,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "hide_fur"
     },
     {
       "id": "bison_horn",
@@ -2102,7 +2237,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 1500,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "horn_fang_feather"
     },
     {
       "id": "fox_meat",
@@ -2115,7 +2251,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 800,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "raw_meat_cut"
     },
     {
       "id": "silver_fur",
@@ -2128,7 +2265,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "hide_fur"
     },
     {
       "id": "mink_oil",
@@ -2141,7 +2279,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "horn_fang_feather"
     },
     {
       "id": "acorn_pork",
@@ -2154,7 +2293,8 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 1200,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "raw_meat_cut"
     },
     {
       "id": "hard_tusk",
@@ -2167,7 +2307,8 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "horn_fang_feather"
     },
     {
       "id": "lard",
@@ -2180,7 +2321,8 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "egg_dairy"
     },
     {
       "id": "croc_tail_meat",
@@ -2193,7 +2335,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 1500,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "raw_meat_cut"
     },
     {
       "id": "croc_hide",
@@ -2206,7 +2349,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "hide_fur"
     },
     {
       "id": "croc_tooth",
@@ -2219,7 +2363,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "horn_fang_feather"
     },
     {
       "id": "gryphon_meat",
@@ -2232,7 +2377,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "raw_meat_cut"
     },
     {
       "id": "raptor_beak",
@@ -2245,7 +2391,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 1500,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "horn_fang_feather"
     },
     {
       "id": "gryphon_feather",
@@ -2258,7 +2405,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "horn_fang_feather"
     },
     {
       "id": "unicorn_meat",
@@ -2271,7 +2419,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 1500,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "raw_meat_cut"
     },
     {
       "id": "purifying_horn",
@@ -2284,7 +2433,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "horn_fang_feather"
     },
     {
       "id": "unicorn_mane",
@@ -2297,7 +2447,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "hide_fur"
     },
     {
       "id": "dragon_meat",
@@ -2310,7 +2461,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 5000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "raw_meat_cut"
     },
     {
       "id": "dragon_scale",
@@ -2323,7 +2475,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 8000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "hide_fur"
     },
     {
       "id": "drakeheart_shard",
@@ -2336,7 +2489,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 10000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "horn_fang_feather"
     },
     {
       "id": "copper_ingot",
@@ -2349,7 +2503,8 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "ingot_bar"
     },
     {
       "id": "silver_ingot",
@@ -2362,7 +2517,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "ingot_bar"
     },
     {
       "id": "titanium_ingot",
@@ -2375,7 +2531,8 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "ingot_bar"
     },
     {
       "id": "gold_ingot",
@@ -2388,7 +2545,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "ingot_bar"
     },
     {
       "id": "platinum_ingot",
@@ -2401,7 +2559,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "ingot_bar"
     },
     {
       "id": "mithril_ingot",
@@ -2414,7 +2573,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "ingot_bar"
     },
     {
       "id": "orichalcum_ingot",
@@ -2427,7 +2587,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "ingot_bar"
     },
     {
       "id": "microchip",
@@ -2440,7 +2601,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 10,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "microchip_part"
     },
     {
       "id": "fishing_net",
@@ -2457,7 +2619,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 5000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "fishing_rig"
     },
     {
       "id": "longline_rig",
@@ -2474,7 +2637,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 8000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "fishing_rig"
     },
     {
       "id": "gene_stat_human",
@@ -2492,7 +2656,8 @@
         "species": "human",
         "drops": ["death"]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "stat_gene"
     },
     {
       "id": "gene_skill_human",
@@ -2510,7 +2675,8 @@
         "species": "human",
         "drops": ["death"]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "skill_gene"
     },
     {
       "id": "gene_stat_creature",
@@ -2528,7 +2694,8 @@
         "species": "creature",
         "drops": ["death", "wave"]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "stat_gene"
     },
     {
       "id": "gene_skill_creature",
@@ -2546,7 +2713,8 @@
         "species": "creature",
         "drops": ["death"]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "skill_gene"
     },
     {
       "id": "fresh_water",
@@ -2559,7 +2727,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "plain_drink"
     },
     {
       "id": "plant_fiber",
@@ -2572,7 +2741,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 50,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "grain_crop"
     },
     {
       "id": "wild_berries",
@@ -2585,7 +2755,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 50,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "fruit_crop"
     },
     {
       "id": "wild_fruit",
@@ -2598,7 +2769,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "fruit_crop"
     },
     {
       "id": "shellfish",
@@ -2611,7 +2783,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 50,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "mollusk_shellfish"
     },
     {
       "id": "whale_meat",
@@ -2624,7 +2797,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 5000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "giant_marine"
     },
     {
       "id": "whale_oil",
@@ -2637,7 +2811,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "weaponType": "giant_marine"
     },
     {
       "id": "hay_porridge",
@@ -2664,7 +2839,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "crop_dish"
     },
     {
       "id": "fried_egg",
@@ -2691,7 +2867,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "meat_dish"
     },
     {
       "id": "meat_skewer",
@@ -2718,7 +2895,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "meat_dish"
     },
     {
       "id": "loach_soup",
@@ -2745,7 +2923,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "seafood_dish"
     },
     {
       "id": "clam_soup",
@@ -2772,7 +2951,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "seafood_dish"
     },
     {
       "id": "meat_stew",
@@ -2809,7 +2989,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "mixed_dish"
     },
     {
       "id": "meat_hay_porridge",
@@ -2846,7 +3027,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "mixed_dish"
     },
     {
       "id": "baked_potato",
@@ -2873,7 +3055,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "crop_dish"
     },
     {
       "id": "cabbage_stew",
@@ -2900,7 +3083,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "crop_dish"
     },
     {
       "id": "venison_roast",
@@ -2927,7 +3111,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "meat_dish"
     },
     {
       "id": "steamed_crucian",
@@ -2954,7 +3139,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "seafood_dish"
     },
     {
       "id": "grilled_carp",
@@ -2981,7 +3167,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "seafood_dish"
     },
     {
       "id": "venison_potato_stew",
@@ -3018,7 +3205,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "mixed_dish"
     },
     {
       "id": "braised_carp",
@@ -3055,7 +3243,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "mixed_dish"
     },
     {
       "id": "tonic_stew",
@@ -3102,7 +3291,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "mixed_dish"
     },
     {
       "id": "wheat_bread",
@@ -3129,7 +3319,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "crop_dish"
     },
     {
       "id": "tomato_pasta",
@@ -3156,7 +3347,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "crop_dish"
     },
     {
       "id": "roast_mutton",
@@ -3183,7 +3375,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "meat_dish"
     },
     {
       "id": "grilled_salmon",
@@ -3210,7 +3403,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "seafood_dish"
     },
     {
       "id": "smoked_trout",
@@ -3237,7 +3431,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "seafood_dish"
     },
     {
       "id": "mutton_stew",
@@ -3274,7 +3469,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "mixed_dish"
     },
     {
       "id": "salmon_mutton_bowl",
@@ -3321,7 +3517,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "mixed_dish"
     },
     {
       "id": "garlic_fried_rice",
@@ -3348,7 +3545,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "crop_dish"
     },
     {
       "id": "beef_steak",
@@ -3375,7 +3573,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "meat_dish"
     },
     {
       "id": "grilled_mackerel",
@@ -3402,7 +3601,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "seafood_dish"
     },
     {
       "id": "grilled_squid",
@@ -3429,7 +3629,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "seafood_dish"
     },
     {
       "id": "beef_scallion_stir",
@@ -3466,7 +3667,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "mixed_dish"
     },
     {
       "id": "braised_mackerel",
@@ -3503,7 +3705,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "mixed_dish"
     },
     {
       "id": "braised_beef_mackerel",
@@ -3550,7 +3753,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "feast_dish"
     },
     {
       "id": "corn_salad",
@@ -3577,7 +3781,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "crop_dish"
     },
     {
       "id": "asparagus_roast",
@@ -3604,7 +3809,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "crop_dish"
     },
     {
       "id": "fox_meat_roast",
@@ -3631,7 +3837,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "meat_dish"
     },
     {
       "id": "flounder_sashimi",
@@ -3658,7 +3865,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "seafood_dish"
     },
     {
       "id": "rockfish_soup",
@@ -3685,7 +3893,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "seafood_dish"
     },
     {
       "id": "steamed_flatfish",
@@ -3722,7 +3931,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "mixed_dish"
     },
     {
       "id": "flatfish_veg_stew",
@@ -3769,7 +3979,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "mixed_dish"
     },
     {
       "id": "soybean_stew",
@@ -3796,7 +4007,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "crop_dish"
     },
     {
       "id": "olive_salad",
@@ -3823,7 +4035,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "crop_dish"
     },
     {
       "id": "black_pork_steak",
@@ -3850,7 +4063,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "meat_dish"
     },
     {
       "id": "sea_bream_sashimi",
@@ -3877,7 +4091,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "seafood_dish"
     },
     {
       "id": "grilled_sea_bass",
@@ -3904,7 +4119,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "seafood_dish"
     },
     {
       "id": "sea_bream_carpaccio",
@@ -3941,7 +4157,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "mixed_dish"
     },
     {
       "id": "pork_bream_salad",
@@ -3988,7 +4205,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "feast_dish"
     },
     {
       "id": "kabocha_soup",
@@ -4015,7 +4233,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "crop_dish"
     },
     {
       "id": "artichoke_gratin",
@@ -4042,7 +4261,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "crop_dish"
     },
     {
       "id": "croc_tail_steak",
@@ -4069,7 +4289,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "meat_dish"
     },
     {
       "id": "yellowtail_sashimi",
@@ -4096,7 +4317,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "seafood_dish"
     },
     {
       "id": "boiled_octopus",
@@ -4123,7 +4345,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "seafood_dish"
     },
     {
       "id": "whale_steak",
@@ -4150,7 +4373,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "mixed_dish"
     },
     {
       "id": "yellowtail_croc_canape",
@@ -4197,7 +4421,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "mixed_dish"
     },
     {
       "id": "quinoa_salad",
@@ -4224,7 +4449,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "crop_dish"
     },
     {
       "id": "gryphon_roast",
@@ -4251,7 +4477,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "meat_dish"
     },
     {
       "id": "sturgeon_caviar",
@@ -4278,7 +4505,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "seafood_dish"
     },
     {
       "id": "sailfish_sashimi",
@@ -4305,7 +4533,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "seafood_dish"
     },
     {
       "id": "moonlight_gryphon",
@@ -4342,7 +4571,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "mixed_dish"
     },
     {
       "id": "sturgeon_quinoa_bowl",
@@ -4379,7 +4609,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "mixed_dish"
     },
     {
       "id": "caviar_gryphon_feast",
@@ -4426,7 +4657,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "feast_dish"
     },
     {
       "id": "black_maca_pasta",
@@ -4453,7 +4685,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "crop_dish"
     },
     {
       "id": "truffle_risotto",
@@ -4480,7 +4713,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "crop_dish"
     },
     {
       "id": "unicorn_steak",
@@ -4507,7 +4741,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "meat_dish"
     },
     {
       "id": "tuna_belly_sashimi",
@@ -4534,7 +4769,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "seafood_dish"
     },
     {
       "id": "grouper_sashimi",
@@ -4561,7 +4797,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "seafood_dish"
     },
     {
       "id": "tuna_truffle_bowl",
@@ -4598,7 +4835,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "mixed_dish"
     },
     {
       "id": "truffle_tuna_feast",
@@ -4645,7 +4883,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "feast_dish"
     },
     {
       "id": "divine_grain_bowl",
@@ -4672,7 +4911,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "crop_dish"
     },
     {
       "id": "ambrosia_nectar",
@@ -4699,7 +4939,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "crop_dish"
     },
     {
       "id": "dragon_meat_roast",
@@ -4726,7 +4967,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "meat_dish"
     },
     {
       "id": "whale_shark_course",
@@ -4753,7 +4995,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "seafood_dish"
     },
     {
       "id": "megalodon_sashimi",
@@ -4780,7 +5023,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "seafood_dish"
     },
     {
       "id": "dragon_grain_feast",
@@ -4817,7 +5061,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "mixed_dish"
     },
     {
       "id": "divine_feast",
@@ -4864,7 +5109,8 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "weaponType": "feast_dish"
     }
   ]
 }

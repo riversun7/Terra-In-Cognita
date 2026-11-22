@@ -43,7 +43,7 @@ export function templateOf(
     return {
       id,
       name,
-      slot: at?.slot ?? "weapon",
+      ...(at?.slot === undefined ? {} : { slot: at.slot }),
       ...(at?.subcategory === undefined ? {} : { subcategory: at.subcategory }),
       enabled: true,
     } satisfies WeaponTypeJson;
@@ -205,11 +205,13 @@ export function WeaponTypeFields({
   onChange,
 }: {
   draft: WeaponTypeJson;
-  /** 고를 수 있는 상위 중분류(장비 대분류의 중분류, 실효 보기) */
-  parents: readonly { readonly id: string; readonly name: string }[];
+  /** 고를 수 있는 상위 중분류(실효 보기) */
+  parents: readonly { readonly id: string; readonly name: string; readonly major?: ItemCategoryId }[];
   onChange: (next: WeaponTypeJson) => void;
 }) {
   const parent = draft.subcategory ?? NO_PARENT;
+  const parentMajor = parents.find((item) => item.id === draft.subcategory)?.major;
+  const showSlot = parentMajor === undefined || parentMajor === "equipment" || draft.slot !== undefined;
   // 지금 값이 목록에 없으면(지운 중분류 등) 그 ID를 그대로 보인다: 팩 검사가 참조 문제를 알린다
   const parentOptions = [
     { value: NO_PARENT, label: m.dev_items_tax_parent_none() },
@@ -220,28 +222,38 @@ export function WeaponTypeFields({
   ];
   return (
     <div className="ie-grid">
-      <SelectField
-        label={m.dev_items_field_slot()}
-        path="slot"
-        value={draft.slot}
-        options={[
-          { value: "weapon", label: m.roster_slot_weapon() },
-          { value: "offhand", label: m.roster_slot_offhand() },
-        ]}
-        onChange={(slot) => {
-          // 탄약 종류는 보조 칸만(D-497): 무기 칸으로 바꾸면 뺀다
-          const { ammo: _drop, ...rest } = draft;
-          onChange(slot === "offhand" ? { ...draft, slot } : { ...rest, slot });
-        }}
-      />
+      {showSlot ? (
+        <SelectField
+          label={m.dev_items_field_slot()}
+          path="slot"
+          value={draft.slot ?? ""}
+          options={[
+            { value: "", label: m.dev_items_none() },
+            { value: "weapon", label: m.roster_slot_weapon() },
+            { value: "offhand", label: m.roster_slot_offhand() },
+          ]}
+          onChange={(slot) => {
+            // 탄약 종류는 보조 칸만(D-497): 무기 칸·비움으로 바꾸면 뺀다
+            const { ammo: _drop, slot: _oldSlot, ...rest } = draft;
+            if (slot === "weapon" || slot === "offhand") {
+              onChange(slot === "offhand" ? { ...draft, slot } : { ...rest, slot });
+            } else {
+              onChange(rest);
+            }
+          }}
+        />
+      ) : null}
       <SelectField
         label={m.dev_items_tax_parent()}
         path="subcategory"
         value={parent}
         options={parentOptions}
         onChange={(next) => {
-          const { subcategory: _drop, ...rest } = draft;
-          onChange(next === NO_PARENT ? rest : { ...rest, subcategory: next });
+          const nextMajor = parents.find((item) => item.id === next)?.major;
+          const { subcategory: _drop, ...withoutSub } = draft;
+          const { slot: _slot, ammo: _ammo, ...withoutSlot } = withoutSub;
+          const clean = nextMajor !== undefined && nextMajor !== "equipment" ? withoutSlot : withoutSub;
+          onChange(next === NO_PARENT ? clean : { ...clean, subcategory: next });
         }}
       />
       <NumberField

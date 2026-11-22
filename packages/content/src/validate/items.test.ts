@@ -228,6 +228,29 @@ describe("아이템 사이 규칙", () => {
     });
   });
 
+  it("장비 밖 소분류(slot 없음)는 비장비 중분류를 상위 중분류로 둘 수 있고, 아이템 중분류가 맞지 않으면 알린다", () => {
+    const parented = {
+      "weapon_types.json": {
+        entries: [
+          { id: "bow", name, slot: "weapon", subcategory: "weapon", enabled: true },
+          { id: "quiver", name, slot: "offhand", enabled: true },
+          { id: "sea_fish", name, subcategory: "fish", enabled: true },
+        ],
+      },
+    };
+    const issues = issuesOf(
+      [
+        rottenFish,
+        { ...rawFish, id: "good_fish", subcategory: "fish", weaponType: "sea_fish" },
+        { ...rawFish, id: "wrong_sub", subcategory: "ore", weaponType: "sea_fish" },
+      ],
+      parented,
+    );
+    expect(issues.map((issue) => [issue.file, issue.id, issue.path, issue.code])).toEqual([
+      ["items.json", "wrong_sub", "subcategory", "item_weapon_type_subcategory"],
+    ]);
+  });
+
   it("신선도 0이면 바뀌는 아이템은 자기 자신이 아니고, 사슬이 돌지 않는다", () => {
     const self = { ...rawFish, id: "self_fish", perish: { shelfLifeMs: 3_600_000, spoilsTo: "self_fish" } };
     const loopA = { ...rawFish, id: "loop_a", perish: { shelfLifeMs: 3_600_000, spoilsTo: "loop_b" } };

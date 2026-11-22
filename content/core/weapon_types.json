@@ -141,6 +141,357 @@
       "subcategory": "offhand_weapon",
       "ammo": true,
       "enabled": true
+    },
+    {
+      "id": "head_armor",
+      "name": {
+        "ko": "투구·모자",
+        "en": "Headgear"
+      },
+      "subcategory": "armor",
+      "enabled": true
+    },
+    {
+      "id": "body_armor",
+      "name": {
+        "ko": "갑옷·의복",
+        "en": "Body armor"
+      },
+      "subcategory": "armor",
+      "enabled": true
+    },
+    {
+      "id": "ring_accessory",
+      "name": {
+        "ko": "반지·장신구",
+        "en": "Ring & trinket"
+      },
+      "subcategory": "accessory",
+      "enabled": true
+    },
+    {
+      "id": "cyber_organ",
+      "name": {
+        "ko": "인공 장기",
+        "en": "Cybernetic organ"
+      },
+      "subcategory": "implant",
+      "enabled": true
+    },
+    {
+      "id": "basic_ration",
+      "name": {
+        "ko": "기본 배급식",
+        "en": "Basic ration"
+      },
+      "subcategory": "dish",
+      "enabled": true
+    },
+    {
+      "id": "crop_dish",
+      "name": {
+        "ko": "농작물 요리",
+        "en": "Crop dish"
+      },
+      "subcategory": "dish",
+      "enabled": true
+    },
+    {
+      "id": "meat_dish",
+      "name": {
+        "ko": "육류 요리",
+        "en": "Meat dish"
+      },
+      "subcategory": "dish",
+      "enabled": true
+    },
+    {
+      "id": "seafood_dish",
+      "name": {
+        "ko": "해산물 요리",
+        "en": "Seafood dish"
+      },
+      "subcategory": "dish",
+      "enabled": true
+    },
+    {
+      "id": "mixed_dish",
+      "name": {
+        "ko": "복합·특선 요리",
+        "en": "Mixed & specialty dish"
+      },
+      "subcategory": "dish",
+      "enabled": true
+    },
+    {
+      "id": "feast_dish",
+      "name": {
+        "ko": "연회·정식 요리",
+        "en": "Feast & full course"
+      },
+      "subcategory": "dish",
+      "enabled": true
+    },
+    {
+      "id": "plain_drink",
+      "name": {
+        "ko": "식수·음료",
+        "en": "Water & drink"
+      },
+      "subcategory": "drink",
+      "enabled": true
+    },
+    {
+      "id": "daily_supply",
+      "name": {
+        "ko": "생활 물자",
+        "en": "Daily supply"
+      },
+      "subcategory": "buff_item",
+      "enabled": true
+    },
+    {
+      "id": "stone_mineral",
+      "name": {
+        "ko": "석재·비금속",
+        "en": "Stone & mineral"
+      },
+      "subcategory": "ore",
+      "enabled": true
+    },
+    {
+      "id": "base_metal_ore",
+      "name": {
+        "ko": "일반 금속광",
+        "en": "Base metal ore"
+      },
+      "subcategory": "ore",
+      "enabled": true
+    },
+    {
+      "id": "precious_ore",
+      "name": {
+        "ko": "귀금속·신화광",
+        "en": "Precious & mythic ore"
+      },
+      "subcategory": "ore",
+      "enabled": true
+    },
+    {
+      "id": "softwood",
+      "name": {
+        "ko": "침엽수·연질목",
+        "en": "Softwood"
+      },
+      "subcategory": "wood",
+      "enabled": true
+    },
+    {
+      "id": "hardwood",
+      "name": {
+        "ko": "활엽수·경질목",
+        "en": "Hardwood"
+      },
+      "subcategory": "wood",
+      "enabled": true
+    },
+    {
+      "id": "precious_wood",
+      "name": {
+        "ko": "특수·귀목",
+        "en": "Precious wood"
+      },
+      "subcategory": "wood",
+      "enabled": true
+    },
+    {
+      "id": "grain_crop",
+      "name": {
+        "ko": "곡류·씨앗·섬유",
+        "en": "Grain, seed & fiber"
+      },
+      "subcategory": "crop",
+      "enabled": true
+    },
+    {
+      "id": "vegetable_crop",
+      "name": {
+        "ko": "채소·구근",
+        "en": "Vegetable & root"
+      },
+      "subcategory": "crop",
+      "enabled": true
+    },
+    {
+      "id": "fruit_crop",
+      "name": {
+        "ko": "과일·열매",
+        "en": "Fruit & berry"
+      },
+      "subcategory": "crop",
+      "enabled": true
+    },
+    {
+      "id": "culinary_herb",
+      "name": {
+        "ko": "향신·차 허브",
+        "en": "Culinary & tea herb"
+      },
+      "subcategory": "herb",
+      "enabled": true
+    },
+    {
+      "id": "medicinal_herb",
+      "name": {
+        "ko": "약용·영약 허브",
+        "en": "Medicinal & mystic herb"
+      },
+      "subcategory": "herb",
+      "enabled": true
+    },
+    {
+      "id": "freshwater_fish",
+      "name": {
+        "ko": "민물 어류",
+        "en": "Freshwater fish"
+      },
+      "subcategory": "fish",
+      "enabled": true
+    },
+    {
+      "id": "sea_fish",
+      "name": {
+        "ko": "바다 어류",
+        "en": "Sea fish"
+      },
+      "subcategory": "fish",
+      "enabled": true
+    },
+    {
+      "id": "mollusk_shellfish",
+      "name": {
+        "ko": "패류·두족류",
+        "en": "Shellfish & cephalopod"
+      },
+      "subcategory": "fish",
+      "enabled": true
+    },
+    {
+      "id": "giant_marine",
+      "name": {
+        "ko": "대형·심해 수산물",
+        "en": "Giant & deep-sea marine"
+      },
+      "subcategory": "fish",
+      "enabled": true
+    },
+    {
+      "id": "raw_meat_cut",
+      "name": {
+        "ko": "생육·정육",
+        "en": "Raw meat"
+      },
+      "subcategory": "livestock_product",
+      "enabled": true
+    },
+    {
+      "id": "egg_dairy",
+      "name": {
+        "ko": "알·유지·유제품",
+        "en": "Egg, fat & dairy"
+      },
+      "subcategory": "livestock_product",
+      "enabled": true
+    },
+    {
+      "id": "hide_fur",
+      "name": {
+        "ko": "가죽·모피·털",
+        "en": "Hide, fur & wool"
+      },
+      "subcategory": "livestock_byproduct",
+      "enabled": true
+    },
+    {
+      "id": "horn_fang_feather",
+      "name": {
+        "ko": "뿔·엄니·깃털·부산물",
+        "en": "Horn, fang & feather"
+      },
+      "subcategory": "livestock_byproduct",
+      "enabled": true
+    },
+    {
+      "id": "ingot_bar",
+      "name": {
+        "ko": "금속 주괴",
+        "en": "Metal ingot"
+      },
+      "subcategory": "metal",
+      "enabled": true
+    },
+    {
+      "id": "masonry_block",
+      "name": {
+        "ko": "석공·벽돌",
+        "en": "Masonry & brick"
+      },
+      "subcategory": "metal",
+      "enabled": true
+    },
+    {
+      "id": "sawn_plank",
+      "name": {
+        "ko": "제재 판자",
+        "en": "Sawn plank"
+      },
+      "subcategory": "lumber",
+      "enabled": true
+    },
+    {
+      "id": "microchip_part",
+      "name": {
+        "ko": "칩·소자",
+        "en": "Microchip"
+      },
+      "subcategory": "circuit",
+      "enabled": true
+    },
+    {
+      "id": "fishing_rig",
+      "name": {
+        "ko": "어구",
+        "en": "Fishing rig"
+      },
+      "subcategory": "catch_gear",
+      "enabled": true
+    },
+    {
+      "id": "stat_gene",
+      "name": {
+        "ko": "스탯 유전자",
+        "en": "Stat gene"
+      },
+      "subcategory": "gene",
+      "enabled": true
+    },
+    {
+      "id": "skill_gene",
+      "name": {
+        "ko": "스킬 유전자",
+        "en": "Skill gene"
+      },
+      "subcategory": "gene",
+      "enabled": true
+    },
+    {
+      "id": "draft_doc",
+      "name": {
+        "ko": "도면·문서",
+        "en": "Blueprint & document"
+      },
+      "subcategory": "blueprint",
+      "enabled": true
     }
   ]
 }

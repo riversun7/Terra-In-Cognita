@@ -78,6 +78,7 @@ export function itemJsonOf(entry: ItemEntry): ItemJson {
     ...(entry.description ? { description: name(entry.description) } : {}),
     category: entry.category,
     ...(entry.subcategory ? { subcategory: entry.subcategory.id } : {}),
+    ...(entry.weaponType ? { weaponType: entry.weaponType.id } : {}),
     ...(entry.tags ? { tags: entry.tags.map(idOf) } : {}),
     tier: entry.tier,
     startPrice: entry.startPrice,
@@ -144,7 +145,7 @@ export function weaponTypeJsonOf(entry: WeaponTypeEntry): WeaponTypeJson {
   return {
     id: entry.id,
     name: name(entry.name),
-    slot: entry.slot,
+    ...(entry.slot === undefined ? {} : { slot: entry.slot }),
     ...(entry.subcategory === undefined ? {} : { subcategory: entry.subcategory.id }),
     ...(entry.order === undefined ? {} : { order: entry.order }),
     ...(entry.ammo === undefined ? {} : { ammo: entry.ammo }),
@@ -213,7 +214,7 @@ export function itemRowOf(
         : defaultStorageOf(entry.category, food),
     market: marketKindOf(entry),
     slot: entry.equip?.slot ?? null,
-    weaponType: entry.equip?.weaponType?.id ?? null,
+    weaponType: entry.weaponType?.id ?? entry.equip?.weaponType?.id ?? null,
     kinds: (entry.equip?.kinds ?? []).map(idOf),
     attack: weapon
       ? { physical: weapon.physical?.attack ?? null, elemental: weapon.elemental?.attack ?? null }

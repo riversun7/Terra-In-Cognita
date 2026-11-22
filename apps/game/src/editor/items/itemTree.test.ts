@@ -153,6 +153,16 @@ describe("buildItemTree", () => {
     expect(slotForNewKind(kindsOf("offhand_weapon"))).toBe("offhand");
     expect(slotForNewKind(kindsOf("armor"))).toBe("weapon");
   });
+
+  it("장비 밖 소분류(slot 없음)는 해당 상위 중분류 아래에 붙고 아이템 수를 센다", () => {
+    const oreKind = kind("base_metal_ore", undefined, undefined, "ore");
+    const items = [item("iron_ore", { category: "raw", subcategory: "ore", weaponType: "base_metal_ore" })];
+    const tree = buildItemTree(items, SUBS, [...KINDS, oreKind]);
+    const raw = tree.find((major) => major.id === "raw");
+    const ore = raw?.subs.find((node) => node.id === "ore");
+    expect(ore?.kinds.map((k) => [k.id, k.count])).toEqual([["base_metal_ore", 1]]);
+    expect(findKind(tree, "base_metal_ore")?.parent?.id).toBe("ore");
+  });
 });
 
 describe("treeItems·taxEntries", () => {

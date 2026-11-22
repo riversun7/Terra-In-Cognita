@@ -56,8 +56,12 @@ function apply(state: ReturnType<typeof fresh>, puts: Parameters<ReturnType<type
 }
 
 const ration = packEntry("items", "ration");
-// 배급 식량은 중분류 요리(dish, core@60): 대분류를 바꾸는 시험은 그 대분류의 중분류를 같이 준다
-const newItem = (id: string, extra: Record<string, unknown> = {}) => ({ ...ration, id, ...extra });
+// 배급 식량은 중분류 요리(dish, core@60)·소분류 기본 배급식(core@152): 대분류·중분류를 바꾸는 시험은 옛 소분류를 뺀다
+const newItem = (id: string, extra: Record<string, unknown> = {}) => {
+  const { weaponType: _drop, ...withoutKind } = ration;
+  const base = "category" in extra || "subcategory" in extra ? withoutKind : ration;
+  return { ...base, id, ...extra };
+};
 
 describe("baseHash: 같은 항목을 누가 먼저 고쳤을 때만 충돌", () => {
   it("지금 실효 해시와 같으면 받고, 다르면 entry_changed(키), 새 항목(null)인데 그새 생겼으면 entry_changed", () => {

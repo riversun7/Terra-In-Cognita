@@ -85,8 +85,8 @@ function NodeItems({
   onShow: () => void;
 }) {
   const headingId = useId();
-  const inside = itemsOfNode(node, items, subs).toSorted((a, b) =>
-    a.name[locale].localeCompare(b.name[locale], locale),
+  const inside = itemsOfNode(node, items, subs).toSorted(
+    (a, b) => a.tier - b.tier || a.name[locale].localeCompare(b.name[locale], locale),
   );
   return (
     <section className="ie-node-items" aria-labelledby={headingId} data-part="node-items">
@@ -437,25 +437,24 @@ function NodeBody({
         <EntryEditor category="item_subcategories" entry={entry} onStage={onStage}>
           {(draft, put) => ("major" in draft ? <SubcategoryFields draft={draft} onChange={put} /> : null)}
         </EntryEditor>
-        {equipment ? (
-          <>
-            <p className="field-hint">{m.dev_items_tax_kind_link()}</p>
-            <ChildLinks
-              title={m.dev_items_tax_weapon_types()}
-              links={sub.kinds.map((kind) => ({
-                node: { kind: "weapon", id: kind.id } as const,
-                label: kind.entry.name[locale],
-                count: kind.count,
-              }))}
-              onPick={onPick}
-            />
-            <NewHere
-              label={m.dev_items_tax_new_kind({ name: sub.entry.name[locale] })}
-              taken={takenOf("weapon_types")}
-              onCreate={create("weapon_types", { slot: slotForNewKind(sub.kinds), subcategory: sub.id })}
-            />
-          </>
-        ) : null}
+        <p className="field-hint">{m.dev_items_tax_kind_link()}</p>
+        <ChildLinks
+          title={m.dev_items_tax_weapon_types()}
+          links={sub.kinds.map((kind) => ({
+            node: { kind: "weapon", id: kind.id } as const,
+            label: kind.entry.name[locale],
+            count: kind.count,
+          }))}
+          onPick={onPick}
+        />
+        <NewHere
+          label={m.dev_items_tax_new_kind({ name: sub.entry.name[locale] })}
+          taken={takenOf("weapon_types")}
+          onCreate={create("weapon_types", {
+            ...(equipment ? { slot: slotForNewKind(sub.kinds) } : {}),
+            subcategory: sub.id,
+          })}
+        />
         {itemsPart({ category: sub.entry.major, subcategory: sub.id })(node)}
       </section>
     );
@@ -465,10 +464,11 @@ function NodeBody({
   const entry = kinds.find((item) => item.id === node.id);
   if (!found || !entry) return null;
   const { kind, parent } = found;
+  const major = parent?.entry.major ?? "equipment";
   return (
     <section className="ie-panel ie-tax-node" data-node={`weapon:${kind.id}`}>
       <NodeHead
-        level={`${CATEGORY_TEXT.equipment()} › ${parent ? parent.entry.name[locale] : m.dev_items_tax_loose()} › ${m.dev_items_tax_level_kind()}`}
+        level={`${CATEGORY_TEXT[major]()} › ${parent ? parent.entry.name[locale] : m.dev_items_tax_loose()} › ${m.dev_items_tax_level_kind()}`}
         title={kind.entry.name[locale]}
         id={kind.id}
         count={kind.count}
@@ -476,18 +476,24 @@ function NodeBody({
       {parent ? null : <p className="field-hint">{m.dev_items_tax_loose_hint()}</p>}
       <EntryEditor category="weapon_types" entry={entry} onStage={onStage}>
         {(draft, put) =>
-          "slot" in draft ? (
+          !("major" in draft) ? (
             <WeaponTypeFields
               draft={draft}
-              parents={subs
-                .filter((item) => item.entry.major === "equipment")
-                .map((item) => ({ id: item.id, name: item.entry.name[locale] }))}
+              parents={subs.map((item) => ({
+                id: item.id,
+                name: item.entry.name[locale],
+                major: item.entry.major,
+              }))}
               onChange={put}
             />
           ) : null
         }
       </EntryEditor>
-      {itemsPart({ category: "equipment", weaponType: kind.id })(node)}
+      {itemsPart({
+        category: major,
+        ...(parent ? { subcategory: parent.id } : {}),
+        weaponType: kind.id,
+      })(node)}
     </section>
   );
 }

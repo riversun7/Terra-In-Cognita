@@ -16,9 +16,6 @@
 //   2차맵에 닿으면(source.border — world/edgeWatch.ts가 그 유닛 자리를 이 2차맵의 늘인 틀로 옮겨 준다) 그 몫을 내 덮개에 더한다. 그래서
 //   그 몫은 내 유닛이 이 2차맵에 선 것과 같다: 탐사 기록에 남고, 그 안의 남의 유닛·건물이 보이고, 이 2차맵을 볼 수 있다(구독). 같은 나라
 //   덮개도 같은 나라 사람 유닛의 경계 너머 시야를 품는다. 원 모양·반지름은 2차맵 안 시야와 같다(경계에서 잘리지 않는다).
-// - 연맹 시야 나눔(league-2, 사용자 결정 D-590 2501 다 — 연맹 조항 카드 shared_vision): 보는 사람의 가문과 그 카드가 붙은 연맹에 함께 든 가문의 소유
-//   주체(viewer.allies — world/leagueTies.ts)가 덮는 칸을 남을 보는 시야에 더한다(나라 덮개처럼 탐사 기록은 채우지 않는다). 연맹 덮개는 묶음 열쇠
-//   (가문 + 연맹 표 판)마다 시야 틱에 한 번 센다.
 import { type BuildingWire, type UnitMotionWire, VISION_BYTES, encodeMessage } from "@terra/protocol";
 import {
   BUILDING_VISION_CELLS,
@@ -88,15 +85,6 @@ export interface ExploredStore {
   save(userId: string, bits: Uint8Array): void;
 }
 
-/** 연맹 시야 나눔 한 묶음(league-2): 열쇠(같으면 같은 덮개 — 가문 + 연맹 표 판)와 소속 묻기 */
-export interface AllyShareSpec {
-  readonly key: string;
-  member(ownerId: number): boolean;
-}
-
-/** 보는 사람의 소유 주체 → 연맹 시야 나눔(없으면 undefined). leagueTies.ts가 만든다 */
-export type AllyLookup = (viewerOwnerId: number) => AllyShareSpec | undefined;
-
 /** 시야로 거를 사람 */
 export interface VisionViewer {
   readonly userId: string;
@@ -104,8 +92,6 @@ export interface VisionViewer {
   readonly ownerId: number | undefined;
   /** 같은 나라 시야 공유(질문 746 나): 소유 주체 → 나라. 보는 사람의 나라 = nations(ownerId). 없으면 내 시야만 */
   readonly nations?: NationLookup | undefined;
-  /** 연맹 시야 나눔(league-2 — 조항 카드 shared_vision). 없으면 나누지 않는다 */
-  readonly allies?: AllyLookup | undefined;
 }
 
 export interface MapVision {
@@ -228,8 +214,6 @@ export function createMapVision(options: {
   let lastSave = now();
   /** 나라 덮개(나라 → 센 시각·덮개·소속). 시야 틱 하나 동안 다시 쓴다(무리마다 다시 세지 않는다) */
   const nationShares = new Map<number, NationShare>();
-  /** 연맹 덮개(묶음 열쇠 → 센 시각·덮개). 시야 틱 하나 동안 다시 쓴다 */
-  const allyShares = new Map<string, { readonly at: number; readonly cover: Uint16Array }>();
 
   const loadExplored = async (userId: string): Promise<Uint8Array> => {
     const known = exploredOf.get(userId);
@@ -303,44 +287,7 @@ export function createMapVision(options: {
    * 남의 유닛·건물을 보는 시야 = 내 덮개 + 같은 나라 덮개. 내 소유 주체도 그 나라라 나라 덮개가 내 덮개를 품는다 → 나라가 있으면 나라
    * 덮개(여러 무리가 같은 배열을 읽기만 한다), 없으면 내 덮개
    */
-  const baseSightOf = (viewer: VisionViewer, own: Uint16Array): Uint16Array => shareFor(viewer)?.cover ?? own;
-
-  /** 연맹 시야 나눔 덮개(league-2): 그 묶음 소유 주체들의 유닛·건물·경계 너머 시야. 나눔이 없으면 undefined */
-  const allyCoverFor = (viewer: VisionViewer): Uint16Array | undefined => {
-    const spec = viewer.ownerId === undefined ? undefined : viewer.allies?.(viewer.ownerId);
-    if (!spec) return undefined;
-    const at = now();
-    const cached = allyShares.get(spec.key);
-    if (cached && at - cached.at < VISION_TICK_MS && at >= cached.at) return cached.cover;
-    const cover = new Uint16Array(VISION_CELLS);
-    const members = new Map<number, boolean>();
-    const member = (ownerId: number): boolean => {
-      let known = members.get(ownerId);
-      if (known === undefined) {
-        known = spec.member(ownerId);
-        members.set(ownerId, known);
-      }
-      return known;
-    };
-    for (const unit of source.units())
-      if (member(unit.ownerId)) stampVision(cover, visionCellOf(positionAt(unit.motion, at)), UNIT_RADIUS);
-    for (const building of source.buildings())
-      if (building.ownerId !== null && member(building.ownerId))
-        stampVision(cover, buildingCell(building.placement), BUILDING_RADIUS);
-    for (const sight of source.border?.(at) ?? []) if (member(sight.ownerId)) stampBorder(cover, sight);
-    allyShares.set(spec.key, { at, cover });
-    return cover;
-  };
-
-  /** 남을 보는 시야 = 내(또는 나라) 덮개 + 연맹 덮개(league-2). 연맹 나눔이 없으면 앞 것 그대로(같은 배열) */
-  const sightOf = (viewer: VisionViewer, own: Uint16Array): Uint16Array => {
-    const base = baseSightOf(viewer, own);
-    const allies = allyCoverFor(viewer);
-    if (!allies) return base;
-    const merged = new Uint16Array(VISION_CELLS);
-    for (let cell = 0; cell < VISION_CELLS; cell += 1) merged[cell] = (base[cell] ?? 0) + (allies[cell] ?? 0);
-    return merged;
-  };
+  const sightOf = (viewer: VisionViewer, own: Uint16Array): Uint16Array => shareFor(viewer)?.cover ?? own;
 
   /** 남의 유닛 하나를 지금 덮인 칸으로 잘라 본다. 안 보이면 undefined */
   const clip = (
@@ -402,7 +349,7 @@ export function createMapVision(options: {
     // 탐사 기록은 내 덮개로만, 보는 판정은 공유 시야로
     const own = computeCover(group);
     group.share = shareFor(group.viewer);
-    group.cover = sightOf(group.viewer, own);
+    group.cover = group.share?.cover ?? own;
     const explored = addCoverBits(group.explored, own);
     if (explored) {
       group.exploredDirty = true;
@@ -507,7 +454,7 @@ export function createMapVision(options: {
     // 처음 상태: 덮인 칸(같은 나라 공유 포함)·탐사(내 덮개만)·보이는 남의 유닛·건물
     const own = computeCover(group);
     group.share = shareFor(viewer);
-    group.cover = sightOf(viewer, own);
+    group.cover = group.share?.cover ?? own;
     if (addCoverBits(group.explored, own)) group.exploredDirty = true;
     for (const building of source.buildings())
       if (buildingVisible(group, building)) group.buildings.add(building.id);
@@ -531,9 +478,7 @@ export function createMapVision(options: {
         for (const sight of source.border?.(now()) ?? []) if (sight.ownerId === viewer.ownerId) return true;
       }
       // 같은 나라 유닛·건물이 있는 2차맵도 볼 수 있다(같은 나라 시야 공유 — 내 나라 다른 도시를 들어가 본다, 질문 746 나)
-      if (shareFor(viewer)?.cover.some((count) => count > 0) === true) return true;
-      // 연맹 시야 나눔(league-2): 함께 든 가문 유닛·건물이 있는 2차맵도 같은 나라처럼 볼 수 있다
-      return allyCoverFor(viewer)?.some((count) => count > 0) === true;
+      return shareFor(viewer)?.cover.some((count) => count > 0) === true;
     },
     async sighted(viewer) {
       // 탐사 기록은 구독하는 동안만 쌓이므로 지금 내 유닛·건물이 덮는 칸을 더해 본다(기록은 바꾸지 않는다, 사본)
@@ -630,7 +575,7 @@ export function createMapVision(options: {
       if (group) return group.visible.has(unitId);
       const share = shareFor(viewer);
       if (share && isMember(share, unit.ownerId)) return true;
-      const sight = sightOf(viewer, coverOf(viewer.ownerId));
+      const sight = share?.cover ?? coverOf(viewer.ownerId);
       return (sight[visionCellOf(positionAt(unit.motion, now()))] ?? 0) > 0;
     },
     tick,

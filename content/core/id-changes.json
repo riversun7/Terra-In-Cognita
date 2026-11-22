@@ -601,6 +601,14 @@
         "kind": "replace",
         "with": "human"
       }
+    },
+    {
+      "category": "tuning",
+      "id": "house_league_fee_discount_pm",
+      "since": 245,
+      "compensation": {
+        "kind": "none"
+      }
     }
   ]
 }

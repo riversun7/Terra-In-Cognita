@@ -14,14 +14,15 @@
 // 바뀜 (league-2, 사용자 결정 D-590 — 질문 2501 다·2502 다·2503 가·2504 나): docs/adr/2026-11-21-npc-needs-drives.md "바뀜 (league-2, D-590)".
 // - 들기 절차(2502 다): join = 받은 초대가 있으면 듦, 없으면 신청(pending). invite(대표 → 가문, 그 가문이 신청했으면 바로 듦)·approve(대표가 신청을 받음)·
 //   decline(대표: 그 가문의 초대·신청 지움 / 가문장: 자기 것 지움). 옛 [임시] "고르면 바로 듦"을 대신한다. 표 house_league_requests.
-// - 조항 카드(2501 다): 대표가 clause_on·clause_off로 붙이고 뗀다 [임시 — 대표가 정함, 질문 2642]. 표 house_league_clauses. 집행은 world/leagueTies.ts가
-//   이 서비스의 동기 조회(ties)를 읽는다.
+// - (조항 카드 2501 다 — league-3에서 없앰, 아래)
 // - 대표가 나가면 가장 오래 든 가문이 대표(2504 나 — 표를 지운다). 투표는 가문 1표 과반 그대로(2503 가).
 // - NPC(npcSweep 차례): ① 빼기 ② 투표 끝내기 ③ 든 NPC 가문 나가기·표 ④ 들지 않은 NPC 가문 만들기·신청 ⑤ 초대받은 NPC 가문 수락·거절 ⑥ NPC 대표의 신청
 //   승인·거절과 초대 하나(npcLeague.ts — 성향 규칙식 [임시], 질문 2644).
+// 바뀜 (league-3, 사용자 결정 D-593 "연맹은 친목이라고 그런거 아니라고" — D-590 1을 대신한다): 연맹은 친목 모임일 뿐이다. 조항 카드(clause_on·clause_off, 표
+//   house_league_clauses, 집행 조회 ties)를 없앴다. 옛 판(66) 기기가 카드 행동을 보내면 invalid_clause로 답한다(메시지 모양은 그대로). 표 house_league_clauses는
+//   올라간 마이그레이션이라 지우지 않고 쓰지 않는다(연맹이 끝나면 외래 키 cascade로 줄이 지워진다).
 import { isHouseKey } from "@terra/shared/governance";
 import type { UnitTraits } from "@terra/shared/unitTraits";
-import { HOUSE_LEAGUE_CLAUSES, type HouseLeagueClause } from "@terra/protocol";
 import {
   type HouseLeague,
   type HouseLeagueFailure,
@@ -37,7 +38,6 @@ import {
   inviteHouseLeague,
   leaveHouseLeague,
   pruneHouseLeague,
-  setHouseLeagueClause,
   voteHouseLeague,
 } from "./houseLeague.ts";
 import {
@@ -50,7 +50,6 @@ import {
   livePlayerHouses,
   loadLeagueExtras,
   loadLeagues,
-  setClause,
   setRepresentative,
   upsertRequest,
   upsertVote,
@@ -99,20 +98,10 @@ export interface LeagueView {
   readonly representative: string;
   readonly members: readonly string[];
   readonly createdAtMs: number;
-  /** 붙은 조항 카드(league-2, 카드 차례) */
-  readonly clauses: readonly HouseLeagueClause[];
   /** 초대·신청(league-2, 넣은 차례) */
   readonly requests: readonly { readonly house: string; readonly kind: "invite" | "apply" }[];
   /** 열린 대표 투표의 표(투표한 가문 → 찍은 가문) */
   readonly votes: readonly { readonly voter: string; readonly candidate: string }[];
-}
-
-/** 조항 카드 집행용 동기 조회(league-2 — world/leagueTies.ts LeagueTies의 연맹 몫) */
-export interface HouseLeagueTiesView {
-  /** 그 카드가 붙은 연맹에서 이 플레이어 가문(세력 행)과 함께 든 플레이어 가문들(자기 빼고). 표를 아직 읽지 않았으면 빈 모음 */
-  partnersOf(clause: HouseLeagueClause, house: number): ReadonlySet<number>;
-  /** 든 가문·카드가 바뀔 때마다 오르는 판 */
-  version(): number;
 }
 
 /** NPC 가문 하나(판단 입력 — 가문장 7축 성향) */
@@ -148,13 +137,11 @@ export interface HouseLeagueService {
       readonly action: LeagueAction;
       readonly leagueId?: number | undefined;
       readonly house?: string | undefined;
-      /** 조항 카드(clause_on·clause_off — league-2) */
+      /** 옛 조항 카드(clause_on·clause_off — league-2, league-3에서 없앰: 받아도 invalid_clause) */
       readonly clause?: string | undefined;
     },
   ): Promise<LeagueCommandResult>;
   list(): Promise<readonly LeagueView[]>;
-  /** 조항 카드 집행용 동기 조회(league-2). 처음 부르면 표 읽기를 시작한다 */
-  readonly ties: HouseLeagueTiesView;
   /** NPC 가문 판단(위 머리 주석 — 사라진 가문 빼기·투표 끝내기·나가기·표·만들기·들기) */
   npcSweep(input: NpcLeagueSweep, rules: NpcLeagueRules): Promise<NpcLeagueSweepResult>;
 }
@@ -175,12 +162,7 @@ interface LeagueState {
   opened: Map<number, number>;
   /** 연맹 → 초대·신청(league-2) */
   requests: Map<number, Map<number, "invite" | "apply">>;
-  /** 연맹 → 붙은 조항 카드(league-2) */
-  clauses: Map<number, Set<string>>;
 }
-
-const isClause = (value: string | undefined): value is HouseLeagueClause =>
-  value !== undefined && (HOUSE_LEAGUE_CLAUSES as readonly string[]).includes(value);
 
 export function createHouseLeagueService(o: {
   readonly pool: QueryPool;
@@ -190,13 +172,6 @@ export function createHouseLeagueService(o: {
 }): HouseLeagueService {
   const voteRules = () => o.voteRules?.() ?? DEFAULT_VOTE_RULES;
   let state: Promise<LeagueState> | undefined;
-  /** 읽은 표(동기 조회 ties가 본다 — 읽기 전에는 undefined) */
-  let loaded: LeagueState | undefined;
-  /** 든 가문·카드 판(ties 캐시 열쇠) */
-  let version = 0;
-  const touch = () => {
-    version += 1;
-  };
   const load = () => {
     state ??= Promise.all([loadLeagues(o.pool), loadLeagueExtras(o.pool)]).then(
       ([{ leagues, votes }, extras]) => {
@@ -224,15 +199,7 @@ export function createHouseLeagueService(o: {
           map.set(leagueHouseNum(row.houseKey), row.kind);
           requests.set(row.leagueId, map);
         }
-        const clauses = new Map<number, Set<string>>();
-        for (const row of extras.clauses) {
-          const set = clauses.get(row.leagueId) ?? new Set<string>();
-          set.add(row.clause);
-          clauses.set(row.leagueId, set);
-        }
-        const next: LeagueState = { leagues: out, votes: tallies, opened, requests, clauses };
-        loaded = next;
-        touch();
+        const next: LeagueState = { leagues: out, votes: tallies, opened, requests };
         return next;
       },
     );
@@ -254,7 +221,6 @@ export function createHouseLeagueService(o: {
     const nowMs = o.now();
     const id = await insertLeague(o.pool, leagueHouseKey(house), nowMs);
     s.leagues.set(id, foundHouseLeague(id, house, nowMs));
-    touch();
     return { ok: true, leagueId: id };
   };
   /** 연맹이 끝났다(메모리) */
@@ -263,8 +229,6 @@ export function createHouseLeagueService(o: {
     s.votes.delete(leagueId);
     s.opened.delete(leagueId);
     s.requests.delete(leagueId);
-    s.clauses.delete(leagueId);
-    touch();
   };
   /** 들기 절차 결과를 표·메모리에 옮긴다(league-2). 들었으면 pending 없음, 초대·신청만이면 pending */
   const settleRequest = async (
@@ -280,7 +244,6 @@ export function createHouseLeagueService(o: {
       await insertMember(o.pool, leagueId, key, o.now());
       await deleteRequest(o.pool, leagueId, key);
       s.leagues.set(leagueId, r.league);
-      touch();
     } else if (kind === undefined) await deleteRequest(o.pool, leagueId, key);
     else await upsertRequest(o.pool, leagueId, key, kind, o.now());
     if (r.requests.size === 0) s.requests.delete(leagueId);
@@ -318,7 +281,6 @@ export function createHouseLeagueService(o: {
     if (r.elected !== null) {
       await setRepresentative(o.pool, league.id, leagueHouseKey(r.elected));
       s.leagues.set(league.id, electHouseLeague(league, r.elected));
-      touch();
     } else if (r.votes.size === 0) await clearVotes(o.pool, league.id);
     else await upsertVote(o.pool, league.id, leagueHouseKey(voter), leagueHouseKey(candidate), o.now());
     if (r.votes.size === 0) {
@@ -337,7 +299,6 @@ export function createHouseLeagueService(o: {
     if (r.league) {
       await deleteMember(o.pool, league.id, leagueHouseKey(house));
       s.leagues.set(league.id, r.league);
-      touch();
       if (r.league.representative !== league.representative) {
         // 대표가 나갔다(D-590 2504 나): 가장 오래 든 가문이 대표, 표를 모두 지운다(위임·투표와 같게)
         await setRepresentative(o.pool, league.id, leagueHouseKey(r.league.representative));
@@ -377,7 +338,6 @@ export function createHouseLeagueService(o: {
         forget(s, league.id);
         continue;
       }
-      touch();
       for (const member of gone) await deleteMember(o.pool, league.id, leagueHouseKey(member));
       const votes = s.votes.get(league.id);
       for (const [voter, chosen] of votes ?? []) if (!alive(voter) || !alive(chosen)) votes?.delete(voter);
@@ -401,7 +361,7 @@ export function createHouseLeagueService(o: {
     if (!league) return { ok: false, code: "unknown_league" };
     return settleRequest(s, leagueId, house, applyHouseLeague(league, requestsOf(s, leagueId), house));
   };
-  /** 대표 명령(league-2): 초대·승인·거절, 조항 카드 */
+  /** 대표 명령(league-2): 초대·승인·거절 */
   const repCommand = async (
     s: LeagueState,
     league: HouseLeague,
@@ -409,19 +369,8 @@ export function createHouseLeagueService(o: {
     input: {
       readonly action: LeagueAction;
       readonly house?: string | undefined;
-      readonly clause?: string | undefined;
     },
   ): Promise<LeagueCommandResult> => {
-    if (input.action === "clause_on" || input.action === "clause_off") {
-      if (!isClause(input.clause)) return { ok: false, code: "invalid_clause" };
-      const on = input.action === "clause_on";
-      const r = setHouseLeagueClause(league, s.clauses.get(league.id) ?? new Set(), me, input.clause, on);
-      if (!r.ok) return r;
-      await setClause(o.pool, league.id, input.clause, on, o.now());
-      s.clauses.set(league.id, new Set(r.clauses));
-      touch();
-      return { ok: true, leagueId: league.id };
-    }
     const target = input.house;
     if (input.action === "decline" && target === undefined)
       return settleRequest(s, league.id, me, declineHouseLeague(league, requestsOf(s, league.id), me));
@@ -435,39 +384,15 @@ export function createHouseLeagueService(o: {
     return settleRequest(s, league.id, to, declineHouseLeague(league, requests, me, to));
   };
 
-  const EMPTY: ReadonlySet<number> = new Set();
-  let tiesCache: { version: number; byClause: Map<string, Map<number, Set<number>>> } | undefined;
-  /** 조항 카드 집행 조회(league-2): 그 카드가 붙은 연맹에서 함께 든 플레이어 가문 */
-  const partnersOf = (clause: HouseLeagueClause, house: number): ReadonlySet<number> => {
-    if (!loaded) {
-      load().catch(() => undefined);
-      return EMPTY;
-    }
-    if (tiesCache?.version !== version) {
-      const byClause = new Map<string, Map<number, Set<number>>>();
-      for (const league of loaded.leagues.values()) {
-        const players = league.members.filter((member) => member > 0);
-        for (const card of loaded.clauses.get(league.id) ?? []) {
-          const table = byClause.get(card) ?? new Map<number, Set<number>>();
-          byClause.set(card, table);
-          for (const player of players) {
-            const set = table.get(player) ?? new Set<number>();
-            for (const other of players) if (other !== player) set.add(other);
-            table.set(player, set);
-          }
-        }
-      }
-      tiesCache = { version, byClause };
-    }
-    return tiesCache.byClause.get(clause)?.get(house) ?? EMPTY;
-  };
-
   return {
     command: (userId, input) =>
       serial(async () => {
         const membership = await membershipOf(o.pool, userId);
         if (membership?.role !== "leader") return { ok: false, code: "not_house_head" };
         const me = membership.factionId;
+        // 옛 조항 카드 행동(league-3 D-593에서 없앰) — 옛 판 기기에 같은 답 꼴
+        if (input.action === "clause_on" || input.action === "clause_off")
+          return { ok: false, code: "invalid_clause" };
         if (input.action === "found") return found(me);
         const s = await load();
         const leagueId = input.leagueId ?? 0;
@@ -475,13 +400,7 @@ export function createHouseLeagueService(o: {
         if (!league) return { ok: false, code: "unknown_league" };
         if (input.action === "join") return apply(leagueId, me);
         if (input.action === "leave") return leave(s, league, me);
-        if (
-          input.action === "invite" ||
-          input.action === "approve" ||
-          input.action === "decline" ||
-          input.action === "clause_on" ||
-          input.action === "clause_off"
-        )
+        if (input.action === "invite" || input.action === "approve" || input.action === "decline")
           return repCommand(s, league, me, input);
         const target = input.house;
         if (target === undefined || !isHouseKey(target)) return { ok: false, code: "invalid_house" };
@@ -491,7 +410,6 @@ export function createHouseLeagueService(o: {
           if (!r.ok || !r.league) return r.ok ? { ok: false, code: "unknown_league" } : r;
           await setRepresentative(o.pool, leagueId, target);
           s.leagues.set(leagueId, r.league);
-          touch();
           s.votes.delete(leagueId);
           s.opened.delete(leagueId);
           return { ok: true, leagueId };
@@ -508,7 +426,6 @@ export function createHouseLeagueService(o: {
           representative: leagueHouseKey(league.representative),
           members: league.members.map(leagueHouseKey),
           createdAtMs: league.createdAtMs,
-          clauses: HOUSE_LEAGUE_CLAUSES.filter((clause) => s.clauses.get(league.id)?.has(clause) === true),
           requests: [...(s.requests.get(league.id) ?? [])].map(([house, kind]) => ({
             house: leagueHouseKey(house),
             kind,
@@ -518,10 +435,6 @@ export function createHouseLeagueService(o: {
             candidate: leagueHouseKey(candidate),
           })),
         }));
-    },
-    ties: {
-      partnersOf: (clause, house) => partnersOf(clause, house),
-      version: () => version,
     },
     npcSweep: (input, rules) =>
       serial(async () => {

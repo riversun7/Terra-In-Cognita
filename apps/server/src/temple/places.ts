@@ -6,7 +6,6 @@ import { CELL_UNITS, positionAt } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import { buildingPlace, cityAt } from "../facilities/places.ts";
 import type { WorldFacilities } from "../facilities/world.ts";
-import { leagueDiscountedFee } from "../world/leagueTies.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { ASSET_CREDIT, SYSTEM_SINK_CREDIT } from "../world/settlement.ts";
 
@@ -65,12 +64,10 @@ export function payServiceFee(
   ledger: Ledger,
   payer: number,
   facility: { readonly ownerId: number | null; readonly buildingId: number },
-  quoted: bigint,
+  amount: bigint,
   atMs: number,
   kind: string,
 ): void {
-  // 연맹 조항 카드 fee_discount(league-2, D-590 2501 다): 남의 시설 주인 가문과 함께 든 연맹에 그 카드가 붙었으면 깎는다(내 시설·소각은 그대로)
-  const amount = leagueDiscountedFee(world?.business, payer, facility.ownerId, quoted);
   if (amount <= 0n) return;
   const from = ledger.ownerAccount(payer, ASSET_CREDIT);
   if (

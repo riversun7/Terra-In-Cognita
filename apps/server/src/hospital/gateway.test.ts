@@ -30,6 +30,8 @@ function fakeService(calls: string[]): HospitalService {
       calls.push(`injure:${userId}:${input.unit}:${input.stage}`);
       return Promise.resolve({ ok: false, code: "unknown_unit" });
     },
+    careQuotes: () => Promise.reject(new Error("unused")),
+    treatBy: () => Promise.reject(new Error("unused")),
   };
 }
 

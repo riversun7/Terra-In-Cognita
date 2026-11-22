@@ -3,14 +3,13 @@
 // - 가문장: [연맹 만들기], 들지 않은 연맹에 [가입 신청]·[신청 거두기], 받은 초대 [초대 받기]·[거절], 든 연맹에서 [나가기]·대표 투표.
 // - 대표 가문장: 조항 카드 [붙이기]·[떼기], 신청 [받기]·[거절], [초대]·[초대 거두기], [대표 넘기기].
 // 자료는 tRPC factionIdentity.leagues, 바꾸는 명령은 WebSocket house_league(leagueCommands.ts). 명령 뒤에는 자료를 다시 받는다. 판정은 서버가 다시 한다.
-import { HOUSE_LEAGUE_CLAUSES, type HouseLeagueClause } from "@terra/protocol";
 import type { HouseLeagueView, HouseLeaguesResponse } from "@terra/shared/houseLeague";
 import { useId, useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import { useScreenQuery } from "../../sections/useScreenQuery.ts";
 import { loadHouseLeagues } from "./identityQueries.ts";
 import { type LeagueRequest, sendHouseLeague } from "./leagueCommands.ts";
-import { LEAGUE_CLAUSE_NAME, LEAGUE_ERROR_TEXT, leagueClauseHint, leagueHouseName } from "./leagueText.ts";
+import { LEAGUE_ERROR_TEXT, leagueHouseName } from "./leagueText.ts";
 
 type Status = { readonly tone: "ok" | "error"; readonly text: string } | null;
 
@@ -93,7 +92,6 @@ function LeagueCard({
   const candidates = view.houses
     .filter((house) => !league.members.some((m2) => m2.key === house.key) && !requested.has(house.key))
     .map((house) => ({ key: house.key, name: leagueHouseName(house) }));
-  const attached = new Set(league.clauses);
   return (
     <li className="fid-league" data-league={league.id}>
       <span className="fid-house-row-main">
@@ -118,37 +116,6 @@ function LeagueCard({
               {me?.house === house.key ? <span className="fid-league-tag">{m.fid_league_mine()}</span> : null}
             </li>
           ))}
-        </ul>
-      </div>
-      <div className="fid-house-block">
-        <h4 className="fid-house-sub">{m.fid_league_clauses()}</h4>
-        <ul className="fid-house-list" data-part="league-clauses">
-          {HOUSE_LEAGUE_CLAUSES.map((clause: HouseLeagueClause) => {
-            const on = attached.has(clause);
-            return (
-              <li key={clause} className="fid-house-row" data-clause={clause} data-on={on ? "1" : "0"}>
-                <span className="fid-house-row-main">
-                  <span className="fid-house-row-name">
-                    {LEAGUE_CLAUSE_NAME[clause]()} ·{" "}
-                    {on ? m.fid_league_clause_on() : m.fid_league_clause_off()}
-                  </span>
-                  <span className="faction-muted">{leagueClauseHint(clause, view.feeDiscountPm)}</span>
-                </span>
-                {rep && leader ? (
-                  <button
-                    type="button"
-                    className="button-small"
-                    aria-disabled={busy}
-                    onClick={() =>
-                      run({ action: on ? "clause_off" : "clause_on", leagueId: league.id, clause })
-                    }
-                  >
-                    {on ? m.fid_league_clause_detach() : m.fid_league_clause_attach()}
-                  </button>
-                ) : null}
-              </li>
-            );
-          })}
         </ul>
       </div>
       {league.votes.length > 0 ? (

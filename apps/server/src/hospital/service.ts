@@ -9,6 +9,9 @@
 //   이후 단계도 그 배율로 지난다. 요금 = 남은 치유 날 × 하루 값 × 레벨 몫(설정 칸 N55), 남의 병원 = 주인 수입, 내 병원 = 소각 [임시](신전과 같은 셈).
 // - 개발 시험(dev_injure_unit): 내 유닛에 단계 하나를 지금 준다(dev·admin — 게이트웨이가 본다).
 // 명령 하나 = 읽기(DB, 쓰기 대기열이 따라잡은 뒤) → 다시 확인(메모리) → 한 번의 동기 처리 → 커밋 뒤 답(U2).
+// 바뀜(league-3, 질문 2645 기획 검토 — D-590 "유닛이 알아서 병원가서 치료하고 오든지"·D-555 1509 NPC도 똑같이): 자율 치료(labor/stewardCare.ts)가 쓰는 서버 판단 몫
+// 둘을 더한다 — careQuotes(그 유닛의 모든 일하는 병원 견적: 도시·2차맵·건물 칸 — 다른 도시 병원으로 걸어갈 곳을 고른다), treatBy(주인 확인 없이 정한 지갑 계정·
+// 화폐로 낸다 — NPC 휴먼 지갑. 요금은 같은 견적 값, ).
 import type { HospitalResultCode } from "@terra/protocol";
 import type {
   HospitalOverviewResponse,
@@ -27,7 +30,7 @@ import {
   treatmentQuote,
 } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
-import { buildingPlace } from "../facilities/places.ts";
+import { buildingCell, buildingPlace } from "../facilities/places.ts";
 import type { WorldFacilities } from "../facilities/world.ts";
 import type { LaborService } from "../labor/service.ts";
 import { payServiceFee, serviceFacility, unitCity } from "../temple/places.ts";
@@ -85,6 +88,39 @@ export interface HospitalService {
     userId: string,
     input: { readonly unit: number; readonly stage: number },
   ): Promise<HospitalCommandResult>;
+  /** 자율 치료 견적(league-3): 그 유닛(주인 확인 없음 — 서버 판단)이 다쳤으면 일하는 모든 병원의 견적(빠른 차례). 다치지 않았거나 포로면 undefined */
+  careQuotes(unitId: number, nowMs: number): Promise<CareQuotes | undefined>;
+  /** 서버 판단 치료(league-3 — NPC 휴먼 지갑): 견적 값을 그 지갑 계정·화폐로 그 병원 사업장 금고에 낸다. 같은 도시·견적 확인은 treat와 같다 */
+  treatBy(
+    payer: CarePayer,
+    input: { readonly buildingId: number; readonly unit: number; readonly cost: string },
+  ): Promise<HospitalCommandResult>;
+}
+
+/** 자율 치료가 내는 지갑(league-3): 소유 주체·원장 계정·화폐 */
+export interface CarePayer {
+  readonly ownerId: number;
+  readonly account: number;
+  readonly asset: string;
+}
+
+/** 자율 치료 견적 한 곳(league-3) */
+export interface CareQuote {
+  readonly buildingId: number;
+  readonly cityId: number;
+  readonly mapKey: number;
+  /** 병원 건물 칸(걸어갈 목표 — 막혔으면 이동이 가까운 설 칸으로) */
+  readonly x: number;
+  readonly y: number;
+  readonly cost: bigint;
+  readonly speedPm: number;
+}
+
+/** 자율 치료 견적(league-3): 유닛이 선 도시(없으면 null)와 일하는 병원 견적(빠른 차례 → 건물 ID) */
+export interface CareQuotes {
+  readonly stage: number;
+  readonly cityId: number | null;
+  readonly options: readonly CareQuote[];
 }
 
 const fail = (code: HospitalResultCode): HospitalCommandResult => ({ ok: false, code });
@@ -291,6 +327,84 @@ export function createHospitalService(o: HospitalServiceOptions): HospitalServic
         ...(treated.untilMs === null ? {} : { untilMs: treated.untilMs }),
         greenAtMs: quote.greenAtMs,
         paid: String(quote.cost),
+      };
+    },
+
+    async careQuotes(unitId, nowMs) {
+      if (!o.ready()) return undefined;
+      const found = unitOf(unitId);
+      if (!found || found.info.condition.heldBy !== null) return undefined;
+      const c = o.rules();
+      const now = injuryNowOf(found.info.condition, nowMs);
+      if (now.stage <= 0) return undefined;
+      const options: CareQuote[] = [];
+      for (const site of await sitesOf(hospitalIds(), undefined)) {
+        const cell = buildingCell(o.facilities.service.places.maps, site.view.buildingId);
+        if (!site.view.works || site.view.cityId === null || !cell) continue;
+        const quote = treatmentQuote(now, nowMs, site.input, c);
+        if (!quote) continue;
+        options.push({
+          buildingId: site.view.buildingId,
+          cityId: site.view.cityId,
+          mapKey: site.view.mapKey,
+          x: cell.x,
+          y: cell.y,
+          cost: quote.cost,
+          speedPm: quote.speedPm,
+        });
+      }
+      return {
+        stage: now.stage,
+        cityId: unitCity(o.maps, o.facilities, unitId, nowMs),
+        options: options.toSorted((a, b) => b.speedPm - a.speedPm || a.buildingId - b.buildingId),
+      };
+    },
+
+    async treatBy(payer, input) {
+      if (!o.ready()) return fail("busy");
+      const first = unitOf(input.unit);
+      if (!first || first.info.ownerId !== payer.ownerId) return fail("unknown_unit");
+      await writer.durable();
+      const [site] = await sitesOf([input.buildingId], undefined);
+      const found = unitOf(input.unit);
+      if (!found || found.info.ownerId !== payer.ownerId) return fail("unknown_unit");
+      if (found.info.condition.heldBy !== null) return fail("captive");
+      const hospital = serviceFacility(o.facilities, input.buildingId, MEDICAL_STAGE);
+      if (!hospital.ok) return fail(hospital.reason === "closed" ? "hospital_closed" : "not_hospital");
+      if (!site || hospital.ownerId === null) return fail("not_hospital");
+      const at = o.now();
+      const c = o.rules();
+      const now = injuryNowOf(found.info.condition, at);
+      if (now.stage <= 0) return fail("not_injured");
+      if (hospital.cityId === null || unitCity(o.maps, o.facilities, input.unit, at) !== hospital.cityId)
+        return fail("wrong_city");
+      const quote = treatmentQuote(now, at, site.input, c);
+      if (!quote) return fail("not_faster");
+      if (String(quote.cost) !== input.cost) return fail("cost_changed");
+      const fee = quote.cost;
+      if (ledger.balance(payer.account) < fee) return fail("insufficient_funds");
+      if (
+        fee > 0n &&
+        !o.facilities.business.receive({
+          from: payer.account,
+          buildingId: input.buildingId,
+          asset: payer.asset,
+          amount: fee,
+          kind: "hospital_treat",
+          atMs: at,
+        })
+      )
+        return fail("busy");
+      const treated = treatInjury(injuryStateOf(found.info.condition), at, quote.speedPm, c);
+      found.map.setCondition(input.unit, withInjury(found.info.condition, treated));
+      await writer.durable();
+      return {
+        ok: true,
+        unitId: input.unit,
+        stage: treated.stage,
+        ...(treated.untilMs === null ? {} : { untilMs: treated.untilMs }),
+        greenAtMs: quote.greenAtMs,
+        paid: String(fee),
       };
     },
 

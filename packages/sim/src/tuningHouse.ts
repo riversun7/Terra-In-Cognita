@@ -213,7 +213,7 @@ export const HOUSE_TUNING_KEYS: readonly TuningKey[] = [
     "가문 연맹 대표 투표 정족수(‰)",
     "House league representative vote quorum (‰)",
   ),
-  // NPC 대표의 연맹 초대 문턱, 연맹 조항 카드 fee_discount 몫(league-2 — 사용자 결정 D-590 2502 다·2501 다, factionIdentity/npcLeague.ts·world/leagueTies.ts) [임시]
+  // NPC 대표의 연맹 초대 문턱(league-2 — 사용자 결정 D-590 2502 다, factionIdentity/npcLeague.ts) [임시]. 연맹 조항 카드 fee_discount 칸은 league-3(D-593)에서 없앰
   k(
     "house_npc_league_invite_score",
     "",
@@ -221,12 +221,13 @@ export const HOUSE_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 가문 연맹 초대 문턱(대표와의 성향 친밀도)",
     "NPC house league invitation threshold (affinity with representative)",
   ),
+  // 다친 유닛 자율 치료의 요금 상한(league-3 — 질문 2645 (다) 기술 기본값, 서버 labor/stewardCare.ts) [임시]
   k(
-    "house_league_fee_discount_pm",
+    "house_unit_care_cost_cap_pm",
     "",
-    "house.leagueFeeDiscountPm",
-    "가문 연맹 요금 할인 카드: 깎는 몫(‰)",
-    "House league fee discount card: discount (‰)",
+    "house.unitCareCostCapPm",
+    "유닛 자율 치료 요금 상한(지갑의 ‰)",
+    "Unit self-care treatment cost cap (‰ of purse)",
   ),
   // NPC 도시의 가문 수(D-573 — 도시 등급마다)
   ...CITY_GRADES.map(([ko, en], index) =>

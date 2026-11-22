@@ -196,36 +196,3 @@ describe("같은 나라 시야 공유(질문 746 나)", () => {
     vision.close();
   });
 });
-
-/** 나(1)는 다른 나라 주체 4와 같은 연맹(나라와 상관없음) */
-const allies = (viewerOwnerId: number) =>
-  viewerOwnerId === 1 ? { key: "h:1:1", member: (ownerId: number) => ownerId === 4 } : undefined;
-
-describe("연맹 시야 나눔(league-2, D-590 2501 다 — 조항 카드 shared_vision)", () => {
-  it("함께 든 가문의 주체가 덮는 칸이 남을 보는 시야에 든다(나라 덮개에 더해, 탐사 기록은 그대로)", async () => {
-    const { vision } = setup();
-    // 4의 유닛(205,205)·(120,30)과 그 곁의 2(200,200)가 보인다
-    const alone = { userId: "u1", ownerId: 1 };
-    expect(vision.sees(alone, 4)).toBe(false);
-    const leagued = { userId: "u1", ownerId: 1, allies };
-    expect(vision.sees(leagued, 4)).toBe(true);
-    expect(vision.sees(leagued, 3)).toBe(true);
-    expect(vision.sees(leagued, 2)).toBe(true);
-    // 3(같은 나라 다른 유저)의 유닛 5는 나라 공유가 없으면 안 보인다
-    expect(vision.sees(leagued, 5)).toBe(false);
-    expect(hasBit(await vision.sighted(leagued), cellOf(120, 30))).toBe(true);
-    // 나라 공유와 함께: 둘 다 보인다
-    const both = { userId: "u1", ownerId: 1, nations: lookupOf(nations), allies };
-    expect(vision.sees(both, 5)).toBe(true);
-    expect(vision.sees(both, 4)).toBe(true);
-    // 함께 든 가문 유닛이 있는 2차맵은 볼 수 있다
-    expect(
-      await vision.canView({
-        userId: "u9",
-        ownerId: 9,
-        allies: () => ({ key: "h:9", member: (o: number) => o === 4 }),
-      }),
-    ).toBe(true);
-    expect(await vision.canView({ userId: "u9", ownerId: 9 })).toBe(false);
-  });
-});

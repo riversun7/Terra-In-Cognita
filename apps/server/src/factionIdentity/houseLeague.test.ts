@@ -6,7 +6,6 @@ import {
   declineHouseLeague,
   delegateHouseLeague,
   inviteHouseLeague,
-  setHouseLeagueClause,
   electHouseLeague,
   foundHouseLeague,
   houseLeagueVoteExpired,
@@ -176,26 +175,5 @@ describe("연맹 들기 절차·조항 카드(league-2, D-590 2502 다·2501 다
     if (!rep.ok) throw new Error("거절 실패");
     expect([...rep.requests.keys()]).toEqual([30]);
     expect(declineHouseLeague(league, requests, 50)).toEqual({ ok: false, code: "no_request" });
-  });
-
-  it("조항 카드는 대표만 붙이고 뗀다. 겹치거나 없는 카드는 invalid_clause", () => {
-    expect(setHouseLeagueClause(league, new Set(), 20, "shared_vision", true)).toEqual({
-      ok: false,
-      code: "not_representative",
-    });
-    const on = setHouseLeagueClause(league, new Set(), 10, "shared_vision", true);
-    if (!on.ok) throw new Error("붙이기 실패");
-    expect([...on.clauses]).toEqual(["shared_vision"]);
-    expect(setHouseLeagueClause(league, on.clauses, 10, "shared_vision", true)).toEqual({
-      ok: false,
-      code: "invalid_clause",
-    });
-    const off = setHouseLeagueClause(league, on.clauses, 10, "shared_vision", false);
-    if (!off.ok) throw new Error("떼기 실패");
-    expect(off.clauses.size).toBe(0);
-    expect(setHouseLeagueClause(league, off.clauses, 10, "fee_discount", false)).toEqual({
-      ok: false,
-      code: "invalid_clause",
-    });
   });
 });

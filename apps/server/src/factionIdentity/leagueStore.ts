@@ -31,25 +31,12 @@ export interface LeagueRequestRow {
   readonly atMs: number;
 }
 
-/** 붙은 조항 카드 하나(league-2 — D-590 2501 다) */
-export interface LeagueClauseRow {
-  readonly leagueId: number;
-  readonly clause: string;
-}
-
-/** 끝나지 않은 연맹의 초대·신청·조항 카드 */
-export async function loadLeagueExtras(
-  pool: QueryPool,
-): Promise<{ requests: LeagueRequestRow[]; clauses: LeagueClauseRow[] }> {
+/** 끝나지 않은 연맹의 초대·신청(조항 카드는 league-3 D-593에서 없앰 — 표 house_league_clauses는 읽지 않는다) */
+export async function loadLeagueExtras(pool: QueryPool): Promise<{ requests: LeagueRequestRow[] }> {
   const requests = await pool.query(
     `select r.league_id::text, r.house_key, r.kind, r.at_ms::text from house_league_requests r
        join house_leagues l on l.id = r.league_id and l.ended_at_ms is null
       order by r.league_id, r.at_ms, r.house_key`,
-  );
-  const clauses = await pool.query(
-    `select c.league_id::text, c.clause from house_league_clauses c
-       join house_leagues l on l.id = c.league_id and l.ended_at_ms is null
-      order by c.league_id, c.clause`,
   );
   return {
     requests: requests.rows.map((row) => ({
@@ -58,7 +45,6 @@ export async function loadLeagueExtras(
       kind: row.kind === "invite" ? "invite" : "apply",
       atMs: Number(row.at_ms),
     })),
-    clauses: clauses.rows.map((row) => ({ leagueId: Number(row.league_id), clause: String(row.clause) })),
   };
 }
 
@@ -83,26 +69,6 @@ export async function deleteRequest(pool: QueryPool, leagueId: number, houseKey:
     leagueId,
     houseKey,
   ]);
-}
-
-/** 조항 카드를 붙이거나(on) 뗀다 */
-export async function setClause(
-  pool: QueryPool,
-  leagueId: number,
-  clause: string,
-  on: boolean,
-  nowMs: number,
-): Promise<void> {
-  if (on)
-    await pool.query(
-      "insert into house_league_clauses (league_id, clause, at_ms) values ($1, $2, $3) on conflict do nothing",
-      [leagueId, clause, nowMs],
-    );
-  else
-    await pool.query("delete from house_league_clauses where league_id = $1 and clause = $2", [
-      leagueId,
-      clause,
-    ]);
 }
 
 /** 가문 이름(플레이어 = 세력 정체성 이름, NPC = 성 — governance/store.ts houseNames와 같은 읽기) */
@@ -216,6 +182,7 @@ export async function endLeague(pool: QueryPool, leagueId: number, nowMs: number
   await pool.query("delete from house_league_members where league_id = $1", [leagueId]);
   await pool.query("delete from house_league_votes where league_id = $1", [leagueId]);
   await pool.query("delete from house_league_requests where league_id = $1", [leagueId]);
+  // 옛 조항 카드 줄(league-3 D-593에서 쓰지 않음)도 함께 지운다 — 표는 올라간 마이그레이션이라 남는다
   await pool.query("delete from house_league_clauses where league_id = $1", [leagueId]);
 }
 

@@ -4197,6 +4197,24 @@
       "source": "ADR 2026-11-21-npc-needs-drives · 질문 2566(D-587 8) [임시]"
     },
     {
+      "id": "npc_invest_surplus_value_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 투자 넘치는 산출 값(‰)",
+        "en": "NPC investment surplus output value (‰)"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "시설 기대 수익의 하루 산출 값은 그 도시 하루 수요(생필품·다 지은 시설이 먹는 재료·지으려는 재료)에서 이미 내는 양(다 지은 시설 산출)을 뺀 양까지만 지난 값으로 친다. 넘는 몫은 지난 값의 이 몫으로 친다(0 = 팔리지 않는 것으로).",
+        "en": "A facility's daily output value counts at last price only up to the city's daily demand (necessities, inputs of finished facilities, wanted build materials) minus what its finished facilities already produce. Output beyond that counts at this share of last price (0 = unsold)."
+      },
+      "source": "ADR 2026-11-21-npc-needs-drives · 질문 2604(D-587 8) [임시]"
+    },
+    {
       "id": "npc_share_sale_score",
       "code": "",
       "name": {

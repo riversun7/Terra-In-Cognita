@@ -17,6 +17,7 @@ export const FACILITY_ERROR_TEXT: Readonly<Record<FacilityResultCode | "offline"
     sign_in_required: m.facility_error_sign_in_required,
     insufficient_funds: m.facility_error_insufficient_funds,
     plot_full: m.facility_error_plot_full,
+    floor_full: m.facility_error_floor_full,
     no_plot: m.facility_error_no_plot,
     tier_locked: m.facility_error_tier_locked,
     sale_only: m.facility_error_sale_only,
@@ -83,6 +84,7 @@ export const JOB_TEXT: Readonly<Record<FacilityJobKind, () => string>> = {
   beacon_repair: m.facility_job_repair,
   equipment: m.facility_job_equipment,
   plot: m.facility_job_plot,
+  floor: m.facility_job_floor,
 };
 
 /** 명령 하나를 보내고 성공했는지(문구·목록 다시 받기는 칸이 한다) */

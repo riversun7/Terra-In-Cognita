@@ -56,11 +56,10 @@ import {
   type PlotCommands,
   type PlotDeps,
   type PlotResult,
-  addPlot,
-  chooseTier,
+  plotCommands,
   plotOpen,
-  removePlot,
 } from "./plots.ts";
+import { addModule } from "./floors.ts";
 import { type ClaimCommands, chooseClaim } from "./claimChoice.ts";
 import {
   type PlaceWorld,
@@ -363,9 +362,9 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
     } else if (job.kind === "upgrade") {
       advance(record, at);
       record.level = job.targetLevel ?? record.level + 1;
-    } else if (job.kind === "plot") {
-      // 면적 모듈 하나 붙음(기획 D-569 1765)
-      record.plots = Math.max(0, Math.trunc(record.plots ?? 0)) + 1;
+    } else if (job.kind === "plot" || job.kind === "floor") {
+      // 면적 모듈 하나 붙음(기획 D-569 1765)·층 하나 오름(D-591 1 — floors.ts)
+      addModule(record, job.kind);
     } else if (job.kind === "repair") {
       advance(record, at);
       record.conditionPpm = Math.min(CONDITION_FULL, record.conditionPpm + (job.restorePpm ?? 0));
@@ -427,7 +426,9 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
     myFacility,
     save: saveFacility,
     rules: () => options.rules().buildingGather,
-    spend: (me, list, at, id) => spendGoods(ledger, me, list, at, "facility_plot", scopeOf(me, id)),
+    spend: (me, list, at, id, why = "facility_plot") =>
+      spendGoods(ledger, me, list, at, why, scopeOf(me, id)),
+    floorRules: () => options.rules().business,
     levelMaterials: (def, level) => levelCost(def, level).materials,
     levelMs: (def, level) => levelCost(def, level).ms,
     withBuilders: (ms, builders) => withBuilders(ms, builders, runtime()),
@@ -825,10 +826,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       return done({ ok: true, doneAtMs: at + ms });
     },
 
-    plot: (userId, buildingId, unitIds, operator) =>
-      plotDone(addPlot(plotDeps, userId, buildingId, unitIds, operator !== undefined)),
-    plotRemove: (userId, buildingId) => plotDone(removePlot(plotDeps, userId, buildingId)),
-    gatherTier: (userId, buildingId, tier) => plotDone(chooseTier(plotDeps, userId, buildingId, tier)),
+    ...plotCommands(plotDeps, plotDone),
     claimChoice: (userId, buildingId, claim) => plotDone(chooseClaim(plotDeps, userId, buildingId, claim)),
 
     async repair(userId, target, steps, unitIds) {

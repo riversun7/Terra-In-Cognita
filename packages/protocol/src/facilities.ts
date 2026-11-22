@@ -67,6 +67,11 @@ export const HAUL_OUT_PROTOCOL_VERSION = 55;
  * 기기는 보내지 않는다(그 판은 짓기 때 고른 것이 그대로 간다)
  */
 export const FACILITY_CLAIM_PROTOCOL_VERSION = 54;
+/**
+ * 주거 건물 층 올리기(facility_floor, 사용자 결정 D-591 1 — 질문 2535 나)와 결과 코드 floor_full이 생긴 판(줄기 residence-3). 더 낮은 판 기기는 보내지 않는다(코드는
+ * 이 메시지의 답에만)
+ */
+export const FLOOR_PROTOCOL_VERSION = 145;
 
 const u32 = z.number().int().nonnegative().max(0xffff_ffff);
 const requestId = u32;
@@ -220,6 +225,18 @@ export const facilityPlotMessage = z.object({
 });
 
 /**
+ * 주거 건물 층 하나 올리기(프로토콜 145 — FLOOR_PROTOCOL_VERSION, 사용자 결정 D-591 1 "층을 올려 거주 수 증가"): 내 주거 건물(생활 단계 시설)의 층을 하나 더
+ * 올린다(사는 곳 정원 = 층 × 설정 칸). 짓기처럼 작업이 걸린다: 재료·시간 = 지금 레벨 짓기 재료·시간 × 지금 층 수 × 설정 칸 ‰(기술 기본값 [임시]), 일꾼 = 내 유닛(없어도
+ * 된다). 최고 층이면 floor_full. 답의 doneAtMs = 층이 오르는 시각
+ */
+export const facilityFloorMessage = z.object({
+  t: z.literal("facility_floor"),
+  id: requestId,
+  buildingId: rowId,
+  unitIds: units.optional(),
+});
+
+/**
  * 면적 모듈 하나 떼기(프로토콜 45, 기획 D-569 1765 "모듈 떼기 가능"): 붙은 모듈 하나를 바로 뗀다. 재료는 돌려주지 않는다 [임시, 질문 1861].
  * 붙은 모듈이 없으면 no_plot, 그 건물에 작업이 걸려 있으면 job_running
  */
@@ -362,6 +379,8 @@ export const FACILITY_RESULT_CODES = [
   "no_shop_worker",
   /** 그 공방 주인이 외주 수리를 받지 않는다(시간당 요금 0, 48 — 더 낮은 판 연결은 cannot_repair) */
   "service_closed",
+  /** 더 올릴 층이 없다(설정 칸 최고 층, 145 — facility_floor의 답에만) */
+  "floor_full",
   "internal_error",
 ] as const;
 export type FacilityResultCode = (typeof FACILITY_RESULT_CODES)[number];
@@ -397,5 +416,6 @@ export const facilityClientMessages = [
   facilityPlotRemoveMessage,
   facilityGatherTierMessage,
   facilityClaimMessage,
+  facilityFloorMessage,
 ] as const;
 export const facilityServerMessages = [facilityResultMessage] as const;

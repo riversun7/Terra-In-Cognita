@@ -132,14 +132,23 @@ describe("사는 곳 고르기(residence_set, D-585 1)", () => {
     registerResidenceService(service, {
       set: (_userId, unitId, buildingId) =>
         Promise.resolve({ ok: true, unitId, buildingId, cityId: buildingId === null ? null : 5 }),
+      setRent: (_userId, buildingId, rent) =>
+        Promise.resolve(rent === 0n ? { ok: false, code: "unchanged" } : { ok: true, buildingId, rent }),
       view: () => ({ status: "not_ready", unitId: 1, current: null, building: null, generatedAt: 0 }),
     });
     socket.handle({ t: "residence_set", id: 8, unitId: 1, buildingId: 100 });
     socket.handle({ t: "residence_set", id: 9, unitId: 1, buildingId: null });
+    // 집세 정하기(145, D-591 2)
+    socket.handle({ t: "residence_rent", id: 10, buildingId: 100, rent: "25" });
+    socket.handle({ t: "residence_rent", id: 11, buildingId: 100, rent: "0" });
+    socket.handle({ t: "residence_rent", id: 12, buildingId: 100, rent: null });
     await vi.advanceTimersByTimeAsync(0);
     expect(sent.slice(1)).toEqual([
       { t: "residence_result", id: 8, ok: true, unitId: 1, buildingId: 100, cityId: 5 },
       { t: "residence_result", id: 9, ok: true, unitId: 1, buildingId: null, cityId: null },
+      { t: "residence_rent_result", id: 10, ok: true, buildingId: 100, rent: "25" },
+      { t: "residence_rent_result", id: 11, ok: false, code: "unchanged" },
+      { t: "residence_rent_result", id: 12, ok: true, buildingId: 100, rent: null },
     ]);
   });
 });

@@ -36,6 +36,10 @@ export interface FacilityRecord {
    * 저장은 world_facilities.claim_choice 글자("nation" | "independent:<체제>")
    */
   claim?: LandClaimChoice | undefined;
+  /**
+   * 층 수(주거 건물, D-591 1 — 층 올리기 공사로 는다, 정원 = 층 × 설정 칸, facilities/floors.ts). 없으면 1. 주거 건물이 아니면 읽지 않는다
+   */
+  floors?: number | undefined;
 }
 
 /** 저장 글자 → 알박기 고르기(모양이 틀리면 undefined — 서버가 기본 선택으로 본다) */
@@ -51,8 +55,16 @@ export function claimChoiceOf(text: unknown): LandClaimChoice | undefined {
 export const claimChoiceText = (choice: LandClaimChoice | undefined): string | null =>
   choice ? (choice.regime === null ? choice.mode : `${choice.mode}:${choice.regime}`) : null;
 
-/** 작업 종류. plot = 면적 모듈 붙이기(기획 D-569 1765 — 끝나면 모듈 + 1) */
-export const JOB_KINDS = ["build", "upgrade", "repair", "beacon_repair", "equipment", "plot"] as const;
+/** 작업 종류. plot = 면적 모듈 붙이기(기획 D-569 1765 — 끝나면 모듈 + 1), floor = 주거 건물 층 올리기(D-591 1 — 끝나면 층 + 1) */
+export const JOB_KINDS = [
+  "build",
+  "upgrade",
+  "repair",
+  "beacon_repair",
+  "equipment",
+  "plot",
+  "floor",
+] as const;
 export type JobKind = (typeof JOB_KINDS)[number];
 
 /** 재료 한 줄(아이템 ID·묶음 수량) */
@@ -114,7 +126,7 @@ const numOrNull = (value: unknown): number | null => (value === null ? null : Nu
 export async function loadFacilities(pool: QueryPool): Promise<LoadedFacilities> {
   const facilities = await pool.query(
     `select building_id, facility_id, level, condition_ppm, condition_at_ms, built_at_ms, built_by, city_id, seeded, plots,
-            gather_tier, claim_choice
+            gather_tier, claim_choice, floors
      from world_facilities order by building_id`,
   );
   const jobs = await pool.query(
@@ -141,6 +153,7 @@ export async function loadFacilities(pool: QueryPool): Promise<LoadedFacilities>
         ? {}
         : { gatherTier: Number(row.gather_tier) }),
       ...(claimChoiceOf(row.claim_choice) ? { claim: claimChoiceOf(row.claim_choice) } : {}),
+      ...(Number(row.floors ?? 1) > 1 ? { floors: Number(row.floors) } : {}),
     })),
     jobs: jobs.rows.flatMap((row) => {
       const kind: unknown = row.kind;
@@ -181,6 +194,7 @@ export const facilityRow = (record: FacilityRecord) => ({
   gather_tier:
     record.gatherTier === null || record.gatherTier === undefined ? null : Math.trunc(record.gatherTier),
   claim_choice: claimChoiceText(record.claim),
+  floors: Math.min(100, Math.max(1, Math.trunc(record.floors ?? 1))),
 });
 
 export const jobRow = (job: JobRecord) => ({

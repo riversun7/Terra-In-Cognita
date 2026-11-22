@@ -1,5 +1,12 @@
 {
-  "renamed": [],
+  "renamed": [
+    {
+      "category": "tuning",
+      "from": "residence_capacity_per_level",
+      "to": "residence_capacity_per_floor",
+      "since": 223
+    }
+  ],
   "removed": [
     {
       "category": "tuning",

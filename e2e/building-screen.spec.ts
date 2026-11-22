@@ -5,7 +5,8 @@
 //   거둔다(프로토콜 38). [일꾼] 칸: 일자리·임대·계약 카드. 가로 넘침·작은 단추 없음.
 // - dev(운영자 모드): 남의 사업장에도 [관리] 칸 + 운영자 표시, 임대료를 정하면 [일꾼] 칸에 시간당 임대료가 보인다(서버가 주인 대신 처리).
 // - dev(운영자 모드): [관리] 칸 지급준비금(D-564 1623) 비율을 골라 저장되고 기본값으로 되돌린다.
-// - player: 시작 도시 NPC 숙소(생활 단계) 건물 판 개요에 [사는 곳] 카드(D-585 1) — 남의 숙소라 [여기를 사는 곳으로]가 없다. 390 두 테마 사진.
+// - player: 시작 도시 NPC 숙소(생활 단계) 건물 판 개요에 [사는 곳] 카드(D-585 1) — 남의 숙소라 [여기를 사는 곳으로]가 없다. 정원 한 줄(층 — D-591 1). 390 두 테마 사진.
+//   주인 칸(집세 정하기·층 올리기 — D-591)은 응답에 견본 주인 값을 얹어 모양만 본다(rewriteTrpc — 판정은 서버 시험).
 // - 사진(E2E_SHOTS_DIR): 건물 판 개요·지분·장부 칸과 재무 화면, [관리] 칸 지급준비금, 390 파스텔 한국어·다크 영어. 장부 사진은 응답에 견본 장부를 얹는다(rewriteTrpc —
 //   화면 모양 확인용, 판정은 위 시험이 실제 서버 값으로 본다).
 import type { Page } from "@playwright/test";
@@ -18,6 +19,28 @@ import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
 
 const DAY = 86_400_000;
+
+/** 견본 사는 곳 주인 칸(사진용, D-591): 서버 답의 건물 칸에 내 건물·집세·층 견적을 얹는다 */
+function sampleResidenceOwner(data: unknown): void {
+  if (typeof data !== "object" || data === null || Reflect.get(data, "status") !== "ok") return;
+  const building: unknown = Reflect.get(data, "building");
+  if (typeof building !== "object" || building === null) return;
+  Reflect.set(building, "mine", true);
+  Reflect.set(building, "rent", "40");
+  Reflect.set(building, "floors", 2);
+  Reflect.set(building, "maxFloors", 5);
+  Reflect.set(building, "capacity", 8);
+  Reflect.set(building, "occupants", 3);
+  Reflect.set(building, "floor", {
+    block: null,
+    materials: [
+      { item: "pine_log", name: { ko: "소나무 통나무", en: "Pine log" }, qty: 10, have: 4 },
+      { item: "stone", name: { ko: "돌", en: "Stone" }, qty: 6000, have: 12_000 },
+    ],
+    timeMs: 520_000,
+    untilMs: null,
+  });
+}
 
 /** 견본 장부(사진용): 서버 답의 모양을 그대로 두고 칸만 채운다 */
 function sampleBooks(data: unknown): void {
@@ -359,10 +382,38 @@ for (const look of LOOKS) {
       // 남의(NPC) 숙소 — 내 집도 배정받은 숙소도 아니라 고를 단추가 없다
       await expect(card.locator('[data-part="residence-choose"]')).toHaveCount(0);
       await expect(card.locator('[data-part="residence-clear"]')).toHaveCount(0);
+      // 정원 한 줄(층 × 칸 — D-591 1), 남의 숙소라 주인 칸이 없다
+      await expect(card.locator('[data-part="residence-capacity"]')).toBeVisible();
+      await expect(card.locator('[data-part="residence-owner"]')).toHaveCount(0);
       expect(await horizontalOverflow(page)).toEqual([]);
       expect(await smallTapTargets(page)).toEqual([]);
       await card.scrollIntoViewIfNeeded();
       await elementShot(sheet, `building-residence-390-${look.theme}-${look.language}`);
+      expect(deviceErrors).toEqual([]);
+    });
+
+    test(`[사는 곳] 주인 칸 견본 (390·${look.theme}·${look.language})`, async ({ page, deviceErrors }) => {
+      test.setTimeout(240_000);
+      await rewriteTrpc(page, { "gather.residence": sampleResidenceOwner });
+      const id = await openLodgingSheet(page);
+      expect(id).not.toBeNull();
+      const sheet = sheetOf(page, id ?? 0);
+      const owner = sheet.locator('[data-part="residence-owner"]');
+      await expect(owner).toBeVisible({ timeout: 20_000 });
+      await expect(owner.locator('[data-part="residence-rent-line"]')).toBeVisible();
+      await expect(owner.locator('[data-part="residence-rent-clear"]')).toBeVisible();
+      // 빈 입력은 보낼 수 없다, 재료가 모자라면 층 올리기를 누를 수 없다
+      await expect(owner.locator('[data-part="residence-rent-set"]')).toBeDisabled();
+      await expect(owner.locator('[data-part="residence-floor-cost"]')).toBeVisible();
+      await expect(owner.locator('[data-part="residence-floor-raise"]')).toBeDisabled();
+      await expect(sheet.locator('[data-part="residence-capacity"]')).toContainText("3");
+      expect(await horizontalOverflow(page)).toEqual([]);
+      expect(await smallTapTargets(page)).toEqual([]);
+      await owner.scrollIntoViewIfNeeded();
+      await elementShot(
+        sheet.locator('[data-part="building-residence"]'),
+        `building-residence-owner-390-${look.theme}-${look.language}`,
+      );
       expect(deviceErrors).toEqual([]);
     });
   });

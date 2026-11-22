@@ -70,6 +70,10 @@ function fakeService(calls: string[]): FacilityService {
       calls.push(`tier:${userId}:${buildingId}:${String(tier)}`);
       return Promise.resolve({ ok: false, code: "tier_locked" });
     },
+    floor: (userId, buildingId, unitIds) => {
+      calls.push(`floor:${userId}:${buildingId}:${unitIds.join(",")}`);
+      return Promise.resolve({ ok: false, code: "floor_full" });
+    },
     claimChoice: (userId, buildingId, claim) => {
       calls.push(`claim:${userId}:${buildingId}:${claim.mode}:${String(claim.regime)}`);
       return Promise.resolve({ ok: true });
@@ -228,6 +232,9 @@ describe("건물 연결 처리", () => {
     socket.handle({ t: "facility_plot_remove", id: 7, buildingId: 7 });
     socket.handle({ t: "facility_gather_tier", id: 8, buildingId: 7, tier: 3 });
     for (let i = 0; i < 12; i++) await settle();
+    // 주거 건물 층 올리기(145, D-591 1 — 밀린 요청 상한 8 뒤에 따로)
+    socket.handle({ t: "facility_floor", id: 9, buildingId: 7, unitIds: [5] });
+    for (let i = 0; i < 4; i++) await settle();
     expect(calls).toEqual([
       "build:user-1:farm:3:4:90:1",
       "upgrade:user-1:7:0",
@@ -237,6 +244,7 @@ describe("건물 연결 처리", () => {
       "plot:user-1:7:5",
       "unplot:user-1:7",
       "tier:user-1:7:3",
+      "floor:user-1:7:5",
     ]);
     expect(sent).toEqual([
       { t: "facility_result", id: 1, ok: true, buildingId: 7, doneAtMs: 1_000 },
@@ -247,6 +255,7 @@ describe("건물 연결 처리", () => {
       { t: "facility_result", id: 6, ok: false, code: "plot_full" },
       { t: "facility_result", id: 7, ok: false, code: "no_plot" },
       { t: "facility_result", id: 8, ok: false, code: "tier_locked" },
+      { t: "facility_result", id: 9, ok: false, code: "floor_full" },
     ]);
   });
 

@@ -43,10 +43,14 @@ export const worldFacilities = pgTable(
     // 빈 2차맵 알박기 정부 건물의 고르기(D-574 — "nation" | "independent:<체제>", ruins/landClaim.ts). null = 알박기 아님·기본 선택. 열 더하기만
     // (직전 판 앱은 이 열을 모른 채 넣고 null을 받는다 — 그 판에서 지은 알박기는 기본 선택)
     claimChoice: text("claim_choice"),
+    // 층 수(주거 건물, D-591 1 — 층 올리기 공사로 는다, 정원 = 층 × 설정 칸 residence_capacity_per_floor, facilities/floors.ts). 주거 건물이 아니면 읽지 않는다.
+    // 열 더하기만(직전 판 앱은 이 열을 모른 채 넣고 처음 값 1을 받는다). 이미 있던 숙소는 마이그레이션이 레벨로 채운다(옛 정원 레벨 × 4를 그대로)
+    floors: smallint("floors").notNull().default(1),
   },
   (table) => [
     check("world_facilities_level", sql`${table.level} between 0 and 5`),
     check("world_facilities_plots", sql`${table.plots} between 0 and 100`),
+    check("world_facilities_floors", sql`${table.floors} between 1 and 100`),
     check("world_facilities_gather_tier", sql`${table.gatherTier} between 0 and 9`),
     check(
       "world_facilities_claim_choice",
@@ -59,7 +63,7 @@ export const worldFacilities = pgTable(
 
 /**
  * 시간이 걸리는 작업 한 줄(끝나면 지운다): kind = build(처음 짓기) | upgrade(레벨업) | repair(건물 수리) | beacon_repair(비콘 수리) |
- * equipment(장비 수리) | plot(면적 모듈 붙이기, 기획 D-569 1765 — 직전 판 앱은 이 줄을 읽지 않고 건너뛴다). 비콘 짓기는 비콘 줄의 ready_at_ms가 맡는다(territorySchema.ts). 대상 = building_id(시설) | beacon_id(영토 비콘) | holding_id + building_id(공방).
+ * equipment(장비 수리) | plot(면적 모듈 붙이기, 기획 D-569 1765 — 직전 판 앱은 이 줄을 읽지 않고 건너뛴다) | floor(주거 건물 층 올리기, D-591 1 — 같다). 비콘 짓기는 비콘 줄의 ready_at_ms가 맡는다(territorySchema.ts). 대상 = building_id(시설) | beacon_id(영토 비콘) | holding_id + building_id(공방).
  * target_level = 짓기·레벨업의 올라갈 레벨, restore_ppm = 수리로 더할 상태, unit_ids = 일하는 유닛(건축가·장인), materials = 시작할 때 뺀 재료
  * [{item, qty}](기록·화면용). owner_id = 명령한 소유 주체
  */
@@ -83,7 +87,7 @@ export const facilityJobs = pgTable(
     index("facility_jobs_building_idx").on(table.buildingId),
     check(
       "facility_jobs_kind",
-      sql`${table.kind} in ('build', 'upgrade', 'repair', 'beacon_repair', 'equipment', 'plot')`,
+      sql`${table.kind} in ('build', 'upgrade', 'repair', 'beacon_repair', 'equipment', 'plot', 'floor')`,
     ),
     check("facility_jobs_done", sql`${table.doneAtMs} >= ${table.startedAtMs}`),
   ],

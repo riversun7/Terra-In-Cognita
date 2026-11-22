@@ -1,7 +1,8 @@
 // 사는 곳(거주지) 자료 — 조회(tRPC gather.residence)·고르기 명령(WebSocket residence_set, 프로토콜 61)·문구. 사용자 답 D-585 1(사는 곳은 하나만 고른다 — 그 집이 선
 // 도시·나라의 주민이 되고 주민세·신용이 그곳을 따른다). 건물 판(ResidenceCard.tsx)이 쓴다. 바꾸는 명령은 WebSocket으로만 보낸다(AGENTS.md 4장).
 // 명령 틀은 나라 세금 명령(government/nationTaxCommands.ts)과 같다: 인사 전이면 기다렸다 보내고, 끊기면 "offline", TIMEOUT_MS 안에 답이 없으면 "timeout".
-import type { ResidenceResultCode } from "@terra/protocol";
+// 바뀜(residence-3, D-591 2): 집세 정하기(residence_rent, 프로토콜 145 — 내 주거 건물), 첫 기간 값이 모자람(insufficient_funds).
+import type { ResidenceRentResultCode, ResidenceResultCode } from "@terra/protocol";
 import type { ResidenceBlock, ResidenceResponse } from "@terra/shared/residence";
 import { api } from "../../net/api.ts";
 import { type ServerLink, serverLink } from "../../net/serverLink.ts";
@@ -82,6 +83,80 @@ export function sendResidence(
   });
 }
 
+export type ResidenceRentOutcome =
+  | { readonly ok: true; readonly rent: string | null }
+  | { readonly ok: false; readonly code: ResidenceRentResultCode | "offline" | "timeout" };
+
+/** 내 주거 건물의 한 기간 집세를 정한다(rent = 정수 글자, null = 세 거두기) */
+export function sendResidenceRent(
+  buildingId: number,
+  rent: string | null,
+  link: ServerLink = serverLink,
+): Promise<ResidenceRentOutcome> {
+  const id = nextId >>> 0;
+  nextId = (nextId + 1) >>> 0;
+  return new Promise((resolve) => {
+    let sent = false;
+    let done = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let stop: () => void = noop;
+    const finish = (outcome: ResidenceRentOutcome): void => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      stop();
+      resolve(outcome);
+    };
+    const trySend = (): void => {
+      if (sent || !link.isReady()) return;
+      sent = link.send({ t: "residence_rent", id, buildingId, rent });
+    };
+    stop = link.listen((event) => {
+      if (event.kind === "ready") trySend();
+      else if (event.kind === "down" && sent) finish({ ok: false, code: "offline" });
+      else if (
+        event.kind === "message" &&
+        event.message.t === "residence_rent_result" &&
+        event.message.id === id
+      ) {
+        const message = event.message;
+        finish(message.ok ? { ok: true, rent: message.rent } : { ok: false, code: message.code });
+      }
+    });
+    timer = setTimeout(() => finish({ ok: false, code: sent ? "timeout" : "offline" }), TIMEOUT_MS);
+    trySend();
+  });
+}
+
+/** 집세 정하기 실패 코드 → 문구 */
+export function residenceRentErrorText(code: ResidenceRentResultCode | "offline" | "timeout"): string {
+  switch (code) {
+    case "forbidden":
+      return m.residence_rent_error_forbidden();
+    case "not_housing":
+      return m.residence_block_not_housing();
+    case "unknown_building":
+      return m.residence_block_unknown_building();
+    case "unchanged":
+      return m.residence_unchanged();
+    case "sign_in_required":
+      return m.residence_error_sign_in();
+    case "busy":
+    case "rate_limited":
+    case "internal_error":
+    case "offline":
+    case "timeout":
+      return m.residence_error_retry();
+    default: {
+      const unknown: never = code;
+      return unknown;
+    }
+  }
+}
+
+/** 집세 입력이 보낼 수 있는 값인가(0 이상의 정수, 18자리까지) */
+export const isRentText = (text: string): boolean => /^[0-9]{1,18}$/.test(text.trim());
+
 /** 고를 수 없는 까닭 → 문구 */
 export function residenceBlockText(block: ResidenceBlock): string {
   switch (block) {
@@ -113,6 +188,8 @@ export function residenceErrorText(code: ResidenceResultCode | "offline" | "time
       return residenceBlockText(code);
     case "unknown_unit":
       return m.residence_error_unit();
+    case "insufficient_funds":
+      return m.residence_error_funds();
     case "unchanged":
       return m.residence_unchanged();
     case "sign_in_required":

@@ -19,12 +19,11 @@ import { type StationRuntime, createStationRuntime } from "./station.ts";
 import { cellMaterials, oreSharePm, woodSharePm } from "@terra/shared/catchment";
 import { exchangeRoom } from "../market/lockerRoom.ts";
 import { withNpcStaff } from "../npc/npcLogistics.ts";
-import {
-  DEFAULT_RESIDENCE_CAPACITY_PER_LEVEL,
-  attachResidence,
-  registerResidenceService,
-} from "../residence/attach.ts";
+import { attachResidence, registerResidenceService } from "../residence/attach.ts";
+import { floorQuoteOf } from "../residence/floorQuote.ts";
+import { loadResidenceRents } from "../residence/rent.ts";
 import { loadResidences } from "../residence/store.ts";
+import { ASSET_CREDIT } from "../world/settlement.ts";
 import type { ResidenceService } from "../residence/service.ts";
 
 /** 조회가 쓰는 채집 세계 */
@@ -74,6 +73,8 @@ export function startWorldGather(
       const rows = await loadObjectStates(parts.pool, TEST_PLANET_ID);
       // 고른 사는 곳(D-585 1 — 아래 일꾼 쉼터 뒤에 장부를 만든다)
       const residenceRows = await loadResidences(parts.pool);
+      // 주인이 내놓은 집세(D-591 2 — residence/rent.ts)
+      const rentRows = await loadResidenceRents(parts.pool);
       if (stopped) return;
       const store = createObjectStore({ planetId: TEST_PLANET_ID, rows, writer: parts.writer });
       const facilities = parts.facilities;
@@ -239,14 +240,22 @@ export function startWorldGather(
       // 사는 곳(D-585 1): 고른 거주지 표를 읽어 장부를 원장에 붙인다(주민세 거주·신용 조회가 읽는다)
       const residence = attachResidence({
         rows: residenceRows,
+        rentRows,
         pool: parts.pool,
         ledger: parts.ledger,
         facilities,
         maps: world.maps,
         workerRest,
-        // 사는 곳 정원 = 레벨(층) × 설정 칸(질문 2481 가 — 줄기 governance-6)
-        capacityPerLevel: () =>
-          rules().business.residenceCapacityPerLevel ?? DEFAULT_RESIDENCE_CAPACITY_PER_LEVEL,
+        // 사는 곳 정원 = 층 × 설정 칸, 층 올리기·집세 기간(질문 2481 가·D-591 — 줄기 governance-6·residence-3)
+        rules: () => rules().business,
+        // 집세·미리 내는 숙박비 화폐 = 숙박비와 같은 서버 시험 화폐 [임시](labor/workerRest.ts)
+        feeAsset: ASSET_CREDIT,
+        floorQuote: (buildingId, ownerId) =>
+          floorQuoteOf(
+            { places, ledger: parts.ledger, rules, jobs: () => facilities.service.jobs },
+            buildingId,
+            ownerId,
+          ),
         ownerOf,
         now: options.now,
       });

@@ -124,6 +124,9 @@ export const WITHHOLDING_COLUMN: BookColumn = "withholding";
 const COLUMN_OF: Readonly<Record<string, BookColumn>> = {
   // 수입(요금·임대료) — 남이 낸 돈과 주인이 제 시설에 낸 돈(D-555 1514) 모두
   lodging_fee: "income",
+  // 사는 곳 집세·미리 낸 숙박비(D-591 2 — 세 든 유닛이 기간마다 미리, apps/server/src/residence/rent.ts)
+  residence_rent: "income",
+  lodging_prepay: "income",
   labor_rent: "income",
   temple_offering: "income",
   hospital_treat: "income",
@@ -160,6 +163,8 @@ const COLUMN_OF: Readonly<Record<string, BookColumn>> = {
   facility_upgrade: "upkeep",
   // 면적 모듈 붙이기(건물 채집소, D-567)
   facility_plot: "upkeep",
+  // 주거 건물 층 올리기(D-591 1)
+  facility_floor: "upkeep",
   equipment_repair: "upkeep",
   // 적자 미리 넣기·갚기(D-555 1504)
   business_debt: "debt",

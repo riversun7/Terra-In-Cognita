@@ -1,0 +1,250 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "58acae9a-00f8-4cfc-9eed-fe370f769b8e",
+  "prevIds": [
+    "7e79264e-c94f-43c1-b1a3-9e2f1ba61755"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "residence_rents"
+      ],
+      "writes": [
+        "s|tbl|public.residence_rents",
+        "n|tbl|public.residence_rents",
+        "e|tbl|public.residence_rents",
+        "n|rel|public.residence_rents",
+        "n|type|public.residence_rents",
+        "n|rel|public.residence_rents_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "unit_residences",
+        "paid_until_ms"
+      ],
+      "writes": [
+        "s|col|public.unit_residences.paid_until_ms",
+        "n|col|public.unit_residences.paid_until_ms",
+        "e|col|public.unit_residences.paid_until_ms"
+      ],
+      "reads": [
+        "n|tbl|public.unit_residences",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_facilities",
+        "floors"
+      ],
+      "writes": [
+        "s|col|public.world_facilities.floors",
+        "n|col|public.world_facilities.floors",
+        "e|col|public.world_facilities.floors"
+      ],
+      "reads": [
+        "n|tbl|public.world_facilities",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_facilities"
+      ],
+      "writes": [
+        "s|ck|public.world_facilities.world_facilities_floors",
+        "n|ck|public.world_facilities.world_facilities_floors",
+        "e|ck|public.world_facilities.world_facilities_floors",
+        "n|con|public.world_facilities.world_facilities_floors"
+      ],
+      "reads": [
+        "n|tbl|public.world_facilities",
+        "n|sch|public",
+        "n|col|public.world_facilities.floors"
+      ]
+    },
+    {
+      "statementType": "alter_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "facility_jobs"
+      ],
+      "writes": [
+        "s|ck|public.facility_jobs.facility_jobs_kind"
+      ],
+      "reads": [
+        "n|tbl|public.facility_jobs",
+        "n|sch|public",
+        "n|col|public.facility_jobs.kind",
+        "e|col|public.facility_jobs.kind"
+      ],
+      "sqlHash": "f8e9feabce3927c6"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "residence_rents",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "residence_rents",
+        "name": "building_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "residence_rents",
+        "name": "owner_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "residence_rents",
+        "name": "rent",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "residence_rents",
+        "name": "set_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_residences",
+        "name": "paid_until_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_facilities",
+        "name": "floors",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "1",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "residence_rents",
+        "name": "residence_rents_pkey",
+        "columns": [
+          "building_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "residence_rents",
+        "name": "residence_rents_values",
+        "value": "\"building_id\" > 0 and \"rent\" >= 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_facilities",
+        "name": "world_facilities_floors",
+        "value": "\"floors\" between 1 and 100",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "checks\u0000[\"public\",\"facility_jobs\",\"facility_jobs_kind\"]",
+      "set": {
+        "value": "\"kind\" in ('build', 'upgrade', 'repair', 'beacon_repair', 'equipment', 'plot', 'floor')"
+      }
+    }
+  ]
+}

@@ -632,6 +632,7 @@ export const WORLD_TABLES = {
       "plots",
       "gather_tier",
       "claim_choice",
+      "floors",
     ],
     key: ["building_id"],
   },

@@ -132,6 +132,13 @@ describe.skipIf(!TEST_DATABASE_URL)("쿠데타로 잃은 시작 도시(질문 26
     }
     expect(startsByNation(split).get(bigId)).toEqual(big.slice(0, -1));
     expect(startsByNation(split).get(smallId) ?? []).toEqual([]);
+    // 도시를 모두 잃은 고정 국가는 시뮬 규칙대로 사라진다(세력 행에 사라진 시각 — 질문 2621 "지금")
+    const gone = await rows<{ id: string; gone: boolean }>(
+      test.db,
+      `select id, dissolved_at_ms is not null as gone from factions where id = any($1::bigint[]) order by id`,
+      [[bigId, smallId]],
+    );
+    expect(gone.map((row) => row.gone)).toEqual([false, true]);
     await stop(first);
 
     // 3. 다시 켠다

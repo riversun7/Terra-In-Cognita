@@ -1,6 +1,7 @@
 // 세력 정체성 조회·저장(tRPC factionIdentity) — 실패는 값으로 돌려준다(조회). 저장 오류는 부르는 쪽이 까닭을 읽는다(identityText rejectionOf).
 import type { FactionIdentityInput, FactionIdentityMine } from "@terra/shared/factionIdentity";
 import type { HouseView } from "@terra/shared/house";
+import type { HouseLeaguesResponse } from "@terra/shared/houseLeague";
 import { api } from "../../net/api.ts";
 import { type QueryResult, SCREEN_QUERY_TIMEOUT_MS, queryFailure } from "../../sections/queryStore.ts";
 
@@ -46,3 +47,15 @@ export const dismissHouseNotices = (ids?: readonly number[]): Promise<HouseView>
   api.factionIdentity.dismissHouseNotices.mutate(ids === undefined ? undefined : { ids: [...ids] }, {
     signal: AbortSignal.timeout(SCREEN_QUERY_TIMEOUT_MS),
   });
+
+/** 가문 연맹 목록·내 가문·부를 가문(league-2 — 사용자 결정 D-590) */
+export async function loadHouseLeagues(): Promise<QueryResult<HouseLeaguesResponse>> {
+  try {
+    const data = await api.factionIdentity.leagues.query(undefined, {
+      signal: AbortSignal.timeout(SCREEN_QUERY_TIMEOUT_MS),
+    });
+    return { ok: true, data };
+  } catch (error) {
+    return queryFailure(error);
+  }
+}

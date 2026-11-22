@@ -420,6 +420,12 @@ export interface SocietyCoefficients {
     readonly npcLeagueVoteStartScore?: number | undefined;
     readonly leagueVotePeriodMs?: number | undefined;
     readonly leagueVoteQuorumPm?: number | undefined;
+    /**
+     * NPC 가문 연맹 초대 문턱(0~1000 — 대표와의 성향 친밀도, npcLeague.ts)과 연맹 조항 카드 fee_discount의 요금 깎는 몫(‰, world/leagueTies.ts) — league-2(D-590
+     * 2502 다·2501 다) [임시]. 없으면 600·200
+     */
+    readonly npcLeagueInviteScore?: number | undefined;
+    readonly leagueFeeDiscountPm?: number | undefined;
   };
   /**
    * 장비·인공장기 수리(D-5031, 49 F11·F12): 수리 시설 Lv1~5의 최대 내구도 감소(%, 장인 실력 1000‰이면 반으로 줄어든다), 감소 하한(%),
@@ -671,6 +677,8 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     npcLeagueVoteStartScore: 400,
     leagueVotePeriodMs: 259_200_000,
     leagueVoteQuorumPm: 500,
+    npcLeagueInviteScore: 600,
+    leagueFeeDiscountPm: 200,
   },
   durability: {
     repairLossPct: [30, 25, 20, 15, 10],

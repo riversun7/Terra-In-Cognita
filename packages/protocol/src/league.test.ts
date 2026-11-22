@@ -1,7 +1,9 @@
 // 가문 연맹 메시지(기획 D-587 4·5·6, 질문 2502·2503) 스키마 시험 — 판, 왕복, 가문 열쇠 꼴
 import { describe, expect, it } from "vitest";
 import {
+  HOUSE_LEAGUE_CLAUSES,
   HOUSE_LEAGUE_PROTOCOL_VERSION,
+  HOUSE_LEAGUE_REQUEST_PROTOCOL_VERSION,
   HOUSE_LEAGUE_RESULT_CODES,
   MIN_SUPPORTED_PROTOCOL_VERSION,
   PROTOCOL_VERSION,
@@ -46,5 +48,39 @@ describe("가문 연맹 메시지", () => {
         decodes(decodeClientMessage, { t: "house_league", id: 3, action: "delegate", leagueId: 1, house }),
       ).toBe(false);
     }
+  });
+
+  it("league-2(D-590): 들기 절차·조항 카드 행동 — 판 115, clause는 카드 목록 안만, 결과 pending", () => {
+    expect(HOUSE_LEAGUE_REQUEST_PROTOCOL_VERSION).toBe(115);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(HOUSE_LEAGUE_REQUEST_PROTOCOL_VERSION);
+    const invite = {
+      t: "house_league" as const,
+      id: 4,
+      action: "invite" as const,
+      leagueId: 2,
+      house: "p:7",
+    };
+    expect(decodeClientMessage(encodeMessage(invite))).toEqual(invite);
+    for (const clause of HOUSE_LEAGUE_CLAUSES) {
+      const on = { t: "house_league" as const, id: 5, action: "clause_on" as const, leagueId: 2, clause };
+      expect(decodeClientMessage(encodeMessage(on))).toEqual(on);
+    }
+    expect(
+      decodes(decodeClientMessage, {
+        t: "house_league",
+        id: 6,
+        action: "clause_on",
+        leagueId: 2,
+        clause: "x",
+      }),
+    ).toBe(false);
+    const pending = {
+      t: "house_league_result" as const,
+      id: 4,
+      ok: true as const,
+      leagueId: 2,
+      pending: true as const,
+    };
+    expect(decodeServerMessage(encodeMessage(pending))).toEqual(pending);
   });
 });

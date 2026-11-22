@@ -182,8 +182,11 @@ export {
 } from "./cityShares.ts";
 export {
   HOUSE_LEAGUE_ACTIONS,
+  HOUSE_LEAGUE_CLAUSES,
   HOUSE_LEAGUE_PROTOCOL_VERSION,
+  HOUSE_LEAGUE_REQUEST_PROTOCOL_VERSION,
   HOUSE_LEAGUE_RESULT_CODES,
+  type HouseLeagueClause,
   type HouseLeagueAction,
   type HouseLeagueResultCode,
 } from "./league.ts";

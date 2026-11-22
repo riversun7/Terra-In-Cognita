@@ -1,0 +1,359 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "a74a580d-0e90-4570-86de-a4d25e13f18a",
+  "prevIds": [
+    "7e79264e-c94f-43c1-b1a3-9e2f1ba61755"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "house_league_clauses"
+      ],
+      "writes": [
+        "s|tbl|public.house_league_clauses",
+        "n|tbl|public.house_league_clauses",
+        "e|tbl|public.house_league_clauses",
+        "n|rel|public.house_league_clauses",
+        "n|type|public.house_league_clauses",
+        "n|rel|public.house_league_clauses_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "house_league_requests"
+      ],
+      "writes": [
+        "s|tbl|public.house_league_requests",
+        "n|tbl|public.house_league_requests",
+        "e|tbl|public.house_league_requests",
+        "n|rel|public.house_league_requests",
+        "n|type|public.house_league_requests",
+        "n|rel|public.house_league_requests_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "house_league_requests",
+        "house_league_requests_house_idx"
+      ],
+      "writes": [
+        "s|idx|public.house_league_requests_house_idx",
+        "n|idx|public.house_league_requests_house_idx",
+        "e|idx|public.house_league_requests_house_idx",
+        "n|rel|public.house_league_requests_house_idx"
+      ],
+      "reads": [
+        "n|tbl|public.house_league_requests",
+        "n|sch|public",
+        "n|col|public.house_league_requests.house_key"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "house_league_clauses"
+      ],
+      "writes": [
+        "s|fk|public.house_league_clauses.house_league_clauses_league_id_house_leagues_id_fkey",
+        "n|fk|public.house_league_clauses.house_league_clauses_league_id_house_leagues_id_fkey",
+        "e|fk|public.house_league_clauses.house_league_clauses_league_id_house_leagues_id_fkey",
+        "n|con|public.house_league_clauses.house_league_clauses_league_id_house_leagues_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.house_league_clauses",
+        "n|sch|public",
+        "n|tbl|public.house_leagues",
+        "n|sch|public",
+        "n|col|public.house_league_clauses.league_id",
+        "n|col|public.house_leagues.id",
+        "e|uniqueness|public.house_leagues.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "house_league_requests"
+      ],
+      "writes": [
+        "s|fk|public.house_league_requests.house_league_requests_league_id_house_leagues_id_fkey",
+        "n|fk|public.house_league_requests.house_league_requests_league_id_house_leagues_id_fkey",
+        "e|fk|public.house_league_requests.house_league_requests_league_id_house_leagues_id_fkey",
+        "n|con|public.house_league_requests.house_league_requests_league_id_house_leagues_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.house_league_requests",
+        "n|sch|public",
+        "n|tbl|public.house_leagues",
+        "n|sch|public",
+        "n|col|public.house_league_requests.league_id",
+        "n|col|public.house_leagues.id",
+        "e|uniqueness|public.house_leagues.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "house_league_clauses",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "house_league_requests",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_league_clauses",
+        "name": "league_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_league_clauses",
+        "name": "clause",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_league_clauses",
+        "name": "at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_league_requests",
+        "name": "league_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_league_requests",
+        "name": "house_key",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_league_requests",
+        "name": "kind",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_league_requests",
+        "name": "at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_league_requests",
+        "name": "house_league_requests_house_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "house_key",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_league_clauses",
+        "name": "house_league_clauses_league_id_house_leagues_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "league_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "house_leagues",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_league_requests",
+        "name": "house_league_requests_league_id_house_leagues_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "league_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "house_leagues",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_league_clauses",
+        "name": "house_league_clauses_pkey",
+        "columns": [
+          "league_id",
+          "clause"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_league_requests",
+        "name": "house_league_requests_pkey",
+        "columns": [
+          "league_id",
+          "house_key"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_league_requests",
+        "name": "house_league_requests_house_key",
+        "value": "\"house_key\" ~ '^[pn]:[1-9][0-9]*$'",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_league_requests",
+        "name": "house_league_requests_kind",
+        "value": "\"kind\" in ('invite', 'apply')",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

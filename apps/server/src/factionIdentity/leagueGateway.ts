@@ -41,6 +41,7 @@ function resultText(id: number, result: Result): string {
         id,
         ok: true,
         ...(result.leagueId === undefined ? {} : { leagueId: result.leagueId }),
+        ...("pending" in result && result.pending ? { pending: true as const } : {}),
       })
     : encodeMessage({ t: "house_league_result", id, ok: false, code: result.code });
 }
@@ -72,6 +73,7 @@ export function createHouseLeagueSocket(options: {
             action: message.action,
             leagueId: message.leagueId,
             house: message.house,
+            clause: message.clause,
           }),
         );
       };

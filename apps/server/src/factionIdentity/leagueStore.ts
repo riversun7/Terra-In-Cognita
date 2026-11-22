@@ -23,6 +23,112 @@ export interface LeagueVoteRow {
   readonly atMs: number;
 }
 
+/** 초대·신청 하나(league-2 — D-590 2502 다) */
+export interface LeagueRequestRow {
+  readonly leagueId: number;
+  readonly houseKey: string;
+  readonly kind: "invite" | "apply";
+  readonly atMs: number;
+}
+
+/** 붙은 조항 카드 하나(league-2 — D-590 2501 다) */
+export interface LeagueClauseRow {
+  readonly leagueId: number;
+  readonly clause: string;
+}
+
+/** 끝나지 않은 연맹의 초대·신청·조항 카드 */
+export async function loadLeagueExtras(
+  pool: QueryPool,
+): Promise<{ requests: LeagueRequestRow[]; clauses: LeagueClauseRow[] }> {
+  const requests = await pool.query(
+    `select r.league_id::text, r.house_key, r.kind, r.at_ms::text from house_league_requests r
+       join house_leagues l on l.id = r.league_id and l.ended_at_ms is null
+      order by r.league_id, r.at_ms, r.house_key`,
+  );
+  const clauses = await pool.query(
+    `select c.league_id::text, c.clause from house_league_clauses c
+       join house_leagues l on l.id = c.league_id and l.ended_at_ms is null
+      order by c.league_id, c.clause`,
+  );
+  return {
+    requests: requests.rows.map((row) => ({
+      leagueId: Number(row.league_id),
+      houseKey: String(row.house_key),
+      kind: row.kind === "invite" ? "invite" : "apply",
+      atMs: Number(row.at_ms),
+    })),
+    clauses: clauses.rows.map((row) => ({ leagueId: Number(row.league_id), clause: String(row.clause) })),
+  };
+}
+
+/** 초대·신청을 넣는다(연맹 × 가문마다 하나 — 마지막 것) */
+export async function upsertRequest(
+  pool: QueryPool,
+  leagueId: number,
+  houseKey: string,
+  kind: "invite" | "apply",
+  nowMs: number,
+): Promise<void> {
+  await pool.query(
+    `insert into house_league_requests (league_id, house_key, kind, at_ms) values ($1, $2, $3, $4)
+       on conflict (league_id, house_key) do update set kind = excluded.kind, at_ms = excluded.at_ms`,
+    [leagueId, houseKey, kind, nowMs],
+  );
+}
+
+/** 초대·신청을 지운다(들었거나 거절·거둠) */
+export async function deleteRequest(pool: QueryPool, leagueId: number, houseKey: string): Promise<void> {
+  await pool.query("delete from house_league_requests where league_id = $1 and house_key = $2", [
+    leagueId,
+    houseKey,
+  ]);
+}
+
+/** 조항 카드를 붙이거나(on) 뗀다 */
+export async function setClause(
+  pool: QueryPool,
+  leagueId: number,
+  clause: string,
+  on: boolean,
+  nowMs: number,
+): Promise<void> {
+  if (on)
+    await pool.query(
+      "insert into house_league_clauses (league_id, clause, at_ms) values ($1, $2, $3) on conflict do nothing",
+      [leagueId, clause, nowMs],
+    );
+  else
+    await pool.query("delete from house_league_clauses where league_id = $1 and clause = $2", [
+      leagueId,
+      clause,
+    ]);
+}
+
+/** 가문 이름(플레이어 = 세력 정체성 이름, NPC = 성 — governance/store.ts houseNames와 같은 읽기) */
+export async function leagueHouseNames(
+  pool: QueryPool,
+  keys: readonly string[],
+): Promise<Map<string, string>> {
+  const player = keys.filter((key) => key.startsWith("p:")).map((key) => key.slice(2));
+  const npc = keys.filter((key) => key.startsWith("n:")).map((key) => key.slice(2));
+  const out = new Map<string, string>();
+  if (player.length > 0) {
+    const { rows } = await pool.query(
+      "select faction_id::text, name from faction_profiles where faction_id = any($1::bigint[])",
+      [player],
+    );
+    for (const row of rows) out.set(`p:${String(row.faction_id)}`, String(row.name));
+  }
+  if (npc.length > 0) {
+    const { rows } = await pool.query("select id::text, name from npc_houses where id = any($1::bigint[])", [
+      npc,
+    ]);
+    for (const row of rows) out.set(`n:${String(row.id)}`, String(row.name));
+  }
+  return out;
+}
+
 /** 끝나지 않은 연맹과 표 */
 export async function loadLeagues(
   pool: QueryPool,
@@ -101,7 +207,7 @@ export async function deleteMember(pool: QueryPool, leagueId: number, houseKey: 
   );
 }
 
-/** 연맹이 끝난다(대표 혼자 남아 나감) */
+/** 연맹이 끝난다(마지막 가문이 나감) */
 export async function endLeague(pool: QueryPool, leagueId: number, nowMs: number): Promise<void> {
   await pool.query("update house_leagues set ended_at_ms = $2 where id = $1 and ended_at_ms is null", [
     leagueId,
@@ -109,9 +215,11 @@ export async function endLeague(pool: QueryPool, leagueId: number, nowMs: number
   ]);
   await pool.query("delete from house_league_members where league_id = $1", [leagueId]);
   await pool.query("delete from house_league_votes where league_id = $1", [leagueId]);
+  await pool.query("delete from house_league_requests where league_id = $1", [leagueId]);
+  await pool.query("delete from house_league_clauses where league_id = $1", [leagueId]);
 }
 
-/** 대표를 바꾸고 표를 모두 지운다(위임·투표) */
+/** 대표를 바꾸고 표를 모두 지운다(위임·투표·대표가 나감) */
 export async function setRepresentative(pool: QueryPool, leagueId: number, houseKey: string): Promise<void> {
   await pool.query("update house_leagues set representative_key = $2 where id = $1", [leagueId, houseKey]);
   await pool.query("delete from house_league_votes where league_id = $1", [leagueId]);

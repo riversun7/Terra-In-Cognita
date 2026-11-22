@@ -8,8 +8,12 @@
 //   일꾼 쪽이 내는 돈이 없는 임금형 받기만 한다(보증금은 고용주가 낸다). 계약은 돌아온 유저가 해지할 수 있다.
 // - 대상: 고용 휴먼·사이보그 유닛(유저의 사이보그 본체·수호신·배는 건드리지 않는다).
 // - 부하: 살피는 주기 = 가문 상태 점검 주기(설정 칸 npc_ai_house_check_ms), 한 번에 받는 계약 수 상한.
+// 바뀜 (league-2, 사용자 결정 D-590 2507 가): 관리인이 맡은 일도 작업 중 부상을 굴리고(그대로), 다친 유닛은 스스로 병원에 가 치료받거나 경상이면 계속 일한다 —
+//   살필 때마다 stewardCare.ts(2차맵 모음에 붙은 판단 — 병원 서비스가 있을 때만)를 먼저 부른다. 치료 요금은 유저가 누르는 병원 치료와 같다(D-590이 이 일에서
+//   "돈 쓰는 일 없음"을 대신한다).
 import type { LaborContract, SocietyCoefficients } from "@terra/sim";
 import { UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
+import { stewardCareOf } from "./stewardCare.ts";
 
 /** [임시] 한 번 살필 때 맺는 계약 수 상한(부하·한꺼번에 몰림 방지) */
 export const STEWARD_ACCEPTS_PER_SWEEP = 20;
@@ -79,7 +83,8 @@ export function createOfflineSteward(o: {
   readonly log?: { warn(obj: object, message: string): void } | undefined;
 }): OfflineSteward {
   // 늘 켜져 있다: 만들 때 정산에 상한 빼기 고리를 건다
-  if (o.labor.contracts) o.settlement.exemptOffline?.(stewardExemption(o.labor.contracts));
+  const exempt = o.labor.contracts ? stewardExemption(o.labor.contracts) : undefined;
+  if (exempt) o.settlement.exemptOffline?.(exempt);
   let nextAt = 0;
   let busy = false;
   return {
@@ -100,6 +105,11 @@ export function createOfflineSteward(o: {
           const owner = o.settlement.findOwnerOfUser(user.userId);
           if (owner !== undefined) owners.set(owner, user.userId);
         }
+        // 다친 유닛의 자율 판단(D-590 2507 가 — 병원 치료 또는 계속 일하기). 실패해도 일자리 잇기는 한다
+        if (exempt)
+          await stewardCareOf(o.maps)?.({ owners, stewarded: exempt, kinds: STEWARD_KINDS, nowMs })?.catch(
+            (error: unknown) => o.log?.warn({ err: error }, "offline steward care failed"),
+          );
         // 일 없는 유닛(주체 → 유닛·2차맵)
         const idle = new Map<number, { unitId: number; mapKey: number }[]>();
         for (const map of o.maps.values())

@@ -24,6 +24,7 @@ import type { CommandResult, SecondMap } from "./secondMap.ts";
 import { unavailable } from "./unitCondition.ts";
 import { type UnitControlDenial, canCommandAnyUnit, unitControlDenial } from "./unitControl.ts";
 import { type NationSource, nationLookupOf } from "./nationVision.ts";
+import { allyLookupOf } from "./leagueTies.ts";
 import { type OperatorPace, withPace } from "./operatorPace.ts";
 import { canObserve, canViewSecondMap } from "./visibility.ts";
 import type { WorldStats } from "./worldStats.ts";
@@ -305,6 +306,7 @@ export function createWorldGateway(options: {
               userId: viewer.id,
               ownerId: world.ownerOfUser?.(viewer.id),
               nations: nationLookupOf(world),
+              allies: allyLookupOf(world),
             });
           }
           world.viewed?.(mapKey);

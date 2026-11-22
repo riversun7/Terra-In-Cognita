@@ -3,6 +3,7 @@
 // 자료는 tRPC factionIdentity.house, 바꾸는 명령은 WebSocket(houseCommands.ts sendHouseMember, 프로토콜 23). 명령 뒤에는 자료를 다시 받는다.
 // 프로토콜 24(질문 1003 가·1005 가): 가문장의 [가문장 넘기기]·혼자 남은 가문장의 [가문 해산](도시 없는 가문만), 가문 도시 부분(HouseCityBlock.tsx).
 // 프로토콜 39(기획 D-565): 소속 도시 부분(HouseHomeBlock.tsx — 가문장의 [소속 도시 바꾸기], 무소속 안내). 가입은 나라를 가리지 않는다.
+// league-2(사용자 결정 D-590): 가문 연맹 부분(HouseLeagueBlock.tsx — 연맹 목록·만들기·신청·초대·승인·나가기·투표·조항 카드).
 // docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-11, 981~986 답)"·"바뀜 (2026-11-15, D-565)"
 import { labelTextOn } from "@terra/shared/factionIdentity";
 import type { HouseBadge, HouseView } from "@terra/shared/house";
@@ -12,6 +13,7 @@ import { dateText } from "../../sections/screenText.ts";
 import { NationEmblem } from "../../ui/NationEmblem.tsx";
 import { HouseCityBlock } from "./HouseCityBlock.tsx";
 import { HouseHomeBlock } from "./HouseHomeBlock.tsx";
+import { HouseLeagueBlock } from "./HouseLeagueBlock.tsx";
 import { HouseVaultBlock } from "./HouseVaultBlock.tsx";
 import { type HouseMemberRequest, sendHouseMember } from "./houseCommands.ts";
 import { HOUSE_ACTION_TEXT, HOUSE_MEMBER_ERROR_TEXT, houseNoticeText } from "./houseText.ts";
@@ -352,6 +354,8 @@ function MyHouse({
         </div>
       ) : null}
       {house.city ? <HouseCityBlock city={house.city} leader={leader} onChanged={onChanged} /> : null}
+      {/* 가문 연맹(league-2, D-590): 목록·만들기·신청·초대·승인·나가기·투표·조항 카드 — HouseLeagueBlock.tsx */}
+      <HouseLeagueBlock />
       {leader ? (
         <>
           <p className="faction-muted">{m.fid_house_leader_note()}</p>

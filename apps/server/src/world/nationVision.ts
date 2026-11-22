@@ -4,6 +4,7 @@
 // 나라(cyborgs.faction_id — 귀화하면 바로 바뀐다). 사이보그가 없는 유저·모르는 주체는 나라가 없다(공유 없음).
 // 부를 때마다 월드 저장 층을 읽는다(국적 바꾸기 뒤 다음 시야 틱부터 새 나라). 시야(vision.ts)는 소유 주체마다 한 번만 묻는다.
 import { houseTiesOf } from "./houseTies.ts";
+import { allyLookupOf } from "./leagueTies.ts";
 import type { NationLookup, VisionViewer } from "./vision.ts";
 import type { WorldPersistence } from "./world.ts";
 
@@ -35,5 +36,10 @@ export function visionViewerOf(
   world: NationSource & { ownerOfUser?(userId: string): number | undefined },
   userId: string,
 ): VisionViewer {
-  return { userId, ownerId: world.ownerOfUser?.(userId), nations: nationLookupOf(world) };
+  return {
+    userId,
+    ownerId: world.ownerOfUser?.(userId),
+    nations: nationLookupOf(world),
+    allies: allyLookupOf(world),
+  };
 }

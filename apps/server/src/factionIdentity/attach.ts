@@ -3,7 +3,7 @@
 //   창설은 무료다(기획 D-565 — 옛 창설 비용·국고 이체를 지웠다).
 // - 서버를 켤 때 옛 정체성(가문 없는 줄)을 한 번 가문으로 옮긴다(found.ts adoptUnfoundedIdentities, 뒤에서 — 실패해도 서버는 뜬다).
 // - 공고한 소속 도시 옮기기(D-570, houseMoves.ts)는 1분 타이머가 한다.
-// - 세계가 준비되면 옛 도시 연맹 기금을 낸 가문 금고로 한 번 되돌린다(질문 2505 나, leagueRefund.ts).
+// - 세계가 준비되면 옛 도시 연맹 기금을 낸 가문 금고로 한 번 되돌린다(질문 2505 나, leagueRefund.ts). 연맹 조항 카드 집행 고리도 그때 붙인다(league-2).
 // - 가문 가입(질문 985 다, members.ts)·소속 도시 바꾸기(D-565, houseHome.ts)도 같은 게이트웨이가 받는다. 명령 뒤 가문 표를 다시 읽어
 //   가문원 시민권·내 도시를 가문 소속 도시에 맞춘다(D-569 "나라는 하나", world/houseTies.ts). 가문원은 귀화하지 못한다(citizenship in_house).
 import type { Database } from "../db/client.ts";
@@ -24,6 +24,7 @@ import { type HouseLeagueService, type NpcLeagueHouse, createHouseLeagueService 
 import { createHouseMembers } from "./members.ts";
 import { createHouseSuccession } from "./succession.ts";
 import { houseTiesOf } from "../world/houseTies.ts";
+import { attachLeagueTies } from "../world/leagueTies.ts";
 import { attachNationTaxes, nationTaxesOf } from "../government/nationTax.ts";
 import { applyNationTaxes, createNationTaxPolicy } from "../government/nationTaxPolicy.ts";
 import type { HouseRules } from "./rules.ts";
@@ -149,6 +150,16 @@ export function attachHouses(options: {
     const p = options.world?.status().state === "ready" ? options.world.persistence : undefined;
     if (!p) return;
     clearInterval(taxTimer);
+    // 연맹 조항 카드 집행 고리(league-2, D-590 2501 다 — world/leagueTies.ts): 시야는 저장 층으로, 요금은 사업장 장부로 찾는다
+    attachLeagueTies(
+      p,
+      {
+        partnersOf: (clause, house) => leagues.ties.partnersOf(clause, house),
+        version: () => leagues.ties.version(),
+        feeDiscountPm: () => options.rules().leagueFeeDiscountPm,
+      },
+      [p.facilities.business],
+    );
     // 옛 도시 연맹 기금을 낸 가문 금고로 되돌린다(질문 2505 나 — leagueRefund.ts, 한 번·멱등)
     refundOldLeagueFunds(pool, p.ledger, options.now())
       .then((report) => {

@@ -1,0 +1,156 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "dd3656c0-8f69-4d66-9e59-8428866e0b8b",
+  "prevIds": [
+    "7e79264e-c94f-43c1-b1a3-9e2f1ba61755"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "nation_start_cities"
+      ],
+      "writes": [
+        "s|tbl|public.nation_start_cities",
+        "n|tbl|public.nation_start_cities",
+        "e|tbl|public.nation_start_cities",
+        "n|rel|public.nation_start_cities",
+        "n|type|public.nation_start_cities",
+        "n|rel|public.nation_start_cities_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "nation_start_cities"
+      ],
+      "writes": [
+        "s|fk|public.nation_start_cities.nation_start_cities_faction_id_factions_id_fkey",
+        "n|fk|public.nation_start_cities.nation_start_cities_faction_id_factions_id_fkey",
+        "e|fk|public.nation_start_cities.nation_start_cities_faction_id_factions_id_fkey",
+        "n|con|public.nation_start_cities.nation_start_cities_faction_id_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.nation_start_cities",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.nation_start_cities.faction_id",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "nation_start_cities",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nation_start_cities",
+        "name": "faction_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nation_start_cities",
+        "name": "planet_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'s2_test_planet'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nation_start_cities",
+        "name": "founded",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nation_start_cities",
+        "name": "nation_start_cities_faction_id_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "faction_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nation_start_cities",
+        "name": "nation_start_cities_pkey",
+        "columns": [
+          "faction_id",
+          "planet_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nation_start_cities",
+        "name": "nation_start_cities_founded",
+        "value": "\"founded\" >= 0",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

@@ -150,6 +150,22 @@ export const NPC_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 앞선 투자의 기대 수익 문턱(‰)",
     "NPC ahead-of-need investment return threshold (‰)",
   ),
+  // 시설 산출 값을 도시 수요로 자르기(simulator/npcReturn.ts — 질문 2604 나, fixes-1117e) [임시]
+  k(
+    "npc_invest_surplus_value_pm",
+    "",
+    "investSurplusValuePm",
+    "NPC 투자 넘치는 산출 값(‰)",
+    "NPC investment surplus output value (‰)",
+  ),
+  // 국방 투자로 경비대 수 늘리기(npc/invest.ts investGuardExtra — 질문 2565 나·D-591, fixes-1117e) [임시]
+  k(
+    "npc_guard_invest_extra_pm",
+    "",
+    "investGuardExtraPm",
+    "NPC 국방 투자 덧붙는 경비대 상한(‰)",
+    "NPC defense investment extra guard cap (‰)",
+  ),
   k(
     "npc_share_sale_score",
     "",

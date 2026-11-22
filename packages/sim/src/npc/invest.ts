@@ -154,3 +154,38 @@ export function investGate(
   if (ret !== undefined && !investPays(cost, ret, c)) return false;
   return Math.abs(Math.trunc(roll)) % 1000 < investTemperedChallengePm(cost, capital, temperPm, c);
 }
+
+// 바뀜 (fixes-1117e, 질문 2565 나 — 사용자 결정 D-591 "성향에 따라 국방에 투자하면 경비대가 많아지겠지", D-587 8 "도시나 국가는 군사력 증대를 위해 투자"):
+// 국방 투자는 카드 고르기만이 아니라 경비대 수도 늘린다. 같은 틀(값 ÷ 국고의 도전 확률 × 성향 배율 — 공격 성향, 굴림)로 등급 값 위에 덧붙일 경비대 수를 정한다:
+// k번째 덧붙는 경비대는 값 = 기준 카드 값 × k(쌓인 값 — 많이 들일수록 비싸 덜 넘는다)로 굴림을 넘을 때만 든다(처음 못 넘는 데서 멈춤). 상한 = 등급 값 ×
+// npc_guard_invest_extra_pm ÷ 1000(내림)이고 그 도시 남는 주거(주거 − 휴먼)를 넘지 않는다(경비대도 휴먼 — 붐빔을 만들지 않는다). 등급 값이 0인 세력(경비대를
+// 두지 않는 세력)은 늘리지 않는다. 칸이 없으면 0(늘리지 않음 — 옛 판).
+
+type GuardCoefficients = InvestCoefficients & Pick<NpcCoefficients, "investGuardExtraPm">;
+
+/** 국방 투자로 등급 값 위에 덧붙일 경비대 수(0~상한, 위 바뀜) */
+export function investGuardExtra(
+  input: {
+    /** 등급 값(도시마다 경비대 목표) */
+    readonly base: number;
+    /** 그 도시 남는 주거(주거 − 휴먼, 0 아래면 0) */
+    readonly room: number;
+    /** 기준 카드 값(그 창에서 살 수 있는 가장 싼 카드) */
+    readonly cardCost: bigint;
+    readonly capital: bigint;
+    readonly roll: number;
+    readonly temperPm: number;
+  },
+  c: GuardCoefficients,
+): number {
+  const base = Math.max(0, Math.trunc(input.base));
+  const pm = Math.max(0, Math.trunc(c.investGuardExtraPm ?? 0));
+  const max = Math.min(Math.floor((base * pm) / 1000), Math.max(0, Math.trunc(input.room)));
+  if (max <= 0 || input.cardCost <= 0n) return 0;
+  let extra = 0;
+  for (let k = 1; k <= max; k += 1) {
+    if (!investGate(input.cardCost * BigInt(k), input.capital, false, input.roll, input.temperPm, c)) break;
+    extra = k;
+  }
+  return extra;
+}

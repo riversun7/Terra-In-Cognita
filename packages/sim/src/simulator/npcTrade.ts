@@ -27,8 +27,8 @@ import type { SimFaction, SimWorld } from "./world.ts";
 const NECESSITY_BUFFER_HOURS = 48;
 /** 시설 재료 목표 재고(시간) */
 const INPUT_BUFFER_HOURS = 24;
-/** 이만큼(목표의 배수) 넘게 남으면 값을 내려 판다 */
-const GLUT_MULTIPLE = 4n;
+/** 이만큼(목표의 배수) 넘게 남으면 값을 내려 판다(NPC 투자 기대 수익의 "이미 넘치는 물건"도 같은 배수 — npcReturn.ts cityDailyFlow) */
+export const GLUT_MULTIPLE = 4n;
 /** 발행 나라 시장 조성 몫(가진 것의 1/분모) */
 const QUOTE_DIVISOR = 20n;
 

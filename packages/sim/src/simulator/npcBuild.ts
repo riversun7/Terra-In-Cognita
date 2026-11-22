@@ -54,7 +54,7 @@ import type { SimLoop } from "./loop.ts";
 import type { NpcContext, SimEvent } from "./npcRun.ts";
 import { retierFacility, tierTemperOf } from "./npcGatherTier.ts";
 import { growthTemperOf } from "./npcGrowthTemper.ts";
-import { facilityReturn, npcWorkerDailyWage } from "./npcReturn.ts";
+import { type DemandCap, cityDailyFlow, facilityReturn, npcWorkerDailyWage } from "./npcReturn.ts";
 import { marketRefPrice } from "./npcTrade.ts";
 import type { SimFaction, SimWorld } from "./world.ts";
 
@@ -309,6 +309,8 @@ export function buildPolicy(
   const temperPm = investTemperPm(faction.traits.commerce, c.npc);
   /** 일꾼 하루 임금(기대 수익의 유지비 — npc-fix-3, npcReturn.ts) */
   const wage = npcWorkerDailyWage(c);
+  /** 넘치는 산출 값 ‰(질문 2604 나 — 칸이 없으면 수요로 자르지 않는다, npcReturn.ts facilityReturn) */
+  const surplusPm = c.npc.investSurplusValuePm;
   const produced = producedAssets(economy);
   // 도시 성장 성향 몫(기획 D-554 1187·1188, D-572 질문 1995): 건물 수 상한 ± 채, 붐빔 숙소 점수 ±
   const temper = growthTemperOf(world.seed, faction, c.npc);
@@ -345,6 +347,15 @@ export function buildPolicy(
     const idle = idleHumans(economy, world, cityId, guards.get(cityId) ?? 0);
     const helpers = Math.min(Math.max(0, c.npc.buildBuildersMax), idle);
     const facilities = site.facilities ?? [];
+    // 그 도시 하루 수요·공급(기대 수익을 셀 때 한 번만 — 질문 2604 나)
+    let flow: DemandCap | undefined;
+    const capOf = (): DemandCap | undefined =>
+      surplusPm === undefined
+        ? undefined
+        : (flow ??= {
+            flow: cityDailyFlow(economy, cityId, (asset) => world.book.balanceOf(faction.id, asset, cityId)),
+            surplusPm,
+          });
     let action: { materials: BuildStackJson[]; run: () => boolean } | undefined;
     // 1. 수리(1114 가): 상태 문턱 아래 — 플레이어 수리와 같은 재료(그 레벨 짓기 재료 × 고친 몫)·시간
     const fix = builder.repair ? chooseCityRepair(facilities, c.npc.buildRepairBelowPm ?? 0) : undefined;
@@ -437,6 +448,7 @@ export function buildPolicy(
                       facility,
                       economy.catalog.facilities.get(facility)?.slotsPerLevel ?? 0,
                       wage,
+                      capOf(),
                     ),
                 },
         },
@@ -516,7 +528,7 @@ export function buildPolicy(
             investRoll,
             temperPm,
             c.npc,
-            facilityReturn(economy, cityId, target.facility, spec.slotsPerLevel, wage),
+            facilityReturn(economy, cityId, target.facility, spec.slotsPerLevel, wage, capOf()),
           )
         )
           continue;

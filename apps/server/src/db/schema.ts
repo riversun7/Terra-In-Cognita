@@ -967,8 +967,13 @@ export {
   houseLeagueVotes,
   houseLeagues,
 } from "./leagueSchema.ts";
-// 고정 NPC 국가 자리(D-528 세계 배치 화면): worldPlacementSchema.ts
-export { worldCityLayoutRequests, worldNationPlacements, worldTierRequests } from "./worldPlacementSchema.ts";
+// 고정 NPC 국가 자리(D-528 세계 배치 화면)·세운 시작 도시 수(질문 2612): worldPlacementSchema.ts
+export {
+  nationStartCities,
+  worldCityLayoutRequests,
+  worldNationPlacements,
+  worldTierRequests,
+} from "./worldPlacementSchema.ts";
 
 /** Better Auth Drizzle 어댑터에 넘기는 표 (usePlural: 모델 이름 + s) */
 export const authSchema = { users, sessions, accounts, verifications };

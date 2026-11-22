@@ -50,13 +50,16 @@ export interface InvestRolls {
   readonly research: number;
   readonly recruit: number;
   readonly build: number;
+  /** 경비대 수 늘리기(국방 투자 — 질문 2565 나, fixes-1117e). 넷째 굴림이라 앞 셋은 그대로다 */
+  readonly guard: number;
 }
 
 export function investRollsOf(seed: number, factionId: number, aiStep: number): InvestRolls {
   const rng = streamRng(seed, STREAM_INVEST, factionId, aiStep);
   const research = rng.nextInt(1000);
   const recruit = rng.nextInt(1000);
-  return { research, recruit, build: rng.nextInt(1000) };
+  const build = rng.nextInt(1000);
+  return { research, recruit, build, guard: rng.nextInt(1000) };
 }
 
 export const EVENT_ARRIVE = "arrive";
@@ -528,6 +531,8 @@ export function recruitPolicy(
   // 더 좋은 일꾼 카드의 덧붙는 기대 수익(npc-fix-3, 질문 2566 — npcReturn.ts): 늘어나는 효율의 임금 시세 대 늘어나는 값
   const invest = {
     roll: rolls.recruit,
+    // 국방 투자로 경비대 수 늘리기(질문 2565 나 — D-591 "성향에 따라 국방에 투자하면 경비대가 많아지겠지")
+    guardRoll: rolls.guard,
     guardTemperPm: investTemperPm(faction.traits.aggression, ctx.c.npc),
     workerTemperPm: investTemperPm(faction.traits.commerce, ctx.c.npc),
     workerReturnOf: (

@@ -514,7 +514,7 @@ describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르�
     expect(await next.checkInvariants()).toEqual([]);
   }, 120_000);
 
-  it("경비대 다시 채우기(920 나): 죽은 경비대를 구인 카드로 등급 값까지(값 소각·표시 저장), 국고가 없으면 채우지 않는다", async () => {
+  it("경비대 다시 채우기(920 나): 죽은 경비대를 구인 카드로 등급 값까지(+ 국방 투자 상한 — 2565 나, 값 소각·표시 저장), 국고가 없으면 채우지 않는다", async () => {
     const world = await boot(tiered);
     const npc = world.npc;
     const persistence = world.persistence;
@@ -575,17 +575,20 @@ describe.skipIf(!TEST_DATABASE_URL)("국력 등급(고정 NPC 국가의 고르�
     await npc.tick(true);
     await persistence.writer.durable();
     const refilled = guardsIn(npc.world, bigCity);
-    expect(refilled).toHaveLength(5);
+    // 등급 값 5까지 다시 채우고, 국방 투자(fixes-1117e, 질문 2565 나 — D-591)로 등급 값 × 500‰ = 2까지 더 들일 수 있다(굴림·남는 주거에 따라)
+    expect(refilled.length).toBeGreaterThanOrEqual(5);
+    expect(refilled.length).toBeLessThanOrEqual(7);
     expect(refilled.some((id) => dead.includes(id))).toBe(false);
     // 카드 값은 국고에서 나갔다(같은 판단에서 휴먼 구인도 함께 살 수 있어 줄었는지만 본다)
     expect(npc.world.book.balanceOf(superpower.id, ASSET_CREDIT)).toBeLessThan(before);
     // 국고가 없는 소국은 채우지 않았다
     expect(guardsIn(npc.world, smallCity)).toHaveLength(1);
-    // 어느 도시도 등급 값을 넘지 않는다
+    // 어느 도시도 등급 값 + 국방 투자 상한(등급 값 × 500‰, 내림)을 넘지 않는다
     for (const code of CODES) {
       const faction = factionOf(code);
+      const tier = faction.guardsPerCity ?? 0;
       for (const cityId of faction.cities)
-        expect(guardsIn(npc.world, cityId).length).toBeLessThanOrEqual(faction.guardsPerCity ?? 0);
+        expect(guardsIn(npc.world, cityId).length).toBeLessThanOrEqual(tier + Math.floor(tier / 2));
     }
     // 새 경비대는 경비대 표시·구인 카드 스탯과 함께 저장된다
     const saved = await rows<{ unit_id: string; guard: boolean; stats: number[] | null }>(

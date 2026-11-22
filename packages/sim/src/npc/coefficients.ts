@@ -45,6 +45,15 @@ export interface NpcCoefficients {
   readonly investPaybackDays?: number | undefined;
   readonly investReturnWeightPm?: number | undefined;
   readonly investReturnMinPm?: number | undefined;
+  /**
+   * 시설 기대 수익의 넘치는 산출 값(‰ — simulator/npcReturn.ts facilityReturn, 질문 2604 나, fixes-1117e [임시] 출발값): 그 도시 하루 수요 − 공급을
+   * 넘는 산출 몫을 지난 값의 이 몫으로 친다(0 = 팔리지 않는 것으로). 없으면 수요로 자르지 않는다(옛 셈)
+   */
+  readonly investSurplusValuePm?: number | undefined;
+  /**
+   * 국방 투자로 덧붙일 경비대 상한(‰ — 등급 값에 곱함, npc/invest.ts investGuardExtra, 질문 2565 나·D-591, fixes-1117e [임시] 출발값). 없거나 0이면 늘리지 않는다
+   */
+  readonly investGuardExtraPm?: number | undefined;
   /** 지분 팔기 기본 점수(국고가 모자랄 때만) */
   readonly shareSaleScore: number;
   /** 지분을 판 뒤에도 쥐고 있을 몫(‰) = 이 값 − 상업 성향 ÷ 10(독립 투표로 도시를 잃지 않게, D-300) */
@@ -205,6 +214,8 @@ export const TEST_NPC_COEFFICIENTS: NpcCoefficients = {
   investPaybackDays: 30,
   investReturnWeightPm: 300,
   investReturnMinPm: 0,
+  investSurplusValuePm: 0,
+  investGuardExtraPm: 500,
   shareSaleScore: 200,
   shareKeepPm: 600,
   peaceWearyScore: 400,

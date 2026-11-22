@@ -16,6 +16,7 @@ import type {
 import type { SocietyCoefficients, WorldSeedCoefficients } from "@terra/sim";
 import type { TerritoryMapValues } from "@terra/shared/territoryMap";
 import type { QueryPool } from "./persist/load.ts";
+import { loadStartFounded, startFoundedOf } from "../npc/startFounded.ts";
 import { loadTierRequest } from "./tierApply.ts";
 import {
   type LayoutLand,
@@ -119,7 +120,7 @@ export async function tierApplyPlan(
     readonly tiered: boolean;
   })[],
 ): Promise<WorldTierApplyView> {
-  const [cityRows, humanRows, techRows, ruinRows, unitRows, request] = await Promise.all([
+  const [cityRows, humanRows, techRows, ruinRows, unitRows, request, recorded] = await Promise.all([
     pool.query(
       `select id, faction_id, map_key, cell_x, cell_y, start, development, housing from world_cities
        where planet_id = $1 order by id`,
@@ -136,6 +137,7 @@ export async function tierApplyPlan(
     ]),
     pool.query(`select count(*) as n from world_units where planet_id = $1`, [base.planetId]),
     loadTierRequest(pool, base.planetId),
+    loadStartFounded(pool, base.planetId),
   ]);
   const cities: CityRow[] = cityRows.rows.map((row) => ({
     id: Number(row.id),
@@ -181,7 +183,12 @@ export async function tierApplyPlan(
     worldSeed: seedOfText(base.planetId),
     nations: nations.map((nation) => ({
       factionId: nation.factionId,
-      missing: Math.max(0, nation.start.startCities - startsOf(nation.factionId).length),
+      // 세운 시작 도시 수로 센다(질문 2612 — 쿠데타로 떨어져 나간 도시는 채우지 않는다, 부팅 npc/nations.ts와 같다)
+      missing: Math.max(
+        0,
+        nation.start.startCities -
+          startFoundedOf(recorded, nation.factionId, startsOf(nation.factionId).length),
+      ),
       placed: cities.filter((city) => inPlace(city) && city.factionId === nation.factionId),
       home: nation.home,
       tier: layoutTierOf(nation.start),

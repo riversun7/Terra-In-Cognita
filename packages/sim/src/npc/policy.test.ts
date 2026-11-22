@@ -263,3 +263,34 @@ describe("구인 카드 기대 수익(npc-fix-3, 질문 2566)", () => {
     ).toEqual([1]);
   });
 });
+
+describe("국방 투자로 경비대 수 늘리기(fixes-1117e, 질문 2565 나 — D-591)", () => {
+  const cards = [
+    { slot: 0, total: 35, cost: 60n },
+    { slot: 1, total: 44, cost: 78n },
+    { slot: 2, total: 44, cost: 70n },
+    { slot: 3, total: 30, cost: 50n },
+  ];
+  const c1000 = { ...c, investGuardExtraPm: 1000 };
+  const base = { cards, taken: 0, population: 6, housing: 10, treasury: 10_000n, guards: 2, guardTarget: 2 };
+
+  it("굴림을 넘으면 등급 값 위로 경비대를 더 들인다(가장 싼 카드 값 기준), 굴림이 없으면 옛 판", () => {
+    // 덧붙는 경비대 2(등급 값 2 × 1000‰): 카드 도전은 실패(999)라 싼 차례 — 경비대 50·60, 그다음 휴먼 목표 모자람(4 − 2) 70·78
+    expect(recruitPicks({ ...base, invest: { ...invest(999), guardRoll: 0 } }, c1000)).toEqual([
+      { slot: 3, guard: true },
+      { slot: 0, guard: true },
+      { slot: 2, guard: false },
+      { slot: 1, guard: false },
+    ]);
+    expect(
+      recruitPicks({ ...base, invest: { ...invest(999), guardRoll: 999 } }, c1000).every((p) => !p.guard),
+    ).toBe(true);
+    expect(recruitPicks({ ...base, invest: invest(999) }, c1000).every((p) => !p.guard)).toBe(true);
+  });
+
+  it("남는 주거가 없으면 더 들이지 않는다(이미 든 경비대는 그대로)", () => {
+    expect(recruitPicks({ ...base, population: 10, invest: { ...invest(999), guardRoll: 0 } }, c)).toEqual(
+      [],
+    );
+  });
+});

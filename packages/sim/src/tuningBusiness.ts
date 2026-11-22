@@ -247,6 +247,27 @@ export const BUSINESS_TUNING_KEYS: readonly TuningKey[] = [
     "사는 곳 집세 기간(ms)",
     "Residence rent period (ms)",
   ),
+  // NPC 휴먼 세 들기(질문 2674 — D-555 1509, 줄기 npc-rent): 서버 residence/npcRent.ts만 읽는다
+  k("npc_rent_mode", "npcRentMode", "NPC 세 들기(1 켬·0 끔)", "NPC renting (1 on, 0 off)"),
+  k(
+    "npc_rent_sweep_cap",
+    "npcRentSweepCap",
+    "NPC 세 들기 훑기마다 보는 휴먼 수",
+    "NPC renting: humans checked per sweep",
+  ),
+  k(
+    "npc_rent_factor_pm",
+    "npcRentFactorPm",
+    "NPC 세 들기 의향(숙박비 대비 ‰)",
+    "NPC renting willingness (‰ of lodging cost)",
+  ),
+  k("npc_rent_temper_pm", "npcRentTemperPm", "NPC 세 들기 이윤 성향 무게(‰)", "NPC renting greed weight (‰)"),
+  k(
+    "npc_rent_reserve_pm",
+    "npcRentReservePm",
+    "NPC 세 들기 지갑 여유(집세 ‰)",
+    "NPC renting purse reserve (‰ of rent)",
+  ),
   // 나라 세금(tax-2 — 질문 2371 나·2373 가): NPC 나라 주민세 규칙식 범위, 주민세 재산의 건물 값(지은 값·감가)
   k(
     "npc_resident_tax_min_pm",

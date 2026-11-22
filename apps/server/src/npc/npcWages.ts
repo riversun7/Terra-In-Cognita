@@ -10,6 +10,8 @@
 //   바뀜 (빈틈 2293 — 기획 대조 D-555 1508·1509): 다 못 낸 일꾼은 다음 숙박비를 낼 때까지 회복이 노숙으로 떨어진다 — 플레이어 일꾼(labor/workerRest.ts)과
 //   같다. 쉼터 계획의 그 시설 생산 속도 배율을 다시 센다(restPlan → cityRest.ts withUnpaidRest). 못 낸 일꾼 표는 메모리(다시 켜면 비어 시작) [임시].
 //   임금을 받으면 숙박비 몫을 먼저 남기므로 임금을 못 받은 일꾼(금고·국고가 빈 나라)만 걸린다. 끈 판(국고가 냄)은 옛 판 그대로 불이익 없음.
+// - 바뀜(npc-rent, 질문 2674 — 플레이어 일꾼 labor/workerRest.ts와 같다): 세 든 집(사는 곳 장부 — 미리 낸 기간 안)이 그 일꾼이 쉬는 숙소이면 밤 숙박비를 걷지
+//   않는다(집세가 덮는다).
 // - business_npc_wage_mode 0이면 옛 판: 임금 없음, 숙박비는 도시 주인 국고가 낸다(숙소마다 합).
 // 일꾼 ↔ 휴먼 = @terra/sim cityWorkerUnits(npc/humanPlaces.ts와 같은 나눔), 쉼터 = 그 시설 안 차례의 쉼터 계획(cityRest.ts plan.workers).
 // 정수·BigInt만 쓴다.
@@ -28,6 +30,7 @@ import {
   restsPerDay,
 } from "@terra/sim";
 import type { BusinessCore } from "../business/core.ts";
+import { residenceBookOf } from "../residence/book.ts";
 import { type CityRestPlan, type WorkerRest, withUnpaidRest } from "./cityRest.ts";
 
 export interface NpcWagesDeps {
@@ -97,6 +100,7 @@ export function createNpcWages(deps: NpcWagesDeps): {
     if (!plan || !city || perNight <= 0n) return [];
     const rests = restsByWorker(plan);
     const c = deps.rules();
+    const residences = residenceBookOf(book);
     const out = [];
     for (const worker of cityWorkerUnits(world, economy, cityId)) {
       const rest = rests.get(workerKey(worker));
@@ -104,6 +108,8 @@ export function createNpcWages(deps: NpcWagesDeps): {
       const owner = plan.owners.get(rest.lodgingId) ?? null;
       // 도시 주인 세력의 숙소도 요금을 낸다(사업장 장부가 있을 때 — D-555 1509·1514). 장부가 없으면 같은 주머니라 건너뛴다
       if (owner === null || (owner === city.owner && !deps.business)) continue;
+      // 세 든 집이 이 숙소이고 미리 낸 기간 안이면 집세가 덮는다(npc-rent)
+      if (residences?.chosenPlace(worker.unitId)?.buildingId === rest.lodgingId) continue;
       const nights = BigInt(restsPerDay(rest.place, rest.commuteCells, c));
       if (nights > 0n) out.push({ worker, lodgingId: rest.lodgingId, owner, amount: nights * perNight });
     }

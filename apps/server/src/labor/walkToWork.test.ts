@@ -103,18 +103,20 @@ describe("일터로 걸어가기 (D-591, 질문 2656 나)", () => {
   });
 });
 
+/** 시험 계약(shiftPayStart가 읽는 칸만) */
+const contract = (fields: Partial<LaborContract>) =>
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- 시험: 이 함수가 읽는 칸만 채운다
+  ({
+    unitId: 21,
+    state: "active",
+    paidTotal: 0n,
+    settledAtMs: 100,
+    nextDueMs: 100,
+    ...fields,
+  }) as LaborContract;
+
 describe("shiftPayStart (계약 임금·임대료는 도착부터)", () => {
   it("아직 치르지 않은 열린 계약의 정산·다음 지급 시각을 도착으로 미룬다", () => {
-    const contract = (fields: Partial<LaborContract>) =>
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- 시험: 이 함수가 읽는 칸만 채운다
-      ({
-        unitId: 21,
-        state: "active",
-        paidTotal: 0n,
-        settledAtMs: 100,
-        nextDueMs: 100,
-        ...fields,
-      }) as LaborContract;
     const fresh = contract({});
     const paid = contract({ paidTotal: 5n });
     const other = contract({ unitId: 22 });

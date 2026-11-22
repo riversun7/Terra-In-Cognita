@@ -7,8 +7,8 @@
 // - 닿은 유닛만 싸운다: 전투(참가 받기 끝) 때 그 도시 2차맵에 서 있는 유닛만 든다(coupDispatch.ts arrivedIn — 늦으면 빠진다 [임시 2652]). 닿은 뒤 전투 중에
 //   드는 길(join-on-arrival)은 줄기 no-teleport-a가 전투 쪽에 붙인다 — 이 모듈은 보내기와 도착 예정만 준다(npcTroopEta).
 // - 힘 비(NPC 일으키기·참가 기록): 보낼 가문원 모두(그 도시에 있든 보내든 — 2549 "양쪽이 보낼 병력")로 본다 [임시 — 질문 2698].
-// - 가는 동안 그 휴먼은 스스로 걷지 않고(2차맵 held) 그 도시 2차맵 밖에서는 일터·집 걷기·도시 웨이브 수비에 보이지 않는다. 도시 경제의 일꾼 수는 머릿수라
-//   그대로다 [임시 — 질문 2697].
+// - 가는 동안 그 휴먼은 스스로 걷지 않고(2차맵 held) 다른 2차맵에서는 집·일터 걷기·운반꾼에 보이지 않는다. 도시 경제의 일꾼 수·정원사 웨이브 수비(집 도시 기준 거울
+//   휴먼)는 그대로 센다 [임시 — 질문 2697].
 import type { HouseKey } from "@terra/shared/governance";
 import { npcTravelOf } from "../travel/npcTravel.ts";
 import { UNIT_KIND_BOT } from "../world/unitKinds.ts";

@@ -294,3 +294,9 @@
 - 판: 프로토콜 **125(최소 124)** — 줄기 판(main 65+60). 메시지 모양 그대로, `gov_coup_join unitIds`의 뜻이 바뀌어 올린다(`governance.ts COUP_DISPATCH_PROTOCOL_VERSION`). 낮은 판 기기도 같은 칸을 보내고
   같은 뜻으로 처리된다. 팩·SIM·마이그레이션 없음(참가 줄 `units` 칸 그대로 — 보낸 유닛 ID).
 - 순간이동 점검(그 밖의 길 — 쿠데타 밖): `docs/adr/2026-11-15-unloaded-second-maps.md` "바뀜 (no-teleport, D-591)", 표 전체는 작업 기록 `docs/worklog/2026/11/22-1050-no-teleport.md`.
+
+## 바뀜 (no-teleport-b, D-591, 2026-11-22 — 쿠데타 NPC 병력 파견, 질문 2651 나, 제안 상태라 이 ADR에 덧붙인다)
+- 줄기 no-teleport는 NPC 병력을 그 도시 2차맵에 이미 있는 것만 넣었다 [임시 2651 가]. 이제 NPC 2차맵 사이 이동(`travel/npcTravel.ts`)으로 실제로 보낸다(`governance/coupNpcDispatch.ts`):
+  참가 받는 동안 쿠데타 틱마다 일으킨 NPC 가문·NPC 지배 가문·편을 든 NPC 가문의 가문원(NPC 휴먼)을 그 도시 시청 칸으로(이미 그곳·가는 중이면 그대로). 지도자·경비대는 보내지 않는다.
+- 닿은 유닛만 싸우는 것은 그대로(`coupDispatch.ts arrivedIn`, 늦으면 빠진다 2652). 닿은 뒤 전투 중에 드는 길은 줄기 no-teleport-a가 전투 쪽에 붙인다 — 포트에 `sendNpcTroop`·`npcTroopEta`.
+- NPC 일으키기·참가의 힘 = 보낼 가문원 모두(2549 "양쪽이 보낼 병력"), 정부군 힘 = NPC 지배 가문원 모두 + 그 도시에 있는 경비대 [임시 — 질문 2698].

@@ -218,3 +218,14 @@
 - 서버 전체 순간이동 점검(유닛이 걷지 않고 전투·도시·건물·2차맵·직무에 나타나는 곳): 고침 2(쿠데타·건물 공격), 유닛 움직임이 아니거나 걸어서 닿는 곳(생성·지정·반경 안 참전·좌표 이동) 다수, 결정이 필요한 것
   — NPC 지도자 수도 따라 옮기기(2654), 전투 진 유닛·포로 즉시 귀환(2655 — D-351), 직무 배치 같은 2차맵 떨어져서 일함(2656), 서버 NPC 공격 병력 없는 점령(2657), 운영 도구(2658). 표 전체는 작업 기록
   `docs/worklog/2026/11/22-1050-no-teleport.md`, 질문 `docs/questions/2026-11-22-no-teleport.md`(2651~2659).
+
+## 바뀜 (no-teleport-b, D-591, 2026-11-22 — 사용자 결정 D-591 "어떠한 경우에도 순간이동은 없다 파견으로 실제로 이동해서 참전한다", 질문 2651 나·2654 가, 제안 상태라 덧붙인다)
+- 이동 서비스에 **NPC 이동**을 더했다(`TravelService.startNpc`·`onNpcDone`·`npcTrip`·`cancelNpc`·`restoreNpc`, 안쪽 몫 `travel/npcJourney.ts`, 다른 모듈이 쓰는 모양 `travel/npcTravel.ts`
+  — `npcTravelOf(service).send(unitId, { mapKey, x, y }, onDone)`·`trip`·`cancel`). NPC 휴먼(봇)·NPC 국가 지도자를 플레이어 이동과 같은 길·시간(이 ADR의 좌표 구간 포함)으로 보낸다.
+  주인 확인 없음(서버 판단이 보낸다). 같은 2차맵이면 그 안에서 걷기만.
+- 다른 점 [임시 — 질문 2696]: 목적 2차맵은 띄운 것만(NPC 유닛은 좌표 유닛으로 서지 않는다), 넘기 전 정산·탐사 기록·도중 습격·좌표 조우·좌표 유닛 목록(`coordinateUnits`)에서
+  빠진다. 가는 동안 2차맵 스스로 걷기를 멈춘다(`SecondMap.holdRoam`, 들어온 유닛은 `transferIn(…, carry)`로 held — 봇도 `transferOut`·`transferIn`에 carry로 넘긴다).
+- 저장은 같은 `world_travels`(user_id 없음 — 표·마이그레이션 그대로). 부팅: 첫 복구(`restore`)는 봇 길을 남겨 두고, NPC 사회 런타임이 휴먼을 읽은 뒤 `restoreNpc`가 잇는다
+  (먼저 이으면 건너뛰는 봇이 2차맵에서 빠져 런타임이 그 휴먼을 잃는다). 건너뛰는 동안 죽은 휴먼(런타임 거울에 없음)은 나타나지 않고 유닛 행을 지운다.
+- 나눔(1,000줄 상한): `travel/haltOn.ts`(조우가 길을 멈춤), 좌표 읽기 도우미(`coordReads.ts touchesMap`·`hiddenAtOf`·`parkedAtOf`·`coordMetrics`), 확인 단계 한 줄(`planner.ts routePlan`).
+- 판·마이그레이션: 프로토콜·팩·SIM 그대로, 마이그레이션 없음.

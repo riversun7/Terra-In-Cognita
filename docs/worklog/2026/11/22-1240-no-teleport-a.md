@@ -58,7 +58,7 @@
   시험 둘 다 + b 시험에 "전투 중에 닿은 NPC 가문원은 참전" 한 줄 더함), `world/secondMap.ts`(a `walkToSafety` + b `transferOut(carry)` 둘 다 — 993줄), ADR 둘(b 절 → a 절 차례), `docs/WORKLOG.md`(다시 만듦).
 - 결과: NPC 가문원은 b의 NPC 파견(`travel/npcTravel.ts`)으로 쿠데타 도시로 걷고, 닿으면 전투 전이면 시작 유닛, 전투 중이면 a의 참전 길(`fight` → `joinCoupBattle`, 1분 틱 — NPC 도착 깨우기는 없음 [임시])로 든다.
 - 2655(진 유닛 돌아가기)는 **같은 2차맵 안**이라 NPC 2차맵 사이 이동이 필요 없었다 — `npcTravel`을 쓰지 않고 NPC 봇도 `secondMap.walkToSafety`로 걷는다(닿으면 원래처럼 다시 돌아다닌다).
-- 돌아가는 중인 유닛은 `unavailable`(`returningUntilMs`)이다: NPC 파견·일터 걷기(b)가 유닛을 고를 때 `unavailable`을 보면 걷는 중 유닛을 빼앗지 않는다(`secondMap.moveUnit`은 이미 막는다) — b 코드는 확인하지 않았다(Unknown).
+- 돌아가는 중인 유닛은 `unavailable`(`returningUntilMs`)이다: NPC 파견·일터 걷기(b)가 유닛을 고를 때 `unavailable`을 보면 걷는 중 유닛을 빼앗지 않는다(`secondMap.moveUnit`은 이미 막는다) — NPC 파견도 `travel/planner.ts planFor`의 `unavailable` 검사를 거친다(코드 읽기 Verified).
 - 2657 계획 ①(NPC 2차맵 사이 이동)은 b로 생겼다 — 다음 줄기는 ②부터.
 
 ## 건드리지 말 것

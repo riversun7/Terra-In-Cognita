@@ -262,6 +262,69 @@ test.describe("개발자", () => {
     }
     expect(unexpected(deviceErrors)).toEqual([]);
   });
+
+  test("1:1 비교·파티 불러와 군단 편성·군단 저장·통합 [3D 전투 · 리플레이] 탭", async ({
+    page,
+    deviceErrors,
+  }) => {
+    test.setTimeout(180_000);
+    await labReady(page);
+    // 팀 A·B 두 칸이 한 줄(양쪽) 배치 컨테이너 안에 있다
+    await expect(page.locator(".bl-teams-vs")).toHaveAttribute("data-count", "2");
+
+    // 1:1 비교 모드: 양쪽 1명씩으로 맞추고 1:1 스탯 비교 카드가 뜬다
+    await page.locator(".bl-scale-btn[data-scale='duel']").click();
+    await expect(page.locator(".bl-team[data-team='a'] .bl-unit")).toHaveCount(1);
+    await expect(page.locator(".bl-team[data-team='b'] .bl-unit")).toHaveCount(1);
+    await expect(page.locator(".bl-duel-card .bl-duel-table tbody tr")).toHaveCount(7, { timeout: 20_000 });
+
+    // 전체 레벨 일괄 조정(Lv 50)
+    await page.locator(".bl-level-bar-all .bl-level-chip[data-level='50']").click();
+    await expect(page.locator(".bl-team[data-team='a'] .bl-unit-name").first()).toContainText("Lv 50");
+    await expect(page.locator(".bl-team[data-team='b'] .bl-unit-name").first()).toContainText("Lv 50");
+
+    // [유닛 · 프리셋] 탭: 다양한 내장 프리셋을 보고 팀 A에 추가할 수 있다
+    await page.locator("#bp-tab-units").click();
+    await expect(page.locator(".bl-workshop-item")).not.toHaveCount(0);
+    await page.locator(".bl-send-team-a").click();
+    await page.locator("#bp-tab-report").click();
+    await expect(page.locator(".bl-team[data-team='a'] .bl-unit")).toHaveCount(2);
+    await page.locator(".bl-scale-btn[data-scale='duel']").click();
+
+    // 군단전 모드: 저장된 파티 프리셋을 불러와 곧바로 팀 A 군단에 추가하고, 군단으로 저장·불러오기·지우기
+    await page.locator(".bl-scale-btn[data-scale='legion']").click();
+    const teamA = page.locator(".rp-legion-team[data-team='a']");
+    await teamA.locator(".bl-legion-add-preset").selectOption("sample_party_lv30_mixed");
+    await teamA.locator(".bl-legion-add-btn").click();
+    await expect(teamA.locator(".rp-party-tab")).toHaveCount(2);
+    await expect(teamA.locator(".rp-party-tab[data-party='1']")).toHaveAttribute("aria-selected", "true");
+    await expect(teamA.locator(".bl-unit")).toHaveCount(4);
+
+    // 군단 저장 → 팀 B에 불러오기 → 지우기
+    await teamA.locator(".bl-legion-presets > summary").click();
+    await teamA.locator(".bl-legion-name-input").fill("시험 군단");
+    await teamA.locator(".bl-legion-save-btn").click();
+    const teamB = page.locator(".rp-legion-team[data-team='b']");
+    await teamB.locator(".bl-legion-presets > summary").click();
+    const savedOption = await teamB
+      .locator(".bl-legion-pick option", { hasText: "시험 군단" })
+      .first()
+      .getAttribute("value");
+    expect(savedOption).toBeTruthy();
+    await teamB.locator(".bl-legion-pick").selectOption(savedOption ?? "");
+    await teamB.locator(".bl-legion-load-btn").click();
+    await expect(teamB.locator(".rp-party-tab")).toHaveCount(2);
+    await teamB.locator(".bl-legion-delete-btn").click();
+
+    // 통합 [3D 전투 · 리플레이] 탭에서 현재 군단전 세팅을 바로 3D로 재생한다
+    await page.locator("#bp-tab-replay").click();
+    await expect(page.locator("#bp-tab-replay")).toHaveAttribute("aria-selected", "true");
+    await runUntil(page, ".bl-replay-start", ".bl-replay-stage .br-view");
+    await expect(page.locator(".bl-replay-stage .br-view")).toHaveAttribute("data-status", "ready", {
+      timeout: 60_000,
+    });
+    expect(unexpected(deviceErrors)).toEqual([]);
+  });
 });
 
 test.describe("플레이어", () => {

@@ -191,8 +191,9 @@
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-2);
-  border: var(--hairline) dashed var(--color-border);
+  border: var(--border-w) solid var(--color-border-strong);
   border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
 }
 .bl-preset-select {
   width: 100%;
@@ -299,7 +300,16 @@
 .bl-num-input {
   min-width: 0;
   width: 100%;
+  text-align: end;
   font-variant-numeric: tabular-nums;
+}
+.bl-num-compact {
+  width: fit-content;
+  max-width: 100%;
+}
+.bl-num-compact .bl-num-input {
+  inline-size: 7.5em;
+  max-width: 100%;
 }
 .bl-num-input[aria-invalid="true"] {
   border-color: var(--color-danger);
@@ -336,18 +346,36 @@
 .bl-details {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
   min-width: 0;
+  border: var(--border-w) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  overflow: hidden;
 }
 .bl-details > summary {
   min-height: var(--tap-size);
   display: flex;
   align-items: center;
+  padding: var(--space-1) var(--space-3);
+  background-color: var(--color-card-head);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-strong);
   cursor: pointer;
 }
 .bl-details[open] > summary {
-  margin-block-end: var(--space-1);
+  border-block-end: var(--border-w) solid var(--color-border-strong);
+  box-shadow: inset var(--accent-bar) 0 0 var(--color-primary);
+}
+.bl-editor[data-team="b"] .bl-details[open] > summary,
+.bl-team[data-team="b"] .bl-details[open] > summary {
+  box-shadow: inset var(--accent-bar) 0 0 var(--color-warning);
+}
+.bl-details-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  min-width: 0;
 }
 /* flex로 바꾼 summary는 펼침 표시가 사라진다: 직접 그린다(펼칠 수 있는 것이 보이게) */
 .bl-details > summary::before,
@@ -360,6 +388,7 @@
 .bl-details[open] > summary::before,
 .bl-secondary details[open] summary::after {
   content: "▾";
+  color: var(--color-primary);
 }
 .bl-secondary summary::after {
   order: -1;
@@ -371,7 +400,7 @@
 .bl-details > summary:hover,
 .bl-secondary summary:hover,
 .bl-unit-pick:hover {
-  background-color: var(--color-surface-2);
+  background-color: var(--dev-row-hover);
 }
 .bp-tab:hover {
   color: var(--color-text);
@@ -439,10 +468,27 @@
   text-align: start;
 }
 .bl-primaries {
-  width: 100%;
+  width: auto;
+  max-width: 100%;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.bl-primaries thead th {
+  background-color: var(--dev-head-bg);
+  text-align: end;
+}
+.bl-primaries thead th:first-child {
+  inline-size: 4.5em;
+  text-align: start;
+}
+.bl-primaries tbody tr:nth-child(even) {
+  background-color: var(--dev-row-alt);
 }
 .bl-primaries td {
-  inline-size: 50%;
+  inline-size: 8.5em;
+}
+.bl-primaries td .bl-num {
+  margin-inline-start: auto;
 }
 .bl-stat-code {
   font-weight: var(--font-weight-strong);
@@ -517,23 +563,32 @@
 
 /* ── 스킬 ── */
 .bl-skill {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
-  border: var(--hairline) solid var(--color-border);
+  border: var(--hairline) solid var(--color-border-strong);
   border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
 }
 .bl-skill[data-over] {
   border-style: dashed;
   color: var(--color-text-muted);
 }
 .bl-skill-name {
-  flex: 1 1 8em;
-  align-self: center;
+  min-width: 0;
+  font-weight: var(--font-weight-strong);
   overflow-wrap: anywhere;
 }
 .bl-grade {
-  inline-size: 5em;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-1);
+}
+.bl-grade .bl-num-label {
+  white-space: nowrap;
+}
+.bl-grade .bl-num-input {
+  inline-size: 4.5em;
 }

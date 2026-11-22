@@ -1,17 +1,17 @@
-// 전투 다시보기 화면 시험 — /dev/battle-replay (docs/adr/2026-11-01-battle-replay.md 7절).
-// - dev: 서버가 시범 6 대 6을 기록하고(battleReplay.demo) 시험 2차맵 지형 위에서 재생한다. 재생·멈춤·배속·찾기·처음부터,
+// 전투 다시보기 화면 시험 — /dev/battle-replay (밸런스 화면의 [3D 전투 · 리플레이] 탭으로 통합, docs/adr/2026-11-01-battle-replay.md).
+// - dev: /dev/battle-replay로 열면 시범 6 대 6을 기록해(battleReplay.demo) 시험 2차맵 지형 위에서 재생한다. 재생·멈춤·배속·찾기·처음부터,
 //   유닛 고르기·따라가기·시야, 기록 판, 끝 요약(유닛 12줄), 새 시드. 기기 오류 없음, 가로 넘침 없음.
 // - player는 권한 없음(e2e/dev.spec.ts가 본다).
 // - 사진: 390·1440 × 기본 테마 둘 × 한국어·영어. 싸움 중(효과·숫자가 보이는 시각)과 끝 요약(E2E_SHOTS_DIR).
 // - 측정(E2E_MEASURE=1): 1배속 재생 중 엔진 한 프레임 p95·초당 프레임·그리기 호출(헤드리스 SwiftShader라 휴대폰 값 아님).
-// 표지(class·data-*)로 본다: .brl-screen[data-status·data-seed·data-bytes·data-events·data-arena],
+// 표지(class·data-*)로 본다: .bl-replay-tab[data-status·data-seed·data-bytes·data-events·data-arena],
 // .br-view[data-status·data-playing·data-time·data-ended·data-speed·data-fx·data-numbers·data-render-p95·data-fps·data-draw-calls].
 import type { Page } from "@playwright/test";
 import { horizontalOverflow, shot } from "./helpers/screen.ts";
 import { expect, test } from "./helpers/test.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
 
-const screen = (page: Page) => page.locator(".brl-screen");
+const screen = (page: Page) => page.locator(".bl-replay-tab");
 const view = (page: Page) => page.locator(".br-view");
 const timeOf = async (page: Page): Promise<number> => Number(await view(page).getAttribute("data-time"));
 
@@ -24,7 +24,7 @@ async function ready(page: Page): Promise<void> {
     await expect(screen(page)).not.toHaveAttribute("data-status", "loading", { timeout: 60_000 });
     if ((await screen(page).getAttribute("data-error")) !== "rate_limited") break;
     await page.waitForTimeout(6000);
-    await page.locator(".brl-form .button-primary").click();
+    await page.locator(".bl-replay-demo-form .button-primary").click();
   }
   await expect(screen(page)).toHaveAttribute("data-status", "ready", { timeout: 60_000 });
   await expect(view(page)).toHaveAttribute("data-status", "ready", { timeout: 60_000 });
@@ -115,8 +115,8 @@ test.describe("dev", () => {
     await expect.poll(() => timeOf(page)).toBeLessThan(end);
     expect(await horizontalOverflow(page)).toEqual([]);
     // 새 시드
-    await page.locator(".brl-seed input").fill("2");
-    await page.locator(".brl-form .button-primary").click();
+    await page.locator(".bl-replay-demo-seed input").fill("2");
+    await page.locator(".bl-replay-demo-form .button-primary").click();
     await ready(page);
     await expect(screen(page)).toHaveAttribute("data-seed", "2");
     expect(deviceErrors).toEqual([]);

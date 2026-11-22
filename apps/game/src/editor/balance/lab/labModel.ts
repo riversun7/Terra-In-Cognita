@@ -83,6 +83,25 @@ export function replaceParty(teams: Teams, team: LabTeam, party: LabParty): Team
   return { ...teams, [team]: party };
 }
 
+/** 레벨을 허용 범위(levelMin..levelMax) 안 정수로 맞춘다 */
+export function clampLevel(value: number): number {
+  return Math.max(LAB_LIMITS.levelMin, Math.min(LAB_LIMITS.levelMax, Math.round(value)));
+}
+
+/** 파티 안 모든 유닛의 레벨을 한 값으로 맞춘다 */
+export function setPartyLevel(party: LabParty, level: number): LabParty {
+  const next = clampLevel(level);
+  return { ...party, units: party.units.map((unit) => ({ ...unit, level: next })) };
+}
+
+/** 파티 안 모든 유닛의 레벨을 ±delta만큼 일괄 조정한다 */
+export function shiftPartyLevel(party: LabParty, delta: number): LabParty {
+  return {
+    ...party,
+    units: party.units.map((unit) => ({ ...unit, level: clampLevel(unit.level + delta) })),
+  };
+}
+
 /** 고른 자리가 파티를 벗어나면 맞춘다 */
 export function clampSelection(teams: Teams, at: Selection): Selection {
   const count = teams[at.team].units.length;
@@ -317,7 +336,7 @@ export function saveTeams(teams: Teams): void {
 }
 
 /** 파티 모양인지(대충) */
-function looksLikeParty(entry: unknown): boolean {
+export function looksLikeParty(entry: unknown): entry is LabParty {
   const units = field(entry, "units");
   return (
     Array.isArray(units) &&

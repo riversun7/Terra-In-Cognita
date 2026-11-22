@@ -284,8 +284,8 @@ describe("주소 표", () => {
       dev_terrain_objects: ["/dev/terrain-objects", "dev", "hidden", "dev_admin", []],
       // 채집 오브젝트 편집기(D-552)
       dev_gather_objects: ["/dev/gather-objects", "dev", "shown", "dev_admin", []],
-      // 전투 다시보기(docs/adr/2026-11-01-battle-replay.md 7절)
-      dev_battle_replay: ["/dev/battle-replay", "dev", "hidden", "dev_admin", []],
+      // 전투 다시보기(docs/adr/2026-11-01-battle-replay.md): 밸런스 화면의 [3D 전투 · 리플레이] 탭으로 합쳐져 옛 주소는 그 탭으로 열린다
+      dev_battle_replay: ["/dev/battle-replay", "dev_balance", "shown", "dev_admin", []],
       dev_gpu_bench: ["/dev/gpu-bench", "dev", "shown", "dev_admin", []],
     });
   });

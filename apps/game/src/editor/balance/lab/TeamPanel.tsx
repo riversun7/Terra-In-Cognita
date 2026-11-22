@@ -28,14 +28,18 @@ import {
   moveUnit,
   moveUnitFormationPos,
   nameIn,
+  parseIntIn,
   partyFormationPositions,
   partyPresets,
   removeUnit,
   replaceParty,
+  setPartyLevel,
+  shiftPartyLevel,
   unitPresets,
   updateUnit,
   withRow,
 } from "./labModel.ts";
+import { toDuelParty } from "./legionPresets.ts";
 import { itemName, localized, rowText, teamText, unitTitle } from "./labMessages.ts";
 import { PresetBar } from "./PresetBar.tsx";
 
@@ -61,7 +65,24 @@ export function TeamPanel(props: {
   const id = useId();
   const [adding, setAdding] = useState("");
   const [presetId, setPresetId] = useState<FormationPresetId | null>(null);
+  const [teamLevelText, setTeamLevelText] = useState(() => String(party.units[0]?.level ?? 30));
   const full = party.units.length >= LAB_LIMITS.partyMax;
+  const parsedTeamLevel = parseIntIn(teamLevelText, LAB_LIMITS.levelMin, LAB_LIMITS.levelMax);
+
+  const applyTeamLevel = (): void => {
+    if (parsedTeamLevel === null) return;
+    props.setTeams((current) => replaceParty(current, team, setPartyLevel(current[team], parsedTeamLevel)));
+    props.onNotice(m.dev_lab_level_applied_team({ team: teamText(team), level: parsedTeamLevel }), "success");
+  };
+
+  const shiftTeamLevel = (delta: number): void => {
+    props.setTeams((current) => replaceParty(current, team, shiftPartyLevel(current[team], delta)));
+    const nextFirst = Math.max(
+      LAB_LIMITS.levelMin,
+      Math.min(LAB_LIMITS.levelMax, (party.units[0]?.level ?? 1) + delta),
+    );
+    setTeamLevelText(String(nextFirst));
+  };
   const units = unitPresets(props.presets?.presets ?? []);
   const positions = partyFormationPositions(party);
   const activeUnitIndex = props.selected.team === team ? props.selected.index : 0;
@@ -106,6 +127,19 @@ export function TeamPanel(props: {
             {m.dev_lab_party_count({ count: party.units.length, max: LAB_LIMITS.partyMax })}
           </span>
         </h2>
+        {party.units.length > 1 ? (
+          <button
+            type="button"
+            className="button-small bl-duel-trim"
+            onClick={() => {
+              const keepIndex = props.selected.team === team ? props.selected.index : 0;
+              props.setTeams((current) => replaceParty(current, team, toDuelParty(current[team], keepIndex)));
+              props.onSelect({ team, index: 0 });
+            }}
+          >
+            {m.dev_lab_duel_trim()}
+          </button>
+        ) : null}
       </div>
       <PresetBar
         kind="party"
@@ -122,52 +156,44 @@ export function TeamPanel(props: {
         onList={props.onPresets}
         onNotice={props.onNotice}
       />
-      <div className="bl-formation" data-testid={`lab-formation-${team}`}>
-        <div className="bl-formation-head">
-          <span className="bl-formation-title">
-            {locale === "en" ? "9×6 Free Formation & Presets" : "9×6 자유 배치 구역 · 기본 진형"}
-          </span>
-          <div className="bl-formation-presets">
-            {FORMATION_PRESETS.map((preset) => (
-              <button
-                key={preset.id}
-                type="button"
-                className="button-small"
-                data-active={presetId === preset.id ? "true" : undefined}
-                title={localized(preset.desc, locale, preset.id)}
-                onClick={() => applyPreset(preset.id)}
-              >
-                {localized(preset.shortName, locale, preset.id)}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="bl-formation-board" aria-label={`${teamText(team)} 9x6`}>
-          {FORMATION_Y_ROWS.flatMap((y) =>
-            FORMATION_X_COLS.map((x) => {
-              const unitIdx = positions.findIndex((entry) => entry.x === x && entry.y === y);
-              const isSelected = props.selected.team === team && unitIdx === activeUnitIndex && unitIdx >= 0;
-              return (
-                // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 9×6 시각 배치 격자 칸
-                <div
-                  key={`${x}:${y}`}
-                  className="bl-formation-cell"
-                  data-x={x}
-                  data-y={y}
-                  data-center-x={x === 0 ? "" : undefined}
-                  data-occupied={unitIdx >= 0 ? "" : undefined}
-                  data-selected={isSelected ? "" : undefined}
-                  onClick={() => pickCell(x, y)}
-                >
-                  {unitIdx >= 0 ? (
-                    <span className="bl-formation-token">{`${team.toUpperCase()}${unitIdx + 1}`}</span>
-                  ) : (
-                    <span className="bl-formation-dot">{y === 0 && x === 0 ? "0" : "·"}</span>
-                  )}
-                </div>
-              );
-            }),
-          )}
+      <div className="bl-team-level-bar">
+        <span className="bl-level-label">{m.dev_lab_level_team_label()}</span>
+        <div className="bl-level-steppers">
+          {([-5, -1, 1, 5] as const).map((delta) => (
+            <button
+              key={delta}
+              type="button"
+              className="button-small bl-level-step"
+              onClick={() => shiftTeamLevel(delta)}
+            >
+              {delta > 0 ? `+${delta}` : String(delta)}
+            </button>
+          ))}
+          <label className="visually-hidden" htmlFor={`${id}-team-lv`}>
+            {m.dev_lab_level_team_label()}
+          </label>
+          <input
+            id={`${id}-team-lv`}
+            className="input bl-level-input"
+            inputMode="numeric"
+            value={teamLevelText}
+            aria-invalid={parsedTeamLevel === null}
+            onChange={(event) => setTeamLevelText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                applyTeamLevel();
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="button-small bl-team-level-apply"
+            aria-disabled={parsedTeamLevel === null}
+            onClick={applyTeamLevel}
+          >
+            {m.dev_lab_level_apply_team()}
+          </button>
         </div>
       </div>
       <ol className="bl-units">
@@ -288,17 +314,72 @@ export function TeamPanel(props: {
           {m.dev_lab_add_unit()}
         </button>
       </div>
-      <NumberField
-        label={m.dev_lab_retreat()}
-        hint={m.dev_lab_retreat_hint()}
-        value={party.retreatHpPct}
-        min={0}
-        max={LAB_LIMITS.retreatMax}
-        className="bl-retreat"
-        onChange={(value) =>
-          props.setTeams((current) => replaceParty(current, team, { ...current[team], retreatHpPct: value }))
-        }
-      />
+      <details className="bl-details bl-formation-details">
+        <summary>{m.dev_lab_formation_summary()}</summary>
+        <div className="bl-details-body">
+          <div className="bl-formation" data-testid={`lab-formation-${team}`}>
+            <div className="bl-formation-head">
+              <div className="bl-formation-presets">
+                {FORMATION_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    className="button-small"
+                    data-active={presetId === preset.id ? "true" : undefined}
+                    title={localized(preset.desc, locale, preset.id)}
+                    onClick={() => applyPreset(preset.id)}
+                  >
+                    {localized(preset.shortName, locale, preset.id)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="bl-formation-board" aria-label={`${teamText(team)} 9x6`}>
+              {FORMATION_Y_ROWS.flatMap((y) =>
+                FORMATION_X_COLS.map((x) => {
+                  const unitIdx = positions.findIndex((entry) => entry.x === x && entry.y === y);
+                  const isSelected =
+                    props.selected.team === team && unitIdx === activeUnitIndex && unitIdx >= 0;
+                  return (
+                    // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 9×6 시각 배치 격자 칸
+                    <div
+                      key={`${x}:${y}`}
+                      className="bl-formation-cell"
+                      data-x={x}
+                      data-y={y}
+                      data-center-x={x === 0 ? "" : undefined}
+                      data-occupied={unitIdx >= 0 ? "" : undefined}
+                      data-selected={isSelected ? "" : undefined}
+                      onClick={() => pickCell(x, y)}
+                    >
+                      {unitIdx >= 0 ? (
+                        <span className="bl-formation-token">{`${team.toUpperCase()}${unitIdx + 1}`}</span>
+                      ) : (
+                        <span className="bl-formation-dot">{y === 0 && x === 0 ? "0" : "·"}</span>
+                      )}
+                    </div>
+                  );
+                }),
+              )}
+            </div>
+          </div>
+        </div>
+      </details>
+      <div className="bl-retreat-row">
+        <NumberField
+          label={m.dev_lab_retreat()}
+          hint={m.dev_lab_retreat_hint()}
+          value={party.retreatHpPct}
+          min={0}
+          max={LAB_LIMITS.retreatMax}
+          className="bl-retreat bl-num-compact"
+          onChange={(value) =>
+            props.setTeams((current) =>
+              replaceParty(current, team, { ...current[team], retreatHpPct: value }),
+            )
+          }
+        />
+      </div>
     </section>
   );
 }

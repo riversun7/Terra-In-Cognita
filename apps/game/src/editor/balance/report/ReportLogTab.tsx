@@ -31,6 +31,8 @@ export function ReportLogTab(props: {
   readonly locale: string;
   /** 같은 설정으로 다시 돌리기(보고서 탭으로 옮긴다) */
   readonly onRerun: (record: BattleReportRecord) => void;
+  /** 파티 대 파티 보고서를 3D 전투 · 리플레이 탭으로 바로 재생 */
+  readonly onWatch3D?: (record: BattleReportRecord) => void;
 }) {
   const { locale } = props;
   const id = useId();
@@ -116,6 +118,12 @@ export function ReportLogTab(props: {
 
   const rerun = (reportId: string): void => {
     api.battleReport.get.query({ id: reportId }).then(props.onRerun, fail);
+  };
+
+  const watch3D = (reportId: string): void => {
+    const handler = props.onWatch3D;
+    if (!handler) return;
+    api.battleReport.get.query({ id: reportId }).then(handler, fail);
   };
 
   return (
@@ -238,6 +246,15 @@ export function ReportLogTab(props: {
                   >
                     {m.dev_report_log_open()}
                   </button>
+                  {report.mode === "arena" && props.onWatch3D ? (
+                    <button
+                      type="button"
+                      className="button-small rp-log-watch"
+                      onClick={() => watch3D(report.id)}
+                    >
+                      {m.dev_report_log_watch_3d()}
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="button-small rp-log-rerun"

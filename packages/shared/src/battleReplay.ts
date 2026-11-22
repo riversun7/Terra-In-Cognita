@@ -1,5 +1,5 @@
-// 개발자 전투 다시보기(/dev/battle-replay) 공용 자료 모양 — docs/adr/2026-11-01-battle-replay.md 5절.
-// 서버(tRPC battleReplay.*, apps/server/src/battleReplay/)와 화면(apps/game/src/editor/battleReplayLab/)이 같이 쓴다.
+// 개발자 전투 다시보기 공용 자료 모양 — docs/adr/2026-11-01-battle-replay.md 5절.
+// 서버(tRPC battleReplay.*, apps/server/src/battleReplay/)와 밸런스 화면(apps/game/src/editor/balance/lab/BattleReplayTab.tsx)이 같이 쓴다.
 // 리플레이 본문은 @terra/protocol/battleReplay 이진 형식을 base64로 싣는다(기기는 판정 코드를 받지 않는다).
 
 /** 시드 범위(0 ~ 2^31 − 1) */

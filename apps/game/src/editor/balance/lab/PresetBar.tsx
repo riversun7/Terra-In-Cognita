@@ -95,36 +95,36 @@ export function PresetBar(props: {
   const writeOff = !props.writable || busy;
   return (
     <div className="bl-presets" data-kind={props.kind}>
-      <label className="visually-hidden" htmlFor={`${id}-pick`}>
-        {props.kind === "unit" ? m.dev_lab_preset_unit() : m.dev_lab_preset_party()}
-      </label>
-      <select
-        id={`${id}-pick`}
-        className="bl-preset-select"
-        value={chosen}
-        onChange={(event) => setChosen(event.target.value)}
-      >
-        <option value="">
-          {props.kind === "unit" ? m.dev_lab_preset_unit_pick() : m.dev_lab_preset_party_pick()}
-        </option>
-        <optgroup label={m.dev_lab_preset_samples()}>
-          {samples.map((entry) => (
-            <option key={entry.id} value={entry.id}>
-              {nameIn(entry.name, props.locale)}
-            </option>
-          ))}
-        </optgroup>
-        {teams.length > 0 ? (
-          <optgroup label={m.dev_lab_preset_team()}>
-            {teams.map((entry) => (
+      <div className="bl-preset-main">
+        <label className="visually-hidden" htmlFor={`${id}-pick`}>
+          {props.kind === "unit" ? m.dev_lab_preset_unit() : m.dev_lab_preset_party()}
+        </label>
+        <select
+          id={`${id}-pick`}
+          className="bl-preset-select"
+          value={chosen}
+          onChange={(event) => setChosen(event.target.value)}
+        >
+          <option value="">
+            {props.kind === "unit" ? m.dev_lab_preset_unit_pick() : m.dev_lab_preset_party_pick()}
+          </option>
+          {teams.length > 0 ? (
+            <optgroup label={m.dev_lab_preset_team()}>
+              {teams.map((entry) => (
+                <option key={entry.id} value={entry.id}>
+                  {nameIn(entry.name, props.locale)}
+                </option>
+              ))}
+            </optgroup>
+          ) : null}
+          <optgroup label={m.dev_lab_preset_samples()}>
+            {samples.map((entry) => (
               <option key={entry.id} value={entry.id}>
                 {nameIn(entry.name, props.locale)}
               </option>
             ))}
           </optgroup>
-        ) : null}
-      </select>
-      <div className="bl-preset-actions">
+        </select>
         <button
           type="button"
           className="button-small bl-preset-load"
@@ -153,6 +153,8 @@ export function PresetBar(props: {
         >
           {m.dev_lab_preset_new()}
         </button>
+      </div>
+      <div className="bl-preset-actions">
         <button
           type="button"
           className="button-small bl-preset-overwrite"

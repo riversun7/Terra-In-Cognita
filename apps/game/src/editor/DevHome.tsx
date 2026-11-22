@@ -4,7 +4,7 @@
 // - 도구마다 한 줄: 아이콘, 이름(주소 표의 화면 이름과 같은 키), 한 줄 설명. 누르면 그 도구 화면을 쌓는다(부모 dev, ADR 37 2절).
 // - 도구 목록은 주소 표에서 부모가 dev인 줄과 같다. 줄이 늘면 DEV_TOOLS에서 타입 오류가 난다(나중 도구도 한 줄씩 더한다).
 // - 이 조각은 미리 캐시된다(작은 목록이다). 도구 조각은 이름 앞머리(gpuBench·planetEditor·starSystem·secondMapLab·tuningPanel·balancePanel·
-//   skillEditor·itemEditor·buildingEditor·territoryLab·contentEditor·battleReplayLab)로
+//   skillEditor·itemEditor·buildingEditor·territoryLab·contentEditor)로
 //   미리 캐시에서 빠진다.
 import { ROUTES, type RouteId, canOpenRoute } from "@terra/shared";
 import { useSession } from "../auth/session.ts";
@@ -232,15 +232,6 @@ const DEV_TOOLS = {
     tagEn: "LIVE TEST · Recruit",
     ready: true,
   },
-  // 전투 다시보기(docs/adr/2026-11-01-battle-replay.md): 시범 6 대 6을 서버에서 기록해 3D 지도에서 되감고 배속으로 본다
-  dev_battle_replay: {
-    name: m.shell_route_dev_battle_replay,
-    desc: m.dev_tool_battle_replay_desc,
-    mark: <ForwardIcon />,
-    tagKo: "3D REPLAY · 6v6",
-    tagEn: "3D REPLAY · 6v6",
-    ready: true,
-  },
   // 운영 권한 부여(docs/adr/2026-11-08-operator-roles-log-switch.md): 개발자만 — 계정마다 운영 권한 체크박스
   dev_ops_grants: {
     name: m.shell_route_dev_ops_grants,
@@ -293,17 +284,10 @@ const DEV_SECTIONS: readonly DevSection[] = [
     titleKo: "밸런싱 · 2차 스탯 & 전투 보고서",
     titleEn: "Balancing, Secondary Stats & Battle Reports",
     subKo:
-      "2차 스탯 가중치·계산식, 실제 판정 N회 전투 보고서(공성·A/B·피해 흐름), 49 설정 칸(N53 스위치 포함), 6v6 3D 전투 다시보기를 다룹니다.",
+      "2차 스탯 가중치·계산식, 실제 판정 N회 전투 보고서·유닛 프리셋·3D 전투 리플레이(공성·A/B·피해 흐름), 49 설정 칸(N53 스위치 포함)을 다룹니다.",
     subEn:
-      "Secondary stat weights and formulas, N-run battle reports from the real engine (siege, A/B, damage flow), 49 settings cells (including N53 switches), and 6v6 3D battle replays.",
-    routes: [
-      "dev_exp_table",
-      "dev_secondary_stats",
-      "dev_balance",
-      "dev_npc_ai",
-      "dev_tuning",
-      "dev_battle_replay",
-    ],
+      "Secondary stat weights and formulas, N-run battle reports, unit presets, and 3D battle replays from the real engine (siege, A/B, damage flow), plus 49 settings cells (including N53 switches).",
+    routes: ["dev_exp_table", "dev_secondary_stats", "dev_balance", "dev_npc_ai", "dev_tuning"],
   },
   {
     id: "world",

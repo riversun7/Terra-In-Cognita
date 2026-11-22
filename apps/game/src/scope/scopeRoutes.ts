@@ -38,6 +38,7 @@ const ROUTE_SCOPES: { readonly [Id in RouteId]?: RouteScope } = {
   dev_tuning: common(m.scope_note_tuning),
   dev_npc_ai: common(m.scope_note_tuning),
   dev_balance: common(m.scope_note_balance),
+  dev_battle_replay: common(m.scope_note_balance),
   dev_secondary_stats: common(m.scope_note_balance),
   dev_exp_table: common(m.scope_note_balance),
   dev_skills: common(),
@@ -61,7 +62,6 @@ const ROUTE_SCOPES: { readonly [Id in RouteId]?: RouteScope } = {
   dev_planet_editor: { kind: "library", note: m.scope_note_planet_editor },
   dev_star_system: { kind: "system", note: m.scope_note_star_system },
   // 행성과 상관없음
-  dev_battle_replay: { kind: "none", note: m.scope_note_battle_replay },
   dev_gpu_bench: { kind: "none", note: m.scope_note_device },
   dev_ops_grants: { kind: "none", note: m.scope_note_accounts },
   admin: { kind: "none", note: m.scope_note_accounts },

@@ -385,12 +385,12 @@ export const ROUTES = {
     frame: "shown",
     access: "dev_admin",
   },
-  // 전투 다시보기(docs/adr/2026-11-01-battle-replay.md 7절): 틀을 숨긴 전체 화면. 서버가 시범 6 대 6을 기록해 3D 지도에서 재생한다
+  // 전투 다시보기(docs/adr/2026-11-01-battle-replay.md): 밸런스 화면(/dev/balance)의 [3D 전투 · 리플레이] 탭으로 합쳤다(2026-11-22). 옛 주소는 그 탭(시범 6 대 6)으로 열린다(고리가 끊기지 않게)
   dev_battle_replay: {
     path: "/dev/battle-replay",
     search: [],
-    parent: "dev",
-    frame: "hidden",
+    parent: "dev_balance",
+    frame: "shown",
     access: "dev_admin",
   },
   dev_gpu_bench: {

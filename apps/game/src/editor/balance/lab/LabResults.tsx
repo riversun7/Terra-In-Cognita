@@ -142,14 +142,16 @@ export function BattleResult(props: {
           {m.dev_lab_log_title({ count: result.events.length })}
           {result.eventsDropped > 0 ? ` ${m.dev_lab_log_more({ count: result.eventsDropped })}` : ""}
         </summary>
-        <ol className="bl-log">
-          {result.events.map((event, index) => (
-            // oxlint-disable-next-line react/no-array-index-key -- 사건 기록은 차례 그대로 바뀌지 않는다
-            <li key={index} data-kind={event.kind}>
-              <time className="bl-log-time">{clockText(event.ms)}</time> {eventText(event, catalog, locale)}
-            </li>
-          ))}
-        </ol>
+        <div className="bl-details-body">
+          <ol className="bl-log">
+            {result.events.map((event, index) => (
+              // oxlint-disable-next-line react/no-array-index-key -- 사건 기록은 차례 그대로 바뀌지 않는다
+              <li key={index} data-kind={event.kind}>
+                <time className="bl-log-time">{clockText(event.ms)}</time> {eventText(event, catalog, locale)}
+              </li>
+            ))}
+          </ol>
+        </div>
       </details>
     </div>
   );

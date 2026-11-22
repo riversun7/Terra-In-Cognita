@@ -147,206 +147,235 @@ export function UnitPreview(props: {
         </p>
       ) : null}
       {preview ? (
-        <>
-          <div className="bl-scroll">
-            <table className="bl-table bl-primary-view">
-              <caption className="visually-hidden">{m.dev_lab_primary_caption()}</caption>
-              <thead>
-                <tr>
-                  <th scope="col">{m.dev_lab_col_stat()}</th>
-                  <th scope="col">{m.dev_lab_col_initial()}</th>
-                  <th scope="col">{m.dev_lab_col_grown()}</th>
-                  <th scope="col">{m.dev_lab_col_bonus()}</th>
-                  <th scope="col">{m.dev_lab_col_total()}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {PRIMARY_STATS.map((stat) => (
-                  <tr key={stat} data-field={stat}>
-                    <th scope="row" className="bl-stat-code">
-                      {primaryCode(stat)}
-                    </th>
-                    <td>{n(sourceOf(stat)?.initial ?? 0)}</td>
-                    <td>{n(sourceOf(stat)?.grown ?? 0)}</td>
-                    <td>{n(sourceOf(stat)?.bonus ?? 0)}</td>
-                    <td className="bl-strong">{n(sourceOf(stat)?.total ?? 0)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="field-hint">
-            {m.dev_lab_skills_used({
-              list:
-                preview.skills.used.map((skill) => skillName(catalog, skill, locale)).join(", ") ||
-                m.dev_lab_none(),
-              slots: preview.skills.slots,
-            })}
-          </p>
-          <h3 className="bl-subtitle">{m.dev_lab_secondary_title()}</h3>
-          <ul className="bl-secondary">
-            {preview.secondary.map((row) => (
-              <li key={row.id} data-row={row.id}>
-                <details>
-                  <summary>
-                    <span className="bl-sec-name">{statName(catalog, row.id, locale)}</span>
-                    <span className="bl-sec-value">
-                      {row.shape === "probability" ? `${percentText(row.value, locale)}%` : n(row.value)}
-                    </span>
-                  </summary>
-                  <p className="bl-formula">{formulaText(row, locale)}</p>
-                </details>
-              </li>
-            ))}
-          </ul>
-          <h3 className="bl-subtitle">{m.dev_lab_combat_title()}</h3>
-          <dl className="bl-combat">
-            {combatRows.map(([term, value]) => (
-              <div key={term}>
-                <dt>{term}</dt>
-                <dd>{value}</dd>
-              </div>
-            ))}
-          </dl>
-          {combat ? (
-            <>
-              <h3 className="bl-subtitle">{m.dev_lab_attacks_title()}</h3>
-              <p className="field-hint">{m.dev_lab_attacks_hint()}</p>
+        <div className="bl-preview-stack">
+          <div className="bl-subcard">
+            <h3 className="bl-subcard-head">{m.dev_lab_primary_caption()}</h3>
+            <div className="bl-subcard-body">
               <div className="bl-scroll">
-                <table className="bl-table bl-attacks">
+                <table className="bl-table bl-primary-view">
+                  <caption className="visually-hidden">{m.dev_lab_primary_caption()}</caption>
                   <thead>
                     <tr>
-                      <th scope="col">{m.dev_lab_col_attack()}</th>
-                      <th scope="col">{m.dev_lab_col_source()}</th>
-                      <th scope="col">{m.dev_lab_col_stat_attack()}</th>
-                      <th scope="col">{m.dev_lab_weapon_attack()}</th>
-                      <th scope="col">{m.dev_lab_col_appropriate()}</th>
-                      <th scope="col">{m.dev_lab_col_ratio()}</th>
-                      <th scope="col">{m.dev_lab_col_real()}</th>
+                      <th scope="col">{m.dev_lab_col_stat()}</th>
+                      <th scope="col">{m.dev_lab_col_initial()}</th>
+                      <th scope="col">{m.dev_lab_col_grown()}</th>
+                      <th scope="col">{m.dev_lab_col_bonus()}</th>
+                      <th scope="col">{m.dev_lab_col_total()}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {(
-                      [
-                        ["basic", m.dev_lab_attack_basic()],
-                        ["physical", m.dev_lab_attack_physical()],
-                        ["elemental", m.dev_lab_attack_elemental()],
-                      ] as const
-                    ).map(([key, label]) => {
-                      const view = combat.attacks[key];
-                      return (
-                        <tr key={key} data-attack={key} data-source={view.source}>
-                          <th scope="row">{label}</th>
-                          <td>
-                            {view.source === "natural"
-                              ? m.dev_lab_source_natural()
-                              : m.dev_lab_source_weapon()}
-                          </td>
-                          <td>{n(view.statAttack)}</td>
-                          <td>{n(view.weaponAttack)}</td>
-                          <td>{`${n(view.primary)} ÷ ${appropriateText(view.appropriateMilli, locale)}`}</td>
-                          <td>{`× ${percentText(view.ratioPm, locale)}%`}</td>
-                          <td className="bl-strong">{n(view.realAttack)}</td>
-                        </tr>
-                      );
-                    })}
-                    {(
-                      [
-                        ["hit", m.dev_lab_appropriate_hit(), `${percentText(combat.hitPm, locale)}%`],
-                        ["crit", m.dev_lab_appropriate_crit(), `${percentText(combat.critPm, locale)}%`],
-                        [
-                          "speed",
-                          m.dev_lab_appropriate_speed(),
-                          m.dev_lab_ms({ value: n(combat.attackIntervalMs) }),
-                        ],
-                      ] as const
-                    ).map(([key, label, real]) => (
-                      <tr key={key} data-appropriate={key}>
-                        <th scope="row">{label}</th>
-                        <td>
-                          {combat.attacks.basic.source === "natural"
-                            ? m.dev_lab_source_natural()
-                            : m.dev_lab_source_weapon()}
-                        </td>
-                        <td>—</td>
-                        <td>—</td>
-                        <td>{`${n(combat.appropriate[key].stat)} ÷ ${appropriateText(combat.appropriate[key].appropriateMilli, locale)}`}</td>
-                        <td>{`${key === "speed" ? "÷" : "×"} ${percentText(combat.appropriate[key].ratioPm, locale)}%`}</td>
-                        <td className="bl-strong">{real}</td>
+                    {PRIMARY_STATS.map((stat) => (
+                      <tr key={stat} data-field={stat}>
+                        <th scope="row" className="bl-stat-code">
+                          {primaryCode(stat)}
+                        </th>
+                        <td>{n(sourceOf(stat)?.initial ?? 0)}</td>
+                        <td>{n(sourceOf(stat)?.grown ?? 0)}</td>
+                        <td>{n(sourceOf(stat)?.bonus ?? 0)}</td>
+                        <td className="bl-strong">{n(sourceOf(stat)?.total ?? 0)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            </>
-          ) : null}
-          <h3 className="bl-subtitle">{m.dev_lab_levels_title()}</h3>
-          <div className="field bl-series">
-            <label className="field-label" htmlFor={`${id}-series`}>
-              {m.dev_lab_series()}
-            </label>
-            <select id={`${id}-series`} value={series} onChange={(event) => setSeries(event.target.value)}>
-              <optgroup label={m.dev_lab_series_primary()}>
-                {PRIMARY_STATS.map((stat) => (
-                  <option key={stat} value={`p:${stat}`}>
-                    {primaryName(stat)}
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label={m.dev_lab_series_secondary()}>
-                {rows.map((row) => (
-                  <option key={row.id} value={row.id}>
-                    {statName(catalog, row.id, locale)}
-                  </option>
-                ))}
-              </optgroup>
-            </select>
+              <p className="field-hint">
+                {m.dev_lab_skills_used({
+                  list:
+                    preview.skills.used.map((skill) => skillName(catalog, skill, locale)).join(", ") ||
+                    m.dev_lab_none(),
+                  slots: preview.skills.slots,
+                })}
+              </p>
+            </div>
           </div>
-          <LevelChart points={points} label={m.dev_lab_chart_label({ name: seriesLabel })} />
-          <p className="field-hint bl-chart-range">
-            {m.dev_lab_chart_range({
-              first: n(points[0]?.value ?? 0),
-              last: n(points.at(-1)?.value ?? 0),
-              level: points.at(-1)?.level ?? 1,
-            })}
-          </p>
+
+          <div className="bl-subcard">
+            <h3 className="bl-subcard-head">{m.dev_lab_combat_title()}</h3>
+            <div className="bl-subcard-body">
+              <dl className="bl-combat">
+                {combatRows.map(([term, value]) => (
+                  <div key={term}>
+                    <dt>{term}</dt>
+                    <dd>{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </div>
+
+          <div className="bl-subcard">
+            <h3 className="bl-subcard-head">{m.dev_lab_secondary_title()}</h3>
+            <div className="bl-subcard-body">
+              <ul className="bl-secondary">
+                {preview.secondary.map((row) => (
+                  <li key={row.id} data-row={row.id}>
+                    <details>
+                      <summary>
+                        <span className="bl-sec-name">{statName(catalog, row.id, locale)}</span>
+                        <span className="bl-sec-value">
+                          {row.shape === "probability" ? `${percentText(row.value, locale)}%` : n(row.value)}
+                        </span>
+                      </summary>
+                      <p className="bl-formula">{formulaText(row, locale)}</p>
+                    </details>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {combat ? (
+            <div className="bl-subcard">
+              <h3 className="bl-subcard-head">{m.dev_lab_attacks_title()}</h3>
+              <div className="bl-subcard-body">
+                <p className="field-hint">{m.dev_lab_attacks_hint()}</p>
+                <div className="bl-scroll">
+                  <table className="bl-table bl-attacks">
+                    <thead>
+                      <tr>
+                        <th scope="col">{m.dev_lab_col_attack()}</th>
+                        <th scope="col">{m.dev_lab_col_source()}</th>
+                        <th scope="col">{m.dev_lab_col_stat_attack()}</th>
+                        <th scope="col">{m.dev_lab_weapon_attack()}</th>
+                        <th scope="col">{m.dev_lab_col_appropriate()}</th>
+                        <th scope="col">{m.dev_lab_col_ratio()}</th>
+                        <th scope="col">{m.dev_lab_col_real()}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(
+                        [
+                          ["basic", m.dev_lab_attack_basic()],
+                          ["physical", m.dev_lab_attack_physical()],
+                          ["elemental", m.dev_lab_attack_elemental()],
+                        ] as const
+                      ).map(([key, label]) => {
+                        const view = combat.attacks[key];
+                        return (
+                          <tr key={key} data-attack={key} data-source={view.source}>
+                            <th scope="row">{label}</th>
+                            <td>
+                              {view.source === "natural"
+                                ? m.dev_lab_source_natural()
+                                : m.dev_lab_source_weapon()}
+                            </td>
+                            <td>{n(view.statAttack)}</td>
+                            <td>{n(view.weaponAttack)}</td>
+                            <td>{`${n(view.primary)} ÷ ${appropriateText(view.appropriateMilli, locale)}`}</td>
+                            <td>{`× ${percentText(view.ratioPm, locale)}%`}</td>
+                            <td className="bl-strong">{n(view.realAttack)}</td>
+                          </tr>
+                        );
+                      })}
+                      {(
+                        [
+                          ["hit", m.dev_lab_appropriate_hit(), `${percentText(combat.hitPm, locale)}%`],
+                          ["crit", m.dev_lab_appropriate_crit(), `${percentText(combat.critPm, locale)}%`],
+                          [
+                            "speed",
+                            m.dev_lab_appropriate_speed(),
+                            m.dev_lab_ms({ value: n(combat.attackIntervalMs) }),
+                          ],
+                        ] as const
+                      ).map(([key, label, real]) => (
+                        <tr key={key} data-appropriate={key}>
+                          <th scope="row">{label}</th>
+                          <td>
+                            {combat.attacks.basic.source === "natural"
+                              ? m.dev_lab_source_natural()
+                              : m.dev_lab_source_weapon()}
+                          </td>
+                          <td>—</td>
+                          <td>—</td>
+                          <td>{`${n(combat.appropriate[key].stat)} ÷ ${appropriateText(combat.appropriate[key].appropriateMilli, locale)}`}</td>
+                          <td>{`${key === "speed" ? "÷" : "×"} ${percentText(combat.appropriate[key].ratioPm, locale)}%`}</td>
+                          <td className="bl-strong">{real}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           <details className="bl-details">
-            <summary>{m.dev_lab_levels_table()}</summary>
-            <div className="bl-scroll bl-levels-wrap">
-              <table className="bl-table bl-levels">
-                <thead>
-                  <tr>
-                    <th scope="col">{m.dev_lab_col_level()}</th>
+            <summary>{m.dev_lab_levels_title()}</summary>
+            <div className="bl-details-body">
+              <div className="field bl-series">
+                <label className="field-label" htmlFor={`${id}-series`}>
+                  {m.dev_lab_series()}
+                </label>
+                <select
+                  id={`${id}-series`}
+                  value={series}
+                  onChange={(event) => setSeries(event.target.value)}
+                >
+                  <optgroup label={m.dev_lab_series_primary()}>
                     {PRIMARY_STATS.map((stat) => (
-                      <th key={stat} scope="col" data-field={stat}>
-                        {primaryCode(stat)}
-                      </th>
+                      <option key={stat} value={`p:${stat}`}>
+                        {primaryName(stat)}
+                      </option>
                     ))}
+                  </optgroup>
+                  <optgroup label={m.dev_lab_series_secondary()}>
                     {rows.map((row) => (
-                      <th key={row.id} scope="col">
+                      <option key={row.id} value={row.id}>
                         {statName(catalog, row.id, locale)}
-                      </th>
+                      </option>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {preview.levels.map((entry) => (
-                    <tr key={entry.level}>
-                      <th scope="row">{entry.level}</th>
-                      {PRIMARY_STATS.map((stat) => (
-                        <td key={stat}>{n(entry.primaries[stat])}</td>
-                      ))}
-                      {entry.secondary.map((value, index) => (
-                        // oxlint-disable-next-line react/no-array-index-key -- 2차 행 차례가 열쇠다(머리 줄과 같은 차례)
-                        <td key={index}>{n(value)}</td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </optgroup>
+                </select>
+              </div>
+              <LevelChart points={points} label={m.dev_lab_chart_label({ name: seriesLabel })} />
+              <p className="field-hint bl-chart-range">
+                {m.dev_lab_chart_range({
+                  first: n(points[0]?.value ?? 0),
+                  last: n(points.at(-1)?.value ?? 0),
+                  level: points.at(-1)?.level ?? 1,
+                })}
+              </p>
+              <details className="bl-details">
+                <summary>{m.dev_lab_levels_table()}</summary>
+                <div className="bl-details-body">
+                  <div className="bl-scroll bl-levels-wrap">
+                    <table className="bl-table bl-levels">
+                      <thead>
+                        <tr>
+                          <th scope="col">{m.dev_lab_col_level()}</th>
+                          {PRIMARY_STATS.map((stat) => (
+                            <th key={stat} scope="col" data-field={stat}>
+                              {primaryCode(stat)}
+                            </th>
+                          ))}
+                          {rows.map((row) => (
+                            <th key={row.id} scope="col">
+                              {statName(catalog, row.id, locale)}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {preview.levels.map((entry) => (
+                          <tr key={entry.level}>
+                            <th scope="row">{entry.level}</th>
+                            {PRIMARY_STATS.map((stat) => (
+                              <td key={stat}>{n(entry.primaries[stat])}</td>
+                            ))}
+                            {entry.secondary.map((value, index) => (
+                              // oxlint-disable-next-line react/no-array-index-key -- 2차 행 차례가 열쇠다(머리 줄과 같은 차례)
+                              <td key={index}>{n(value)}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </details>
             </div>
           </details>
-        </>
+        </div>
       ) : null}
     </section>
   );

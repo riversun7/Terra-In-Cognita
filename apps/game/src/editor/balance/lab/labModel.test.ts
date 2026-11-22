@@ -16,6 +16,8 @@ import {
   parseIntIn,
   partyFormationPositions,
   removeUnit,
+  setPartyLevel,
+  shiftPartyLevel,
   updateUnit,
   weaponChoice,
   weaponOfChoice,
@@ -98,6 +100,22 @@ describe("전투 실험실 팀 고치기", () => {
     teams = moveUnitFormationPos(teams, { team: "a", index: 0 }, { x: 4, y: 0 });
     expect(teams.a.units[0]?.pos).toEqual({ x: 4, y: 0 });
     expect(teams.a.units[1]?.pos).toEqual({ x: 0, y: 5 });
+  });
+
+  it("파티 일괄 레벨 지정과 증감(범위 고정)", () => {
+    const party = {
+      units: [
+        { ...newLabUnit("cyborg"), level: 10 },
+        { ...newLabUnit("human"), level: 998 },
+      ],
+      retreatHpPct: 0,
+    };
+    const fixed = setPartyLevel(party, 35);
+    expect(fixed.units.map((u) => u.level)).toEqual([35, 35]);
+    const shiftedUp = shiftPartyLevel(party, 5);
+    expect(shiftedUp.units.map((u) => u.level)).toEqual([15, 999]);
+    const shiftedDown = shiftPartyLevel(party, -20);
+    expect(shiftedDown.units.map((u) => u.level)).toEqual([1, 978]);
   });
 });
 

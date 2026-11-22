@@ -1,0 +1,522 @@
+/*
+ * 전투 테스트 스튜디오 레이아웃 — 창 테두리·머리 막대, 양쪽 팀(팀 A | 팀 B) 통합 창,
+ * 대칭 1:1 비교 표, 안정된 편집·미리 보기 작업대, [3D 전투 · 리플레이] 통합 탭.
+ * 값은 styles/tokens.css의 var(--…)만 쓴다.
+ */
+
+/* ── 창(패널) 테두리·머리 막대 통일 ── */
+.bl-lab {
+  gap: var(--space-4);
+}
+.bl-lab .bp-panel,
+.bl-replay-tab .bp-panel {
+  border: var(--border-w) solid var(--color-border-strong);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  padding: var(--space-3);
+  gap: var(--space-3);
+}
+.bl-lab .bp-panel-head,
+.bl-replay-tab .bp-panel-head {
+  margin: calc(var(--space-3) * -1) calc(var(--space-3) * -1) 0;
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--color-card-head);
+  border-block-end: var(--border-w) solid var(--color-border-strong);
+  border-start-start-radius: calc(var(--radius-panel) - var(--border-w));
+  border-start-end-radius: calc(var(--radius-panel) - var(--border-w));
+}
+.bl-panel-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.bl-editor[data-team="a"] {
+  border-inline-start: var(--accent-bar) solid var(--color-primary);
+}
+.bl-editor[data-team="b"] {
+  border-inline-start: var(--accent-bar) solid var(--color-warning);
+}
+
+/* ── 상단 조작 막대 ── */
+.bl-command-strip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.bl-command-top,
+.bl-command-run {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.bl-scale-group,
+.bl-team-utils,
+.bl-quick-opts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.bl-scale-btn[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.bl-quick-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  min-width: 0;
+  max-width: 100%;
+}
+.bl-quick-terrain {
+  min-width: 0;
+  width: auto;
+  max-width: min(100%, 14rem);
+}
+.bl-quick-seed {
+  inline-size: 6.5em;
+  min-height: var(--tap-size);
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 양쪽 팀 통합 창(팀 A 왼쪽 | 팀 B 오른쪽) ── */
+.bl-teams-vs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: stretch;
+}
+@media (min-width: 60em) {
+  .bl-teams-vs[data-count="2"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.bl-teams-vs .rp-legion-team {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+  border: var(--border-w) solid var(--color-border-strong);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  overflow: hidden;
+}
+.bl-teams-vs .rp-legion-team[data-team="a"] {
+  border-block-start: var(--accent-bar) solid var(--color-primary);
+}
+.bl-teams-vs .rp-legion-team[data-team="b"] {
+  border-block-start: var(--accent-bar) solid var(--color-warning);
+}
+.bl-teams-vs .rp-legion-team > .bl-team {
+  flex: 1 1 auto;
+  border: none;
+  border-radius: 0;
+}
+.bl-teams-vs .rp-legion-team > .bl-team .bp-panel-head {
+  border-radius: 0;
+}
+.bl-retreat-row {
+  margin-block-start: auto;
+  padding-block-start: var(--space-2);
+  border-block-start: var(--hairline) solid var(--color-border);
+}
+.bl-retreat-row .bl-retreat {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ── 군단 편성 줄(팀 창 상단 일체형) ── */
+.bl-legion-bar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-block-end: var(--border-w) solid var(--color-border-strong);
+  background-color: var(--color-surface-2);
+}
+.bl-legion-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.bl-legion-meta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.bl-legion-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-block-start: var(--space-2);
+  border-block-start: var(--hairline) solid var(--color-border);
+}
+.bl-legion-add-row,
+.bl-legion-save-row,
+.bl-legion-load-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.bl-legion-add-preset,
+.bl-legion-pick,
+.bl-legion-name-input {
+  flex: 1 1 11em;
+  min-width: 0;
+  max-width: 100%;
+  width: auto;
+  min-height: var(--tap-size);
+}
+
+/* ── 정리된 프리셋 막대 ── */
+.bl-preset-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.bl-preset-main .bl-preset-select {
+  flex: 1 1 10em;
+  width: auto;
+}
+
+/* ── 대칭 1:1 스탯 비교 표(팀 A | 항목 | 팀 B) ── */
+.bl-duel-card {
+  gap: var(--space-3);
+}
+.bl-duel-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  border: var(--border-w) solid var(--color-border-strong);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+.bl-duel-table th,
+.bl-duel-table td {
+  padding: var(--space-2) var(--space-3);
+  border-block-end: var(--hairline) solid var(--color-border);
+  text-align: center;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+.bl-duel-table thead th {
+  background-color: var(--color-card-head);
+  border-block-end: var(--border-w) solid var(--color-border-strong);
+  font-weight: var(--font-weight-strong);
+}
+.bl-duel-col-a {
+  inline-size: 39%;
+  border-inline-start: var(--accent-bar) solid var(--color-primary);
+  color: var(--color-primary);
+}
+.bl-duel-col-mid,
+.bl-duel-metric {
+  inline-size: 22%;
+  background-color: var(--color-card-head);
+  border-inline: var(--border-w) solid var(--color-border-strong);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-strong);
+}
+.bl-duel-col-b {
+  inline-size: 39%;
+  border-inline-end: var(--accent-bar) solid var(--color-warning);
+  color: var(--color-warning);
+}
+.bl-duel-table tbody tr:nth-child(even) td {
+  background-color: var(--dev-row-alt);
+}
+.bl-duel-val-a[data-win] {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-strong);
+}
+.bl-duel-val-b[data-win] {
+  color: var(--color-warning);
+  font-weight: var(--font-weight-strong);
+}
+
+/* ── 유닛 편집(왼쪽) · 미리 보기(오른쪽) 작업대 ── */
+.bl-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+@media (min-width: 64em) {
+  .bl-workbench {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .bl-workbench .bl-preview {
+    position: sticky;
+    top: calc(var(--dev-sticky-top) + var(--space-2));
+    max-height: calc(100dvh - var(--dev-sticky-top) - var(--space-4));
+    overflow-y: auto;
+  }
+}
+
+/* ── 미리 보기 안쪽 카드(.bl-subcard) ── */
+.bl-preview-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.bl-subcard {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: var(--border-w) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  overflow: hidden;
+}
+.bl-subcard-head {
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  background-color: var(--color-card-head);
+  border-block-end: var(--hairline) solid var(--color-border-strong);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+}
+.bl-subcard-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  min-width: 0;
+}
+
+/* ── [3D 전투 · 리플레이] 통합 탭 ── */
+.bl-replay-tab,
+.bl-workshop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.bl-workshop .bp-panel {
+  border: var(--border-w) solid var(--color-border-strong);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  padding: var(--space-3);
+  gap: var(--space-3);
+}
+.bl-workshop .bp-panel-head {
+  margin: calc(var(--space-3) * -1) calc(var(--space-3) * -1) 0;
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--color-card-head);
+  border-block-end: var(--border-w) solid var(--color-border-strong);
+  border-start-start-radius: calc(var(--radius-panel) - var(--border-w));
+  border-start-end-radius: calc(var(--radius-panel) - var(--border-w));
+}
+
+/* ── 일괄 레벨 조정 바(전체·팀·유닛 도감) ── */
+.bl-level-bar,
+.bl-team-level-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+}
+.bl-level-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.bl-level-chips,
+.bl-level-steppers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+.bl-level-chip[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.bl-level-step {
+  min-width: var(--tap-size);
+  padding-inline: var(--space-2);
+  font-variant-numeric: tabular-nums;
+}
+.bl-level-input {
+  inline-size: 4.5em;
+  min-height: var(--tap-size);
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── [유닛 · 프리셋] 도감 탭 배치 ── */
+.bl-workshop-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+@media (min-width: 72em) {
+  .bl-workshop-grid {
+    grid-template-columns: minmax(17rem, 22rem) minmax(0, 1fr);
+  }
+  .bl-workshop-list {
+    position: sticky;
+    top: calc(var(--dev-sticky-top) + var(--space-2));
+    max-height: calc(100dvh - var(--dev-sticky-top) - var(--space-4));
+    overflow: hidden;
+  }
+}
+.bl-workshop-filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.bl-workshop-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.bl-workshop-search {
+  flex: 1 1 8em;
+  min-width: 0;
+  min-height: var(--tap-size);
+}
+.bl-workshop-kind {
+  flex: 0 1 8em;
+  min-width: 0;
+}
+.bl-workshop-items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  overflow-y: auto;
+  min-height: 0;
+  max-height: 55dvh;
+}
+.bl-workshop-item {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+  min-height: var(--tap-size);
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+  text-align: start;
+  cursor: pointer;
+}
+.bl-workshop-item:hover {
+  background-color: var(--dev-row-hover);
+}
+.bl-workshop-item[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  background-color: var(--dev-row-selected);
+  box-shadow: inset var(--accent-bar) 0 0 var(--color-primary);
+}
+.bl-workshop-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.bl-workshop-item-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-sm);
+}
+.bl-workshop-badge {
+  flex: none;
+  padding: 0 var(--space-1);
+  border: var(--hairline) solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.bl-workshop-badge[data-source="team"] {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.bl-workshop-item-meta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.bl-workshop-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.bl-workshop-bar {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+.bl-workshop-bar .bl-level-bar {
+  border: none;
+  padding: 0;
+  background: none;
+}
+.bl-replay-toolbar {
+  gap: var(--space-2);
+}
+.bl-replay-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.bl-replay-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.bl-replay-summary {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.bl-replay-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.bl-replay-stage {
+  display: flex;
+  flex-direction: column;
+  min-height: 70dvh;
+  max-height: 85dvh;
+  border: var(--border-w) solid var(--color-border-strong);
+  border-radius: var(--radius-panel);
+  overflow: hidden;
+  background-color: var(--color-bg);
+}
+.bl-replay-empty {
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-6);
+}

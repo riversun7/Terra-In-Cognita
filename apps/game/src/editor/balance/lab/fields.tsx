@@ -100,8 +100,11 @@ function NameForm({ request, onClose }: { request: NameRequest; onClose: () => v
   const [invalid, setInvalid] = useState(false);
   const submit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    const nameKo = normalizeLabName(ko);
-    const nameEn = normalizeLabName(en);
+    // 한쪽 이름만 적어도 반대쪽에 자동으로 채워 저장을 쉽게 한다(둘 다 적으면 그대로 쓴다)
+    const rawKo = ko.trim() !== "" ? ko : en;
+    const rawEn = en.trim() !== "" ? en : ko;
+    const nameKo = normalizeLabName(rawKo);
+    const nameEn = normalizeLabName(rawEn);
     if (nameKo === null || nameEn === null) {
       setInvalid(true);
       return;
@@ -109,7 +112,7 @@ function NameForm({ request, onClose }: { request: NameRequest; onClose: () => v
     request.onConfirm({ ko: nameKo, en: nameEn });
     onClose();
   };
-  const hint = m.dev_lab_name_hint({ max: LAB_LIMITS.nameMax });
+  const hint = m.dev_lab_name_hint_auto({ max: LAB_LIMITS.nameMax });
   return (
     <form className="bl-dialog-body" onSubmit={submit} noValidate>
       <h2 id="bl-name-title" className="bl-dialog-title">

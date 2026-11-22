@@ -173,21 +173,23 @@ function CustomWeapon(props: {
       </label>
       <details className="bl-details">
         <summary>{m.dev_lab_weapon_elements()}</summary>
-        <p className="field-hint">{m.dev_lab_weapon_elements_hint()}</p>
-        <div className="bl-grid4">
-          {ELEMENT_TEXT.map((text, index) => (
-            <NumberField
-              // oxlint-disable-next-line react/no-array-index-key -- 속성 칸 차례가 열쇠다(12칸 고정)
-              key={index}
-              label={text()}
-              value={spec.elementsPm[index] ?? 0}
-              min={0}
-              max={L.valueMax}
-              onChange={(value) =>
-                set({ elementsPm: spec.elementsPm.map((entry, at) => (at === index ? value : entry)) })
-              }
-            />
-          ))}
+        <div className="bl-details-body">
+          <p className="field-hint">{m.dev_lab_weapon_elements_hint()}</p>
+          <div className="bl-grid4">
+            {ELEMENT_TEXT.map((text, index) => (
+              <NumberField
+                // oxlint-disable-next-line react/no-array-index-key -- 속성 칸 차례가 열쇠다(12칸 고정)
+                key={index}
+                label={text()}
+                value={spec.elementsPm[index] ?? 0}
+                min={0}
+                max={L.valueMax}
+                onChange={(value) =>
+                  set({ elementsPm: spec.elementsPm.map((entry, at) => (at === index ? value : entry)) })
+                }
+              />
+            ))}
+          </div>
         </div>
       </details>
     </div>
@@ -210,181 +212,190 @@ export function UnitGear(props: {
     <>
       <details className="bl-details" open>
         <summary>{m.dev_lab_section_weapon()}</summary>
-        <div className="field">
-          <label className="field-label" htmlFor={`${id}-weapon`}>
-            {m.dev_lab_weapon()}
-          </label>
-          <select
-            id={`${id}-weapon`}
-            className="bl-weapon-select"
-            value={weaponChoice(unit.weapon)}
-            onChange={(event) => {
-              const choice = event.target.value;
-              if (natural)
-                onChange((current) => ({
-                  ...current,
-                  weapon: weaponOfChoice(choice, current.weapon, natural),
-                }));
-            }}
-          >
-            <option value="natural">{m.dev_lab_weapon_natural()}</option>
-            {weaponSlot >= 0
-              ? catalog.weapons.map((weapon) => (
-                  <option key={weapon.id} value={`item:${weapon.id}`}>
-                    {localized(weapon.name, locale, weapon.id)}
-                  </option>
-                ))
-              : null}
-            <option value="custom">{m.dev_lab_weapon_custom()}</option>
-          </select>
+        <div className="bl-details-body">
+          <div className="field">
+            <label className="field-label" htmlFor={`${id}-weapon`}>
+              {m.dev_lab_weapon()}
+            </label>
+            <select
+              id={`${id}-weapon`}
+              className="bl-weapon-select"
+              value={weaponChoice(unit.weapon)}
+              onChange={(event) => {
+                const choice = event.target.value;
+                if (natural)
+                  onChange((current) => ({
+                    ...current,
+                    weapon: weaponOfChoice(choice, current.weapon, natural),
+                  }));
+              }}
+            >
+              <option value="natural">{m.dev_lab_weapon_natural()}</option>
+              {weaponSlot >= 0
+                ? catalog.weapons.map((weapon) => (
+                    <option key={weapon.id} value={`item:${weapon.id}`}>
+                      {localized(weapon.name, locale, weapon.id)}
+                    </option>
+                  ))
+                : null}
+              <option value="custom">{m.dev_lab_weapon_custom()}</option>
+            </select>
+          </div>
+          {unit.weapon.kind === "item" ? (
+            <NumberField
+              label={m.dev_lab_roll()}
+              hint={m.dev_lab_roll_hint()}
+              value={unit.weapon.pm}
+              min={0}
+              max={1000}
+              className="bl-num-compact"
+              onChange={(pm) =>
+                onChange((current) =>
+                  current.weapon.kind === "item"
+                    ? { ...current, weapon: { ...current.weapon, pm } }
+                    : current,
+                )
+              }
+            />
+          ) : null}
+          {unit.weapon.kind === "custom" ? (
+            <CustomWeapon
+              spec={unit.weapon.spec}
+              onChange={(spec) => onChange((current) => ({ ...current, weapon: { kind: "custom", spec } }))}
+            />
+          ) : null}
         </div>
-        {unit.weapon.kind === "item" ? (
-          <NumberField
-            label={m.dev_lab_roll()}
-            hint={m.dev_lab_roll_hint()}
-            value={unit.weapon.pm}
-            min={0}
-            max={1000}
-            onChange={(pm) =>
-              onChange((current) =>
-                current.weapon.kind === "item" ? { ...current, weapon: { ...current.weapon, pm } } : current,
-              )
-            }
-          />
-        ) : null}
-        {unit.weapon.kind === "custom" ? (
-          <CustomWeapon
-            spec={unit.weapon.spec}
-            onChange={(spec) => onChange((current) => ({ ...current, weapon: { kind: "custom", spec } }))}
-          />
-        ) : null}
       </details>
 
       <details className="bl-details">
         <summary>{m.dev_lab_section_equipment()}</summary>
-        {slots.length <= (weaponSlot >= 0 ? 1 : 0) ? (
-          <p className="field-hint">{m.dev_lab_no_slots()}</p>
-        ) : null}
-        <div className="bl-slots">
-          {slots.map((slot, index) => {
-            if (index === weaponSlot) return null;
-            const equipped = unit.equipment.find((entry) => entry.slot === index);
-            const options = catalog.equipment.filter((item) => item.slot === slot && !item.weapon);
-            return (
-              // oxlint-disable-next-line react/no-array-index-key -- 유닛 종류의 칸 번호가 열쇠다
-              <div key={index} className="bl-slot" data-slot={slot}>
-                <label className="field-label" htmlFor={`${id}-slot-${index}`}>
-                  {slotText(slot)}
-                </label>
-                <select
-                  id={`${id}-slot-${index}`}
-                  value={equipped?.item ?? ""}
-                  onChange={(event) =>
-                    onChange((current) =>
-                      withEquip(current, index, event.target.value === "" ? null : event.target.value),
-                    )
-                  }
-                >
-                  <option value="">{m.roster_slot_empty()}</option>
-                  {options.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {itemName(catalog, item.id, locale)}
-                    </option>
-                  ))}
-                </select>
-                {equipped ? (
-                  <NumberField
-                    label={m.dev_lab_roll()}
-                    hint={m.dev_lab_roll_hint()}
-                    value={equipped.pm}
-                    min={0}
-                    max={1000}
-                    hideLabel
-                    onChange={(pm) => onChange((current) => withEquip(current, index, equipped.item, pm))}
-                  />
-                ) : null}
-              </div>
-            );
-          })}
+        <div className="bl-details-body">
+          {slots.length <= (weaponSlot >= 0 ? 1 : 0) ? (
+            <p className="field-hint">{m.dev_lab_no_slots()}</p>
+          ) : null}
+          <div className="bl-slots">
+            {slots.map((slot, index) => {
+              if (index === weaponSlot) return null;
+              const equipped = unit.equipment.find((entry) => entry.slot === index);
+              const options = catalog.equipment.filter((item) => item.slot === slot && !item.weapon);
+              return (
+                // oxlint-disable-next-line react/no-array-index-key -- 유닛 종류의 칸 번호가 열쇠다
+                <div key={index} className="bl-slot" data-slot={slot}>
+                  <label className="field-label" htmlFor={`${id}-slot-${index}`}>
+                    {slotText(slot)}
+                  </label>
+                  <select
+                    id={`${id}-slot-${index}`}
+                    value={equipped?.item ?? ""}
+                    onChange={(event) =>
+                      onChange((current) =>
+                        withEquip(current, index, event.target.value === "" ? null : event.target.value),
+                      )
+                    }
+                  >
+                    <option value="">{m.roster_slot_empty()}</option>
+                    {options.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {itemName(catalog, item.id, locale)}
+                      </option>
+                    ))}
+                  </select>
+                  {equipped ? (
+                    <NumberField
+                      label={m.dev_lab_roll()}
+                      hint={m.dev_lab_roll_hint()}
+                      value={equipped.pm}
+                      min={0}
+                      max={1000}
+                      hideLabel
+                      onChange={(pm) => onChange((current) => withEquip(current, index, equipped.item, pm))}
+                    />
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </details>
 
       <details className="bl-details">
         <summary>{m.dev_lab_section_gear()}</summary>
-        <p className="field-hint">{m.dev_lab_gear_hint()}</p>
-        <div className="bl-grid3">
-          {catalog.statRows
-            .filter((row) => row.gear)
-            .map((row) => (
-              <NumberField
-                key={row.id}
-                field={row.id}
-                label={statName(catalog, row.id, locale)}
-                value={gearRowValue(unit, row.id)}
-                min={-L.valueMax}
-                max={L.valueMax}
-                onChange={(value) => onChange((current) => withGearRow(current, row.id, value))}
-              />
-            ))}
-          <NumberField
-            label={m.dev_lab_defense_flat()}
-            value={unit.gear.defenseFlat}
-            min={0}
-            max={L.valueMax}
-            onChange={(value) =>
-              onChange((current) => ({ ...current, gear: { ...current.gear, defenseFlat: value } }))
-            }
-          />
-          <NumberField
-            label={m.dev_lab_penetration()}
-            value={unit.gear.penetrationPm}
-            min={0}
-            max={L.pmMax}
-            onChange={(value) =>
-              onChange((current) => ({ ...current, gear: { ...current.gear, penetrationPm: value } }))
-            }
-          />
-        </div>
-        <h4 className="bl-subtitle">{m.dev_lab_primary_bonus()}</h4>
-        <div className="bl-grid3">
-          {PRIMARY_STATS.map((stat) => (
+        <div className="bl-details-body">
+          <p className="field-hint">{m.dev_lab_gear_hint()}</p>
+          <div className="bl-grid3">
+            {catalog.statRows
+              .filter((row) => row.gear)
+              .map((row) => (
+                <NumberField
+                  key={row.id}
+                  field={row.id}
+                  label={statName(catalog, row.id, locale)}
+                  value={gearRowValue(unit, row.id)}
+                  min={-L.valueMax}
+                  max={L.valueMax}
+                  onChange={(value) => onChange((current) => withGearRow(current, row.id, value))}
+                />
+              ))}
             <NumberField
-              key={stat}
-              field={stat}
-              label={primaryCode(stat)}
-              value={unit.gear.primaries[stat]}
-              min={-L.primaryMax}
-              max={L.primaryMax}
+              label={m.dev_lab_defense_flat()}
+              value={unit.gear.defenseFlat}
+              min={0}
+              max={L.valueMax}
               onChange={(value) =>
-                onChange((current) => ({
-                  ...current,
-                  gear: { ...current.gear, primaries: { ...current.gear.primaries, [stat]: value } },
-                }))
+                onChange((current) => ({ ...current, gear: { ...current.gear, defenseFlat: value } }))
               }
             />
-          ))}
-        </div>
-        <h4 className="bl-subtitle">{m.dev_lab_resist()}</h4>
-        <div className="bl-grid4">
-          {ELEMENT_TEXT.map((text, index) => (
             <NumberField
-              // oxlint-disable-next-line react/no-array-index-key -- 속성 칸 차례가 열쇠다(12칸 고정)
-              key={index}
-              label={text()}
-              value={unit.gear.resistPm[index] ?? 0}
-              min={-L.pmMax}
+              label={m.dev_lab_penetration()}
+              value={unit.gear.penetrationPm}
+              min={0}
               max={L.pmMax}
               onChange={(value) =>
-                onChange((current) => ({
-                  ...current,
-                  gear: {
-                    ...current.gear,
-                    resistPm: current.gear.resistPm.map((entry, at) => (at === index ? value : entry)),
-                  },
-                }))
+                onChange((current) => ({ ...current, gear: { ...current.gear, penetrationPm: value } }))
               }
             />
-          ))}
+          </div>
+          <h4 className="bl-subtitle">{m.dev_lab_primary_bonus()}</h4>
+          <div className="bl-grid3">
+            {PRIMARY_STATS.map((stat) => (
+              <NumberField
+                key={stat}
+                field={stat}
+                label={primaryCode(stat)}
+                value={unit.gear.primaries[stat]}
+                min={-L.primaryMax}
+                max={L.primaryMax}
+                onChange={(value) =>
+                  onChange((current) => ({
+                    ...current,
+                    gear: { ...current.gear, primaries: { ...current.gear.primaries, [stat]: value } },
+                  }))
+                }
+              />
+            ))}
+          </div>
+          <h4 className="bl-subtitle">{m.dev_lab_resist()}</h4>
+          <div className="bl-grid4">
+            {ELEMENT_TEXT.map((text, index) => (
+              <NumberField
+                // oxlint-disable-next-line react/no-array-index-key -- 속성 칸 차례가 열쇠다(12칸 고정)
+                key={index}
+                label={text()}
+                value={unit.gear.resistPm[index] ?? 0}
+                min={-L.pmMax}
+                max={L.pmMax}
+                onChange={(value) =>
+                  onChange((current) => ({
+                    ...current,
+                    gear: {
+                      ...current.gear,
+                      resistPm: current.gear.resistPm.map((entry, at) => (at === index ? value : entry)),
+                    },
+                  }))
+                }
+              />
+            ))}
+          </div>
         </div>
       </details>
     </>

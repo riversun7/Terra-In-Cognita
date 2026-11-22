@@ -14480,6 +14480,96 @@
       "source": "D-591 2(질문 2536 다 — 숙박비 미리 내기 + 남의 집 세 들기) · 줄기 residence-3 [임시 기술 기본값]"
     },
     {
+      "id": "npc_rent_mode",
+      "code": "",
+      "name": {
+        "ko": "NPC 세 들기(1 켬·0 끔)",
+        "en": "NPC renting (1 on, 0 off)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1,
+      "desc": {
+        "ko": "1이면 NPC 휴먼도 플레이어 유닛처럼 세를 놓은 남의 주거 건물(주인이 정한 집세)을 골라 기간마다 집세를 미리 낸다(그 휴먼 지갑, 그 도시 나라 화폐 — 사업장 금고로, 정원 안, 못 내면 쉼·빚 없음). 0이면 새로 세 들지 않는다(이미 세 든 것은 그대로 산다). [임시] 기술 기본값(질문 2674).",
+        "en": "1 lets NPC humans, like player units, choose another owner's housing building that is up for rent (rent set by the owner) and prepay the rent each period (from the human's purse, in the city's national currency — into the business vault, within capacity, paused without debt if unpaid). 0 stops new rentals (existing ones keep living). [temporary] technical default (question 2674)."
+      },
+      "source": "질문 2674 — D-555 1509 \"똑같이\" 기획 검토 · 줄기 npc-rent [임시 기술 기본값]"
+    },
+    {
+      "id": "npc_rent_sweep_cap",
+      "code": "",
+      "name": {
+        "ko": "NPC 세 들기 훑기마다 보는 휴먼 수",
+        "en": "NPC renting: humans checked per sweep"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "사는 곳 1분 훑기마다 세 들지 볼 NPC 휴먼 수 상한(세를 놓은 집이 있는 도시의 휴먼만, 유닛 ID 차례로 이어 간다 — 수천 휴먼을 한 번에 보지 않는다). [임시] 기술 기본값.",
+        "en": "Upper limit of NPC humans checked for renting in each one-minute residence sweep (only humans in cities with homes for rent, continuing in unit ID order — thousands of humans are not checked at once). [temporary] technical default."
+      },
+      "source": "질문 2674 — D-555 1509 \"똑같이\" 기획 검토 · 줄기 npc-rent [임시 기술 기본값]"
+    },
+    {
+      "id": "npc_rent_factor_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 세 들기 의향(숙박비 대비 ‰)",
+        "en": "NPC renting willingness (‰ of lodging cost)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "숙소에서 쉬는 NPC 일꾼은 집세(그 나라 화폐로 바꾼 값) ≤ 지금 한 기간 숙박비 × 의향 ÷ 1000인 집만 세 든다(의향 = 이 값 + 이윤 성향 몫). 쉼터를 못 받은(노숙) 일꾼은 값과 상관없이 가장 싼 집을 고른다. [임시] 기술 기본값(D-323 성향 규칙식).",
+        "en": "An NPC worker resting at a lodging rents only a home whose rent (converted to the national currency) ≤ the current lodging cost for one period × willingness ÷ 1000 (willingness = this value + the greed share). A worker with no rest place (homeless) picks the cheapest home regardless of price. [temporary] technical default (D-323 temper rule)."
+      },
+      "source": "질문 2674 — D-555 1509 \"똑같이\" 기획 검토 · 줄기 npc-rent [임시 기술 기본값]"
+    },
+    {
+      "id": "npc_rent_temper_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 세 들기 이윤 성향 무게(‰)",
+        "en": "NPC renting greed weight (‰)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "의향 += (500 − 그 휴먼의 이윤 성향 greed) × 이 값 ÷ 500. 이윤·시장 성향이 높을수록 값에 까다롭고, 공공·자급 성향이면 조금 비싸도 세 든다. [임시] 기술 기본값.",
+        "en": "Willingness += (500 − the human's greed axis) × this value ÷ 500. The more profit-minded, the pickier about price; a public-minded human rents even when a little more expensive. [temporary] technical default."
+      },
+      "source": "질문 2674 — D-555 1509 \"똑같이\" 기획 검토 · 줄기 npc-rent [임시 기술 기본값]"
+    },
+    {
+      "id": "npc_rent_reserve_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 세 들기 지갑 여유(집세 ‰)",
+        "en": "NPC renting purse reserve (‰ of rent)"
+      },
+      "value": 2000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "NPC 휴먼은 지갑이 집세 × 이 값 ÷ 1000 이상일 때만 새로 세 든다(기본 두 기간 몫 — 바로 쉬지 않게). [임시] 기술 기본값.",
+        "en": "An NPC human rents a new home only when its purse holds at least rent × this value ÷ 1000 (default two periods — so it does not pause right away). [temporary] technical default."
+      },
+      "source": "질문 2674 — D-555 1509 \"똑같이\" 기획 검토 · 줄기 npc-rent [임시 기술 기본값]"
+    },
+    {
       "id": "npc_resident_tax_min_pm",
       "code": "",
       "name": {

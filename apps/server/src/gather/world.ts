@@ -21,6 +21,7 @@ import { exchangeRoom } from "../market/lockerRoom.ts";
 import { withNpcStaff } from "../npc/npcLogistics.ts";
 import { attachResidence, registerResidenceService } from "../residence/attach.ts";
 import { floorQuoteOf } from "../residence/floorQuote.ts";
+import { npcRentWorldOf } from "../residence/npcRentWorld.ts";
 import { loadResidenceRents } from "../residence/rent.ts";
 import { loadResidences } from "../residence/store.ts";
 import { ASSET_CREDIT } from "../world/settlement.ts";
@@ -239,6 +240,10 @@ export function startWorldGather(
       // 컨디션 주거 = 그 일꾼의 쉼터(D-535 1152 나, facilities/world.ts attachRest)
       facilities.attachRest((unitId) => workerRest.restOf(unitId));
       // 사는 곳(D-585 1): 고른 거주지 표를 읽어 장부를 원장에 붙인다(주민세 거주·신용 조회가 읽는다)
+      let npcRent: { runtime: unknown; world: ReturnType<typeof npcRentWorldOf> } = {
+        runtime: undefined,
+        world: undefined,
+      };
       const residence = attachResidence({
         rows: residenceRows,
         rentRows,
@@ -259,6 +264,12 @@ export function startWorldGather(
           ),
         ownerOf,
         now: options.now,
+        // NPC 휴먼 세 들기(npc-rent, 질문 2674 — D-555 1509): NPC 런타임이 켜진 뒤 읽는다(같은 런타임이면 같은 몫)
+        npc: () => {
+          if (world.npc !== npcRent.runtime)
+            npcRent = { runtime: world.npc, world: npcRentWorldOf(world.npc, rules, ASSET_CREDIT) };
+          return npcRent.world;
+        },
       });
       registerResidenceService(service, residence.service);
       stopResidence = () => residence.stop();

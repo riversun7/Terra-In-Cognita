@@ -12,7 +12,9 @@
 //   집세를 기간마다 미리 — 주인이 세를 놓아야 고를 수 있다). own이 아니면 미리 낸 기간(paidUntilMs)이 지나지 않았을 때만 쓸 수 있다(값 셈·걷기는 rent.ts).
 //   미리 낸 기간이 남아 있으면 세를 거두거나 숙소 배정이 바뀌어도 그 기간 끝까지 산다. 다른 집을 고르면 남은 몫은 돌려받지 않는다(2486 가 — 서비스가 새로 낸다).
 //   정원은 쓸 수 있는(값을 낸) 유닛만 센다.
-// - 고른 것이 없으면 옛 길: 숙소 배정이 있는 일꾼은 그 숙소가 사는 곳(lodgingOf). NPC 휴먼은 고르지 않는다(사는 도시 SimUnit.city — npc/residentProperty.ts).
+// - 고른 것이 없으면 옛 길: 숙소 배정이 있는 일꾼은 그 숙소가 사는 곳(lodgingOf). NPC 휴먼은 고른 것이 없으면 사는 도시 SimUnit.city(npc/residentProperty.ts).
+// - 바뀜(npc-rent, 질문 2674 — D-555 1509 "똑같이"): NPC 휴먼도 세를 놓은 남의 집을 이 장부에 고른다(npcRent.ts — 같은 정원·미리 내기·쉼). 정원·사는 수 셈은
+//   건물마다 고른 것만 훑는다(건물 색인 — 고른 것이 수천 개여도).
 // - 조회 함수 residenceCityOf(유닛)·ownerResidenceCities(주인): 신용(apps/server/src/credit/ — governance-5 줄기가 다시 만든다)이 나중에 이것을 쓴다(지금은
 //   잇지 않았다 — 신용 셈은 빚 계정의 도시를 그대로 쓴다).
 // 장부는 원장마다 하나(WeakMap — npc/residentProperty.ts registerPlayerHomes와 같은 꼴). 저장은 residence/store.ts(표 unit_residences).
@@ -102,6 +104,28 @@ export interface ResidenceBook {
 
 export function createResidenceBook(world: ResidenceWorld): ResidenceBook {
   const choices = new Map<number, ResidenceChoice>();
+  /** 건물 → 그 건물을 고른 유닛(정원·사는 수 셈이 건물 하나만 훑게 — NPC 세 들기로 고른 것이 수천 개여도, 바뀜 npc-rent) */
+  const byBuilding = new Map<number, Set<number>>();
+  const index = (choice: ResidenceChoice): void => {
+    const set = byBuilding.get(choice.buildingId) ?? new Set<number>();
+    set.add(choice.unitId);
+    byBuilding.set(choice.buildingId, set);
+  };
+  const unindex = (choice: ResidenceChoice | undefined): void => {
+    if (!choice) return;
+    const set = byBuilding.get(choice.buildingId);
+    set?.delete(choice.unitId);
+    if (set?.size === 0) byBuilding.delete(choice.buildingId);
+  };
+  /** 그 건물을 고른 것들 */
+  const choicesAt = (buildingId: number): ResidenceChoice[] => {
+    const out: ResidenceChoice[] = [];
+    for (const unitId of byBuilding.get(buildingId) ?? []) {
+      const choice = choices.get(unitId);
+      if (choice) out.push(choice);
+    }
+    return out;
+  };
   const nowMs = (): number => world.now?.() ?? Number.NEGATIVE_INFINITY;
   const paid = (choice: ResidenceChoice | undefined, buildingId: number): boolean =>
     choice?.buildingId === buildingId &&
@@ -136,10 +160,9 @@ export function createResidenceBook(world: ResidenceWorld): ResidenceBook {
   const capacityBlock = (unitId: number, buildingId: number): ResidenceBlock | null => {
     const capacity = world.building(buildingId)?.capacity ?? 0;
     const mine = choices.get(unitId);
-    const ahead = [...choices.values()].filter(
+    const ahead = choicesAt(buildingId).filter(
       (choice) =>
         choice.unitId !== unitId &&
-        choice.buildingId === buildingId &&
         world.unitOwner(choice.unitId) === choice.ownerId &&
         eligibility(choice.unitId, choice.ownerId, buildingId) === null &&
         settled(choice) &&
@@ -175,14 +198,21 @@ export function createResidenceBook(world: ResidenceWorld): ResidenceBook {
   return {
     load(rows) {
       choices.clear();
-      for (const row of rows) choices.set(row.unitId, row);
+      byBuilding.clear();
+      for (const row of rows) {
+        choices.set(row.unitId, row);
+        index(row);
+      }
     },
     choiceOf: (unitId) => choices.get(unitId),
     all: () => [...choices.values()].toSorted((a, b) => a.unitId - b.unitId),
     put(choice) {
+      unindex(choices.get(choice.unitId));
       choices.set(choice.unitId, choice);
+      index(choice);
     },
     remove(unitId) {
+      unindex(choices.get(unitId));
       choices.delete(unitId);
     },
     blockOf,
@@ -210,8 +240,7 @@ export function createResidenceBook(world: ResidenceWorld): ResidenceBook {
     payKindOf,
     occupants(buildingId) {
       let count = 0;
-      for (const choice of choices.values())
-        if (choice.buildingId === buildingId && chosenPlace(choice.unitId)) count += 1;
+      for (const choice of choicesAt(buildingId)) if (chosenPlace(choice.unitId)) count += 1;
       return count;
     },
     prepaidAt(unitId, buildingId, atMs) {

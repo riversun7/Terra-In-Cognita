@@ -178,6 +178,16 @@ export interface BusinessCoefficients {
    */
   readonly residenceRentPeriodMs?: number | undefined;
   /**
+   * NPC 휴먼 세 들기(질문 2674 — D-555 1509 "똑같이", 줄기 npc-rent, 서버 residence/npcRent.ts만 읽는다 — 시뮬에는 플레이어 건물·집세가 없다). 모두 [임시] 기술
+   * 기본값·선택 칸: 켬(1 — 없으면 1), 1분 훑기마다 보는 휴먼 수(없으면 200), 의향 = 집세 ≤ 지금 한 기간 숙박비 × 의향 ÷ 1000(없으면 1000), 이윤 성향 무게
+   * (의향 += (500 − greed) × 이 값 ÷ 500, 없으면 200), 지갑 여유(지갑 ≥ 집세 × 이 값 ÷ 1000, 없으면 2000)
+   */
+  readonly npcRentMode?: number | undefined;
+  readonly npcRentSweepCap?: number | undefined;
+  readonly npcRentFactorPm?: number | undefined;
+  readonly npcRentTemperPm?: number | undefined;
+  readonly npcRentReservePm?: number | undefined;
+  /**
    * NPC 나라 주민세율 규칙식의 아래·위(‰, 질문 2373 가 — D-323 성향 프리셋 + 규칙식, npc/policy.ts npcResidentTaxPm): 상업 성향이 가장 높으면 min, 가장 낮으면
    * max. 나라 값을 정하지 않은 NPC 나라에 서버가 쓴다. 선택 칸 — 없으면 0(걷지 않음)
    */
@@ -266,6 +276,11 @@ export const START_BUSINESS: BusinessCoefficients = {
   residenceFloorCostPm: 1000,
   residenceFloorTimePm: 1000,
   residenceRentPeriodMs: 86_400_000,
+  npcRentMode: 1,
+  npcRentSweepCap: 200,
+  npcRentFactorPm: 1000,
+  npcRentTemperPm: 200,
+  npcRentReservePm: 2000,
   npcResidentTaxMinPm: 0,
   npcResidentTaxMaxPm: 0,
   residentBuildingValuePm: 1000,

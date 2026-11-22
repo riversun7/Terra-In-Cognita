@@ -9,7 +9,8 @@
 // - 고를 때(서비스) 첫 기간을 바로 낸다(모자라면 insufficient_funds). 그 뒤는 1분 훑기(renewResidenceRents — attach.ts가 쉼 훑기 바로 전에 부른다)가 낸 기간이 끝난
 //   고른 것마다 다음 기간을 걷는다. 모자라면 걷지 않고 그 고른 것은 쉰다(옛 길 숙소 배정 + 처리할 일 residence_paused). 돈이 생기면 다음 훑기에 다시 걷어 이어 산다.
 // - 미리 낸 숙소 몫이 덮는 동안 일꾼 쉼터는 그 숙소 숙박비를 밤마다 다시 걷지 않는다(labor/workerRest.ts — book.prepaidAt).
-// - NPC 휴먼은 고르지 않는다 — NPC 숙박비는 하루 끝 길 그대로(npc/npcWages.ts). NPC가 플레이어 집을 세 드는 길은 없다(기술 기본값 [임시] — 질문 2674).
+// - 바뀜(npc-rent, 질문 2674 — D-555 1509 "똑같이"): NPC 휴먼도 세를 놓은 남의 집을 골라 같은 길(미리 냄·금고·정원·못 내면 쉼, 빚 없음)로 세 든다. 고르기·값
+//   셈(그 도시 나라 화폐)은 npcRent.ts. NPC 숙소 숙박비(하루 끝 npc/npcWages.ts)는 그대로다.
 import type { QueryPool } from "../world/persist/load.ts";
 import type { ResidenceBook, ResidenceChoice, ResidencePay } from "./book.ts";
 
@@ -60,6 +61,8 @@ export interface RentTable {
   rentOf(buildingId: number, currentOwner: number | null): bigint | null;
   /** 그 건물 줄(주인 확인 전 — 화면이 쓴다) */
   rowOf(buildingId: number): ResidenceRent | undefined;
+  /** 모든 줄(건물 ID 차례 — NPC 세 들기 훑기가 세를 놓은 집을 모은다, npcRent.ts) */
+  all(): ResidenceRent[];
   put(row: ResidenceRent): void;
   remove(buildingId: number): void;
 }
@@ -76,6 +79,7 @@ export function createRentTable(): RentTable {
       return row && currentOwner !== null && row.ownerId === currentOwner ? row.rent : null;
     },
     rowOf: (buildingId) => rows.get(buildingId),
+    all: () => [...rows.values()].toSorted((a, b) => a.buildingId - b.buildingId),
     put(row) {
       rows.set(row.buildingId, row);
     },

@@ -789,6 +789,17 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       if (unit.bot) scheduleEvent(unit, "wake", now() + startDelayMs(nextRng(unit)));
       return true;
     },
+    walkToSafety(unitId, near, done) {
+      const unit = units.get(unitId);
+      // 배는 땅의 안전한 곳으로 가지 않는다(relocateToSafety와 같다)
+      const point = unit && unit.domain !== "sea" ? safePoint(grid, unit.size, near) : undefined;
+      if (!unit || !point) return false;
+      unit.aboard = undefined;
+      requestRoute(unit, point, "command", COMMAND_NODE_BUDGET, (result) =>
+        done(result.ok ? arrivalAt(unit.motion) : undefined),
+      );
+      return true;
+    },
     transferOut(unitId) {
       const unit = units.get(unitId);
       // 승객은 혼자 넘지 않는다 — 배가 승객을 데리고 넘는다(바다 건너기, 기획 D-541 1283 나)

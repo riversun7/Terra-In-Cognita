@@ -5,6 +5,7 @@ import { loadContentPack } from "@terra/content/node";
 import { DAY_MS, holdingsOf, moveSharesToHouse } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
+import { testRosterCatalog } from "../roster/catalog.ts";
 import { createContentEditState } from "../contentEdit/state.ts";
 import { economyCatalogFromPack } from "../economyView/catalog.ts";
 import { serverEconomyCatalogAccessor } from "../market/catalog.ts";
@@ -23,6 +24,7 @@ import type { AgendaRow } from "./store.ts";
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
 if (!loaded.source || !loaded.pack) throw new Error("content pack");
 const pack = createContentEditState(loaded.source).effective();
+const roster = testRosterCatalog();
 const presets = legacyNationPresets(nationPresetsOf(loaded.pack));
 const economy = serverEconomyCatalogAccessor(
   economyCatalogFromPack(loaded.pack, { version: "core@test", placeholder: true }),
@@ -61,6 +63,8 @@ async function boot(): Promise<World> {
     npc: { testNations: 2, manual: true, presets },
     holdings: { content: () => pack },
     facilities: { content: () => pack },
+    // 쿠데타 전투 = 세계 전투(줄기 no-teleport-a — 실제 몸, battleBodies.ts)
+    roster: () => roster,
     economy,
   });
   worlds.push(world);
@@ -387,10 +391,20 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 5(governance-5)", () => {
     await gov.service.tick();
     const done = await rows<{
       status: string;
-      result: { newNationId: number | null; city: number | null } | null;
+      result: { newNationId: number | null; city: number | null; battleId?: number; reason?: string } | null;
     }>(test.db, "select status, result from governance_coups where id = $1", [coupId]);
     const key = coups[0]?.house_key ?? "";
-    if (done[0]?.status === "won") {
+    // 바뀜(줄기 no-teleport-a — D-591·질문 2653): 쿠데타 전투는 세계 전투 — 혁명군이 그 도시에 있으면 전투가 열리고 끝날 때까지 참가 받는 중이다
+    // (끝까지의 결과는 governance3.db.test.ts가 본다). 혁명군이 하나도 없으면 싸우지 않고 진다
+    if (done[0]?.status === "gathering") {
+      const battle = await rows<{ kind: string; status: string }>(
+        test.db,
+        "select kind, status from world_battles where id = $1",
+        [done[0].result?.battleId ?? -1],
+      );
+      expect(battle).toEqual([{ kind: "siege", status: "running" }]);
+    } else if (done[0]?.status === "lost") expect(done[0].result?.reason).toBe("no_rebels");
+    else if (done[0]?.status === "won") {
       const coupCity = done[0].result?.city;
       const child = done[0].result?.newNationId;
       if (coupCity !== null && coupCity !== undefined && child !== null && child !== undefined) {
@@ -403,7 +417,7 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 5(governance-5)", () => {
           await rows(test.db, "select ruling_house_key from governance_state where nation_id = $1", [child]),
         ).toEqual([{ ruling_house_key: key }]);
       } else expect(faction.regime).toBe("dictatorship");
-    } else expect(done[0]?.status).toBe("lost");
+    } else throw new Error(`coup ${done[0]?.status}`);
     gov.stop();
   }, 180_000);
 

@@ -35,6 +35,11 @@ export const GOV_COUP_PROTOCOL_VERSION = 63;
  * 같은 칸을 보내고 같은 뜻으로 처리된다(서버가 보낸다)
  */
 export const COUP_DISPATCH_PROTOCOL_VERSION = 125;
+/**
+ * 쿠데타 전투 참전(줄기 no-teleport-a 판 165 — 사용자 결정 D-591·질문 2652, D-176 "전투중인경우 … 다른 유저가 클릭하여 지원하여 참전가능"): gov_coup_join을 참가 받기가
+ * 끝난 뒤에도 쿠데타 전투가 끝날 때까지 받는다(그 도시에 닿은 병력은 진행 중인 세계 전투에 참전). 메시지 모양은 그대로
+ */
+export const COUP_BATTLE_JOIN_PROTOCOL_VERSION = 165;
 
 const requestId = z.number().int().nonnegative().max(0xffff_ffff);
 const rowId = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);

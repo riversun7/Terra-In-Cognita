@@ -313,6 +313,11 @@ export interface GovernanceCoupView {
   readonly city?: { readonly id: number; readonly name: string | null } | null | undefined;
   /** 보는 사람의 병력(참가 받는 중일 때만 — 줄기 no-teleport, D-591: 전투 때 그 도시 2차맵에 도착한 유닛만 싸운다). 옛 서버는 없다 */
   readonly troops?: readonly GovernanceCoupTroop[] | undefined;
+  /**
+   * 쿠데타 전투가 진행 중이면 끝 예정 시각(줄기 no-teleport-a — D-591·질문 2652: 쿠데타 전투는 세계 전투, 그 도시에 닿는 병력은 전투 중에도 참전한다).
+   * 참전이 들어오면 바뀐다. 전투 전·끝·옛 서버는 null 또는 없음
+   */
+  readonly battleEndsAtMs?: number | null | undefined;
 }
 
 export interface GovernanceResponse {

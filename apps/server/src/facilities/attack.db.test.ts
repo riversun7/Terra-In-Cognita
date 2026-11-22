@@ -173,6 +173,12 @@ describe.skipIf(!TEST_DATABASE_URL)("건물·영토 비콘 공격(질문 381)", 
       ok: false,
       code: "out_of_reach",
     });
+    // 화면 자료도 누르기 전에 먼 유닛을 나눠 보인다(줄기 no-teleport-a — 질문 2659): 칠 수 있는 유닛 없음, 멀어서 못 치는 유닛 = 습격자
+    const farSeen = (await facilityScreenSourceOf(world)?.targetsOf(raider, clock))?.find(
+      (target) => target.id === yard,
+    );
+    expect(farSeen?.unitIds).toEqual([]);
+    expect(farSeen?.farUnitIds).toEqual(raiders.toSorted((a, b) => a - b));
     // 시험: 습격자 유닛을 야적장 곁으로 옮겨 둔다(걸어온 것으로 본다)
     const yardMap = world.maps.get(TEST_MAP_KEY);
     for (const unitId of raiders) yardMap?.relocateToSafety(unitId, { x: 66, y: 64 });
@@ -207,6 +213,7 @@ describe.skipIf(!TEST_DATABASE_URL)("건물·영토 비콘 공격(질문 381)", 
       ["facility", yard, 15],
     ]);
     expect(seen?.find((target) => target.id === yard)?.unitIds).toEqual(raiders.toSorted((a, b) => a - b));
+    expect(seen?.find((target) => target.id === yard)?.farUnitIds).toEqual([]);
     expect(await source?.targetsOf(owner, clock)).toEqual([]);
 
     const started = await attack.attack(raider, { buildingId: yard }, raiders);

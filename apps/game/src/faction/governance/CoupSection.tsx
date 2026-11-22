@@ -2,6 +2,7 @@
 // 켜졌을 때)·참가 받는 중인 쿠데타에 편 들기·최근 결과. 자료는 tRPC governance.view(coups·canCoup), 명령은 WebSocket gov_coup·gov_coup_join.
 // 바뀜(줄기 gov-coup — D-588 2492 가 "모든 도시에서 누구나"): 일으킬 도시를 고른다(기본 = 내 가문 자리 도시 → 수도, 서버가 정함). 쿠데타 카드에 싸우는 도시를 적는다.
 // 바뀜(줄기 no-teleport — D-591 "파견으로 실제로 이동해서 참전한다"): 편 들기에 보낼 병력 고르기·도착 예정(CoupJoin.tsx).
+// 바뀜(줄기 no-teleport-a — D-591·질문 2652): 쿠데타 전투는 세계 전투 — 전투 중이면 끝 예정을 보이고, 편 들기·병력 보내기는 끝날 때까지 받는다.
 import type { GovernanceResponse } from "@terra/shared/governance";
 import { useId, useState } from "react";
 import { m } from "../../paraglide/messages.js";
@@ -88,7 +89,19 @@ export function CoupSection({
                     </span>
                   </p>
                 ) : null}
-                {coup.status === "gathering" ? (
+                {coup.status === "gathering" && coup.battleEndsAtMs ? (
+                  // 쿠데타 전투 진행 중(줄기 no-teleport-a — D-591·질문 2652): 끝 예정, 닿는 병력은 바로 참전
+                  <p className="faction-vote-detail" data-testid="governance-coup-fighting">
+                    {m.gov_coup_fighting()}{" "}
+                    <time
+                      dateTime={new Date(coup.battleEndsAtMs).toISOString()}
+                      title={dateText(coup.battleEndsAtMs)}
+                    >
+                      {relativeText(coup.battleEndsAtMs, now)}
+                    </time>{" "}
+                    · {m.gov_coup_fighting_hint()}
+                  </p>
+                ) : coup.status === "gathering" ? (
                   <p className="faction-vote-detail">
                     {m.gov_coup_battle_at()}{" "}
                     <time

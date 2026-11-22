@@ -26,6 +26,11 @@ export interface CoupRow {
   readonly status: CoupStatus;
   readonly result: Record<string, unknown> | null;
   readonly decidedAtMs: number | null;
+  /**
+   * 진행 중인 쿠데타 전투(세계 전투 ID — 줄기 no-teleport-a, D-591·질문 2652). 참가 받기가 끝나 전투를 열면 상태는 gathering 그대로 결과 칸(result.battleId)에
+   * 적는다(표 모양을 바꾸지 않는다). 없으면 null
+   */
+  readonly battleId: number | null;
 }
 
 export interface CoupSideRow {
@@ -61,6 +66,10 @@ function coupOf(row: Record<string, unknown>): CoupRow | undefined {
     status: STATUSES.find((entry) => entry === row.status) ?? "cancelled",
     result: isRecord(row.result) ? row.result : null,
     decidedAtMs: numOrNull(row.decided_at_ms),
+    battleId:
+      row.status === "gathering" && isRecord(row.result) && Number.isSafeInteger(row.result.battleId)
+        ? Number(row.result.battleId)
+        : null,
   };
 }
 
@@ -137,6 +146,13 @@ export function createCoupStore(pool: GovernanceQueryable) {
         "update governance_coups set status = $2, result = $3, decided_at_ms = $4 where id = $1 and status = 'gathering'",
         [id, status, JSON.stringify(result), atMs],
       );
+    },
+    /** 참가 받기가 끝나 연 쿠데타 전투를 적는다(상태 gathering 그대로 — 결과 칸 battleId, 줄기 no-teleport-a) */
+    async markBattle(id: number, battleId: number, atMs: number): Promise<void> {
+      await pool.query("update governance_coups set result = $2 where id = $1 and status = 'gathering'", [
+        id,
+        JSON.stringify({ battleId, battleOpenedAtMs: atMs }),
+      ]);
     },
     async join(row: CoupSideRow): Promise<void> {
       await pool.query(

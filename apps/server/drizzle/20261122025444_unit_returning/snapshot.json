@@ -1,0 +1,47 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "92440859-bb93-4abb-8bfa-e82e44e30f4f",
+  "prevIds": [
+    "7e79264e-c94f-43c1-b1a3-9e2f1ba61755"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_units",
+        "returning_until_ms"
+      ],
+      "writes": [
+        "s|col|public.world_units.returning_until_ms",
+        "n|col|public.world_units.returning_until_ms",
+        "e|col|public.world_units.returning_until_ms"
+      ],
+      "reads": [
+        "n|tbl|public.world_units",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "returning_until_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

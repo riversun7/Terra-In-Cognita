@@ -62,7 +62,8 @@ const toRotation = (value: unknown): Rotation => {
 };
 
 const UNIT_COLUMNS = `id, owner_id, kind, size, speed, map_key, planet_id, domain, path, pace, depart_at_ms, motion_speed,
-  motion_depart_at_ms, wake_at_ms, ai_step, job, job_phase, job_progress_ms, fatigue, injury, injury_until_ms, injury_heal_pm, held_by, aboard_id, traits`;
+  motion_depart_at_ms, wake_at_ms, ai_step, job, job_phase, job_progress_ms, fatigue, injury, injury_until_ms, injury_heal_pm, held_by, aboard_id, traits,
+  returning_until_ms`;
 const BUILDING_COLUMNS = "id, map_key, planet_id, domain, owner_id, x, y, width, height, rotation";
 
 /**
@@ -105,6 +106,10 @@ function unitRowOf(row: Record<string, unknown>): UnitRow {
       // 치유 배율(D-521 병원 치료). 1000(자연 치유)이면 칸을 두지 않는다
       ...(num(row.injury_heal_pm ?? 1000) === 1000 ? {} : { injuryHealPm: num(row.injury_heal_pm) }),
       heldBy: numOrNull(row.held_by),
+      // 진 뒤 돌아가는 중(D-591 — 질문 2655, battleReturn.ts)
+      ...(row.returning_until_ms === null || row.returning_until_ms === undefined
+        ? {}
+        : { returningUntilMs: num(row.returning_until_ms) }),
     },
     // 타고 있는 배(docs/adr/2026-11-13-boats.md 4절)
     aboardId: numOrNull(row.aboard_id),

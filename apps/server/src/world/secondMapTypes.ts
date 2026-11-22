@@ -160,6 +160,15 @@ export interface SecondMap {
   /** 안전한 곳(기준 칸 = 가장 가까운 안전 도시, 없으면 가운데)으로 바로 옮긴다(질문 108 기본안·D-351). 하던 이동은 버린다 */
   relocateToSafety(unitId: number, near?: { readonly x: number; readonly y: number }): boolean;
   /**
+   * 안전한 곳(relocateToSafety와 같은 자리)으로 실제로 걸어간다(D-591 순간이동 없음 — 질문 2655, battleReturn.ts). 포로·부상이어도 걷는다(이 걸음만).
+   * 길 결과는 done(닿는 시각, 길이 없으면 undefined). 유닛·자리가 없으면 false
+   */
+  walkToSafety(
+    unitId: number,
+    near: { readonly x: number; readonly y: number } | undefined,
+    done: (arriveAtMs: number | undefined) => void,
+  ): boolean;
+  /**
    * 2차맵 사이 이동(docs/adr/2026-11-07-play-flow.md WP9): 유닛을 이 2차맵에서 빼고 저장할 한 줄을 돌려준다. 행은 지우지 않는다
    * (곧 옆 2차맵의 transferIn이 같은 줄을 새 2차맵 키로 쓴다 — 같은 쓰기 묶음). 봇·승객이거나 없으면 undefined. 배는 승객을 데리고 나간다
    * (riders, 기획 D-541 1283 나)

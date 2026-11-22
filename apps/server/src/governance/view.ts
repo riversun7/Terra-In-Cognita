@@ -219,6 +219,11 @@ export function createGovernanceView(o: {
       await Promise.all(coupRows.map(async (row) => [row.id, await o.service.coups.sides(row.id)] as const)),
     );
     const coupHouses = await o.store.houseNames(coupRows.map((row) => row.houseKey));
+    const battleEnds = new Map<number, number>();
+    for (const row of coupRows) {
+      const battle = row.battleId === null ? undefined : await o.port.coupBattleState(row.battleId);
+      if (battle?.state === "running") battleEnds.set(row.id, battle.endsAtMs);
+    }
     const gathering = coupRows.some((row) => row.status === "gathering");
     // 플레이어 가문 나라도 대상(2545 — gov-fix-2)
     const canCoup = rules.coupEnabled && !gathering && s.ownHouse !== null && s.ownHouse !== s.ruling.key;
@@ -255,6 +260,8 @@ export function createGovernanceView(o: {
           government: sides.filter((side) => side.side === "government").length,
           mySide: mine?.side ?? null,
           city: row.cityId === null ? null : { id: row.cityId, name: o.port.cityName(row.cityId) ?? null },
+          // 진행 중인 쿠데타 전투의 끝 예정(줄기 no-teleport-a — 2652)
+          battleEndsAtMs: battleEnds.get(row.id) ?? null,
           // 내 병력(줄기 no-teleport — D-591: 실제로 보내고 닿아야 싸운다, coupDispatch.ts)
           ...(row.status === "gathering"
             ? {

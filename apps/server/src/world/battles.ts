@@ -8,6 +8,7 @@
 //   docs/adr/2026-11-01-gardener-r5b.md 6절). 정원사 웨이브(공격 편 세력 칸 = 정원사)는 공성 크리쳐를 모두 잃으면 멈춘다(@terra/sim
 //   waveSiegeSpent: 넥서스를 더는 부술 수 없어 결과가 수비 승으로 정해짐). 멈춤은 WAVE_CHECK_TICKS의 배수 틱에서만 봐서 시뮬
 //   (runWaveToEnd)과 같은 틱에 멈추고, 시작과 끝 적용이 같은 함수로 계산하므로 결과가 같다(스냅숏 간격 300틱도 그 배수).
+// - 참전(입력 join): 결과 적용은 참전한 유닛을 시작 유닛과 같은 셈으로 받는다(withJoins — 줄기 no-teleport-a, D-591·D-176).
 // - 결과 적용은 한 번만 한다: apply(세계 바뀜, battleResults.ts)를 동기로 부르고 같은 쓰기 묶음에 결과 기록
 //   (world_battle_results, 전투마다 한 줄)을 넣는다. 커밋된 뒤 status = ended(캐시)를 고친다. 다시 켜면 기록이 있는 전투는
 //   다시 적용하지 않고 status만 고친다.
@@ -133,6 +134,23 @@ function decodeInit(value: unknown): BattleInit {
   // 저장한 시작 자료는 encodeInit이 쓴 BattleInit 그대로다(지도 층만 바꿨다)
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- 서버가 쓴 자료를 그대로 읽는다
   return { ...raw, map } as unknown as BattleInit;
+}
+
+/**
+ * 시작 자료 + 참전 입력(D-176 "다른 유저가 클릭하여 지원하여 참전가능" — 전투 중에 닿은 유닛)의 편·파티·유닛을 합친 시작 자료. 결과 적용(부상·귀환·생명
+ * 수치·명성 — battleApply.ts)이 참전한 유닛도 시작 유닛과 같은 셈으로 받게 한다(줄기 no-teleport-a — 사용자 결정 D-591, 쿠데타 전투가 처음 쓴다)
+ */
+export function withJoins(init: BattleInit, inputs: readonly BattleInput[]): BattleInit {
+  const joins = inputs.flatMap((input) => (input.kind === "join" ? [input] : []));
+  if (joins.length === 0) return init;
+  const sides = [...init.sides];
+  for (const join of joins) if (!sides.some((side) => side.id === join.side.id)) sides.push(join.side);
+  return {
+    ...init,
+    sides,
+    parties: [...init.parties, ...joins.map((join) => join.party)],
+    units: [...init.units, ...joins.flatMap((join) => join.units)],
+  };
 }
 
 export function createBattleService(options: {
@@ -277,7 +295,7 @@ export function createBattleService(options: {
     };
     // 여기부터 기다림 없이: 세계 바뀜과 결과 기록이 같은 쓰기 묶음에 들어간다
     applied.add(battleId);
-    options.apply(battleId, battle.init, outcome, battle.endsAtMs);
+    options.apply(battleId, withJoins(battle.init, battle.inputs), outcome, battle.endsAtMs);
     options.writer.append("battleResults", {
       battle_id: battleId,
       applied_at_ms: battle.endsAtMs,

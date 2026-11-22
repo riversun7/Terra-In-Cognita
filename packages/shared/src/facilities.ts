@@ -188,8 +188,13 @@ export interface FacilityTargetView {
   readonly state: ConditionState;
   readonly durability: number;
   readonly maxDurability: number;
-  /** 그 2차맵에 있는 내 유닛 가운데 공격에 쓸 수 있는 것(작업·계약·부상·포로가 아님) */
+  /**
+   * 그 2차맵에 있는 내 유닛 가운데 공격에 쓸 수 있는 것(작업·계약·부상·포로가 아님). 바뀜(줄기 no-teleport-a — D-591, 질문 2659): 대상 기준 칸 둘레 32칸
+   * 안(공격 유닛 근처 조건)인 것만
+   */
   readonly unitIds: readonly number[];
+  /** 같은 2차맵에서 쓸 수 있지만 대상에서 32칸 밖이라 지금은 못 치는 내 유닛(가까이 보낸 뒤 친다 — 2659). 옛 서버는 없다 */
+  readonly farUnitIds?: readonly number[] | undefined;
 }
 
 export interface FacilityUnitView {

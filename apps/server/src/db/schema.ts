@@ -593,6 +593,8 @@ export const worldUnits = pgTable(
      * belligerence·greed·boldness·communalism·autonomy·openness·discipline, 각 0~1000). null = 미생성(결정적 파생)
      */
     traits: smallint("traits").array(),
+    /** 전투에서 진 뒤 안전한 곳으로 걸어 돌아가는 중이면 닿는 시각(D-591 — 질문 2655, world/battleReturn.ts). 그때까지 쓰지 못한다. 없으면 null */
+    returningUntilMs: bigint("returning_until_ms", { mode: "number" }),
   },
   (table) => [
     index("world_units_owner_idx").on(table.ownerId),

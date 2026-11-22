@@ -280,16 +280,25 @@ describe("돌아갈 곳 차례 (unitHome.ts·unitHomeWorld.ts)", () => {
     w.stop();
   });
 
-  it("3) 소속 국가 정부 건물: 소속 도시가 없거나(노숙 0·폐허·가문 없음) 모르면 수도 행정 건물, 건물이 없으면 수도 시청 칸", () => {
-    // NPC 노숙(0)·가문 없는 플레이어 유닛(무소속 — fixes-1117k 2755) → 정부 건물(행정 건물 700 기준 칸)
+  it("2774: 가문 없는 플레이어 유닛(무소속)도 소속 도시 차례 — 주인 사이보그의 내 도시(시청 칸)", () => {
+    // 가문 소속 도시 없음 + 사이보그 내 도시 4(2차맵 9) → 정부 건물로 건너뛰지 않는다
+    const w = homeWorld({ citizen: true, capital: 5 });
+    expect(w.home.homeOf(21, PLAYER_OWNER)).toEqual({ mapKey: 9, x: 160, y: 160, tier: "home_city" });
+    w.stop();
+  });
+
+  it("3) 소속 국가 정부 건물: 소속 도시가 없거나(노숙 0·폐허) 모르면 수도 행정 건물, 건물이 없으면 수도 시청 칸", () => {
+    // NPC 노숙(0) → 정부 건물(행정 건물 700 기준 칸)
     const w = homeWorld({ citizen: true, npcCity: 0, capital: 5 });
     expect(w.home.homeOf(31, NPC_OWNER)).toEqual({ mapKey: 10, x: 120, y: 120, tier: "government" });
-    // 플레이어: 시민권 나라 행 80 → 그 나라 주체(8)의 런타임 수도 5
-    expect(w.home.homeOf(21, PLAYER_OWNER)).toEqual({ mapKey: 10, x: 120, y: 120, tier: "government" });
     w.stop();
+    // 플레이어: 내 도시가 폐허(칸 없음, 도시 77) → 시민권 나라 행 80 → 그 나라 주체(8)의 런타임 수도 5
+    const r = homeWorld({ startCityId: 77, capital: 5 });
+    expect(r.home.homeOf(21, PLAYER_OWNER)).toEqual({ mapKey: 10, x: 120, y: 120, tier: "government" });
+    r.stop();
     // 행정 건물이 없고 런타임 수도도 모름 → 부팅 도시 표 수도(시작 도시 5)의 시청 칸
-    const v = homeWorld({ citizen: true, hall: false });
-    expect(v.home.homeOf(21, PLAYER_OWNER)).toEqual({ mapKey: 10, x: 100, y: 100, tier: "government" });
+    const v = homeWorld({ citizen: true, npcCity: 0, hall: false });
+    expect(v.home.homeOf(31, NPC_OWNER)).toEqual({ mapKey: 10, x: 100, y: 100, tier: "government" });
     v.stop();
   });
 
@@ -485,8 +494,8 @@ describe("빨강만 강제 귀환 (battleResults.ts — D-594 보충 2)", () => 
     w.stop();
   });
 
-  it("빨강인데 사는 곳·소속 도시(가문)가 없으면 소속 국가 정부 건물로(다른 2차맵 — 플레이어 유닛)", () => {
-    const w = homeWorld({ citizen: true, capital: 5 });
+  it("빨강인데 사는 곳이 없고 소속 도시가 폐허(칸 없음)면 소속 국가 정부 건물로(다른 2차맵 — 플레이어 유닛)", () => {
+    const w = homeWorld({ startCityId: 77, capital: 5 });
     const applied = battle(w, new Map([[21, 3]]));
     expect(applied.sentHome).toBe(1);
     expect(w.a.unitInfo(21)).toBeUndefined();

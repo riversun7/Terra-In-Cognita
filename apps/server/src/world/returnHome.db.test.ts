@@ -216,12 +216,14 @@ describe.skipIf(!TEST_DATABASE_URL)("적색 부상 귀환 (D-594 보충)", () =>
     const [far = 0] = addTestUnits(world, me.userId, otherKey, 1, clock);
     const owner = p.settlement.ownerOfUser(me.userId, clock).id;
     const bot = npcHuman(world);
-    // unit·far는 내 가문(소속 도시 = 내 도시)에 든다. loose는 무소속(가문 없음 — fixes-1117k 2755)
+    // unit·far는 내 가문(소속 도시 = 내 도시)에 든다. loose는 무소속(가문 없음 — 소속 도시 = 사이보그의 내 도시, 2774)
     await houseIn(world, me.userId, me.cityId, [unit, far]);
 
     // 2) 소속 도시: 플레이어 = 그 유닛 가문의 소속 도시(D-569), NPC = 거울 휴먼의 사는 도시(시청 칸)
     const myCity = await cityCell(me.cityId);
     expect(p.unitHome.homeOf(unit, owner)).toEqual({ ...myCity, tier: "home_city" });
+    // 가문 없는 유닛도 소속 도시 차례를 건너뛰지 않는다(2774 — 주인 사이보그의 내 도시)
+    expect(p.unitHome.homeOf(loose, owner)).toEqual({ ...myCity, tier: "home_city" });
     const botCity = await cityCell(bot.unit.city);
     expect(p.unitHome.homeOf(bot.unit.id, bot.info.ownerId)).toEqual({ ...botCity, tier: "home_city" });
 
@@ -252,15 +254,7 @@ describe.skipIf(!TEST_DATABASE_URL)("적색 부상 귀환 (D-594 보충)", () =>
     expect(landed?.info.motion.waypoints).toHaveLength(1);
     lodging.clear();
 
-    // 3) 소속 도시가 없으면(가문 없는 유닛·NPC 노숙) 소속 국가 수도의 행정 건물
-    const nationOwner = [...p.owners.values()].find(
-      (row) => row.userId === null && row.factionId === me.nation,
-    );
-    const capital = nationOwner ? npc.capitalOf(nationOwner.id) : undefined;
-    if (capital === undefined) throw new Error("no capital");
-    const hall = hallOf(world, capital);
-    expect(hall).toBeDefined();
-    expect(p.unitHome.homeOf(loose, owner)).toEqual({ ...hall, tier: "government" });
+    // 3) 소속 도시가 없으면(NPC 노숙) 소속 국가 수도의 행정 건물
     const city = bot.unit.city;
     bot.unit.city = 0;
     const botCapital = npc.capitalOf(bot.info.ownerId);

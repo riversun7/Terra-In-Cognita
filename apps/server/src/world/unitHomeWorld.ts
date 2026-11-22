@@ -9,8 +9,10 @@
 // 바뀜(fixes-1117k — 기획 검토 2752·2755):
 // - 2752: 도시 칸은 띄우지 않은 2차맵의 도시도 낸다(그 차례를 건너뛰지 않는다 — unitHome.ts가 좌표 유닛으로 세운다). 가까운 도시(4번)도 띄우지 않은 2차맵 도시를 센다.
 // - 2755(D-569 "유닛은 하나의 가문에만 속함 가문은 하나의 도시에 속함"): 플레이어 유닛의 소속 도시 = 그 유닛 가문의 소속 도시(유닛 → 가문 → 도시 — houseTies.ts
-//   unitHouseOf → cityOfHouse: 사이보그 본체는 주인의 가문, 고용 유닛은 고용할 때 적은 가문). 가문이 없는 유닛(무소속)은 소속 도시가 없어 다음 차례(소속 국가 정부
-//   건물)로 간다. 주인 사이보그의 내 도시(cyborgs.start_city_id)는 더 보지 않는다.
+//   unitHouseOf → cityOfHouse: 사이보그 본체는 주인의 가문, 고용 유닛은 고용할 때 적은 가문).
+// - 바뀜 (fix-2774, 기획 답 2774 — D-572 정리 "가문 없는 플레이어도 소속 도시가 있어 자기 나라 영토는 내 땅이다(D-565·D-569)"): 가문이 없는 유닛(무소속)도
+//   소속 도시 차례를 건너뛰지 않는다. 그 소속 도시 = 주인(플레이어) 사이보그의 내 도시(cyborgs.start_city_id — 귀화하면 바뀐다, houseHome.ts 머리 주석).
+//   그 도시가 폐허라 칸이 없을 때만 다음 차례(소속 국가 정부 건물)로 간다.
 import type { CityCell } from "@terra/shared/goodsPlaces";
 import { isCellKey } from "@terra/planet";
 import { cellCenter } from "@terra/planet/projection";
@@ -113,7 +115,8 @@ export function createUnitHomeWorld(input: UnitHomeWorldInput): UnitHome {
     userOf,
     homeCityOf(unitId, ownerId) {
       const userId = userOf(ownerId);
-      if (userId !== null) return input.houseCityOf(unitId, userId);
+      // 가문 없는 유닛(무소속)은 주인 사이보그의 내 도시(cyborgs.start_city_id — 2774 답: D-565·D-569·D-572 "가문 없는 플레이어도 소속 도시가 있다")
+      if (userId !== null) return input.houseCityOf(unitId, userId) ?? input.cyborgOf(userId)?.startCityId;
       const city = input.npcCityOf(unitId);
       return city === undefined || city === HOMELESS ? undefined : city;
     },

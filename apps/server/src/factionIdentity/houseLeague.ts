@@ -8,6 +8,8 @@
 // 순수 규칙만 둔다(상태를 받아 새 상태를 돌려준다). 저장·명령은 leagueStore.ts·leagueService.ts(npc-invest-2 — 질문 2502 "NPC 가문도 플레이어처럼
 // 만들고 든다"), 화면·우호 기능은 아직 없다(질문 2501). 가문 ID는 부르는 쪽이 정한 수(서비스는 가문 열쇠 p:/n:를 수로 바꿔 넣는다).
 // [임시] 기술 기본값(질문 2504): 대표는 위임하기 전에는 나가지 못한다(남은 가문이 없으면 나가며 연맹이 끝난다). 한 가문이 드는 연맹 수 상한은 두지 않는다.
+// → 바뀜 (league-2, 사용자 결정 D-590 2504 나): 대표 가문도 그냥 나간다. 남은 가문 가운데 가장 오래 든 가문(든 차례 첫째)이 대표가 된다. 연맹 수 상한은
+//   없다(그대로). 들기 절차(2502 다)·조항 카드(2501 다)는 아래 "바뀜 (league-2)".
 
 /** 연맹 하나 */
 export interface HouseLeague {
@@ -25,9 +27,10 @@ export type HouseLeagueFailure =
   | "already_member"
   | "not_member"
   | "not_representative"
-  | "representative_must_delegate"
   | "same_house"
-  | "consent_required";
+  | "consent_required"
+  | "no_request"
+  | "invalid_clause";
 
 export type HouseLeagueResult =
   | { readonly ok: true; readonly league: HouseLeague | null }
@@ -50,15 +53,21 @@ export function joinHouseLeague(league: HouseLeague, house: number, consent: boo
 }
 
 /**
- * 가문이 나간다. 대표는 먼저 위임해야 한다([임시] 2504). 대표 혼자 남았으면 나가며 연맹이 끝난다(league = null)
+ * 가문이 나간다. 대표가 나가면 남은 가문 가운데 가장 오래 든 가문이 대표가 된다(D-590 2504 나). 아무도 안 남으면 연맹이 끝난다(league = null)
  */
 export function leaveHouseLeague(league: HouseLeague, house: number): HouseLeagueResult {
   if (!league.members.includes(house)) return fail("not_member");
-  if (house === league.representative) {
-    if (league.members.length > 1) return fail("representative_must_delegate");
-    return { ok: true, league: null };
-  }
-  return { ok: true, league: { ...league, members: league.members.filter((member) => member !== house) } };
+  const members = league.members.filter((member) => member !== house);
+  const [first] = members;
+  if (first === undefined) return { ok: true, league: null };
+  return {
+    ok: true,
+    league: {
+      ...league,
+      members,
+      representative: house === league.representative ? first : league.representative,
+    },
+  };
 }
 
 /** 대표 위임(2463): 지금 대표만, 든 다른 가문에게. 만든 가문 기록은 그대로 */
@@ -131,7 +140,7 @@ export function electHouseLeague(league: HouseLeague, to: number): HouseLeague {
 }
 
 // 바뀜 (npc-fix-3, 기획 검토 2568 — 기술 기본값): 사라진 가문(지워진 NPC 가문·해산한 플레이어 가문)은 연맹에서 뺀다. 대표가 사라졌으면 남은 가문 가운데 가장
-// 오래 든 가문(든 차례 첫째)이 대표가 된다 [임시 — 대표 승계 꼴은 앞 질문 2504·2568과 함께 묻는 중]. 남은 가문이 없으면 연맹이 끝난다(league = null).
+// 오래 든 가문(든 차례 첫째)이 대표가 된다 (D-590 2504 나로 확정 — 대표가 나갈 때와 같은 승계). 남은 가문이 없으면 연맹이 끝난다(league = null).
 
 /** 사라진 가문을 뺀다. 바뀐 것이 없으면 그 연맹 그대로, 아무도 안 남으면 null */
 export function pruneHouseLeague(league: HouseLeague, alive: (house: number) => boolean): HouseLeague | null {
@@ -144,4 +153,114 @@ export function pruneHouseLeague(league: HouseLeague, alive: (house: number) => 
     members,
     representative: members.includes(league.representative) ? league.representative : first,
   };
+}
+
+// 바뀜 (league-2, 사용자 결정 D-590 2502 다 — 질문 2561): 들기는 두 길 모두다. ① 대표가 초대 → 그 가문장이 수락 ② 가문장이 신청 → 대표가 승인.
+// 받은 초대가 있는 가문이 신청(수락)하거나, 신청한 가문을 대표가 초대(승인)하면 바로 든다. 초대·신청은 연맹 × 가문마다 하나(마지막 것). 거절·거두기는
+// 대표(그 가문의 초대·신청을 지움) 또는 그 가문장(자기 것을 지움). 기한은 없다 [임시 — 질문 2641]. 조항 카드(2501 다)는 대표가 붙이고 뗀다 [임시 — 대표가
+// 정한다, 투표 안건은 아님(2503 가는 대표 투표의 꼴만 정했다) — 질문 2642].
+
+/** 초대·신청: 가문 → 종류(invite = 대표가 불렀다, apply = 그 가문이 신청했다) */
+export type HouseLeagueRequests = ReadonlyMap<number, "invite" | "apply">;
+
+export type HouseLeagueRequestResult =
+  | {
+      readonly ok: true;
+      readonly league: HouseLeague;
+      readonly requests: HouseLeagueRequests;
+      /** 이번에 든 가문(없으면 초대·신청만 남김) */
+      readonly joined: number | null;
+    }
+  | { readonly ok: false; readonly code: HouseLeagueFailure };
+
+const reqFail = (code: HouseLeagueFailure): HouseLeagueRequestResult => ({ ok: false, code });
+
+const without = (requests: HouseLeagueRequests, house: number): Map<number, "invite" | "apply"> => {
+  const next = new Map(requests);
+  next.delete(house);
+  return next;
+};
+
+/** 든다(초대·신청이 맞았을 때) */
+const admit = (
+  league: HouseLeague,
+  requests: HouseLeagueRequests,
+  house: number,
+): HouseLeagueRequestResult => ({
+  ok: true,
+  league: { ...league, members: [...league.members, house] },
+  requests: without(requests, house),
+  joined: house,
+});
+
+/** 대표가 가문을 부른다. 그 가문이 이미 신청했으면 바로 든다(승인) */
+export function inviteHouseLeague(
+  league: HouseLeague,
+  requests: HouseLeagueRequests,
+  from: number,
+  house: number,
+): HouseLeagueRequestResult {
+  if (from !== league.representative) return reqFail("not_representative");
+  if (league.members.includes(house)) return reqFail("already_member");
+  if (requests.get(house) === "apply") return admit(league, requests, house);
+  return { ok: true, league, requests: new Map(requests).set(house, "invite"), joined: null };
+}
+
+/** 가문장이 신청한다(2462 다 — 그 가문이 고른다). 받은 초대가 있으면 바로 든다(수락) */
+export function applyHouseLeague(
+  league: HouseLeague,
+  requests: HouseLeagueRequests,
+  house: number,
+): HouseLeagueRequestResult {
+  if (league.members.includes(house)) return reqFail("already_member");
+  if (requests.get(house) === "invite") return admit(league, requests, house);
+  return { ok: true, league, requests: new Map(requests).set(house, "apply"), joined: null };
+}
+
+/** 대표가 신청을 받는다 */
+export function approveHouseLeague(
+  league: HouseLeague,
+  requests: HouseLeagueRequests,
+  from: number,
+  house: number,
+): HouseLeagueRequestResult {
+  if (from !== league.representative) return reqFail("not_representative");
+  if (league.members.includes(house)) return reqFail("already_member");
+  if (requests.get(house) !== "apply") return reqFail("no_request");
+  return admit(league, requests, house);
+}
+
+/**
+ * 거절·거두기: house가 있으면 대표가 그 가문의 초대·신청을 지운다(대표만). house가 없으면 actor가 자기 초대·신청을 지운다(받은 초대 거절·보낸 신청 거두기)
+ */
+export function declineHouseLeague(
+  league: HouseLeague,
+  requests: HouseLeagueRequests,
+  actor: number,
+  house?: number,
+): HouseLeagueRequestResult {
+  if (house !== undefined && actor !== league.representative) return reqFail("not_representative");
+  const target = house ?? actor;
+  if (!requests.has(target)) return reqFail("no_request");
+  return { ok: true, league, requests: without(requests, target), joined: null };
+}
+
+export type HouseLeagueClauseResult =
+  | { readonly ok: true; readonly clauses: ReadonlySet<string> }
+  | { readonly ok: false; readonly code: HouseLeagueFailure };
+
+/** 대표가 조항 카드를 붙이거나(on) 뗀다. 이미 붙은 것을 붙이거나 없는 것을 떼면 invalid_clause */
+export function setHouseLeagueClause(
+  league: HouseLeague,
+  clauses: ReadonlySet<string>,
+  from: number,
+  clause: string,
+  on: boolean,
+): HouseLeagueClauseResult {
+  if (from !== league.representative) return { ok: false, code: "not_representative" };
+  if (clauses.has(clause) === on) return { ok: false, code: "invalid_clause" };
+  const next = new Set(clauses);
+  if (on) next.add(clause);
+  else next.delete(clause);
+  return { ok: true, clauses: next };
 }

@@ -130,3 +130,33 @@
   gap: var(--space-1);
   padding-top: var(--space-2);
 }
+
+/* 가문 연맹(HouseLeagueBlock.tsx — league-2, D-590): 연맹 카드·든 가문 줄·꼬리표 */
+.fid-league {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface-2);
+}
+.fid-league > .fid-house-row-main {
+  /* 세로 줄 안에서는 늘이지 않는다(fid-house-row-main의 flex-basis가 높이가 되지 않게) */
+  flex: none;
+}
+.fid-league-member {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.fid-league-tag {
+  padding: 0 var(--space-1);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-sm);
+}

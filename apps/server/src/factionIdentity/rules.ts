@@ -48,6 +48,8 @@ export interface HouseRules {
   readonly npcLeague: NpcLeagueRules;
   /** 가문 연맹 대표 투표 기간·정족수(npc-fix-3 — houseLeague.ts, 설정 칸 house_league_vote_*) */
   readonly leagueVote: HouseLeagueVoteRules;
+  /** 연맹 조항 카드 fee_discount의 요금 깎는 몫(‰, league-2 — 설정 칸 house_league_fee_discount_pm) */
+  readonly leagueFeeDiscountPm: number;
   /** 나라 의결 설정값(governance 칸 — 가문 게이트웨이와 한 소켓으로 묶어 같은 설정 고리로 읽는다, docs/adr/2026-11-21-governance.md) */
   readonly governance: GovernanceRules;
   /** 도시(정부) 지분 시장 설정값(설정 칸 city_share_round_ms·city_share_order_max — D-583, docs/adr/2026-11-21-share-market.md) */
@@ -93,7 +95,11 @@ export function houseRulesFrom(c: SocietyCoefficients): HouseRules {
       // 나가기·투표 열기 문턱(npc-fix-3 — 2563 다·2562 라) [임시]
       leaveScore: Math.min(1001, whole(h.npcLeagueLeaveScore ?? 300)),
       voteStartScore: Math.min(1001, whole(h.npcLeagueVoteStartScore ?? 400)),
+      // NPC 대표의 초대 문턱(league-2 — D-590 2502 다) [임시]
+      inviteScore: Math.min(1001, whole(h.npcLeagueInviteScore ?? 600)),
     },
+    // 연맹 조항 카드 fee_discount의 깎는 몫(league-2 — D-590 2501 다) [임시]
+    leagueFeeDiscountPm: permille(h.leagueFeeDiscountPm ?? 200),
     // 대표 투표 기간·정족수(npc-fix-3 — 기술 기본값)
     leagueVote: {
       periodMs: whole(h.leagueVotePeriodMs ?? 259_200_000),

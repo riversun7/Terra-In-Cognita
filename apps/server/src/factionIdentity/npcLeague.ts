@@ -12,6 +12,14 @@
 // - 나가기(npcLeagueLeaves): 대표가 아니고 대표와의 친밀도가 문턱(house_npc_league_leave_score) 아래일 때. 대표는 플레이어처럼 위임 전에는 못 나간다([임시] 2504).
 // - 들기: 나가기 문턱 아래인 대표의 연맹에는 들지 않는다(들자마자 나가지 않게). 그 밖은 옛 판 그대로 — 가장 큰 연맹(2563 나는 기술 기본값 — 지금대로).
 //   같은 나라·도시 연맹을 먼저 고르는 몫은 없다(2563 라 확인 — 들기 후보는 연맹의 수·대표 성향만 보고 나라·도시를 받지 않는다, D-587 "국가와 무관").
+// 바뀜 (league-2, 사용자 결정 D-590 2502 다 — NPC 가문도 같은 절차, D-323 성향 규칙식): 바로 들지 않고 플레이어와 같은 초대·신청을 거친다. 꼴은 [임시](질문 2644):
+// - 신청(npcLeagueChoice "apply"): 옛 "들기" 자리 그대로 — 아직 어느 연맹에도 들지 않았고 보낸 신청이 없는 NPC 가문이 들기 점수로 가장 큰 연맹에 신청한다.
+// - 승인(npcLeagueApproves): NPC 대표는 신청한 가문과의 친밀도가 나가기 문턱 이상이면 받고, 아래면 거절한다(들자마자 나갈 가문은 받지 않는다).
+// - 초대(npcLeagueInviteTarget): NPC 대표는 아직 어느 연맹에도 들지 않았고 이 연맹에 초대·신청이 없는 NPC 가문 가운데 친밀도가 가장 높은 하나를 초대 문턱
+//   (house_npc_league_invite_score)·나가기 문턱 이상이면 부른다. 플레이어 가문은 부르지 않는다(성향을 모른다 — 플레이어가 신청한다).
+// - 수락(npcLeagueAccepts): 초대받은 NPC 가문은 들기 점수가 들기 문턱 이상이고 대표와의 친밀도가 나가기 문턱 이상이면 받고, 아니면 거절한다. 이미 다른
+//   연맹에 들었어도 받는다(연맹 수 상한 없음 — D-590 2504). 스스로 신청하는 것은 아무 연맹에도 들지 않았을 때만이다(판단 — 한 시간마다 모든 연맹에 몰리지 않게).
+// - 대표 가문도 나가기 규칙(npcLeagueLeaves)은 그대로 대표가 아닌 가문만 본다(대표가 나갈 까닭이 성향 거리로는 없다 — 나가면 승계는 houseLeague.ts).
 // 정수만 쓴다.
 import { UNIT_TRAIT_MID, type UnitTraits } from "@terra/shared/unitTraits";
 
@@ -24,6 +32,8 @@ export interface NpcLeagueRules {
   readonly leaveScore?: number | undefined;
   /** 표를 여는 문턱(대표와의 친밀도 0~1000, npc-fix-3). 이 아래면 투표를 연다. 0이면 열지 않는다. 없으면 400 */
   readonly voteStartScore?: number | undefined;
+  /** NPC 대표의 초대 문턱(league-2 — 대표와의 친밀도 0~1000). 1001이면 부르지 않는다. 없으면 600 */
+  readonly inviteScore?: number | undefined;
 }
 
 /** 성향(7축). 모르면 undefined(플레이어 가문 — 가운데로 친다) */
@@ -94,7 +104,8 @@ export function npcLeagueVoteFor(
 
 export type NpcLeagueChoice =
   | { readonly kind: "found" }
-  | { readonly kind: "join"; readonly leagueId: number };
+  /** 신청(league-2 — 옛 "바로 듦") */
+  | { readonly kind: "apply"; readonly leagueId: number };
 
 /** 들기 점수(0~1000) */
 export const npcLeagueJoinScore = (t: Pick<UnitTraits, "openness" | "communalism">): number =>
@@ -131,6 +142,46 @@ export function npcLeagueChoice(
   const found = npcLeagueFoundScore(traits);
   const canJoin = target !== undefined && join >= Math.max(0, Math.trunc(rules.joinScore));
   const canFound = found >= Math.max(0, Math.trunc(rules.foundScore));
-  if (canJoin && target && (!canFound || join >= found)) return { kind: "join", leagueId: target.id };
+  if (canJoin && target && (!canFound || join >= found)) return { kind: "apply", leagueId: target.id };
   return canFound ? { kind: "found" } : undefined;
+}
+
+/** NPC 대표가 신청을 받나(league-2): 신청한 가문과의 친밀도가 나가기 문턱 이상 */
+export function npcLeagueApproves(
+  representative: LeagueTraits,
+  applicant: LeagueTraits,
+  rules: NpcLeagueRules,
+): boolean {
+  return npcLeagueAffinity(representative, applicant) >= leaveFloor(rules);
+}
+
+/** 초대받은 NPC 가문이 받나(league-2): 들기 점수 ≥ 들기 문턱, 대표와의 친밀도 ≥ 나가기 문턱 */
+export function npcLeagueAccepts(
+  me: UnitTraits,
+  representative: LeagueTraits,
+  rules: NpcLeagueRules,
+): boolean {
+  return (
+    npcLeagueJoinScore(me) >= Math.max(0, Math.trunc(rules.joinScore)) &&
+    npcLeagueAffinity(me, representative) >= leaveFloor(rules)
+  );
+}
+
+/**
+ * NPC 대표가 부를 가문(league-2): 후보(부르는 쪽이 고른 — 어느 연맹에도 들지 않았고 이 연맹에 초대·신청이 없는 NPC 가문, 차례대로) 가운데 대표와의 친밀도가
+ * 가장 높고 초대 문턱·나가기 문턱 이상인 하나(같으면 앞). 없으면 undefined
+ */
+export function npcLeagueInviteTarget(
+  representative: LeagueTraits,
+  candidates: readonly { readonly house: number; readonly traits: UnitTraits }[],
+  rules: NpcLeagueRules,
+): number | undefined {
+  // 나가기 문턱 아래 가문은 부르지 않는다(들자마자 나가지 않게)
+  const floor = Math.max(0, Math.trunc(rules.inviteScore ?? 600), leaveFloor(rules));
+  let best: { house: number; score: number } | undefined;
+  for (const candidate of candidates) {
+    const score = npcLeagueAffinity(representative, candidate.traits);
+    if (score >= floor && (!best || score > best.score)) best = { house: candidate.house, score };
+  }
+  return best?.house;
 }

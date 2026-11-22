@@ -198,6 +198,7 @@ export interface NpcEconomyInput {
     | undefined;
   /** 물자 거래소 이용료 요율(D-574 질문 2085 — 주인이 정한 값, 없으면 적정 요율. fxFee.ts exchangeFeeOf). 없으면 설정 칸 적정 요율 */
   readonly exchangeFeeBp?: ((buildingId: number) => number) | undefined;
+  readonly feeDiscount?: ((seller: number, buildingId: number, fee: bigint) => bigint) | undefined; // 연맹 카드 fee_discount(league-2 — world/leagueTies.ts)
   /** 빈 일꾼 운반꾼이 없을 때 같은 도시 물류센터에 맡기기(기획 대조 2274 — logistics/npcOutsource.ts). 없으면 기다리기만 */
   readonly haulOutsource?: ((book: LedgerBook) => CarryBoardOptions["outsource"]) | undefined;
 }
@@ -368,7 +369,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
               from,
               buildingId,
               asset: currency,
-              amount,
+              amount: o.input.feeDiscount?.(seller, buildingId, amount) ?? amount,
               kind: "exchange_fee",
               atMs,
             });

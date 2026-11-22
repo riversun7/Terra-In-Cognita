@@ -213,6 +213,21 @@ export const HOUSE_TUNING_KEYS: readonly TuningKey[] = [
     "가문 연맹 대표 투표 정족수(‰)",
     "House league representative vote quorum (‰)",
   ),
+  // NPC 대표의 연맹 초대 문턱, 연맹 조항 카드 fee_discount 몫(league-2 — 사용자 결정 D-590 2502 다·2501 다, factionIdentity/npcLeague.ts·world/leagueTies.ts) [임시]
+  k(
+    "house_npc_league_invite_score",
+    "",
+    "house.npcLeagueInviteScore",
+    "NPC 가문 연맹 초대 문턱(대표와의 성향 친밀도)",
+    "NPC house league invitation threshold (affinity with representative)",
+  ),
+  k(
+    "house_league_fee_discount_pm",
+    "",
+    "house.leagueFeeDiscountPm",
+    "가문 연맹 요금 할인 카드: 깎는 몫(‰)",
+    "House league fee discount card: discount (‰)",
+  ),
   // NPC 도시의 가문 수(D-573 — 도시 등급마다)
   ...CITY_GRADES.map(([ko, en], index) =>
     k(

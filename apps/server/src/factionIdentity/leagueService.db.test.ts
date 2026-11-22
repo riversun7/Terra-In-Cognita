@@ -24,6 +24,9 @@ const traits = (openness: number, communalism: number, autonomy: number, boldnes
   boldness,
 });
 const RULES = { foundScore: 750, joinScore: 550 };
+const byId = (x: number, y: number) => x - y;
+/** NPC 대표가 부르지 않는 규칙(league-2 — 초대 문턱 1001) */
+const NO_INVITE = { ...RULES, inviteScore: 1001 };
 
 describe("NPC 가문 연맹 판단(npcLeague.ts)", () => {
   it("만들기 점수가 문턱을 넘으면 만들고, 연맹이 있으면 들기 점수로 가장 큰 연맹에 든다", () => {
@@ -40,7 +43,7 @@ describe("NPC 가문 연맹 판단(npcLeague.ts)", () => {
         ],
         RULES,
       ),
-    ).toEqual({ kind: "join", leagueId: 2 });
+    ).toEqual({ kind: "apply", leagueId: 2 });
     // 둘 다 넘으면 점수가 높은 쪽(같으면 들기)
     expect(
       npcLeagueChoice(
@@ -49,7 +52,7 @@ describe("NPC 가문 연맹 판단(npcLeague.ts)", () => {
         RULES,
       ),
     ).toEqual({
-      kind: "join",
+      kind: "apply",
       leagueId: 1,
     });
   });
@@ -129,7 +132,7 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 연맹 명령 (DB)", () => {
     return { user, id };
   };
 
-  it("만들기·들기·위임·투표·나가기가 표에 남고, NPC 가문은 판단으로 만들고 든다", async () => {
+  it("만들기·신청·승인·초대·수락·위임·투표·나가기(대표 승계)가 표에 남고, NPC 가문은 신청하고 NPC 대표가 받는다(league-2)", async () => {
     let clock = 1_000;
     const service = createHouseLeagueService({ pool: test.db.$client, now: () => ++clock });
     const a = await house();
@@ -138,17 +141,52 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 연맹 명령 (DB)", () => {
     const made = await service.command(a.user, { action: "found" });
     expect(made.ok).toBe(true);
     const leagueId = made.ok ? (made.leagueId ?? 0) : 0;
-    expect(await service.command(b.user, { action: "join", leagueId })).toEqual({ ok: true, leagueId });
+    // b는 신청(pending) → a가 승인
+    expect(await service.command(b.user, { action: "join", leagueId })).toEqual({
+      ok: true,
+      leagueId,
+      pending: true,
+    });
+    expect(await service.command(c.user, { action: "approve", leagueId, house: `p:${b.id}` })).toEqual({
+      ok: false,
+      code: "not_representative",
+    });
+    expect(await service.command(a.user, { action: "approve", leagueId, house: `p:${b.id}` })).toEqual({
+      ok: true,
+      leagueId,
+    });
     expect(await service.command(b.user, { action: "join", leagueId })).toEqual({
       ok: false,
       code: "already_member",
     });
-    expect(await service.command(c.user, { action: "join", leagueId })).toEqual({ ok: true, leagueId });
-    // 대표(a)는 위임 전에는 못 나간다
-    expect(await service.command(a.user, { action: "leave", leagueId })).toEqual({
-      ok: false,
-      code: "representative_must_delegate",
+    // c는 a가 초대 → c가 수락
+    expect(await service.command(a.user, { action: "invite", leagueId, house: `p:${c.id}` })).toEqual({
+      ok: true,
+      leagueId,
+      pending: true,
     });
+    expect((await service.list())[0]?.requests).toEqual([{ house: `p:${c.id}`, kind: "invite" }]);
+    expect(await service.command(c.user, { action: "join", leagueId })).toEqual({ ok: true, leagueId });
+    expect((await service.list())[0]?.requests).toEqual([]);
+    // 조항 카드: 대표만, 모르는 카드는 invalid_clause
+    expect(await service.command(b.user, { action: "clause_on", leagueId, clause: "shared_vision" })).toEqual(
+      {
+        ok: false,
+        code: "not_representative",
+      },
+    );
+    expect(await service.command(a.user, { action: "clause_on", leagueId, clause: "nope" })).toEqual({
+      ok: false,
+      code: "invalid_clause",
+    });
+    expect(await service.command(a.user, { action: "clause_on", leagueId, clause: "fee_discount" })).toEqual({
+      ok: true,
+      leagueId,
+    });
+    expect([...service.ties.partnersOf("fee_discount", a.id)].toSorted(byId)).toEqual(
+      [b.id, c.id].toSorted(byId),
+    );
+    expect(service.ties.partnersOf("shared_vision", a.id).size).toBe(0);
     // 투표: 셋 가운데 둘이 c를 찍으면 c가 대표
     expect(await service.command(b.user, { action: "vote", leagueId, house: `p:${c.id}` })).toEqual({
       ok: true,
@@ -160,18 +198,19 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 연맹 명령 (DB)", () => {
       leagueId,
     });
     expect((await service.list())[0]?.representative).toBe(`p:${c.id}`);
-    // 위임: c → a, 그 뒤 c는 나갈 수 있다
-    expect(await service.command(c.user, { action: "delegate", leagueId, house: `p:${a.id}` })).toEqual({
-      ok: true,
-      leagueId,
-    });
+    // 대표(c)가 그냥 나간다 → 가장 오래 든 a가 대표(D-590 2504 나)
     expect(await service.command(c.user, { action: "leave", leagueId })).toEqual({ ok: true, leagueId });
+    expect((await service.list())[0]).toMatchObject({
+      representative: `p:${a.id}`,
+      members: [`p:${a.id}`, `p:${b.id}`],
+      clauses: ["fee_discount"],
+    });
     // 가문장이 아니면 못 한다
     expect(await service.command("00000000-0000-4000-8000-000000000000", { action: "found" })).toEqual({
       ok: false,
       code: "not_house_head",
     });
-    // NPC 가문: 7은 만들고(만들기 점수 900), 8은 그 연맹 가운데 가장 큰 곳에 든다
+    // NPC 가문: 7은 만들고(만들기 점수 900), 8은 가장 큰 연맹(플레이어 연맹)에 신청 — 대표가 플레이어라 기다린다
     expect(
       await service.npcSweep(
         {
@@ -180,9 +219,15 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 연맹 명령 (DB)", () => {
             { houseId: 7, traits: traits(900, 100, 900, 900) },
           ],
         },
-        RULES,
+        NO_INVITE,
       ),
-    ).toEqual({ joined: 2, left: 0, votes: 0, pruned: 0 });
+    ).toEqual({ joined: 1, requested: 1, left: 0, votes: 0, pruned: 0 });
+    expect((await service.list())[0]?.requests).toEqual([{ house: "n:8", kind: "apply" }]);
+    // 플레이어 대표가 승인하면 든다
+    expect(await service.command(a.user, { action: "approve", leagueId, house: "n:8" })).toEqual({
+      ok: true,
+      leagueId,
+    });
     const stored = await loadLeagues(test.db.$client);
     expect(stored.leagues.map((league) => [league.representativeKey, league.members])).toEqual([
       [`p:${a.id}`, [`p:${a.id}`, `p:${b.id}`, "n:8"]],
@@ -190,8 +235,80 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 연맹 명령 (DB)", () => {
     ]);
     // 다시 돌려도 이미 든 NPC 가문은 그대로
     expect(
-      await service.npcSweep({ houses: [{ houseId: 8, traits: traits(700, 700, 100, 100) }] }, RULES),
-    ).toEqual({ joined: 0, left: 0, votes: 0, pruned: 0 });
+      await service.npcSweep({ houses: [{ houseId: 8, traits: traits(700, 700, 100, 100) }] }, NO_INVITE),
+    ).toEqual({ joined: 0, requested: 0, left: 0, votes: 0, pruned: 0 });
+  });
+
+  it("league-2: NPC 대표는 가까운 NPC 가문을 초대하고, 초대받은 NPC 가문은 성향으로 받거나 거절한다. 신청은 NPC 대표가 받는다", async () => {
+    await sql("update house_leagues set ended_at_ms = 1 where ended_at_ms is null");
+    let clock = 70_000;
+    const service = createHouseLeagueService({ pool: test.db.$client, now: () => ++clock });
+    const founder = traits(900, 600, 900, 900);
+    // 만들기 점수 500(문턱 750 아래) → 스스로 만들지 않고 신청한다
+    const near = traits(900, 600, 300, 300);
+    const shy = traits(100, 100, 100, 100);
+    const rules = { foundScore: 750, joinScore: 550, leaveScore: 300, voteStartScore: 0, inviteScore: 600 };
+    // 41이 만든다. 42(가깝다, 들기 점수 750)는 같은 판에서 신청해 41이 받는다(대표 판단 ⑥이 신청 ④ 뒤)
+    const first = await service.npcSweep(
+      {
+        houses: [
+          { houseId: 41, traits: founder },
+          { houseId: 42, traits: near },
+        ],
+      },
+      { ...rules, foundScore: 1001 },
+    );
+    // 만들기 문턱 1001 → 아무도 만들지 않는다
+    expect(first).toEqual({ joined: 0, requested: 0, left: 0, votes: 0, pruned: 0 });
+    const second = await service.npcSweep({ houses: [{ houseId: 41, traits: founder }] }, rules);
+    expect(second.joined).toBe(1);
+    const third = await service.npcSweep(
+      {
+        houses: [
+          { houseId: 41, traits: founder },
+          { houseId: 42, traits: near },
+        ],
+      },
+      rules,
+    );
+    // 42는 신청(④) → 41이 받는다(⑥)
+    expect(third).toMatchObject({ joined: 1, requested: 1 });
+    const mine = async () => (await service.list()).find((league) => league.representative === "n:41");
+    expect((await mine())?.members).toEqual(["n:41", "n:42"]);
+    // 43(성향이 멀다)는 스스로 신청하지 않는다(들기 점수 100). 대표 41은 친밀도 문턱 600 아래라 부르지 않는다
+    const shyRun = await service.npcSweep(
+      {
+        houses: [
+          { houseId: 41, traits: founder },
+          { houseId: 43, traits: shy },
+        ],
+      },
+      rules,
+    );
+    expect(shyRun.requested).toBe(0);
+    // 초대 문턱 0이면 43을 부르고, 43은 다음 판에 거절한다(들기 점수 100 < 550)
+    const invited = await service.npcSweep(
+      {
+        houses: [
+          { houseId: 41, traits: founder },
+          { houseId: 43, traits: shy },
+        ],
+      },
+      { ...rules, inviteScore: 0 },
+    );
+    expect(invited.requested).toBe(1);
+    expect((await mine())?.requests).toEqual([{ house: "n:43", kind: "invite" }]);
+    await service.npcSweep(
+      {
+        houses: [
+          { houseId: 41, traits: founder },
+          { houseId: 43, traits: shy },
+        ],
+      },
+      rules,
+    );
+    expect((await mine())?.requests).toEqual([]);
+    expect((await mine())?.members).toEqual(["n:41", "n:42"]);
   });
 
   it("npc-fix-3: NPC 가문이 열린 투표에 표를 던지고, 기간이 지나면 투표가 끝나며, 사라진 가문은 빠진다", async () => {
@@ -208,6 +325,7 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 연맹 명령 (DB)", () => {
     const made = await service.command(a.user, { action: "found" });
     const leagueId = made.ok ? (made.leagueId ?? 0) : 0;
     await service.command(b.user, { action: "join", leagueId });
+    await service.command(a.user, { action: "approve", leagueId, house: `p:${b.id}` });
     // NPC 가문 21·22가 든다(들기 점수 700, 대표 = 플레이어 → 성향을 몰라 가운데)
     const joiner = traits(700, 700, 100, 100);
     const npc = [
@@ -215,7 +333,10 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 연맹 명령 (DB)", () => {
       { houseId: 22, traits: joiner },
     ];
     clock += 1;
-    expect((await service.npcSweep({ houses: npc }, RULES)).joined).toBe(2);
+    // league-2: NPC는 신청 → 플레이어 대표(a)가 받는다
+    expect((await service.npcSweep({ houses: npc }, RULES)).requested).toBe(2);
+    await service.command(a.user, { action: "approve", leagueId, house: "n:21" });
+    await service.command(a.user, { action: "approve", leagueId, house: "n:22" });
     // b가 자기를 찍어 투표를 연다 → NPC 둘은 가장 가까운 가문(서로 — 성향이 같다)을 찍는다: 21 → 22, 22 → 21 → 과반 없음
     clock += 1;
     await service.command(b.user, { action: "vote", leagueId, house: `p:${b.id}` });
@@ -269,6 +390,7 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 연맹 명령 (DB)", () => {
     // 대표(31)는 나가지 않고, 32는 나간 뒤 다시 들지 않는다(나가기 문턱 아래 대표의 연맹은 들 후보가 아니다)
     expect(await sweep({ ...RULES, leaveScore: 1001, voteStartScore: 0 })).toEqual({
       joined: 0,
+      requested: 0,
       left: 1,
       votes: 0,
       pruned: 0,

@@ -50,8 +50,8 @@ describe("가문 연맹 메시지", () => {
     }
   });
 
-  it("league-2(D-590): 들기 절차·조항 카드 행동 — 판 115, clause는 카드 목록 안만, 결과 pending", () => {
-    expect(HOUSE_LEAGUE_REQUEST_PROTOCOL_VERSION).toBe(115);
+  it("league-2(D-590): 들기 절차·조항 카드 행동 — 판 66, clause는 카드 목록 안만, 결과 pending", () => {
+    expect(HOUSE_LEAGUE_REQUEST_PROTOCOL_VERSION).toBe(66);
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(HOUSE_LEAGUE_REQUEST_PROTOCOL_VERSION);
     const invite = {
       t: "house_league" as const,

@@ -10,14 +10,14 @@
 //   (대표: house = 신청·초대한 가문 / 가문장: house 없이 — 받은 초대·보낸 신청을 거둔다).
 // - 조항 카드(2501 다): 대표가 연맹에 우호 기능 카드를 붙이고(clause_on) 뗀다(clause_off). clause = HOUSE_LEAGUE_CLAUSES 하나. 카드 목록은 [임시].
 // - 대표가 나가면 가장 오래 든 가문이 대표가 된다(2504 나) — 옛 결과 코드 representative_must_delegate는 더 보내지 않는다(낮은 판 기기 해석용으로 남긴다).
-// 63판 이하 기기는 이 메시지를 보내지 않고, 114판 기기는 새 행동(invite·approve·decline·clause_on·clause_off)을 보내지 않는다.
+// 63판 이하 기기는 이 메시지를 보내지 않고, 65판 기기는 새 행동(invite·approve·decline·clause_on·clause_off)을 보내지 않는다.
 import { z } from "zod";
 
 /** 가문 연맹 메시지에 필요한 가장 낮은 프로토콜 버전(묶음 1117d 64 — 줄기 npc-invest-2 판 103) */
 export const HOUSE_LEAGUE_PROTOCOL_VERSION = 64;
 
-/** 연맹 들기 절차·조항 카드 행동이 생긴 판(줄기 league-2 판 115) */
-export const HOUSE_LEAGUE_REQUEST_PROTOCOL_VERSION = 115;
+/** 연맹 들기 절차·조항 카드 행동이 생긴 판(묶음 1117g 판 66 — 줄기 league-2 판 115) */
+export const HOUSE_LEAGUE_REQUEST_PROTOCOL_VERSION = 66;
 
 /**
  * 연맹 조항 카드(2501 다 — 나라 조약과 따로, 연맹에 붙인다) [임시 — 지금 서버가 집행할 수 있는 것만]:

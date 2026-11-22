@@ -1,4 +1,4 @@
-// 가문 연맹 명령(WebSocket house_league → house_league_result, 프로토콜 64 / 들기 절차·조항 카드 115 — league-2, 사용자 결정 D-590). 보내고 같은 요청 번호의
+// 가문 연맹 명령(WebSocket house_league → house_league_result, 프로토콜 64 / 들기 절차·조항 카드 66 — league-2, 사용자 결정 D-590). 보내고 같은 요청 번호의
 // 답을 기다린다(houseCommands.ts request와 같은 틀 — 인사 전이면 기다렸다 보내고, 끊기면 offline, 답이 없으면 timeout).
 import type { HouseLeagueAction, HouseLeagueClause, HouseLeagueResultCode } from "@terra/protocol";
 import { type ServerLink, serverLink } from "../../net/serverLink.ts";

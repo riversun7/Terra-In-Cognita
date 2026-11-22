@@ -10,6 +10,8 @@
 // docs/adr/2026-11-07-world-layout.md), 행성 값이 없는 세계(시험·DB만 있는 개발)는 옛 방식대로 띄운 시험 2차맵들에 고르게 나눈다
 // (자리 차례 = 칸 자리마다 2차맵을 돈다). 켤 때마다 모자란 도시만 더한다(있는 도시는 그대로,
 // 옛 세계의 첫 장 고정 자리 도시도 그대로 — 멱등). 시작 도시는 주인이 바뀌지 않으므로(D-325·D-341) 지우거나 옮기지 않는다.
+// 바뀜 (fixes-1117e, 질문 2612 — D-585 8·2572 나): "모자란 수"는 지금 시작 도시 수가 아니라 세운 시작 도시 수(표 nation_start_cities,
+// startFounded.ts)로 센다. 쿠데타로 떨어져 나간 도시(시작 도시 표시를 잃음)는 다시 켜도 채우지 않는다 — 도시가 하나뿐이던 나라는 도시 없이 남는다.
 // 체제는 국가 차례로 셋을 돌리고(시뮬 "mixed"와 같다), 성향은 NPC 사회 런타임이 세계 시드로 굴려 채운다(D-327).
 import { defaultFactionColor } from "@terra/shared/factionProfile";
 import { type NationEmblemSpec, emblemOfId } from "@terra/shared/nationEmblem";
@@ -23,6 +25,7 @@ import { PLACEMENT_SIZE, type WorldSeedCoefficients, startCitiesFor } from "@ter
 import { ensureTestStartCities } from "../world/cities.ts";
 import type { QueryPool } from "../world/persist/load.ts";
 import { TEST_NPC_FACTION_CODE } from "../world/unitKinds.ts";
+import { loadStartFounded, saveStartFounded, startFoundedOf } from "./startFounded.ts";
 
 /** 시험 국가 수 상한(NPC_TEST_NATIONS) = 팩 국가 프리셋 수 */
 export const MAX_TEST_NATIONS = 16;
@@ -459,6 +462,10 @@ export async function ensureTestNations(
   const have = new Map<number, number>();
   for (const row of cities.rows)
     if (row.start === true) have.set(Number(row.faction_id), (have.get(Number(row.faction_id)) ?? 0) + 1);
+  // 모자란 수는 세운 시작 도시 수로 센다(질문 2612 — 쿠데타로 떨어져 나간 도시는 다시 채우지 않는다, startFounded.ts)
+  const recorded = await loadStartFounded(pool, options.planetId);
+  /** 세력 행 ID → 세운 시작 도시 수(이번에 넣기 전) */
+  const foundedBefore = new Map<number, number>();
   /** 세력 행 ID → 그 고정 국가의 시작 값(국력 등급) */
   const startOfFaction = new Map<number, NationStart>();
   /** 이번에 처음 서는 국가(시작 도시가 하나도 없음) — 처음 기술 단계를 맞춘다 */
@@ -469,7 +476,8 @@ export async function ensureTestNations(
     const preset = presetOfCode(code, options.presets);
     const start = nationStartOf(options.seed, preset);
     startOfFaction.set(factionId, start);
-    const had = have.get(factionId) ?? 0;
+    const had = startFoundedOf(recorded, factionId, have.get(factionId) ?? 0);
+    foundedBefore.set(factionId, had);
     if (had === 0 || options.grow === true) fresh.push({ factionId, tech: start.tech });
     // 이미 선 국가는 요청이 있을 때만 등급 수까지(위 grow), 아니면 옛 규칙까지만 채운다
     const want =
@@ -527,6 +535,17 @@ export async function ensureTestNations(
         options.nowMs,
       ],
     );
+  // 세운 수를 적는다(이 표 전의 세계는 여기서 처음 적힌다 — 다음에 켤 때 쿠데타로 줄어든 지금 수를 쓰지 않게)
+  const added = new Map<number, number>();
+  for (const { factionId } of planned) added.set(factionId, (added.get(factionId) ?? 0) + 1);
+  await saveStartFounded(
+    pool,
+    options.planetId,
+    [...foundedBefore].map(([factionId, before]) => ({
+      factionId,
+      founded: before + (added.get(factionId) ?? 0),
+    })),
+  );
   const fixedNames = codes.flatMap((code) => {
     const factionId = idOf.get(code);
     const names = presetOfCode(code, options.presets)?.cityNames;

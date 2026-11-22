@@ -3,9 +3,9 @@
 // 읽는다. 세력 행 ID가 아니라 세력 코드로 적는다: 시험 세계 새로 시작(reset-world)이 세력 행을 지워도 자리는 남아 새 세계가 처음부터 그 자리에
 // 선다(이 표는 WORLD_RESET_KEEP — 사람이 만든 세계 밖 설정).
 import { sql } from "drizzle-orm";
-import { bigint, check, jsonb, pgTable, primaryKey, text, uuid } from "drizzle-orm/pg-core";
+import { bigint, check, integer, jsonb, pgTable, primaryKey, text, uuid } from "drizzle-orm/pg-core";
 import { planetIdColumn } from "./planetColumns.ts";
-import { users } from "./schema.ts";
+import { factions, users } from "./schema.ts";
 
 /**
  * 국가 하나의 자리(행성 × 세력 코드 하나에 한 줄). map_key = 수도 2차맵(면 레벨 F 칸 키). applied_at_ms = 마지막으로 세계에 든 시각
@@ -55,3 +55,24 @@ export const worldCityLayoutRequests = pgTable("world_city_layout_requests", {
   appliedAtMs: bigint("applied_at_ms", { mode: "number" }),
   report: jsonb("report").$type<Record<string, unknown>>(),
 });
+
+/**
+ * 고정 NPC 국가가 행성마다 지금까지 세운 시작 도시 수(질문 2612 답 — 기획 D-585 8·2572 나, docs/adr/2026-11-21-governance.md "바뀜 (fixes-1117e)").
+ * 서버가 켤 때 세계 씨앗(src/npc/nations.ts ensureTestNations)이 "모자란 시작 도시"를 이 수로 센다: 쿠데타로 떨어져 나간 도시(시작 도시 표시를 잃고
+ * 새 나라 것이 됨)는 지금 시작 도시 수에서 빠지지만 세운 수에서는 빠지지 않아 다시 켜도 채우지 않는다. 줄이 없으면 그 행성의 지금 시작 도시 수로
+ * 처음 적는다(이 표 전의 세계). 세계 자료라 시험 세계 새로 시작(reset-world)이 비운다
+ */
+export const nationStartCities = pgTable(
+  "nation_start_cities",
+  {
+    factionId: bigint("faction_id", { mode: "number" })
+      .notNull()
+      .references(() => factions.id, { onDelete: "cascade" }),
+    planetId: planetIdColumn(),
+    founded: integer("founded").notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.factionId, table.planetId] }),
+    check("nation_start_cities_founded", sql`${table.founded} >= 0`),
+  ],
+);

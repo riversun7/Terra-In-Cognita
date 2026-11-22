@@ -4,7 +4,7 @@
 import type { Regime } from "../society/shares.ts";
 import type { WarCoefficients, WarOutcome } from "../society/warOutcomes.ts";
 import type { NpcCoefficients } from "./coefficients.ts";
-import { type InvestReturn, investGate } from "./invest.ts";
+import { type InvestReturn, investGate, investGuardExtra } from "./invest.ts";
 import type { Traits } from "./traits.ts";
 
 /**
@@ -140,6 +140,8 @@ export interface RecruitPick {
  * 낮을수록) 먼저 빠진다. 수(경비대·주거 목표)는 그대로다 — 무엇을 살지만 바뀐다. invest가 없으면 옛 판(좋은 카드부터)
  * 바뀜 (npc-fix-3, 질문 2566 나 — D-587 8 "기대 수익·소모 비용"): 더 비싼 일꾼 카드는 가장 싼 카드 대신 살 때 늘어나는 효율의 하루 임금 시세가 늘어나는
  * 값을 회수 기간 안에 돌려받을 때(npc/invest.ts investPays — simulator/npcReturn.ts workerCardReturn)만 도전 굴림까지 간다. 경비대(군사)는 그대로
+ * 바뀜 (fixes-1117e, 질문 2565 나 — 사용자 결정 D-591): invest.guardRoll이 있으면 경비대 목표 = 등급 값 + 국방 투자로 덧붙일 수(npc/invest.ts
+ * investGuardExtra — 가장 싼 카드 값 × k를 공격 성향 도전 굴림으로, 상한 = 등급 값 × npc_guard_invest_extra_pm, 남는 주거 안). 이미 든 경비대는 줄이지 않는다
  */
 export function recruitPicks(
   input: {
@@ -161,6 +163,8 @@ export function recruitPicks(
     readonly invest?:
       | {
           readonly roll: number;
+          /** 경비대 수 늘리기 굴림(fixes-1117e, 질문 2565 나 — investGuardExtra). 없으면 늘리지 않는다 */
+          readonly guardRoll?: number | undefined;
           readonly guardTemperPm: number;
           readonly workerTemperPm: number;
           /**
@@ -180,13 +184,31 @@ export function recruitPicks(
 ): RecruitPick[] {
   const target = Math.floor((input.housing * c.recruitTargetPm) / 1000);
   let gap = input.growthBlocked === true ? Math.min(0, target - input.population) : target - input.population;
-  let guardGap = Math.max(0, (input.guardTarget ?? 0) - (input.guards ?? 0));
   let treasury = input.treasury;
   const picks: RecruitPick[] = [];
   const open = input.cards
     .filter((card) => (input.taken & (1 << card.slot)) === 0)
     .toSorted((a, b) => b.total - a.total || (a.cost < b.cost ? -1 : a.cost > b.cost ? 1 : a.slot - b.slot));
   const invest = input.invest;
+  // 국방 투자(fixes-1117e, 질문 2565 나 — D-591): 등급 값 위에 덧붙일 경비대(가장 싼 카드 값 기준, 공격 성향, 남는 주거 안)
+  let cheapestOpen: bigint | undefined;
+  for (const card of open)
+    if (cheapestOpen === undefined || card.cost < cheapestOpen) cheapestOpen = card.cost;
+  const extra =
+    invest?.guardRoll === undefined || cheapestOpen === undefined
+      ? 0
+      : investGuardExtra(
+          {
+            base: input.guardTarget ?? 0,
+            room: input.housing - input.population,
+            cardCost: cheapestOpen,
+            capital: input.treasury,
+            roll: invest.guardRoll,
+            temperPm: invest.guardTemperPm,
+          },
+          c,
+        );
+  let guardGap = Math.max(0, (input.guardTarget ?? 0) + extra - (input.guards ?? 0));
   while (gap > 0 || guardGap > 0) {
     const guard = guardGap > 0;
     const left = treasury;

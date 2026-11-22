@@ -7,6 +7,7 @@ import {
   investCostPenalty,
   investCostSharePm,
   investGate,
+  investGuardExtra,
   investPays,
   investReturnPenalty,
   investReturnPm,
@@ -130,5 +131,39 @@ describe("기대 수익·유지비(npc-fix-3, 질문 2566 나 + 다)", () => {
     expect(investGate(1000n, 3000n, false, 0, 1000, c, loss)).toBe(false);
     expect(investGate(1000n, 3000n, false, 199, 1000, c, gain)).toBe(true);
     expect(investGate(1000n, 3000n, false, 200, 1000, c, gain)).toBe(false);
+  });
+});
+
+describe("국방 투자로 경비대 수 늘리기(fixes-1117e, 질문 2565 나 — D-591)", () => {
+  // 상한 칸 1000‰(등급 값만큼 더 — 출발값 500‰과 따로 본다)
+  const c1000 = { ...c, investGuardExtraPm: 1000 };
+  const at = (roll: number, more: Partial<Parameters<typeof investGuardExtra>[0]> = {}, cc = c1000) =>
+    investGuardExtra(
+      { base: 4, room: 10, cardCost: 100n, capital: 1000n, roll, temperPm: 1000, ...more },
+      cc,
+    );
+
+  it("k번째는 카드 값 × k로 도전 굴림 — 국고가 클수록·굴림이 낮을수록 더 들인다", () => {
+    // 1번째 100(국고 10배 → 900‰), 2번째 200(5배 → 400‰), 3번째 300(233‰), 4번째 400(150‰)
+    expect(at(999)).toBe(0);
+    expect(at(500)).toBe(1);
+    expect(at(300)).toBe(2);
+    expect(at(100)).toBe(4);
+    expect(at(500, { capital: 100_000n })).toBe(4);
+  });
+
+  it("성향 배율이 낮으면 덜 들인다(공격 성향)", () => {
+    // 배율 500‰: 450·200·116·75
+    expect(at(100, { temperPm: 500 })).toBe(3);
+    expect(at(100, { temperPm: 1500 })).toBe(4);
+  });
+
+  it("상한 = 등급 값 × 칸 ‰, 남는 주거를 넘지 않는다. 등급 값·칸이 0이면 늘리지 않는다", () => {
+    expect(at(0, { room: 2 })).toBe(2);
+    expect(at(0, { room: -3 })).toBe(0);
+    expect(at(0, {}, { ...c, investGuardExtraPm: 500 })).toBe(2);
+    expect(at(0, {}, { ...c, investGuardExtraPm: 0 })).toBe(0);
+    expect(at(0, { base: 0 })).toBe(0);
+    expect(at(0, { cardCost: 0n })).toBe(0);
   });
 });

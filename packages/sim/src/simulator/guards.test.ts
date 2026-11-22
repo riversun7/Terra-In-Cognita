@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { TEST_ASSET_CREDIT } from "../settle/owner.ts";
 import { JOB_NONE } from "../settle/settle.ts";
-import { TEST_SOCIETY_COEFFICIENTS } from "../society/coefficients.ts";
+import { type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS } from "../society/coefficients.ts";
 import { systemRule } from "./economyRun.ts";
 import { createSimLoop } from "./loop.ts";
 import { createMetricsRecorder } from "./metrics.ts";
@@ -67,7 +67,10 @@ describe("경비대(시나리오 guards)", () => {
 const HOUR = 3_600_000;
 
 /** 시뮬 run.ts와 같은 모양의 NPC 판단 맥락(경제·전투 없이) */
-function npcContext(scenario: Scenario): { world: SimWorld; ctx: NpcContext } {
+function npcContext(
+  scenario: Scenario,
+  c: SocietyCoefficients = TEST_SOCIETY_COEFFICIENTS,
+): { world: SimWorld; ctx: NpcContext } {
   const world = createWorld(scenario, 5, 0, { systemRule });
   const recorder = createMetricsRecorder({ startMs: 0, sink: () => {} });
   const loop = createSimLoop<SimEvent>({ startMs: 0, handle: () => {} });
@@ -75,7 +78,7 @@ function npcContext(scenario: Scenario): { world: SimWorld; ctx: NpcContext } {
     world,
     loop,
     recorder,
-    c: TEST_SOCIETY_COEFFICIENTS,
+    c,
     decideEveryMs: 6 * HOUR,
     settings: scenario.society,
     trips: undefined,
@@ -86,7 +89,7 @@ function npcContext(scenario: Scenario): { world: SimWorld; ctx: NpcContext } {
       world,
       settings: scenario.society,
       recorder,
-      c: TEST_SOCIETY_COEFFICIENTS,
+      c,
       hooks: undefined,
       combat: undefined,
       scheduleFaction: () => {},
@@ -124,10 +127,17 @@ const refill = (credit: string): Scenario =>
     npc: { decideEveryMs: 6 * HOUR },
   });
 
+/** 국방 투자 경비대 늘리기를 끈 계수표 */
+const NO_EXTRA: SocietyCoefficients = {
+  ...TEST_SOCIETY_COEFFICIENTS,
+  npc: { ...TEST_SOCIETY_COEFFICIENTS.npc, investGuardExtraPm: 0 },
+};
+
 describe("경비대 다시 채우기(기획 답 920 나 — 구인 규칙식, 시뮬·서버 같은 함수)", () => {
   it("죽은 경비대를 구인 카드로 등급 값까지 다시 채우고, 카드 값을 국고에서 소각한다. 등급 값을 넘지 않는다", () => {
     // 국고가 넉넉해야 다음 판단이 연구 시설을 고른다(SIM 72 — 연구 점수에서 비용 몫을 빼므로 국고가 얇으면 붐빈 세력이 마을을 세워 경비대가 떠난다)
-    const { world, ctx } = npcContext(refill("2000000"));
+    // 국방 투자로 더 들이기(fixes-1117e, 질문 2565 나)는 끄고 다시 채우기만 본다(아래 따로)
+    const { world, ctx } = npcContext(refill("2000000"), NO_EXTRA);
     const faction = world.factions.get(1);
     if (!faction) throw new Error("faction");
     expect(faction.guardsPerCity).toBe(4);
@@ -147,6 +157,18 @@ describe("경비대 다시 채우기(기획 답 920 나 — 구인 규칙식, �
     decide(ctx, 1, 2 * HOUR);
     expect(guardsIn(world, 1)).toHaveLength(4);
     expect(ctx.counts.guardRefills).toBe(2);
+  });
+
+  it("국방 투자(fixes-1117e, 질문 2565 나 — D-591): 국고가 넉넉하면 등급 값 위로 더 들이되 상한(등급 값 × 500‰)·남는 주거를 넘지 않는다", () => {
+    const { world, ctx } = npcContext(refill("2000000"));
+    killGuards(world, 1, 2);
+    decide(ctx, 1, HOUR);
+    // 등급 값 4 + 덧붙는 2(4 × 500‰ = 2, 남는 주거 14 − 12 = 2)
+    expect(guardsIn(world, 1)).toHaveLength(6);
+    expect(ctx.counts.guardRefills).toBe(4);
+    // 주거가 찼다 — 다음 판단에 더 들이지 않는다
+    decide(ctx, 1, 2 * HOUR);
+    expect(guardsIn(world, 1)).toHaveLength(6);
   });
 
   it("국고가 없으면 채우지 않는다(공짜로 세우지 않는다)", () => {

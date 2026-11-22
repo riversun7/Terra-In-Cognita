@@ -158,6 +158,14 @@ export const NPC_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 투자 넘치는 산출 값(‰)",
     "NPC investment surplus output value (‰)",
   ),
+  // 국방 투자로 경비대 수 늘리기(npc/invest.ts investGuardExtra — 질문 2565 나·D-591, fixes-1117e) [임시]
+  k(
+    "npc_guard_invest_extra_pm",
+    "",
+    "investGuardExtraPm",
+    "NPC 국방 투자 덧붙는 경비대 상한(‰)",
+    "NPC defense investment extra guard cap (‰)",
+  ),
   k(
     "npc_share_sale_score",
     "",

@@ -508,6 +508,7 @@ export const STRATEGY_CARD_GROUPS: readonly StrategyCardGroup[] = [
       "npc_invest_return_weight_pm",
       "npc_invest_return_min_pm",
       "npc_invest_surplus_value_pm",
+      "npc_guard_invest_extra_pm",
       "npc_share_sale_score",
       "npc_share_keep_pm",
       "s19_trait_min",

@@ -555,7 +555,9 @@ export function createGovernanceService(o: {
     const nowMs = o.now();
     if (agenda.registerUntilMs !== null && nowMs >= agenda.registerUntilMs)
       return fail("registration_closed");
-    if (s.ownHouse === null) return fail("not_eligible");
+    // 기본 NPC 국가의 서열은 NPC가 쥔다(D-593 2621 — gov_fixed_npc_rank): 플레이어 가문은 지도자 선출에 나서지 못한다
+    if (s.ownHouse === null || (s.nation.fixed === true && o.rules().fixedNpcRank))
+      return fail("not_eligible");
     if (s.ownHouse === agenda.payload.barred) return fail("barred");
     if (
       s.nation.regime === "capitalism" &&
@@ -601,6 +603,7 @@ export function createGovernanceService(o: {
           traits: voter.traits,
           targetRegime: agenda.payload.regime,
           loyal: voter.loyal,
+          npcFirst: nation.fixed === true && rules.fixedNpcRank,
         },
         rules,
       );

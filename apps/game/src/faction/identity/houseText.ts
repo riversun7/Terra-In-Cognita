@@ -118,11 +118,7 @@ const NOTICE_TEXT: Readonly<Record<HouseNoticeKind, NoticeText>> = {
   apply_accepted: (v) => m.fid_house_notice_apply_accepted(v),
   apply_declined: (v) => m.fid_house_notice_apply_declined(v),
   member_left: (v) => m.fid_house_notice_member_left(v),
-  // 같은 가문원을 쳐 시스템이 추방함(reason = attacked_member — D-592 2581 (4), 서버 factionIdentity/houseExpel.ts)
-  kicked: (v) =>
-    v.reason === "attacked_member"
-      ? m.fid_house_notice_kicked_attack({ house: v.house })
-      : m.fid_house_notice_kicked(v),
+  kicked: (v) => m.fid_house_notice_kicked(v),
   nation_left: (v) => m.fid_house_notice_nation_left(v),
   house_moved: (v) => m.fid_house_notice_house_moved({ count: v.count }),
   name_reset: (v) => m.fid_house_notice_name_reset(v),

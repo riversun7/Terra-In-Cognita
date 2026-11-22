@@ -450,6 +450,10 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "governance.joinAcceptAffinity",
   "npc.relationJoinAffinityPm",
   "npc.relationJoinTrustPm",
+  // 기본(시작) NPC 국가 지키기(줄기 d593 — D-593 2621): 의결 틱·쿠데타·출마마다 읽는다
+  "governance.fixedCoupLoyalty",
+  "governance.fixedCoupPowerPm",
+  "governance.fixedNpcRank",
   // NPC 자율행동·7축 성향·조직 합성·충성도 개입(docs/adr/2026-11-20-npc-autonomous-ai.md): 조회·판단마다 읽는다
   "npcAi.unitTraitMin",
   "npcAi.unitTraitMax",

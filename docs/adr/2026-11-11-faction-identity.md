@@ -402,3 +402,16 @@
   가문장에게 `member_left`, 감사 기록 `faction.house_kick` 행위자 시스템·사유). 그 뒤 가문 표를 다시 읽는다(가문 명령 뒤와 같다 — 그 사람 유닛의 가문 소속 지우기·시야). 나가도 나라·내 도시는 그대로(1841).
 - 가문장은 추방하지 않는다(넘기기 없이 떠날 수 없다 — 1003 가 `leader_cannot_leave`). 수비 편이 빠져나가 전투가 없으면(`escaped`) 추방하지 않는다. 건물 공격은 그대로 같은 가문 건물을 막는다(`own_target`).
 - 시험: `houseExpel.test.ts`(새 2), `encounterWorld.test.ts`(같은 가문원 치기 → 추방 고리). 추방 길(`members.ts expel`)의 DB 시험은 없다(내보내기와 같은 SQL — 코드 읽기).
+
+## 바뀜 (d593, D-593 — 같은 가문끼리는 공격 자체가 불가, 2026-11-22)
+- 근거: 사용자 결정 D-593(2026-11-22, 기획 커밋 38b81e3 — 질문 2681 "4.네 그러나 공격자체가 불가"). 위 "바뀜 (fixes-d592, D-592)"의 [임시] "같은 가문원을 친 사람 추방(공격은 막지 않는다)"를
+  아래가 대신한다(그 절은 고치지 않는다).
+- **공격을 막는다**: 유닛 일부러 치기(`unit_attack` — `travel/encounterWorld.ts strike`)는 치는 사람의 소유 주체와 대상 유닛 주인이 같은 가문이면 결과 `own_target`으로 막는다(같은 주인과 같은 결과 코드 —
+  프로토콜 그대로, 낮은 판 기기도 같은 코드를 안다). 가문 셈은 `houseOfOwner`(가문 소유 주체면 그 가문, 사용자 주체면 든 가문 — 줄기에서는 연맹 고리 `world/leagueTies.ts`에 있었고, league-3가 그 파일을 지워 묶음 1117j에서 `factionIdentity/houseGuard.ts`로 옮김). 새 모듈
+  `factionIdentity/houseGuard.ts sameHouseOwners`. 가문장도 가문원도 같다. 건물·봉화 공격은 원래 같은 가문 건물을 막는다(`own_target` — 2543 (2)).
+- **NPC 같은 나라 치기**(`npcStrikes` — fixes-d592)도 같은 가문 대상은 고르지 않는다(지금 NPC 나라 주체는 가문이 아니라 걸리는 일은 없다 — 지키는 줄).
+- **추방 길을 지웠다**: `factionIdentity/houseExpel.ts`·시험, 가입 서비스 `members.ts expel`(감사 기록 행위자 시스템 길 포함)·DB 시험, 화면 문구 `fid_house_notice_kicked_attack`(ko·en). 이미 저장된 소식(사유
+  `attacked_member`)은 화면이 보통 "내보내짐" 문구로 보인다(소식 읽기 모양 그대로 — 사유 칸은 남는다).
+- **화면**: 남의 유닛 한눈 정보(`world.unitGlance`)에 `sameHouse`(보는 사람과 같은 가문의 남의 유닛 — `worldMap/mapUnits.ts`). 2차맵 작은 창은 그 유닛에 [공격] 대신 "같은 가문의 유닛은 공격할 수 없습니다"를
+  보인다(`unit_attack_same_house` ko·en). 결과 문구 `unit_attack_own_target`을 "내 유닛이나 같은 가문의 유닛"으로 넓혔다.
+- 판: 프로토콜·SIM·마이그레이션 없음(tRPC 응답 칸 하나 더하기).

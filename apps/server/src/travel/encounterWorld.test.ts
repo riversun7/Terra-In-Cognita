@@ -7,7 +7,7 @@ import { CELL_UNITS, createMotion } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import type { OwnerRow } from "../world/persist/load.ts";
 import type { SecondMap, UnitView } from "../world/secondMap.ts";
-import { attachHouseExpel } from "../factionIdentity/houseExpel.ts";
+import { attachHouseTies } from "../world/houseTies.ts";
 import { registerGather } from "../gather/registry.ts";
 import { unitTacticsOf } from "../tactics/store.ts";
 import type { GatherService } from "../gather/serviceTypes.ts";
@@ -611,32 +611,37 @@ describe("startCoordinateRules — 같은 나라 NPC 치기·같은 가문원 �
     rules?.stop();
   });
 
-  it("같은 가문원 유닛을 일부러 치면 전투는 그대로 열리고 친 사람이 추방된다(추방 고리 — houseExpel.ts)", async () => {
+  it("같은 가문끼리는 일부러 치기 자체가 안 된다(D-593 — own_target, 전투 없음): 가문원 사용자 유닛·가문 소유 주체 유닛, 다른 가문은 그대로 친다", async () => {
     const loaded: FakeUnit[] = [
       { id: 1, ownerId: 1, kind: KIND_CYBORG, x: 100, y: 100, speed: 1000 },
       { id: 2, ownerId: 2, kind: KIND_CYBORG, x: 102, y: 100, speed: 400 },
+      { id: 3, ownerId: 3, kind: KIND_HUMAN, x: 101, y: 101, speed: 400 },
+      { id: 4, ownerId: 4, kind: KIND_CYBORG, x: 101, y: 99, speed: 400 },
     ];
     const rig = fakeWorld({
       war: false,
       loaded,
-      owners: [owner(1, null, "u1"), owner(2, null, "u2")],
+      owners: [owner(1, null, "u1"), owner(2, null, "u2"), owner(3, 9), owner(4, null, "u4")],
       users: { u1: 1 },
     });
-    const expelled: string[] = [];
     const store = rig.world.persistence;
     if (!store) throw new Error("persistence");
-    attachHouseExpel(store, {
-      expel: async (userId) => {
-        expelled.push(userId);
-        return { ok: true, action: "kicked", factionId: 9 };
-      },
-      after: async () => {},
-      houseOf: (userId) => (userId === "u1" || userId === "u2" ? 9 : undefined),
-    });
+    // 가문 표는 세계 저장 층 객체에 붙는다(맞추기 고리는 쓰지 않는다 — 열쇠로만)
+    const key: object = store;
+    const ties = attachHouseTies(key, { query: async () => ({ rows: [] }) });
+    const houses = new Map([
+      ["u1", 9],
+      ["u2", 9],
+      ["u4", 5],
+    ]);
+    ties.houseOfUser = (userId) => houses.get(userId);
+    ties.nationOfHouse = (rowId) => (rowId === 9 ? 9 : undefined);
     const rules = start(rig.world, { now: () => START, log, timer: false, roll: () => 0 });
-    expect(await rules?.strike({ userId: "u1", unitIds: [1], targetUnitId: 2 })).toBe("ok");
+    expect(await rules?.strike({ userId: "u1", unitIds: [1], targetUnitId: 2 })).toBe("own_target");
+    expect(await rules?.strike({ userId: "u1", unitIds: [1], targetUnitId: 3 })).toBe("own_target");
+    expect(rig.battles).toEqual([]);
+    expect(await rules?.strike({ userId: "u1", unitIds: [1], targetUnitId: 4 })).toBe("ok");
     expect(rig.battles).toHaveLength(1);
-    expect(expelled).toEqual(["u1"]);
     rules?.stop();
   });
 });

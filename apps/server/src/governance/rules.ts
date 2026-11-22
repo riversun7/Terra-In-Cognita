@@ -81,6 +81,12 @@ export interface GovernanceRules {
   /** NPC 참전 답의 관계 몫(‰ — 세력·사회 npc 칸 npc_relation_join_*, @terra/sim/npcAi npcJoinsWarScored, 줄기 npc-diplo) */
   readonly relationJoinAffinityPm: number;
   readonly relationJoinTrustPm: number;
+  /**
+   * 기본(시작) NPC 국가 지키기(줄기 d593 — D-593 2621, 설정 칸 gov_fixed_*): NPC 가문 쿠데타 점수 낮춤, 플레이어 쿠데타를 여는 힘 비(‰, 0 = 보지 않음), NPC 서열 지키기(켬)
+   */
+  readonly fixedCoupLoyalty: number;
+  readonly fixedCoupPowerPm: number;
+  readonly fixedNpcRank: boolean;
   /** 강화 조약 불가침 기간(ms — 세력·사회 d292_truce, 휴전·강화 조약의 기본 기간) */
   readonly truceMs: number;
 }
@@ -187,6 +193,9 @@ export function governanceRulesFrom(c: SocietyCoefficients): GovernanceRules {
     joinAcceptAffinity: Math.min(200, whole(g.joinAcceptAffinity)),
     relationJoinAffinityPm: whole(c.npc.relationJoinAffinityPm ?? 0),
     relationJoinTrustPm: whole(c.npc.relationJoinTrustPm ?? 0),
+    fixedCoupLoyalty: whole(g.fixedCoupLoyalty ?? 0),
+    fixedCoupPowerPm: whole(g.fixedCoupPowerPm ?? 0),
+    fixedNpcRank: (g.fixedNpcRank ?? 0) > 0,
     truceMs: period(c.npc.truceMs),
   };
 }

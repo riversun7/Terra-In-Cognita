@@ -195,6 +195,8 @@ export function createGovernanceView(o: {
           canRegister:
             registering &&
             s.ownHouse !== null &&
+            // 기본 NPC 국가의 서열은 NPC가 쥔다(D-593 2621 — gov_fixed_npc_rank, service.ts register와 같은 조건)
+            !(nation.fixed === true && rules.fixedNpcRank) &&
             s.ownHouse !== (agenda.payload.barred ?? null) &&
             !cands.some((row) => row.houseKey === s.ownHouse),
           weight: s.power.toString(),

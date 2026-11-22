@@ -47,6 +47,9 @@ function setup() {
   return { ...test, reads };
 }
 
+/** 주체 5·6이 같은 가문(D-593 sameHouse 시험) */
+const both = (a: number, b: number): boolean => (a === 5 && b === 6) || (a === 6 && b === 5) || a === b;
+
 describe("world.mapUnits", () => {
   it("내 유닛만, 사이보그 본체 먼저 그다음 ID 차례, 명령할 수 없는 까닭", () => {
     const { reads, map } = setup();
@@ -197,6 +200,32 @@ describe("기획 답 630~637", () => {
       (await withOwner(() => Promise.reject(new Error("db down"))).unitGlance(PLAYER, MAP_KEY, 9, NOW))
         .glance,
     ).toEqual({ unitId: 9, kind: "cyborg_body", faction: null });
+    test.map.stop();
+  });
+
+  it("D-593: 같은 가문의 남의 유닛이면 sameHouse(기기가 [공격]을 감춘다) — 내 유닛·다른 가문·고리 없음은 없음", async () => {
+    const test = setup();
+    const withHouse = (sameHouse?: (a: number, b: number) => boolean) =>
+      createMapUnitReads({
+        map: (key) => (key === MAP_KEY ? test.map : undefined),
+        ownerOfUser: (userId) => (userId === PLAYER.id ? 5 : undefined),
+        cyborgName: () => undefined,
+        sees: () => true,
+        sameHouse,
+      });
+    expect((await withHouse(both).unitGlance(PLAYER, MAP_KEY, 3, NOW)).glance).toEqual({
+      unitId: 3,
+      kind: "human",
+      faction: null,
+      sameHouse: true,
+    });
+    expect((await withHouse(both).unitGlance(PLAYER, MAP_KEY, 9, NOW)).glance).not.toHaveProperty(
+      "sameHouse",
+    );
+    expect((await withHouse(() => false).unitGlance(PLAYER, MAP_KEY, 3, NOW)).glance).not.toHaveProperty(
+      "sameHouse",
+    );
+    expect((await withHouse().unitGlance(PLAYER, MAP_KEY, 3, NOW)).glance).not.toHaveProperty("sameHouse");
     test.map.stop();
   });
 

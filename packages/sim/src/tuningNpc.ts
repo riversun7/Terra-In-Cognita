@@ -166,6 +166,35 @@ export const NPC_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 국방 투자 덧붙는 경비대 상한(‰)",
     "NPC defense investment extra guard cap (‰)",
   ),
+  // 기본(시작) NPC 국가를 강하게(npc/fixedNation.ts — 사용자 결정 D-593 2621, d593) [임시]
+  k(
+    "npc_fixed_guard_pm",
+    "",
+    "fixedGuardPm",
+    "기본 NPC 국가 경비대 배율(‰)",
+    "Default NPC nation guard multiplier (‰)",
+  ),
+  k(
+    "npc_fixed_defense_pm",
+    "",
+    "fixedDefensePm",
+    "기본 NPC 국가 방어 억지 배율(‰)",
+    "Default NPC nation deterrence multiplier (‰)",
+  ),
+  k(
+    "npc_fixed_retake_bonus",
+    "",
+    "fixedRetakeBonus",
+    "기본 NPC 국가 잃은 도시 되찾기 점수",
+    "Default NPC nation lost-city retake score",
+  ),
+  k(
+    "npc_fixed_rebellion_ease",
+    "",
+    "fixedRebellionEase",
+    "기본 NPC 국가 반란 문턱 낮춤(만족도)",
+    "Default NPC nation rebellion threshold ease (satisfaction)",
+  ),
   k(
     "npc_share_sale_score",
     "",

@@ -7,6 +7,7 @@
 // - 봉신 독립 선언(D-216): 상위 관계를 끊는 사건(부르는 쪽이 overlord를 지운다).
 // - 민심 표(D-443 155, 49 N35): 안정 · 태업 조짐 · 반란 예고(반란 문턱 바로 위 구간) · 반란 중(문턱 이하 = 이미 반란, D-253).
 //   문턱은 모두 "이하"로 읽는다(S26과 같다).
+import { type FixedNationCoefficients, fixedRebellionShift } from "../npc/fixedNation.ts";
 import type { SocietyCoefficients } from "./coefficients.ts";
 import type { Holding, Regime } from "./shares.ts";
 
@@ -80,4 +81,15 @@ export function democraticIndependence(families: number, yesVotes: number): bool
 /** 독립할 수 있는 도시인가: 시작 도시가 아니고 독재가 아님(독재는 반란으로만, D-302·D-341) */
 export function independenceAllowed(regime: Regime, startCity: boolean): boolean {
   return !startCity && regime !== "dictatorship";
+}
+
+/**
+ * 반란 문턱 보정(만족도 점): 서버 고리(신임도 — D-585, rebellionThresholdShift) + 고정 국가 낮춤(D-593 — npc/fixedNation.ts fixedRebellionEase)
+ */
+export function rebelShift<F extends { readonly fixed: boolean }>(
+  hooks: { rebellionThresholdShift?(faction: F): number } | undefined,
+  faction: F,
+  c: FixedNationCoefficients,
+): number {
+  return Math.trunc(hooks?.rebellionThresholdShift?.(faction) ?? 0) + fixedRebellionShift(faction.fixed, c);
 }

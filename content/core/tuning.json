@@ -4233,6 +4233,78 @@
       "source": "ADR 2026-11-21-npc-needs-drives · 질문 2565(D-591·D-587 8) [임시]"
     },
     {
+      "id": "npc_fixed_guard_pm",
+      "code": "",
+      "name": {
+        "ko": "기본 NPC 국가 경비대 배율(‰)",
+        "en": "Default NPC nation guard multiplier (‰)"
+      },
+      "value": 2000,
+      "structural": false,
+      "unit": "pm",
+      "min": 1000,
+      "max": 10000,
+      "desc": {
+        "ko": "기본(시작) NPC 국가의 도시마다 경비대 목표 = 국력 등급 값 × 이 값 ÷ 1000(내림). 시작 도시와 둘레 도시 모두. 구인 규칙식이 이 수까지 다시 채운다(주거 안). 1000 = 등급 값 그대로.",
+        "en": "Guard target per city of a default (start) NPC nation = tier value × this ÷ 1000 (floored), for start and surrounding cities alike. The recruit rule refills up to this (within housing). 1000 = tier value."
+      },
+      "source": "ADR 2026-11-07-world-layout · 질문 2621(D-593) [임시]"
+    },
+    {
+      "id": "npc_fixed_defense_pm",
+      "code": "",
+      "name": {
+        "ko": "기본 NPC 국가 방어 억지 배율(‰)",
+        "en": "Default NPC nation deterrence multiplier (‰)"
+      },
+      "value": 1500,
+      "structural": false,
+      "unit": "pm",
+      "min": 1000,
+      "max": 10000,
+      "desc": {
+        "ko": "다른 NPC 세력이 기본 NPC 국가를 칠지·강화할지 볼 때 그 나라 힘을 이 배율로 본다(공격 힘 비를 넘기 어렵다). 잃은 도시를 되찾으러 치는 상대에게는 쓰지 않는다. 1000 = 그대로.",
+        "en": "Other NPC factions see a default NPC nation's strength times this when deciding to attack or make peace (harder to pass the attack ratio). Not used against a faction retaking its lost city. 1000 = unchanged."
+      },
+      "source": "ADR 2026-11-07-world-layout · 질문 2621(D-593) [임시]"
+    },
+    {
+      "id": "npc_fixed_retake_bonus",
+      "code": "",
+      "name": {
+        "ko": "기본 NPC 국가 잃은 도시 되찾기 점수",
+        "en": "Default NPC nation lost-city retake score"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000,
+      "desc": {
+        "ko": "기본 NPC 국가가 점령으로 잃은 도시(점령 기록이 남은 동안)를 가진 상대를 칠 때 더하는 점수. 칠 도시는 잃은 도시 먼저.",
+        "en": "Score added when a default NPC nation attacks the holder of a city it lost to occupation (while the occupation record lasts). The lost city is targeted first."
+      },
+      "source": "ADR 2026-11-07-world-layout · 질문 2621(D-593) [임시]"
+    },
+    {
+      "id": "npc_fixed_rebellion_ease",
+      "code": "",
+      "name": {
+        "ko": "기본 NPC 국가 반란 문턱 낮춤(만족도)",
+        "en": "Default NPC nation rebellion threshold ease (satisfaction)"
+      },
+      "value": 25,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100,
+      "desc": {
+        "ko": "기본 NPC 국가 도시의 반란 문턱(만족도)을 이만큼 낮춘다(신임도 보정과 함께). 0 = 그대로.",
+        "en": "Lowers the rebellion threshold (satisfaction) of default NPC nation cities by this much (on top of the approval shift). 0 = unchanged."
+      },
+      "source": "ADR 2026-11-07-world-layout · 질문 2621(D-593) [임시]"
+    },
+    {
       "id": "npc_share_sale_score",
       "code": "",
       "name": {
@@ -17700,6 +17772,60 @@
         "en": "When a nation accepts a war join request and enters the war (player or NPC), its affinity with the requester rises this much. 0 = no gain."
       },
       "source": "질문 2662·2722 · ADR 2026-11-21-diplomacy-treaties 바뀜(npc-diplo) [임시]"
+    },
+    {
+      "id": "gov_fixed_coup_loyalty",
+      "code": "",
+      "name": {
+        "ko": "기본 NPC 국가: NPC 가문 쿠데타 점수 낮춤(충성)",
+        "en": "Default NPC nation: NPC house coup score drop (loyalty)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000,
+      "desc": {
+        "ko": "기본(시작) NPC 국가의 NPC 가문 쿠데타 점수(성향 규칙식)에서 이만큼 뺀다. 문턱(gov_coup_npc_score)보다 크면 그 나라 NPC 가문은 쿠데타를 일으키지 않고, 열린 쿠데타에는 정부군으로 든다.",
+        "en": "Subtracted from the coup score (trait rule) of NPC houses in a default (start) NPC nation. Above the threshold (gov_coup_npc_score) those houses never launch coups and join open coups on the government side."
+      },
+      "source": "ADR 2026-11-21-governance · 질문 2621(D-593) [임시]"
+    },
+    {
+      "id": "gov_fixed_coup_power_pm",
+      "code": "",
+      "name": {
+        "ko": "기본 NPC 국가: 플레이어 쿠데타를 여는 힘 비(‰)",
+        "en": "Default NPC nation: player coup launch strength ratio (‰)"
+      },
+      "value": 3000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "기본 NPC 국가에서 플레이어 가문장이 쿠데타를 열려면 그 도시에 와 있는 내 병력의 힘이 정부군(지배 가문 유닛 + 그 도시 경비대, 그 도시에 있는 것)의 힘 × 이 값 ÷ 1000 이상이어야 한다(아니면 coup_protected). 0 = 보지 않음.",
+        "en": "To launch a coup in a default NPC nation, a player house head's troops already in that city need strength ≥ the government side's (ruling house units + that city's guards, present there) × this ÷ 1000 (otherwise coup_protected). 0 = not checked."
+      },
+      "source": "ADR 2026-11-21-governance · 질문 2621(D-593) [임시]"
+    },
+    {
+      "id": "gov_fixed_npc_rank",
+      "code": "",
+      "name": {
+        "ko": "기본 NPC 국가: NPC 서열 지키기(1 = 켬)",
+        "en": "Default NPC nation: keep NPC rank (1 = on)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1,
+      "desc": {
+        "ko": "켜면 기본 NPC 국가에서 플레이어 가문은 지도자 선출 후보로 나서지 못하고(not_eligible), NPC 표는 NPC 가문 후보를 먼저 고른다 — 지배 가문은 NPC 가문으로 남는다.",
+        "en": "When on, player houses cannot register as leader candidates in a default NPC nation (not_eligible) and NPC votes pick NPC house candidates first — the ruling house stays an NPC house."
+      },
+      "source": "ADR 2026-11-21-governance · 질문 2621(D-593) [임시]"
     },
     {
       "id": "npc_ai_drive_work_mood_floor_pm",

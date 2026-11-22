@@ -6,6 +6,13 @@ const rules = { npcKeepSatisfaction: 50, npcWarTraitPm: 600 };
 const traits = { aggression: 500, commerce: 500, faith: 500 };
 const base = { incumbent: "n:1" as const, self: "n:2" as const, candidates: [], traits };
 
+/** 기본 NPC 국가 선출 표(npcFirst — D-593) */
+const pickNpcFirst = (candidates: readonly ("p:9" | "n:1" | "n:3" | "p:8")[], satisfaction: number) =>
+  npcVoteChoice(
+    { ...base, kind: "leader_election", candidates: [...candidates], satisfaction, npcFirst: true },
+    rules,
+  );
+
 describe("npcVoteChoice", () => {
   it("선출: 자기 가문이 후보면 자기, 만족하면 현직, 아니면 먼저 등록한 도전자", () => {
     const candidates = ["p:9", "n:1", "p:8"] as const;
@@ -38,6 +45,13 @@ describe("npcVoteChoice", () => {
       ),
     ).toBe("p:9");
   });
+  it("기본 NPC 국가(D-593 2621 — npcFirst): NPC 가문 후보가 있으면 그 가운데서만, 없으면 그대로", () => {
+    // 만족하지 않으면 현직(n:1) 대신 먼저 등록한 도전자 — 플레이어 가문(p:9)이 아니라 NPC 가문(n:3)
+    expect(pickNpcFirst(["p:9", "n:1", "n:3"], 20)).toBe("n:3");
+    expect(pickNpcFirst(["p:9", "n:1"], 20)).toBe("n:1");
+    expect(pickNpcFirst(["p:9", "p:8"], 20)).toBe("p:9");
+  });
+
   it("해임·체제 전환: 만족도가 낮으면 찬성, 높으면 반대", () => {
     expect(npcVoteChoice({ ...base, kind: "leader_removal", satisfaction: 20 }, rules)).toBe("yes");
     expect(npcVoteChoice({ ...base, kind: "leader_removal", satisfaction: 80 }, rules)).toBe("no");

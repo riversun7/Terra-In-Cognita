@@ -54,6 +54,14 @@ export interface NpcCoefficients {
    * 국방 투자로 덧붙일 경비대 상한(‰ — 등급 값에 곱함, npc/invest.ts investGuardExtra, 질문 2565 나·D-591, fixes-1117e [임시] 출발값). 없거나 0이면 늘리지 않는다
    */
   readonly investGuardExtraPm?: number | undefined;
+  /**
+   * 기본(시작) NPC 국가를 강하게(npc/fixedNation.ts — 사용자 결정 D-593 2621, d593 [임시] 출발값): 경비대 목표 배율(‰), 다른 세력이 보는 방어 힘 배율(‰), 잃은 도시
+   * 되찾기 치기 점수, 반란 문턱 낮춤(만족도 점). 없으면 바뀌지 않는다(1000·1000·0·0)
+   */
+  readonly fixedGuardPm?: number | undefined;
+  readonly fixedDefensePm?: number | undefined;
+  readonly fixedRetakeBonus?: number | undefined;
+  readonly fixedRebellionEase?: number | undefined;
   /** 지분 팔기 기본 점수(국고가 모자랄 때만) */
   readonly shareSaleScore: number;
   /** 지분을 판 뒤에도 쥐고 있을 몫(‰) = 이 값 − 상업 성향 ÷ 10(독립 투표로 도시를 잃지 않게, D-300) */
@@ -226,6 +234,10 @@ export const TEST_NPC_COEFFICIENTS: NpcCoefficients = {
   investReturnMinPm: 0,
   investSurplusValuePm: 0,
   investGuardExtraPm: 500,
+  fixedGuardPm: 2000,
+  fixedDefensePm: 1500,
+  fixedRetakeBonus: 200,
+  fixedRebellionEase: 25,
   shareSaleScore: 200,
   shareKeepPm: 600,
   peaceWearyScore: 400,

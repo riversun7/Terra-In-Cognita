@@ -10,6 +10,12 @@ import { attachSociety } from "./society.ts";
 import type { SimHooks } from "./npcRun.ts";
 import { createWorld } from "./world.ts";
 
+/** 고정 국가 반란 문턱 낮춤(D-593 — npc_fixed_rebellion_ease)을 끈 계수표 */
+const NO_FIXED_EASE: SocietyCoefficients = {
+  ...TEST_SOCIETY_COEFFICIENTS,
+  npc: { ...TEST_SOCIETY_COEFFICIENTS.npc, fixedRebellionEase: 0 },
+};
+
 /** 점령 처리 선택(시험이 고른다) */
 const INTEGRATE_KEEP: OccupationChoice = { treatment: "integrate", shares: "keep" };
 const LOOT_DELIST: OccupationChoice = { treatment: "loot", shares: "delist" };
@@ -132,7 +138,8 @@ describe("시뮬 세력·사회", () => {
   });
 
   it("점령·귀속 + 상장폐지 + 독재로 바뀜은 만족도를 크게 떨어뜨려 반란이 일어나고, 반란군은 새 세력(전쟁)이 된다", () => {
-    const { world, society, lines, scheduled, faction } = setup();
+    // 고정 국가 반란 문턱 낮춤(D-593)은 끈다 — 반란 문턱 40 그대로 본다
+    const { world, society, lines, scheduled, faction } = setup({ c: NO_FIXED_EASE });
     // 독재(1)가 민주주의(3) 도시 7을 점령·귀속·상장폐지
     society.occupy(faction(1), faction(3), 7, INTEGRATE_DELIST, 1000);
     const unitsIn7 = [...world.units.values()].filter((u) => u.city === 7);
@@ -290,7 +297,7 @@ describe("시뮬 배당·공물(D-304·D-338·D-443)", () => {
   });
 
   it("반란 세력은 원래 나라를 기억한다(반란의 반란도 맨 처음 나라), 태어날 때 부모도 적는다(620 나)", () => {
-    const { world, society, lines, faction } = setup();
+    const { world, society, lines, faction } = setup({ c: NO_FIXED_EASE });
     society.occupy(faction(1), faction(3), 7, INTEGRATE_DELIST, 1000);
     society.endOfDay(DAY_MS);
     const born = lines.find((line) => line.t === "born" && line.cause === "rebellion");

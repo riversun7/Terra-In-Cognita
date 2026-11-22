@@ -7,7 +7,7 @@ import { type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS } from "../society/
 import { systemRule } from "./economyRun.ts";
 import { createSimLoop } from "./loop.ts";
 import { createMetricsRecorder } from "./metrics.ts";
-import { type NpcContext, type SimEvent, decide, emptyNpcCounts } from "./npcRun.ts";
+import { type NpcContext, type SimEvent, decide, emptyNpcCounts, rivalView } from "./npcRun.ts";
 import { runSimulation } from "./run.ts";
 import { type Scenario, parseScenario } from "./scenario.ts";
 import { attachSociety } from "./society.ts";
@@ -130,7 +130,12 @@ const refill = (credit: string): Scenario =>
 /** 국방 투자 경비대 늘리기를 끈 계수표 */
 const NO_EXTRA: SocietyCoefficients = {
   ...TEST_SOCIETY_COEFFICIENTS,
-  npc: { ...TEST_SOCIETY_COEFFICIENTS.npc, investGuardExtraPm: 0 },
+  npc: { ...TEST_SOCIETY_COEFFICIENTS.npc, investGuardExtraPm: 0, fixedGuardPm: 1000 },
+};
+/** 고정 국가 경비대 배율(D-593)만 끈 계수표(국방 투자는 그대로) */
+const PLAIN_GUARDS: SocietyCoefficients = {
+  ...TEST_SOCIETY_COEFFICIENTS,
+  npc: { ...TEST_SOCIETY_COEFFICIENTS.npc, fixedGuardPm: 1000 },
 };
 
 describe("경비대 다시 채우기(기획 답 920 나 — 구인 규칙식, 시뮬·서버 같은 함수)", () => {
@@ -160,7 +165,7 @@ describe("경비대 다시 채우기(기획 답 920 나 — 구인 규칙식, �
   });
 
   it("국방 투자(fixes-1117e, 질문 2565 나 — D-591): 국고가 넉넉하면 등급 값 위로 더 들이되 상한(등급 값 × 500‰)·남는 주거를 넘지 않는다", () => {
-    const { world, ctx } = npcContext(refill("2000000"));
+    const { world, ctx } = npcContext(refill("2000000"), PLAIN_GUARDS);
     killGuards(world, 1, 2);
     decide(ctx, 1, HOUR);
     // 등급 값 4 + 덧붙는 2(4 × 500‰ = 2, 남는 주거 14 − 12 = 2)
@@ -169,6 +174,34 @@ describe("경비대 다시 채우기(기획 답 920 나 — 구인 규칙식, �
     // 주거가 찼다 — 다음 판단에 더 들이지 않는다
     decide(ctx, 1, 2 * HOUR);
     expect(guardsIn(world, 1)).toHaveLength(6);
+  });
+
+  it("기본(시작) NPC 국가(D-593 — npc_fixed_guard_pm): 경비대 목표 = 등급 값 × 배율, 고정 세력이 아니면 등급 값 그대로", () => {
+    const roomy = (fixed: boolean): Scenario =>
+      parseScenario({
+        id: "test_guard_fixed",
+        factions: [
+          {
+            code: "big",
+            count: 1,
+            fixed,
+            cities: 1,
+            workers: 10,
+            guards: 4,
+            credit: "2000000",
+            tech: 1,
+            housing: 20,
+          },
+        ],
+        npc: { decideEveryMs: 6 * HOUR },
+      });
+    const strong: SocietyCoefficients = { ...NO_EXTRA, npc: { ...NO_EXTRA.npc, fixedGuardPm: 1500 } };
+    const fixed = npcContext(roomy(true), strong);
+    decide(fixed.ctx, 1, HOUR);
+    expect(guardsIn(fixed.world, 1)).toHaveLength(6);
+    const fluid = npcContext(roomy(false), strong);
+    decide(fluid.ctx, 1, HOUR);
+    expect(guardsIn(fluid.world, 1)).toHaveLength(4);
   });
 
   it("국고가 없으면 채우지 않는다(공짜로 세우지 않는다)", () => {
@@ -201,5 +234,46 @@ describe("경비대 다시 채우기(기획 답 920 나 — 구인 규칙식, �
     decide(ctx, 1, HOUR);
     expect([...world.units.values()].some((unit) => unit.guard === true)).toBe(false);
     expect(ctx.counts.guardRefills).toBe(0);
+  });
+});
+
+describe("기본 NPC 국가 방어 억지·되찾기(D-593 — rivalView)", () => {
+  const two = parseScenario({
+    id: "test_fixed_rival",
+    factions: [
+      { code: "aa", count: 1, fixed: true, cities: 2, workers: 10, credit: "20000", tech: 1 },
+      { code: "bb", count: 1, fixed: false, cities: 2, workers: 10, credit: "20000", tech: 1 },
+    ],
+    npc: { decideEveryMs: 6 * HOUR },
+  });
+  const strong: SocietyCoefficients = {
+    ...TEST_SOCIETY_COEFFICIENTS,
+    npc: { ...TEST_SOCIETY_COEFFICIENTS.npc, fixedDefensePm: 1500 },
+  };
+
+  it("고정 국가는 다른 세력에게 힘 × 배율로 보이고, 고정 국가가 잃은 도시(점령 기록 옛 주인 = 나)를 가진 상대는 retake·억지 없음", () => {
+    const { world, ctx } = npcContext(two, strong);
+    const a = world.factions.get(1);
+    const b = world.factions.get(2);
+    if (!a || !b) throw new Error("factions");
+    expect(rivalView(ctx, b, a, HOUR).strength).toBe(Math.trunc((a.units.size * 1500) / 1000));
+    expect(rivalView(ctx, a, b, HOUR).strength).toBe(b.units.size);
+    expect(rivalView(ctx, a, b, HOUR).retake).toBeUndefined();
+    // b의 시작 도시가 아닌 도시 하나가 a에게서 점령해 간 도시라고 적는다
+    const lost = [...b.cities].find((id) => world.cities.get(id)?.start === false);
+    if (lost === undefined) throw new Error("city");
+    world.occupations.set(lost, {
+      city: lost,
+      kind: "annexed",
+      occupier: b.id,
+      owner: a.id,
+      sinceMs: 0,
+      untilMs: 10 * HOUR,
+      nextTaxMs: 10 * HOUR,
+      taken: 0n,
+    });
+    expect(rivalView(ctx, a, b, HOUR).retake).toBe(1);
+    // 반대로 b가 고정 국가 a를 볼 때는 되찾기가 아니라 억지가 그대로(b는 고정 국가가 아니라 retake가 없다)
+    expect(rivalView(ctx, b, a, HOUR).retake).toBeUndefined();
   });
 });

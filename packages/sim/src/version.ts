@@ -343,8 +343,14 @@
  *    npc_fixed_guard_pm(팩 2000) ÷ 1000, ② 다른 세력이 보는 힘(rivalView strength) × npc_fixed_defense_pm(1500) ÷ 1000 — 되찾기 상대면 그대로,
  *    ③ 잃은 도시(점령 기록 owner = 나)를 가진 상대 치기 점수 + npc_fixed_retake_bonus(200), 칠 도시는 잃은 도시 먼저, ④ 반란 문턱 −
  *    npc_fixed_rebellion_ease(25). 계수가 없으면(옛 계수표) 그대로. 굴림 흐름·차례·출력 칸 모양 그대로 — 형식 23
+ * 126: 줄기 fixes-1117j(main 76 + 50 — 묶을 때 다시 매긴다): ① 잃은 도시 기억(기획 검토 2712 — D-593 "뺏겨도 되찾을만큼", npc/fixedNation.ts·
+ *    simulator/societyWar.ts·docs/adr/2026-11-07-world-layout.md "바뀜 (fixes-1117j)"). 76 ③의 "잃은 도시 = 점령 기록 owner = 나"를 고정 세력의 잃은 도시 기억
+ *    (SimFaction.lostCities — 점령·귀속으로 빼앗기면 적고, 되찾거나 다른 길로 다시 내 도시가 되거나 도시가 없어지면 하루 끝에 지운다)으로 바꿨다. 점령·귀속 회복
+ *    불이익 기간(war_annex_penalty_days 30일)이 끝나도 되찾기 점수·칠 도시 먼저가 이어진다. war16 30·60일 시드 1·2·3은 줄이 바이트까지 같다(팩 해시 빼고 —
+ *    고정 국가가 점령·귀속으로 도시를 잃은 뒤 30일을 넘기는 일이 없었다). ② 전투 엔진 같은 무리(combat/kin.ts — 기획 검토 2715, D-593): 유닛 사양 kin이 같은
+ *    두 유닛은 다른 편이어도 서로 목표로 삼거나 피해를 주지 않는다. kin이 없으면(시뮬레이터·다른 전투) 그대로. 출력 칸 모양 그대로 — 형식 23
  */
-export const SIM_VERSION = 76;
+export const SIM_VERSION = 126;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

@@ -134,6 +134,11 @@ export interface CombatUnitSpec {
   readonly ammo?: number | undefined;
   /** 전투 자동 물약(287, D-510). 없으면 물약 없음 */
   readonly potions?: BattlePotions | undefined;
+  /**
+   * 서로 치지 않는 무리(같은 가문 — D-593, 기획 검토 2715, kin.ts). 같은 값이면 다른 편이어도 서로 목표로 삼거나 피해를 주지 않는다. 없으면 편으로만 가른다(옛 시작 자료·
+   * 시뮬레이터와 같다)
+   */
+  readonly kin?: number | undefined;
   /** 스탯 시야(칸, 가중치 표 sight 행) */
   readonly sight: number;
   /** 시선 높이(16배 cm) */

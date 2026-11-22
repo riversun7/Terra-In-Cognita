@@ -419,10 +419,12 @@ function targetable(world: SimWorld, attacker: SimFaction, cityId: number): bool
   return !(held && held.kind !== "annexed" && held.occupier === attacker.id);
 }
 
-/** cityId가 attacker가 잃은 도시인가(지금 주인 holder가 점령해 가져간 기록 — 옛 주인 = attacker, D-593 되찾기 — npc/fixedNation.ts) */
-function lostTo(world: SimWorld, attacker: SimFaction, holder: SimFaction, cityId: number): boolean {
-  const held = world.occupations.get(cityId);
-  return held !== undefined && held.owner === attacker.id && held.occupier === holder.id;
+/**
+ * holder가 가진 cityId가 attacker가 잃은 도시인가(D-593 되찾기 — npc/fixedNation.ts). 잃은 도시 기억(SimFaction.lostCities — 점령·귀속으로 빼앗길 때 적고 되찾을 때까지
+ * 남는다, 기획 검토 2712 fixes-1117j)을 본다. 옛 판은 점령 기록(회복 불이익 기간)이 끝나면 잊었다
+ */
+function lostTo(attacker: SimFaction, holder: SimFaction, cityId: number): boolean {
+  return holder.id !== attacker.id && holder.cities.has(cityId) && attacker.lostCities?.has(cityId) === true;
 }
 
 /** 다른 세력 하나를 faction이 본 모습 */
@@ -439,7 +441,7 @@ export function rivalView(
     if (targetable(ctx.world, faction, cityId)) {
       takeable += 1;
       // 고정 국가가 잃은 도시(D-593 되찾기 — npc/fixedNation.ts)
-      if (faction.fixed && lostTo(ctx.world, faction, other, cityId)) retake += 1;
+      if (faction.fixed && lostTo(faction, other, cityId)) retake += 1;
     }
   const top = blocs.topOf.get(other.id) ?? other.id;
   const strength = blocs.strengthOf.get(top) ?? other.units.size;
@@ -483,7 +485,7 @@ function attack(
   if (!target?.alive) return;
   // 칠 수 있는 도시(targetable) 가운데 난수로 고른 도시(넣은 차례가 아니라). 고정 국가는 잃은 도시 먼저(D-593 되찾기)
   const takeable = [...target.cities].filter((cityId) => targetable(world, attacker, cityId));
-  const lost = attacker.fixed ? takeable.filter((cityId) => lostTo(world, attacker, target, cityId)) : [];
+  const lost = attacker.fixed ? takeable.filter((cityId) => lostTo(attacker, target, cityId)) : [];
   const pool = lost.length > 0 ? lost : takeable;
   const cityId = pool[roll % Math.max(1, pool.length)];
   if (cityId === undefined) return;

@@ -54,8 +54,9 @@ describe("assignHumanPlaces", () => {
     expect(homes.get(302)?.work).toEqual(farm);
     expect(homes.get(303)?.work).toEqual(camp);
     expect(homes.get(304)?.work).toEqual(camp);
-    // 도시 직무(건물 없음)와 일이 없는 휴먼은 집 둘레만
-    expect(homes.get(305)).toEqual(home);
+    // 도시 직무(건물 없음)와 일이 없는 휴먼은 집 둘레만. 도시 직무 일꾼은 일꾼 표시·일하는 때를 단다(작업 중 부상 — fixes-1117j 2741)
+    expect(homes.get(305)).toEqual({ ...home, cityJob: true, shift: DEFAULT_WORK_SHIFT });
+    expect(homes.get(305)?.work).toBeUndefined();
     expect(homes.get(306)).toEqual(home);
     expect(homes.size).toBe(6);
   });
@@ -95,7 +96,7 @@ describe("assignHumanPlaces", () => {
       facilities: [{ id: 12, buildingId: 12, workers: 1 }],
       areas,
     });
-    expect(missing.get(1)).toEqual(home);
+    expect(missing.get(1)).toEqual({ ...home, cityJob: true, shift: DEFAULT_WORK_SHIFT });
   });
 });
 

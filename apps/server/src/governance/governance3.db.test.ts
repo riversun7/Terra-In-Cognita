@@ -18,6 +18,7 @@ import { createFactionIdentityServices, createFactionIdentityShared } from "../f
 import { createHouseFounder } from "../factionIdentity/found.ts";
 import { createHouseSuccession } from "../factionIdentity/succession.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
+import { houseTiesOf } from "../world/houseTies.ts";
 import { addTestUnits, silentLog } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
 import { attachGovernance } from "./attach.ts";
@@ -190,6 +191,8 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 3(governance-3)", () => {
     if (!faction) throw new Error("nation");
     faction.regime = "democracy";
     const row = await house(world, head.userId, "혁명가문", "REV");
+    // 가문 소속 메모리 표는 가문 명령 뒤에 다시 읽는다 — 시험은 창설을 바로 불러 직접 다시 읽힌다(같은 가문 번호 kin — 2715)
+    await houseTiesOf(parts(world).persistence)?.reload();
     await gov.service.tick();
     // 출발값 = 꺼짐(gov_coup_enabled 0)
     expect(await gov.service.coup(head.userId)).toEqual({ ok: false, code: "coup_disabled" });
@@ -252,7 +255,7 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 3(governance-3)", () => {
       kind: string;
       status: string;
       ends_at_ms: string;
-      units: { id: number; side: number }[];
+      units: { id: number; side: number; kin?: number }[];
     }>(test.db, "select kind, status, ends_at_ms, init->'units' as units from world_battles where id = $1", [
       battleId,
     ]);
@@ -260,6 +263,9 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 3(governance-3)", () => {
     // 그 도시에 있는 일으킨 사람의 본체는 혁명군(편 1), 정부군으로 보낸 본체는 정부군(편 2) — 실제 몸으로 든다
     expect(battles[0]?.units.find((unit) => unit.id === headBody)?.side).toBe(1);
     expect(battles[0]?.units.find((unit) => unit.id === otherBody)?.side).toBe(2);
+    // 같은 가문 번호(kin — 기획 검토 2715, fixes-1117j): 가문장 본체는 그 가문, 가문 없는 사람은 없다(같은 kin끼리만 서로 치지 않는다 — @terra/sim combat/kin.ts)
+    expect(battles[0]?.units.find((unit) => unit.id === headBody)?.kin).toBe(row);
+    expect(battles[0]?.units.find((unit) => unit.id === otherBody)?.kin).toBeUndefined();
     expect((await gov.view(head.userId)).coups[0]?.battleEndsAtMs).toBe(Number(battles[0]?.ends_at_ms));
     // 넥서스(그 도시 행정 건물)도 세계 시설 목표다 — 누가 이기든 깎인 만큼 세계 건물이 깎인다(질문 2692, D-570 "건물포함", 줄기 fixes-1117i)
     const targeted = await rows<{

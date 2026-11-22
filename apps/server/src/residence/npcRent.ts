@@ -96,6 +96,10 @@ export interface NpcRentWorld {
   traits(unitId: number): UnitTraits | undefined;
   /** 그 도시 일꾼 휴먼의 쉼터(유닛 ID → 쉼터, 일꾼이 아니면 없음) */
   restsIn(cityId: number, periodMs: number): ReadonlyMap<number, NpcRest>;
+  /** NPC 집주인(npcLandlord.ts — fixes-1117j 2735): 세력의 상업 성향. 없으면 NPC 집주인을 돌리지 않는다 */
+  readonly commerceOf?: ((owner: number) => number | undefined) | undefined;
+  /** NPC 집주인: 그 레벨 숙소의 한 기간 숙박비(집세 화폐). 없으면 NPC 집주인을 돌리지 않는다 */
+  readonly lodgingPeriodFee?: ((level: number, periodMs: number) => bigint | undefined) | undefined;
 }
 
 /** 세를 놓은 집 하나(그 휴먼 화폐로 바꾼 값) */

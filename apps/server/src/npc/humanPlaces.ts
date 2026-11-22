@@ -2,7 +2,7 @@
 // "WP-NPC2". 도시 경제(npc/economy.ts, WP4)가 시설마다 일꾼 수를 정한다(@terra/sim assignCityWorkers — 사람을 고르지 않고 수만 센다).
 // 여기서 그 수를 그 도시 휴먼에게 차례로 나눈다 [임시]: 휴먼은 유닛 ID 차례, 시설은 시설 ID 차례(건물 시설이 앞, 도시 직무가 뒤)로 앞에서부터
 // 일꾼 수만큼 채운다. 건물이 있는 시설의 일꾼은 그 건물 둘레가 일터(bots.ts 일 주기 동안 그곳에서 일하고 나머지는 집 둘레), 건물이 없는 도시
-// 직무·일이 없는 휴먼은 집(도시 시청 칸) 둘레만 걷는다. 보이는 움직임만 정한다(산출은 도시 경제가 센다 — 휴먼이 어디 있든 같다).
+// 직무·일이 없는 휴먼은 집(도시 시청 칸) 둘레만 걷는다(도시 직무 일꾼은 cityJob 표시 — 작업 중 부상만 본다, fixes-1117j 2741). 보이는 움직임만 정한다(산출은 도시 경제가 센다 — 휴먼이 어디 있든 같다).
 // 일하는 때(기획 답 770 나, "WP-NPC4"): 일터를 받은 휴먼은 그 2차맵 지역 시각의 낮(설정 칸 npc_work_start_pm~npc_work_end_pm)에 일터로 간다 —
 // 2차맵 경도는 2차맵 빛(엔진 secondMapPlace)과 같은 셈(칸 가운데 방향의 경도)이다.
 // 숙소(docs/adr/2026-11-11-city-building-layout.md, 사용자 요청 2026-11-11 "숙소는 노동자 회복 루트"·기획 D-245 "가장 가까운 숙소"): 그 도시에
@@ -169,13 +169,14 @@ export function assignHumanPlaces(input: {
       if (taken === 0 && haul && facility.haul?.key !== undefined)
         input.onCarrier?.(facility.haul.key, unitId);
       else spare.push(unitId);
+      // 건물 없는 도시 직무(또는 2차맵에 건물이 없는 시설)의 일꾼: 집(시청 칸) 둘레에 머물되 일꾼 표시·일하는 때를 단다(작업 중 부상 — fixes-1117j 2741)
       out.set(
         unitId,
         work
           ? rest
             ? { x: rest.x, y: rest.y, homeRadius: rest.radius, work, shift: own, ...carry }
             : { x: input.home.x, y: input.home.y, work, shift: own, ...carry }
-          : { ...input.home },
+          : { ...input.home, cityJob: true, shift: own },
       );
     }
   }

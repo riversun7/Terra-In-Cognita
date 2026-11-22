@@ -276,6 +276,41 @@ describe("공성 결과 셋(D-520·D-527)", () => {
     expect(problems(1000)).toEqual([]);
   });
 
+  it("잃은 도시 기억(fixes-1117j 2712 — D-593 되찾기): 기본 NPC 국가가 점령·귀속으로 잃으면 적고, 회복 불이익이 끝나도 남고, 되찾으면 지운다", () => {
+    const { world, faction } = setup();
+    const { war } = warOf(world);
+    const city = world.cities.get(2);
+    if (!city) throw new Error("city");
+    war.annex(faction(2), faction(1), city, 0);
+    city.owner = 2;
+    expect(faction(1).lostCities?.get(2)).toBe(0);
+    const until = world.occupations.get(2)?.untilMs ?? 0;
+    war.endOfDay(until);
+    expect(world.occupations.has(2)).toBe(false);
+    expect(faction(1).lostCities?.has(2)).toBe(true);
+    // 되찾기(점령·귀속): 되찾은 쪽 기억에서 지운다. 유동 세력(2)은 잃어도 기억하지 않는다
+    war.annex(faction(1), faction(2), city, until + DAY_MS);
+    city.owner = 1;
+    expect(faction(1).lostCities?.has(2)).toBe(false);
+    expect(faction(2).lostCities).toBeUndefined();
+  });
+
+  it("잃은 도시 기억: 다른 길(넘겨받기 등)로 다시 내 도시가 되거나 도시가 없어지면 하루 끝에 지운다", () => {
+    const { world, faction } = setup();
+    const { war } = warOf(world);
+    faction(1).lostCities = new Map([
+      [2, 0],
+      [3, 0],
+      [999, 0],
+    ]);
+    const three = world.cities.get(3);
+    if (!three) throw new Error("city");
+    three.owner = 2;
+    war.endOfDay(DAY_MS);
+    // 도시 2는 다시 나(1)의 것, 999는 없는 도시 → 지움. 도시 3은 아직 남의 것 → 남음
+    expect([...(faction(1).lostCities?.keys() ?? [])]).toEqual([3]);
+  });
+
   it("회복 빠르기(recoveryPm): 불이익 중 오를 때만 annexRecoveryPm, 끝나면 평소", () => {
     const { world, faction } = setup();
     const war = createSocietyWar({

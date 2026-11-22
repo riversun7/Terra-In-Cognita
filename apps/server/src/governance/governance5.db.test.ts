@@ -374,11 +374,11 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 5(governance-5)", () => {
     // 쿠데타 도시(줄기 gov-coup — D-588 2492 가): 그 나라 도시가 아니면 막는다
     expect(await gov.service.coup(head.userId, 999_999)).toEqual({ ok: false, code: "invalid_choice" });
     expect(await gov.service.coup(head.userId)).toEqual({ ok: false, code: "coup_protected" });
-    // NPC 쿠데타: 시작 도시가 아닌 도시의 NPC 가문(점수 문턱 −1000·힘 비 0)
+    // NPC 쿠데타: 시작 도시가 아닌 도시의 NPC 가문(점수 문턱 −1000·힘 비 0 — 기본 NPC 국가의 힘 비 문(fixes-1117j 2713)도 0)
     const city = looseCity(world, owner);
     const rebel = npc.cityHouses.housesOfCity(city).find((id) => id !== ruling.id);
     if (rebel === undefined) throw new Error("no rebel house");
-    rules = { ...rules, coupProtectMs: 0, coupNpcScore: -1000, coupNpcPowerPm: 0 };
+    rules = { ...rules, coupProtectMs: 0, coupNpcScore: -1000, coupNpcPowerPm: 0, fixedCoupPowerPm: 0 };
     await gov.service.tick();
     const coups = await rows<{ id: string; house_key: string; city_id: string | null }>(
       test.db,

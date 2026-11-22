@@ -485,8 +485,8 @@ export const GOVERNANCE_TUNING_KEYS: readonly TuningKey[] = [
     "gov_fixed_coup_power_pm",
     "",
     "governance.fixedCoupPowerPm",
-    "기본 NPC 국가: 플레이어 쿠데타를 여는 힘 비(‰)",
-    "Default NPC nation: player coup launch strength ratio (‰)",
+    "기본 NPC 국가: 쿠데타를 여는 힘 비(‰)",
+    "Default NPC nation: coup launch strength ratio (‰)",
   ),
   k(
     "gov_fixed_npc_rank",

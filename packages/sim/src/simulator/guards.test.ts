@@ -251,7 +251,7 @@ describe("기본 NPC 국가 방어 억지·되찾기(D-593 — rivalView)", () =
     npc: { ...TEST_SOCIETY_COEFFICIENTS.npc, fixedDefensePm: 1500 },
   };
 
-  it("고정 국가는 다른 세력에게 힘 × 배율로 보이고, 고정 국가가 잃은 도시(점령 기록 옛 주인 = 나)를 가진 상대는 retake·억지 없음", () => {
+  it("고정 국가는 다른 세력에게 힘 × 배율로 보이고, 고정 국가가 잃은 도시(잃은 도시 기억 — fixes-1117j 2712)를 가진 상대는 retake·억지 없음", () => {
     const { world, ctx } = npcContext(two, strong);
     const a = world.factions.get(1);
     const b = world.factions.get(2);
@@ -259,19 +259,11 @@ describe("기본 NPC 국가 방어 억지·되찾기(D-593 — rivalView)", () =
     expect(rivalView(ctx, b, a, HOUR).strength).toBe(Math.trunc((a.units.size * 1500) / 1000));
     expect(rivalView(ctx, a, b, HOUR).strength).toBe(b.units.size);
     expect(rivalView(ctx, a, b, HOUR).retake).toBeUndefined();
-    // b의 시작 도시가 아닌 도시 하나가 a에게서 점령해 간 도시라고 적는다
+    // b의 시작 도시가 아닌 도시 하나가 a에게서 빼앗아 간 도시라고 기억에 적는다(점령 기록이 없어도 — 회복 불이익 기간이 끝난 뒤와 같다)
     const lost = [...b.cities].find((id) => world.cities.get(id)?.start === false);
     if (lost === undefined) throw new Error("city");
-    world.occupations.set(lost, {
-      city: lost,
-      kind: "annexed",
-      occupier: b.id,
-      owner: a.id,
-      sinceMs: 0,
-      untilMs: 10 * HOUR,
-      nextTaxMs: 10 * HOUR,
-      taken: 0n,
-    });
+    a.lostCities = new Map([[lost, 0]]);
+    expect(world.occupations.has(lost)).toBe(false);
     expect(rivalView(ctx, a, b, HOUR).retake).toBe(1);
     // 반대로 b가 고정 국가 a를 볼 때는 되찾기가 아니라 억지가 그대로(b는 고정 국가가 아니라 retake가 없다)
     expect(rivalView(ctx, b, a, HOUR).retake).toBeUndefined();

@@ -97,6 +97,37 @@ describe("NPC 일꾼 작업 중 부상", () => {
     expect(injury.roll(11 * HOUR + 50)).toBe(0);
   });
 
+  it("fixes-1117j 2741: 건물 없는 도시 직무 일꾼(cityJob)도 일하는 때에 굴린다 — 일 없는 휴먼은 그대로 뺀다", () => {
+    configureInjuryRules(() => ({ ...C, workChancePm: 1000 }));
+    const onMap = new Map<number, FakeUnit>([
+      [1, { condition: HEALTHY, home: { x: 0, y: 0, cityJob: true, shift: ALWAYS } }],
+      [2, { condition: HEALTHY, home: { x: 0, y: 0 } }],
+      // 도시 직무지만 쉬는 바퀴(일 0ms)면 굴리지 않는다
+      [
+        3,
+        {
+          condition: HEALTHY,
+          home: { x: 0, y: 0, cityJob: true, shift: { ...ALWAYS, cycle: { workMs: 0, periodMs: HOUR } } },
+        },
+      ],
+    ]);
+    const map = fakeMap(onMap);
+    const injury = createNpcWorkInjury({
+      units: new Map([
+        [1, { id: 1, city: 10 }],
+        [2, { id: 2, city: 10 }],
+        [3, { id: 3, city: 10 }],
+      ]),
+      places: new Map([[10, { mapKey: 100 }]]),
+      maps: new Map([[100, map]]),
+      startMs: 10 * HOUR + 5,
+    });
+    expect(injury.roll(11 * HOUR + 3)).toBe(1);
+    expect(injuryAt(onMap.get(1)?.condition ?? HEALTHY, 11 * HOUR + 3)).toBeGreaterThan(0);
+    expect(onMap.get(2)?.condition).toBe(HEALTHY);
+    expect(onMap.get(3)?.condition).toBe(HEALTHY);
+  });
+
   it("확률 0이면 다치지 않고, 일하는 때가 아니면 굴리지 않는다", () => {
     configureInjuryRules(() => ({ ...C, workChancePm: 0 }));
     const onMap = new Map<number, FakeUnit>([

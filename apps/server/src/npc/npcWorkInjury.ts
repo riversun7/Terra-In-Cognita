@@ -6,7 +6,11 @@
 //   중이 아님) 플레이어 채집과 같은 함수·시드(createGatherInjury — @terra/sim workInjuryStage, 경계 번호 = 경계 시각 ÷ 작업 주기)로 굴린다.
 // - 피로 = 보이는 움직임의 어림 피로(bots.ts shiftFatiguePm, ‰ — 일하는 때 끝에 꼭대기 600‰) ÷ 1000 [임시]: 늦게까지 일할수록 자주 다친다(플레이어
 //   직무와 같은 모양 — 피로가 높을수록).
-// - 경비대·불복·일터 없는 휴먼(도시 직무 — 건물이 없어 시청 칸에서 일하는 휴먼 포함)은 굴리지 않는다 [임시 — 질문 2741].
+// - 바뀜 (fixes-1117j — 기획 검토 2741 "도시 직무도"): 건물 없는 도시 직무 일꾼(시청 칸 둘레에서 일하는 휴먼 — humanPlaces.ts cityJob)도 같은 판정으로 굴린다
+//   (일하는 때 = 그 일꾼의 shift). 시설 첫 일꾼 = 그 시설 산출 운반꾼은 원래 시설 일꾼으로 굴린다. 빈 일꾼 운반(거래소 운반 — 일 없는 휴먼)은 굴리지 않는다
+//   [기술 기본값]: 그 운반 모습은 보는 사람이 있는 2차맵에만 붙어(보지 않는 2차맵은 시간 셈만) 굴리면 누가 보느냐에 따라 다치는 수가 달라진다.
+//   경비대는 작업이 아니라 전투에서 다친다(D-521 — 세계 전투 결과 world/battleResults.ts가 경비대를 포함한 모든 전투 유닛을 굴린다: 웨이브·건물 공격·쿠데타 정부군).
+//   불복(일터를 받지 않음)·일 없는 휴먼은 그대로 굴리지 않는다.
 // - 다친 휴먼은 league-3의 자율 치료(labor/stewardCare.ts NPC 휴먼 몫)가 병원으로 데려간다.
 // - 경계 확인은 메모리에만(마지막으로 본 경계). 켤 때는 지난 경계를 따라 굴리지 않는다(꺼진 동안 다치지 않음 — 플레이어 정산의 오프라인 끝과 비슷하게).
 // - 부하: 런타임 틱(5초)마다 불리지만 새 경계가 없으면 바로 돌아간다(경계는 작업 주기마다 한 번). 경계마다 거울 휴먼 수만큼 2차맵 유닛을 읽는다.
@@ -72,8 +76,9 @@ export function createNpcWorkInjury(o: {
           const place = o.places.get(unit.city);
           const map = place ? o.maps.get(place.mapKey) : undefined;
           const info = map?.unitInfo(unit.id);
-          const work = info?.home?.work;
-          if (!map || !info || !work || info.held === true || unavailable(info.condition, at)) continue;
+          // 시설 일터 또는 건물 없는 도시 직무(fixes-1117j 2741)
+          const working = info?.home?.work !== undefined || info?.home?.cityJob === true;
+          if (!map || !info || !working || info.held === true || unavailable(info.condition, at)) continue;
           const shift = info.home?.shift ?? DEFAULT_WORK_SHIFT;
           if (!atWork(shift, unit.id, at)) continue;
           // 경계 하나만 굴린다((at − 1, at] — 같은 경계 번호·시드라 나눠 불러도 같다)

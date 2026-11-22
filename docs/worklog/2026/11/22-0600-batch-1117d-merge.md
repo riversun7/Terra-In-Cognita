@@ -112,3 +112,11 @@
 
 ## 사용자 결정 대기
 - 질문 2561~2569(npc-invest-2), 2571~2576(gov-fix-2), 2581~2585(fixes-1117c), 2591~2594(escrow-fix), 그리고 1117c 기록의 대기 목록(2541~2560 …).
+
+## 배포 (Verified)
+
+- CI `ci` 391 성공(main `f8d26305db`, 22:08~22:11 UTC). 앱 컨테이너 22:10:46 UTC 시작, 이미지 `sha-f8d26305db08`, 팩 core@142(nas-metrics 94, 22:37 UTC, 창 35분, 재시작 뒤 26분).
+- 마이그레이션 오류 줄 없음, dbFailures 0(26줄 모두). 적용 줄은 로그에 없어 직접 확인 못 함(Unknown).
+- 보증금 부팅 손질 1회: "market escrow repaired after restore" — relottedOrders 0(옛 묶음 크기 주문은 이미 모두 끝나 있었음), adjustedMarkets 84(로그 상세 50곳: 잡석 29·돌 13·구리 광석 6·철 광석 2, 50곳 중 41곳이 보증금 음수 = 옛 묶음 주문이 끝날 때 더 풀려나간 몫, 가장 큰 차이 시장 189 잡석 −499,950g). 모자란 몫은 정산 계정 `reconcile:escrow:<asset>`에서 채움. "market escrow differs after restore" 경고는 사라짐(0건). 연맹 기금 반환 줄은 없음(돌려줄 기금 없음으로 봄, Assumed).
+- RSS 579.1~598.6MB(26분 +15MB, 끝 10분 596.8~598.6으로 평평해짐), 루프 p99 1.0~1.7ms(첫 분 6.4), 최대 6.5~53.5ms(첫 분 230.2), DB 커밋 최대 205~494ms(첫 분 609), 기기 오류 0.
+- NPC: 휴먼 2,098, 세력 16, 도시 49, 건물 1,041, npcNextDecideMin 41.2 → 16.2(이어짐).

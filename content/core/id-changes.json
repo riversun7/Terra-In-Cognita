@@ -596,7 +596,7 @@
     {
       "category": "unit_kinds",
       "id": "guardian",
-      "since": 183,
+      "since": 144,
       "compensation": {
         "kind": "replace",
         "with": "human"

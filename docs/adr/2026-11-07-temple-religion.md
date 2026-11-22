@@ -218,7 +218,7 @@
   도시 버프 하나(방어·만족도·생산)를 주고, 도시당 상한 S15·유지비(보통 유닛 무게)도 그대로다. `temple_guardians` 행(도시·버프·레벨·스탯)도 그대로다.
 
 ### 결정
-- 팩 core@183: unit_kinds에서 `guardian`을 지웠다. `id-changes.json`에 지운 기록을 뒤에 더했다(보상 = `human`으로 바꿈). 편집기(전투 실험실 유닛
+- 팩 core@144(묶음 1117f — 줄기 판 183): unit_kinds에서 `guardian`을 지웠다. `id-changes.json`에 지운 기록을 뒤에 더했다(보상 = `human`으로 바꿈). 편집기(전투 실험실 유닛
   종류·크리쳐·아이템 종족 고르기 등)의 종류 목록은 팩에서 오므로 넷만 보인다. 시뮬 시험 카탈로그(`@terra/sim combat/catalog.ts`)에서도 지웠다.
   전투 직업 `guardian`(가디언, combat_classes)은 다른 것이라 그대로다.
 - 상태 저장: `world_units.guardian`(boolean, 기본 false — 마이그레이션 `20261122002529_guardian_state`). 종류는 휴먼(4) 그대로. 서버 메모리 유닛도

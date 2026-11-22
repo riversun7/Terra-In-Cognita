@@ -23,8 +23,18 @@ const PLAYER_NATION: GovernanceNation = {
   cities: [1, 2],
 };
 
-function fake(options: { split?: boolean; away?: readonly number[] } = {}) {
-  const nations = new Map<number, GovernanceNation>([[10, PLAYER_NATION]]);
+function fake(
+  options: {
+    split?: boolean;
+    away?: readonly number[];
+    /** 기본 NPC 국가로(D-593 — 성향·NPC 가문·설정 칸) */
+    fixed?: { traits: typeof TRAITS; npcHouses: { id: number; cityId: number }[]; rules: object };
+  } = {},
+) {
+  const start: GovernanceNation = options.fixed
+    ? { ...PLAYER_NATION, playerHouse: false, fixed: true, traits: options.fixed.traits }
+    : PLAYER_NATION;
+  const nations = new Map<number, GovernanceNation>([[10, start]]);
   const coups: CoupRow[] = [];
   const sides: CoupSideRow[] = [];
   const states: StateRow[] = [];
@@ -33,10 +43,10 @@ function fake(options: { split?: boolean; away?: readonly number[] } = {}) {
   const splits: [number, boolean | undefined][] = [];
   const battles: { rebels: readonly number[]; loyal: readonly number[] }[] = [];
   /** 가문 → 유닛: 지배 가문 p:10 = 나라 소유 주체 유닛 50·51, 쿠데타 가문 p:30 = 60 */
-  const houseUnits: Record<string, number[]> = { "p:10": [50, 51], "p:30": [60] };
+  const houseUnits: Record<string, number[]> = { "p:10": [50, 51], "p:30": [60], "n:5": [52] };
   /** 도시 → 2차맵(도시 1 = 2차맵 1001, 도시 2 = 1002). 유닛이 선 2차맵(없으면 2차맵 사이를 가는 중) — 처음에는 모두 도시 1 */
   const where = new Map<number, number | undefined>(
-    [50, 51, 60, 70, 80, 90, 91].map((id) => [id, options.away?.includes(id) ? 1002 : 1001]),
+    [50, 51, 52, 60, 70, 80, 90, 91].map((id) => [id, options.away?.includes(id) ? 1002 : 1001]),
   );
   const sends: { userId: string; unitId: number; mapKey: number }[] = [];
   const port: CoupPort = {
@@ -58,7 +68,7 @@ function fake(options: { split?: boolean; away?: readonly number[] } = {}) {
       where.set(unitId, undefined);
       return 5000;
     },
-    npcHousesOf: () => [],
+    npcHousesOf: () => options.fixed?.npcHouses ?? [],
     citySatisfaction: () => undefined,
     powerOf: (ids) => ids.length,
     coupBattle: (_nation, rebels, loyal) => {
@@ -117,12 +127,18 @@ function fake(options: { split?: boolean; away?: readonly number[] } = {}) {
       saveShareHouse: async (row) => void shareHouses.push(row),
     },
     tools: { ruling: async () => ({ key: "p:10" satisfies HouseKey, leaderUser: "u-lead" }) },
-    rules: () => ({ ...TEST_GOVERNANCE_RULES, coupEnabled: true, coupGatherMs: 100, coupProtectMs: 0 }),
+    rules: () => ({
+      ...TEST_GOVERNANCE_RULES,
+      coupEnabled: true,
+      coupGatherMs: 100,
+      coupProtectMs: 0,
+      ...options.fixed?.rules,
+    }),
     now: () => clock,
     standing: async (userId) =>
       userId === "u-rebel"
         ? {
-            nation: nations.get(10) ?? PLAYER_NATION,
+            nation: nations.get(10) ?? start,
             state: undefined,
             ruling: { key: "p:10", leaderUser: "u-lead" },
             electorate: { voters: [], total: 0n },
@@ -135,9 +151,25 @@ function fake(options: { split?: boolean; away?: readonly number[] } = {}) {
   });
   const resolve = async () => {
     clock += 1000;
-    await service.tick(new Map([[10, nations.get(10) ?? PLAYER_NATION]]), new Map(), clock);
+    await service.tick(new Map([[10, nations.get(10) ?? start]]), new Map(), clock);
   };
-  return { service, coups, states, regimes, splits, battles, nations, shareHouses, resolve, where, sends };
+  /** 참가 받는 동안의 틱(NPC 가문 참가·일으키기만) */
+  const gatherTick = () => service.tick(new Map([[10, nations.get(10) ?? start]]), new Map(), clock + 50);
+  return {
+    service,
+    coups,
+    sides,
+    states,
+    regimes,
+    splits,
+    battles,
+    nations,
+    shareHouses,
+    resolve,
+    gatherTick,
+    where,
+    sends,
+  };
 }
 
 describe("쿠데타(gov-fix-2 — 2542·2545·2549)", () => {
@@ -207,5 +239,39 @@ describe("쿠데타 병력 파견(no-teleport — D-591)", () => {
     await f.resolve();
     // 혁명군 = 쿠데타 가문 60 + 닿은 80, 정부군 = 지배 가문 50(51은 다른 도시) + 경비대 70 + 닿은 90
     expect(f.battles).toEqual([{ rebels: [60, 80], loyal: [50, 70, 90] }]);
+  });
+});
+
+describe("기본 NPC 국가 쿠데타 지키기(d593 — D-593 2621)", () => {
+  const fierce = { aggression: 1000, commerce: 500, faith: 0 };
+
+  it("플레이어 쿠데타: 그 도시에 와 있는 내 병력이 정부군 × gov_fixed_coup_power_pm ÷ 1000에 못 미치면 coup_protected(칸 0이면 보지 않음)", async () => {
+    const guarded = fake({ fixed: { traits: TRAITS, npcHouses: [], rules: { fixedCoupPowerPm: 3000 } } });
+    // 내 병력 80(힘 1) 대 정부군 50·51·70(힘 3) × 3
+    expect(await guarded.service.launch("u-rebel", 1)).toEqual({ ok: false, code: "coup_protected" });
+    expect(guarded.coups).toEqual([]);
+    const open = fake({ fixed: { traits: TRAITS, npcHouses: [], rules: { fixedCoupPowerPm: 0 } } });
+    expect(await open.service.launch("u-rebel", 1)).toMatchObject({ ok: true, action: "coup_started" });
+    // 기본 NPC 국가가 아니면 보지 않는다
+    expect(await fake().service.launch("u-rebel", 1)).toMatchObject({ ok: true });
+  });
+
+  it("NPC 가문 충성(gov_fixed_coup_loyalty): 성향이 쿠데타 쪽이어도 일으키지 않고 열린 쿠데타에는 정부군으로 든다", async () => {
+    const houses = [{ id: 5, cityId: 1 }];
+    const loyal = fake({
+      fixed: { traits: fierce, npcHouses: houses, rules: { fixedCoupPowerPm: 0, fixedCoupLoyalty: 200 } },
+    });
+    await loyal.gatherTick();
+    expect(loyal.coups).toEqual([]);
+    await loyal.service.launch("u-rebel", 1);
+    await loyal.gatherTick();
+    expect(loyal.sides.find((row) => row.joinerKey === "n:5")?.side).toBe("government");
+    // 충성 몫이 없으면 같은 성향의 NPC 가문은 혁명군에 든다
+    const plain = fake({
+      fixed: { traits: fierce, npcHouses: houses, rules: { fixedCoupPowerPm: 0, fixedCoupLoyalty: 0 } },
+    });
+    await plain.service.launch("u-rebel", 1);
+    await plain.gatherTick();
+    expect(plain.sides.find((row) => row.joinerKey === "n:5")?.side).toBe("rebel");
   });
 });

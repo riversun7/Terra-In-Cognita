@@ -101,6 +101,16 @@ describe("판단 틀(D-323): 지표 → 후보 점수 → 가장 높은 행동",
     expect(attackOf(rival({ atWar: true, causeBonus: 40 }))).toBe(attackOf(rival({ atWar: true })));
   });
 
+  it("잃은 도시 되찾기 몫(D-593 — retake, 고정 국가만 rivalView가 채운다)은 치기 점수에 더한다(계수 0이면 그대로)", () => {
+    const me = view({ traits: warlike });
+    const attackOf = (r: RivalView, cc = c): number =>
+      scoreActions(me, [r], cc).find((entry) => entry.action.kind === "attack")?.score ?? Number.NaN;
+    const plain = attackOf(rival());
+    expect(attackOf(rival({ retake: 1 }), { ...c, fixedRetakeBonus: 200 })).toBe(plain + 200);
+    expect(attackOf(rival({ retake: 1 }), { ...c, fixedRetakeBonus: 0 })).toBe(plain);
+    expect(attackOf(rival({ retake: 0 }), { ...c, fixedRetakeBonus: 200 })).toBe(plain);
+  });
+
   it("나라 단위 판단을 멈춘 나라(선출된 플레이어 지도자·빈자리 — 질문 2440 나·2434 나)는 새 선포·강화·봉신 독립을 하지 않는다", () => {
     const locked = view({ traits: warlike, nationLocked: true });
     // 새 선포는 후보에서 빠진다

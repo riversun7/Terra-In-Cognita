@@ -17,6 +17,7 @@ import {
   decideAction,
   peaceScore,
 } from "../npc/brain.ts";
+import { fixedDefenseStrength, fixedGuardTarget } from "../npc/fixedNation.ts";
 import { investTemperPm } from "../npc/invest.ts";
 import { nextTaxBp, occupationChoice, recruitPicks } from "../npc/policy.ts";
 import type { SocietyCoefficients } from "../society/coefficients.ts";
@@ -409,6 +410,12 @@ function targetable(world: SimWorld, attacker: SimFaction, cityId: number): bool
   return !(held && held.kind !== "annexed" && held.occupier === attacker.id);
 }
 
+/** cityId가 attacker가 잃은 도시인가(지금 주인 holder가 점령해 가져간 기록 — 옛 주인 = attacker, D-593 되찾기 — npc/fixedNation.ts) */
+function lostTo(world: SimWorld, attacker: SimFaction, holder: SimFaction, cityId: number): boolean {
+  const held = world.occupations.get(cityId);
+  return held !== undefined && held.owner === attacker.id && held.occupier === holder.id;
+}
+
 /** 다른 세력 하나를 faction이 본 모습 */
 export function rivalView(
   ctx: NpcContext,
@@ -418,12 +425,21 @@ export function rivalView(
   blocs: Blocs = blocsOf(ctx.world),
 ): RivalView {
   let takeable = 0;
-  for (const cityId of other.cities) if (targetable(ctx.world, faction, cityId)) takeable += 1;
+  let retake = 0;
+  for (const cityId of other.cities)
+    if (targetable(ctx.world, faction, cityId)) {
+      takeable += 1;
+      // 고정 국가가 잃은 도시(D-593 되찾기 — npc/fixedNation.ts)
+      if (faction.fixed && lostTo(ctx.world, faction, other, cityId)) retake += 1;
+    }
   const top = blocs.topOf.get(other.id) ?? other.id;
+  const strength = blocs.strengthOf.get(top) ?? other.units.size;
   return {
     id: other.id,
-    strength: blocs.strengthOf.get(top) ?? other.units.size,
+    // 고정 국가는 방어 억지로 더 세게 보인다(되찾기 상대면 그대로 — D-593)
+    strength: fixedDefenseStrength(strength, other.fixed, retake > 0, ctx.c.npc),
     takeable,
+    ...(retake > 0 ? { retake } : {}),
     atWar: faction.wars.has(other.id),
     truce: inTruce(faction, other.id, nowMs),
     related: top === (blocs.topOf.get(faction.id) ?? faction.id),
@@ -455,9 +471,11 @@ function attack(
   const { world } = ctx;
   const target = world.factions.get(targetId);
   if (!target?.alive) return;
-  // 칠 수 있는 도시(targetable) 가운데 난수로 고른 도시(넣은 차례가 아니라)
+  // 칠 수 있는 도시(targetable) 가운데 난수로 고른 도시(넣은 차례가 아니라). 고정 국가는 잃은 도시 먼저(D-593 되찾기)
   const takeable = [...target.cities].filter((cityId) => targetable(world, attacker, cityId));
-  const cityId = takeable[roll % Math.max(1, takeable.length)];
+  const lost = attacker.fixed ? takeable.filter((cityId) => lostTo(world, attacker, target, cityId)) : [];
+  const pool = lost.length > 0 ? lost : takeable;
+  const cityId = pool[roll % Math.max(1, pool.length)];
   if (cityId === undefined) return;
   ctx.onAttack?.(attacker, target, cityId, nowMs);
   if (ctx.combat) {
@@ -541,7 +559,8 @@ export function recruitPolicy(
     ) => workerCardReturn(card, base, ctx.c),
   };
   const byCity = citizens(ctx, faction);
-  const guardTarget = faction.guardsPerCity ?? 0;
+  // 고정 국가는 경비대 목표를 키운다(D-593 — npc/fixedNation.ts)
+  const guardTarget = fixedGuardTarget(faction.guardsPerCity ?? 0, faction.fixed, ctx.c.npc);
   const guardsByCity = new Map<number, number>();
   if (guardTarget > 0)
     for (const unitId of faction.units) {

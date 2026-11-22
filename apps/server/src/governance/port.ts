@@ -36,6 +36,8 @@ export interface GovernanceNation {
   readonly regime: GovernanceRegime;
   readonly traits: NpcTraits;
   readonly cities: readonly number[];
+  /** 기본(시작) NPC 국가(고정 세력 — D-324·D-341). 쿠데타·출마 지키기(D-593 2621 — coup.ts·service.ts)가 본다. 없으면 아님 */
+  readonly fixed?: boolean | undefined;
 }
 
 /** 지분 한 줄: holder = o:<소유 주체> | p:<플레이어 가문 행> | n:<NPC 가문 ID>(가문 지분 계정) */
@@ -144,6 +146,7 @@ export function worldGovernancePort(
       regime: faction.regime,
       traits: faction.traits,
       cities: [...faction.cities].toSorted((a, b) => a - b),
+      ...(faction.fixed ? { fixed: true } : {}),
     };
   };
   const factionAvg = (ownerId: number): number | undefined => {

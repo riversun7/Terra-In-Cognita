@@ -9,6 +9,7 @@
 // 근처 빈 2차맵(도시·폐허 없음) 후보마다 점수(성향 가중 규칙식 — 상업 +, 공격 −, 가진 도시·전쟁 수 −, 붐빔 +, 남이 짓는 중 −)를 매겨 가장 좋은
 // 하나를 낸다. 짓는 중 정부·다 지으면 새 도시는 부르는 쪽(시뮬 simulator/npcClaim.ts, 서버 NPC 런타임)이 한다.
 import type { NpcCoefficients } from "./coefficients.ts";
+import { fixedRetakeBonus } from "./fixedNation.ts";
 import { investChallenges, investCostPenalty } from "./invest.ts";
 import type { Traits } from "./traits.ts";
 
@@ -84,6 +85,8 @@ export interface RivalView {
    * 선포 명분 몫(D-290 — 제재 등, 서버 고리 SimHooks.causeBonus가 준다). 새로 선포할 때 무명분 선포 몫에서 덜어 낸다(무명분 몫까지만). 없으면 0(시뮬 — 판정 그대로)
    */
   readonly causeBonus?: number | undefined;
+  /** 내가(고정 국가) 잃어 이 세력이 가진 도시 수(D-593 되찾기 — npc/fixedNation.ts). 없으면 0 */
+  readonly retake?: number | undefined;
 }
 
 export type NpcAction =
@@ -123,7 +126,8 @@ export function causeOffset(r: RivalView, c: NpcCoefficients): number {
 function attackScore(me: FactionView, r: RivalView, c: NpcCoefficients): number | undefined {
   if (r.related || r.truce || r.takeable <= 0 || !dominates(me.strength, r.strength, c)) return undefined;
   const advantagePm = Math.floor(((me.strength - r.strength) * 1000) / Math.max(1, me.strength));
-  let score = Math.floor((me.traits.aggression * advantagePm) / 1000);
+  // 잃은 도시 되찾기 몫(D-593 — 고정 국가만 retake가 있다)
+  let score = Math.floor((me.traits.aggression * advantagePm) / 1000) + fixedRetakeBonus(r.retake ?? 0, c);
   // 반란 세력 소탕(46 §2.4)은 바깥 전쟁이 아니다: 선포 몫·넓은 나라 몫·지친 백성 몫을 빼지 않는다
   if (r.rebel) return score + c.suppressBonus + (r.atWar ? c.attackWarBonus : 0);
   score += r.atWar ? c.attackWarBonus : -c.attackDeclarePenalty + causeOffset(r, c);

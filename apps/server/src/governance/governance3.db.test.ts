@@ -23,6 +23,14 @@ import { attachGovernance } from "./attach.ts";
 import { type GovernanceRules, TEST_GOVERNANCE_RULES } from "./rules.ts";
 import type { ApprovedShareSale } from "./service.ts";
 
+/** 기본 NPC 국가 지키기(D-593 — gov_fixed_*)를 끈 규칙(이 파일은 옛 출마·쿠데타 길을 본다 — 시험 나라는 기본 NPC 국가다) */
+const BASE_RULES: GovernanceRules = {
+  ...TEST_GOVERNANCE_RULES,
+  fixedCoupLoyalty: 0,
+  fixedCoupPowerPm: 0,
+  fixedNpcRank: false,
+};
+
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
 if (!loaded.source || !loaded.pack) throw new Error("content pack");
 const pack = createContentEditState(loaded.source).effective();
@@ -158,7 +166,7 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 3(governance-3)", () => {
   it("군사 쿠데타: 꺼져 있으면 막고, 켜면 참가 받기 → NPC 참가 → 전투 → 결과(이기면 독재 지배 가문 + 지분 몰수)", async () => {
     const world = await boot();
     const { npc } = parts(world);
-    let rules: GovernanceRules = { ...TEST_GOVERNANCE_RULES, coupGatherMs: 60_000, coupNpcScore: -1000 };
+    let rules: GovernanceRules = { ...BASE_RULES, coupGatherMs: 60_000, coupNpcScore: -1000 };
     const gov = governance(world, () => rules);
     const head = await citizen(world, "Coupone");
     const faction = npc.world.factions.get(npc.houses.ownerOfRow(head.nation) ?? -1);
@@ -269,7 +277,7 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 3(governance-3)", () => {
   it("지분 과반을 사서 독재: 국고 지분은 국고에 남고(2432 (다)), 독재 지도자는 선전포고·국고 지분 팔기를 직권으로(2440 나·2438)", async () => {
     const world = await boot();
     const { npc } = parts(world);
-    const rules: GovernanceRules = { ...TEST_GOVERNANCE_RULES, graceRegimeMs: 0 };
+    const rules: GovernanceRules = { ...BASE_RULES, graceRegimeMs: 0 };
     const sales: ApprovedShareSale[] = [];
     const gov = governance(world, () => rules, sales);
     const head = await citizen(world, "Buyone");
@@ -335,7 +343,7 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 3(governance-3)", () => {
   it("독재 지배 가문이 바뀌면 옛 지배 가문 지분이 새 지배 가문으로(2432 나), 자본주의 발의 하한 아래는 막는다(2436 다)", async () => {
     const world = await boot();
     const { npc } = parts(world);
-    const rules: GovernanceRules = { ...TEST_GOVERNANCE_RULES };
+    const rules: GovernanceRules = { ...BASE_RULES };
     const gov = governance(world, () => rules);
     const first = await citizen(world, "Folone", 0);
     const second = await citizen(world, "Capone", 1);
@@ -386,7 +394,7 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 3(governance-3)", () => {
   it("빈자리는 도시 독립으로 이어지지 않고 누구나 나서는 선출을 바로 연다(D-584 — D-583 3 대신), 열려 있던 도시 독립 투표는 취소", async () => {
     const world = await boot();
     const { npc } = parts(world);
-    const rules: GovernanceRules = { ...TEST_GOVERNANCE_RULES, vacancyElectionMs: 2 * 3_600_000 };
+    const rules: GovernanceRules = { ...BASE_RULES, vacancyElectionMs: 2 * 3_600_000 };
     const gov = governance(world, () => rules);
     const head = await citizen(world, "Vacone");
     const faction = npc.world.factions.get(npc.houses.ownerOfRow(head.nation) ?? -1);
@@ -424,7 +432,7 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 3(governance-3)", () => {
   it("빈자리면 먼저 지배 가문의 후계자·서열로 가문장을 세운다(D-588 5 — 질문 2491): 새 가문장이 지도자, 자동 선출은 열지 않는다", async () => {
     const world = await boot();
     const { npc } = parts(world);
-    const gov = governance(world, () => TEST_GOVERNANCE_RULES);
+    const gov = governance(world, () => BASE_RULES);
     const head = await citizen(world, "Sucone");
     const elder = await citizen(world, "Suctwo");
     const heir = await citizen(world, "Sucthr");
@@ -484,7 +492,7 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 3(governance-3)", () => {
   it("해임 빈자리는 같은 가문이 잇지 않고 누구나 나서는 선출을 연다, 가문장이 사라진 빈자리는 서열(직위 → 기여도)로 잇는다(D-591 2532)", async () => {
     const world = await boot();
     const { npc } = parts(world);
-    const gov = governance(world, () => TEST_GOVERNANCE_RULES);
+    const gov = governance(world, () => BASE_RULES);
     const head = await citizen(world, "Rkone");
     const elder = await citizen(world, "Rktwo");
     const rich = await citizen(world, "Rkthr");
@@ -532,7 +540,7 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 3(governance-3)", () => {
       [head.nation],
     );
     await pool.query("update governance_state set vacancy_cause = null where nation_id = $1", [head.nation]);
-    const again = governance(world, () => TEST_GOVERNANCE_RULES);
+    const again = governance(world, () => BASE_RULES);
     await again.service.tick();
     expect(
       await rows(test.db, "select user_id from house_members where faction_id = $1 and role = 'leader'", [

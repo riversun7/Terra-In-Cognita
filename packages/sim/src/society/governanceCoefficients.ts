@@ -120,6 +120,14 @@ export interface GovernanceCoefficients {
    * 위반 기록을 잊는 기간(ms, 0 = 잊지 않음 — 줄기 fixes-d592, 사용자 결정 D-592 2583 다 "기간이 지나면 위반을 잊고 신뢰가 돌아온다") [임시 출발값]. 신뢰·제재 명분은 남은 기록에서 셈한다
    */
   readonly breachExpireMs: number;
+  /**
+   * 기본(시작) NPC 국가 지키기(줄기 d593 — 사용자 결정 D-593 2621 "쿠데타가 일어나지않게 최적화 되게 관리한다. 유저보다는 npc유닛들의 국가내 서열을 확보한다") [임시 출발값]:
+   * 그 나라 NPC 가문의 쿠데타 점수 낮춤(충성 — 일으키지 않고 정부군에 든다), 플레이어 쿠데타를 여는 힘 비(‰ — 그 도시에 와 있는 내 병력 ≥ 정부군 × 이 값 ÷ 1000, 0 = 보지 않음),
+   * NPC 서열 지키기(1 = 플레이어 가문은 지도자 선출에 나서지 못하고 NPC 표는 NPC 가문 후보 먼저, 0 = 끔)
+   */
+  readonly fixedCoupLoyalty?: number | undefined;
+  readonly fixedCoupPowerPm?: number | undefined;
+  readonly fixedNpcRank?: number | undefined;
 }
 
 export const START_GOVERNANCE: GovernanceCoefficients = {
@@ -186,4 +194,7 @@ export const START_GOVERNANCE: GovernanceCoefficients = {
   joinRefuseAffinity: 20,
   shareExecMs: 14 * 86_400_000,
   breachExpireMs: 90 * 86_400_000,
+  fixedCoupLoyalty: 100,
+  fixedCoupPowerPm: 3000,
+  fixedNpcRank: 1,
 };

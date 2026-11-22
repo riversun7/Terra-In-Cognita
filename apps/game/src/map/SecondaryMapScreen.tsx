@@ -779,9 +779,15 @@ function SecondMapView({
             onClose={closePeek}
           >
             <LeaderSheet tags={leaderTags} selected={peek.unitId} mapKey={mapKey} embedded />
-            {/* 고른 내 유닛으로 일부러 치기(unit_attack — 같은 나라 유저끼리 싸움·약탈은 이 길로만, 줄기 fixes-1117c) */}
+            {/* 고른 내 유닛으로 일부러 치기(unit_attack — 같은 나라 유저끼리 싸움·약탈은 이 길로만, 줄기 fixes-1117c). 같은 가문 유닛은 [공격] 없음(D-593) */}
             {!operator && attacker !== null ? (
-              <UnitAttack key={`${attacker}:${peek.unitId}`} actor={attacker} target={peek.unitId} />
+              glance?.unitId === peek.unitId && glance.sameHouse === true ? (
+                <p className="map-peek-hint" data-part="unit-attack-same-house">
+                  {m.unit_attack_same_house()}
+                </p>
+              ) : (
+                <UnitAttack key={`${attacker}:${peek.unitId}`} actor={attacker} target={peek.unitId} />
+              )
             ) : null}
           </PeekCard>
         ) : null}

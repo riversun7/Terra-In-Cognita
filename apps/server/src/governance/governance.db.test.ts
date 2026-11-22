@@ -18,6 +18,14 @@ import { attachGovernance } from "./attach.ts";
 import { confiscateSharesToHouse, houseKeyOfTail } from "./houseShares.ts";
 import { type GovernanceRules, TEST_GOVERNANCE_RULES } from "./rules.ts";
 
+/** 기본 NPC 국가 지키기(D-593 — gov_fixed_*)를 끈 규칙(이 파일은 옛 출마·쿠데타 길을 본다 — 시험 나라는 기본 NPC 국가다) */
+const BASE_RULES: GovernanceRules = {
+  ...TEST_GOVERNANCE_RULES,
+  fixedCoupLoyalty: 0,
+  fixedCoupPowerPm: 0,
+  fixedNpcRank: false,
+};
+
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
 if (!loaded.source || !loaded.pack) throw new Error("content pack");
 const pack = createContentEditState(loaded.source).effective();
@@ -133,7 +141,7 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결(governance)", () => {
     // NPC 표: 만족도 문턱을 100 넘게 두어 NPC 가문은 늘 바꾸는 쪽(도전자·찬성)에 선다
     // NPC 도전자는 끈다(이 시험은 플레이어 가문이 이기는 길 — 도전자는 아래 셋째 시험)
     let rules: GovernanceRules = {
-      ...TEST_GOVERNANCE_RULES,
+      ...BASE_RULES,
       npcKeepSatisfaction: 101,
       registerMs: HOUR_MS,
       npcRunMax: 0,
@@ -313,7 +321,7 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결(governance)", () => {
       clock += 30 * 60_000;
       await npc.tick(true);
     }
-    let rules: GovernanceRules = { ...TEST_GOVERNANCE_RULES, npcKeepSatisfaction: 101, npcWarTraitPm: 0 };
+    let rules: GovernanceRules = { ...BASE_RULES, npcKeepSatisfaction: 101, npcWarTraitPm: 0 };
     const gov = attachGovernance({
       db: test.db,
       world: () => world,
@@ -418,7 +426,7 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결(governance)", () => {
       await npc.tick(true);
     }
     let rules: GovernanceRules = {
-      ...TEST_GOVERNANCE_RULES,
+      ...BASE_RULES,
       npcKeepSatisfaction: 101,
       registerMs: HOUR_MS,
       npcRunMax: 1,
@@ -499,7 +507,7 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결(governance)", () => {
       clock += 30 * 60_000;
       await npc.tick(true);
     }
-    const rules: GovernanceRules = { ...TEST_GOVERNANCE_RULES, npcKeepSatisfaction: 0 };
+    const rules: GovernanceRules = { ...BASE_RULES, npcKeepSatisfaction: 0 };
     const applied: { nation: number; taxes: unknown }[] = [];
     const gov = attachGovernance({
       db: test.db,

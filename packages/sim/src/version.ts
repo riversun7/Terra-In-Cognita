@@ -338,8 +338,13 @@
  *    목표 = 등급 값 + 덧붙는 수(k번째 = 가장 싼 카드 값 × k를 공격 성향 도전 굴림으로, 상한 = 등급 값 × npc_guard_invest_extra_pm(500) ÷ 1000, 남는
  *    주거 안). 투자 굴림 흐름(STREAM_INVEST 11)에 넷째 굴림(경비대)을 더했다 — 앞 셋(연구·구인·짓기)은 그대로. 등급 값이 0인 세력은 그대로.
  *    출력 칸 모양 그대로 — 형식 23
+ * 115: 줄기 d593(main+40 줄기 판): 기본(시작) NPC 국가를 강하게(사용자 결정 D-593 2621 — "함락되지 않게 강하게, 주변 도시도 강하고 뺏겨도 되찾을만큼",
+ *    npc/fixedNation.ts, docs/adr/2026-11-07-world-layout.md "바뀜 (d593, D-593)"). 고정 세력(SimFaction.fixed)만: ① 경비대 목표 = 등급 값 ×
+ *    npc_fixed_guard_pm(팩 2000) ÷ 1000, ② 다른 세력이 보는 힘(rivalView strength) × npc_fixed_defense_pm(1500) ÷ 1000 — 되찾기 상대면 그대로,
+ *    ③ 잃은 도시(점령 기록 owner = 나)를 가진 상대 치기 점수 + npc_fixed_retake_bonus(200), 칠 도시는 잃은 도시 먼저, ④ 반란 문턱 −
+ *    npc_fixed_rebellion_ease(25). 계수가 없으면(옛 계수표) 그대로. 굴림 흐름·차례·출력 칸 모양 그대로 — 형식 23
  */
-export const SIM_VERSION = 75;
+export const SIM_VERSION = 115;
 
 /**
  * S1 임시 지형 생성기 버전. 같은 시드의 출력이 바뀌면 올린다(골든 해시 시험이 잡는다).

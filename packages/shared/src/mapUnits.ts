@@ -146,6 +146,10 @@ export interface MapUnitGlance {
    * (질문 2012 답). NPC 휴먼·지도자가 아니거나 아직 가문이 없으면 없음
    */
   readonly npcHouse?: { readonly id: number; readonly name: string; readonly leader?: true };
+  /**
+   * 보는 사람과 같은 가문의 남의 유닛이면 true(사용자 결정 D-593 "같은 가문끼리는 공격 자체가 불가" — 기기는 [공격]을 보이지 않는다). 아니면 없음
+   */
+  readonly sameHouse?: true;
 }
 
 export interface MapUnitGlanceResponse {

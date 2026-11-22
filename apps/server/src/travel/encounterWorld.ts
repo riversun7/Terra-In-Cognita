@@ -29,8 +29,9 @@
 // 바뀜 (gov-fix-3 — 질문 2581 (3) 사용자 답, D-570 1904 "무조건 전투가 아니라 현재 전투세팅상태나 전력차, 성향에 따라 판정"·D-573 2022 나): 일부러 치기의 수비 편도
 //    조우와 같은 판단을 한다(clashDecide.ts resolveStrike — 같은 나라 수비 편도). 회피를 골랐고 공격 편보다 빠르면 전투 없이 빠져나가고(결과 코드 escaped — 프로토콜 65,
 //    낮은 판 연결은 out_of_reach), 느리면 전투가 열리고 수비 편 파티는 시작 틱에 퇴각을 시도한다(조우와 같은 flee). 빠져나간 뒤 다시 치는 것을 막는 쉬는 시간은 없다 [임시 2611].
-// 바뀜 (fixes-d592 — D-592 2581 (1)·(4)): NPC가 같은 나라 유닛을 드물게 도시 밖에서 친다(npcStrikes — npcStrike.ts, 일부러 치기와 같은 길 strikeOn). 같은 가문원을
-//    일부러 친 사람은 가문에서 추방된다(공격은 막지 않는다 — factionIdentity/houseExpel.ts [임시 — 해석 확인 중]).
+// 바뀜 (fixes-d592 — D-592 2581 (1)): NPC가 같은 나라 유닛을 드물게 도시 밖에서 친다(npcStrikes — npcStrike.ts, 일부러 치기와 같은 길 strikeOn).
+// 바뀜 (d593 — D-593 "4.네 그러나 공격자체가 불가"): 같은 가문끼리는 일부러 치기 자체가 안 된다(own_target — factionIdentity/houseGuard.ts). NPC 같은 나라 치기도
+//    같은 가문 대상은 고르지 않는다. fixes-d592의 [임시] "같은 가문원 공격 → 추방"은 지웠다.
 import { randomInt } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import {
@@ -47,7 +48,7 @@ import type { PlanetCellValues } from "@terra/planet/secondMap";
 import { creditUnitAttack } from "../credit/hooks.ts";
 import { DEFENSE_STAGE } from "../facilities/cityWalls.ts";
 import { OBSTACLE_DURABILITY, facilityPoints, mapLayers } from "../facilities/siegeLayout.ts";
-import { houseExpelOf } from "../factionIdentity/houseExpel.ts";
+import { sameHouseOwners } from "../factionIdentity/houseGuard.ts";
 import { gatherOf } from "../gather/registry.ts";
 import { attachUnitTactics } from "../tactics/store.ts";
 import { type WorldBattleInit, siegeFacilityTargets } from "../world/battleTargets.ts";
@@ -807,7 +808,9 @@ export function startCoordinateRules(
     const target = map?.unitInfo(input.targetUnitId);
     const targetCell = map ? cellOf(map, input.targetUnitId, at) : undefined;
     if (!map || !target || !targetCell || !isParticipant(target) || isAfloat(target)) return "unknown_unit";
-    if (target.ownerId === ownerId) return "own_target";
+    // 같은 가문끼리는 치지 못한다(D-593 — houseGuard.ts, 같은 주인과 같은 결과 코드)
+    if (target.ownerId === ownerId || sameHouseOwners(persistence, ownerId, target.ownerId))
+      return "own_target";
     if (unavailable(target.condition, at)) return "unavailable";
     const reach = Math.max(1, rules().radiusCells);
     const near = (cell: ArenaUnit): boolean =>
@@ -823,13 +826,7 @@ export function startCoordinateRules(
       mine.push({ unitId, ownerId, kind: info.kind, decider: true, speed: info.speed });
     }
     if (mine.length === 0) return "unknown_unit";
-    const code = await strikeOn(map, mine, ownerId, input.targetUnitId, target.ownerId, near, at);
-    // 같은 가문원을 친 사람은 가문에서 추방된다(공격은 막지 않는다 — 사용자 결정 D-592 2581 (4) [임시 — 해석 확인 중], factionIdentity/houseExpel.ts)
-    if (code === "ok")
-      await houseExpelOf(persistence)?.(input.userId, [target.ownerId], at).catch((error: unknown) =>
-        log.error({ err: error }, "travel: house expel failed"),
-      );
-    return code;
+    return strikeOn(map, mine, ownerId, input.targetUnitId, target.ownerId, near, at);
   };
 
   /**
@@ -864,7 +861,8 @@ export function startCoordinateRules(
       });
       for (const found of npcStrikeCandidates(units, reach)) {
         const key = pairKey(map.mapKey, found.nation, found.nation);
-        if (cooling(key, at)) continue;
+        // 같은 가문 대상은 치지 않는다(D-593 — houseGuard.ts)
+        if (cooling(key, at) || sameHouseOwners(persistence, found.npcOwner, found.targetOwner)) continue;
         const chance = npcStrikeChancePpm(r.npcSameNationPpm, aggressionOf(found.npcOwner, found.nation));
         if (rollPpm() >= chance) continue;
         // 도시(시가지) 안에서는 치지 않는다(D-592 "도시외부에서" — open도 다시 본다)

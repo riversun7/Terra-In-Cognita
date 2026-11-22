@@ -114,7 +114,7 @@ const fail = (code: Extract<GovernanceResult, { ok: false }>["code"]): Governanc
   code,
 });
 
-/** NPC 가문 하나의 쿠데타 점수(출마 점수와 같은 성향 규칙식 — D-323) */
+/** NPC 가문 하나의 쿠데타 점수(출마 점수와 같은 성향 규칙식 — D-323). 기본 NPC 국가는 충성 몫을 뺀다(D-593 2621 — gov_fixed_coup_loyalty) */
 const npcScore = (
   d: CoupDeps,
   nation: GovernanceNation,
@@ -128,7 +128,7 @@ const npcScore = (
       traits: nation.traits,
     },
     d.rules(),
-  );
+  ) - (nation.fixed === true ? d.rules().fixedCoupLoyalty : 0);
 
 export function createCoupService(d: CoupDeps) {
   /** 쿠데타 전투 도시(쿠데타 줄 도시 — 옛 줄은 수도) */
@@ -172,6 +172,25 @@ export function createCoupService(d: CoupDeps) {
       state?.electedAtMs !== undefined &&
       nowMs < state.electedAtMs + protect
     );
+  };
+
+  /** 기본 NPC 국가에서 플레이어 쿠데타를 열 만큼 센가(D-593 2621 — 그 도시에 이미 있는 내 병력 대 정부군, 칸 0이면 보지 않음) [임시 — 질문 2713] */
+  const strongEnough = (
+    nation: GovernanceNation,
+    ruling: HouseKey | null,
+    userId: string,
+    city: number | undefined,
+    nowMs: number,
+  ): boolean => {
+    const ratio = d.rules().fixedCoupPowerPm;
+    if (nation.fixed !== true || ratio <= 0) return true;
+    const mine = here(
+      d.port.userTroops(userId).map((troop) => troop.id),
+      city,
+    );
+    const power = d.port.powerOf(mine, nowMs);
+    const defense = d.port.powerOf(governmentUnits(nation, ruling, city), nowMs);
+    return power > 0 && power * 1000 >= defense * ratio;
   };
 
   /** 쿠데타를 연다(플레이어·NPC 같은 길): 그 도시에서 참가 받기 */
@@ -227,6 +246,8 @@ export function createCoupService(d: CoupDeps) {
     if ((await d.coups.gathering()).some((row) => row.nationId === s.nation.rowId)) return fail("coup_open");
     if (protectedNow(s.state, nowMs)) return fail("coup_protected");
     if (!(await cooledDown(s.ownHouse, nowMs))) return fail("coup_cooldown");
+    // 기본 NPC 국가(D-593 2621 "쿠데타가 일어나지않게"): 그 도시에 와 있는 내 병력이 정부군 × gov_fixed_coup_power_pm ÷ 1000에 못 미치면 열지 못한다(보호 — coup_protected)
+    if (!strongEnough(s.nation, s.ruling.key, userId, city, nowMs)) return fail("coup_protected");
     const coup = await open(s.nation, s.ownHouse, userId, city, nowMs);
     return { ok: true, agendaId: coup.id, action: "coup_started" };
   };

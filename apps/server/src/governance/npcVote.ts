@@ -7,6 +7,7 @@
 // - 세율 안건·국고 지분 팔기·조약 비준(D-588 — 질문 2554): 만족도 차 > 0이면 찬성(지도자 편), < 0이면 반대, 0이면 기권 [임시 질문 2436].
 // - 빈자리 도시 독립 투표: 만족도 차가 낮을수록 찬성, 신앙은 남는 쪽(−만족도 차 × 2 − 신앙) [임시].
 // - 선출: 자기 가문이 후보면 자기 가문. 아니면 현직이 후보이고 만족도 차 ≥ 0이면 현직, 아니면 먼저 등록한 도전자.
+//   기본 NPC 국가(D-593 2621 — npcFirst)는 NPC 가문 후보가 있으면 그 가운데서만 고른다.
 // - loyal(지배 가문 편 — 지금 쓰는 곳 없음, 국고 지분은 표를 던지지 않고 다른 주주에게 나눈다 D-581): 현직·반대(선전포고는 성향 규칙 그대로).
 // 판정에 난수를 쓰지 않는다(같은 입력 = 같은 표).
 import type { GovernanceRegime, HouseKey } from "@terra/shared/governance";
@@ -35,6 +36,8 @@ export interface NpcVoteInput {
   readonly targetRegime?: GovernanceRegime | undefined;
   /** 지배 가문 편(국고 지분) */
   readonly loyal?: boolean | undefined;
+  /** NPC 가문 후보 먼저(기본 NPC 국가의 서열 — D-593 2621, gov_fixed_npc_rank). NPC 후보가 있으면 플레이어 가문 후보는 고르지 않는다 */
+  readonly npcFirst?: boolean | undefined;
 }
 
 export interface NpcVoteRules {
@@ -86,7 +89,9 @@ export function npcVoteChoice(input: NpcVoteInput, rules: NpcVoteRules): string 
       ? 0
       : Math.trunc(input.satisfaction) - rules.npcKeepSatisfaction;
   if (input.kind === "leader_election") {
-    const open = input.candidates.filter((key) => key !== input.barred);
+    const allowed = input.candidates.filter((key) => key !== input.barred);
+    const npc = input.npcFirst ? allowed.filter((key) => key.startsWith("n:")) : [];
+    const open = npc.length > 0 ? npc : allowed;
     if (open.length === 0) return "abstain";
     if (input.self && open.includes(input.self)) return input.self;
     const sitting = input.incumbent !== null && open.includes(input.incumbent) ? input.incumbent : null;

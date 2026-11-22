@@ -38,7 +38,7 @@ import {
   transferShares,
 } from "../society/shares.ts";
 import { advanceTech, techCeiling } from "../society/tech.ts";
-import { capitalistIndependence, independenceAllowed, rebelsOf } from "../society/uprising.ts";
+import { capitalistIndependence, independenceAllowed, rebelShift, rebelsOf } from "../society/uprising.ts";
 import { DAY_MS } from "./metrics.ts";
 import { checkSociety } from "./societyCheck.ts";
 import { createSocietyPayouts } from "./societyPayouts.ts";
@@ -807,7 +807,7 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
         const parent = world.factions.get(city.owner);
         const units = byCity.get(city.id) ?? [];
         if (!parent?.alive || nowMs < city.nextRebellionMs) continue;
-        const shift = Math.trunc(o.hooks?.rebellionThresholdShift?.(parent) ?? 0); // 신임도 보정(서버 고리 — D-585)
+        const shift = rebelShift(o.hooks, parent, c.npc); // 신임도 보정(서버 고리 — D-585)·고정 국가(D-593)
         const rebels = new Set(
           rebelsOf(units, shift === 0 ? c : { ...c, rebellionThreshold: c.rebellionThreshold + shift }),
         );

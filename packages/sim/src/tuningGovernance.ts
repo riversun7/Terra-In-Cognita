@@ -444,4 +444,26 @@ export const GOVERNANCE_TUNING_KEYS: readonly TuningKey[] = [
     "조약 위반 기록을 잊는 기간(ms, 0 = 잊지 않음)",
     "How long a treaty breach is remembered (ms, 0 = forever)",
   ),
+  // 기본(시작) NPC 국가 지키기(줄기 d593 — 사용자 결정 D-593 2621)
+  k(
+    "gov_fixed_coup_loyalty",
+    "",
+    "governance.fixedCoupLoyalty",
+    "기본 NPC 국가: NPC 가문 쿠데타 점수 낮춤(충성)",
+    "Default NPC nation: NPC house coup score drop (loyalty)",
+  ),
+  k(
+    "gov_fixed_coup_power_pm",
+    "",
+    "governance.fixedCoupPowerPm",
+    "기본 NPC 국가: 플레이어 쿠데타를 여는 힘 비(‰)",
+    "Default NPC nation: player coup launch strength ratio (‰)",
+  ),
+  k(
+    "gov_fixed_npc_rank",
+    "",
+    "governance.fixedNpcRank",
+    "기본 NPC 국가: NPC 서열 지키기(1 = 켬)",
+    "Default NPC nation: keep NPC rank (1 = on)",
+  ),
 ];

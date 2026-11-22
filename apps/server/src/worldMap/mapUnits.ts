@@ -113,6 +113,8 @@ export interface MapUnitSource {
    * 고리를 싣지 않는다
    */
   ownerNations?: ((ownerIds: readonly number[]) => Promise<ReadonlyMap<number, number | null>>) | undefined;
+  /** 두 소유 주체가 같은 가문인가(D-593 — factionIdentity/houseGuard.ts). 없으면 같은 가문 표시를 하지 않는다 */
+  sameHouse?: ((a: number, b: number) => boolean) | undefined;
 }
 
 export interface MapUnitReads {
@@ -346,6 +348,13 @@ export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
         : source.isUserOwner?.(info.ownerId) === true
           ? { unaffiliated: true as const }
           : {};
+      // 같은 가문의 남의 유닛(D-593 — 공격할 수 없다, 기기가 [공격]을 감춘다)
+      const housePart =
+        ownerId !== undefined &&
+        info.ownerId !== ownerId &&
+        source.sameHouse?.(ownerId, info.ownerId) === true
+          ? { sameHouse: true as const }
+          : {};
       // NPC 국가 지도자는 그 나라 지도자 이름(WP-NPC)
       const leader =
         info.kind === UNIT_KIND_NPC_LEADER && faction?.code
@@ -361,6 +370,7 @@ export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
             kind: "human",
             faction,
             ...ownerPart,
+            ...housePart,
             ...(human.name === undefined ? {} : { name: { ko: human.name, en: human.name } }),
             ...(human.guard === true ? { guard: true as const } : {}),
             ...(human.house
@@ -383,6 +393,7 @@ export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
           kind: kindOf(info.kind),
           faction,
           ...ownerPart,
+          ...housePart,
           ...(leader ? { name: leader } : {}),
           ...(ruling ? { npcHouse: { id: ruling.id, name: ruling.name, leader: true as const } } : {}),
         },

@@ -42,6 +42,7 @@ import type {
 import { NATION_COLOR_PATTERN, TERRITORY_DISPLAY_START } from "@terra/shared/worldMap";
 import { type CatchmentRadiusRules, catchmentRadiusRulesOf } from "../territory/catchmentRules.ts";
 import { houseIdentityOf, ownerIdentityOf } from "../factionIdentity/store.ts";
+import { sameHouseOwners } from "../factionIdentity/houseGuard.ts";
 import { houseTiesOf } from "../world/houseTies.ts";
 import { type GovernmentReads, type GovernmentSource, governmentReadsOfWorld } from "../government/reads.ts";
 import { loadEmblemHashes } from "../nationEdit/emblems.ts";
@@ -778,6 +779,8 @@ export function worldMapReadsOf(options: {
       return house === undefined ? null : houseIdentityOf(options.pool, house);
     },
     leaderName: leaderOfCode,
+    // 같은 가문의 남의 유닛(D-593 — 공격 불가, 기기가 [공격]을 감춘다)
+    sameHouse: (a, b) => sameHouseOwners(world.persistence, a, b),
     // 고른 유닛의 추천 줄(1차 생산·전투 유형): 직무 산출과 같은 1차 스탯
     primaries: (unitId) => world.persistence?.holdings.primariesOf(unitId),
     // NPC 도시 휴먼 이름(773 나, "WP-NPC4")·경비대 표시(920 라)·가문: 거울 세계 휴먼만

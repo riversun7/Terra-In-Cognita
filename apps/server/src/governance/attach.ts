@@ -64,7 +64,9 @@ export function attachGovernance(o: {
   readonly diplomacy?: (() => { readonly hooks: TreatyHooks; tick(): Promise<void> } | undefined) | undefined;
 }): GovernanceAttached {
   // 쿠데타 전투 자료: 넘긴 것이 없으면 NPC 런타임 정원사가 쓰는 팩 전투 자료(줄기 governance-5 — app.ts를 키우지 않는다), 그것도 없으면 시험 자료
-  const port = worldGovernancePort(o.world, o.combat ?? (() => o.world()?.npc?.gardener.combat()));
+  const world = worldGovernancePort(o.world, o.combat ?? (() => o.world()?.npc?.gardener.combat()));
+  // 시험(manual)은 서버 타이머로 깨우지 않는다(쿠데타 병력 도착·전투 끝 — 틱을 직접 부른다, 줄기 no-teleport-a)
+  const port: GovernancePort = o.manual ? { ...world, wakeAt: () => undefined } : world;
   // 쿠데타 신용(D-584 — credit/): 혁명군 가담 내림·이긴 편 새 나라 시작 가산
   const creditOf = () => {
     const ledger = o.world()?.persistence?.ledger;

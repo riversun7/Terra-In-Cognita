@@ -129,6 +129,57 @@ test.describe("건물", () => {
     expect(deviceErrors).toEqual([]);
   });
 
+  test("칠 대상 근처 조건(질문 2659): 대상에서 32칸 밖인 고른 유닛은 누르기 전에 '멀어서 못 침'으로 보이고 [공격]이 꺼진다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    // 응답을 고쳐 칠 대상 하나를 넣는다: 내 본체(첫 유닛)가 같은 2차맵이지만 32칸 밖(farUnitIds) — 줄기 no-teleport-a, D-591
+    let bodyId = 0;
+    await rewriteTrpc(page, {
+      "summary.get": hideSummary,
+      "facilities.overview": (data) => {
+        if (typeof data !== "object" || data === null) throw new Error("overview 응답 모양이 다릅니다");
+        const units: unknown = Reflect.get(data, "units");
+        const first: unknown = Array.isArray(units) ? units[0] : undefined;
+        bodyId = typeof first === "object" && first !== null ? Number(Reflect.get(first, "id")) : 0;
+        const mapKey = typeof first === "object" && first !== null ? Number(Reflect.get(first, "mapKey")) : 0;
+        Reflect.set(data, "targets", [
+          {
+            kind: "facility",
+            id: 990_001,
+            facilityId: "workshop",
+            name: { ko: "남의 공방", en: "Someone's workshop" },
+            mapKey,
+            x: 10,
+            y: 10,
+            conditionPpm: 1_000_000,
+            state: "ok",
+            durability: 300,
+            maxDurability: 300,
+            unitIds: [],
+            farUnitIds: [bodyId],
+          },
+        ]);
+      },
+    });
+    await page.goto("/economy/production");
+    const facilities = panel(page);
+    await expect(facilities.locator('[data-part="facility-units"]')).toBeVisible({ timeout: 15_000 });
+    const target = facilities.locator('[data-part="facility-target"]');
+    await expect(target).toHaveCount(1);
+    const attack = target.getByRole("button", { name: message("ko", "facility_attack", { count: 0 }) });
+    await expect(attack).toBeDisabled();
+    await expect(target.locator('[data-part="facility-target-far"]')).toHaveCount(0);
+    // 본체를 고르면: 멀어서 못 침(그 유닛 번호)·모두 멀다는 까닭, [공격]은 그대로 꺼짐
+    await facilities.locator('[data-part="facility-units"]').getByRole("checkbox").first().check();
+    await expect(target.locator('[data-part="facility-target-far"]')).toHaveText(
+      message("ko", "facility_attack_far", { units: `#${bodyId}` }),
+    );
+    await expect(target).toContainText(message("ko", "facility_attack_needs_near"));
+    await expect(attack).toBeDisabled();
+    expect(deviceErrors).toEqual([]);
+  });
+
   test("물가 조건(질문 947 나): 낚시터를 고르면 그 2차맵 물 표로 둘레 5칸 물을 미리 보고, 물이 없으면 [짓기]가 막힌다", async ({
     page,
     deviceErrors,

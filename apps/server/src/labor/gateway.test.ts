@@ -16,6 +16,12 @@ const notUsed = (): never => {
 function fakeService(calls: string[]): LaborService {
   return {
     contracts: new Map(),
+    commute: {
+      begin: () => {},
+      commuteOf: () => undefined,
+      pauses: (base) => base,
+      injury: (hook) => hook,
+    },
     outputsFor: () => undefined,
     afterSettle: () => {},
     unitBusy: () => false,

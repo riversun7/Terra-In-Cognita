@@ -8,34 +8,27 @@
 // - 힘(질문 2433 가 기술 기본값 — 랭킹 전투력 D-576과 같은 몸): 유닛마다 전투력 몸(battleBodies basePower — 버프 없는 기본 수치) 합. 몸을 모르면 유닛마다 1.
 // - 쿠데타 전투(D-583 2433 나 가 — 반란 전투 틀 D-256): @terra/sim runCoupBattle(반란과 같은 도시 안 공성 — 혁명군이 시청을 무너뜨리거나 정부군을 모두
 //   쓰러뜨리면 이김). 거울 세계 유닛의 부상만 남는다(세계 유닛 생명 수치는 건드리지 않는다 [임시]).
-//   바뀜(줄기 no-teleport — D-591): 병력은 쿠데타 도시에 도착한 유닛만 넘어온다(coup.ts·coupDispatch.ts). 플레이어 유닛은 거울 유닛 모양으로 넣는다(아래 troopUnit).
+//   바뀜(줄기 no-teleport — D-591): 병력은 쿠데타 도시에 도착한 유닛만 넘어온다(coup.ts·coupDispatch.ts). 플레이어 유닛은 거울 유닛 모양으로 넣었다(troopUnit — 아래 no-teleport-a가 지움).
+//   바뀜(줄기 no-teleport-a — D-591, 질문 2652·2653): 쿠데타 전투는 세계 전투다(coupWorldBattle.ts — 실제 몸·부상·늦게 닿은 병력 참전). runCoupBattle·troopUnit은 지웠다.
 //   거울 세계 유닛 ID를 주던 userUnits는 지웠다(플레이어 유닛은 거울 세계에 없어 늘 빈 목록이었다 — 보낼 병력은 coupDispatch.ts userTroops).
 import type { HouseKey } from "@terra/shared/governance";
 import {
   type CombatCatalog,
   type CombatCoefficients,
-  type SimUnit,
-  TEST_COMBAT_CATALOG,
-  TEST_COMBAT_COEFFICIENTS,
   holdingsOf,
   houseHoldingsOf,
   houseShareCode,
-  runCoupBattle,
   shareAsset,
 } from "@terra/sim";
 import { houseVaultCode } from "../factionIdentity/houseVault.ts";
 import { npcHouseVaultCode } from "../npc/rulingVault.ts";
 import { ASSET_CREDIT } from "../world/settlement.ts";
 import type { World } from "../world/world.ts";
+import { type GovernancePortCoupBattle, worldGovernancePortCoupBattle } from "./coupWorldBattle.ts";
 import { confiscateSharesToHouse, houseTailOf } from "./houseShares.ts";
 import type { GovernanceNation } from "./port.ts";
 
-/** 쿠데타 전투 맵·편마다 유닛 수(설정 칸 gov_coup_battle_units) */
-export interface CoupBattleSize {
-  readonly unitsPerSide: number;
-}
-
-export interface GovernancePortCoup {
+export interface GovernancePortCoup extends GovernancePortCoupBattle {
   /** 그 가문의 유닛 ID(위 머리 주석) */
   houseUnits(nation: GovernanceNation, key: HouseKey): readonly number[];
   /** 그 도시 경비대 유닛 ID(도시를 모르면 수도 — 쿠데타 전투 도시, D-588 2492 가) */
@@ -44,14 +37,6 @@ export interface GovernancePortCoup {
   cityName(cityId: number): string | undefined;
   /** 유닛 힘 합(전투력 몸, 모르면 1) */
   powerOf(unitIds: readonly number[], nowMs: number): number;
-  /** 쿠데타 전투(혁명군이 이기면 true). 한 유닛이 두 편에 있으면 혁명군 쪽에서 뺀다 */
-  coupBattle(
-    nation: GovernanceNation,
-    rebels: readonly number[],
-    loyal: readonly number[],
-    nowMs: number,
-    size: CoupBattleSize,
-  ): boolean;
   /** 그 나라 모든 도시의 다른 주주 지분 → 그 가문 계정(쿠데타 성공, D-582) */
   confiscateToHouse(nation: GovernanceNation, key: HouseKey, nowMs: number): bigint;
   /** 그 나라 도시에서 from 가문 계정 지분 → to 가문 계정(지배 가문이 바뀜 — 질문 2432 나). 옮긴 주 수 */
@@ -80,24 +65,6 @@ export interface GovernancePortCoup {
   treasuryShares(nation: GovernanceNation, cityId: number): bigint;
 }
 
-/** 쿠데타 전투에 넣는 플레이어 유닛의 거울 유닛 모양(세계 유닛 표에 넣지 않는다 — 전투 부상은 거울 세계 유닛에만 남는다) */
-function troopUnit(id: number, nowMs: number): SimUnit {
-  return {
-    id,
-    city: 0,
-    owner: 0,
-    job: { job: 0, phase: 0, progressMs: 0, fatigue: 0 },
-    pos: { x: 0, y: 0 },
-    tripStep: 0,
-    eventId: undefined,
-    satisfactionMilli: 0,
-    bornAtMs: nowMs,
-    lifespanMs: 0,
-    recruit: null,
-    rebirths: 0,
-  };
-}
-
 type CoupWorld = Pick<World, "status" | "npc" | "persistence" | "maps">;
 
 export function worldGovernancePortCoup(
@@ -116,6 +83,8 @@ export function worldGovernancePortCoup(
     return faction ? [...faction.units].toSorted((a, b) => a - b) : [];
   };
   return {
+    // 쿠데타 전투 = 세계 전투(줄기 no-teleport-a — D-591, 질문 2652·2653, coupWorldBattle.ts)
+    ...worldGovernancePortCoupBattle(world, combat),
     houseUnits(nation, key) {
       const l = live();
       if (!l) return [];
@@ -148,34 +117,6 @@ export function worldGovernancePortCoup(
         sum += power > 0 ? Math.trunc(power) : 1;
       }
       return sum;
-    },
-    coupBattle(nation, rebels, loyal, nowMs, size) {
-      const l = live();
-      const government = l?.npc.world.factions.get(nation.ownerId);
-      if (!l || !government) return false;
-      const loyalSet = new Set(loyal);
-      // 플레이어 유닛(거울 세계에 없음 — 사이보그 본체·고용 휴먼·사이보그 유닛)은 도착한 세계 유닛이면 거울 유닛 모양으로 넣는다(줄기 no-teleport — D-591,
-      // coupDispatch.ts): 스탯은 거울 휴먼과 같은 기술 단계 값, 전투 부상은 남지 않는다 [임시 — 질문 2653]
-      const onMap = (id: number): boolean =>
-        [...l.maps.values()].some((map) => map.unitInfo(id) !== undefined) ||
-        l.persistence.travel.parkedAt(id) !== undefined;
-      const pick = (ids: readonly number[]): SimUnit[] =>
-        ids.flatMap((id) => {
-          const unit = l.npc.world.units.get(id);
-          if (unit) return [unit];
-          return onMap(id) ? [troopUnit(id, nowMs)] : [];
-        });
-      const kit = combat?.() ?? { catalog: TEST_COMBAT_CATALOG, rules: TEST_COMBAT_COEFFICIENTS };
-      return runCoupBattle({
-        world: l.npc.world,
-        government,
-        rebels: pick(rebels.filter((id) => !loyalSet.has(id))),
-        loyal: pick(loyal),
-        nowMs,
-        unitsPerSide: size.unitsPerSide,
-        catalog: kit.catalog,
-        combat: kit.rules,
-      });
     },
     confiscateToHouse(nation, key, nowMs) {
       const l = live();

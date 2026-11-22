@@ -4,6 +4,7 @@ import {
   COUP_PROTOCOL_VERSION,
   GOVERNANCE5_PROTOCOL_VERSION,
   GOV_COUP_PROTOCOL_VERSION,
+  COUP_BATTLE_JOIN_PROTOCOL_VERSION,
   COUP_DISPATCH_PROTOCOL_VERSION,
   MIN_SUPPORTED_PROTOCOL_VERSION,
   GOVERNANCE_PROTOCOL_VERSION,
@@ -130,6 +131,9 @@ describe("나라 의결 메시지", () => {
   it("쿠데타 병력 파견(묶음 1117h 판 67, 줄기 no-teleport 판 125 — D-591): 메시지 모양은 그대로, 뜻만 바뀌어 판을 올린다", () => {
     expect(COUP_DISPATCH_PROTOCOL_VERSION).toBe(67);
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(COUP_DISPATCH_PROTOCOL_VERSION);
+    // 쿠데타 전투 참전(줄기 no-teleport-a 판 165 — D-591·2652): 전투 중에도 받는다, 모양 그대로
+    expect(COUP_BATTLE_JOIN_PROTOCOL_VERSION).toBe(68);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(COUP_BATTLE_JOIN_PROTOCOL_VERSION);
     const join = {
       t: "gov_coup_join" as const,
       id: 16,

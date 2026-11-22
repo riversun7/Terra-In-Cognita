@@ -47,9 +47,17 @@
 // 모두(일으킨 가문·지배 가문·참가자·경비대, 플레이어·NPC). 플레이어 참가자는 고른 유닛을 이동 서비스로 보내고(고르지 않으면 이미 그 도시에 있는 내 유닛만),
 // 일으킨 사람도 처음에는 그 도시에 있는 내 유닛만 든다(더 보내려면 혁명군 참가로 고른다). NPC 유닛은 2차맵 사이로 보내는 길이 없어 그 도시에 있는 것만 [임시 — 질문 2651].
 // 늦게 닿는 유닛은 싸우지 않는다 [임시 — 질문 2652]. NPC 일으키기·참가의 힘 비도 그 도시에 있는 힘으로 본다.
+// 바뀜 (줄기 no-teleport-b — D-591·질문 2651 나): NPC 가문원도 실제로 보낸다(coupNpcDispatch.ts — 참가 받는 동안 틱마다 일으킨 NPC 가문·NPC 지배 가문·
+// 편을 든 NPC 가문의 가문원을 그 도시로, NPC 파견 travel/npcTravel.ts). 닿은 유닛만 싸우는 것은 그대로다. NPC 힘 비 = 보낼 가문원 모두 [임시 — 질문 2698].
+// 바뀜(줄기 no-teleport-a — D-591, 질문 2652·2653 기획 정리, 위 [임시 2652]·반란 전투 틀 빨리감기를 대신한다): 쿠데타 전투는 세계 전투다(coupWorldBattle.ts).
+// - 참가 받기 끝 → 그 도시에 도착한 병력으로 전투를 연다(혁명군이 하나도 없으면 싸우지 않고 진다). 쿠데타는 전투가 끝날 때까지 gathering(결과 칸 battleId).
+// - 늦게 닿은 병력은 진행 중인 전투에 참전한다(D-176 지원 참전 — 1분 틱과 보낸 병력 도착 시각의 깨우기 arrivals). 편 들기·병력 보내기도 전투가 끝날 때까지 받는다.
+// - 플레이어 유닛은 실제 몸으로 싸우고 부상·돌아가기가 세계에 남는다(다른 세계 전투와 같은 판정 — D-099). 보상 = 병력이 전투에 든 이긴 편 참가자(coupOutcome.ts).
 import type { HouseKey } from "@terra/shared/governance";
 import { arrivedIn, dispatchTroops } from "./coupDispatch.ts";
-import type { CoupRow, CoupSide, CoupStore } from "./coupStore.ts";
+import { dispatchCoupNpcSides } from "./coupNpcDispatch.ts";
+import { createCoupOutcome } from "./coupOutcome.ts";
+import type { CoupRow, CoupSide, CoupSideRow, CoupStore } from "./coupStore.ts";
 import type { ElectorateTools } from "./electorate.ts";
 import { npcRunScore } from "./npcVote.ts";
 import type { GovernanceNation, GovernancePort } from "./port.ts";
@@ -77,19 +85,25 @@ export type CoupPort = Pick<
   | "cityIndependence"
   | "citySatisfaction"
   | "confiscateToHouse"
-  | "coupBattle"
+  | "coupBattleState"
   | "dropSatisfaction"
   | "houseUnits"
+  | "joinCoupBattle"
   | "nation"
   | "nationUnits"
   | "npcHousesOf"
+  | "npcTroopEta"
+  | "openCoupBattle"
   | "payCoupCost"
   | "powerOf"
   | "ready"
+  | "sendNpcTroop"
   | "sendTroop"
   | "setRegime"
+  | "troopEta"
   | "unitMapOf"
   | "userTroops"
+  | "wakeAt"
 >;
 
 export interface CoupDeps {
@@ -98,7 +112,15 @@ export interface CoupDeps {
   readonly leader: Pick<LeaderStore, "houseHomes">;
   readonly coups: Pick<
     CoupStore,
-    "coup" | "finishCoup" | "gathering" | "insertCoup" | "join" | "lastCoupOf" | "saveShareHouse" | "sides"
+    | "coup"
+    | "finishCoup"
+    | "gathering"
+    | "insertCoup"
+    | "join"
+    | "lastCoupOf"
+    | "markBattle"
+    | "saveShareHouse"
+    | "sides"
   >;
   readonly tools: Pick<ElectorateTools, "ruling">;
   readonly rules: () => GovernanceRules;
@@ -108,6 +130,9 @@ export interface CoupDeps {
   /** 쿠데타 신용(D-584). 없으면 신용을 바꾸지 않는다 */
   readonly credit?: CoupCredit | undefined;
 }
+
+/** 병력 도착·전투 끝 뒤 다시 보기까지 여유(ms) */
+export const COUP_WAKE_SLACK_MS = 1_000;
 
 const fail = (code: Extract<GovernanceResult, { ok: false }>["code"]): GovernanceResult => ({
   ok: false,
@@ -131,6 +156,18 @@ const npcScore = (
   );
 
 export function createCoupService(d: CoupDeps) {
+  const { settle, unitsOf } = createCoupOutcome(d);
+  /** 쿠데타 틱·도착 깨우기를 하나씩 돈다(같은 유닛을 두 번 참전시키지 않게) */
+  let chain: Promise<void> = Promise.resolve();
+  const serial = (run: () => Promise<void>): Promise<void> => {
+    const next = chain.then(run, run);
+    chain = next.catch(() => undefined);
+    return next;
+  };
+  /** 서버 타이머가 부르는 깨우기(아래 arrivals가 채운다) */
+  let wakeUp: (() => void) | undefined;
+  const wake = (): void => wakeUp?.();
+
   /** 쿠데타 전투 도시(쿠데타 줄 도시 — 옛 줄은 수도) */
   const battleCityOf = (coup: CoupRow, nation: GovernanceNation): number | undefined =>
     coup.cityId ?? d.port.capitalOf(nation);
@@ -140,6 +177,14 @@ export function createCoupService(d: CoupDeps) {
   /** 그 도시 2차맵에 도착해 있는 유닛만(D-591 — 순간이동 없음) */
   const here = (ids: readonly number[], city: number | undefined): number[] =>
     arrivedIn(d.port, [...new Set(ids)], placeOf(city));
+
+  /** 그 가문이 쿠데타에 낼 병력: NPC 가문 = 가문원 모두(보낸다 — coupNpcDispatch.ts), 플레이어 가문 = 그 도시에 있는 것(D-591, 2698 [임시]) */
+  const comingUnits = (nation: GovernanceNation, key: HouseKey | null, city: number | undefined): number[] =>
+    key === null
+      ? []
+      : key.startsWith("n:")
+        ? [...d.port.houseUnits(nation, key)]
+        : here(d.port.houseUnits(nation, key), city);
 
   /** 정부군 유닛(지배 가문 유닛 + 그 도시 경비대) 가운데 그 도시에 도착해 있는 것(D-591) */
   const governmentUnits = (
@@ -241,7 +286,8 @@ export function createCoupService(d: CoupDeps) {
     if (!d.port.ready()) return fail("busy");
     const coup = await d.coups.coup(coupId);
     const nowMs = d.now();
-    if (!coup || coup.status !== "gathering" || nowMs >= coup.gatherUntilMs) return fail("unknown_coup");
+    // 전투 중에도 든다(D-176 지원 참전 — 닿은 병력은 전투에 참전, 줄기 no-teleport-a 2652). 끝난 쿠데타만 막는다
+    if (!coup || coup.status !== "gathering") return fail("unknown_coup");
     // 일으킨 사람은 혁명군에서 빠질 수 없다
     if (coup.userId === userId && side !== "rebel") return fail("invalid_choice");
     const nation = d.port.nation(coup.nationId);
@@ -259,6 +305,14 @@ export function createCoupService(d: CoupDeps) {
       units,
     });
     if (side === "rebel" && before?.side !== "rebel") d.credit?.joined(userId, nowMs);
+    // 보낸 병력이 닿을 즈음 다시 본다(전투 중이면 참전 — 2652). 전투 중이고 이미 그 도시에 있는 병력은 바로 참전
+    const place = nation ? placeOf(battleCityOf(coup, nation)) : undefined;
+    if (place)
+      for (const id of units) {
+        const eta = d.port.troopEta(userId, id, place.mapKey);
+        if (eta !== undefined) d.port.wakeAt(eta + COUP_WAKE_SLACK_MS, nowMs, wake);
+      }
+    if (coup.battleId !== null) wake();
     return { ok: true, agendaId: coupId, action: "coup_joined" };
   };
 
@@ -275,8 +329,9 @@ export function createCoupService(d: CoupDeps) {
       if (key === ruling) continue;
       const score = npcScore(d, nation, house);
       if (score < rules.coupNpcScore) continue;
-      const defense = d.port.powerOf(governmentUnits(nation, ruling, house.cityId), nowMs);
-      const power = d.port.powerOf(here(d.port.houseUnits(nation, key), house.cityId), nowMs);
+      const guards = here(d.port.cityGuards(nation, house.cityId), house.cityId);
+      const defense = d.port.powerOf([...comingUnits(nation, ruling, house.cityId), ...guards], nowMs);
+      const power = d.port.powerOf(comingUnits(nation, key, house.cityId), nowMs);
       if (power <= 0 || power * 1000 < defense * rules.coupNpcPowerPm) continue;
       if (!(await cooledDown(key, nowMs))) continue;
       picks.push({ key, id: house.id, city: house.cityId, score });
@@ -302,62 +357,75 @@ export function createCoupService(d: CoupDeps) {
         joinerKey: key,
         userId: null,
         side,
-        power: d.port.powerOf(here(d.port.houseUnits(nation, key), city), nowMs),
+        power: d.port.powerOf(comingUnits(nation, key, city), nowMs),
         joinedAtMs: nowMs,
       });
     }
   };
 
-  /** 쿠데타가 차지할 도시 = 싸운 도시(D-588 2492 가 — 시작 도시·수도도, 2542). 옛 나라 도시가 아니거나 모르면 undefined */
-  const seizedCityOf = (coup: CoupRow, nation: GovernanceNation): number | undefined => {
-    const city = coup.cityId ?? d.port.capitalOf(nation);
-    return city !== undefined && nation.cities.includes(city) ? city : undefined;
+  /** NPC 가문 병력을 쿠데타 도시로 보낸다(일으킨 NPC 가문·NPC 지배 가문·편을 든 NPC 가문 — D-591, coupNpcDispatch.ts) */
+  const sendNpcSides = async (coup: CoupRow, nation: GovernanceNation, ruling: HouseKey | null) => {
+    const joined = (await d.coups.sides(coup.id)).map((row) => row.joinerKey);
+    await dispatchCoupNpcSides(
+      d.port,
+      nation,
+      [coup.houseKey, ruling, ...joined],
+      placeOf(battleCityOf(coup, nation)),
+    );
   };
 
-  /** 이긴 쿠데타: 싸운 도시만 새 독재 나라로(D-585·D-588, 2542 — 옛 나라 전체는 없다). 새 나라 소유 주체 ID(못 떼면 undefined) */
-  const seize = async (
+  /** 지금 그 도시 2차맵에 도착한 두 편 병력(D-591 — 순간이동 없음) */
+  const armies = (
     coup: CoupRow,
     nation: GovernanceNation,
-    nowMs: number,
-    result: Record<string, unknown>,
-  ): Promise<number | undefined> => {
-    const rules = d.rules();
-    const city = seizedCityOf(coup, nation);
-    const child = city === undefined ? undefined : await d.port.cityIndependence(nation, city, nowMs, true);
-    const target = child === undefined ? undefined : d.port.nation(child);
-    result.city = city ?? null;
-    result.newNationId = target?.rowId ?? null;
-    if (!target) {
-      result.seized = "0";
-      result.reason = "no_split";
-      return undefined;
-    }
-    await d.store.saveState(
-      {
-        nationId: target.rowId,
-        rulingHouseKey: coup.houseKey,
-        electedAtMs: nowMs,
-        termEndsAtMs: null,
-        shareVotesSuspended: false,
-        vacantSinceMs: null,
-        npcHeadUnit: null,
-      },
-      nowMs,
+    ruling: HouseKey | null,
+    sides: readonly CoupSideRow[],
+  ): { rebels: number[]; loyal: number[] } => {
+    const city = battleCityOf(coup, nation);
+    const rebels = here(
+      [
+        ...d.port.houseUnits(nation, coup.houseKey),
+        ...sides.filter((row) => row.side === "rebel").flatMap((row) => unitsOf(nation, row)),
+      ],
+      city,
     );
-    if (target.regime !== "dictatorship") d.port.setRegime(target, "dictatorship");
-    const seized = d.port.confiscateToHouse(target, coup.houseKey, nowMs);
-    await d.coups.saveShareHouse(
-      { nationId: target.rowId, houseKey: coup.houseKey, treasuryKept: false },
-      nowMs,
-    );
-    d.port.dropSatisfaction(d.port.nationUnits(target), rules.coupSatisfactionDrop);
-    if (!target.playerHouse) d.port.applyRuling(target, coup.houseKey);
-    result.seized = seized.toString();
-    return target.ownerId;
+    const loyal = [
+      ...new Set([
+        ...governmentUnits(nation, ruling, city),
+        ...here(
+          sides.filter((row) => row.side === "government").flatMap((row) => unitsOf(nation, row)),
+          city,
+        ),
+      ]),
+    ];
+    const loyalSet = new Set(loyal);
+    return { rebels: rebels.filter((id) => !loyalSet.has(id)), loyal };
   };
 
-  /** 참가 받기가 끝난 쿠데타의 전투와 결과 */
-  const resolve = async (
+  /** 지배 가문이 이미 쿠데타 가문이면 취소한다(true = 취소함) */
+  const cancelIfRuling = async (
+    coup: CoupRow,
+    nation: GovernanceNation,
+    ruling: HouseKey | null,
+    nowMs: number,
+  ) => {
+    if (ruling !== coup.houseKey) return false;
+    await d.coups.finishCoup(coup.id, "cancelled", { reason: "already_ruling" }, nowMs);
+    await d.audit(coup.userId, "governance.coup_cancelled", { nationId: nation.rowId, coupId: coup.id });
+    return true;
+  };
+
+  /** 전투 끝을 조금 지나 다시 본다(1분 의결 틱보다 빨리 결과를 넣는다) */
+  const wakeForEnd = async (battleId: number, nowMs: number): Promise<void> => {
+    const state = await d.port.coupBattleState(battleId);
+    if (state?.state === "running") d.port.wakeAt(state.endsAtMs + COUP_WAKE_SLACK_MS, nowMs, wake);
+  };
+
+  /**
+   * 참가 받기가 끝난 쿠데타: 그 도시에 도착한 병력으로 세계 전투를 연다(줄기 no-teleport-a — D-591·질문 2652·2653, coupWorldBattle.ts). 혁명군이 하나도
+   * 닿지 않았으면 싸우지 않고 진다. 전투를 열 수 없으면(세계 준비 안 됨 등) 취소
+   */
+  const openBattle = async (
     coup: CoupRow,
     nation: GovernanceNation | undefined,
     state: StateRow | undefined,
@@ -368,104 +436,125 @@ export function createCoupService(d: CoupDeps) {
       return;
     }
     const ruling = (await d.tools.ruling(nation, state)).key;
-    if (ruling === coup.houseKey) {
-      await d.coups.finishCoup(coup.id, "cancelled", { reason: "already_ruling" }, nowMs);
-      await d.audit(coup.userId, "governance.coup_cancelled", { nationId: nation.rowId, coupId: coup.id });
-      return;
-    }
-    const rules = d.rules();
-    const sides = await d.coups.sides(coup.id);
+    if (await cancelIfRuling(coup, nation, ruling, nowMs)) return;
     const city = battleCityOf(coup, nation);
-    /** 참가 줄의 병력(보낸 것 — 도착 여부는 아래 here): 플레이어 = 보낸 유닛 가운데 아직 그 사람 것(옛 줄은 그 사람 유닛 모두), NPC 가문 = 가문원 */
-    const unitsOf = (row: (typeof sides)[number]): readonly number[] => {
-      if (row.joinerKey.startsWith("u:")) {
-        const owned = d.port.userTroops(row.joinerKey.slice(2)).map((troop) => troop.id);
-        if (row.units === null || row.units === undefined) return owned;
-        const still = new Set(owned);
-        return row.units.filter((id) => still.has(id));
-      }
-      return row.joinerKey.startsWith("n:")
-        ? d.port.houseUnits(nation, `n:${Number(row.joinerKey.slice(2))}`)
-        : [];
-    };
-    // 그 도시 2차맵에 도착한 유닛만 싸운다(D-591 — 순간이동 없음, 늦게 닿는 유닛은 빠진다 [임시 2652])
-    const rebels = here(
-      [
-        ...d.port.houseUnits(nation, coup.houseKey),
-        ...sides.filter((row) => row.side === "rebel").flatMap(unitsOf),
-      ],
-      city,
-    );
-    const loyal = [
-      ...new Set([
-        ...governmentUnits(nation, ruling, city),
-        ...here(sides.filter((row) => row.side === "government").flatMap(unitsOf), city),
-      ]),
-    ];
-    // 반란 전투 틀 빨리감기: 거울 세계 유닛 부상만, 포로 없음(내전 — 2456 가, D-099·D-187)
-    const won = d.port.coupBattle(nation, rebels, loyal, nowMs, { unitsPerSide: rules.coupBattleUnits });
-    const result: Record<string, unknown> = {
+    const { rebels, loyal } = armies(coup, nation, ruling, await d.coups.sides(coup.id));
+    const base = {
       ruling,
       battleCity: city ?? null,
       rebelUnits: rebels.length,
       governmentUnits: loyal.length,
-      rebelPower: d.port.powerOf(rebels, nowMs),
-      governmentPower: d.port.powerOf(loyal, nowMs),
-      rebels: sides.filter((row) => row.side === "rebel").map((row) => row.joinerKey),
-      government: sides.filter((row) => row.side === "government").map((row) => row.joinerKey),
     };
-    let newNationOwner: number | undefined;
-    if (won) newNationOwner = await seize(coup, nation, nowMs, result);
-    else {
-      const paid = d.port.payCoupCost(nation, coup.houseKey, rules.coupFailCost, nowMs);
-      d.port.dropSatisfaction(d.port.houseUnits(nation, coup.houseKey), rules.coupFailSatisfactionDrop);
-      result.paid = paid.toString();
+    if (rebels.length === 0) {
+      await settle(coup, nation, false, new Set(loyal), nowMs, { ...base, reason: "no_rebels" });
+      return;
     }
-    // 이긴 편 플레이어 참가자 보상(공훈 = 나라 명성, 신용 = 새 나라 시작 가산). 병력 없이 편만 든 사람·병력이 전투 전에 닿지 못한 사람은 받지 않는다(2455, D-591)
-    const winners = sides.filter(
-      (row) =>
-        row.side === (won ? "rebel" : "government") &&
-        row.userId !== null &&
-        (row.units === null || row.units === undefined || here(unitsOf(row), city).length > 0),
+    const battleId = await d.port.openCoupBattle(
+      nation,
+      city,
+      rebels,
+      loyal,
+      nowMs,
+      d.rules().coupBattleUnits,
     );
-    for (const row of winners) {
-      if (row.userId === null) continue;
-      d.port.addRenown(row.userId, nation.rowId, rules.coupMeritRenown, nowMs);
-      if (rules.coupCreditReward > 0)
-        d.credit?.won(row.userId, won ? newNationOwner : undefined, rules.coupCreditReward, nowMs);
+    if (battleId === undefined) {
+      await d.coups.finishCoup(coup.id, "cancelled", { ...base, reason: "no_battle" }, nowMs);
+      await d.audit(coup.userId, "governance.coup_cancelled", { nationId: nation.rowId, coupId: coup.id });
+      return;
     }
-    result.rewarded = winners.length;
-    await d.coups.finishCoup(coup.id, won ? "won" : "lost", result, nowMs);
-    await d.audit(coup.userId, won ? "governance.coup_won" : "governance.coup_lost", {
-      nationId: nation.rowId,
-      coupId: coup.id,
-      house: coup.houseKey,
-      ...result,
-    });
+    await d.coups.markBattle(coup.id, battleId, nowMs);
+    await wakeForEnd(battleId, nowMs);
   };
 
-  /** 틱: 끝난 참가 받기 → 전투, NPC 참가, NPC 일으키기 */
-  const tick = async (
+  /**
+   * 진행 중인 쿠데타 전투: 끝났으면 결과, 아니면 그사이 그 도시에 닿은 병력을 참전시킨다(2652 — D-176 "전투중인경우 … 지원하여 참전가능", 참가 받기 끝은
+   * 늦게 닿은 유닛을 빼지 않는다)
+   */
+  const fight = async (
+    coup: CoupRow,
+    battleId: number,
+    nation: GovernanceNation | undefined,
+    state: StateRow | undefined,
+    nowMs: number,
+  ): Promise<void> => {
+    const battle = await d.port.coupBattleState(battleId);
+    if (!nation || !battle) {
+      await d.coups.finishCoup(
+        coup.id,
+        "cancelled",
+        { reason: nation ? "no_battle" : "no_nation", battleId },
+        nowMs,
+      );
+      return;
+    }
+    const ruling = (await d.tools.ruling(nation, state)).key;
+    const city = battleCityOf(coup, nation);
+    if (battle.state === "ended") {
+      if (await cancelIfRuling(coup, nation, ruling, nowMs)) return;
+      const fought = [...battle.units];
+      await settle(coup, nation, battle.rebelsWon, battle.units, nowMs, {
+        ruling,
+        battleCity: city ?? null,
+        battleId,
+        units: fought.length,
+      });
+      return;
+    }
+    const { rebels, loyal } = armies(coup, nation, ruling, await d.coups.sides(coup.id));
+    const size = d.rules().coupBattleUnits;
+    const late = (ids: readonly number[]) => ids.filter((id) => !battle.units.has(id));
+    const joined = [
+      ...(await d.port.joinCoupBattle(battleId, city, "rebel", late(rebels), nowMs, size)),
+      ...(await d.port.joinCoupBattle(battleId, city, "government", late(loyal), nowMs, size)),
+    ];
+    if (joined.length > 0) await wakeForEnd(battleId, nowMs);
+  };
+
+  /** 서버 타이머가 깨운다(병력 도착·전투 끝 — 1분 틱보다 빨리). 진행 중인 쿠데타 전투만 본다 */
+  const arrivals = (): Promise<void> =>
+    serial(async () => {
+      if (!d.port.ready()) return;
+      const nowMs = d.now();
+      const states = await d.store.states();
+      for (const coup of await d.coups.gathering())
+        if (coup.battleId !== null)
+          await fight(coup, coup.battleId, d.port.nation(coup.nationId), states.get(coup.nationId), nowMs);
+    });
+  wakeUp = () => {
+    void arrivals().catch(() => undefined);
+  };
+
+  /** 틱: 끝난 참가 받기 → 전투, 진행 중인 전투 → 참전·결과, NPC 참가, NPC 일으키기 */
+  const tick = (
     nations: ReadonlyMap<number, GovernanceNation>,
     states: ReadonlyMap<number, StateRow>,
     nowMs: number,
-  ): Promise<void> => {
-    const gathering = await d.coups.gathering();
-    for (const coup of gathering) {
-      const nation = nations.get(coup.nationId);
-      const state = states.get(coup.nationId);
-      if (nowMs >= coup.gatherUntilMs) await resolve(coup, nation, state, nowMs);
-      else if (nation) await npcJoin(coup, nation, (await d.tools.ruling(nation, state)).key, nowMs);
-    }
-    if (!d.rules().coupEnabled) return;
-    const busy = new Set(gathering.map((row) => row.nationId));
-    for (const nation of nations.values()) {
-      if (busy.has(nation.rowId) || protectedNow(states.get(nation.rowId), nowMs)) continue;
-      await npcLaunch(nation, (await d.tools.ruling(nation, states.get(nation.rowId))).key, nowMs);
-    }
-  };
+  ): Promise<void> =>
+    serial(async () => {
+      const gathering = await d.coups.gathering();
+      for (const coup of gathering) {
+        const nation = nations.get(coup.nationId);
+        const state = states.get(coup.nationId);
+        if (coup.battleId !== null) await fight(coup, coup.battleId, nation, state, nowMs);
+        else if (nowMs >= coup.gatherUntilMs) await openBattle(coup, nation, state, nowMs);
+        // 전투 중에도 NPC 가문이 편을 들 수 있다(D-176 지원 참전 — 닿은 가문원은 다음에 참전)
+        const live = await d.coups.coup(coup.id);
+        if (nation && live?.status === "gathering") {
+          const ruling = (await d.tools.ruling(nation, state)).key;
+          await npcJoin(live, nation, ruling, nowMs);
+          // NPC 가문원을 그 도시로 보낸다(no-teleport-b — 2651 나), 닿으면 전투 중에도 참전(no-teleport-a — 2652)
+          await sendNpcSides(live, nation, ruling);
+        }
+      }
+      if (!d.rules().coupEnabled) return;
+      const busy = new Set(gathering.map((row) => row.nationId));
+      for (const nation of nations.values()) {
+        if (busy.has(nation.rowId) || protectedNow(states.get(nation.rowId), nowMs)) continue;
+        await npcLaunch(nation, (await d.tools.ruling(nation, states.get(nation.rowId))).key, nowMs);
+      }
+    });
 
-  return { launch, join, tick };
+  return { launch, join, tick, arrivals };
 }
 
 export type CoupService = ReturnType<typeof createCoupService>;

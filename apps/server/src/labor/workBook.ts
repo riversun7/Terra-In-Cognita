@@ -23,6 +23,7 @@ import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { UNIT_KIND_CYBORG, UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
 import { type GatherSite, type LotRoll, gatherLots, gatherSettingsOf } from "./gatherWork.ts";
+import { type WalkToWork, createWalkToWork } from "./walkToWork.ts";
 import { type WorkRecord, workRow } from "./work.ts";
 
 /** 채집 산출 자료(건물 서비스가 잇는다 — facilities/world.ts attachLabor) */
@@ -138,8 +139,13 @@ export interface WorkBook {
   assign(unitId: number, ownerId: number, buildingId: number, atMs: number): void;
   /** 직무 배치를 푼다(정산 뒤에 부른다). 풀었으면 true */
   unassign(unitId: number, atMs: number): boolean;
-  /** 유닛 직무를 채집으로 켠다(피로·단계 그대로, 진행 0) */
-  startJob(unitId: number): void;
+  /**
+   * 유닛 직무를 채집으로 켠다(피로·단계 그대로, 진행 0). buildingId가 있으면 그 시설 둘레로 걸어가게 한다(가는 동안은 일하지 않은 것으로 센다 —
+   * walkToWork.ts, D-591·질문 2656 나)
+   */
+  startJob(unitId: number, buildingId?: number): void;
+  /** 일터로 걸어가기(가는 길·정산 멈춤 구간·부상 구간 — walkToWork.ts) */
+  readonly commute: WalkToWork;
   /** 일이 없는 그 주체의 플레이어 유닛 직무를 끈다(정산 뒤 고리) */
   stopIdle(ownerId: number, working: (unitId: number) => boolean): void;
   /** 메모리 불변 조건: 배치된 유닛에 열린 계약이 있으면 안 된다 */
@@ -155,10 +161,13 @@ export function createWorkBook(options: {
   readonly writer: WorldWriter;
   readonly rules: () => SocietyCoefficients;
   readonly now: () => number;
+  /** 일터에 닿는 시각을 알면(노동 계약 임금 시작을 미룬다 — walkToWork.ts shiftPayStart) */
+  readonly payFrom?: ((unitId: number, atMs: number) => void) | undefined;
 }): WorkBook {
   const { maps, ledger, writer } = options;
   const records = new Map<number, WorkRecord>(options.loaded.map((record) => [record.unitId, { ...record }]));
   let production: ProductionSource | undefined;
+  const commute = createWalkToWork({ maps, now: options.now, payFrom: options.payFrom });
   let station: StationHook | undefined;
   const save = (record: WorkRecord): void => writer.upsert("unitWork", workRow(record));
   const recordOf = (unitId: number, ownerId: number): WorkRecord => {
@@ -299,7 +308,9 @@ export function createWorkBook(options: {
       save(record);
       return true;
     },
-    startJob(unitId) {
+    commute,
+    startJob(unitId, buildingId) {
+      if (buildingId !== undefined) commute.begin(unitId, buildingId);
       const unit = unitOf(unitId);
       if (!unit?.job || unit.job.job === JOB_GATHER) return;
       unit.map.setJob(unitId, switchJob(unit.job, JOB_GATHER));

@@ -56,6 +56,7 @@ export const WORLD_TABLES = {
       // 7축 성향(docs/adr/2026-11-20-npc-autonomous-ai.md)
       "traits",
       "guardian",
+      "returning_until_ms", // 진 뒤 돌아가는 중(D-591 — 질문 2655)
     ],
     key: ["id"],
   },

@@ -39,6 +39,11 @@ export interface UnitCondition {
   readonly injuryHealPm?: number | undefined;
   /** 포로로 잡은 주체(없으면 null) */
   readonly heldBy: number | null;
+  /**
+   * 전투에서 진 뒤 안전한 곳으로 실제로 걸어 돌아가는 중이면 닿는 시각(사용자 결정 D-591 "어떠한 경우에도 순간이동은 없다" — 질문 2655, battleReturn.ts).
+   * 그때까지 명령·일·전투에 쓰지 못한다(unavailable). 없으면 돌아가는 중이 아니다
+   */
+  readonly returningUntilMs?: number | undefined;
 }
 
 export const HEALTHY: UnitCondition = { injury: 0, injuryUntilMs: null, heldBy: null };
@@ -65,13 +70,17 @@ export const injuryStateOf = (condition: UnitCondition): InjuryState => ({
 
 /** 부상 상태를 얹은 유닛 상태(초록이면 칸을 비운다) */
 export function withInjury(condition: UnitCondition, state: InjuryState): UnitCondition {
+  // 돌아가는 중 표시는 부상과 따로 남긴다(battleReturn.ts)
+  const returning =
+    condition.returningUntilMs === undefined ? {} : { returningUntilMs: condition.returningUntilMs };
   if (state.stage <= 0 || state.untilMs === null)
-    return { injury: 0, injuryUntilMs: null, heldBy: condition.heldBy };
+    return { injury: 0, injuryUntilMs: null, heldBy: condition.heldBy, ...returning };
   return {
     injury: state.stage,
     injuryUntilMs: state.untilMs,
     ...(state.healPm === NATURAL_HEAL_PM ? {} : { injuryHealPm: state.healPm }),
     heldBy: condition.heldBy,
+    ...returning,
   };
 }
 
@@ -84,9 +93,17 @@ export function injuryAt(condition: UnitCondition, nowMs: number): number {
   return condition.injury > 0 && condition.injuryUntilMs !== null ? injuryNowOf(condition, nowMs).stage : 0;
 }
 
-/** 명령·스스로 움직이기를 못 하는가: 포로이거나 빨강(옛 중태, D-145 활동 불가) */
+/** 전투에서 진 뒤 안전한 곳으로 걸어 돌아가는 중인가(D-591 — 질문 2655) */
+export const returningAt = (condition: UnitCondition, nowMs: number): boolean =>
+  condition.returningUntilMs !== undefined && nowMs < condition.returningUntilMs;
+
+/** 명령·스스로 움직이기를 못 하는가: 포로이거나 빨강(옛 중태, D-145 활동 불가)이거나 진 뒤 돌아가는 중(D-591 — 질문 2655) */
 export function unavailable(condition: UnitCondition, nowMs: number): boolean {
-  return condition.heldBy !== null || injuryAt(condition, nowMs) >= INJURY_CRITICAL;
+  return (
+    condition.heldBy !== null ||
+    injuryAt(condition, nowMs) >= INJURY_CRITICAL ||
+    returningAt(condition, nowMs)
+  );
 }
 
 /**
@@ -99,6 +116,7 @@ export const conditionColumns = (condition: UnitCondition, aboardId?: number | n
   injury_heal_pm: condition.injuryHealPm ?? NATURAL_HEAL_PM,
   held_by: condition.heldBy,
   aboard_id: aboardId ?? null,
+  returning_until_ms: condition.returningUntilMs ?? null,
 });
 
 /** 새 부상(@terra/sim injure: 더 무거우면 새로, 같으면 시간 다시, 가벼우면 그대로) */

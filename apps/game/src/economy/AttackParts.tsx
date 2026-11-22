@@ -2,6 +2,7 @@
 // docs/adr/2026-11-07-buildings-runtime.md "바뀜 (전투·건물)". 판정은 서버(facility_attack, 프로토콜 12): 넥서스 = 대상인 공성 전투를 열고,
 // 전투가 깎은 내구도만큼 상태가 준다(0%면 폐허 = 기능 정지, 수리로 되돌림). 화면은 목록과 [공격] 단추만.
 // - 공격 유닛 = 위 일꾼 고르기에서 고른 유닛 가운데 그 2차맵에 있는 것(서버가 다시 본다: 내 유닛·작업 아님·부상 아님).
+// - 바뀜(줄기 no-teleport-a — D-591, 질문 2659): 대상에서 32칸 밖인 고른 유닛은 누르기 전에 "멀어서 못 침"으로 알리고 공격에서 뺀다(모두 멀면 단추를 끈다).
 import type { FacilitiesOverviewResponse, FacilityTargetView } from "@terra/shared/facilities";
 import { m } from "../paraglide/messages.js";
 import { pickName } from "./economyText.ts";
@@ -29,8 +30,10 @@ function TargetRow({
   busy: boolean;
 }) {
   const titleId = `facility-target-${target.kind}-${target.id}`;
-  // 고른 유닛 가운데 그 2차맵에 있는(서버가 공격에 쓸 수 있다고 본) 것
+  // 고른 유닛 가운데 그 2차맵에서 대상 근처(32칸 안)에 있는(서버가 공격에 쓸 수 있다고 본) 것
   const attackers = units.filter((id) => target.unitIds.includes(id));
+  // 고른 유닛 가운데 같은 2차맵이지만 멀어서 못 치는 것(누르기 전에 알린다 — 줄기 no-teleport-a, 질문 2659)
+  const far = units.filter((id) => target.farUnitIds?.includes(id) === true);
   const ruined = target.durability <= 0;
   return (
     <li className="facility-card" data-state={target.state} data-part="facility-target">
@@ -69,7 +72,16 @@ function TargetRow({
               {m.facility_attack({ count: attackers.length })}
             </button>
           </div>
-          {attackers.length === 0 ? <p className="eco-footnote">{m.facility_attack_needs_units()}</p> : null}
+          {far.length > 0 ? (
+            <p className="eco-footnote" data-part="facility-target-far">
+              {m.facility_attack_far({ units: far.map((id) => `#${id}`).join(", ") })}
+            </p>
+          ) : null}
+          {attackers.length === 0 ? (
+            <p className="eco-footnote">
+              {far.length > 0 ? m.facility_attack_needs_near() : m.facility_attack_needs_units()}
+            </p>
+          ) : null}
         </>
       )}
     </li>

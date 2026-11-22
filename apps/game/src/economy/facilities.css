@@ -197,6 +197,13 @@
   overflow-wrap: anywhere;
   font-size: var(--font-size-sm);
 }
+.facility-worker-commute {
+  flex: 1 1 100%;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
 .facility-worker-pick {
   flex-wrap: wrap;
   align-items: flex-end;

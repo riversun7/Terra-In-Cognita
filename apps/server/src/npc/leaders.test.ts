@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { CityRow } from "../world/cities.ts";
 import { createTestMap } from "../world/testSupport.ts";
 import { UNIT_KIND_NPC_LEADER } from "../world/unitKinds.ts";
-import { capitalsOf, leaderUnitOf, moveLeaderToCapital, seedNationLeaders } from "./leaders.ts";
+import { capitalsOf, leaderUnitOf, seedNationLeaders } from "./leaders.ts";
 
 const PLANET = "s2_test_planet";
 const city = (id: number, factionId: number, mapKey: number, start = true): CityRow => ({
@@ -51,49 +51,6 @@ describe("capitalsOf (D-528 고른 수도)", () => {
       [1, 8],
       [2, 4],
     ]);
-  });
-});
-
-describe("moveLeaderToCapital (D-528 수도를 따라간다)", () => {
-  it("다른 2차맵에 선 지도자를 새 수도 행정 건물 곁으로 옮기고, 이미 수도 2차맵이면 그대로, 없으면 none", () => {
-    const { map: oldMap } = createTestMap({ mapKey: 9 });
-    const { map: newMap } = createTestMap({ mapKey: 10 });
-    stops.push(() => oldMap.stop());
-    stops.push(() => newMap.stop());
-    expect(
-      oldMap.addUnit({
-        id: 900,
-        size: 1,
-        speed: 1,
-        cellX: 100,
-        cellY: 100,
-        ownerId: 101,
-        kind: UNIT_KIND_NPC_LEADER,
-      }),
-    ).toBe(true);
-    expect(newMap.placeBuilding({ x: 150, y: 150, width: 6, height: 6, rotation: 0 }, 101)).toEqual({
-      ok: true,
-      buildingId: 1,
-    });
-    const maps = new Map([
-      [9, oldMap],
-      [10, newMap],
-    ]);
-    const facilities = new Map([[1, { facilityId: "government_hall", cityId: 5 }]]);
-    const capital = { id: 5, mapKey: 10, cellX: 128, cellY: 128 };
-    expect(moveLeaderToCapital({ maps, facilities, ownerId: 101, capital })).toBe("moved");
-    expect(oldMap.unitInfo(900)).toBeUndefined();
-    const unit = newMap.unitInfo(900);
-    expect(unit?.kind).toBe(UNIT_KIND_NPC_LEADER);
-    const cell = anchorAt(unit?.motion.waypoints[0] ?? { x: 0, y: 0 }, 1);
-    expect(Math.max(Math.abs(cell.x - 150), Math.abs(cell.y - 150))).toBeLessThanOrEqual(2);
-    expect(moveLeaderToCapital({ maps, facilities, ownerId: 101, capital })).toBe("stay");
-    expect(moveLeaderToCapital({ maps, facilities, ownerId: 202, capital })).toBe("none");
-    // 수도 2차맵을 띄우지 않았으면 그 자리에 둔다
-    expect(
-      moveLeaderToCapital({ maps, facilities, ownerId: 101, capital: { ...capital, id: 6, mapKey: 77 } }),
-    ).toBe("blocked");
-    expect(newMap.unitInfo(900)).toBeDefined();
   });
 });
 

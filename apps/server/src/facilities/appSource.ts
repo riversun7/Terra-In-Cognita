@@ -46,6 +46,7 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
       catalog: facilities.catalog,
       unitBusy: (unitId) => labor.unitBusy(unitId),
       workersOf: (buildingId) => labor.workersAt(buildingId),
+      commuteOf: (unitId) => labor.commute.commuteOf(unitId),
       // 외주(남의 공방 장비 수리, D-564 1682 — 그 공방 일꾼·주인이 정한 요금, D-570 1785)·멈춘 사업장
       outsource: true,
       suspended: (buildingId) => facilities.business.suspended(buildingId),

@@ -56,6 +56,8 @@ export interface FacilityViewSource {
   readonly rules: () => SocietyCoefficients;
   readonly catalog: () => FacilityCatalog;
   readonly unitBusy: (unitId: number) => boolean;
+  /** 그 유닛이 일터로 걸어가는 중이면 도착 예상(labor/walkToWork.ts). 없으면 늘 없음 */
+  readonly commuteOf?: ((unitId: number) => number | undefined) | undefined;
   /** 그 시설에서 일하는 유닛(노동 계약 서비스 workersAt — 직무 배치·열린 계약). 없으면 빈 목록 */
   readonly workersOf?: ((buildingId: number) => readonly LaborWorkerEntry[]) | undefined;
   /** 원자재 오브젝트를 맡는 시설 ID(팩 gather_objects의 facility — 채집소 반경 고리). 없으면 반경 없음 */
@@ -179,6 +181,12 @@ function placesOf(
     }))
     .toSorted(sourceOrder);
 }
+
+/** 일꾼 줄의 일터로 가는 중 칸(가는 중이 아니면 칸 없음 — 옛 기기와 같은 모양) */
+const commuteOf = (source: Pick<FacilityViewSource, "commuteOf">, unitId: number) => {
+  const until = source.commuteOf?.(unitId);
+  return until === undefined ? {} : { commuteUntil: until };
+};
 
 const jobView = (job: JobRecord): FacilityJobView => ({
   id: job.id,
@@ -421,6 +429,8 @@ export function facilitiesOverview(
             via: worker.via,
             mine: worker.workerOwnerId === ownerId,
             cyborg: kindOf(worker.unitId) === UNIT_KIND_CYBORG,
+            // 일터로 걸어가는 중이면 도착 예상(D-591·질문 2656 나 — labor/walkToWork.ts)
+            ...commuteOf(source, worker.unitId),
           };
         }),
       });

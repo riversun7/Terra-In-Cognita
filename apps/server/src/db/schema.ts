@@ -595,6 +595,8 @@ export const worldUnits = pgTable(
     traits: smallint("traits").array(),
     /** 수호신 상태(D-311·D-589 — 종류는 휴먼 4 그대로, 도시·버프는 temple_guardians 행). 직전 판 앱은 이 칸을 모른 채 쓴다 → 그대로 남는다 */
     guardian: boolean("guardian").notNull().default(false),
+    /** 전투에서 진 뒤 안전한 곳으로 걸어 돌아가는 중이면 닿는 시각(D-591 — 질문 2655, world/battleReturn.ts). 그때까지 쓰지 못한다. 없으면 null */
+    returningUntilMs: bigint("returning_until_ms", { mode: "number" }),
   },
   (table) => [
     index("world_units_owner_idx").on(table.ownerId),

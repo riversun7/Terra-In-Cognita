@@ -12,12 +12,13 @@ import {
 } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
+import { testRosterCatalog } from "../roster/catalog.ts";
 import { createContentEditState } from "../contentEdit/state.ts";
 import { createFactionIdentityServices, createFactionIdentityShared } from "../factionIdentity/services.ts";
 import { createHouseFounder } from "../factionIdentity/found.ts";
 import { createHouseSuccession } from "../factionIdentity/succession.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
-import { silentLog } from "../world/testSupport.ts";
+import { addTestUnits, silentLog } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
 import { attachGovernance } from "./attach.ts";
 import { type GovernanceRules, TEST_GOVERNANCE_RULES } from "./rules.ts";
@@ -26,6 +27,7 @@ import type { ApprovedShareSale } from "./service.ts";
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
 if (!loaded.source || !loaded.pack) throw new Error("content pack");
 const pack = createContentEditState(loaded.source).effective();
+const roster = testRosterCatalog();
 const EMBLEM = { shape: "shield", division: "pale", charge: "tree", scheme: 1 };
 const RELAXED = { capacity: 1000, refillPerMinute: 1000 };
 const viewer = (id: string) => ({ id, roles: ["player" as const] });
@@ -59,6 +61,8 @@ async function boot(): Promise<World> {
     npc: { testNations: 2, manual: true },
     holdings: { content: () => pack },
     facilities: { content: () => pack },
+    // 쿠데타 전투 = 세계 전투(줄기 no-teleport-a — 실제 몸, battleBodies.ts)
+    roster: () => roster,
   });
   worlds.push(world);
   await world.ready;
@@ -140,10 +144,14 @@ async function setRuling(nationRow: number, key: string): Promise<void> {
   );
 }
 
-function governance(world: World, rules: () => GovernanceRules, sales: ApprovedShareSale[] = []) {
+function governance(
+  world: World | (() => World),
+  rules: () => GovernanceRules,
+  sales: ApprovedShareSale[] = [],
+) {
   return attachGovernance({
     db: test.db,
-    world: () => world,
+    world: typeof world === "function" ? world : () => world,
     rules,
     now: () => clock,
     log: silentLog,
@@ -156,12 +164,21 @@ function governance(world: World, rules: () => GovernanceRules, sales: ApprovedS
 
 describe.skipIf(!TEST_DATABASE_URL)("나라 의결 3(governance-3)", () => {
   it("군사 쿠데타: 꺼져 있으면 막고, 켜면 참가 받기 → NPC 참가 → 전투 → 결과(이기면 독재 지배 가문 + 지분 몰수)", async () => {
-    const world = await boot();
-    const { npc } = parts(world);
-    let rules: GovernanceRules = { ...TEST_GOVERNANCE_RULES, coupGatherMs: 60_000, coupNpcScore: -1000 };
-    const gov = governance(world, () => rules);
+    let world = await boot();
+    let { npc } = parts(world);
+    // 편마다 유닛 수 상한(gov_coup_battle_units)을 넉넉히 — 본체가 가문원 뒤에서 잘리지 않게(세계 전투, 줄기 no-teleport-a)
+    let rules: GovernanceRules = {
+      ...TEST_GOVERNANCE_RULES,
+      coupGatherMs: 60_000,
+      coupNpcScore: -1000,
+      coupBattleUnits: 200,
+    };
+    const gov = governance(
+      () => world,
+      () => rules,
+    );
     const head = await citizen(world, "Coupone");
-    const faction = npc.world.factions.get(npc.houses.ownerOfRow(head.nation) ?? -1);
+    let faction = npc.world.factions.get(npc.houses.ownerOfRow(head.nation) ?? -1);
     if (!faction) throw new Error("nation");
     faction.regime = "democracy";
     const row = await house(world, head.userId, "혁명가문", "REV");
@@ -213,8 +230,66 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 3(governance-3)", () => {
     expect(view.coups[0]?.status).toBe("gathering");
     expect(view.coups[0]?.mySide).toBe("rebel");
     expect(view.coups[0]?.government).toBe(1);
-    // 참가 받기 끝 → 전투
+    // 참가 받기 끝 → 전투(줄기 no-teleport-a — D-591·질문 2652·2653): 세계 전투를 연다. 쿠데타는 끝날 때까지 참가 받는 중(전투 중에도 든다)
     clock += 120_000;
+    await gov.service.tick();
+    const opened = await rows<{ status: string; result: { battleId?: number } | null }>(
+      test.db,
+      "select status, result from governance_coups where id = $1",
+      [started.agendaId],
+    );
+    expect(opened[0]?.status).toBe("gathering");
+    const battleId = Number(opened[0]?.result?.battleId);
+    const battles = await rows<{
+      kind: string;
+      status: string;
+      ends_at_ms: string;
+      units: { id: number; side: number }[];
+    }>(test.db, "select kind, status, ends_at_ms, init->'units' as units from world_battles where id = $1", [
+      battleId,
+    ]);
+    expect(battles[0]).toMatchObject({ kind: "siege", status: "running" });
+    // 그 도시에 있는 일으킨 사람의 본체는 혁명군(편 1), 정부군으로 보낸 본체는 정부군(편 2) — 실제 몸으로 든다
+    expect(battles[0]?.units.find((unit) => unit.id === headBody)?.side).toBe(1);
+    expect(battles[0]?.units.find((unit) => unit.id === otherBody)?.side).toBe(2);
+    expect((await gov.view(head.userId)).coups[0]?.battleEndsAtMs).toBe(Number(battles[0]?.ends_at_ms));
+    // 전투 중에도 편을 들고 병력을 보낸다(D-176 지원 참전 — 2652): 그 도시에 닿아 있는 새 유닛은 바로 정부군으로 참전(실제 몸·생명 수치)
+    const mapKey = gov.port.unitMapOf(otherBody) ?? -1;
+    const [late = 0] = addTestUnits(world, other.userId, mapKey, 1, clock);
+    expect(
+      await gov.service.coupJoin(other.userId, started.agendaId, "government", [otherBody, late]),
+    ).toMatchObject({ ok: true });
+    await gov.service.tick();
+    const fighting = (await parts(world).persistence.battles.running()).find(
+      (entry) => entry.id === battleId,
+    );
+    expect(fighting?.units.filter((unit) => unit.id === late).map((unit) => unit.side)).toEqual([2]);
+    expect(fighting?.units.filter((unit) => unit.id === otherBody)).toHaveLength(1);
+    const endsAfterJoin = (await parts(world).persistence.battles.get(battleId))?.endsAtMs ?? 0;
+    // 끝 시각 뒤로: 끄고 다시 켜면 부팅 복구가 전투 결과(부상·돌아가기)를 적용하고, 다음 의결 틱이 쿠데타 결과를 넣는다
+    await npc.tick(true);
+    await parts(world).persistence.writer.durable();
+    await world.stop();
+    clock = endsAfterJoin + 1_000;
+    world = await boot();
+    npc = parts(world).npc;
+    faction = npc.world.factions.get(faction.id);
+    if (!faction) throw new Error("nation");
+    for (let i = 0; i < 200; i++) {
+      const left = await rows<{ n: string }>(
+        test.db,
+        "select count(*) as n from world_battles where status = 'running'",
+      );
+      if (Number(left[0]?.n) === 0) break;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    // 참전한 유닛도 결과(부상·생명 수치·돌아가기)를 받는다(battles.ts withJoins)
+    const applied = await rows<{ units: { unit: number }[] }>(
+      test.db,
+      "select result->'units' as units from world_battle_results where battle_id = $1",
+      [battleId],
+    );
+    expect(applied[0]?.units.some((unit) => unit.unit === late)).toBe(true);
     await gov.service.tick();
     view = await gov.view(head.userId);
     const done = view.coups[0];

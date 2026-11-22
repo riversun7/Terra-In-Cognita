@@ -155,6 +155,11 @@ export interface FacilityWorkerView {
   readonly mine: boolean;
   /** 사이보그 본체인가 */
   readonly cyborg: boolean;
+  /**
+   * 일터로 걸어가는 중이면 도착 예상 시각(ms). 닿기 전에는 일하지 않은 것으로 센다(산출·부상·임금 없음 — 사용자 결정 D-591, 질문 2656 나). 없으면 그 자리에서
+   * 일하는 중(옛 서버도 없음)
+   */
+  readonly commuteUntil?: number | undefined;
 }
 
 /** 내 세력 영토 비콘(건물 규칙, 기획 336) */
@@ -195,8 +200,13 @@ export interface FacilityTargetView {
   readonly state: ConditionState;
   readonly durability: number;
   readonly maxDurability: number;
-  /** 그 2차맵에 있는 내 유닛 가운데 공격에 쓸 수 있는 것(작업·계약·부상·포로가 아님) */
+  /**
+   * 그 2차맵에 있는 내 유닛 가운데 공격에 쓸 수 있는 것(작업·계약·부상·포로가 아님). 바뀜(줄기 no-teleport-a — D-591, 질문 2659): 대상 기준 칸 둘레 32칸
+   * 안(공격 유닛 근처 조건)인 것만
+   */
   readonly unitIds: readonly number[];
+  /** 같은 2차맵에서 쓸 수 있지만 대상에서 32칸 밖이라 지금은 못 치는 내 유닛(가까이 보낸 뒤 친다 — 2659). 옛 서버는 없다 */
+  readonly farUnitIds?: readonly number[] | undefined;
 }
 
 export interface FacilityUnitView {

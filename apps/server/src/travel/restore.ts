@@ -5,6 +5,7 @@ import { lastPoint } from "../world/mapGeometry.ts";
 import type { SecondMap, UnitRow } from "../world/secondMap.ts";
 import { type TransferRow, motionOfRow } from "../world/secondMapRows.ts";
 import { UNIT_KIND_BOT } from "../world/unitKinds.ts";
+import { isNpcKind } from "./npcJourney.ts";
 import type { ParkedBook } from "./parked.ts";
 import { type Hop, type RouteContext, anchorOf, hopFrom } from "./route.ts";
 import type { TravelCommandResult, TravelDeps, Journey } from "./serviceTypes.ts";
@@ -42,12 +43,14 @@ export interface RestoreParts {
 export async function restoreTravels(
   orphans: readonly UnitRow[] | undefined,
   parts: RestoreParts,
+  /** main = 첫 복구(봇 길은 남겨 둔다), npc = 둘째 복구(NPC 사회 런타임이 휴먼을 읽은 뒤 봇 길만 — npcJourney.ts 머리 주석) */
+  pass: "main" | "npc" = "main",
 ): Promise<number> {
   const { deps, maps, parked, journeys, store, isTarget, loaded, contextOf, float, park, conceal, beginLeg } =
     parts;
   const { log } = deps;
   // 띄우지 않은 2차맵의 유닛 행(봇 빼고) = 좌표 유닛(서 있음). 자리 = 그 행의 움직임이 끝난 점(쓰지 않는다 — 이미 그 자리다)
-  for (const unit of orphans ?? []) {
+  for (const unit of pass === "main" ? (orphans ?? []) : []) {
     if (unit.planetId !== deps.planetId || maps.has(unit.mapKey) || unit.kind === UNIT_KIND_BOT) continue;
     if (!isTarget(unit.mapKey) || parked.get(unit.id)) continue;
     const motion = motionOfRow(unit);
@@ -63,7 +66,13 @@ export async function restoreTravels(
       (key) =>
         maps.get(key)?.unitInfo(row.unitId) !== undefined || parked.get(row.unitId)?.row.mapKey === key,
     );
-    if (leg < 0 || journeys.has(row.unitId)) {
+    const kind = maps.get(row.route[leg] ?? -1)?.unitInfo(row.unitId)?.kind;
+    // 봇 길은 둘째 복구에서만(첫 복구는 그 줄을 그대로 둔다). 그사이 새로 보낸 길이 있으면 그 줄이 맞다(지우지 않는다)
+    if ((pass === "npc") !== (kind === UNIT_KIND_BOT) || journeys.has(row.unitId)) {
+      if (pass === "main" && leg < 0) store.remove(row.unitId);
+      continue;
+    }
+    if (leg < 0) {
       store.remove(row.unitId);
       continue;
     }
@@ -75,11 +84,14 @@ export async function restoreTravels(
       checkAtMs: null,
       hidden: null,
       speedFactor: 1,
+      // NPC 이동(npcJourney.ts — 봇·지도자): 다시 켜도 스스로 걷지 않게 붙잡는다
+      ...(kind !== undefined && isNpcKind(kind) ? { npc: true } : {}),
       sea:
         (maps.get(row.route[leg] ?? -1)?.unitInfo(row.unitId)?.domain ??
           parked.get(row.unitId)?.row.domain) === "sea",
     };
     journeys.set(row.unitId, journey);
+    if (journey.npc === true) maps.get(row.route[leg] ?? -1)?.holdRoam(row.unitId, true);
     resumed += 1;
     const until = row.hiddenUntilMs;
     // 좌표 유닛이 된 유닛(띄우지 않은 2차맵): 그 자리에서 좌표 이동을 잇는다(건너뛰던 중이면 남은 시간 그대로)
@@ -106,6 +118,6 @@ export async function restoreTravels(
     if (leg !== row.leg || until !== null) store.save(journey);
     void beginLeg(journey, true);
   }
-  if (rows.length > 0) log.info({ travels: rows.length, resumed }, "world boot: travels resumed");
+  if (rows.length > 0) log.info({ travels: rows.length, resumed, pass }, "world boot: travels resumed");
   return resumed;
 }

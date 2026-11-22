@@ -3,6 +3,7 @@
 // - 안건이 있는 장면: governance.view 응답을 고쳐(helpers/trpc.ts rewriteTrpc) 선출(후보 둘)·체제 전환(투표 중)·가결 기다림(직권)을 넣는다.
 //   [찬성]은 WebSocket gov_vote를 보낸다(서버는 없는 안건이라 unknown_agenda로 답하고 화면은 오류 문구를 보인다).
 // - 사진: 390 × 파스텔·다크 × 한국어·영어(E2E_SHOTS_DIR). 가로 넘침 없음.
+// - 쿠데타 전투 중(줄기 no-teleport-a — D-591·2652): 끝 예정·닿으면 참전, 끝난 뒤 닿는 유닛만 "싸우지 못함", 전투 중에도 편 들기를 보낸다(사진 390 4장).
 // - 쿠데타 병력 고르기(줄기 no-teleport — D-591): 참가 받는 쿠데타 하나(응답을 고쳐 넣음)의 내 병력 셋(그 도시에 있음·가는 중·보내면 전투 뒤 도착), 고른 유닛을 gov_coup_join unitIds로 보낸다.
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
@@ -145,6 +146,15 @@ const withCoup = (data: unknown): void => {
   });
 };
 
+/** 같은 쿠데타가 전투 중(줄기 no-teleport-a — D-591·질문 2652: 세계 전투, 끝 예정 30분 뒤 — 103은 끝난 뒤 도착) */
+const withCoupFighting = (data: unknown): void => {
+  withCoup(data);
+  if (typeof data !== "object" || data === null) return;
+  const coups: unknown = Reflect.get(data, "coups");
+  if (Array.isArray(coups) && typeof coups[0] === "object" && coups[0] !== null)
+    Object.assign(coups[0], { gatherUntilMs: NOW - 10 * 60_000, battleEndsAtMs: NOW + 30 * 60_000 });
+};
+
 test.describe("플레이어(실제 자료)", () => {
   test.use({ account: "player" });
 
@@ -207,7 +217,11 @@ test.describe("쿠데타 병력(no-teleport)", () => {
     await expect(boxes.nth(0)).toBeChecked();
     await expect(boxes.nth(1)).toBeChecked();
     await expect(boxes.nth(2)).not.toBeChecked();
-    await expect(troops.getByText(message("ko", "gov_coup_troop_late"), { exact: false })).toBeVisible();
+    // 전투 전: 시작 뒤에 닿는 유닛은 닿으면 참전한다(줄기 no-teleport-a — 2652)
+    await expect(
+      troops.getByText(message("ko", "gov_coup_troop_joins_late"), { exact: false }),
+    ).toBeVisible();
+    await expect(troops.getByText(message("ko", "gov_coup_troop_late"), { exact: false })).toHaveCount(0);
     await boxes.nth(2).check();
     await page
       .getByTestId("governance-coups")
@@ -216,6 +230,39 @@ test.describe("쿠데타 병력(no-teleport)", () => {
     await expect.poll(() => sent.length).toBeGreaterThan(0);
     expect(sent[0]).toContain('"unitIds":[101,102,103]');
     expect(sent[0]).toContain('"side":"government"');
+    expect(deviceErrors).toEqual([]);
+  });
+});
+
+test.describe("쿠데타 전투 중(no-teleport-a)", () => {
+  test.use({ account: "player" });
+  test("전투 중이면 끝 예정과 '닿으면 참전'을 보이고, 끝난 뒤 닿는 유닛만 싸우지 못함, 편 들기는 그대로 보낸다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await rewriteTrpc(page, { "summary.get": hideSummary, "governance.view": withCoupFighting });
+    const sent: string[] = [];
+    page.on("websocket", (socket) => {
+      socket.on("framesent", ({ payload }) => {
+        const text = typeof payload === "string" ? payload : payload.toString("utf8");
+        if (text.includes('"gov_coup_join"')) sent.push(text);
+      });
+    });
+    await openVotes(page, "ko");
+    await expect(page.getByTestId("governance-coup-fighting")).toContainText(
+      message("ko", "gov_coup_fighting_hint"),
+    );
+    const troops = page.getByTestId("governance-coup-troops");
+    await expect(troops.getByText(message("ko", "gov_coup_troop_late"), { exact: false })).toHaveCount(1);
+    await expect(troops.getByText(message("ko", "gov_coup_troop_joins_late"), { exact: false })).toHaveCount(
+      0,
+    );
+    await page
+      .getByTestId("governance-coups")
+      .getByRole("button", { name: message("ko", "gov_coup_join_rebel") })
+      .click();
+    await expect.poll(() => sent.length).toBeGreaterThan(0);
+    expect(sent[0]).toContain('"side":"rebel"');
     expect(deviceErrors).toEqual([]);
   });
 });
@@ -250,6 +297,16 @@ test.describe("사진 390px", () => {
         await troops.scrollIntoViewIfNeeded();
         expect(await horizontalOverflow(page)).toEqual([]);
         await shot(page, `governance-coup-troops-${theme}-${language}-390`);
+        expect(deviceErrors).toEqual([]);
+      });
+      test("쿠데타 전투 중: 가로 넘침 없음, 사진", async ({ page, deviceErrors }) => {
+        await rewriteTrpc(page, { "summary.get": hideSummary, "governance.view": withCoupFighting });
+        await openVotes(page, language);
+        const fighting = page.getByTestId("governance-coup-fighting");
+        await expect(fighting).toBeVisible();
+        await fighting.scrollIntoViewIfNeeded();
+        expect(await horizontalOverflow(page)).toEqual([]);
+        await shot(page, `governance-coup-fighting-${theme}-${language}-390`);
         expect(deviceErrors).toEqual([]);
       });
     });

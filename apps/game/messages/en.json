@@ -5285,6 +5285,7 @@
   "facility_worker_assign_unit": "Unit #{id} · assigned",
   "facility_worker_wage": "Unit #{id} · wage contract",
   "facility_worker_lease": "Unit #{id} · lease contract",
+  "facility_worker_commute": "Walking to work — starts on arrival · arrives",
   "facility_worker_other": "Other player's unit #{id} · labor contract",
   "facility_worker_stats": "{primary} {main} · {secondary} {sub}",
   "facility_worker_pick": "Unit",

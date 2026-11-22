@@ -5,9 +5,12 @@
 // - 스탯 짝(주 = 진행 속도, 보조 = 수확량)을 유닛 고르기에 함께 보인다(유닛 1차 스탯, 입은 장비 포함).
 // - 산출은 그 시설이 선 도시의 내 도시 창고로 간다(도시가 없으면 이 건물 창고).
 // - 병원(의료 단계, D-521 — docs/adr/2026-11-08-injury.md): 같은 칸으로 의사를 직무 배치한다. 스탯은 INT + WIS(치료 배율), 산출 없음.
+// - 일터로 걸어가기(사용자 결정 D-591, 질문 2656 나 — 서버 labor/walkToWork.ts): 일을 맡은 유닛은 그 시설 둘레로 걸어가고, 닿기 전에는 일하지 않는다.
+//   그동안 일꾼 줄에 "일터로 가는 중 · 도착 …"을 보인다(commuteUntil).
 import type { FacilitiesOverviewResponse, FacilityView, FacilityWorkerView } from "@terra/shared/facilities";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
+import { dateText, relativeText } from "../sections/screenText.ts";
 import { useCityText } from "./cityText.ts";
 import type { LaborRun } from "./laborText.ts";
 
@@ -101,6 +104,17 @@ export function FacilityWorkers({
           {facility.workers.map((worker) => (
             <li key={worker.unitId} className="facility-worker" data-via={worker.via}>
               <span className="facility-worker-name">{workerLine(worker)}</span>
+              {worker.commuteUntil === undefined ? null : (
+                <span className="facility-worker-commute" data-part="facility-worker-commute">
+                  {m.facility_worker_commute()}{" "}
+                  <time
+                    dateTime={new Date(worker.commuteUntil).toISOString()}
+                    title={dateText(worker.commuteUntil)}
+                  >
+                    {relativeText(worker.commuteUntil, data.generatedAt)}
+                  </time>
+                </span>
+              )}
               {worker.via === "assign" && worker.mine ? (
                 <button
                   type="button"

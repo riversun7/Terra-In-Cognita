@@ -651,10 +651,10 @@ export function startWorld(
     });
     facilities.attachLabor(labor);
     settlement.routeOutputs((ownerId, fromMs, toMs) => labor.outputsFor(ownerId, fromMs, toMs));
-    // 건물 작업에 묶인 유닛은 그 동안 직무 산출이 없다(D-516 364). 정산 뒤 노동 계약 유예 끝 물건 옮기기(382)
-    settlement.pauseOutputs((ownerId) => facilities.service.pausesFor(ownerId));
+    // 건물 작업에 묶인 유닛·일터로 걸어가는 유닛은 그 동안 직무 산출이 없다(D-516 364, D-591 walkToWork). 정산 뒤 유예 끝 물건 옮기기(382)
+    settlement.pauseOutputs(labor.commute.pauses((ownerId) => facilities.service.pausesFor(ownerId)));
     settlement.afterSettle((ownerId, toMs) => labor.afterSettle(ownerId, toMs));
-    settlement.injureWork(createWorkInjury()); // 작업 중 부상(D-521, docs/adr/2026-11-08-injury.md)
+    settlement.injureWork(labor.commute.injury(createWorkInjury())); // 작업 중 부상(D-521 — 걸어가는 동안 빼고)
     // 사이보그 유닛 융합·유전자(D-516 인스턴스 = 보유 물건, 유저 휴먼 수명): 재료·유전자 = 실효 팩 아이템, 규칙 = 설정 칸 실효 값
     const fusion = createFusionService({
       maps,

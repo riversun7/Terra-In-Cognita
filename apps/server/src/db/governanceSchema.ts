@@ -123,6 +123,11 @@ export const governanceState = pgTable("governance_state", {
    * 유닛 외래 키는 두지 않는다(죽은 유닛이면 NPC 런타임이 다음 서열을 본다). 직전 판 앱은 읽지 않는다
    */
   npcHeadUnitId: bigint("npc_head_unit_id", { mode: "number" }),
+  /**
+   * 빈자리가 생긴 까닭(gov-fix-4 — 사용자 결정 D-591 2532 (2) "공정하게 자율 출마 재투표"): removal = 해임 뒤 다시 뽑기가 실패해 빈 자리 — 같은 가문이 저절로 잇지 않고 누구나
+   * 나서는 선출로만 채운다. null = 그 밖(가문장이 사라짐 등 — 지배 가문 서열·후계자로 잇는다, D-588 5). 빈자리가 끝나면 지운다. 직전 판 앱은 읽지 않는다
+   */
+  vacancyCause: text("vacancy_cause"),
 });
 
 /**

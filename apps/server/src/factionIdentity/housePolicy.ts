@@ -1,7 +1,8 @@
 // 가문 금고 기부·가문세율·도시 짓기 정책 명령(WebSocket house_donate·house_tax·house_build_policy → house_member_result, 프로토콜 54) —
 // 기획 D-574(사용자 답 2026-11-16) 2150 나·2124 나, 기획 대조 2222 확정. docs/adr/2026-11-11-faction-identity.md "바뀜 (house-8, D-574)".
 // - 기부(2150): 가문원(가문장 포함)이 자기 지갑의 기본 화폐를 가문 금고(houseVault.ts)로 넣는다. 지갑은 지금까지 정산한 뒤 본다(모자라면
-//   insufficient_funds). 원장 거래 house_donate 하나.
+//   insufficient_funds). 원장 거래 house_donate 하나. 바뀜(gov-fix-4 — D-591 2532 (1) 나): 넣은 양을 그 가문원 기여도(house_members.contribution)에 더한다
+//   (계승 서열이 직위 다음에 본다).
 // - 꺼내기(2222 → 사용자 D-576 "가문장이 개인 지갑으로"): 가문장만, 금고 잔고까지(넘으면 insufficient_funds). 원장 거래 house_vault_take. 넣기·꺼내기
 //   모두 원장에 남고 가문원 모두에게 장부로 보인다(houseView.ts vaultLog). 해산 때 남은 금고 돈은 가문장 지갑으로(vaultToLeader — 기획 해석,
 //   원장 거래 house_vault_dissolve).
@@ -77,6 +78,11 @@ export function createHousePolicy(o: {
         ],
       });
       await p.writer.durable();
+      // 기여도(계승 서열 — governance/succession.ts rankMembers, D-591 2532 (1) 나): 그 가문에 넣은 기부 합
+      await o.pool.query(
+        "update house_members set contribution = contribution + $3 where user_id = $1 and faction_id = $2",
+        [userId, mine.factionId, amount.toString()],
+      );
       await audit(userId, "faction.house_donate", { factionId: mine.factionId, amount: amount.toString() });
       return { ok: true, action: "donated", factionId: mine.factionId };
     },

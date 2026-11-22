@@ -458,4 +458,71 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 3(governance-3)", () => {
     expect(audits.length).toBe(1);
     gov.stop();
   }, 120_000);
+  it("해임 빈자리는 같은 가문이 잇지 않고 누구나 나서는 선출을 연다, 가문장이 사라진 빈자리는 서열(직위 → 기여도)로 잇는다(D-591 2532)", async () => {
+    const world = await boot();
+    const { npc } = parts(world);
+    const gov = governance(world, () => TEST_GOVERNANCE_RULES);
+    const head = await citizen(world, "Rkone");
+    const elder = await citizen(world, "Rktwo");
+    const rich = await citizen(world, "Rkthr");
+    const faction = npc.world.factions.get(npc.houses.ownerOfRow(head.nation) ?? -1);
+    if (!faction) throw new Error("nation");
+    faction.regime = "democracy";
+    const row = await house(world, head.userId, "서열가문", "RNK");
+    const pool = test.db.$client;
+    // 먼저 들어왔지만 기여도 0인 elder, 늦게 들어왔지만 가문 금고에 많이 넣은 rich
+    for (const [userId, joined, contribution] of [
+      [elder.userId, clock, "0"],
+      [rich.userId, clock + 1, "500"],
+    ] as const)
+      await pool.query(
+        "insert into house_members (user_id, faction_id, role, joined_at_ms, contribution) values ($1, $2, 'member', $3, $4)",
+        [userId, row, joined, contribution],
+      );
+    // 해임 뒤 다시 뽑기가 실패한 빈자리(까닭 removal): 계승하지 않고 빈자리 선출(해임된 가문도 나설 수 있다 — barred 없음)
+    await pool.query(
+      `insert into governance_state (nation_id, ruling_house_key, vacant_since_ms, vacancy_cause, term_ends_at_ms, updated_at_ms) values ($1, $2, $3, 'removal', $4, $3)
+       on conflict (nation_id) do update set ruling_house_key = excluded.ruling_house_key, vacant_since_ms = excluded.vacant_since_ms,
+         vacancy_cause = excluded.vacancy_cause, term_ends_at_ms = excluded.term_ends_at_ms`,
+      [head.nation, `p:${row}`, clock - 120_000, clock + 60 * DAY_MS],
+    );
+    await gov.service.tick();
+    expect(
+      await rows(test.db, "select vacancy_cause from governance_state where nation_id = $1", [head.nation]),
+    ).toEqual([{ vacancy_cause: "removal" }]);
+    expect(
+      await rows(test.db, "select user_id from house_members where faction_id = $1 and role = 'leader'", [
+        row,
+      ]),
+    ).toEqual([{ user_id: head.userId }]);
+    const election = (await gov.view(head.userId)).agendas.find(
+      (agenda) => agenda.kind === "leader_election" && agenda.status === "open",
+    );
+    expect(election).toBeDefined();
+    expect(election?.barred ?? null).toBeNull();
+    // 해임된 가문원도 스스로 나설 수 있다(자율 출마)
+    expect(await gov.service.register(head.userId, election?.id ?? 0)).toMatchObject({ ok: true });
+    gov.stop();
+    // 가문장이 사라진 빈자리(까닭 없음 — 옛 판·떠남): 후계자가 없으면 서열 = 직위 → 기여도 → 들어온 차례 → rich가 잇는다
+    await pool.query(
+      "update governance_agendas set status = 'cancelled' where nation_id = $1 and status = 'open'",
+      [head.nation],
+    );
+    await pool.query("update governance_state set vacancy_cause = null where nation_id = $1", [head.nation]);
+    const again = governance(world, () => TEST_GOVERNANCE_RULES);
+    await again.service.tick();
+    expect(
+      await rows(test.db, "select user_id from house_members where faction_id = $1 and role = 'leader'", [
+        row,
+      ]),
+    ).toEqual([{ user_id: rich.userId }]);
+    expect(
+      await rows(
+        test.db,
+        "select vacant_since_ms, vacancy_cause from governance_state where nation_id = $1",
+        [head.nation],
+      ),
+    ).toEqual([{ vacant_since_ms: null, vacancy_cause: null }]);
+    again.stop();
+  }, 120_000);
 });

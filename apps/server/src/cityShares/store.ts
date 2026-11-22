@@ -13,7 +13,7 @@ const bigOf = (value: unknown): bigint =>
 /** 걸린 주문(open)·최근 회차·도시마다 마지막 체결가·가장 큰 번호 */
 export async function loadCityShares(pool: QueryPool, nowMs: number): Promise<LoadedCityShares> {
   const open = await pool.query(
-    `select id, city_id, holder, side, price, shares, asset, seq, placed_at_ms, filled, agenda_id
+    `select id, city_id, holder, side, price, shares, asset, seq, placed_at_ms, filled, agenda_id, exchange_id
        from city_share_orders where state = 'open' order by city_id, seq`,
   );
   const rounds = await pool.query(
@@ -41,6 +41,7 @@ export async function loadCityShares(pool: QueryPool, nowMs: number): Promise<Lo
       seq: Number(row.seq),
       placedAtMs: Number(row.placed_at_ms),
       agendaId: row.agenda_id === null || row.agenda_id === undefined ? null : Number(row.agenda_id),
+      exchangeId: row.exchange_id === null || row.exchange_id === undefined ? null : Number(row.exchange_id),
     })),
     rounds: rounds.rows.map((row) => ({
       id: Number(row.id),

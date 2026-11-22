@@ -45,6 +45,8 @@ export interface AgendaPayload {
   readonly minPrice?: string;
   /** 국고 지분 사기: 한 주 가장 높은 값(10진 글자 — D-587 질문 2479 나) */
   readonly maxPrice?: string;
+  /** 국고 지분 안건 재투표: 기간 안에 다 채우지 못한 옛 안건(남은 수량을 이어 할지 — gov-fix-4 D-591 2526, cityShares/treasuryRuns.ts) */
+  readonly renewOf?: number;
   /** 화폐 단계 전환: 목표 단계·하루 조절 만분율(질문 2453 — 줄기 governance-5) */
   readonly monetaryMode?: MonetaryMode;
   readonly monetaryRateBp?: number;
@@ -147,6 +149,11 @@ export interface StateRow {
    * (남아 있어도 그 유닛이 지배 가문원이 아니면 NPC 런타임이 보지 않는다 — npc/cityHouses.ts)
    */
   readonly npcHeadUnit?: number | null;
+  /**
+   * 빈자리가 생긴 까닭(gov-fix-4 — D-591 2532 (2), 칸 vacancy_cause): "removal" = 해임 뒤 다시 뽑기 실패 — 같은 가문이 저절로 잇지 않고 누구나 나서는 선출로만 채운다.
+   * 빠짐·null = 그 밖. 빈자리가 아니면(vacantSinceMs null) 쓸 때 지운다
+   */
+  readonly vacancyCause?: "removal" | null;
 }
 
 /** 가문원 한 사람(빈자리 후임 고르기 — succession.ts) */
@@ -154,6 +161,8 @@ export interface HouseMemberRow {
   readonly userId: string;
   readonly role: "leader" | "member";
   readonly joinedAtMs: number;
+  /** 기여도 = 이 가문 금고에 넣은 기부 합(기본 화폐 최소 단위 — house_members.contribution, gov-fix-4 D-591 2532 (1)). 빠지면 0 */
+  readonly contribution?: bigint;
 }
 
 /** 플레이어 가문(그 나라 소속 — 가문장) */
@@ -198,6 +207,7 @@ function payloadOf(value: unknown): AgendaPayload {
       : undefined;
   const treatyId = typeof value.treatyId === "number" ? value.treatyId : undefined;
   const treatyRevision = typeof value.treatyRevision === "number" ? value.treatyRevision : undefined;
+  const renewOf = typeof value.renewOf === "number" ? value.renewOf : undefined;
   return {
     ...(regime ? { regime } : {}),
     ...(target !== undefined ? { targetNationId: target } : {}),
@@ -215,6 +225,7 @@ function payloadOf(value: unknown): AgendaPayload {
     ...(monetaryCapMilli !== undefined ? { monetaryCapMilli } : {}),
     ...(treatyId !== undefined ? { treatyId } : {}),
     ...(treatyRevision !== undefined ? { treatyRevision } : {}),
+    ...(renewOf !== undefined ? { renewOf } : {}),
   };
 }
 
@@ -425,7 +436,7 @@ export function createGovernanceStore(pool: GovernanceQueryable) {
     async states(): Promise<Map<number, StateRow>> {
       const { rows } = await pool.query(
         `select nation_id, ruling_house_key, elected_at_ms, term_ends_at_ms, share_votes_suspended, vacant_since_ms,
-           npc_head_unit_id from governance_state`,
+           npc_head_unit_id, vacancy_cause from governance_state`,
       );
       return new Map(
         rows.map((row) => {
@@ -440,6 +451,7 @@ export function createGovernanceStore(pool: GovernanceQueryable) {
               shareVotesSuspended: row.share_votes_suspended === true,
               vacantSinceMs: numOrNull(row.vacant_since_ms),
               npcHeadUnit: numOrNull(row.npc_head_unit_id),
+              vacancyCause: row.vacancy_cause === "removal" ? "removal" : null,
             },
           ];
         }),
@@ -448,12 +460,12 @@ export function createGovernanceStore(pool: GovernanceQueryable) {
     async saveState(state: StateRow, atMs: number): Promise<void> {
       await pool.query(
         `insert into governance_state (nation_id, ruling_house_key, elected_at_ms, term_ends_at_ms, share_votes_suspended, updated_at_ms,
-           vacant_since_ms, npc_head_unit_id)
-         values ($1, $2, $3, $4, $5, $6, $7, $8)
+           vacant_since_ms, npc_head_unit_id, vacancy_cause)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          on conflict (nation_id) do update set ruling_house_key = excluded.ruling_house_key, elected_at_ms = excluded.elected_at_ms,
            term_ends_at_ms = excluded.term_ends_at_ms, share_votes_suspended = excluded.share_votes_suspended,
            updated_at_ms = excluded.updated_at_ms, vacant_since_ms = excluded.vacant_since_ms,
-           npc_head_unit_id = excluded.npc_head_unit_id`,
+           npc_head_unit_id = excluded.npc_head_unit_id, vacancy_cause = excluded.vacancy_cause`,
         [
           state.nationId,
           state.rulingHouseKey,
@@ -463,6 +475,8 @@ export function createGovernanceStore(pool: GovernanceQueryable) {
           atMs,
           state.vacantSinceMs,
           state.npcHeadUnit ?? null,
+          // 빈자리가 끝나면 까닭도 지운다(gov-fix-4)
+          state.vacantSinceMs === null ? null : (state.vacancyCause ?? null),
         ],
       );
     },
@@ -503,7 +517,7 @@ export function createGovernanceStore(pool: GovernanceQueryable) {
     /** 가문원 모두(들어온 차례, 해산한 가문이면 빈 목록 — 빈자리 후임 고르기, succession.ts) */
     async houseMembersOf(houseRow: number): Promise<HouseMemberRow[]> {
       const { rows } = await pool.query(
-        `select m.user_id, m.role, m.joined_at_ms from house_members m join factions f on f.id = m.faction_id
+        `select m.user_id, m.role, m.joined_at_ms, m.contribution from house_members m join factions f on f.id = m.faction_id
           where m.faction_id = $1 and f.dissolved_at_ms is null order by m.joined_at_ms, m.user_id`,
         [houseRow],
       );
@@ -511,6 +525,10 @@ export function createGovernanceStore(pool: GovernanceQueryable) {
         userId: String(row.user_id),
         role: row.role === "leader" ? "leader" : "member",
         joinedAtMs: num(row.joined_at_ms),
+        contribution:
+          typeof row.contribution === "string" || typeof row.contribution === "number"
+            ? BigInt(row.contribution)
+            : 0n,
       }));
     },
     /** 가문장이 미리 정한 후계자(질문 2491 — D-588 5, 표 house_heirs). 없으면 undefined */

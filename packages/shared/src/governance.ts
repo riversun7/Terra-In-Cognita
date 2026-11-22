@@ -244,6 +244,8 @@ export interface GovernanceAgendaView {
   readonly shareSale: { readonly shares: string; readonly minPrice: string } | null;
   /** 국고 지분 사기(D-587 질문 2479 나): 주 수·한 주 가장 높은 값(10진 글자). 아니면 null. 옛 응답에는 없다 */
   readonly shareBuy?: { readonly shares: string; readonly maxPrice: string } | null | undefined;
+  /** 국고 지분 안건 재투표면 옛 안건 ID(기간 안에 다 채우지 못한 남은 수량을 이어 할지 — D-591 2526, 줄기 gov-fix-4). 아니면 null. 옛 응답에는 없다 */
+  readonly renewOf?: number | null | undefined;
   /** 선전포고·강화 상대 나라(세력 행 ID·이름 — 선전포고·강화만) */
   readonly targetNation: { readonly id: number; readonly name: GovernanceName | null } | null;
   /** 화폐 단계 전환의 목표 단계·하루 조절(만분율 — 화폐 단계 안건만) */

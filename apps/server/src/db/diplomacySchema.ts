@@ -120,3 +120,28 @@ export const diplomacyDeclarations = pgTable(
     ),
   ],
 );
+
+/**
+ * 세력 쌍 호감(줄기 gov-fix-4 — 사용자 결정 D-591 2531 "관계점수 많은 양이 깍여서 시작", 기획 D-255 "관계 점수: 호감·신뢰"·D-443 154 "호감은 세력 쌍마다"). 세력 행 쌍
+ * (nation_a < nation_b)마다 한 줄, score = −100~100(시작 0 — 줄이 없으면 0). 두 나라가 같은 값을 본다(쌍 하나 [임시 2661]). 바꾸는 길: 가문 독립(옛 나라와),
+ * 명분 없는 선포(모든 나라와 — D-290), 참전 요청 거절(그 동맹과 — D-291). 쓰는 곳은 diplomacy/affinity.ts(장부가 바꾸고 이 표에 바로 쓴다)·켤 때 읽는다.
+ * 세력 신뢰(세력마다 하나)는 위반 기록에서 셈해 여기 두지 않는다(diplomacy/breaches.ts)
+ */
+export const diplomacyAffinity = pgTable(
+  "diplomacy_affinity",
+  {
+    nationA: bigint("nation_a", { mode: "number" })
+      .notNull()
+      .references(() => factions.id, { onDelete: "cascade" }),
+    nationB: bigint("nation_b", { mode: "number" })
+      .notNull()
+      .references(() => factions.id, { onDelete: "cascade" }),
+    score: integer("score").notNull(),
+    updatedAtMs: bigint("updated_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.nationA, table.nationB] }),
+    check("diplomacy_affinity_order", sql`${table.nationA} < ${table.nationB}`),
+    check("diplomacy_affinity_range", sql`${table.score} between -100 and 100`),
+  ],
+);

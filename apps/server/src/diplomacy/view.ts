@@ -1,5 +1,6 @@
 // 외교 조회(tRPC diplomacy.view) — 내 나라(가문 소속 → 시민권)의 조약(열린 것·맺은 것·최근 끝난 것)·참전 요청·제안 상대. 읽기만 한다.
 // 다른 나라끼리의 조약은 보이지 않는다. docs/adr/2026-11-21-diplomacy-treaties.md
+import { relationBand } from "@terra/shared/faction";
 import type { GovernanceName } from "@terra/shared/governance";
 import {
   type DiplomacyNationRef,
@@ -88,6 +89,10 @@ export function createDiplomacyView(o: {
       const breaches = breachCount.get(id) ?? 0;
       return { trust: trustOf(breaches, rules.breachTrustPenalty), breaches };
     };
+    // 세력 쌍 호감(우리 나라와 — affinity.ts, 줄기 gov-fix-4. 표에서 읽는다 — 줄이 없으면 0)
+    const affinity = new Map<number, number>();
+    for (const row of await o.store.affinities())
+      if (row.a === us || row.b === us) affinity.set(row.a === us ? row.b : row.a, row.score);
     const others = o.port.nations().filter((row) => row.rowId !== us);
     const nameOf = await names([
       us,
@@ -121,6 +126,8 @@ export function createDiplomacyView(o: {
           requestTreatyId: ally?.id ?? null,
           requestable,
           ...trustRow(other.rowId),
+          affinity: affinity.get(other.rowId) ?? 0,
+          affinityBand: relationBand(affinity.get(other.rowId) ?? 0),
         };
       }),
     );

@@ -63,6 +63,8 @@ export type BusinessCommand =
       readonly side: "buy" | "sell";
       readonly price: bigint;
       readonly shares: bigint;
+      /** 주문을 낸 증권 거래소 건물(바뀜 gov-fix-4 — D-591 2523, 시장이 확인한다) */
+      readonly exchangeId?: number | undefined;
     }
   | { readonly kind: "share_cancel"; readonly orderId: number }
   | { readonly kind: "reserve"; readonly buildingId: number; readonly reservePm: number | null };
@@ -322,6 +324,7 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
           command.price,
           command.shares,
           atMs,
+          command.exchangeId,
         );
         return placed.ok ? { ok: true, orderId: placed.orderId } : fail(placed.code);
       }

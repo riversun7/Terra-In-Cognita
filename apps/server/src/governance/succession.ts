@@ -18,14 +18,38 @@
 //   지우지 않는다(기록이 있으면 그 나라 국가 지도자 유닛은 퇴임한 채다): 같은 가문이면 이은 가문장이 그대로 잇고, 다른 NPC 가문이면 그 가문의 서열 첫 사람이 이끈다
 //   (cityHouses.ts headOf — 기록 유닛이 그 가문원이 아니면 서열 규칙, 다음 틱이 그 사람을 기록으로 옮겨 적는다). 해임 뒤 다시 뽑기에서 다른 NPC 가문이 이기면
 //   (기록이 아직 없을 때) 해임된 가문장 유닛을 빼고 그 가문 서열 첫 사람을 세운다. 해임된 옛 NPC 지도자 유닛을 어떻게 할지는 사용자 답(2574 — 질문 8)을 기다린다.
+// - 바뀜(gov-fix-4 — 사용자 결정 D-591 2532 (2) "공정하게 자율 출마 재투표"): 해임(removal)으로 빈 자리는 같은 가문이 저절로 잇지 않는다. 해임 뒤 다시 뽑기가 실패하면
+//   빈자리(까닭 removal — governance_state.vacancy_cause)가 되고, 틱은 그 빈자리에 계승을 하지 않으며 누구나 나서는 선출(service.ts — gov_vacancy_election_ms, 해임된
+//   가문도 나설 수 있다)로만 채운다. 죽음·떠남 등으로 가문장이 사라진 빈자리는 예전대로 지배 가문의 후계자·서열로 잇는다(D-588 5).
+// - 바뀜(gov-fix-4 — D-591 2532 (1) 나 "가문 안 직위나 기여도"): 서열 = 가문 안 직위(가문장 > 가문원 — 지금 가문 직위는 둘뿐이다) → 기여도(가문 금고에 넣은 기부 합,
+//   house_members.contribution — 가문세는 아직 세지 않는다 [임시 2664]) → 들어온 차례 → 계정 ID(같을 때 [임시 2665]). rankMembers 하나에 둔다.
 import type { HouseKey } from "@terra/shared/governance";
 import type { Database } from "../db/client.ts";
 import { succeedHouseHead } from "../factionIdentity/succession.ts";
 import { type GovernanceNation, type GovernancePort, parseHouseKey } from "./port.ts";
 import type { AgendaPayload, GovernanceStore, HouseMemberRow, StateRow } from "./store.ts";
 
+/** 큰 값이 앞(bigint) */
+const compareDesc = (a: bigint, b: bigint): number => (b > a ? 1 : b < a ? -1 : 0);
+
+/** 가문 안 직위의 서열(작을수록 앞 — 가문장 0, 가문원 1). 직위가 늘면 여기에 더한다(D-591 2532 (1) 나) */
+const POSITION_RANK: Readonly<Record<HouseMemberRow["role"], number>> = { leader: 0, member: 1 };
+
 /**
- * 후임 고르기(D-588 5): 이을 수 있는(excluded가 아닌) 가문원 가운데 ① 미리 정한 후계자 ② 서열 = 들어온 차례 [임시 2532](같으면 계정 ID 차례). 없으면 null
+ * 가문 서열(D-591 2532 (1) 나 — 직위 먼저, 그다음 기여도): 직위(가문장 > 가문원) → 기여도 큰 차례(가문 금고 기부 합) → 들어온 차례 → 계정 ID 차례(같을 때 [임시 2665])
+ */
+export function rankMembers(members: readonly HouseMemberRow[]): HouseMemberRow[] {
+  return members.toSorted(
+    (a, b) =>
+      POSITION_RANK[a.role] - POSITION_RANK[b.role] ||
+      compareDesc(a.contribution ?? 0n, b.contribution ?? 0n) ||
+      a.joinedAtMs - b.joinedAtMs ||
+      (a.userId < b.userId ? -1 : a.userId > b.userId ? 1 : 0),
+  );
+}
+
+/**
+ * 후임 고르기(D-588 5): 이을 수 있는(excluded가 아닌) 가문원 가운데 ① 미리 정한 후계자 ② 서열(rankMembers — 직위 → 기여도, D-591). 없으면 null
  */
 export function pickSuccessor(
   members: readonly HouseMemberRow[],
@@ -34,10 +58,7 @@ export function pickSuccessor(
 ): string | null {
   const eligible = members.filter((member) => !excluded.has(member.userId));
   if (heir !== undefined && eligible.some((member) => member.userId === heir)) return heir;
-  const first = eligible.toSorted(
-    (a, b) => a.joinedAtMs - b.joinedAtMs || (a.userId < b.userId ? -1 : a.userId > b.userId ? 1 : 0),
-  )[0];
-  return first?.userId ?? null;
+  return rankMembers(eligible)[0]?.userId ?? null;
 }
 
 /** 후임 고르기가 보는 나라 칸 */
@@ -144,8 +165,8 @@ export function createSuccession(d: SuccessionDeps) {
   };
 
   /**
-   * 지도자 선출을 닫은 뒤 상태 쓰기(service.ts close): 이긴 가문이 있으면 지배 가문·임기. 해임 뒤 다시 뽑기(barred)가 실패하면 먼저 해임된 가문에서 후임(해임된 사람
-   * barredUser는 빼고), 없으면 빈자리(질문 2403 답 D-582). 쓴 상태
+   * 지도자 선출을 닫은 뒤 상태 쓰기(service.ts close): 이긴 가문이 있으면 지배 가문·임기. 해임 뒤 다시 뽑기(barred)가 실패하면 빈자리(질문 2403 답 D-582) — 까닭 removal로
+   * 적어 같은 가문이 저절로 잇지 않는다(바뀜 gov-fix-4 — D-591 2532 (2), 틱이 누구나 나서는 선출을 연다). 쓴 상태
    */
   const afterElection = async (
     nation: SuccessionNation,
@@ -155,14 +176,9 @@ export function createSuccession(d: SuccessionDeps) {
     nowMs: number,
     termMs: number,
   ): Promise<StateRow> => {
-    const { barred, barredUser, barredUnit } = payload;
-    const successor =
-      winner !== null || !barred || current.vacantSinceMs !== null
-        ? null
-        : await successorOf(barred, {
-            users: new Set(barredUser === undefined ? [] : [barredUser]),
-            units: new Set(barredUnit === undefined ? [] : [barredUnit]),
-          });
+    const { barred, barredUnit } = payload;
+    // 해임 뒤 다시 뽑기가 실패했다(이번에 빈자리가 된다): 같은 가문이 잇지 않는다(바뀜 gov-fix-4 — D-591 2532 (2))
+    const removalFailed = winner === null && barred !== undefined && current.vacantSinceMs === null;
     const next: StateRow = {
       ...current,
       rulingHouseKey: winner ?? current.rulingHouseKey,
@@ -171,11 +187,8 @@ export function createSuccession(d: SuccessionDeps) {
       termEndsAtMs: nowMs + termMs,
       vacantSinceMs:
         winner !== null ? null : barred ? (current.vacantSinceMs ?? nowMs) : current.vacantSinceMs,
+      vacancyCause: winner !== null ? null : removalFailed ? "removal" : (current.vacancyCause ?? null),
     };
-    if (successor !== null && barred) {
-      const installed = await install(nation, next, barred, successor, nowMs);
-      if (installed) return installed;
-    }
     // 해임 뒤 다시 뽑기에서 다른 NPC 가문이 이겼다(기록 없음 — 해임된 사람 = 국가 지도자 유닛): 그 유닛을 빼고 이긴 가문 서열 첫 사람(바뀜 gov-fix-3)
     if (winner !== null && barredUnit !== undefined && (next.npcHeadUnit ?? null) === null) {
       const head = await successorOf(winner, { units: new Set([barredUnit]) });
@@ -204,8 +217,8 @@ export function createSuccession(d: SuccessionDeps) {
     const members = await d.store.houseMembersOf(parsed.id);
     const head = members.find((member) => member.role === "leader")?.userId;
     if (state.vacantSinceMs !== null) {
-      // 빈자리 선출이 열려 있으면 그 선출을 기다린다
-      if (electing) return state;
+      // 빈자리 선출이 열려 있으면 그 선출을 기다린다. 해임으로 빈 자리는 계승하지 않는다(누구나 나서는 선출로만 — gov-fix-4, D-591 2532 (2))
+      if (electing || state.vacancyCause === "removal") return state;
       const successor = await successorOf(house, { users: new Set(head === undefined ? [] : [head]) });
       return (successor && (await install(nation, state, house, successor, nowMs))) ?? state;
     }
@@ -232,7 +245,7 @@ export function createSuccession(d: SuccessionDeps) {
   ): Promise<StateRow | undefined> => {
     if (!d.npc) return state;
     if (state.vacantSinceMs !== null) {
-      if (electing) return state;
+      if (electing || state.vacancyCause === "removal") return state;
       // 옛 빈자리의 해임된 사람은 NPC 국가 지도자 유닛(가문원이 아니라 잇지 못한다) 또는 계승으로 섰던 가문장
       const before = state.npcHeadUnit ?? null;
       const successor = await successorOf(house, { units: new Set(before === null ? [] : [before]) });

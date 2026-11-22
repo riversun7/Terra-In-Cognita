@@ -407,4 +407,33 @@ export const GOVERNANCE_TUNING_KEYS: readonly TuningKey[] = [
     "제재 명분: NPC 선포 점수에서 덜어 내는 무명분 몫",
     "Sanction cause: no-cause penalty removed from NPC war score",
   ),
+  // 세력 쌍 호감·국고 지분 안건 집행 기간(줄기 gov-fix-4 — 사용자 결정 D-591, 기획 D-255·D-290·D-291)
+  k(
+    "dip_independence_affinity",
+    "",
+    "governance.independenceAffinity",
+    "가문 독립: 옛 나라와 호감 하락",
+    "House independence: affinity drop with the old nation",
+  ),
+  k(
+    "dip_no_cause_affinity",
+    "",
+    "governance.noCauseAffinity",
+    "명분 없는 선포: 모든 나라와 호감 하락",
+    "War without cause: affinity drop with every nation",
+  ),
+  k(
+    "dip_join_refuse_affinity",
+    "",
+    "governance.joinRefuseAffinity",
+    "참전 요청 거절: 그 동맹과 호감 하락",
+    "War join refused: affinity drop with that ally",
+  ),
+  k(
+    "gov_share_exec_ms",
+    "",
+    "governance.shareExecMs",
+    "국고 지분 안건: 집행 기간(ms)",
+    "Treasury share agenda: execution period (ms)",
+  ),
 ];

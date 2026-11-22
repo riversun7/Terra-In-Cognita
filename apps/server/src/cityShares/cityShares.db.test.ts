@@ -286,7 +286,8 @@ describe.skipIf(!TEST_DATABASE_URL)("도시 지분 시장(D-583)", () => {
     expect(await shares.service.cancel(buyer.userId, mine)).toEqual({ ok: true });
     expect(book.balanceOf(buyerOwner, currency)).toBe(cashBefore - 500n);
 
-    // 국고 팔 주문(남은 것 없음 — 다 팔림). 국고 지분 사기 안건(D-587 2479 나): 독재 지도자 직권, 국고 돈이 모자라면 not_enough_funds
+    // 국고 팔 주문(남은 것 없음 — 다 팔림). 국고 지분 사기 안건(D-587 2479 나): 독재 지도자 직권.
+    // 바뀜(gov-fix-4 — D-591 2526): 수량만 정한다 — 국고 돈이 모자라도 열리고, 집행은 돈이 있는 만큼만 건다(줄이지 않는다, 남은 수량은 기간 동안 회차마다)
     book.post({
       kind: "test_grant",
       atMs: clock,
@@ -296,31 +297,30 @@ describe.skipIf(!TEST_DATABASE_URL)("도시 지분 시장(D-583)", () => {
       ],
     });
     const treasuryCash = book.balanceOf(faction.id, currency);
+    const affordable = treasuryCash / 7n;
     expect(
       await gov.service.propose(head.userId, {
         kind: "treasury_share_buy",
         cityId,
-        shares: String(treasuryCash / 7n + 1n),
-        maxPrice: "7",
-      }),
-    ).toEqual({ ok: false, code: "not_enough_funds" });
-    expect(
-      await gov.service.propose(head.userId, {
-        kind: "treasury_share_buy",
-        cityId,
-        shares: "50",
+        shares: String(affordable + 50n),
         maxPrice: "7",
       }),
     ).toMatchObject({ ok: true, action: "decided" });
     const treasuryBuy = market.orders(cityId).find((order) => order.holder === `o:${faction.id}`);
-    expect(treasuryBuy).toMatchObject({ side: "buy", shares: 50n, price: 7n });
+    expect(treasuryBuy).toMatchObject({ side: "buy", shares: affordable, price: 7n });
     expect(treasuryBuy?.agendaId).not.toBeNull();
-    expect(book.balanceOf(faction.id, currency)).toBe(treasuryCash - 350n);
-    // 국고 주문은 지도자만 거둔다(D-587 2473 다) — 남은 저절로 거두지 않는다
+    expect(book.balanceOf(faction.id, currency)).toBe(treasuryCash - affordable * 7n);
+    expect(
+      await rows(
+        test.db,
+        "select target::text, done::text, state from treasury_share_runs where agenda_id = $1",
+        [treasuryBuy?.agendaId],
+      ),
+    ).toEqual([{ target: String(affordable + 50n), done: "0", state: "active" }]);
     view = await shares.view.city(head.userId, cityId);
     if (view.status !== "ok") throw new Error(view.status);
     expect(view.treasury?.orders).toEqual([
-      expect.objectContaining({ side: "buy", shares: "50", as: "treasury" }),
+      expect.objectContaining({ side: "buy", shares: String(affordable), as: "treasury" }),
     ]);
     expect(view.treasury?.canWithdraw).toBe(true);
     expect(view.treasuryBuy).toMatchObject({ canPropose: true, own: true });
@@ -333,6 +333,15 @@ describe.skipIf(!TEST_DATABASE_URL)("도시 지분 시장(D-583)", () => {
     });
     expect(await shares.service.cancel(head.userId, treasuryBuy?.id ?? -1)).toEqual({ ok: true });
     expect(book.balanceOf(faction.id, currency)).toBe(treasuryCash);
+    // 지도자가 거두면 집행도 끝난다(다음 회차에 다시 걸지 않는다 — treasuryRuns.ts)
+    expect(
+      await rows(test.db, "select state from treasury_share_runs where agenda_id = $1", [
+        treasuryBuy?.agendaId,
+      ]),
+    ).toEqual([{ state: "cancelled" }]);
+    clock += ROUND;
+    await shares.service.tick();
+    expect(market.orders(cityId).some((order) => order.holder === `o:${faction.id}`)).toBe(false);
     expect(market.check()).toEqual([]);
     expect(await world.checkInvariants()).toEqual([]);
     gov.stop();

@@ -30,7 +30,7 @@ import {
 } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
-import { type ShareLevy, shareLevyAmounts } from "./levy.ts";
+import { type ShareFeeTarget, type ShareLevy, feeTargetOf, shareLevyAmounts } from "./levy.ts";
 import type { NpcShareRules } from "./npcTrade.ts";
 
 export type CityShareSide = "buy" | "sell";
@@ -48,6 +48,8 @@ export interface CityShareOrder {
   readonly seq: number;
   readonly placedAtMs: number;
   readonly agendaId: number | null;
+  /** 주문을 낸 증권 거래소 건물(그 거래소 판에서 냈을 때 — 이용료를 받는다, 바뀜 gov-fix-4 D-591 2523). 없으면 null */
+  readonly exchangeId?: number | null;
 }
 
 export interface CityShareRound {
@@ -116,6 +118,8 @@ export interface CityShareMarketDeps {
   readonly now: () => number;
   /** 거래세·증권 거래소 이용료(질문 2474 다 — levy.ts). 없으면 세금·이용료 없음 */
   readonly levy?: (() => ShareLevy | undefined) | undefined;
+  /** 회차에서 주문이 체결될 때마다(국고 지분 안건 집행 셈 — treasuryRuns.ts, 바뀜 gov-fix-4) */
+  readonly onFill?: ((order: CityShareOrder, filled: bigint) => void) | undefined;
 }
 
 export const ownerHolder = (ownerId: number): string => `o:${ownerId}`;
@@ -257,6 +261,7 @@ export function createCityShareMarket(deps: CityShareMarketDeps) {
       clear_price: clear ?? null,
       done_at_ms: state === "open" ? null : atMs,
       agenda_id: order.agendaId,
+      exchange_id: order.exchangeId ?? null,
     });
   };
 
@@ -338,8 +343,8 @@ export function createCityShareMarket(deps: CityShareMarketDeps) {
     const price = result.price ?? 0n;
     const levy = deps.levy?.();
     const rate = levy?.rateOf(cityId);
-    /** 정산 뒤 거래소 금고로 낼 이용료(판 쪽 돈 계정 → 금액) */
-    const fees = new Map<number, bigint>();
+    /** 정산 뒤 거래소 금고로 낼 이용료(받는 거래소 → 판 쪽 돈 계정 → 금액 — 주문을 낸 거래소, 바뀜 gov-fix-4 D-591 2523) */
+    const fees = new Map<number, { readonly to: ShareFeeTarget; readonly from: Map<number, bigint> }>();
     const sums = new Map<number, bigint>();
     const add = (account: number, amount: bigint): void => {
       if (amount !== 0n) sums.set(account, (sums.get(account) ?? 0n) + amount);
@@ -355,24 +360,30 @@ export function createCityShareMarket(deps: CityShareMarketDeps) {
       } else {
         // 판 쪽은 받은 돈에서 거래세(그 나라 국고 — 이 거래 안)와 이용료(정산 뒤 거래소 금고)를 낸다(질문 2474 다)
         const gross = price * filled;
-        const cut = shareLevyAmounts(gross, rate, ownerOfHolder(order.holder));
+        const feeTo = feeTargetOf(levy, rate, order.exchangeId, cityId);
+        const cut = shareLevyAmounts(gross, rate, ownerOfHolder(order.holder), feeTo);
         const cash = cashAccount(order.holder, asset);
         add(shareAccount(order.holder, cityId), -filled);
         add(cash, gross - cut.tax);
         if (rate && cut.tax > 0n) add(ledger.ownerAccount(rate.treasuryOwner, asset), cut.tax);
-        if (cut.fee > 0n) fees.set(cash, (fees.get(cash) ?? 0n) + cut.fee);
+        if (cut.fee > 0n && feeTo) {
+          const slot = fees.get(feeTo.buildingId) ?? { to: feeTo, from: new Map<number, bigint>() };
+          slot.from.set(cash, (slot.from.get(cash) ?? 0n) + cut.fee);
+          fees.set(feeTo.buildingId, slot);
+        }
       }
     }
     const entries: LedgerEntry[] = [];
     for (const [account, amount] of sums) if (amount !== 0n) entries.push({ account, amount });
     if (entries.length > 0) ledger.post({ kind: `${CITY_SHARE_MARKET_PREFIX}_clear`, atMs, entries });
-    const feeTo = rate?.fee;
-    if (levy && feeTo)
-      for (const [from, amount] of fees)
-        levy.pay({ from, buildingId: feeTo.buildingId, asset, amount, atMs });
+    if (levy)
+      for (const slot of fees.values())
+        for (const [from, amount] of slot.from)
+          levy.pay({ from, buildingId: slot.to.buildingId, asset, amount, atMs });
     for (const order of live) {
       const filled = result.fills.get(order.id) ?? 0n;
       if (filled <= 0n) continue;
+      deps.onFill?.(order, filled);
       order.shares -= filled;
       order.filled += filled;
       if (order.shares <= 0n) {
@@ -439,6 +450,8 @@ export function createCityShareMarket(deps: CityShareMarketDeps) {
       readonly atMs: number;
       readonly cap?: bigint | undefined;
       readonly agendaId?: number | undefined;
+      /** 주문을 낸 증권 거래소(서비스가 확인한 것 — 바뀜 gov-fix-4) */
+      readonly exchangeId?: number | undefined;
     }): CitySharePlaceResult {
       const asset = deps.currencyOf(input.cityId);
       if (asset === undefined) return { ok: false, code: "unknown_city" };
@@ -479,6 +492,7 @@ export function createCityShareMarket(deps: CityShareMarketDeps) {
         seq,
         placedAtMs: input.atMs,
         agendaId: input.agendaId ?? null,
+        exchangeId: input.exchangeId ?? null,
       };
       const list = books.get(input.cityId) ?? [];
       list.push(order);

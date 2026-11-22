@@ -4,6 +4,7 @@
 // - 참전(D-291 전쟁 참가자 등록): 세력·사회 declareWar 규칙(wars.ts — 둘 다 전쟁, 교전 시각 = 지금)을 무명분 비용 없이 부른다(요청·수락으로 들어간 전쟁 — D-291 "악명 없이").
 // - 공물: 보호받는 나라 국고(그 나라 화폐) → 보호하는 나라 국고(같은 화폐 계정) 원장 이체(kind treaty_tribute — 봉신 공물과 같은 모양).
 import { declareWar, factionView } from "@terra/sim";
+import { type AffinityBook, type AffinityRules, attachAffinityBook } from "./affinity.ts";
 import { type BreachBook, type BreachRules, attachBreachBook } from "./breaches.ts";
 import { tributeAmount } from "./clauses.ts";
 import type { GovernanceNation, GovernancePort } from "../governance/port.ts";
@@ -28,6 +29,8 @@ export interface DiplomacyPort
   strengthOf(nation: GovernanceNation, nowMs: number): number;
   /** 조약 위반 장부(원장에 붙는다 — breaches.ts). 세계가 준비되지 않았으면 undefined */
   breaches(): BreachBook | undefined;
+  /** 세력 쌍 호감 장부(원장에 붙는다 — affinity.ts, 줄기 gov-fix-4). 세계가 준비되지 않았으면 undefined */
+  affinity(): AffinityBook | undefined;
 }
 
 type DiplomacyWorld = Pick<World, "status" | "npc" | "persistence">;
@@ -35,7 +38,7 @@ type DiplomacyWorld = Pick<World, "status" | "npc" | "persistence">;
 export function worldDiplomacyPort(
   world: () => DiplomacyWorld | undefined,
   governance: GovernancePort,
-  rules: () => BreachRules,
+  rules: () => BreachRules & AffinityRules,
 ): DiplomacyPort {
   const live = () => {
     const w = world();
@@ -118,6 +121,15 @@ export function worldDiplomacyPort(
     breaches() {
       const l = live();
       return l ? attachBreachBook(l.persistence.ledger, rules) : undefined;
+    },
+    affinity() {
+      const l = live();
+      if (!l) return undefined;
+      return attachAffinityBook(l.persistence.ledger, {
+        rules,
+        nations: () => governance.nations().map((nation) => nation.rowId),
+        rowOfOwner: (owner) => governance.nations().find((nation) => nation.ownerId === owner)?.rowId,
+      });
     },
   };
 }

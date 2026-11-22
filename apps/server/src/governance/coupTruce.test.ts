@@ -21,6 +21,7 @@ const coup = (
   status: "gathering",
   result: null,
   decidedAtMs: null,
+  battleId: null,
 });
 
 /** 지배 가문 기록 없음(의결 틱 고리 시험) */

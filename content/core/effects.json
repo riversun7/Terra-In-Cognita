@@ -193,6 +193,96 @@
       "stacking": "refresh",
       "maxStacks": 1,
       "enabled": true
+    },
+    {
+      "id": "food_str",
+      "name": {
+        "ko": "요리: 힘",
+        "en": "Food: STR"
+      },
+      "durationMs": 1800000,
+      "kind": "buff",
+      "stat": "str",
+      "valueMode": "flat",
+      "tickMs": 0,
+      "stacking": "refresh",
+      "maxStacks": 1,
+      "enabled": true
+    },
+    {
+      "id": "food_vit",
+      "name": {
+        "ko": "요리: 체력",
+        "en": "Food: VIT"
+      },
+      "durationMs": 1800000,
+      "kind": "buff",
+      "stat": "vit",
+      "valueMode": "flat",
+      "tickMs": 0,
+      "stacking": "refresh",
+      "maxStacks": 1,
+      "enabled": true
+    },
+    {
+      "id": "food_dex",
+      "name": {
+        "ko": "요리: 솜씨",
+        "en": "Food: DEX"
+      },
+      "durationMs": 1800000,
+      "kind": "buff",
+      "stat": "dex",
+      "valueMode": "flat",
+      "tickMs": 0,
+      "stacking": "refresh",
+      "maxStacks": 1,
+      "enabled": true
+    },
+    {
+      "id": "food_agi",
+      "name": {
+        "ko": "요리: 민첩",
+        "en": "Food: AGI"
+      },
+      "durationMs": 1800000,
+      "kind": "buff",
+      "stat": "agi",
+      "valueMode": "flat",
+      "tickMs": 0,
+      "stacking": "refresh",
+      "maxStacks": 1,
+      "enabled": true
+    },
+    {
+      "id": "food_int",
+      "name": {
+        "ko": "요리: 지능",
+        "en": "Food: INT"
+      },
+      "durationMs": 1800000,
+      "kind": "buff",
+      "stat": "int",
+      "valueMode": "flat",
+      "tickMs": 0,
+      "stacking": "refresh",
+      "maxStacks": 1,
+      "enabled": true
+    },
+    {
+      "id": "food_wis",
+      "name": {
+        "ko": "요리: 지혜",
+        "en": "Food: WIS"
+      },
+      "durationMs": 1800000,
+      "kind": "buff",
+      "stat": "wis",
+      "valueMode": "flat",
+      "tickMs": 0,
+      "stacking": "refresh",
+      "maxStacks": 1,
+      "enabled": true
     }
   ]
 }

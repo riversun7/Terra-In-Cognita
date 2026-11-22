@@ -114,4 +114,24 @@ describe("아이템 권고", () => {
     const cheap = item("iron_ingot", (raw) => ({ ...raw, startPrice: 1 }));
     expect(codes(cheap)).toContain("advice_value_below_cost");
   });
+
+  it("T0~T9 요리 아이템 71종은 주방 레시피 원가·티어·이름 길이·효과 참조 권고 경고가 없다(D-472)", () => {
+    const dishes = ctx.effective.items.filter(
+      (entry) => entry.subcategory?.id === "dish" && entry.id !== "ration",
+    );
+    expect(dishes.length).toBe(71);
+    const tiers = new Set(dishes.map((entry) => entry.tier));
+    expect([...tiers].toSorted((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    for (const dish of dishes) {
+      expect(dish.use?.effects.length).toBeGreaterThanOrEqual(2);
+      const issues = codes(dish);
+      expect(issues).not.toContain("advice_name_length");
+      expect(issues).not.toContain("advice_tier_mismatch");
+      expect(issues).not.toContain("advice_value_below_cost");
+      expect(issues).not.toContain("advice_value_above_cost");
+      expect(issues).not.toContain("advice_disabled_ref");
+      const recipe = ctx.recipes.find((entry) => entry.id === `cook_${dish.id}`);
+      expect(recipe?.facility.id).toBe("kitchen");
+    }
+  });
 });

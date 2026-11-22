@@ -434,6 +434,1824 @@
       ],
       "work": 800,
       "enabled": true
+    },
+    {
+      "id": "cook_hay_porridge",
+      "name": {
+        "ko": "건초 죽 쑤기",
+        "en": "Cook hay porridge"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "hay",
+          "qty": 2
+        },
+        {
+          "item": "barley",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "hay_porridge",
+          "qty": 1
+        }
+      ],
+      "work": 300,
+      "enabled": true
+    },
+    {
+      "id": "cook_fried_egg",
+      "name": {
+        "ko": "계란 프라이 굽기",
+        "en": "Fry eggs"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "egg",
+          "qty": 2
+        }
+      ],
+      "outputs": [
+        {
+          "item": "fried_egg",
+          "qty": 1
+        }
+      ],
+      "work": 300,
+      "enabled": true
+    },
+    {
+      "id": "cook_meat_skewer",
+      "name": {
+        "ko": "생고기 꼬치 굽기",
+        "en": "Grill meat skewer"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "raw_meat",
+          "qty": 2
+        }
+      ],
+      "outputs": [
+        {
+          "item": "meat_skewer",
+          "qty": 1
+        }
+      ],
+      "work": 300,
+      "enabled": true
+    },
+    {
+      "id": "cook_loach_soup",
+      "name": {
+        "ko": "미꾸라지 탕 끓이기",
+        "en": "Boil loach soup"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "loach",
+          "qty": 2
+        },
+        {
+          "item": "minnow",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "loach_soup",
+          "qty": 1
+        }
+      ],
+      "work": 300,
+      "enabled": true
+    },
+    {
+      "id": "cook_clam_soup",
+      "name": {
+        "ko": "조개 맑은국 끓이기",
+        "en": "Boil clam soup"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "shellfish",
+          "qty": 3
+        }
+      ],
+      "outputs": [
+        {
+          "item": "clam_soup",
+          "qty": 1
+        }
+      ],
+      "work": 300,
+      "enabled": true
+    },
+    {
+      "id": "cook_meat_stew",
+      "name": {
+        "ko": "고기 콩스튜 끓이기",
+        "en": "Simmer meat bean stew"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "raw_meat",
+          "qty": 2
+        },
+        {
+          "item": "bean",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "meat_stew",
+          "qty": 1
+        }
+      ],
+      "work": 300,
+      "enabled": true
+    },
+    {
+      "id": "cook_meat_hay_porridge",
+      "name": {
+        "ko": "고기 건초죽 쑤기",
+        "en": "Cook meat hay gruel"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "hay",
+          "qty": 1
+        },
+        {
+          "item": "raw_meat",
+          "qty": 1
+        },
+        {
+          "item": "egg",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "meat_hay_porridge",
+          "qty": 1
+        }
+      ],
+      "work": 300,
+      "enabled": true
+    },
+    {
+      "id": "cook_baked_potato",
+      "name": {
+        "ko": "군감자 굽기",
+        "en": "Bake potatoes"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "potato",
+          "qty": 2
+        },
+        {
+          "item": "carrot",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "baked_potato",
+          "qty": 1
+        }
+      ],
+      "work": 600,
+      "enabled": true
+    },
+    {
+      "id": "cook_cabbage_stew",
+      "name": {
+        "ko": "배추 된장국 끓이기",
+        "en": "Boil cabbage soup"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "napa_cabbage",
+          "qty": 2
+        },
+        {
+          "item": "potato",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "cabbage_stew",
+          "qty": 1
+        }
+      ],
+      "work": 600,
+      "enabled": true
+    },
+    {
+      "id": "cook_venison_roast",
+      "name": {
+        "ko": "사슴 구이 조리",
+        "en": "Roast venison"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "venison",
+          "qty": 3
+        }
+      ],
+      "outputs": [
+        {
+          "item": "venison_roast",
+          "qty": 1
+        }
+      ],
+      "work": 600,
+      "enabled": true
+    },
+    {
+      "id": "cook_steamed_crucian",
+      "name": {
+        "ko": "붕어 찜 조리",
+        "en": "Steam crucian carp"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "crucian_carp",
+          "qty": 3
+        }
+      ],
+      "outputs": [
+        {
+          "item": "steamed_crucian",
+          "qty": 1
+        }
+      ],
+      "work": 600,
+      "enabled": true
+    },
+    {
+      "id": "cook_grilled_carp",
+      "name": {
+        "ko": "잉어 소금구이 조리",
+        "en": "Grill carp"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "carp",
+          "qty": 2
+        },
+        {
+          "item": "crucian_carp",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "grilled_carp",
+          "qty": 1
+        }
+      ],
+      "work": 600,
+      "enabled": true
+    },
+    {
+      "id": "cook_venison_potato_stew",
+      "name": {
+        "ko": "사슴 감자탕 끓이기",
+        "en": "Boil venison stew"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "venison",
+          "qty": 2
+        },
+        {
+          "item": "potato",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "venison_potato_stew",
+          "qty": 1
+        }
+      ],
+      "work": 600,
+      "enabled": true
+    },
+    {
+      "id": "cook_braised_carp",
+      "name": {
+        "ko": "잉어 배추조림 조리",
+        "en": "Braise carp with cabbage"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "carp",
+          "qty": 2
+        },
+        {
+          "item": "napa_cabbage",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "braised_carp",
+          "qty": 1
+        }
+      ],
+      "work": 600,
+      "enabled": true
+    },
+    {
+      "id": "cook_tonic_stew",
+      "name": {
+        "ko": "특제 보양스튜 끓이기",
+        "en": "Simmer tonic stew"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "potato",
+          "qty": 1
+        },
+        {
+          "item": "venison",
+          "qty": 1
+        },
+        {
+          "item": "carp",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "tonic_stew",
+          "qty": 1
+        }
+      ],
+      "work": 600,
+      "enabled": true
+    },
+    {
+      "id": "cook_wheat_bread",
+      "name": {
+        "ko": "통밀 빵 굽기",
+        "en": "Bake wheat bread"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "wheat",
+          "qty": 3
+        }
+      ],
+      "outputs": [
+        {
+          "item": "wheat_bread",
+          "qty": 1
+        }
+      ],
+      "work": 1200,
+      "enabled": true
+    },
+    {
+      "id": "cook_tomato_pasta",
+      "name": {
+        "ko": "토마토 파스타 조리",
+        "en": "Cook tomato pasta"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "wheat",
+          "qty": 2
+        },
+        {
+          "item": "tomato",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "tomato_pasta",
+          "qty": 1
+        }
+      ],
+      "work": 1200,
+      "enabled": true
+    },
+    {
+      "id": "cook_roast_mutton",
+      "name": {
+        "ko": "양고기 구이 조리",
+        "en": "Roast mutton"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "mutton",
+          "qty": 2
+        },
+        {
+          "item": "sheep_milk",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "roast_mutton",
+          "qty": 1
+        }
+      ],
+      "work": 1200,
+      "enabled": true
+    },
+    {
+      "id": "cook_grilled_salmon",
+      "name": {
+        "ko": "연어 스테이크 굽기",
+        "en": "Grill salmon steak"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "salmon",
+          "qty": 2
+        },
+        {
+          "item": "trout",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "grilled_salmon",
+          "qty": 1
+        }
+      ],
+      "work": 1200,
+      "enabled": true
+    },
+    {
+      "id": "cook_smoked_trout",
+      "name": {
+        "ko": "송어 훈제 조리",
+        "en": "Smoke trout"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "trout",
+          "qty": 3
+        }
+      ],
+      "outputs": [
+        {
+          "item": "smoked_trout",
+          "qty": 1
+        }
+      ],
+      "work": 1200,
+      "enabled": true
+    },
+    {
+      "id": "cook_mutton_stew",
+      "name": {
+        "ko": "양고기 스튜 끓이기",
+        "en": "Simmer mutton stew"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "mutton",
+          "qty": 2
+        },
+        {
+          "item": "onion",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "mutton_stew",
+          "qty": 1
+        }
+      ],
+      "work": 1200,
+      "enabled": true
+    },
+    {
+      "id": "cook_salmon_mutton_bowl",
+      "name": {
+        "ko": "연어 양고기덮밥 조리",
+        "en": "Cook surf turf bowl"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "wheat",
+          "qty": 1
+        },
+        {
+          "item": "mutton",
+          "qty": 1
+        },
+        {
+          "item": "salmon",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "salmon_mutton_bowl",
+          "qty": 1
+        }
+      ],
+      "work": 1200,
+      "enabled": true
+    },
+    {
+      "id": "cook_garlic_fried_rice",
+      "name": {
+        "ko": "마늘 볶음밥 조리",
+        "en": "Fry garlic rice"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "rice",
+          "qty": 2
+        },
+        {
+          "item": "garlic",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "garlic_fried_rice",
+          "qty": 1
+        }
+      ],
+      "work": 1800,
+      "enabled": true
+    },
+    {
+      "id": "cook_beef_steak",
+      "name": {
+        "ko": "쇠고기 스테이크 굽기",
+        "en": "Grill beef steak"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "prime_beef",
+          "qty": 3
+        }
+      ],
+      "outputs": [
+        {
+          "item": "beef_steak",
+          "qty": 1
+        }
+      ],
+      "work": 1800,
+      "enabled": true
+    },
+    {
+      "id": "cook_grilled_mackerel",
+      "name": {
+        "ko": "고등어 구이 조리",
+        "en": "Grill mackerel"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "mackerel",
+          "qty": 2
+        },
+        {
+          "item": "saury",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "grilled_mackerel",
+          "qty": 1
+        }
+      ],
+      "work": 1800,
+      "enabled": true
+    },
+    {
+      "id": "cook_grilled_squid",
+      "name": {
+        "ko": "오징어 통구이 조리",
+        "en": "Grill whole squid"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "squid",
+          "qty": 3
+        }
+      ],
+      "outputs": [
+        {
+          "item": "grilled_squid",
+          "qty": 1
+        }
+      ],
+      "work": 1800,
+      "enabled": true
+    },
+    {
+      "id": "cook_beef_scallion_stir",
+      "name": {
+        "ko": "쇠고기 대파볶음 조리",
+        "en": "Stir-fry beef and scallion"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "prime_beef",
+          "qty": 2
+        },
+        {
+          "item": "green_onion",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "beef_scallion_stir",
+          "qty": 1
+        }
+      ],
+      "work": 1800,
+      "enabled": true
+    },
+    {
+      "id": "cook_braised_mackerel",
+      "name": {
+        "ko": "고등어 마늘조림 조리",
+        "en": "Braise mackerel with garlic"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "mackerel",
+          "qty": 2
+        },
+        {
+          "item": "garlic",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "braised_mackerel",
+          "qty": 1
+        }
+      ],
+      "work": 1800,
+      "enabled": true
+    },
+    {
+      "id": "cook_braised_beef_mackerel",
+      "name": {
+        "ko": "가정식 정식 차리기",
+        "en": "Prepare homestyle set"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "rice",
+          "qty": 1
+        },
+        {
+          "item": "prime_beef",
+          "qty": 1
+        },
+        {
+          "item": "mackerel",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "braised_beef_mackerel",
+          "qty": 1
+        }
+      ],
+      "work": 1800,
+      "enabled": true
+    },
+    {
+      "id": "cook_corn_salad",
+      "name": {
+        "ko": "옥수수 샐러드 만들기",
+        "en": "Toss corn salad"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "corn",
+          "qty": 2
+        },
+        {
+          "item": "celery",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "corn_salad",
+          "qty": 1
+        }
+      ],
+      "work": 2400,
+      "enabled": true
+    },
+    {
+      "id": "cook_asparagus_roast",
+      "name": {
+        "ko": "아스파라거스 구이 조리",
+        "en": "Roast asparagus"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "asparagus",
+          "qty": 2
+        },
+        {
+          "item": "celery",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "asparagus_roast",
+          "qty": 1
+        }
+      ],
+      "work": 2400,
+      "enabled": true
+    },
+    {
+      "id": "cook_fox_meat_roast",
+      "name": {
+        "ko": "여우고기 로스트 조리",
+        "en": "Roast fox meat"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "fox_meat",
+          "qty": 3
+        }
+      ],
+      "outputs": [
+        {
+          "item": "fox_meat_roast",
+          "qty": 1
+        }
+      ],
+      "work": 2400,
+      "enabled": true
+    },
+    {
+      "id": "cook_flounder_sashimi",
+      "name": {
+        "ko": "광어 회 뜨기",
+        "en": "Slice flounder sashimi"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "olive_flounder",
+          "qty": 3
+        }
+      ],
+      "outputs": [
+        {
+          "item": "flounder_sashimi",
+          "qty": 1
+        }
+      ],
+      "work": 2400,
+      "enabled": true
+    },
+    {
+      "id": "cook_rockfish_soup",
+      "name": {
+        "ko": "우럭 매운탕 끓이기",
+        "en": "Boil rockfish soup"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "rockfish",
+          "qty": 2
+        },
+        {
+          "item": "olive_flounder",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "rockfish_soup",
+          "qty": 1
+        }
+      ],
+      "work": 2400,
+      "enabled": true
+    },
+    {
+      "id": "cook_steamed_flatfish",
+      "name": {
+        "ko": "광어 채소찜 조리",
+        "en": "Steam flounder with vegetables"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "olive_flounder",
+          "qty": 2
+        },
+        {
+          "item": "asparagus",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "steamed_flatfish",
+          "qty": 1
+        }
+      ],
+      "work": 2400,
+      "enabled": true
+    },
+    {
+      "id": "cook_flatfish_veg_stew",
+      "name": {
+        "ko": "은빛 광어스튜 끓이기",
+        "en": "Simmer silver flounder stew"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "corn",
+          "qty": 1
+        },
+        {
+          "item": "fox_meat",
+          "qty": 1
+        },
+        {
+          "item": "olive_flounder",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "flatfish_veg_stew",
+          "qty": 1
+        }
+      ],
+      "work": 2400,
+      "enabled": true
+    },
+    {
+      "id": "cook_soybean_stew",
+      "name": {
+        "ko": "대두 스튜 끓이기",
+        "en": "Simmer soybean stew"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "soybean",
+          "qty": 2
+        },
+        {
+          "item": "olive",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "soybean_stew",
+          "qty": 1
+        }
+      ],
+      "work": 3000,
+      "enabled": true
+    },
+    {
+      "id": "cook_olive_salad",
+      "name": {
+        "ko": "올리브 샐러드 만들기",
+        "en": "Toss olive salad"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "olive",
+          "qty": 2
+        },
+        {
+          "item": "sesame",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "olive_salad",
+          "qty": 1
+        }
+      ],
+      "work": 3000,
+      "enabled": true
+    },
+    {
+      "id": "cook_black_pork_steak",
+      "name": {
+        "ko": "흑돼지 스테이크 굽기",
+        "en": "Grill black pork steak"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "acorn_pork",
+          "qty": 2
+        },
+        {
+          "item": "lard",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "black_pork_steak",
+          "qty": 1
+        }
+      ],
+      "work": 3000,
+      "enabled": true
+    },
+    {
+      "id": "cook_sea_bream_sashimi",
+      "name": {
+        "ko": "도미 회 정식 차리기",
+        "en": "Prepare sea bream plate"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "sea_bream",
+          "qty": 3
+        }
+      ],
+      "outputs": [
+        {
+          "item": "sea_bream_sashimi",
+          "qty": 1
+        }
+      ],
+      "work": 3000,
+      "enabled": true
+    },
+    {
+      "id": "cook_grilled_sea_bass",
+      "name": {
+        "ko": "농어 소금구이 조리",
+        "en": "Grill sea bass"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "sea_bass",
+          "qty": 2
+        },
+        {
+          "item": "sea_bream",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "grilled_sea_bass",
+          "qty": 1
+        }
+      ],
+      "work": 3000,
+      "enabled": true
+    },
+    {
+      "id": "cook_sea_bream_carpaccio",
+      "name": {
+        "ko": "도미 카르파치오 조리",
+        "en": "Prepare bream carpaccio"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "sea_bream",
+          "qty": 2
+        },
+        {
+          "item": "sesame",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "sea_bream_carpaccio",
+          "qty": 1
+        }
+      ],
+      "work": 3000,
+      "enabled": true
+    },
+    {
+      "id": "cook_pork_bream_salad",
+      "name": {
+        "ko": "고급 코스요리 차리기",
+        "en": "Prepare gourmet course"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "soybean",
+          "qty": 1
+        },
+        {
+          "item": "acorn_pork",
+          "qty": 1
+        },
+        {
+          "item": "sea_bream",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "pork_bream_salad",
+          "qty": 1
+        }
+      ],
+      "work": 3000,
+      "enabled": true
+    },
+    {
+      "id": "cook_kabocha_soup",
+      "name": {
+        "ko": "단호박 수프 끓이기",
+        "en": "Simmer kabocha soup"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "kabocha",
+          "qty": 2
+        },
+        {
+          "item": "shallot",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "kabocha_soup",
+          "qty": 1
+        }
+      ],
+      "work": 3600,
+      "enabled": true
+    },
+    {
+      "id": "cook_artichoke_gratin",
+      "name": {
+        "ko": "아티초크 그라탱 굽기",
+        "en": "Bake artichoke gratin"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "artichoke",
+          "qty": 2
+        },
+        {
+          "item": "black_truffle",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "artichoke_gratin",
+          "qty": 1
+        }
+      ],
+      "work": 3600,
+      "enabled": true
+    },
+    {
+      "id": "cook_croc_tail_steak",
+      "name": {
+        "ko": "악어 스테이크 굽기",
+        "en": "Grill croc tail steak"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "croc_tail_meat",
+          "qty": 3
+        }
+      ],
+      "outputs": [
+        {
+          "item": "croc_tail_steak",
+          "qty": 1
+        }
+      ],
+      "work": 3600,
+      "enabled": true
+    },
+    {
+      "id": "cook_yellowtail_sashimi",
+      "name": {
+        "ko": "방어 사시미 뜨기",
+        "en": "Slice yellowtail sashimi"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "yellowtail",
+          "qty": 2
+        },
+        {
+          "item": "marlin",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "yellowtail_sashimi",
+          "qty": 1
+        }
+      ],
+      "work": 3600,
+      "enabled": true
+    },
+    {
+      "id": "cook_boiled_octopus",
+      "name": {
+        "ko": "문어 숙회 데치기",
+        "en": "Parboil octopus"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "octopus",
+          "qty": 3
+        }
+      ],
+      "outputs": [
+        {
+          "item": "boiled_octopus",
+          "qty": 1
+        }
+      ],
+      "work": 3600,
+      "enabled": true
+    },
+    {
+      "id": "cook_whale_steak",
+      "name": {
+        "ko": "고래고기 구이 조리",
+        "en": "Grill whale steak"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "whale_meat",
+          "qty": 2
+        },
+        {
+          "item": "octopus",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "whale_steak",
+          "qty": 1
+        }
+      ],
+      "work": 3600,
+      "enabled": true
+    },
+    {
+      "id": "cook_yellowtail_croc_canape",
+      "name": {
+        "ko": "방어 악어카나페 만들기",
+        "en": "Prepare croc canape"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "kabocha",
+          "qty": 1
+        },
+        {
+          "item": "croc_tail_meat",
+          "qty": 1
+        },
+        {
+          "item": "yellowtail",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "yellowtail_croc_canape",
+          "qty": 1
+        }
+      ],
+      "work": 3600,
+      "enabled": true
+    },
+    {
+      "id": "cook_quinoa_salad",
+      "name": {
+        "ko": "퀴노아 샐러드 만들기",
+        "en": "Toss quinoa salad"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "quinoa",
+          "qty": 2
+        },
+        {
+          "item": "ginger",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "quinoa_salad",
+          "qty": 1
+        }
+      ],
+      "work": 4500,
+      "enabled": true
+    },
+    {
+      "id": "cook_gryphon_roast",
+      "name": {
+        "ko": "그리폰 로스트 굽기",
+        "en": "Roast gryphon meat"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "gryphon_meat",
+          "qty": 3
+        }
+      ],
+      "outputs": [
+        {
+          "item": "gryphon_roast",
+          "qty": 1
+        }
+      ],
+      "work": 4500,
+      "enabled": true
+    },
+    {
+      "id": "cook_sturgeon_caviar",
+      "name": {
+        "ko": "철갑상어 캐비어 담기",
+        "en": "Prepare sturgeon caviar"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "sturgeon",
+          "qty": 2
+        },
+        {
+          "item": "ocean_sunfish",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "sturgeon_caviar",
+          "qty": 1
+        }
+      ],
+      "work": 4500,
+      "enabled": true
+    },
+    {
+      "id": "cook_sailfish_sashimi",
+      "name": {
+        "ko": "돛새치 사시미 뜨기",
+        "en": "Slice sailfish sashimi"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "sailfish",
+          "qty": 2
+        },
+        {
+          "item": "sturgeon",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "sailfish_sashimi",
+          "qty": 1
+        }
+      ],
+      "work": 4500,
+      "enabled": true
+    },
+    {
+      "id": "cook_moonlight_gryphon",
+      "name": {
+        "ko": "달빛 그리폰구이 조리",
+        "en": "Roast moonlit gryphon"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "gryphon_meat",
+          "qty": 2
+        },
+        {
+          "item": "moonlight_laurel",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "moonlight_gryphon",
+          "qty": 1
+        }
+      ],
+      "work": 4500,
+      "enabled": true
+    },
+    {
+      "id": "cook_sturgeon_quinoa_bowl",
+      "name": {
+        "ko": "철갑상어 영양식 조리",
+        "en": "Cook sturgeon quinoa bowl"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "sturgeon",
+          "qty": 2
+        },
+        {
+          "item": "fresh_wasabi",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "sturgeon_quinoa_bowl",
+          "qty": 1
+        }
+      ],
+      "work": 4500,
+      "enabled": true
+    },
+    {
+      "id": "cook_caviar_gryphon_feast",
+      "name": {
+        "ko": "귀족 연회요리 차리기",
+        "en": "Prepare noble banquet"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "quinoa",
+          "qty": 1
+        },
+        {
+          "item": "gryphon_meat",
+          "qty": 1
+        },
+        {
+          "item": "sturgeon",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "caviar_gryphon_feast",
+          "qty": 1
+        }
+      ],
+      "work": 4500,
+      "enabled": true
+    },
+    {
+      "id": "cook_black_maca_pasta",
+      "name": {
+        "ko": "블랙마카 파스타 조리",
+        "en": "Cook black maca pasta"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "black_maca",
+          "qty": 2
+        },
+        {
+          "item": "white_truffle",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "black_maca_pasta",
+          "qty": 1
+        }
+      ],
+      "work": 6000,
+      "enabled": true
+    },
+    {
+      "id": "cook_truffle_risotto",
+      "name": {
+        "ko": "트러플 리조또 조리",
+        "en": "Simmer truffle risotto"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "white_truffle",
+          "qty": 2
+        },
+        {
+          "item": "lotus_seed",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "truffle_risotto",
+          "qty": 1
+        }
+      ],
+      "work": 6000,
+      "enabled": true
+    },
+    {
+      "id": "cook_unicorn_steak",
+      "name": {
+        "ko": "유니콘 스테이크 굽기",
+        "en": "Grill unicorn steak"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "unicorn_meat",
+          "qty": 3
+        }
+      ],
+      "outputs": [
+        {
+          "item": "unicorn_steak",
+          "qty": 1
+        }
+      ],
+      "work": 6000,
+      "enabled": true
+    },
+    {
+      "id": "cook_tuna_belly_sashimi",
+      "name": {
+        "ko": "참다랑어 대뱃살 뜨기",
+        "en": "Slice tuna otoro"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "bluefin_tuna",
+          "qty": 2
+        },
+        {
+          "item": "white_shark",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "tuna_belly_sashimi",
+          "qty": 1
+        }
+      ],
+      "work": 6000,
+      "enabled": true
+    },
+    {
+      "id": "cook_grouper_sashimi",
+      "name": {
+        "ko": "다금바리 회 뜨기",
+        "en": "Slice grouper sashimi"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "grouper",
+          "qty": 2
+        },
+        {
+          "item": "giant_sea_bass",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "grouper_sashimi",
+          "qty": 1
+        }
+      ],
+      "work": 6000,
+      "enabled": true
+    },
+    {
+      "id": "cook_tuna_truffle_bowl",
+      "name": {
+        "ko": "참다랑어 덮밥 조리",
+        "en": "Prepare tuna truffle don"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "bluefin_tuna",
+          "qty": 2
+        },
+        {
+          "item": "white_truffle",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "tuna_truffle_bowl",
+          "qty": 1
+        }
+      ],
+      "work": 6000,
+      "enabled": true
+    },
+    {
+      "id": "cook_truffle_tuna_feast",
+      "name": {
+        "ko": "황제 연회요리 차리기",
+        "en": "Prepare emperor feast"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "black_maca",
+          "qty": 1
+        },
+        {
+          "item": "unicorn_meat",
+          "qty": 1
+        },
+        {
+          "item": "bluefin_tuna",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "truffle_tuna_feast",
+          "qty": 1
+        }
+      ],
+      "work": 6000,
+      "enabled": true
+    },
+    {
+      "id": "cook_divine_grain_bowl",
+      "name": {
+        "ko": "신의 낟알솥밥 짓기",
+        "en": "Steam divine grain pot"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "divine_grain",
+          "qty": 2
+        },
+        {
+          "item": "ambrosia",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "divine_grain_bowl",
+          "qty": 1
+        }
+      ],
+      "work": 9000,
+      "enabled": true
+    },
+    {
+      "id": "cook_ambrosia_nectar",
+      "name": {
+        "ko": "암브로시아 과실 빚기",
+        "en": "Prepare ambrosia fruit"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "ambrosia",
+          "qty": 2
+        },
+        {
+          "item": "golden_apple",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "ambrosia_nectar",
+          "qty": 1
+        }
+      ],
+      "work": 9000,
+      "enabled": true
+    },
+    {
+      "id": "cook_dragon_meat_roast",
+      "name": {
+        "ko": "고대룡 고기구이 조리",
+        "en": "Roast dragon meat"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "dragon_meat",
+          "qty": 3
+        }
+      ],
+      "outputs": [
+        {
+          "item": "dragon_meat_roast",
+          "qty": 1
+        }
+      ],
+      "work": 9000,
+      "enabled": true
+    },
+    {
+      "id": "cook_whale_shark_course",
+      "name": {
+        "ko": "해왕 코스요리 차리기",
+        "en": "Prepare sea king course"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "whale_shark",
+          "qty": 2
+        },
+        {
+          "item": "coelacanth",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "whale_shark_course",
+          "qty": 1
+        }
+      ],
+      "work": 9000,
+      "enabled": true
+    },
+    {
+      "id": "cook_megalodon_sashimi",
+      "name": {
+        "ko": "메갈로돈 사시미 뜨기",
+        "en": "Slice megalodon sashimi"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "megalodon",
+          "qty": 2
+        },
+        {
+          "item": "coelacanth",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "megalodon_sashimi",
+          "qty": 1
+        }
+      ],
+      "work": 9000,
+      "enabled": true
+    },
+    {
+      "id": "cook_dragon_grain_feast",
+      "name": {
+        "ko": "고대룡 약선요리 조리",
+        "en": "Simmer dragon medicinal dish"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "dragon_meat",
+          "qty": 2
+        },
+        {
+          "item": "golden_apple",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "dragon_grain_feast",
+          "qty": 1
+        }
+      ],
+      "work": 9000,
+      "enabled": true
+    },
+    {
+      "id": "cook_divine_feast",
+      "name": {
+        "ko": "신들의 궁극연회 차리기",
+        "en": "Prepare divine banquet"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "divine_grain",
+          "qty": 1
+        },
+        {
+          "item": "dragon_meat",
+          "qty": 1
+        },
+        {
+          "item": "whale_shark",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "divine_feast",
+          "qty": 1
+        }
+      ],
+      "work": 9000,
+      "enabled": true
     }
   ]
 }

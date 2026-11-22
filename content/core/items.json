@@ -2638,6 +2638,2233 @@
       "startPrice": 1,
       "weight": 1000,
       "enabled": true
+    },
+    {
+      "id": "hay_porridge",
+      "name": {
+        "ko": "건초 죽",
+        "en": "Hay porridge"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 0,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_int",
+            "value": 1,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 1,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "fried_egg",
+      "name": {
+        "ko": "계란 프라이",
+        "en": "Fried egg"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 0,
+      "startPrice": 2,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 1,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 1,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "meat_skewer",
+      "name": {
+        "ko": "생고기 꼬치",
+        "en": "Meat skewer"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 0,
+      "startPrice": 2,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 1,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 1,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "loach_soup",
+      "name": {
+        "ko": "미꾸라지 탕",
+        "en": "Loach soup"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 0,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 1,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 1,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "clam_soup",
+      "name": {
+        "ko": "조개 맑은국",
+        "en": "Clam soup"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 0,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 1,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 1,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "meat_stew",
+      "name": {
+        "ko": "고기 콩스튜",
+        "en": "Meat bean stew"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 0,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 1,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 1,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_int",
+            "value": 1,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 1,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "meat_hay_porridge",
+      "name": {
+        "ko": "고기 건초죽",
+        "en": "Meat hay gruel"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 0,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 1,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 1,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_int",
+            "value": 1,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 1,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "baked_potato",
+      "name": {
+        "ko": "군감자",
+        "en": "Baked potato"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 1,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_int",
+            "value": 2,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 2,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "cabbage_stew",
+      "name": {
+        "ko": "배추 된장국",
+        "en": "Cabbage soup"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 1,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_int",
+            "value": 2,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 2,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "venison_roast",
+      "name": {
+        "ko": "사슴 구이",
+        "en": "Venison roast"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 1,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 2,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 2,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "steamed_crucian",
+      "name": {
+        "ko": "붕어 찜",
+        "en": "Steamed crucian"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 1,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 2,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 2,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "grilled_carp",
+      "name": {
+        "ko": "잉어 소금구이",
+        "en": "Grilled carp"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 1,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 2,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 2,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "venison_potato_stew",
+      "name": {
+        "ko": "사슴 감자탕",
+        "en": "Venison stew"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 1,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 2,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 2,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_int",
+            "value": 2,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 2,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "braised_carp",
+      "name": {
+        "ko": "잉어 배추조림",
+        "en": "Braised carp"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 1,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 2,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 2,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_int",
+            "value": 2,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 2,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "tonic_stew",
+      "name": {
+        "ko": "특제 보양스튜",
+        "en": "Tonic stew"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 1,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 2,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 2,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_dex",
+            "value": 2,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 2,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_int",
+            "value": 2,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 2,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "wheat_bread",
+      "name": {
+        "ko": "통밀 빵",
+        "en": "Wheat bread"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 2,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_int",
+            "value": 3,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 3,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "tomato_pasta",
+      "name": {
+        "ko": "토마토 파스타",
+        "en": "Tomato pasta"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 2,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_int",
+            "value": 3,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 3,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "roast_mutton",
+      "name": {
+        "ko": "양고기 구이",
+        "en": "Roast mutton"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 2,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 3,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 3,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "grilled_salmon",
+      "name": {
+        "ko": "연어 스테이크",
+        "en": "Salmon steak"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 2,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 3,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 3,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "smoked_trout",
+      "name": {
+        "ko": "송어 훈제",
+        "en": "Smoked trout"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 2,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 3,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 3,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "mutton_stew",
+      "name": {
+        "ko": "양고기 스튜",
+        "en": "Mutton stew"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 2,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 3,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 3,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_int",
+            "value": 3,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 3,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "salmon_mutton_bowl",
+      "name": {
+        "ko": "연어 양고기덮밥",
+        "en": "Surf turf bowl"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 2,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 3,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 3,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_dex",
+            "value": 3,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 3,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_int",
+            "value": 3,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 3,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "garlic_fried_rice",
+      "name": {
+        "ko": "마늘 볶음밥",
+        "en": "Garlic rice"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 3,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_int",
+            "value": 4,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 4,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "beef_steak",
+      "name": {
+        "ko": "쇠고기 스테이크",
+        "en": "Beef steak"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 3,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 4,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 4,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "grilled_mackerel",
+      "name": {
+        "ko": "고등어 구이",
+        "en": "Grilled mackerel"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 3,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 4,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 4,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "grilled_squid",
+      "name": {
+        "ko": "오징어 통구이",
+        "en": "Grilled squid"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 3,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 4,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 4,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "beef_scallion_stir",
+      "name": {
+        "ko": "쇠고기 대파볶음",
+        "en": "Beef stir-fry"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 3,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 4,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 4,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_int",
+            "value": 4,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 4,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "braised_mackerel",
+      "name": {
+        "ko": "고등어 마늘조림",
+        "en": "Braised mackerel"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 3,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 4,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 4,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_int",
+            "value": 4,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 4,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "braised_beef_mackerel",
+      "name": {
+        "ko": "가정식 정식",
+        "en": "Homestyle set"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 3,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 4,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 4,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_dex",
+            "value": 4,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 4,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_int",
+            "value": 4,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 4,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "corn_salad",
+      "name": {
+        "ko": "옥수수 샐러드",
+        "en": "Corn salad"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 4,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_int",
+            "value": 5,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 5,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "asparagus_roast",
+      "name": {
+        "ko": "아스파라거스구이",
+        "en": "Roast asparagus"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 4,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_int",
+            "value": 5,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 5,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "fox_meat_roast",
+      "name": {
+        "ko": "여우고기 로스트",
+        "en": "Fox meat roast"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 4,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 5,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 5,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "flounder_sashimi",
+      "name": {
+        "ko": "광어 회",
+        "en": "Flounder sashimi"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 4,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 5,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 5,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "rockfish_soup",
+      "name": {
+        "ko": "우럭 매운탕",
+        "en": "Rockfish soup"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 4,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 5,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 5,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "steamed_flatfish",
+      "name": {
+        "ko": "광어 채소찜",
+        "en": "Steamed flounder"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 4,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 5,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 5,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_int",
+            "value": 5,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 5,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "flatfish_veg_stew",
+      "name": {
+        "ko": "은빛 광어스튜",
+        "en": "Flounder stew"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 4,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 5,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 5,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_dex",
+            "value": 5,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 5,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_int",
+            "value": 5,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 5,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "soybean_stew",
+      "name": {
+        "ko": "대두 스튜",
+        "en": "Soybean stew"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 5,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_int",
+            "value": 6,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 6,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "olive_salad",
+      "name": {
+        "ko": "올리브 샐러드",
+        "en": "Olive salad"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 5,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_int",
+            "value": 6,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 6,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "black_pork_steak",
+      "name": {
+        "ko": "흑돼지 스테이크",
+        "en": "Black pork steak"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 5,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 6,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 6,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "sea_bream_sashimi",
+      "name": {
+        "ko": "도미 회 정식",
+        "en": "Sea bream plate"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 5,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 6,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 6,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "grilled_sea_bass",
+      "name": {
+        "ko": "농어 소금구이",
+        "en": "Grilled sea bass"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 5,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 6,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 6,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "sea_bream_carpaccio",
+      "name": {
+        "ko": "도미 카르파치오",
+        "en": "Bream carpaccio"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 5,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 6,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 6,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_int",
+            "value": 6,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 6,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "pork_bream_salad",
+      "name": {
+        "ko": "고급 코스요리",
+        "en": "Gourmet course"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 5,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 6,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 6,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_dex",
+            "value": 6,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 6,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_int",
+            "value": 6,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 6,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "kabocha_soup",
+      "name": {
+        "ko": "단호박 수프",
+        "en": "Kabocha soup"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 6,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_int",
+            "value": 8,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 8,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "artichoke_gratin",
+      "name": {
+        "ko": "아티초크 그라탱",
+        "en": "Artichoke gratin"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 6,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_int",
+            "value": 8,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 8,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "croc_tail_steak",
+      "name": {
+        "ko": "악어 스테이크",
+        "en": "Croc tail steak"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 6,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 8,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 8,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "yellowtail_sashimi",
+      "name": {
+        "ko": "방어 사시미",
+        "en": "Yellowtail plate"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 6,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 8,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 8,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "boiled_octopus",
+      "name": {
+        "ko": "문어 숙회",
+        "en": "Boiled octopus"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 6,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 8,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 8,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "whale_steak",
+      "name": {
+        "ko": "고래고기 구이",
+        "en": "Whale steak"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 6,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 8,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 8,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "yellowtail_croc_canape",
+      "name": {
+        "ko": "방어 악어카나페",
+        "en": "Croc canape"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 6,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 8,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 8,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_dex",
+            "value": 8,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 8,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_int",
+            "value": 8,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 8,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "quinoa_salad",
+      "name": {
+        "ko": "퀴노아 샐러드",
+        "en": "Quinoa salad"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 7,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_int",
+            "value": 10,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 10,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "gryphon_roast",
+      "name": {
+        "ko": "그리폰 로스트",
+        "en": "Gryphon roast"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 7,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 10,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 10,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "sturgeon_caviar",
+      "name": {
+        "ko": "철갑상어 캐비어",
+        "en": "Sturgeon caviar"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 7,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 10,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 10,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "sailfish_sashimi",
+      "name": {
+        "ko": "돛새치 사시미",
+        "en": "Sailfish sashimi"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 7,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 10,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 10,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "moonlight_gryphon",
+      "name": {
+        "ko": "달빛 그리폰구이",
+        "en": "Moonlit gryphon"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 7,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 10,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 10,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_int",
+            "value": 10,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 10,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "sturgeon_quinoa_bowl",
+      "name": {
+        "ko": "철갑상어 영양식",
+        "en": "Sturgeon quinoa"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 7,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 10,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 10,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_int",
+            "value": 10,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 10,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "caviar_gryphon_feast",
+      "name": {
+        "ko": "귀족 연회요리",
+        "en": "Noble banquet"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 7,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 10,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 10,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_dex",
+            "value": 10,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 10,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_int",
+            "value": 10,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 10,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "black_maca_pasta",
+      "name": {
+        "ko": "블랙마카 파스타",
+        "en": "Black maca pasta"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 8,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_int",
+            "value": 12,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 12,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "truffle_risotto",
+      "name": {
+        "ko": "트러플 리조또",
+        "en": "Truffle risotto"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 8,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_int",
+            "value": 12,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 12,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "unicorn_steak",
+      "name": {
+        "ko": "유니콘 스테이크",
+        "en": "Unicorn steak"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 8,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 12,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 12,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "tuna_belly_sashimi",
+      "name": {
+        "ko": "참다랑어 대뱃살",
+        "en": "Tuna otoro"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 8,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 12,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 12,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "grouper_sashimi",
+      "name": {
+        "ko": "다금바리 회",
+        "en": "Grouper sashimi"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 8,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 12,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 12,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "tuna_truffle_bowl",
+      "name": {
+        "ko": "참다랑어 덮밥",
+        "en": "Tuna truffle don"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 8,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 12,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 12,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_int",
+            "value": 12,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 12,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "truffle_tuna_feast",
+      "name": {
+        "ko": "황제 연회요리",
+        "en": "Emperor feast"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 8,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 12,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 12,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_dex",
+            "value": 12,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 12,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_int",
+            "value": 12,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 12,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "divine_grain_bowl",
+      "name": {
+        "ko": "신의 낟알솥밥",
+        "en": "Divine grain pot"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 9,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_int",
+            "value": 15,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 15,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "ambrosia_nectar",
+      "name": {
+        "ko": "암브로시아 과실",
+        "en": "Ambrosia fruit"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 9,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_int",
+            "value": 15,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 15,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "dragon_meat_roast",
+      "name": {
+        "ko": "고대룡 고기구이",
+        "en": "Dragon roast"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 9,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 15,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 15,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "whale_shark_course",
+      "name": {
+        "ko": "해왕 코스요리",
+        "en": "Sea king course"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 9,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 15,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 15,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "megalodon_sashimi",
+      "name": {
+        "ko": "메갈로돈 사시미",
+        "en": "Megalodon plate"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 9,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_dex",
+            "value": 15,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 15,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "dragon_grain_feast",
+      "name": {
+        "ko": "고대룡 약선요리",
+        "en": "Dragon medicinal"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 9,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 15,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 15,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_int",
+            "value": 15,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 15,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "divine_feast",
+      "name": {
+        "ko": "신들의 궁극연회",
+        "en": "Divine banquet"
+      },
+      "category": "consumable",
+      "subcategory": "dish",
+      "tier": 9,
+      "startPrice": 3,
+      "weight": 250,
+      "use": {
+        "effects": [
+          {
+            "effect": "food_str",
+            "value": 15,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_vit",
+            "value": 15,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_dex",
+            "value": 15,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_agi",
+            "value": 15,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_int",
+            "value": 15,
+            "chancePm": 1000
+          },
+          {
+            "effect": "food_wis",
+            "value": 15,
+            "chancePm": 1000
+          }
+        ]
+      },
+      "enabled": true
     }
   ]
 }

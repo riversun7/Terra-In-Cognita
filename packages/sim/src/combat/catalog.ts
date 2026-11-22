@@ -170,6 +170,16 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       stacking: "refresh",
       maxStacks: 1,
     },
+    // 요리 1차 스탯 버프 6종(D-472 — 팩 effects.json과 같은 차례·값. 1차 스탯은 전투 수치가 아니라 stat 없음)
+    ...(["food_str", "food_vit", "food_dex", "food_agi", "food_int", "food_wis"] as const).map((id) => ({
+      id,
+      durationMs: 1_800_000,
+      kind: "buff" as const,
+      valueMode: "flat" as const,
+      tickMs: 0,
+      stacking: "refresh" as const,
+      maxStacks: 1,
+    })),
   ],
   skills: [
     {

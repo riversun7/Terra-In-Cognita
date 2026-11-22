@@ -311,3 +311,17 @@
 - 판: 프로토콜 **125(최소 124)** — 줄기 판(main 65+60). 메시지 모양 그대로, `gov_coup_join unitIds`의 뜻이 바뀌어 올린다(`governance.ts COUP_DISPATCH_PROTOCOL_VERSION`). 낮은 판 기기도 같은 칸을 보내고
   같은 뜻으로 처리된다. 팩·SIM·마이그레이션 없음(참가 줄 `units` 칸 그대로 — 보낸 유닛 ID).
 - 순간이동 점검(그 밖의 길 — 쿠데타 밖): `docs/adr/2026-11-15-unloaded-second-maps.md` "바뀜 (no-teleport, D-591)", 표 전체는 작업 기록 `docs/worklog/2026/11/22-1050-no-teleport.md`.
+
+## 바뀜 (gov-fix-4, D-591) (2026-11-22 — 사용자 결정 D-591(2531·2532 (1)(2)·2575 가), 제안 상태라 이 ADR에 덧붙인다)
+- 2532 (2) "공정하게 자율 출마 재투표": **해임(removal)으로 빈 자리는 같은 가문이 저절로 잇지 않는다.** 해임 뒤 다시 뽑기(해임된 가문은 후보가 아님 — 그대로)가 실패하면 빈자리가 되고 그 까닭을
+  `governance_state.vacancy_cause = 'removal'`로 적는다(`governance/succession.ts afterElection` — gov-fix-2·gov-fix-3의 "해임 뒤 실패 → 같은 가문 서열 계승"을 없앴다, 플레이어·NPC 가문 모두). 틱은 해임
+  빈자리에 계승을 하지 않고(`tick`·`npcTick`) 누구나 스스로 나서는 빈자리 선출(`gov_vacancy_election_ms`, barred 없음 — 해임된 가문도 나설 수 있다)을 연다. 그 선출이 실패해도 까닭은 남아 다시 선출을 연다.
+  선출로 채우면 까닭을 지운다(빈자리가 끝나면 저장 때 지운다). 죽음·떠남 등으로 가문장이 사라진 빈자리(까닭 없음 — 옛 판 빈자리 포함)는 예전대로 지배 가문의 후계자·서열로 잇는다(D-588 5).
+- 2532 (1) 나 "가문 안 직위나 기여도": 계승 서열 = **직위 → 기여도** → 들어온 차례 → 계정 ID(같을 때 [임시 2665]) — `succession.ts rankMembers`(governance-6의 [임시] "들어온 차례"를 바꿈). 가문 직위는 지금
+  가문장·가문원 둘뿐이라(가문 표 `house_members.role` — 다른 직위 자료 없음, 코드 읽기) 직위 단계는 가문장이 앞이고, 가문원끼리는 기여도로 가린다. 기여도 = 그 가문에 든 뒤 가문 금고에 넣은 기부 합(새 칸
+  `house_members.contribution` — `factionIdentity/housePolicy.ts donate`가 더한다, 가문을 떠나면 줄과 함께 사라진다). 가문세(임금·배당에서 떼는 몫)는 누가 냈는지 원장에 따로 남지 않아 아직 세지 않는다
+  [임시 2664]. 후계자 칸(가문장이 정함)은 서열보다 먼저 그대로. NPC 가문 서열(시장 → INT + WIS → …, `npc/cityHouses.ts successorOf`)은 시장 직위가 이미 먼저라 그대로 둔다(NPC 유닛 기여도 자료 없음).
+- 2531: 가문 독립 뒤 옛 나라와의 호감을 크게 깎고 시작한다(`leaderAgendas.ts declare` → `port.independenceAffinity`, 설정 칸 `dip_independence_affinity` 80 [임시] — 자동 전쟁은 여전히 없다). 세력 쌍 호감은
+  `2026-11-21-diplomacy-treaties.md` "바뀜 (gov-fix-4, D-591)".
+- 2575 가: 그대로(지분 ≠ 지도자 — 바꿈 없음).
+- 판: 마이그레이션 `20261122014315_gov_fix4_affinity_runs`(이 줄기의 모든 표 바뀜 — `governance_state.vacancy_cause`·`house_members.contribution` 포함, 더하기만). 프로토콜·SIM은 이 절과 무관.

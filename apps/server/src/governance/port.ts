@@ -15,7 +15,8 @@ import {
   holdingsOf,
   houseHoldingsOf,
 } from "@terra/sim";
-import { breachBookOf, warCauseOf } from "../diplomacy/breaches.ts";
+import { affinityBookOf } from "../diplomacy/affinity.ts";
+import { breachBookOf, causedWar, warCauseOf } from "../diplomacy/breaches.ts";
 import { houseTiesOf } from "../world/houseTies.ts";
 import type { World } from "../world/world.ts";
 import { houseKeyOfTail, treasurySharesToHouse } from "./houseShares.ts";
@@ -95,6 +96,8 @@ export interface GovernancePort extends GovernancePortCoup, GovernancePortLeader
   declareWar(nation: GovernanceNation, target: GovernanceNation, nowMs: number): Promise<boolean>;
   /** 이미 전쟁 중인가 */
   atWar(nation: GovernanceNation, target: GovernanceNation): boolean;
+  /** 가문 독립으로 생긴 나라와 옛 나라의 호감을 내린다(D-591 2531 — diplomacy/affinity.ts, 외교가 아직 붙지 않았으면 아무것도 하지 않음) */
+  independenceAffinity?(parentRow: number, childRow: number, nowMs: number): void;
   /** 보는 사람의 나라(가문 소속 → 시민권) */
   viewerNation(userId: string): number | undefined;
 }
@@ -259,11 +262,21 @@ export function worldGovernancePort(
       if (!a.wars.has(b.id)) return false;
       // 조약 위반 나라를 가리려고 선포를 알린다(줄기 fixes-1117c — diplomacy/breaches.ts)
       breachBookOf(l.persistence.ledger)?.declared(a.id, b.id, nowMs);
+      // 명분 없는 선포는 모든 나라와 호감을 내린다(D-290 — diplomacy/affinity.ts, 줄기 gov-fix-4)
+      affinityBookOf(l.persistence.ledger)?.declared(
+        nation.rowId,
+        causedWar(l.persistence.ledger, a, b, nowMs),
+        nowMs,
+      );
       await l.npc.tick(true);
       return true;
     },
     atWar(nation, target) {
       return live()?.npc.world.factions.get(nation.ownerId)?.wars.has(target.ownerId) === true;
+    },
+    independenceAffinity(parentRow, childRow, nowMs) {
+      const l = live();
+      if (l) affinityBookOf(l.persistence.ledger)?.independence(childRow, parentRow, nowMs);
     },
     viewerNation(userId) {
       const l = live();

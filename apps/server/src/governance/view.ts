@@ -156,6 +156,7 @@ export function createGovernanceView(o: {
           shares !== undefined && agenda.payload.maxPrice !== undefined
             ? { shares, maxPrice: agenda.payload.maxPrice }
             : null,
+        renewOf: agenda.payload.renewOf ?? null,
         targetNation: target === undefined ? null : { id: target, name: names.get(target) ?? null },
         monetary: agenda.payload.monetaryMode
           ? { mode: agenda.payload.monetaryMode, rateBp: agenda.payload.monetaryRateBp ?? 0 }

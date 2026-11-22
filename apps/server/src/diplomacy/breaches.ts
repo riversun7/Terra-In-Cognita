@@ -10,10 +10,12 @@
 //   바뀜(gov-fix-3 — 질문 2585 사용자 답, D-290 반대 읽기 "명분 없이도 선포할 수 있다. 그러면 관계 점수 하락 + 국고 선포 비용"): 명분(hasCause)이 있으면 선포 비용(국고 소각
 //   s3_war_cost)을 내지 않는다 — NPC 판단(SimHooks.warCause → society.declareWar caused)·의결 선전포고(governance/port.ts) 둘 다. 관계 점수 체계는 서버·시뮬에
 //   아직 없어(세력 쌍 호감 D-255는 화면 시안뿐) 무명분 선포의 관계 하락도 없다 — 건너뛸 것이 없다.
+//   바뀜(gov-fix-4 — D-591): 세력 쌍 호감(affinity.ts)이 생겨 명분 없는 선포는 선포한 나라와 모든 나라의 호감을 내린다(명분이 있으면 건너뜀 — causedWar).
 // 장부는 원장마다 하나(WeakMap — 신용 장부와 같은 자리). 외교 서비스가 붙이고 켤 때 위반 기록을 읽는다. 키는 거울 세계 세력 ID(= 국고 소유 주체).
 // 바뀜(gov-fix-3 — 질문 2582 사용자 답 "다시 켜도 어긴 나라를 알아야"): 선포 기록도 표 diplomacy_declarations에 쓴다. 외교 서비스가 장부를 켤 때 읽고(restoreDeclaration)
 // 쓰는 곳을 붙인다(persistWith — 붙기 전 선포는 붙을 때 쓴다). 선포 길은 동기라 쓰기는 기다리지 않고 장부가 들고 있다가(settle) 잃지 않게 한다.
 import type { SimFaction, SimHooks } from "@terra/sim";
+import { affinityBookOf } from "./affinity.ts";
 
 /** 세력 신뢰 범위(@terra/shared/faction DiplomacyRow.trust와 같다) */
 export const TRUST_MIN = -100;
@@ -159,6 +161,16 @@ export function warCauseOf(ledger: object, attacker: number, target: number, now
   return book?.loaded() === true && book.hasCause(attacker, target, nowMs);
 }
 
+/** 선포에 명분이 있나(제재 — warCauseOf, 해방 — 떨어져 나간 반란 세력 rebelOf. society.declareWar의 비용 면제와 같은 셈 — 줄기 gov-fix-4) */
+export function causedWar(
+  ledger: object,
+  attacker: Pick<SimFaction, "id">,
+  target: Pick<SimFaction, "id" | "rebelOf">,
+  nowMs: number,
+): boolean {
+  return target.rebelOf === attacker.id || warCauseOf(ledger, attacker.id, target.id, nowMs);
+}
+
 /**
  * NPC 판단 고리(npc/rulingVault.ts npcRulingHooks가 얹는다 — runtime.ts 1,000줄 상한): 새 선포를 위반 장부에 알리고(warDeclared), 제재 명분 몫(causeBonus)·명분 여부(warCause — 선포 비용 면제, 2585)를 준다.
  * 장부가 아직 없으면(외교가 붙기 전) 알리지 않고 몫은 0
@@ -169,6 +181,12 @@ export function withTreatyHooks(base: SimHooks, o: { readonly ledger: object }):
     warDeclared(attacker: SimFaction, target: SimFaction, nowMs: number) {
       base.warDeclared?.(attacker, target, nowMs);
       breachBookOf(o.ledger)?.declared(attacker.id, target.id, nowMs);
+      // 명분 없는 선포면 모든 나라와 호감이 내려간다(D-290 — affinity.ts, 줄기 gov-fix-4. 명분 = 제재·해방, society.declareWar 비용 셈과 같다)
+      affinityBookOf(o.ledger)?.declaredByOwner(
+        attacker.id,
+        causedWar(o.ledger, attacker, target, nowMs),
+        nowMs,
+      );
     },
     causeBonus(attacker: SimFaction, target: SimFaction, nowMs: number) {
       const book = breachBookOf(o.ledger);

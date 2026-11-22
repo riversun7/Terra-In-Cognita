@@ -31,6 +31,12 @@ export const houseMembers = pgTable(
     /** leader(가문장) | member */
     role: text("role").notNull(),
     joinedAtMs: bigint("joined_at_ms", { mode: "number" }).notNull(),
+    /**
+     * 기여도(gov-fix-4 — 사용자 결정 D-591 2532 (1) 나 "가문 안 직위나 기여도"): 이 가문에 든 뒤 가문 금고에 넣은 기부 합(기본 화폐 최소 단위, house_donate —
+     * factionIdentity/housePolicy.ts가 더한다). 계승 서열이 직위 다음에 본다(governance/succession.ts rankMembers). 가문을 떠나면 줄과 함께 사라진다. 가문세는 아직
+     * 세지 않는다 [임시 2664]. 직전 판 앱은 모른 채 돈다(기본 0)
+     */
+    contribution: bigint("contribution", { mode: "bigint" }).notNull().default(0n),
   },
   (table) => [
     index("house_members_faction_idx").on(table.factionId),

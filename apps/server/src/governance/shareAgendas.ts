@@ -4,6 +4,10 @@
 // - 국고 지분 사기(D-587 질문 2479 나 — 줄기 share-market-2): 아무 도시(제 나라 도시 = 되사기, 남의 나라 도시)·주 수·한 주 가장 높은 값. 칸 검사 때 그 도시
 //   화폐로 국고 돈이 주 수 × 값만큼 있어야 한다(shareBuyCheck — 시장이 본다). 승인되면 국고 사기 주문(approvedShareBuy — cityShares/service.ts
 //   approvedBuy, 국고 돈을 묶는다). 투표 묶음·문턱은 팔기와 같다 [임시]. 독재는 지배 가문장 직권(팔기와 같다).
+// - 바뀜(gov-fix-4 — 사용자 결정 D-591 2526 "돈이없으면 못사는거고 취득량만 정하는거다. 통과된안건은 주-월 단위 기간이 있고 실행되지못하면 취소할지 계속할지 재투표"):
+//   사기 안건은 수량만 정한다 — 열 때 국고 돈을 보지 않는다(shareBuyCheck는 시장·도시만). 승인되면 집행 기간(설정 칸 gov_share_exec_ms) 동안 돈이 있는 만큼 산다
+//   (cityShares/treasuryRuns.ts). 팔기도 같은 집행 길이다(승인 때 국고가 가진 주를 다시 보지 않고 기간 동안 가진 만큼 판다 — 열 때 검사는 그대로, 질문 2667).
+//   기간이 끝나도 남으면 같은 종류 안건을 남은 수량으로 다시 연다(payload renewOf — 재투표).
 import type { AgendaKind } from "@terra/shared/governance";
 import type { GovernanceResultCode } from "@terra/protocol";
 import type { GovernanceNation, GovernancePort } from "./port.ts";
@@ -86,7 +90,7 @@ export function shareAgendaOpen(
   return open.some((agenda) => agenda.kind === kind && agenda.payload.cityId === cityId);
 }
 
-/** 가결·직권 국고 지분 안건 집행: 시장 고리에 넘긴다. 칸이 맞고(팔기는 국고가 가진 주가 넉넉) 넘겼으면 true(enacted), 아니면 false(cancelled) */
+/** 가결·직권 국고 지분 안건 집행: 시장 고리(집행 기간 — treasuryRuns.ts)에 넘긴다. 칸이 맞고 넘겼으면 true(enacted), 아니면 false(cancelled) */
 export async function enactShareAgenda(
   kind: ShareAgendaKind,
   agenda: { readonly id: number; readonly payload: AgendaPayload },
@@ -98,7 +102,9 @@ export async function enactShareAgenda(
   const { cityId, shares, minPrice, maxPrice } = agenda.payload;
   if (cityId === undefined || shares === undefined) return false;
   if (kind === "treasury_share_sale") {
-    const valid = minPrice !== undefined && port.treasuryShares(nation, cityId) >= BigInt(shares);
+    // 승인 때 국고 주를 다시 보지 않는다(집행 기간 동안 가진 만큼 판다 — 바뀜 gov-fix-4)
+    void port;
+    const valid = minPrice !== undefined && BigInt(shares) > 0n;
     if (valid && hooks.approvedShareSale)
       await hooks.approvedShareSale(
         {

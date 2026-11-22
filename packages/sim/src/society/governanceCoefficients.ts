@@ -107,6 +107,15 @@ export interface GovernanceCoefficients {
   readonly breachTrustPenalty: number;
   readonly sanctionWindowMs: number;
   readonly sanctionCauseBonus: number;
+  /**
+   * 세력 쌍 호감(줄기 gov-fix-4 — 사용자 결정 D-591 2531, 기획 D-255 "관계 점수: 호감·신뢰"·D-290 "명분 없이 선포하면 모든 세력과의 관계 점수가 크게 떨어진다"·
+   * D-291 "참전 요청을 거절하면 그 동맹과의 관계 점수가 떨어진다"): 가문 독립 때 옛 나라와, 무명분 선포 때 모든 나라와, 참전 거절 때 그 동맹과 내리는 몫 — 모두 [임시]
+   */
+  readonly independenceAffinity: number;
+  readonly noCauseAffinity: number;
+  readonly joinRefuseAffinity: number;
+  /** 국고 지분 사기·팔기 안건의 집행 기간(ms — D-591 2526 "주-월 단위 기간", 기간이 지나면 이어 할지 재투표) [임시 14일] */
+  readonly shareExecMs: number;
 }
 
 export const START_GOVERNANCE: GovernanceCoefficients = {
@@ -168,4 +177,8 @@ export const START_GOVERNANCE: GovernanceCoefficients = {
   breachTrustPenalty: 30,
   sanctionWindowMs: 30 * 86_400_000,
   sanctionCauseBonus: 150,
+  independenceAffinity: 80,
+  noCauseAffinity: 30,
+  joinRefuseAffinity: 20,
+  shareExecMs: 14 * 86_400_000,
 };

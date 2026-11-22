@@ -31,6 +31,7 @@ import {
 import type { CitySharePort } from "./port.ts";
 import { npcBuyOrders, placeNpcSale, registerNpcShareSale } from "./npcTrade.ts";
 import { loadCityShares } from "./store.ts";
+import { createTreasuryRuns } from "./treasuryRuns.ts";
 
 /** 회차 경계를 보는 간격(ms) */
 export const CITY_SHARE_TICK_MS = 15_000;
@@ -72,6 +73,14 @@ export function createCityShareService(o: {
     | undefined;
 }) {
   let market: CityShareMarket | undefined;
+  // 국고 지분 안건 집행(D-591 2526 — treasuryRuns.ts). placeCap은 아래에서 정의된다(부를 때 찾는다)
+  const runs = createTreasuryRuns({
+    pool: () => o.port.pool(),
+    governance: o.governance,
+    currencyOf: (cityId) => o.port.currencyOf(cityId),
+    sellCap: (m, holder, cityId) => placeCap(m, holder, cityId),
+    log: o.log,
+  });
   let loading: Promise<CityShareMarket | undefined> | undefined;
   let chain: Promise<unknown> = Promise.resolve();
   /** 명령·회차를 한 줄로 세운다 */
@@ -100,6 +109,7 @@ export function createCityShareService(o: {
         rules: o.rules,
         now: o.now,
         levy: () => o.port.levy(),
+        onFill: (order, filled) => runs.filled(order, filled),
       });
       // NPC 지분 팔기를 시장 팔 주문으로(D-587 질문 2471 다 — 시뮬 고리 marketShareSale이 이 등록표에서 찾는다)
       const made = market;
@@ -197,6 +207,8 @@ export function createCityShareService(o: {
       readonly price: bigint;
       readonly shares: bigint;
       readonly asHouse: boolean;
+      /** 주문을 낸 증권 거래소 건물(그 거래소 판 — 바뀜 gov-fix-4 D-591 2523). 그 지분 도시와 같은 나라의 일하는 증권 거래소가 아니면 적지 않는다 [임시 2666] */
+      readonly exchangeId?: number | undefined;
     },
   ): Promise<CityShareResult> =>
     serial(async () => {
@@ -208,7 +220,10 @@ export function createCityShareService(o: {
       if (holder === undefined)
         return input.side === "buy" ? fail("insufficient_funds") : fail("insufficient_shares");
       const cap = input.side === "sell" ? await placeCap(m, holder, input.cityId) : undefined;
-      const result = m.place({ holder, ...input, atMs: o.now(), cap });
+      const { exchangeId, ...order } = input;
+      const used =
+        exchangeId === undefined ? undefined : o.port.levy()?.feeAt?.(exchangeId, input.cityId)?.buildingId;
+      const result = m.place({ holder, ...order, atMs: o.now(), cap, exchangeId: used });
       if (result.ok)
         o.log?.info(
           { userId, cityId: input.cityId, side: input.side, orderId: result.orderId },
@@ -232,50 +247,48 @@ export function createCityShareService(o: {
       const holders = [actors.me, actors.house, treasury].flatMap((holder) =>
         holder === undefined ? [] : [holder],
       );
+      // 국고 주문(안건 집행)을 거두면 그 집행도 끝난다(treasuryRuns.ts — 다음 회차에 다시 걸지 않는다)
+      const agendaId = m.ordersOf(holders).find((order) => order.id === orderId)?.agendaId ?? null;
       const result = m.cancel(holders, orderId, o.now());
+      if (result.ok && treasury !== undefined) await runs.cancelled(agendaId);
       return done(result.ok ? { ok: true } : fail(result.code));
     });
 
-  /** 승인된 국고 지분 팔기(governance approvedShareSale 고리 — 질문 2438 답 D-583): 국고가 승인 수를 가장 낮은 값에 건다(과반·가진 주까지) */
-  const approvedSale = (sale: ApprovedShareSale, nowMs: number): Promise<void> =>
+  /**
+   * 승인된 국고 지분 팔기·사기(governance 고리 — 질문 2438 답 D-583·D-587 2479 나): 집행을 연다(treasuryRuns.ts — 바뀜 gov-fix-4 D-591 2526: 수량만 정하고, 기간 동안
+   * 회차마다 국고 주·돈이 있는 만큼 건다. 다 채우지 못하면 기간 끝에 재투표)
+   */
+  const approved = (
+    side: CityShareSide,
+    agendaId: number,
+    nationRowId: number,
+    cityId: number,
+    target: bigint,
+    price: bigint,
+    nowMs: number,
+  ): Promise<void> =>
     serial(async () => {
       const m = await ensure();
-      const nation = o.governance()?.port.nation(sale.nationRowId);
-      if (!m || !nation) {
-        o.log?.error({ agendaId: sale.agendaId }, "city share: approved sale not placed (market not ready)");
+      if (!m || !o.governance()?.port.nation(nationRowId)) {
+        o.log?.error({ agendaId }, "city share: approved treasury order not started (market not ready)");
         return;
       }
-      const holder = ownerHolder(nation.ownerId);
-      const cap = await placeCap(m, holder, sale.cityId);
-      let shares = m.sellable(holder, sale.cityId);
-      if (sale.shares < shares) shares = sale.shares;
-      if (cap !== undefined && cap < shares) shares = cap;
-      if (shares <= 0n) {
-        o.log?.info(
-          { agendaId: sale.agendaId, cityId: sale.cityId },
-          "city share: approved sale has no sellable shares",
-        );
-        return;
-      }
-      const result = m.place({
-        holder,
-        cityId: sale.cityId,
-        side: "sell",
-        price: sale.minPrice > 0n ? sale.minPrice : 1n,
-        shares,
-        atMs: nowMs,
-        agendaId: sale.agendaId,
-      });
-      o.log?.info(
-        { agendaId: sale.agendaId, cityId: sale.cityId, shares: String(shares), result },
-        "city share: approved sale",
+      await runs.start(
+        m,
+        { agendaId, nationId: nationRowId, side, cityId, target, price: price > 0n ? price : 1n },
+        nowMs,
       );
+      o.log?.info({ agendaId, side, cityId, target: String(target) }, "city share: treasury run started");
       await o.port.writer()?.durable();
     });
+  const approvedSale = (sale: ApprovedShareSale, nowMs: number): Promise<void> =>
+    approved("sell", sale.agendaId, sale.nationRowId, sale.cityId, sale.shares, sale.minPrice, nowMs);
+  const approvedBuy = (buy: ApprovedShareBuy, nowMs: number): Promise<void> =>
+    approved("buy", buy.agendaId, buy.nationRowId, buy.cityId, buy.shares, buy.maxPrice, nowMs);
 
   /**
-   * 국고 지분 사기 안건 칸 검사(D-587 질문 2479 나 — 의결이 안건을 열 때 부른다): 시장이 준비됐고 그 도시가 있고, 국고가 그 도시 화폐로 주 수 × 값만큼 가졌나.
-   * 맞으면 undefined
+   * 국고 지분 사기 안건 칸 검사(D-587 질문 2479 나 — 의결이 안건을 열 때 부른다): 시장이 준비됐고 그 도시가 있나. 맞으면 undefined.
+   * 바뀜(gov-fix-4 — D-591 2526 "돈이없으면 못사는거고 취득량만 정하는거다"): 국고 돈은 보지 않는다(집행 때 돈이 있는 만큼만 산다 — treasuryRuns.ts)
    */
   const buyCheck = (
     nation: GovernanceNation,
@@ -283,46 +296,12 @@ export function createCityShareService(o: {
     shares: bigint,
     maxPrice: bigint,
   ): CityShareBuyProblem | undefined => {
+    void nation;
+    void shares;
+    void maxPrice;
     if (!market) return "busy";
-    const asset = o.port.currencyOf(cityId);
-    if (asset === undefined) return "invalid_choice";
-    return market.cashBalance(ownerHolder(nation.ownerId), asset) < shares * maxPrice
-      ? "not_enough_funds"
-      : undefined;
+    return o.port.currencyOf(cityId) === undefined ? "invalid_choice" : undefined;
   };
-
-  /** 승인된 국고 지분 사기(D-587 질문 2479 나): 국고가 승인 수를 가장 높은 값에 건다(그 도시 화폐로 묶을 수 있는 만큼까지 — 다 사거나 지도자가 거둘 때까지 남는다) */
-  const approvedBuy = (buy: ApprovedShareBuy, nowMs: number): Promise<void> =>
-    serial(async () => {
-      const m = await ensure();
-      const nation = o.governance()?.port.nation(buy.nationRowId);
-      const asset = o.port.currencyOf(buy.cityId);
-      if (!m || !nation || asset === undefined || buy.maxPrice <= 0n) {
-        o.log?.error({ agendaId: buy.agendaId }, "city share: approved buy not placed");
-        return;
-      }
-      const holder = ownerHolder(nation.ownerId);
-      const affordable = m.cashBalance(holder, asset) / buy.maxPrice;
-      const shares = buy.shares < affordable ? buy.shares : affordable;
-      if (shares <= 0n) {
-        o.log?.info({ agendaId: buy.agendaId, cityId: buy.cityId }, "city share: approved buy has no funds");
-        return;
-      }
-      const result = m.place({
-        holder,
-        cityId: buy.cityId,
-        side: "buy",
-        price: buy.maxPrice,
-        shares,
-        atMs: nowMs,
-        agendaId: buy.agendaId,
-      });
-      o.log?.info(
-        { agendaId: buy.agendaId, cityId: buy.cityId, shares: String(shares), result },
-        "city share: approved buy",
-      );
-      await o.port.writer()?.durable();
-    });
 
   /** 회차: 경계를 지났으면 독재 도시 과반 끝(나라마다 한 예산을 도시 차례로 나눔)을 셈하고 모든 도시를 체결한다 */
   const tick = (): Promise<number> =>
@@ -331,6 +310,8 @@ export function createCityShareService(o: {
       if (!m) return 0;
       const boundary = m.due(o.now());
       if (boundary === undefined) return 0;
+      // 국고 지분 안건 집행(D-591 2526 — treasuryRuns.ts): 기간 끝이면 재투표, 아니면 모자란 만큼 국고 주문을 더 건다
+      await runs.beforeRound(m, boundary);
       // NPC 나라 사기 주문(D-587 질문 2471 다): 체결 전에 다시 고른다
       const npc = o.rules().npc;
       // NPC 가문도 가문 금고로 산다(질문 2522 나 — npc-invest-2)
@@ -369,6 +350,8 @@ export function createCityShareService(o: {
         return out;
       };
       const ran = m.run(boundary, capsFor);
+      // 체결된 국고 집행을 쓴다(treasuryRuns.ts)
+      await runs.afterRound();
       if (ran > 0) o.log?.info({ boundary, cities: ran }, "city share round");
       return ran;
     });
@@ -390,6 +373,8 @@ export function createCityShareService(o: {
         return 0;
       }),
     market: (): CityShareMarket | undefined => market,
+    /** 국고 지분 안건 집행(조회·시험 — treasuryRuns.ts) */
+    runs,
     /** 그 나라 도시들의 가문·주체 주주(view.ts) */
     holdersOf(cityId: number) {
       const ledger = o.port.ledger();

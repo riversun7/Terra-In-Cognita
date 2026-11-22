@@ -1,12 +1,18 @@
 // 빈자리 자동 계승 시험(succession.ts — 질문 2491, 사용자 결정 D-584·D-588 5, 줄기 governance-6). 가짜 표(메모리)로 본다. 계정 ID는 가짜 값이다.
 import { describe, expect, it } from "vitest";
-import { createSuccession, pickSuccessor } from "./succession.ts";
+import { createSuccession, pickSuccessor, rankMembers } from "./succession.ts";
 import type { HouseMemberRow, StateRow } from "./store.ts";
 
-const member = (userId: string, role: "leader" | "member", joinedAtMs: number): HouseMemberRow => ({
+const member = (
+  userId: string,
+  role: "leader" | "member",
+  joinedAtMs: number,
+  contribution = 0n,
+): HouseMemberRow => ({
   userId,
   role,
   joinedAtMs,
+  contribution,
 });
 
 const STATE: StateRow = {
@@ -47,7 +53,26 @@ function fake(members: HouseMemberRow[], heir?: string) {
 const DEMOCRACY = { rowId: 9, regime: "democracy" as const };
 
 describe("후임 고르기(D-588 5)", () => {
-  it("미리 정한 후계자 → 서열(들어온 차례 [임시], 같으면 ID 차례), 이을 수 없는 사람은 뺀다", () => {
+  it("서열 = 직위(가문장 > 가문원) → 기여도 큰 차례 → 들어온 차례 → ID(D-591 2532 (1) 나)", () => {
+    const ranked = rankMembers([
+      member("u-old", "member", 0, 0n),
+      member("u-rich", "member", 50, 900n),
+      member("u-mid", "member", 20, 300n),
+      member("u-h", "leader", 90, 0n),
+      member("u-mid2", "member", 10, 300n),
+    ]);
+    expect(ranked.map((row) => row.userId)).toEqual(["u-h", "u-rich", "u-mid2", "u-mid", "u-old"]);
+    // 기여도가 큰 가문원이 늦게 들어왔어도 먼저 잇는다
+    expect(
+      pickSuccessor(
+        [member("u-h", "leader", 0), member("u-a", "member", 1, 10n), member("u-b", "member", 9, 500n)],
+        undefined,
+        new Set(["u-h"]),
+      ),
+    ).toBe("u-b");
+  });
+
+  it("미리 정한 후계자 → 서열(기여도가 같으면 들어온 차례, 같으면 ID 차례), 이을 수 없는 사람은 뺀다", () => {
     const members = [member("u-c", "member", 30), member("u-h", "leader", 0), member("u-b", "member", 10)];
     expect(pickSuccessor(members, "u-c", new Set(["u-h"]))).toBe("u-c");
     expect(pickSuccessor(members, undefined, new Set(["u-h"]))).toBe("u-b");
@@ -62,7 +87,7 @@ describe("후임 고르기(D-588 5)", () => {
 });
 
 describe("빈자리 자동 계승(D-584·D-588 5 — 먼저 지배 가문, 없으면 자동 선출)", () => {
-  it("해임 뒤 다시 뽑기가 실패하면 해임된 사람을 뺀 후계자가 그 가문의 가문장(= 지도자)이 되고 빈자리가 아니다", async () => {
+  it("해임 뒤 다시 뽑기가 실패하면 같은 가문이 잇지 않고 해임 빈자리가 된다 — 틱도 계승하지 않는다(D-591 2532 (2))", async () => {
     const { succession, audits, promoted } = fake(
       [member("u-h", "leader", 0), member("u-m", "member", 5), member("u-n", "member", 9)],
       "u-n",
@@ -75,9 +100,19 @@ describe("빈자리 자동 계승(D-584·D-588 5 — 먼저 지배 가문, 없�
       100,
       500,
     );
-    expect(next).toMatchObject({ rulingHouseKey: "p:5", vacantSinceMs: null, termEndsAtMs: 600 });
-    expect(promoted).toEqual(["u-n"]);
-    expect(audits).toEqual(["governance.successor"]);
+    expect(next).toMatchObject({ rulingHouseKey: "p:5", vacantSinceMs: 100, vacancyCause: "removal" });
+    expect(promoted).toEqual([]);
+    expect(audits).toEqual([]);
+    // 틱: 해임 빈자리는 누구나 나서는 선출로만 채운다(계승 없음 — 선출은 service.ts가 연다)
+    expect(await succession.tick(DEMOCRACY, next, false, 200)).toBe(next);
+    expect(promoted).toEqual([]);
+    // 빈자리 선출이 실패해도 까닭은 남는다, 선출로 채우면 지운다
+    const failed = await succession.afterElection(DEMOCRACY, next, {}, null, 300, 500);
+    expect(failed).toMatchObject({ vacantSinceMs: 100, vacancyCause: "removal" });
+    expect(await succession.afterElection(DEMOCRACY, next, {}, "p:5", 400, 500)).toMatchObject({
+      vacantSinceMs: null,
+      vacancyCause: null,
+    });
   });
 
   it("그 가문에 다른 사람이 없거나 NPC 런타임 몫이 없으면 빈자리(자동 선출은 service.ts 틱이 연다)", async () => {
@@ -167,7 +202,7 @@ function npcFake(alive: number[] = [11, 12, 13]) {
 describe("NPC 지배 가문 계승(gov-fix-2 — 질문 2532 (3), D-588 5 NPC 예외 없음)", () => {
   const NPC_STATE: StateRow = { ...STATE, rulingHouseKey: "n:3" };
 
-  it("해임 뒤 다시 뽑기가 실패하면 해임된 가문장 유닛을 뺀 다음 가문원이 잇고 빈자리가 아니다", async () => {
+  it("해임 뒤 다시 뽑기가 실패하면 NPC 가문도 저절로 잇지 않고 해임 빈자리(D-591 2532 (2))", async () => {
     const { succession, applied } = npcFake();
     const next = await succession.afterElection(
       DEMOCRACY,
@@ -177,8 +212,9 @@ describe("NPC 지배 가문 계승(gov-fix-2 — 질문 2532 (3), D-588 5 NPC �
       100,
       500,
     );
-    expect(next).toMatchObject({ rulingHouseKey: "n:3", vacantSinceMs: null, npcHeadUnit: 12 });
-    expect(applied).toEqual([12]);
+    expect(next).toMatchObject({ rulingHouseKey: "n:3", vacantSinceMs: 100, vacancyCause: "removal" });
+    expect(await succession.tick(DEMOCRACY, next, false, 200)).toBe(next);
+    expect(applied).toEqual([]);
   });
 
   it("이을 가문원이 없을 때만 빈자리(자동 선출)", async () => {

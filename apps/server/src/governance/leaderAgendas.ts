@@ -16,7 +16,8 @@
 //   바뀜(governance-6 — 질문 2500): 힘 비 대상 = 기술 기본값 "옛 나라 세력 유닛 전체에서 그 가문 유닛을 뺀 것"(독립한 뒤 옛 나라에 남는 군대 — 가문 유닛이 옛 나라 군대에
 //   들어 있어 전체와 견주면 가문이 결코 넘지 못했다). D-585 2 "독립함으로써 기존 국가와 적대관계": 거울 세계·시뮬에 세력 쌍 관계(적대·중립)를 담는 상태가 없고
 //   (전쟁 wars·불가침 truces만 — 세력 쌍 호감 D-255는 화면 시안뿐) 적대를 전쟁으로 바꿔 읽지 않는다(사용자 답 — 전쟁 아님). 그래서 독립 뒤 옛 나라와의 관계는
-//   그대로 둔다 [임시 — 질문 2531].
+//   그대로 둔다 [임시 — 질문 2531]. 바뀜(gov-fix-4 — 사용자 결정 D-591 2531 "관계점수 많은 양이 깍여서 시작"): 세력 쌍 호감(diplomacy/affinity.ts)을 만들어 독립한
+//   나라와 옛 나라의 호감을 설정 칸 dip_independence_affinity만큼 내리고 시작한다(플레이어·NPC 가문 같은 길 declare). 전쟁은 여전히 저절로 열리지 않는다.
 // - 지도자 신임도(D-585 — approval.ts): 지배 가문이 바뀌면 시작값(플레이어 낮게·NPC), 해임 문턱·반란 문턱 고리(기준점 아래에서만 — 줄기 gov-coup).
 // 바뀜(줄기 gov-coup — 사용자 결정 D-588): 신임도 오르내림(2493 "알아서" — approvalFactors.ts: 세금·전쟁·도시·만족도, 틱마다 기준값과 견줌), 손 조절 목표 물가 상한(2499 — D-131:
 // 지도자가 설정 칸 범위 안에서 정하고, 물가 지수가 상한 이상이면 손 조절 발행이 멈춘다. 같은 단계에서 상한만 바꾸는 것도 지도자 바로).
@@ -134,6 +135,8 @@ export function createLeaderAgendas(d: LeaderDeps) {
   ): Promise<number | undefined> => {
     const child = await d.port.cityIndependence(nation, cityId, nowMs);
     if (child === undefined) return undefined;
+    // 옛 나라와 호감이 크게 깎인 채 시작한다(D-591 2531 — 자동 전쟁 없음, diplomacy/affinity.ts)
+    d.port.independenceAffinity?.(nation.rowId, child, nowMs);
     const regime = nation.regime;
     await d.store.saveState(
       {

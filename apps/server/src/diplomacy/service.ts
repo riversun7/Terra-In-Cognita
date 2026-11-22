@@ -172,6 +172,22 @@ export function createDiplomacyService(o: {
     return book;
   };
 
+  /** 호감 장부를 켤 때 한 번 표 diplomacy_affinity로 채우고 쓰는 곳을 붙인다(줄기 gov-fix-4 — affinity.ts) */
+  const affinityBook = async () => {
+    const book = o.port.affinity();
+    if (!book || book.loaded()) return book;
+    for (const row of await o.store.affinities()) book.restore(row.a, row.b, row.score);
+    book.persistWith(async (record) => {
+      try {
+        await o.store.saveAffinity(record.a, record.b, record.score, record.atMs);
+      } catch (error) {
+        o.log?.error({ err: error, a: record.a, b: record.b }, "diplomacy: affinity save failed");
+      }
+    });
+    book.markLoaded();
+    return book;
+  };
+
   /** 맺은 조약이 두 나라 전쟁으로 깨졌다: 맺은 뒤 선포한 나라를 어긴 나라로 적고 장부에 남긴다 */
   const breakTreaty = async (
     treaty: TreatyRow,
@@ -259,6 +275,7 @@ export function createDiplomacyService(o: {
       myStrength: o.port.strengthOf(receiver, nowMs),
       otherStrength: o.port.strengthOf(author, nowMs),
       calmPm: o.rules().npcTreatyCalmPm,
+      affinity: (await affinityBook())?.get(receiver.rowId, author.rowId) ?? 0,
     });
     if (accept) return (await activate(sent, nowMs, null)) ? "active" : "declined";
     await end(sent, "declined", nowMs);
@@ -438,6 +455,8 @@ export function createDiplomacyService(o: {
     }
     await o.store.finishJoin(join.id, "declined", nowMs, { npc: true, mine, theirs });
     await audit(null, "diplomacy.war_join_declined", { ...joinNote(join), npc: true });
+    // 거절하면 그 동맹과의 호감이 내려간다(D-291 — affinity.ts, 줄기 gov-fix-4)
+    (await affinityBook())?.joinRefused(join.joinerNation, join.requesterNation, nowMs);
     return "refused";
   };
 
@@ -498,6 +517,7 @@ export function createDiplomacyService(o: {
     if (!input.accept) {
       await o.store.finishJoin(join.id, "declined", nowMs, { userId });
       await audit(userId, "diplomacy.war_join_declined", joinNote(join));
+      (await affinityBook())?.joinRefused(join.joinerNation, join.requesterNation, nowMs);
       return done("refused", join.id);
     }
     const requester = o.port.nation(join.requesterNation);
@@ -565,6 +585,7 @@ export function createDiplomacyService(o: {
     const nowMs = o.now();
     const rules = o.rules();
     await breachBook();
+    await affinityBook();
     for (const treaty of await o.store.liveTreaties()) {
       if (isOpenTreaty(treaty.state)) {
         if (treaty.agendaId !== null) {
@@ -655,6 +676,8 @@ export function createDiplomacyService(o: {
     npcLed,
     /** 조약 위반 장부(조회·시험 — 세계가 준비되지 않았으면 undefined) */
     breaches: () => o.port.breaches(),
+    /** 세력 쌍 호감 장부(조회·시험 — 줄기 gov-fix-4) */
+    affinity: () => o.port.affinity(),
   };
 }
 

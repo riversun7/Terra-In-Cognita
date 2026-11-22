@@ -120,6 +120,12 @@ function AgendaCard({
             {m.gov_share_buy_target({ shares: agenda.shareBuy.shares, price: agenda.shareBuy.maxPrice })}
           </p>
         ) : null}
+        {/* 국고 지분 안건 재투표(D-591 2526): 기간 안에 다 채우지 못한 남은 수량을 이어 할지 */}
+        {agenda.renewOf === null || agenda.renewOf === undefined ? null : (
+          <p className="faction-vote-detail" data-part="gov-share-renew">
+            {m.gov_share_renew({ agenda: String(agenda.renewOf) })}
+          </p>
+        )}
         {totals && !agenda.byAuthority ? (
           <>
             <div className="faction-vote-bar" aria-hidden="true">

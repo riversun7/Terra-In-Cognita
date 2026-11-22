@@ -3,7 +3,7 @@
 // docs/adr/2026-11-21-diplomacy-treaties.md. 진입점은 @terra/shared/treaty다(첫 화면 묶음에 넣지 않는다).
 // - 판정(제안·받기·집행·위반·만료·공물)은 서버가 한다. 기기는 그리기만 한다.
 // - 조항 카드 종류 이름은 @terra/shared/faction TREATY_KINDS와 같다(ceasefire = 휴전·강화 카드). 지금 서버가 집행하는 카드만 여기에 든다.
-import { type Regime, TREATY_CARD_RULES, type TreatyDecision } from "./faction.ts";
+import { type Regime, type RelationBand, TREATY_CARD_RULES, type TreatyDecision } from "./faction.ts";
 import type { GovernanceName } from "./governance.ts";
 
 /**
@@ -138,6 +138,12 @@ export interface DiplomacyPartner extends DiplomacyNationRef {
   /** 그 나라의 세력 신뢰와 조약 위반 수 */
   readonly trust: number;
   readonly breaches: number;
+  /**
+   * 우리 나라와 그 나라의 호감(세력 쌍 −100~100, 시작 0 — D-255·D-443 154, 줄기 gov-fix-4)과 띠(relationBand). 가문 독립·무명분 선포·참전 거절로 내려간다.
+   * 낮은 판 서버는 보내지 않는다
+   */
+  readonly affinity?: number | undefined;
+  readonly affinityBand?: RelationBand | undefined;
 }
 
 /** 세력 신뢰(D-255 "모두가 보는 신뢰"·D-443 154 — 세력마다 하나, −100~100, 시작 0). 조약을 어길 때마다 설정 칸만큼 내려간다 */

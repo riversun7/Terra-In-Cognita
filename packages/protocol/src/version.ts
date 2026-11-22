@@ -293,8 +293,11 @@
  *    더하기만 했다. 144판 기기는 새 메시지를 보내지 않는다.
  * 125: (줄기 no-teleport — 묶을 때 다시 매긴다) 쿠데타 병력 파견(사용자 결정 D-591 "어떠한 경우에도 순간이동은 없다 파견으로 실제로 이동해서 참전한다"): gov_coup_join
  *    unitIds의 뜻이 "쿠데타 도시로 실제로 걸어 보내는 유닛"으로 바뀌었다(governance.ts COUP_DISPATCH_PROTOCOL_VERSION). 메시지 모양 바뀜 없음.
+ * 135: (줄기 판 — 묶을 때 다시 매긴다) 줄기 gov-fix-4 — 지분 주문의 증권 거래소(사용자 결정 D-591 2523 "거래소를 이용하면 수수료는 그 거래소가 받는거지"):
+ *    city_share_order·business_share_order에 선택 칸 exchangeId(주문을 낸 증권 거래소 건물 — 그 거래소 판의 지분 목록에서 열었을 때)를 더했다. 체결 이용료를 그 거래소가
+ *    받는다. 낮은 판 기기는 보내지 않는다(그 지분 도시의 거래소 — 예전 그대로). 더하기만 했다.
  */
-export const PROTOCOL_VERSION = 125;
+export const PROTOCOL_VERSION = 135;
 
 /**
  * 서버가 받아주는 가장 낮은 기기 프로토콜 버전. 원칙은 현재 + 직전 1개 지원이다(ADR 7). 5부터 3판 기기는 인사에서
@@ -306,7 +309,7 @@ export const PROTOCOL_VERSION = 125;
  * 속성 분배 전 사이보그(elements null)는 이제 기기가 만들지 않는다(5판부터 만들기에 분배가 꼭 든다). 화면 시험의 legacy 계정은
  * 지금 판으로 만든 뒤 서버를 끄고 DB에서 속성값을 비워 다시 켠다(e2e/global-setup.ts).
  */
-export const MIN_SUPPORTED_PROTOCOL_VERSION = 124;
+export const MIN_SUPPORTED_PROTOCOL_VERSION = 134;
 
 /** WebSocket 메시지 1개의 최대 크기 (바이트) */
 export const MAX_MESSAGE_BYTES = 64 * 1024;

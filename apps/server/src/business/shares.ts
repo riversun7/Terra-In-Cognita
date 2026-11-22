@@ -33,7 +33,7 @@ import {
 } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
-import { type ShareLevy, shareLevyAmounts } from "../cityShares/levy.ts";
+import { type ShareLevy, feeTargetOf, shareLevyAmounts } from "../cityShares/levy.ts";
 
 /** 조회가 보이는 최근 회차 수 */
 const ROUNDS_SHOWN = 24;
@@ -56,6 +56,8 @@ export interface LoadedShares {
     readonly order: FxOrder;
     /** 지금까지 체결한 주 수(남는 주문 — 옛 줄은 0) */
     readonly filled?: bigint | undefined;
+    /** 주문을 낸 증권 거래소 건물(바뀜 gov-fix-4 — 없으면 null) */
+    readonly exchangeId?: number | null | undefined;
   }[];
   readonly rounds: readonly ShareRoundRecord[];
   /** 사업장마다 마지막 체결가(창 밖이어도) */
@@ -120,6 +122,8 @@ export interface ShareMarkets {
     price: bigint,
     shares: bigint,
     atMs: number,
+    /** 주문을 낸 증권 거래소 건물(그 사업장 도시와 같은 나라의 일하는 증권 거래소일 때만 적는다 — 바뀜 gov-fix-4 D-591 2523) */
+    exchangeId?: number,
   ): SharePlaceResult;
   cancel(ownerId: number, orderId: number, atMs: number): { ok: true } | { ok: false; code: ShareFailure };
   /** 회차 경계를 지났으면 모든 시장을 체결한다. 체결한 시장 수 */
@@ -149,6 +153,8 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
   const placedAt = new Map<number, number>();
   /** 남는 주문의 지금까지 체결한 주 수(주문 ID → 주) */
   const filledSoFar = new Map<number, bigint>();
+  /** 주문을 낸 증권 거래소(주문 ID → 건물 — 이용료를 받는다, 바뀜 gov-fix-4 D-591 2523) */
+  const exchangeOf = new Map<number, number>();
   const rounds = new Map<number, ShareRoundRecord[]>();
   const issuedBy = new Map<number, bigint>();
   /** 사업장 → 주주(잔고만, 걸린 팔 주문은 따로 더한다). 바뀐 사업장만 다시 센다 */
@@ -202,6 +208,7 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
       locked: lockOf(order),
       seq: order.seq,
       placed_at_ms: placedAt.get(order.id) ?? atMs,
+      exchange_id: exchangeOf.get(order.id) ?? null,
       state: "open",
       filled,
       clear_price: clearPrice ?? null,
@@ -227,6 +234,7 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
       locked: 0n,
       seq: order.seq,
       placed_at_ms: placedAt.get(order.id) ?? atMs,
+      exchange_id: exchangeOf.get(order.id) ?? null,
       state,
       filled,
       clear_price: clearPrice ?? null,
@@ -262,6 +270,7 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
   for (const row of loaded.open) {
     placedAt.set(row.order.id, row.placedAtMs);
     if ((row.filled ?? 0n) > 0n) filledSoFar.set(row.order.id, row.filled ?? 0n);
+    if (row.exchangeId !== null && row.exchangeId !== undefined) exchangeOf.set(row.order.id, row.exchangeId);
     const list = openBy.get(row.buildingId) ?? [];
     list.push(row.order);
     openBy.set(row.buildingId, list);
@@ -325,7 +334,7 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
   /** 회차 정산 뒤 판 쪽이 내는 거래세(국고 — 거래 share_trade_tax)·이용료(그 도시 증권 거래소 금고) — 질문 2474 다 */
   const levyRound = (
     buildingId: number,
-    sells: readonly { owner: number; filled: bigint }[],
+    sells: readonly { owner: number; filled: bigint; exchangeId: number | undefined }[],
     price: bigint,
     atMs: number,
   ): void => {
@@ -334,7 +343,9 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
     const rate = levy && cityId !== null && cityId !== undefined ? levy.rateOf(cityId) : undefined;
     if (!levy || !rate) return;
     for (const sell of sells) {
-      const cut = shareLevyAmounts(sell.filled * price, rate, sell.owner);
+      // 이용료는 주문을 낸 증권 거래소가 받는다(없거나 일하지 않으면 그 사업장 도시 거래소 — 바뀜 gov-fix-4 D-591 2523)
+      const feeTo = feeTargetOf(levy, rate, sell.exchangeId, cityId ?? 0);
+      const cut = shareLevyAmounts(sell.filled * price, rate, sell.owner, feeTo);
       const from = ledger.ownerAccount(sell.owner, deps.asset);
       if (cut.tax > 0n && ledger.balance(from) >= cut.tax)
         ledger.post({
@@ -345,8 +356,8 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
             { account: ledger.ownerAccount(rate.treasuryOwner, deps.asset), amount: cut.tax },
           ],
         });
-      if (cut.fee > 0n && rate.fee)
-        levy.pay({ from, buildingId: rate.fee.buildingId, asset: deps.asset, amount: cut.fee, atMs });
+      if (cut.fee > 0n && feeTo)
+        levy.pay({ from, buildingId: feeTo.buildingId, asset: deps.asset, amount: cut.fee, atMs });
     }
   };
 
@@ -354,11 +365,12 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
     const before = [...market.orders()];
     const result = market.run(atMs);
     const left = new Map(market.orders().map((order) => [order.id, order]));
-    const sold: { owner: number; filled: bigint }[] = [];
+    const sold: { owner: number; filled: bigint; exchangeId: number | undefined }[] = [];
     for (const order of before) {
       const filled = result.fills.get(order.id) ?? 0n;
       if (filled <= 0n) continue;
-      if (order.side === "sell") sold.push({ owner: order.owner, filled });
+      if (order.side === "sell")
+        sold.push({ owner: order.owner, filled, exchangeId: exchangeOf.get(order.id) });
       const sum = (filledSoFar.get(order.id) ?? 0n) + filled;
       const rest = left.get(order.id);
       if (rest) {
@@ -411,7 +423,7 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
     holders,
     sharesOf,
     ensureIssued,
-    place(ownerId, buildingId, side, price, shares, atMs) {
+    place(ownerId, buildingId, side, price, shares, atMs, exchangeId) {
       const owner = deps.owner(buildingId);
       if (owner === undefined) return { ok: false, code: "unknown_building" };
       if (owner === null || !deps.isBusiness(buildingId)) return { ok: false, code: "not_business" };
@@ -436,6 +448,12 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
       if (!result.ok)
         return { ok: false, code: side === "sell" ? "insufficient_shares" : "insufficient_funds" };
       placedAt.set(result.orderId, atMs);
+      const cityId = deps.cityOf?.(buildingId);
+      const used =
+        exchangeId === undefined || cityId === null || cityId === undefined
+          ? undefined
+          : deps.levy?.()?.feeAt?.(exchangeId, cityId)?.buildingId;
+      if (used !== undefined) exchangeOf.set(result.orderId, used);
       const order = market.orders().find((entry) => entry.id === result.orderId);
       if (order) writeOpen(buildingId, order, atMs);
       dirty.add(buildingId);

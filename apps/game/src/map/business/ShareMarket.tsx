@@ -22,6 +22,8 @@ interface ShareMarketProps {
   readonly reload: () => void;
   /** 주주 목록만(주문 칸 없이) */
   readonly holdersOnly?: boolean | undefined;
+  /** 이 시장을 연 증권 거래소 건물(증권 거래소 판 — 주문에 적어 그 거래소가 이용료를 받는다, D-591 2523) */
+  readonly exchangeId?: number | undefined;
 }
 
 /** 주주 막대 목록(많은 차례) */
@@ -56,7 +58,14 @@ export function HolderBars({ holders }: { readonly holders: readonly BookHolder[
   );
 }
 
-export function ShareMarket({ buildingId, holders, market, reload, holdersOnly = false }: ShareMarketProps) {
+export function ShareMarket({
+  buildingId,
+  holders,
+  market,
+  reload,
+  holdersOnly = false,
+  exchangeId,
+}: ShareMarketProps) {
   const locale = getLocale();
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [price, setPrice] = useState("");
@@ -210,6 +219,7 @@ export function ShareMarket({ buildingId, holders, market, reload, holdersOnly =
                     side,
                     price: String(priceIn.value),
                     shares: String(countIn.value),
+                    ...(exchangeId === undefined ? {} : { exchangeId }),
                   },
                   m.shares_placed(),
                 );

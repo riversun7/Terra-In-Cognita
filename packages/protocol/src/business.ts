@@ -119,6 +119,8 @@ export const businessShareOrderMessage = z.object({
   side: z.enum(["buy", "sell"]),
   price: positive,
   shares: positive,
+  /** 주문을 낸 증권 거래소 건물(증권 거래소 판의 지분 목록에서 열었을 때 — 판 135부터, 줄기 gov-fix-4 D-591 2523). 체결 이용료를 이 거래소가 받는다 */
+  exchangeId: rowId.optional(),
 });
 
 /** 지분 주문 거두기(판 38, 낸 사람만 — 회차 전). 묶은 것을 돌려준다 */

@@ -885,6 +885,7 @@ export const WORLD_TABLES = {
       "locked",
       "seq",
       "placed_at_ms",
+      "exchange_id",
       "state",
       "filled",
       "clear_price",

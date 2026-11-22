@@ -86,11 +86,13 @@ function OrderForm({
   price,
   setPrice,
   reload,
+  exchangeId,
 }: {
   readonly view: CityShareMarketView;
   readonly price: string;
   readonly setPrice: (value: string) => void;
   readonly reload: () => void;
+  readonly exchangeId?: number | undefined;
 }) {
   const locale = getLocale();
   const [side, setSide] = useState<"buy" | "sell">("buy");
@@ -213,6 +215,8 @@ function OrderForm({
               price: String(priceIn.value),
               shares: String(countIn.value),
               ...(asHouse && view.house ? { asHouse: true } : {}),
+              // 증권 거래소 판에서 열었으면 그 거래소가 이용료를 받는다(D-591 2523)
+              ...(exchangeId === undefined ? {} : { exchangeId }),
             },
             m.shares_placed(),
           );
@@ -264,7 +268,14 @@ function OrderForm({
   );
 }
 
-export function CityShareMarket({ cityId }: { readonly cityId: number }) {
+/** exchangeId = 이 시장을 연 증권 거래소 건물(그 거래소 판의 지분 목록에서 열었을 때 — 주문에 적어 그 거래소가 이용료를 받는다, D-591 2523) */
+export function CityShareMarket({
+  cityId,
+  exchangeId,
+}: {
+  readonly cityId: number;
+  readonly exchangeId?: number | undefined;
+}) {
   const locale = getLocale();
   const { data, failed, reload } = useCityShares(cityId);
   const [scope, setScope] = useState<"city" | "nation">("city");
@@ -345,7 +356,7 @@ export function CityShareMarket({ cityId }: { readonly cityId: number }) {
           <RoundBars rounds={data.rounds} />
         </section>
       ) : null}
-      <OrderForm view={data} price={price} setPrice={setPrice} reload={reload} />
+      <OrderForm view={data} price={price} setPrice={setPrice} reload={reload} exchangeId={exchangeId} />
       <TreasurySale view={data} reload={reload} />
       <TreasuryBuy view={data} reload={reload} />
     </div>

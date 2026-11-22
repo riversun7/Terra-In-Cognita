@@ -35,6 +35,8 @@ export const cityShareOrders = pgTable(
     doneAtMs: bigint("done_at_ms", { mode: "number" }),
     /** 승인된 국고 지분 팔기 안건(국고 주문만, 질문 2438 답 D-583) */
     agendaId: bigint("agenda_id", { mode: "number" }),
+    /** 주문을 낸 증권 거래소 건물(그 거래소 판에서 냈을 때 — 이용료를 받는다, gov-fix-4 D-591 2523). null = 거래소를 거치지 않음. 직전 판 앱은 쓰지 않는다 */
+    exchangeId: bigint("exchange_id", { mode: "number" }),
   },
   (table) => [
     check("city_share_orders_side", sql`${table.side} in ('buy', 'sell')`),
@@ -62,4 +64,38 @@ export const cityShareRounds = pgTable(
     asset: text("asset").notNull(),
   },
   (table) => [index("city_share_rounds_city").on(table.cityId, table.atMs)],
+);
+
+/**
+ * 국고 지분 안건 집행(줄기 gov-fix-4 — 사용자 결정 D-591 2526 "돈이없으면 못사는거고 취득량만 정하는거다. 통과된안건은 주-월 단위 기간이 있고 실행되지못하면 취소할지
+ * 계속할지 재투표"). 승인된 국고 지분 사기·팔기 안건마다 한 줄(agenda_id): side = buy | sell, target = 정한 수량, price = 한 주 가장 높은(사기)·낮은(팔기) 값,
+ * done = 지금까지 체결한 주, ends_at_ms = 집행 기간 끝(설정 칸 gov_share_exec_ms). state = active(회차마다 국고 돈·주가 있는 만큼 주문을 채운다) | filled(다 채움) |
+ * expired(기간 끝 — 남은 수량은 재투표 revote_agenda_id로) | cancelled(지도자가 국고 주문을 거둠). 쓰는 곳은 cityShares/treasuryRuns.ts 하나다.
+ * 새 표만 더해 직전 판 앱은 그대로 돈다(직전 판은 승인 때 한 번 주문만 건다)
+ */
+export const treasuryShareRuns = pgTable(
+  "treasury_share_runs",
+  {
+    agendaId: bigint("agenda_id", { mode: "number" }).primaryKey(),
+    nationId: bigint("nation_id", { mode: "number" }).notNull(),
+    side: text("side").notNull(),
+    cityId: bigint("city_id", { mode: "number" }).notNull(),
+    target: bigint("target", { mode: "bigint" }).notNull(),
+    price: bigint("price", { mode: "bigint" }).notNull(),
+    done: bigint("done", { mode: "bigint" }).notNull().default(0n),
+    startedAtMs: bigint("started_at_ms", { mode: "number" }).notNull(),
+    endsAtMs: bigint("ends_at_ms", { mode: "number" }).notNull(),
+    state: text("state").notNull(),
+    /** 기간이 끝나 연 재투표 안건(없으면 null — 독재 나라는 열지 않는다) */
+    revoteAgendaId: bigint("revote_agenda_id", { mode: "number" }),
+  },
+  (table) => [
+    check("treasury_share_runs_side", sql`${table.side} in ('buy', 'sell')`),
+    check("treasury_share_runs_state", sql`${table.state} in ('active', 'filled', 'expired', 'cancelled')`),
+    check(
+      "treasury_share_runs_amounts",
+      sql`${table.target} > 0 and ${table.price} > 0 and ${table.done} >= 0`,
+    ),
+    index("treasury_share_runs_active").on(table.state),
+  ],
 );

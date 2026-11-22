@@ -22,11 +22,25 @@ type Open =
   | null;
 
 /** 사업장 지분 시장(건물 판 [지분] 칸과 같은 칸) */
-function BusinessShares({ buildingId }: { readonly buildingId: number }) {
+function BusinessShares({
+  buildingId,
+  exchangeId,
+}: {
+  readonly buildingId: number;
+  readonly exchangeId: number;
+}) {
   const { books, failed, reload } = useBooks(buildingId, 7, true);
   const ok = books?.status === "ok" ? books : null;
   if (!ok) return <p className="bp-muted">{failed ? m.books_load_failed() : m.books_loading()}</p>;
-  return <ShareMarket buildingId={buildingId} holders={ok.holders} market={ok.market} reload={reload} />;
+  return (
+    <ShareMarket
+      buildingId={buildingId}
+      holders={ok.holders}
+      market={ok.market}
+      reload={reload}
+      exchangeId={exchangeId}
+    />
+  );
 }
 
 export function ShareHub({ buildingId }: { readonly buildingId: number }) {
@@ -72,10 +86,11 @@ export function ShareHub({ buildingId }: { readonly buildingId: number }) {
         >
           {m.share_hub_back()}
         </button>
+        {/* 이 거래소 판에서 낸 주문은 이 거래소가 이용료를 받는다(D-591 2523) */}
         {open.kind === "city" ? (
-          <CityShareMarket cityId={open.id} />
+          <CityShareMarket cityId={open.id} exchangeId={buildingId} />
         ) : (
-          <BusinessShares buildingId={open.id} />
+          <BusinessShares buildingId={open.id} exchangeId={buildingId} />
         )}
       </div>
     );

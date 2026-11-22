@@ -162,6 +162,7 @@ function businessCommandOf(message: BusinessClientMessage): BusinessCommand {
     case "business_share_order":
       return {
         kind: "share_order",
+        ...(message.exchangeId === undefined ? {} : { exchangeId: message.exchangeId }),
         buildingId: message.buildingId,
         side: message.side,
         price: BigInt(message.price),

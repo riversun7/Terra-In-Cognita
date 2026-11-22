@@ -6,6 +6,7 @@ import { DAY_MS, holdingsOf, moveSharesToHouse } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { createContentEditState } from "../contentEdit/state.ts";
+import { attachAffinityBook } from "../diplomacy/affinity.ts";
 import { economyCatalogFromPack } from "../economyView/catalog.ts";
 import { serverEconomyCatalogAccessor } from "../market/catalog.ts";
 import { nationPresetsOf } from "../npc/presets.ts";
@@ -293,6 +294,12 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 5(governance-5)", () => {
       code: "not_majority_holder",
     });
     const book = npc.world.book;
+    // 세력 쌍 호감 장부(외교가 붙이는 것 — 이 시험은 외교 없이 붙인다, gov-fix-4 affinity.ts)
+    const affinity = attachAffinityBook(parts(world).persistence.ledger, {
+      rules: () => rules,
+      nations: () => [],
+      rowOfOwner: () => undefined,
+    });
     // 국고 지분을 모두 그 가문으로(틱 전 — 자본주의 처음 지분 옮기기 D-582가 돌기 전)
     const treasury = holdingsOf(book, city).find((h) => h.owner === owner)?.amount ?? 0n;
     expect(treasury > 0n).toBe(true);
@@ -305,6 +312,9 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 5(governance-5)", () => {
         done.agendaId,
       ]),
     ).toEqual([{ ruling_house_key: `p:${row}` }]);
+    // 독립한 나라는 옛 나라와 호감이 크게 깎인 채 시작한다(D-591 2531 — 자동 전쟁 없음)
+    expect(affinity.get(head.nation, done.agendaId)).toBe(-rules.independenceAffinity);
+    expect(npc.world.factions.get(owner)?.wars.size ?? 0).toBe(0);
     // NPC 가문: 둘째 나라 시작 도시가 아닌 도시의 NPC 가문이 지분 과반 + 성향 문턱(−1000)·힘 비(0)면 틱에서 선언한다
     const second = await citizen(world, "Indtwo", 1);
     const otherOwner = npc.houses.ownerOfRow(second.nation) ?? -1;
@@ -321,6 +331,13 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결 5(governance-5)", () => {
     rules = { ...rules, houseIndependenceNpcScore: -1000, houseIndependencePowerPm: 0 };
     await gov.service.tick();
     expect(npc.world.cities.get(otherCity)?.owner).not.toBe(otherOwner);
+    const npcChild = (
+      await rows<{ id: string }>(
+        test.db,
+        "select (after->>'newNationId') as id from audit_log where action = 'governance.house_independent' order by id desc limit 1",
+      )
+    )[0]?.id;
+    expect(affinity.get(second.nation, Number(npcChild))).toBe(-rules.independenceAffinity);
     const audits = await rows<{ action: string }>(
       test.db,
       "select action from audit_log where action = 'governance.house_independent'",

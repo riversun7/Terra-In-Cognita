@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import type { Row, WorldTable } from "../world/persist/tables.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import {
+  type CityShareOrder,
   EMPTY_CITY_SHARES,
   type LoadedCityShares,
   createCityShareMarket,
@@ -23,7 +24,11 @@ const BUYER = 6;
 const HOUSE = "40:";
 const CUR = "cur_aa";
 
-function setup(loaded: LoadedCityShares = EMPTY_CITY_SHARES, levy?: ShareLevy) {
+function setup(
+  loaded: LoadedCityShares = EMPTY_CITY_SHARES,
+  levy?: ShareLevy,
+  onFill?: (order: CityShareOrder, filled: bigint) => void,
+) {
   let ids = 1;
   let now = T0 + 10;
   let currency: string | undefined = CUR;
@@ -48,6 +53,7 @@ function setup(loaded: LoadedCityShares = EMPTY_CITY_SHARES, levy?: ShareLevy) {
     rules: () => ({ roundMs: ROUND, orderMax: 3 }),
     now: () => now,
     levy: () => levy,
+    onFill,
   });
   const grant = (account: number, asset: string, amount: bigint) =>
     ledger.post({
@@ -134,6 +140,64 @@ describe("도시 지분 시장(동시호가 + 남는 주문)", () => {
       [77, 2n],
     ]);
     expect(paid[0]?.from).toBe(ledger.ownerAccount(SELLER, CUR));
+    expect(market.check()).toEqual([]);
+  });
+
+  it("이용료는 주문을 낸 증권 거래소가 그 요율로 받고, 없거나 맞지 않으면 그 도시 거래소(D-591 2523)", () => {
+    const paid: { buildingId: number; amount: bigint }[] = [];
+    const filled: [number, bigint][] = [];
+    const levy: ShareLevy = {
+      rateOf: (cityId) =>
+        cityId === CITY ? { treasuryOwner: TREASURY, taxBp: 0, fee: { buildingId: 77, bp: 100 } } : undefined,
+      // 88 = 같은 나라 다른 도시의 일하는 증권 거래소(요율 2%), 그 밖은 맞지 않음
+      feeAt: (buildingId, cityId) =>
+        buildingId === 88 && cityId === CITY ? { buildingId: 88, bp: 200 } : undefined,
+      pay: (input) => paid.push({ buildingId: input.buildingId, amount: input.amount }),
+    };
+    const { market } = setup(EMPTY_CITY_SHARES, levy, (order, shares) => filled.push([order.id, shares]));
+    market.place({
+      holder: ownerHolder(BUYER),
+      cityId: CITY,
+      side: "buy",
+      price: 10n,
+      shares: 300n,
+      atMs: T0,
+    });
+    const at88 = market.place({
+      holder: ownerHolder(SELLER),
+      cityId: CITY,
+      side: "sell",
+      price: 10n,
+      shares: 100n,
+      atMs: T0,
+      exchangeId: 88,
+    });
+    market.place({
+      holder: houseHolder(HOUSE),
+      cityId: CITY,
+      side: "sell",
+      price: 10n,
+      shares: 100n,
+      atMs: T0,
+      exchangeId: 99,
+    });
+    market.place({
+      holder: ownerHolder(SELLER),
+      cityId: CITY,
+      side: "sell",
+      price: 10n,
+      shares: 50n,
+      atMs: T0,
+    });
+    expect(market.run(T0 + ROUND, none)).toBe(1);
+    // 88: 1000 × 2% = 20, 99(맞지 않음)·거래소 없음 → 77: 1000 × 1% = 10, 500 × 1% = 5(같은 판 쪽 돈 계정끼리 모은다)
+    expect(paid.toSorted((a, b) => a.buildingId - b.buildingId || Number(a.amount - b.amount))).toEqual([
+      { buildingId: 77, amount: 5n },
+      { buildingId: 77, amount: 10n },
+      { buildingId: 88, amount: 20n },
+    ]);
+    // 체결 고리는 주문마다 체결 주를 알린다(국고 집행 셈 — treasuryRuns.ts)
+    expect(filled.find(([id]) => at88.ok && id === at88.orderId)?.[1]).toBe(100n);
     expect(market.check()).toEqual([]);
   });
 

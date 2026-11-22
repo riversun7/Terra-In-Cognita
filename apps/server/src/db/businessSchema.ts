@@ -58,6 +58,8 @@ export const businessShareOrders = pgTable(
     filled: bigint("filled", { mode: "bigint" }).notNull().default(0n),
     clearPrice: bigint("clear_price", { mode: "bigint" }),
     doneAtMs: bigint("done_at_ms", { mode: "number" }),
+    /** 주문을 낸 증권 거래소 건물(그 거래소 판에서 냈을 때 — 이용료를 받는다, gov-fix-4 D-591 2523). null = 거래소를 거치지 않음 */
+    exchangeId: bigint("exchange_id", { mode: "number" }),
   },
   (table) => [
     check("business_share_orders_side", sql`${table.side} in ('buy', 'sell')`),

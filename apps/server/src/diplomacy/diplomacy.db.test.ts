@@ -468,6 +468,15 @@ describe.skipIf(!TEST_DATABASE_URL)("지도자끼리 조약(diplomacy)", () => {
         [me.nation],
       ),
     ).toEqual([{ declarer: String(me.nation), at_ms: String(clock) }]);
+    // 명분 없는 선포: 우리 나라와 다른 모든 나라의 호감이 내려간다(D-290 — gov-fix-4 affinity.ts, 설정 칸 dip_no_cause_affinity)
+    await dip.service.affinity()?.settle();
+    const dropped = await rows<{ score: number }>(
+      test.db,
+      "select score from diplomacy_affinity where nation_a = $1 or nation_b = $1",
+      [me.nation],
+    );
+    expect(dropped.length).toBeGreaterThan(0);
+    expect(new Set(dropped.map((row) => row.score))).toEqual(new Set([-rules.noCauseAffinity]));
     expect(await treatyRow(made.ref)).toMatchObject({ state: "active" });
     gov.stop();
     await parts(world).persistence.writer.durable();
@@ -485,6 +494,12 @@ describe.skipIf(!TEST_DATABASE_URL)("지도자끼리 조약(diplomacy)", () => {
     const book = dip.service.breaches();
     expect(book?.breachesOf(meOwner)).toBe(1);
     expect(book?.hasCause(targetOwner, meOwner, clock)).toBe(true);
+    // 다시 켜도 호감은 표에서 되살아나 외교 칸에 보인다(띠 — 경고)
+    expect((await dip.view(me.userId)).partners.find((row) => row.id === target.id)).toMatchObject({
+      affinity: -rules.noCauseAffinity,
+      affinityBand: "wary",
+    });
+    expect(dip.service.affinity()?.get(me.nation, target.id)).toBe(-rules.noCauseAffinity);
 
     // 명분이 있는 의결 선포(제재 — 우리를 어긴 나라로 본 다른 지도자 나라): 세력·사회 declareWar에 caused = true로 부른다(선포 비용 없음 — 시뮬 시험이 금액을 본다)
     const choices = parts(world).persistence.cyborgs.creation("probe", clock).factions;
@@ -502,6 +517,15 @@ describe.skipIf(!TEST_DATABASE_URL)("지도자끼리 조약(diplomacy)", () => {
     ).toMatchObject({ ok: true });
     expect(seen).toEqual([true]);
     expect(other.faction.wars.has(meOwner)).toBe(true);
+    // 명분이 있는 선포는 호감을 내리지 않는다(2585 — 그 나라 쌍은 앞서 우리 나라의 무명분 선포로 내려간 값 그대로)
+    await dip.service.affinity()?.settle();
+    expect(
+      await rows(
+        test.db,
+        "select score from diplomacy_affinity where (nation_a = $1 or nation_b = $1) and score <> $2",
+        [other.nation, -rules.noCauseAffinity],
+      ),
+    ).toEqual([]);
     gov.stop();
   }, 240_000);
 });

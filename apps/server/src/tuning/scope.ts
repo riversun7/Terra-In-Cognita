@@ -435,6 +435,11 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "governance.breachTrustPenalty",
   "governance.sanctionWindowMs",
   "governance.sanctionCauseBonus",
+  // 세력 쌍 호감·국고 지분 안건 집행 기간(줄기 gov-fix-4 — D-591): 외교 틱·선포·독립·지분 회차마다 읽는다
+  "governance.independenceAffinity",
+  "governance.noCauseAffinity",
+  "governance.joinRefuseAffinity",
+  "governance.shareExecMs",
   // NPC 자율행동·7축 성향·조직 합성·충성도 개입(docs/adr/2026-11-20-npc-autonomous-ai.md): 조회·판단마다 읽는다
   "npcAi.unitTraitMin",
   "npcAi.unitTraitMax",

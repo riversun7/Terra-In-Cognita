@@ -6,6 +6,9 @@
 //   불가침·동맹 = 차분함(1000 − 공격 성향) ≥ 설정 칸 dip_npc_calm_pm, 보호 = NPC가 보호하는 쪽이면 힘이 상대 이상, 보호받는 쪽이면 힘이 상대보다 작고 차분함 ≥ 문턱.
 //   모든 조항이 맞아야 받는다. NPC는 맞제안하지 않는다.
 // - NPC 참전 답(npcJoinsWar) [임시 2556]: 힘(휴먼 수 — NPC 판단의 strength)이 적 이상이면 참가한다.
+// - 바뀜(gov-fix-4 — D-591 2531·D-255 "관계 점수는 NPC의 판단에 쓴다"): 받는 NPC 나라와 보낸 나라의 호감(affinity.ts) 띠가 "적대"면 차분함이 넉넉해도 불가침·동맹·보호(차분함을
+//   보는 조항)를 받지 않는다 [임시 2663]. 휴전·강화는 그대로 강화 규칙식만 본다.
+import { relationBand } from "@terra/shared/faction";
 import { TREATY_CLAUSE_KINDS, type TreatyClause, type TreatyClauseKind } from "@terra/shared/treaty";
 
 /** 보내는 나라 기준 조항 칸(프로토콜 dip_propose·dip_counter) */
@@ -109,12 +112,15 @@ export interface NpcTreatyInput {
   readonly otherStrength: number;
   /** 설정 칸 dip_npc_calm_pm */
   readonly calmPm: number;
+  /** 두 나라의 호감(−100~100 — affinity.ts, 줄기 gov-fix-4). 없으면 0 */
+  readonly affinity?: number | undefined;
 }
 
 /** NPC가 이끄는 나라가 받은 조약을 받는가 [임시 2553] */
 export function npcTreatyAnswer(input: NpcTreatyInput): boolean {
   const calm = 1000 - Math.min(1000, Math.max(0, Math.trunc(input.aggression)));
-  const calmEnough = calm >= input.calmPm;
+  // 호감 띠가 "적대"면 불가침·동맹·보호를 받지 않는다(D-255 "NPC의 판단에 쓴다" — 휴전·강화는 그대로 강화 규칙식) [임시 2663]
+  const calmEnough = calm >= input.calmPm && relationBand(input.affinity ?? 0) !== "hostile";
   for (const clause of input.clauses) {
     switch (clause.kind) {
       case "ceasefire":

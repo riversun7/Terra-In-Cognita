@@ -1,0 +1,652 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "79f15f68-68dc-45b0-b490-2cc41e6757fa",
+  "prevIds": [
+    "7e79264e-c94f-43c1-b1a3-9e2f1ba61755"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "diplomacy_affinity"
+      ],
+      "writes": [
+        "s|tbl|public.diplomacy_affinity",
+        "n|tbl|public.diplomacy_affinity",
+        "e|tbl|public.diplomacy_affinity",
+        "n|rel|public.diplomacy_affinity",
+        "n|type|public.diplomacy_affinity",
+        "n|rel|public.diplomacy_affinity_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "treasury_share_runs"
+      ],
+      "writes": [
+        "s|tbl|public.treasury_share_runs",
+        "n|tbl|public.treasury_share_runs",
+        "e|tbl|public.treasury_share_runs",
+        "n|rel|public.treasury_share_runs",
+        "n|type|public.treasury_share_runs",
+        "n|rel|public.treasury_share_runs_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "business_share_orders",
+        "exchange_id"
+      ],
+      "writes": [
+        "s|col|public.business_share_orders.exchange_id",
+        "n|col|public.business_share_orders.exchange_id",
+        "e|col|public.business_share_orders.exchange_id"
+      ],
+      "reads": [
+        "n|tbl|public.business_share_orders",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "city_share_orders",
+        "exchange_id"
+      ],
+      "writes": [
+        "s|col|public.city_share_orders.exchange_id",
+        "n|col|public.city_share_orders.exchange_id",
+        "e|col|public.city_share_orders.exchange_id"
+      ],
+      "reads": [
+        "n|tbl|public.city_share_orders",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "house_members",
+        "contribution"
+      ],
+      "writes": [
+        "s|col|public.house_members.contribution",
+        "n|col|public.house_members.contribution",
+        "e|col|public.house_members.contribution"
+      ],
+      "reads": [
+        "n|tbl|public.house_members",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "governance_state",
+        "vacancy_cause"
+      ],
+      "writes": [
+        "s|col|public.governance_state.vacancy_cause",
+        "n|col|public.governance_state.vacancy_cause",
+        "e|col|public.governance_state.vacancy_cause"
+      ],
+      "reads": [
+        "n|tbl|public.governance_state",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "treasury_share_runs",
+        "treasury_share_runs_active"
+      ],
+      "writes": [
+        "s|idx|public.treasury_share_runs_active",
+        "n|idx|public.treasury_share_runs_active",
+        "e|idx|public.treasury_share_runs_active",
+        "n|rel|public.treasury_share_runs_active"
+      ],
+      "reads": [
+        "n|tbl|public.treasury_share_runs",
+        "n|sch|public",
+        "n|col|public.treasury_share_runs.state"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "diplomacy_affinity"
+      ],
+      "writes": [
+        "s|fk|public.diplomacy_affinity.diplomacy_affinity_nation_a_factions_id_fkey",
+        "n|fk|public.diplomacy_affinity.diplomacy_affinity_nation_a_factions_id_fkey",
+        "e|fk|public.diplomacy_affinity.diplomacy_affinity_nation_a_factions_id_fkey",
+        "n|con|public.diplomacy_affinity.diplomacy_affinity_nation_a_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.diplomacy_affinity",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.diplomacy_affinity.nation_a",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "diplomacy_affinity"
+      ],
+      "writes": [
+        "s|fk|public.diplomacy_affinity.diplomacy_affinity_nation_b_factions_id_fkey",
+        "n|fk|public.diplomacy_affinity.diplomacy_affinity_nation_b_factions_id_fkey",
+        "e|fk|public.diplomacy_affinity.diplomacy_affinity_nation_b_factions_id_fkey",
+        "n|con|public.diplomacy_affinity.diplomacy_affinity_nation_b_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.diplomacy_affinity",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.diplomacy_affinity.nation_b",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "diplomacy_affinity",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "treasury_share_runs",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "business_share_orders",
+        "name": "exchange_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "city_share_orders",
+        "name": "exchange_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_affinity",
+        "name": "nation_a",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_affinity",
+        "name": "nation_b",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_affinity",
+        "name": "score",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_affinity",
+        "name": "updated_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "treasury_share_runs",
+        "name": "agenda_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "treasury_share_runs",
+        "name": "nation_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "treasury_share_runs",
+        "name": "side",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "treasury_share_runs",
+        "name": "city_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "treasury_share_runs",
+        "name": "target",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "treasury_share_runs",
+        "name": "price",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "treasury_share_runs",
+        "name": "done",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "treasury_share_runs",
+        "name": "started_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "treasury_share_runs",
+        "name": "ends_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "treasury_share_runs",
+        "name": "state",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "treasury_share_runs",
+        "name": "revote_agenda_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_members",
+        "name": "contribution",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "governance_state",
+        "name": "vacancy_cause",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "treasury_share_runs",
+        "name": "treasury_share_runs_active",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "state",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_affinity",
+        "name": "diplomacy_affinity_nation_a_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "nation_a"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_affinity",
+        "name": "diplomacy_affinity_nation_b_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "nation_b"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_affinity",
+        "name": "diplomacy_affinity_pkey",
+        "columns": [
+          "nation_a",
+          "nation_b"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "treasury_share_runs",
+        "name": "treasury_share_runs_pkey",
+        "columns": [
+          "agenda_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_affinity",
+        "name": "diplomacy_affinity_order",
+        "value": "\"nation_a\" < \"nation_b\"",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "diplomacy_affinity",
+        "name": "diplomacy_affinity_range",
+        "value": "\"score\" between -100 and 100",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "treasury_share_runs",
+        "name": "treasury_share_runs_side",
+        "value": "\"side\" in ('buy', 'sell')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "treasury_share_runs",
+        "name": "treasury_share_runs_state",
+        "value": "\"state\" in ('active', 'filled', 'expired', 'cancelled')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "treasury_share_runs",
+        "name": "treasury_share_runs_amounts",
+        "value": "\"target\" > 0 and \"price\" > 0 and \"done\" >= 0",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

@@ -27,6 +27,11 @@ export const cityShareOrderMessage = z.object({
   shares: positive,
   /** 내가 이끄는 가문 이름으로(가문장만). 없으면 내 계정 */
   asHouse: z.boolean().optional(),
+  /**
+   * 주문을 낸 증권 거래소 건물(그 거래소 판의 지분 목록에서 열었을 때 — 판 135부터, 줄기 gov-fix-4 D-591 2523). 체결 이용료를 이 거래소가 받는다. 없으면 그 지분 도시의
+   * 증권 거래소
+   */
+  exchangeId: rowId.optional(),
 });
 
 export const cityShareCancelMessage = z.object({

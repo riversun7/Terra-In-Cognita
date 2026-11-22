@@ -67,6 +67,7 @@ export function createCityShareSocket(options: {
                 price: BigInt(message.price),
                 shares: BigInt(message.shares),
                 asHouse: message.asHouse === true,
+                ...(message.exchangeId === undefined ? {} : { exchangeId: message.exchangeId }),
               })
             : await service.cancel(viewer.id, message.orderId);
         reply(message.id, result);

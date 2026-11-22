@@ -22,6 +22,7 @@ export const CITY_SHARE_TABLES = {
       "clear_price",
       "done_at_ms",
       "agenda_id",
+      "exchange_id",
     ],
     key: ["id"],
   },

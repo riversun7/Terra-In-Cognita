@@ -27,13 +27,24 @@ export function createWorldShareLevy(o: {
     catalog: () => o.catalog(),
     works: (buildingId) => o.works(buildingId),
   }).citiesWith("securities");
+  const feeBp = (buildingId: number): number =>
+    shareFeeOf((id, item) => o.business.price(id, item), o.businessRules(), buildingId).charged;
+  // 일하는 증권 거래소 건물 → 그 도시(주문에 적힌 거래소 확인 — 바뀜 gov-fix-4, D-591 2523)
+  const cityOfExchange = new Map([...securities].map(([cityId, buildingId]) => [buildingId, cityId]));
   return {
+    feeAt(buildingId, cityId) {
+      const at = cityOfExchange.get(buildingId);
+      if (at === undefined) return undefined;
+      const owner = o.cityOwner(cityId);
+      return owner !== undefined && o.cityOwner(at) === owner
+        ? { buildingId, bp: feeBp(buildingId) }
+        : undefined;
+    },
     rateOf: shareLevyRates({
       cityOwner: (cityId) => o.cityOwner(cityId),
       taxOf: (owner) => o.taxOf(owner) ?? DEFAULT_TAX_BP,
       exchangeIn: (cityId) => securities.get(cityId),
-      feeBp: (buildingId) =>
-        shareFeeOf((id, item) => o.business.price(id, item), o.businessRules(), buildingId).charged,
+      feeBp,
     }),
     pay: ({ from, buildingId, asset, amount, atMs }) => {
       if (amount <= 0n || o.balance(from) < amount) return;

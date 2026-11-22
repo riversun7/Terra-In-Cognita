@@ -17,7 +17,7 @@ import { getLocale } from "../../paraglide/runtime.js";
 import { ActionRow, QueryFailure, StateChip } from "../../sections/screenParts.tsx";
 import { dateText, relativeText } from "../../sections/screenText.ts";
 import { useScreenQuery } from "../../sections/useScreenQuery.ts";
-import { TREATY_DECISION_NOTES, TREATY_NAMES } from "../factionText.ts";
+import { BAND_NAMES, TREATY_DECISION_NOTES, TREATY_NAMES } from "../factionText.ts";
 import { formatPermille } from "../factionView.ts";
 import {
   type ClauseDraft,
@@ -124,6 +124,9 @@ function TreatyForm({ view, busy, run, counter, onCancel }: FormProps) {
                 {nationText(row)}
                 {row.atWar ? ` · ${m.dip_at_war()}` : ""}
                 {` · ${m.dip_trust_short({ trust: String(row.trust) })}`}
+                {row.affinityBand === undefined
+                  ? ""
+                  : ` · ${m.dip_affinity_short({ affinity: String(row.affinity ?? 0), band: BAND_NAMES[row.affinityBand]() })}`}
               </option>
             ))}
           </select>

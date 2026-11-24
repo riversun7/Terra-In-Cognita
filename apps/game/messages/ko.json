@@ -9459,5 +9459,9 @@
   "building_access_blocked_blacklisted": "이 나라의 블랙리스트에 등록되어 이용할 수 없습니다.",
   "building_access_blocked_city_resident": "이 도시에 거주 중인 유닛이 있거나 이 도시 소속 가문원만 이용할 수 있습니다.",
   "building_access_blocked_city_house": "이 도시 소속 가문원만 이용할 수 있습니다.",
-  "building_access_blocked_nation_citizen": "이 나라 소속 시민만 이용할 수 있습니다."
+  "building_access_blocked_nation_citizen": "이 나라 소속 시민만 이용할 수 있습니다.",
+  "faction_house_only_chip": "국가 미소속",
+  "faction_house_only_nation": "미소속(도시·국가 미가입)",
+  "faction_house_only_body": "가문이 창설되어 있습니다. 도시의 정부 건물에 방문해 가입 신청을 하거나 도시를 세워 국가에 속할 수 있습니다.",
+  "faction_field_nation": "소속 국가"
 }

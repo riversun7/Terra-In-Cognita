@@ -125,13 +125,15 @@ export function buildFactionOverview(
     };
   }
   const faction = real.faction === null ? null : realSummary(real.faction);
+  const house = real.house ?? real.faction?.house ?? null;
   return {
     generatedAt: now,
     rules: shown,
     preview: false,
-    stage: faction === null ? "individual" : faction.stage,
+    stage: faction !== null ? faction.stage : house !== null ? "faction" : "individual",
     me,
     faction,
+    ...(house === null ? {} : { house }),
     locks: faction === null ? [] : evaluateLocks(faction.cityCount),
     cities: NOT_READY,
     diplomacy: NOT_READY,

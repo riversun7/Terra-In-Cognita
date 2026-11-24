@@ -152,12 +152,12 @@ function TabBody({ tab, view }: { tab: FactionTab; view: FactionOverviewResponse
   }
 }
 
-function FactionBody({ view }: { view: FactionOverviewResponse }) {
+function FactionBody({ view, onRefresh }: { view: FactionOverviewResponse; onRefresh: () => void }) {
   const [tab, setTab] = useState<FactionTab>("cities");
   const tabs = FACTION_TABS.map((id) => ({ id, name: TAB_NAMES[id](), count: tabCount(view, id) }));
   return (
     <div className="faction-layout">
-      <FactionSide view={view} />
+      <FactionSide view={view} onHouseChanged={onRefresh} />
       <div className="faction-main">
         <TabList
           label={m.faction_tabs_label()}
@@ -207,7 +207,7 @@ export default function FactionScreen() {
             </p>
           )
         ) : (
-          <FactionBody view={view} />
+          <FactionBody view={view} onRefresh={refresh} />
         )}
       </SoonProvider>
     </section>

@@ -121,6 +121,34 @@ export function FactionCardBody({ data }: CardBodyProps) {
         </div>
       );
     }
+    if (view.house != null) {
+      return (
+        <div className="dash-ops-body">
+          <div className="dash-faction-banner">
+            <span className="dash-faction-name" translate="no">
+              {view.house.name}
+            </span>
+            <span className="dash-tag-chip" data-kind="meta">
+              {m.faction_house_only_chip()}
+            </span>
+          </div>
+          <div className="dash-mini-kpis">
+            <div className="dash-mini-kpi">
+              <span className="dash-mini-label">{m.faction_me_units()}</span>
+              <span className="dash-mini-val" data-accent="cyan">
+                {formatCount(view.me.units)}
+              </span>
+            </div>
+            <div className="dash-mini-kpi">
+              <span className="dash-mini-label">{m.faction_me_buildings()}</span>
+              <span className="dash-mini-val" data-accent="amber">
+                {formatCount(view.me.buildings)}
+              </span>
+            </div>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="dash-ops-body">
         <div className="dash-faction-banner">

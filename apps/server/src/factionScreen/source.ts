@@ -7,6 +7,7 @@
 // - 잔고는 위치 없는 계정(화폐 등)만, 0이 아닌 것만 보인다. 금액은 BigInt → 10진 글자.
 import {
   type AssetBalance,
+  type FactionHouseSummary,
   type FactionKind,
   type OccupationRow,
   REGIMES,
@@ -52,7 +53,7 @@ export interface FactionMembership {
   /**
    * 내가 든 가문(나라 안의 가문, D-216 이중 소속 — docs/adr/2026-11-11-faction-identity.md "바뀜 (926~935 답)"). 없으면 null·없음
    */
-  readonly house?: { readonly name: string; readonly memberCount: number; readonly head: boolean } | null;
+  readonly house?: FactionHouseSummary | null;
 }
 
 export interface FactionReal {
@@ -62,6 +63,8 @@ export interface FactionReal {
     readonly balances: readonly AssetBalance[];
   } | null;
   readonly faction: FactionMembership | null;
+  /** 내가 소속된 가문(소속 도시·국가가 아직 없는 미가입 가문 포함) */
+  readonly house?: FactionHouseSummary | null;
   /** 내 세력이 이기거나 당한 공성 결과(D-520, war_outcomes — occupations.ts). 세력이 없으면 null(화면 "곧 열림") */
   readonly occupations?: readonly OccupationRow[] | null;
 }
@@ -155,19 +158,23 @@ async function factionPart(db: Queryable, userId: string): Promise<FactionMember
   };
 }
 
-/** 내가 든 가문(가문 이름 = 플레이어가 정한 세력 정체성) */
-async function housePart(
-  db: Queryable,
-  userId: string,
-): Promise<{ readonly name: string; readonly memberCount: number; readonly head: boolean } | null> {
+/** 내가 든 가문(해산하지 않은 가문만, 정체성이 아직 없으면 번호 표시) */
+async function housePart(db: Queryable, userId: string): Promise<FactionHouseSummary | null> {
   const found = await db.query(
-    `select p.name, m.role, (select count(*)::int from house_members x where x.faction_id = m.faction_id) as members
-       from house_members m join faction_profiles p on p.faction_id = m.faction_id where m.user_id = $1`,
+    `select m.faction_id, p.name, p.short_name, m.role,
+            (select count(*)::int from house_members x where x.faction_id = m.faction_id) as members
+       from house_members m
+       join factions f on f.id = m.faction_id
+       left join faction_profiles p on p.faction_id = m.faction_id
+      where m.user_id = $1 and f.dissolved_at_ms is null`,
     [userId],
   );
   const row = found.rows[0];
   if (row === undefined) return null;
-  return { name: String(row.name), memberCount: asNumber(row.members), head: row.role === "leader" };
+  const factionId = asNumber(row.faction_id);
+  const name = typeof row.name === "string" && row.name.length > 0 ? row.name : `#${factionId}`;
+  const shortName = typeof row.short_name === "string" && row.short_name.length > 0 ? row.short_name : null;
+  return { name, shortName, memberCount: asNumber(row.members), head: row.role === "leader" };
 }
 
 /** DB에서 실제 자료를 읽는다(시험이 바로 부른다) */
@@ -179,7 +186,7 @@ export async function readFactionReal(db: Queryable, userId: string): Promise<Fa
   ]);
   const faction = nation === null ? null : { ...nation, house };
   const occupations = faction === null ? null : await readOccupationRows(db, faction.id);
-  return { owner, faction, occupations };
+  return { owner, faction, ...(house === null ? {} : { house }), occupations };
 }
 
 /**

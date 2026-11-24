@@ -160,4 +160,25 @@ describe.skipIf(!TEST_DATABASE_URL)("세력·우편 화면 조회 (DB)", () => {
     // 공성 결과가 없으면 점령 칸은 빈 목록(세력이 있으니 곧 열림이 아니다, D-520)
     expect(real.occupations).toEqual([]);
   });
+
+  it("가문은 있으나 도시·국가 미소속이면 faction은 null이고 house 요약을 읽는다(해산 가문 제외)", async () => {
+    const userId = await userIdOf("fake_factiondev");
+    const created = await sql(`insert into factions (kind) values ('player') returning id`);
+    const houseId = Number(created.rows[0]?.id);
+    await sql(
+      `insert into faction_profiles (faction_id, name, short_name, color, source, updated_at_ms)
+         values ($1, '미가입가문', '미가', '#2980b9', 'player', 0)`,
+      [houseId],
+    );
+    await sql(
+      `insert into house_members (user_id, faction_id, role, joined_at_ms) values ($1, $2, 'leader', 0)`,
+      [userId, houseId],
+    );
+    const active = await readFactionReal(test.db.$client, userId);
+    expect(active.faction).toBeNull();
+    expect(active.house).toEqual({ name: "미가입가문", shortName: "미가", memberCount: 1, head: true });
+    await sql(`update factions set dissolved_at_ms = 1 where id = $1`, [houseId]);
+    const dissolved = await readFactionReal(test.db.$client, userId);
+    expect(dissolved.house).toBeUndefined();
+  });
 });

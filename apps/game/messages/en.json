@@ -9459,5 +9459,9 @@
   "building_access_blocked_blacklisted": "You are blacklisted by this nation and cannot use this building.",
   "building_access_blocked_city_resident": "Restricted to players residing in this city or belonging to a city member house.",
   "building_access_blocked_city_house": "Restricted to members of houses belonging to this city.",
-  "building_access_blocked_nation_citizen": "Restricted to citizens of this nation."
+  "building_access_blocked_nation_citizen": "Restricted to citizens of this nation.",
+  "faction_house_only_chip": "No nation",
+  "faction_house_only_nation": "None (not joined to a city/nation)",
+  "faction_house_only_body": "Your house is founded. Visit a city's government hall to apply to join a city and nation, or found a city of your own.",
+  "faction_field_nation": "Nation"
 }

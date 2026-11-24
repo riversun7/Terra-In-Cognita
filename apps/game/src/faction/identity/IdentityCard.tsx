@@ -60,7 +60,7 @@ function Notice({
   );
 }
 
-export function IdentityCard() {
+export function IdentityCard({ onHouseChanged }: { onHouseChanged?: (() => void) | undefined } = {}) {
   const { state } = useScreenQuery(loadIdentityMine);
   const houseQuery = useScreenQuery(loadHouseView);
   const [changed, setChanged] = useState<FactionIdentityMine | null>(null);
@@ -134,6 +134,7 @@ export function IdentityCard() {
           onChanged={() => {
             setHouseChanged(null);
             houseQuery.refresh();
+            onHouseChanged?.();
           }}
         />
       ) : null}

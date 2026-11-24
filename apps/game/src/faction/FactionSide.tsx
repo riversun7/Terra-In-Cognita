@@ -4,6 +4,7 @@
 // 나라 이름·지도자는 서버가 준 두 언어 이름(label·leaderName — 팩 국가 프리셋, NPC 국가 지도자 사이보그)이 있으면 그것을 보인다("WP-NPC").
 import type {
   AssetBalance,
+  FactionHouseSummary,
   FactionOverviewResponse,
   FactionRules,
   FactionSummary,
@@ -173,7 +174,48 @@ function currencyText(faction: FactionSummary): string {
   return faction.cityCount > 0 ? m.faction_currency_unknown() : m.faction_currency_none();
 }
 
-/** 세력이 없을 때(개인) */
+/** 가문은 창설했지만 아직 도시·국가에 가입하지 않은 상태 */
+function HouseOnlyCard({ house }: { house: FactionHouseSummary }) {
+  return (
+    <section
+      className="panel faction-card"
+      aria-labelledby="faction-house-only-title"
+      data-part="faction-house-only"
+    >
+      <div className="screen-section-head">
+        <span className="faction-mark" aria-hidden="true">
+          <Icon name="faction" />
+        </span>
+        <h2 id="faction-house-only-title" className="faction-name">
+          <span className="faction-name-text" translate="no">
+            {house.name}
+          </span>
+          {house.shortName ? (
+            <span className="faction-tag" translate="no">
+              {house.shortName}
+            </span>
+          ) : null}
+        </h2>
+      </div>
+      <p className="faction-chips">
+        <StateChip tone="good" label={STAGE_NAMES.faction()} />
+        <StateChip tone="plain" label={m.faction_house_only_chip()} />
+      </p>
+      <p className="lead">{m.faction_house_only_body()}</p>
+      <dl className="facts">
+        <Fact label={m.faction_field_nation()}>{m.faction_house_only_nation()}</Fact>
+        <Fact label={m.faction_field_members()}>
+          <span className="faction-inline">
+            {formatCount(house.memberCount)}
+            {house.head ? <StateChip tone="plain" label={m.faction_family_head()} /> : null}
+          </span>
+        </Fact>
+      </dl>
+    </section>
+  );
+}
+
+/** 세력이 없을 때(개인 — 가문도 소속 국가도 없음) */
 function NoFaction() {
   return (
     <section className="panel faction-card" aria-labelledby="faction-none-title">
@@ -253,12 +295,24 @@ function Locks({ locks }: { locks: readonly LockedFeature[] }) {
   );
 }
 
-export function FactionSide({ view }: { view: FactionOverviewResponse }) {
+export function FactionSide({
+  view,
+  onHouseChanged,
+}: {
+  view: FactionOverviewResponse;
+  onHouseChanged?: (() => void) | undefined;
+}) {
   return (
     <aside className="faction-side" aria-label={m.faction_side_label()}>
-      {view.faction === null ? <NoFaction /> : <FactionCard faction={view.faction} rules={view.rules} />}
+      {view.faction !== null ? (
+        <FactionCard faction={view.faction} rules={view.rules} />
+      ) : view.house != null ? (
+        <HouseOnlyCard house={view.house} />
+      ) : (
+        <NoFaction />
+      )}
       <MyHoldings me={view.me} />
-      <IdentityCard />
+      <IdentityCard onHouseChanged={onHouseChanged} />
       <FactionRanking />
       <Locks locks={view.locks} />
     </aside>

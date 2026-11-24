@@ -545,6 +545,14 @@ export interface FactionRules {
   readonly dividendEveryMs: number;
 }
 
+/** 내가 든 가문 요약(소속 국가가 아직 없는 독립·미가입 가문 포함) */
+export interface FactionHouseSummary {
+  readonly name: string;
+  readonly shortName?: string | null;
+  readonly memberCount: number;
+  readonly head: boolean;
+}
+
 /** faction.overview 응답 */
 export interface FactionOverviewResponse {
   /** 만든 서버 시각(남은 시간의 기준) */
@@ -556,6 +564,8 @@ export interface FactionOverviewResponse {
   readonly stage: FactionStage;
   readonly me: MySummary;
   readonly faction: FactionSummary | null;
+  /** 내가 소속된 가문(도시·국가 미가입 상태라도 가문이 있으면 실린다) */
+  readonly house?: FactionHouseSummary | null;
   readonly locks: readonly LockedFeature[];
   readonly cities: FactionSection<readonly CityRow[]>;
   readonly diplomacy: FactionSection<readonly DiplomacyRow[]>;

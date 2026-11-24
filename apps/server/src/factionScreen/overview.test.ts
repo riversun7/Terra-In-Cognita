@@ -122,9 +122,24 @@ describe("실제 자료만(시안 자료 꺼짐)", () => {
     expect(view.preview).toBe(false);
     expect(view.stage).toBe("individual");
     expect(view.faction).toBeNull();
+    expect(view.house).toBeUndefined();
     expect(view.locks).toEqual([]);
     expect(view.me).toEqual({ hasOwner: false, units: 0, buildings: 0, balances: [] });
     for (const name of SECTIONS) expect(view[name], name).toEqual({ status: "not_ready" });
+  });
+
+  it("가문은 창설했지만 아직 소속 도시·국가가 없으면 가문·세력 단계와 house 요약을 싣는다", () => {
+    const view = buildFactionOverview(
+      {
+        ...NO_FACTION_REAL,
+        house: { name: "조센다이카쿠", shortName: "조센", memberCount: 1, head: true },
+      },
+      OFF,
+    );
+    expect(view.stage).toBe("faction");
+    expect(view.faction).toBeNull();
+    expect(view.house).toEqual({ name: "조센다이카쿠", shortName: "조센", memberCount: 1, head: true });
+    expect(view.locks).toEqual([]);
   });
 
   it("소속 세력이 있으면 그 요약(도시 0 = 가문·세력 단계, 국고·위 세력)과 도시 수로 정한 잠긴 메뉴", () => {

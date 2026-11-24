@@ -92,6 +92,7 @@ import {
   MINT_KEY,
   START_KEY,
   issueStartTreasuries,
+  retireCommonMoney,
   mintNationCurrencies,
   nationCurrencies,
 } from "./currency.ts";
@@ -507,6 +508,8 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   convertStaleCityFunds(book, economy, o.startMs, o.log);
   // 없는 도시의 거래소 닫기·도시 표·부팅 손질(질문 2591)·에스크로 불변식 경고(market/escrowRepair.ts)
   settleMarketsAtBoot({ registry, fx, cities: world.cities, ledger: book, nowMs: o.startMs, log: o.log });
+  // 옛 공용 시험 화폐 잔고 없애기(걸린 주문을 돌려준 뒤 — npc/currency.ts retireCommonMoney)
+  retireCommonMoney(book, o.startMs, o.log);
 
   const presets = o.input.presets ?? [];
   /** 도시 주인의 나라 성격(없으면 undefined = 기본) */

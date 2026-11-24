@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-24 15:40 | 옛 세계에 남은 공용 시험 화폐 잔고 없애기 | Claude Code | [24-1540-retire-common-money](worklog/2026/11/24-1540-retire-common-money.md) |
 | 2026-11-24 14:10 KST | NPC AI 작동 모니터 개편 — 필수요소 점검판 | Claude Code | [24-1410-npc-ai-monitor-rework](worklog/2026/11/24-1410-npc-ai-monitor-rework.md) |
 | 2026-11-24 12:50 | 도시 화폐(도시의 기축 통화) 고르기 | Claude Code | [24-1250-city-money](worklog/2026/11/24-1250-city-money.md) |
 | 2026-11-23 22:05 | 공용 시험 화폐 없애기: 주체의 돈 = 소속 국가 화폐, 외환 보유고·주식 표시 | Claude Code | [23-2205-nation-money](worklog/2026/11/23-2205-nation-money.md) |

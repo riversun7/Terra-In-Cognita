@@ -18,6 +18,7 @@ import {
   type SimWorld,
   currencyAsset,
   initialMint,
+  TEST_ASSET_CREDIT,
 } from "@terra/sim";
 import { TEST_NPC_FACTION_CODE } from "../world/unitKinds.ts";
 import { MAX_TEST_NATIONS, NATION_CODE_PREFIX } from "./nations.ts";
@@ -168,4 +169,42 @@ export function issueStartTreasuries(o: {
       );
     o.book.post({ kind: "issue", atMs: o.atMs, key, entries });
   }
+}
+
+/** 옛 공용 시험 화폐를 없앨 때 두는 시스템 계정: 나온 곳·사라진 곳(장부 기록)과 에스크로(걸린 주문·계약의 불변 조건 M1·M2에 묶인다) */
+const KEPT_COMMON_MONEY = ["issue:", "sink:", "escrow"];
+
+/**
+ * 옛 공용 시험 화폐 없애기(사용자 지시 2026-11-24 "공용화폐가 왜 남아있냐 없애라니까"): 나라 화폐가 도는 세계에서 켤 때 한 번, 주체(사람·세력)
+ * 지갑과 시스템 계정(가문 금고·사업장 금고·운영비 금고 등)에 남은 옛 공용 시험 화폐를 모두 소각 계정으로 보낸다(멱등 — 보낸 뒤 잔고 0). 나라 화폐로 바꿔 주지 않는다(시험 중, 고정 나라는 자기 화폐로
+ * 처음 국고를 따로 받는다). 에스크로는 걸린 주문·계약에 묶여 있어 두고, 풀려 지갑으로 돌아오면 다음에 켤 때 없앤다. 없앤 계정 수
+ */
+export function retireCommonMoney(
+  book: LedgerBook,
+  atMs: number,
+  log: { info(obj: object, message: string): void },
+): number {
+  const stale = [...book.accounts()].filter(
+    (account) =>
+      account.asset === TEST_ASSET_CREDIT &&
+      account.balance > 0n &&
+      !KEPT_COMMON_MONEY.some((prefix) => account.systemCode?.startsWith(prefix)),
+  );
+  if (stale.length === 0) return 0;
+  const sink = book.systemAccount(`sink:${TEST_ASSET_CREDIT}`, TEST_ASSET_CREDIT);
+  let total = 0n;
+  for (const account of stale) {
+    const amount = account.balance;
+    total += amount;
+    book.post({
+      kind: "retire_common_money",
+      atMs,
+      entries: [
+        { account: account.id, amount: -amount },
+        { account: sink, amount },
+      ],
+    });
+  }
+  log.info({ commonMoneyRetired: stale.length, amount: total.toString() }, "old common test money retired");
+  return stale.length;
 }

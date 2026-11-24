@@ -24,6 +24,7 @@ import { attachHouseTies, houseTiesOf } from "./houseTies.ts";
 import { seedNpcAtBoot } from "../npc/leaders.ts";
 import { leaderToCapital } from "../npc/leaderTravel.ts";
 import { villageSeeder } from "../facilities/npcSeed.ts";
+import { attachBuildingAccess, createWorldBuildingAccess } from "../facilities/access.ts";
 import { applyCityRelayoutAtBoot } from "../facilities/cityRelayout.ts";
 import {
   type CyborgRules,
@@ -359,6 +360,16 @@ export function startWorld(
     return { missingEvents, unitsInBuildings, badUnits: 0, badBuildings: 0, ...extra };
   };
 
+  const rootOwnerOf = (ownerId: number | undefined): number | undefined => {
+    let current = ownerId;
+    for (let depth = 0; depth < 8 && current !== undefined; depth++) {
+      const overlord = npc?.world.factions.get(current)?.overlord;
+      if (overlord === null || overlord === undefined) return current;
+      current = overlord;
+    }
+    return current;
+  };
+
   const bootWithDb = async (db: WorldPool): Promise<void> => {
     const started = performance.now();
     let loaded: Awaited<ReturnType<typeof loadWorld>> | undefined;
@@ -644,6 +655,30 @@ export function startWorld(
     });
     // 건물: 짓기·노화·수리(계약 서비스는 뒤에 잇는다). 건물이 선 도시(D-516 361) = 부팅 때 읽은 도시 + NPC 런타임이 세운 도시
     const cityCells = () => cityCellsOf(cities, npc?.places, TEST_PLANET_ID, maps, npc?.world.ruins);
+    const factionOwnerOf = (factionId: number): number | undefined => {
+      for (const owner of owners.values())
+        if (owner.userId === null && owner.factionId === factionId) return owner.id;
+      return undefined;
+    };
+    const isHostileCity = (ownerId: number, cityFaction: number): boolean => {
+      const world = npc?.world;
+      if (!world) return false;
+      const row = owners.get(ownerId);
+      const myFaction =
+        row?.userId != null ? (cyborgs.record(row.userId)?.factionId ?? null) : (row?.factionId ?? null);
+      const myOwner = myFaction === null ? undefined : factionOwnerOf(myFaction);
+      if (myOwner === undefined) return false;
+      const myRoot = rootOwnerOf(myOwner);
+      const myWars = world.factions.get(myOwner)?.wars;
+      const rootWars =
+        myRoot === undefined || myRoot === myOwner ? undefined : world.factions.get(myRoot)?.wars;
+      let cityOwner = factionOwnerOf(cityFaction);
+      for (let depth = 0; depth < 8 && cityOwner !== undefined; depth++) {
+        if (myWars?.has(cityOwner) || rootWars?.has(cityOwner)) return true;
+        cityOwner = world.factions.get(cityOwner)?.overlord ?? undefined;
+      }
+      return false;
+    };
     const facilities = createWorldFacilities({
       loaded: facilityData,
       maps,
@@ -667,6 +702,7 @@ export function startWorld(
       },
       now,
       ready: () => status.state === "ready",
+      isHostileCity,
       npc: () => npc,
     });
     // 노동 계약: 소유 주체 정산이 계약을 같은 시각까지 정산하고 산출을 계약 몫으로 나눈다
@@ -792,6 +828,30 @@ export function startWorld(
     // 도시 가진 가문의 시야 묶음(houseTies.ts, D-250): 부팅 때 읽고 1분마다 다시 읽는다(가문 명령 뒤에도 다시 읽는다)
     const ties = attachHouseTies(persistence, db);
     await ties.reload();
+    // 건물별 접근 권한 판정기(ADR 2026-11-25-building-access-and-foreign-build.md)
+    attachBuildingAccess(
+      ledger,
+      createWorldBuildingAccess({
+        pool: db,
+        ledger,
+        store: persistence,
+        maps,
+        facilities: facilities.service.facilities,
+        catalog: facilities.catalog,
+        owners,
+        settlement,
+        cyborgs,
+        cityNationRow(cityId) {
+          const liveOwner = npc?.world.cities.get(cityId)?.owner;
+          if (liveOwner !== undefined) {
+            const root = rootOwnerOf(liveOwner);
+            const factionId = root === undefined ? null : (owners.get(root)?.factionId ?? null);
+            if (factionId !== null) return factionId;
+          }
+          return cities.find((city) => city.id === cityId)?.factionId ?? null;
+        },
+      }),
+    );
     // 시험 NPC 세력의 처음 국고(봇 유지비를 낸다). 도시 경제가 도는 세계는 NPC 사회 런타임이 그 나라 화폐로 낸다(npc/currency.ts
     // issueStartTreasuries). 나라 화폐가 없는 세계(NPC 사회·도시 경제 없음)만 여기서 나라 없는 세계의 돈으로 낸다
     const npcSeed = config.npc ? (config.cyborgRules ?? defaultCyborgRules)().worldSeed : undefined;

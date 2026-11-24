@@ -72,6 +72,14 @@ export const FACILITY_CLAIM_PROTOCOL_VERSION = 54;
  * 이 메시지의 답에만)
  */
 export const FLOOR_PROTOCOL_VERSION = 67;
+/**
+ * 건물별 접근 권한 범위 설정(facility_access, ADR 2026-11-25-building-access-and-foreign-build.md)과 결과 코드 access_denied(71판 이하는 forbidden)가 생긴 판
+ */
+export const FACILITY_ACCESS_PROTOCOL_VERSION = 72;
+
+/** 건물별 접근 권한 범위: 누구나 · 도시 거주자 · 도시 가문 · 국가 시민 */
+export const FACILITY_ACCESS_SCOPES = ["anyone", "city_resident", "city_house", "nation_citizen"] as const;
+export type FacilityAccessScope = (typeof FACILITY_ACCESS_SCOPES)[number];
 
 const u32 = z.number().int().nonnegative().max(0xffff_ffff);
 const requestId = u32;
@@ -272,6 +280,14 @@ export const facilityClaimMessage = z.object({
   }),
 });
 
+/** 건물별 접근 권한 범위를 정한다(null = 시설 분류 기본값 — 프로토콜 72, ADR 2026-11-25-building-access-and-foreign-build.md) */
+export const facilityAccessMessage = z.object({
+  t: z.literal("facility_access"),
+  id: requestId,
+  buildingId: rowId,
+  scope: z.enum(FACILITY_ACCESS_SCOPES).nullable(),
+});
+
 /** 개발 시험: 하던 작업(짓기·레벨업·수리·장비 수리) 바로 끝내기(권한 secondMap: dev-test) */
 export const devFacilityFinishMessage = z
   .object({
@@ -381,6 +397,8 @@ export const FACILITY_RESULT_CODES = [
   "service_closed",
   /** 더 올릴 층이 없다(설정 칸 최고 층, 67 — facility_floor의 답에만) */
   "floor_full",
+  /** 건물별 접근 권한 범위 밖이라 이용할 수 없다(72 — 더 낮은 판 연결은 forbidden, FACILITY_ACCESS_PROTOCOL_VERSION) */
+  "access_denied",
   "internal_error",
 ] as const;
 export type FacilityResultCode = (typeof FACILITY_RESULT_CODES)[number];
@@ -417,5 +435,6 @@ export const facilityClientMessages = [
   facilityGatherTierMessage,
   facilityClaimMessage,
   facilityFloorMessage,
+  facilityAccessMessage,
 ] as const;
 export const facilityServerMessages = [facilityResultMessage] as const;

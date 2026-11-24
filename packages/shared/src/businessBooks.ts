@@ -546,4 +546,20 @@ export type BuildingOwnerResponse =
       readonly canManage: boolean;
       /** 사업장(시설 줄이 있는 건물)인가 — 장부·지분 칸 */
       readonly business: boolean;
+      /** 건물별 접근 권한 범위(실효값 — ADR 2026-11-25-building-access-and-foreign-build.md) */
+      readonly accessScope?: "anyone" | "city_resident" | "city_house" | "nation_citizen" | undefined;
+      /** 직접 저장한 접근 권한 범위(null = 시설 분류 기본값) */
+      readonly ownAccessScope?:
+        | "anyone"
+        | "city_resident"
+        | "city_house"
+        | "nation_citizen"
+        | null
+        | undefined;
+      /** 보는 사람이 이 건물 접근 권한을 충족하나 */
+      readonly accessAllowed?: boolean | undefined;
+      /** 접근 불가 사유(충족하면 null): blacklisted | city_resident | city_house | nation_citizen */
+      readonly accessBlockReason?: string | null | undefined;
+      /** 보는 사람이 이 건물의 접근 권한 범위를 바꿀 수 있나(건물 주인·도시 통치자) */
+      readonly canSetAccess?: boolean | undefined;
     };

@@ -1,6 +1,12 @@
 // 건물(시설) 상태·작업 — 메모리 모양, 부팅 때 읽기, 쓰기 대기열 줄(docs/adr/2026-11-07-buildings-runtime.md)
 // 원본은 world_facilities·facility_jobs(db/facilitySchema.ts). 쓰는 프로세스가 하나라 메모리가 캐시이고 바뀜은 쓰기 대기열로 간다.
-import { LAND_CLAIM_MODES, LAND_CLAIM_REGIMES, type LandClaimChoice } from "@terra/shared/facilities";
+import {
+  BUILDING_ACCESS_SCOPES,
+  type BuildingAccessScope,
+  LAND_CLAIM_MODES,
+  LAND_CLAIM_REGIMES,
+  type LandClaimChoice,
+} from "@terra/shared/facilities";
 import { type LoadedBusiness, loadBusiness } from "../business/store.ts";
 import type { QueryPool } from "../world/persist/load.ts";
 
@@ -40,6 +46,15 @@ export interface FacilityRecord {
    * 층 수(주거 건물, D-591 1 — 층 올리기 공사로 는다, 정원 = 층 × 설정 칸, facilities/floors.ts). 없으면 1. 주거 건물이 아니면 읽지 않는다
    */
   floors?: number | undefined;
+  /**
+   * 건물별 접근 권한 범위(ADR 2026-11-25-building-access-and-foreign-build.md). null·없음 = 시설 분류 기본값
+   */
+  accessScope?: BuildingAccessScope | null | undefined;
+}
+
+/** 저장 글자 → 건물 접근 권한 범위(모양이 틀리면 undefined) */
+export function accessScopeOf(text: unknown): BuildingAccessScope | undefined {
+  return typeof text === "string" ? BUILDING_ACCESS_SCOPES.find((entry) => entry === text) : undefined;
 }
 
 /** 저장 글자 → 알박기 고르기(모양이 틀리면 undefined — 서버가 기본 선택으로 본다) */
@@ -126,7 +141,7 @@ const numOrNull = (value: unknown): number | null => (value === null ? null : Nu
 export async function loadFacilities(pool: QueryPool): Promise<LoadedFacilities> {
   const facilities = await pool.query(
     `select building_id, facility_id, level, condition_ppm, condition_at_ms, built_at_ms, built_by, city_id, seeded, plots,
-            gather_tier, claim_choice, floors
+            gather_tier, claim_choice, floors, access_scope
      from world_facilities order by building_id`,
   );
   const jobs = await pool.query(
@@ -154,6 +169,7 @@ export async function loadFacilities(pool: QueryPool): Promise<LoadedFacilities>
         : { gatherTier: Number(row.gather_tier) }),
       ...(claimChoiceOf(row.claim_choice) ? { claim: claimChoiceOf(row.claim_choice) } : {}),
       ...(Number(row.floors ?? 1) > 1 ? { floors: Number(row.floors) } : {}),
+      ...(accessScopeOf(row.access_scope) ? { accessScope: accessScopeOf(row.access_scope) } : {}),
     })),
     jobs: jobs.rows.flatMap((row) => {
       const kind: unknown = row.kind;
@@ -195,6 +211,7 @@ export const facilityRow = (record: FacilityRecord) => ({
     record.gatherTier === null || record.gatherTier === undefined ? null : Math.trunc(record.gatherTier),
   claim_choice: claimChoiceText(record.claim),
   floors: Math.min(100, Math.max(1, Math.trunc(record.floors ?? 1))),
+  access_scope: record.accessScope ?? null,
 });
 
 export const jobRow = (job: JobRecord) => ({

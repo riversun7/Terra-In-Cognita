@@ -4,6 +4,7 @@ import {
   HOUSE_CITY_JOIN_PROTOCOL_VERSION,
   HOUSE_CITY_PROTOCOL_VERSION,
   HOUSE_CITY_TAX_PROTOCOL_VERSION,
+  HOUSE_FOREIGN_BUILD_PROTOCOL_VERSION,
   HOUSE_LEAGUE_PROTOCOL_VERSION,
   HOUSE_MEMBER_PROTOCOL_VERSION,
   HOUSE_POLICY_PROTOCOL_VERSION,
@@ -45,6 +46,13 @@ describe("가문 소켓 메시지", () => {
       expect(houseMessageNeed({ t })).toBe(HOUSE_CITY_TAX_PROTOCOL_VERSION);
       expect(replyOf(t)).toEqual({ t: "house_member_result", id: 7, ok: false, code: "busy" });
     }
+    expect(houseMessageNeed({ t: "house_foreign_build_policy" })).toBe(HOUSE_FOREIGN_BUILD_PROTOCOL_VERSION);
+    expect(replyOf("house_foreign_build_policy")).toEqual({
+      t: "house_member_result",
+      id: 7,
+      ok: false,
+      code: "busy",
+    });
     for (const t of HOUSE_SOCKET_TYPES) {
       expect(houseMessageNeed({ t })).toBeLessThanOrEqual(PROTOCOL_VERSION);
     }

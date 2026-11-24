@@ -25,6 +25,7 @@ export const FACILITY_ERROR_TEXT: Readonly<Record<FacilityResultCode | "offline"
     exchange_exists: m.facility_error_exchange_exists,
     no_shop_worker: m.facility_error_no_shop_worker,
     service_closed: m.facility_error_service_closed,
+    access_denied: m.facility_error_access_denied,
     busy: m.facility_error_busy,
     rate_limited: m.facility_error_rate_limited,
     forbidden: m.facility_error_forbidden,

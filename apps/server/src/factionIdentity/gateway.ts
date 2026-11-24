@@ -38,6 +38,7 @@ export type HouseMemberClientMessage = ClientMessageOf<
   | "house_vault_take"
   | "house_tax"
   | "house_build_policy"
+  | "house_foreign_build_policy"
   | "house_apply"
   | "house_answer"
   | "house_withdraw"
@@ -250,6 +251,10 @@ function runMember(
     case "house_build_policy":
       return policy
         ? policy.setBuild(userId, message.cityId, message.allow)
+        : Promise.resolve(memberFail("busy"));
+    case "house_foreign_build_policy":
+      return policy
+        ? policy.setForeignBuild(userId, message.cityId, message.allow)
         : Promise.resolve(memberFail("busy"));
     case "house_entry_policy":
       return entryPolicy

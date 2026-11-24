@@ -9,6 +9,15 @@ import type { HaulCenterView } from "./logistics.ts";
 
 export type { ConditionState } from "./facilityRuntime.ts";
 
+/** 건물별 접근 권한 범위(ADR 2026-11-25-building-access-and-foreign-build.md): 누구나 · 도시 거주자 · 도시 가문 · 국가 시민 */
+export const BUILDING_ACCESS_SCOPES = ["anyone", "city_resident", "city_house", "nation_citizen"] as const;
+export type BuildingAccessScope = (typeof BUILDING_ACCESS_SCOPES)[number];
+
+/** 시설 분류(stage)의 기본 접근 권한 범위: 행정(government) = 국가 시민, 경제·공공기관(미설정 시) = 누구나 */
+export function defaultBuildingAccessScope(stage: string | undefined): BuildingAccessScope {
+  return stage === "government" ? "nation_citizen" : "anyone";
+}
+
 export interface FacilityStackView {
   readonly item: string;
   readonly qty: number;

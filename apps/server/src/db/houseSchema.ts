@@ -241,6 +241,11 @@ export const cityPolicies = pgTable("city_policies", {
    */
   houseBuild: boolean("house_build"),
   /**
+   * 시민이 아닌 외부인(타국·무소속, 적대·전쟁 세력 제외)의 이 도시 건설 허용 여부(ADR 2026-11-25-building-access-and-foreign-build.md).
+   * null = 기본 false(막음)
+   */
+  foreignBuild: boolean("foreign_build"),
+  /**
    * 가문 도시 가입 승인 권한(ADR 2026-11-25-house-city-approval-and-blacklist.md):
    * 'mayor'(도시 시장·주인 가문장) | 'leader'(국가 원수·지배 가문장) | 'auto'(자동 승인). null = NPC 도시는 auto, 플레이어 도시는 mayor
    */

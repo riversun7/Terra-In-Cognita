@@ -19,6 +19,7 @@ import {
   LABOR_ASSIGN_PROTOCOL_VERSION,
   LABOR_JOBS_PROTOCOL_VERSION,
   LABOR_WAIT_PROTOCOL_VERSION,
+  FACILITY_ACCESS_PROTOCOL_VERSION,
   FACILITY_CLAIM_PROTOCOL_VERSION,
   FLOOR_PROTOCOL_VERSION,
   ATTACK_PROTOCOL_VERSION,
@@ -483,23 +484,26 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "facility_plot_remove":
       case "facility_gather_tier":
       case "facility_claim":
-      case "facility_floor": {
+      case "facility_floor":
+      case "facility_access": {
         // 건물 명령은 프로토콜 10, 창고 옮기기는 11, 건물·비콘 공격은 12, 면적 모듈은 41, 모듈 떼기·기르는 티어는 45, 짓는 중 알박기 고르기
-        // 바꾸기는 72의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
+        // 바꾸기는 54, 층 올리기는 67, 건물 접근 권한은 72의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
         const needs =
-          message.t === "facility_floor"
-            ? FLOOR_PROTOCOL_VERSION
-            : message.t === "facility_claim"
-              ? FACILITY_CLAIM_PROTOCOL_VERSION
-              : message.t === "facility_plot_remove" || message.t === "facility_gather_tier"
-                ? GATHER_TIER_PROTOCOL_VERSION
-                : message.t === "facility_plot"
-                  ? PLOT_PROTOCOL_VERSION
-                  : message.t === "facility_attack"
-                    ? ATTACK_PROTOCOL_VERSION
-                    : message.t === "storage_move"
-                      ? STORAGE_PROTOCOL_VERSION
-                      : FACILITY_PROTOCOL_VERSION;
+          message.t === "facility_access"
+            ? FACILITY_ACCESS_PROTOCOL_VERSION
+            : message.t === "facility_floor"
+              ? FLOOR_PROTOCOL_VERSION
+              : message.t === "facility_claim"
+                ? FACILITY_CLAIM_PROTOCOL_VERSION
+                : message.t === "facility_plot_remove" || message.t === "facility_gather_tier"
+                  ? GATHER_TIER_PROTOCOL_VERSION
+                  : message.t === "facility_plot"
+                    ? PLOT_PROTOCOL_VERSION
+                    : message.t === "facility_attack"
+                      ? ATTACK_PROTOCOL_VERSION
+                      : message.t === "storage_move"
+                        ? STORAGE_PROTOCOL_VERSION
+                        : FACILITY_PROTOCOL_VERSION;
         if (protocolVersion < needs) {
           reject("invalid_message");
           return;
@@ -767,6 +771,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "house_vault_take":
       case "house_tax":
       case "house_build_policy":
+      case "house_foreign_build_policy":
       case "house_handover":
       case "house_heir":
       case "house_dissolve":

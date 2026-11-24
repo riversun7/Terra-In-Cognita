@@ -14,6 +14,8 @@ import { writeAudit } from "../auth/store.ts";
 import type { Database } from "../db/client.ts";
 import { moneyOf } from "../world/money.ts";
 import type { HouseMovePersistence } from "./houseEntry.ts";
+import { canSetCityJoinPolicy } from "./houseCityJoin.ts";
+import { cityHome } from "./houseHome.ts";
 import { ruledBy } from "./houseEntryPolicy.ts";
 import { houseTaxerOf } from "./houseTax.ts";
 import { vaultAccount, vaultBalance } from "./houseVault.ts";
@@ -31,6 +33,8 @@ export interface HousePolicyService {
   setTax(userId: string, ratePm: number): Promise<HouseMemberResult>;
   /** 도시를 가진 가문의 가문장이 같은 나라 다른 가문의 짓기를 정한다(null = 기본값) */
   setBuild(userId: string, cityId: number, allow: boolean | null): Promise<HouseMemberResult>;
+  /** 시민이 아닌 외부인(적대 세력 제외)의 도시 건설 허용 정책 정하기(도시 주인 또는 국가 지도자 — ADR 2026-11-25) */
+  setForeignBuild(userId: string, cityId: number, allow: boolean | null): Promise<HouseMemberResult>;
 }
 
 const fail = (code: Extract<HouseMemberResult, { ok: false }>["code"]): HouseMemberResult => ({
@@ -183,6 +187,31 @@ export function createHousePolicy(o: {
       });
       if (result.ok)
         await audit(userId, "faction.house_build_policy", { factionId: result.factionId, cityId, allow });
+      return result;
+    },
+    async setForeignBuild(userId, cityId, allow) {
+      const result = await inTransaction(o.pool, async (q): Promise<HouseMemberResult> => {
+        const mine = await membershipOf(q, userId);
+        if (!mine) return fail("not_in_house");
+        if (mine.role !== "leader") return fail("not_leader");
+        const city = await cityHome(q, cityId);
+        if (!city) return fail("unknown_city");
+        if (!(await canSetCityJoinPolicy(q, mine.factionId, city.id, city.nationId)))
+          return fail("not_ruler");
+        await q.query(
+          `insert into city_policies (city_id, foreign_build, set_at_ms, set_by) values ($1, $2, $3, $4)
+           on conflict (city_id) do update set foreign_build = excluded.foreign_build, set_at_ms = excluded.set_at_ms,
+             set_by = excluded.set_by`,
+          [cityId, allow, o.now(), userId],
+        );
+        return { ok: true, action: "foreign_build_policy_set", factionId: mine.factionId };
+      });
+      if (result.ok)
+        await audit(userId, "faction.house_foreign_build_policy", {
+          factionId: result.factionId,
+          cityId,
+          allow,
+        });
       return result;
     },
   };

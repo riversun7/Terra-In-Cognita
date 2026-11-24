@@ -55,6 +55,7 @@ export type HouseMemberRequest =
   | { readonly t: "house_vault_take"; readonly amount: string }
   | { readonly t: "house_tax"; readonly ratePm: number }
   | { readonly t: "house_build_policy"; readonly cityId: number; readonly allow: boolean | null }
+  | { readonly t: "house_foreign_build_policy"; readonly cityId: number; readonly allow: boolean | null }
   // 프로토콜 70(2단계): 정부 방문 도시 가입 신청·승인·정책·탈퇴·추방·블랙리스트
   | { readonly t: "house_city_apply"; readonly buildingId: number }
   | { readonly t: "house_city_decide"; readonly applicationId: number; readonly accept: boolean }

@@ -38,6 +38,10 @@ function fakeService(calls: string[]): FacilityService {
     businessCommand: () => Promise.resolve({ ok: true }),
     seedBuilt: () => {},
     haltBuild: () => false,
+    setAccess: (userId, buildingId, scope) => {
+      calls.push(`access:${userId}:${buildingId}:${scope ?? "default"}`);
+      return Promise.resolve({ ok: true, buildingId });
+    },
     npcBuild: notUsed,
     npcJob: notUsed,
     places: { maps: new Map(), facilities: new Map(), catalog: notUsed, cities: () => [] },

@@ -24,6 +24,7 @@ import { ShareMarket } from "../business/ShareMarket.tsx";
 import { nameText } from "../gather/gatherData.ts";
 import type { GatherState } from "../gather/gatherState.ts";
 import { StationPanel, useStation } from "../gather/StationPanel.tsx";
+import { BuildingAccessControl } from "./BuildingAccessControl.tsx";
 import { BuildingLabor, useLaborBuilding } from "./BuildingLabor.tsx";
 import { ResidenceCard } from "./ResidenceCard.tsx";
 import type { BuildingOwnerResponse } from "@terra/shared/businessBooks";
@@ -262,6 +263,19 @@ export function BuildingPanel({
                     : m.gather_building_stays()}
               </p>
             ) : null}
+            {ownerOk?.accessScope !== undefined ? (
+              <BuildingAccessControl
+                key={`${buildingId}-${ownerOk.ownAccessScope ?? "default"}`}
+                buildingId={buildingId}
+                scope={ownerOk.accessScope}
+                ownScope={ownerOk.ownAccessScope ?? null}
+                allowed={ownerOk.accessAllowed ?? true}
+                reason={ownerOk.accessBlockReason ?? null}
+                canSet={ownerOk.canSetAccess === true || operator}
+                showEditor={!ownerTools && (ownerOk.canSetAccess === true || operator)}
+                reload={reloadAll}
+              />
+            ) : null}
             {stationPart("summary")}
             {ok ? (
               <section className="bp-card" aria-label={m.gather_building_inside()}>
@@ -391,6 +405,19 @@ export function BuildingPanel({
           <>
             {operator && ownerOk && !ownerOk.canManage ? (
               <p className="bp-warn">{m.building_operator_note()}</p>
+            ) : null}
+            {ownerOk?.accessScope !== undefined && (ownerOk.canSetAccess === true || operator) ? (
+              <BuildingAccessControl
+                key={`${buildingId}-manage-${ownerOk.ownAccessScope ?? "default"}`}
+                buildingId={buildingId}
+                scope={ownerOk.accessScope}
+                ownScope={ownerOk.ownAccessScope ?? null}
+                allowed={ownerOk.accessAllowed ?? true}
+                reason={ownerOk.accessBlockReason ?? null}
+                canSet={true}
+                showEditor={true}
+                reload={reloadAll}
+              />
             ) : null}
             {booksOk ? <BooksAlert books={booksOk} /> : null}
             {business ? (

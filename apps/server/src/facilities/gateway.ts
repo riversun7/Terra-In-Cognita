@@ -22,6 +22,7 @@ import {
   BUSINESS_CARRY_PROTOCOL_VERSION,
   BUSINESS_PROTOCOL_VERSION,
   type ClientMessageOf,
+  FACILITY_ACCESS_PROTOCOL_VERSION,
   type FacilityResultCode,
   RUINS_PROTOCOL_VERSION,
   SALE_ONLY_PROTOCOL_VERSION,
@@ -65,6 +66,7 @@ export type FacilityClientMessage = ClientMessageOf<
   | "facility_gather_tier"
   | "facility_claim"
   | "facility_floor"
+  | "facility_access"
 >;
 
 const MAX_PENDING = 8;
@@ -228,6 +230,8 @@ function run(
       return service.plotRemove(userId, message.buildingId);
     case "facility_floor":
       return service.floor(userId, message.buildingId, message.unitIds ?? [], operator);
+    case "facility_access":
+      return service.setAccess(userId, message.buildingId, message.scope, operator !== undefined);
     case "facility_gather_tier":
       return service.gatherTier(userId, message.buildingId, message.tier);
     case "facility_claim":
@@ -303,8 +307,14 @@ export function createFacilityGateway(options: {
         (link.protocolVersion ?? BUSINESS_CARRY_PROTOCOL_VERSION) < BUSINESS_CARRY_PROTOCOL_VERSION;
       const beforeOutsource =
         (link.protocolVersion ?? OUTSOURCE_PROTOCOL_VERSION) < OUTSOURCE_PROTOCOL_VERSION;
+      const beforeAccess =
+        (link.protocolVersion ?? FACILITY_ACCESS_PROTOCOL_VERSION) < FACILITY_ACCESS_PROTOCOL_VERSION;
       const reply = (id: number, result: FacilityCommandResult): void => {
         if (closed) return;
+        if (beforeAccess && !result.ok && result.code === "access_denied") {
+          link.send(resultText(id, fail("forbidden")));
+          return;
+        }
         // 외주 수리(48, D-570 1785): 공방 일꾼 없음은 일꾼 바쁨, 받지 않음은 수리 못 함으로
         if (
           beforeOutsource &&

@@ -44,6 +44,7 @@ import {
 import type { CyborgService } from "../cyborg/service.ts";
 import type { HoldingService } from "../holdings/service.ts";
 import type { Ledger } from "../economy/ledger.ts";
+import { buildingAccessOf } from "../facilities/access.ts";
 import { buildingPlace } from "../facilities/places.ts";
 import type { WorldFacilities } from "../facilities/world.ts";
 import type { QueryPool } from "../world/persist/load.ts";
@@ -237,6 +238,8 @@ export function createTempleService(o: TempleServiceOptions): TempleService {
       if ("fail" in owner) return fail(owner.fail);
       const temple = templeOf(input.buildingId);
       if (!temple.ok) return fail(temple.code);
+      if (buildingAccessOf(ledger)?.check(userId, input.buildingId).allowed === false)
+        return fail("temple_closed");
       const c = o.rules().temple;
       await writer.durable();
       const last = await readLastPrayer(o.pool, owner.ownerId);
@@ -255,6 +258,8 @@ export function createTempleService(o: TempleServiceOptions): TempleService {
       if ("fail" in owner) return fail(owner.fail);
       const temple = templeOf(input.buildingId);
       if (!temple.ok) return fail(temple.code);
+      if (buildingAccessOf(ledger)?.check(userId, input.buildingId).allowed === false)
+        return fail("temple_closed");
       const amount = BigInt(input.amount);
       if (moneyBalance(ledger, owner.ownerId) < amount) return fail("insufficient_funds");
       const gain = devotionGain("offer", amount, o.rules().temple);
@@ -282,6 +287,8 @@ export function createTempleService(o: TempleServiceOptions): TempleService {
       if (first) return fail(first);
       const pre = templeOf(input.buildingId);
       if (!pre.ok) return fail(pre.code);
+      if (buildingAccessOf(ledger)?.check(userId, input.buildingId).allowed === false)
+        return fail("temple_closed");
       await writer.durable();
       const human = await readFullHuman(o.pool, input.unit);
       if (!human) return fail("unknown_unit");
@@ -294,6 +301,8 @@ export function createTempleService(o: TempleServiceOptions): TempleService {
       if (again) return fail(again);
       const temple = templeOf(input.buildingId);
       if (!temple.ok) return fail(temple.code);
+      if (buildingAccessOf(ledger)?.check(userId, input.buildingId).allowed === false)
+        return fail("temple_closed");
       const society = o.rules();
       const c = society.temple;
       const at = o.now();

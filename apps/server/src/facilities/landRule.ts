@@ -36,15 +36,20 @@ export type LandVerdict =
       readonly cityFaction: number;
     };
 
-/** 판정에 쓰는 도시 하나: 세력과(가문 도시면) 같은 나라인가·그 도시 정책이 남의 가문 짓기를 허용하나 */
+/** 판정에 쓰는 도시 하나: 세력과(가문 도시면) 같은 나라인가·그 도시 정책이 남의 가문/외부인 짓기를 허용하나 */
 export interface LandCity {
   readonly faction: number;
   readonly house?: { readonly sameNation: boolean; readonly allow: boolean } | undefined;
+  /** 시민이 아닌 외부인(적대·전쟁 세력 제외) 건설 허용 정책(ADR 2026-11-25-building-access-and-foreign-build.md) */
+  readonly foreignAllow?: boolean | undefined;
+  /** 짓는 주체와 이 도시 나라가 전쟁 중인가(전쟁 중이면 정책과 무관하게 차단) */
+  readonly hostile?: boolean | undefined;
 }
 
 /**
  * 판정: 그 2차맵에 내 도시(자기 가문 도시 ownHouse·내 세력 mine의 NPC 도시·같은 나라 가문 도시 가운데 정책이 허용한 것)가 있으면 짓는다. 없고 같은
- * 나라 가문 도시가 막았으면 house_policy, 다른 세력 도시만 있으면 foreign_city. 도시가 없으면 짓는다 — 짓는 자리의 영토 주인(territoryFaction,
+ * 나라 가문 도시가 막았으면 house_policy, 다른 세력 도시만 있으면 foreign_city(단 전쟁 중이 아니고 도시 정책 foreign_build가 허용이면 지을 수 있다).
+ * 도시가 없으면 짓는다 — 짓는 자리의 영토 주인(territoryFaction,
  * 영토 밖·모름이면 null)이 내 세력이 아니면 알림만 단다(D-572 알박기 우선). 한 2차맵에 여러 세력 도시가 있는 경우(옛 세계·시험 2차맵 줄)는 내
  * 도시가 있는 쪽으로 친다. cities의 수는 세력만 아는 도시(가문 도시 정보 없음 — 옛 판정)
  */
@@ -59,12 +64,16 @@ export function landVerdict(
   for (const city of list) {
     if (ownHouse !== null && city.faction === ownHouse) return { allowed: true };
     if (city.house) {
-      if (!city.house.sameNation) continue;
-      if (city.house.allow) return { allowed: true };
-      policyBlocked = policyBlocked === undefined ? city.faction : Math.min(policyBlocked, city.faction);
+      if (city.house.sameNation) {
+        if (city.house.allow || (!city.hostile && city.foreignAllow === true)) return { allowed: true };
+        policyBlocked = policyBlocked === undefined ? city.faction : Math.min(policyBlocked, city.faction);
+        continue;
+      }
+      if (!city.hostile && city.foreignAllow === true) return { allowed: true };
       continue;
     }
     if (mine.includes(city.faction)) return { allowed: true };
+    if (!city.hostile && city.foreignAllow === true) return { allowed: true };
   }
   if (policyBlocked !== undefined)
     return { allowed: false, reason: "house_policy", cityFaction: policyBlocked };
@@ -139,12 +148,14 @@ export function createLandCheck(deps: {
     | undefined;
   /** 가문 도시가 남의 가문 짓기를 정하지 않았을 때 허용하나(설정 칸 house_city_build_default, D-574 2124). 없으면 허용 */
   readonly buildDefault?: (() => boolean) | undefined;
+  /** 짓는 주체와 해당 도시 세력이 전쟁 중인가(전쟁 중이면 외부인 건설 정책이 켜져 있어도 막는다) */
+  readonly isHostileCity?: ((ownerId: number, cityFaction: number) => boolean) | undefined;
 }): LandCheck {
   return async (ownerId, mapKey, at) => {
     await deps.writer.durable();
     const [found, holder] = await Promise.all([
       deps.pool.query(
-        `select c.faction_id, f.kind, f.parent_id, p.house_build from world_cities c
+        `select c.faction_id, f.kind, f.parent_id, p.house_build, p.foreign_build from world_cities c
            left join factions f on f.id = c.faction_id left join city_policies p on p.city_id = c.id
           where c.map_key = $1 and c.faction_id is not null`,
         [mapKey],
@@ -161,12 +172,14 @@ export function createLandCheck(deps: {
     const fallback = deps.buildDefault?.() ?? true;
     const cities = found.rows.map((row): LandCity => {
       const faction = Number(row.faction_id);
-      if (row.kind !== "player") return { faction };
+      const foreignAllow = row.foreign_build === true;
+      const hostile = deps.isHostileCity?.(ownerId, faction) === true;
+      if (row.kind !== "player") return { faction, foreignAllow, hostile };
       // 가문 도시(D-574 2124): 같은 나라 = 그 가문 행이나 그 위 세력이 내 세력
       const parent = row.parent_id === null || row.parent_id === undefined ? null : Number(row.parent_id);
       const sameNation = mine.includes(faction) || (parent !== null && mine.includes(parent));
       const allow = typeof row.house_build === "boolean" ? row.house_build : fallback;
-      return { faction, house: { sameNation, allow } };
+      return { faction, house: { sameNation, allow }, foreignAllow, hostile };
     });
     return landVerdict(mine, cities, territoryFaction, ownHouse);
   };

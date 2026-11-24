@@ -338,4 +338,79 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 금고·가문세·도시 짓기 정
     );
     expect(after).toEqual([{ house_entry_fee: "15", house_build: null }]);
   });
+
+  it("외부인 건설 정책(4단계): 도시 통치자가 허용하면 비시민·무소속이 짓고, 적대(전쟁) 세력은 항상 막는다", async () => {
+    const owner = await house(820);
+    serial += 1;
+    const login = `fake_hpo_out${serial}`;
+    const outsiderUser =
+      (
+        await rows<{ id: string }>(
+          test.db,
+          "insert into users (name, email, username) values ($1, $2, $3) returning id",
+          [login, `${login}@house.placeholder.invalid`, login],
+        )
+      )[0]?.id ?? "";
+    await sql(
+      `insert into cyborgs (user_id, name, name_key, temperament, initial, k_pm, appearance, faction_id, start_city_id, created_at_ms)
+       values ($1, $2, $3, 'balanced', '{10,10,10,10,10,10}', '{100,100,100,100,100,100}', '{}', null, 801, 0)`,
+      [outsiderUser, `HpoOut${serial}`, `hpoout${serial}`],
+    );
+    const policy = createHousePolicy({
+      pool: test.db.$client,
+      db: test.db,
+      rules: () => TEST_HOUSE_RULES,
+      now: () => clock,
+      persistence: () => undefined,
+    });
+    const owners = new Map<number, OwnerRow>([
+      [
+        50,
+        {
+          id: 50,
+          userId: outsiderUser,
+          factionId: null,
+          settledAtMs: 0,
+          upkeepArrears: 0,
+          upkeepUnpaidAtMs: null,
+        },
+      ],
+    ]);
+    let hostile = false;
+    const land = createLandCheck({
+      pool: test.db.$client,
+      owners,
+      writer: { durable: async () => undefined },
+      isHostileCity: () => hostile,
+    });
+    // 기본값은 외부인 건설 차단
+    expect(await land(50, 820)).toEqual({ allowed: false, reason: "foreign_city", cityFaction: owner.id });
+    // 비권한자는 변경 불가
+    expect(await policy.setForeignBuild(outsiderUser, 820, true)).toEqual({
+      ok: false,
+      code: "not_in_house",
+    });
+    expect(await policy.setForeignBuild(owner.member, 820, true)).toEqual({ ok: false, code: "not_leader" });
+    // 도시 통치자가 허용으로 설정
+    expect(await policy.setForeignBuild(owner.leader, 820, true)).toEqual({
+      ok: true,
+      action: "foreign_build_policy_set",
+      factionId: owner.id,
+    });
+    const view = await readHouseEntryPolicy(test.db.$client, {
+      cityId: 820,
+      viewerId: owner.leader,
+      rules: TEST_HOUSE_RULES,
+    });
+    expect(view?.foreignBuild).toEqual({ city: true, fallback: false, canSet: true });
+    // 비적대 외부인(무소속)은 건설 가능
+    expect(await land(50, 820)).toEqual({ allowed: true });
+    // 적대 세력(전쟁 중)은 허용 정책이어도 차단
+    hostile = true;
+    expect(await land(50, 820)).toEqual({ allowed: false, reason: "foreign_city", cityFaction: owner.id });
+    // 다시 비우면 기본값(막음) 복원
+    hostile = false;
+    expect(await policy.setForeignBuild(owner.leader, 820, null)).toMatchObject({ ok: true });
+    expect(await land(50, 820)).toEqual({ allowed: false, reason: "foreign_city", cityFaction: owner.id });
+  });
 });

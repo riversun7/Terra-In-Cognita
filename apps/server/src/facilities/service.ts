@@ -23,7 +23,8 @@
 import type { FacilityResultCode } from "@terra/protocol";
 import { buildingLocation, cityLocation, cityOfCell } from "@terra/shared/goodsPlaces";
 import { buildCostAt, buildTimeAt } from "@terra/shared/facilityBuild";
-import { DEFAULT_LAND_CLAIM_MODE } from "@terra/shared/facilities";
+import { type BuildingAccessScope, DEFAULT_LAND_CLAIM_MODE } from "@terra/shared/facilities";
+import { buildingAccessOf } from "./access.ts";
 import {
   CONDITION_FULL,
   type FacilityRuntimeRules,
@@ -142,6 +143,13 @@ export interface FacilityService extends PlotCommands, ClaimCommands {
     buildingId: number,
     holdingId: number,
     unitIds: readonly number[],
+  ): Promise<FacilityCommandResult>;
+  /** 건물별 접근 권한 범위 설정(프로토콜 72 — null이면 유형 기본값으로 복원) */
+  setAccess(
+    userId: string,
+    buildingId: number,
+    scope: BuildingAccessScope | null,
+    operator?: boolean,
   ): Promise<FacilityCommandResult>;
   /** 남의 공방 외주 수리 견적(D-570 1785 — 그 공방 일꾼·시간·요금). 받을 수 없으면 결과 코드 */
   outsourceQuote(buildingId: number, item: RepairItem): OutsourceQuote | FacilityResultCode;
@@ -905,8 +913,28 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       const at = now();
       const me = ownerFor(userId, at);
       if (me === undefined) return fail("busy");
+      const access = buildingAccessOf(ledger)?.check(userId, buildingId);
+      if (access && !access.allowed) return fail("access_denied");
       const result = startEquipmentRepair(repairDeps, me, buildingId, holdingId, unitIds, at);
       return result.ok ? done(result) : result;
+    },
+
+    async setAccess(userId, buildingId, scope, operator) {
+      const at = now();
+      const me = ownerFor(userId, at);
+      if (me === undefined) return fail("busy");
+      const placed = buildingAt(buildingId);
+      if (!placed) return fail("unknown_building");
+      const record = facilities.get(buildingId);
+      if (!record) return fail("not_facility");
+      const checker = buildingAccessOf(ledger);
+      const allowed = checker
+        ? await checker.canSet(userId, buildingId, operator === true)
+        : placed.owner === me || operator === true;
+      if (!allowed) return fail("forbidden");
+      record.accessScope = scope;
+      saveFacility(record);
+      return done({ ok: true, buildingId });
     },
 
     outsourceQuote: (buildingId, item) => outsourceQuote(repairDeps, buildingId, item),

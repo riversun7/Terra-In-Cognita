@@ -124,6 +124,13 @@ export interface GovernmentHouseEntry {
    * 정한 값(null = 정하지 않음), fallback = 정하지 않았을 때(설정 칸 house_city_build_default). 정하는 사람 = canSetCity. 옛 서버는 보내지 않는다
    */
   readonly build?: { readonly city: boolean | null; readonly fallback: boolean } | undefined;
+  /**
+   * 시민이 아닌 외부인(타국·무소속, 전쟁 중인 적대 세력 제외)의 이 도시 건설 허용 여부(ADR 2026-11-25-building-access-and-foreign-build.md).
+   * city = 도시 정책 직접 설정값(null = 기본 false 막음), canSet = 도시 주인 또는 국가 지도자
+   */
+  readonly foreignBuild?:
+    | { readonly city: boolean | null; readonly fallback: boolean; readonly canSet: boolean }
+    | undefined;
 }
 
 /**

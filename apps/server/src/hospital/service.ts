@@ -30,6 +30,7 @@ import {
   treatmentQuote,
 } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
+import { buildingAccessOf } from "../facilities/access.ts";
 import { buildingCell, buildingPlace } from "../facilities/places.ts";
 import type { WorldFacilities } from "../facilities/world.ts";
 import type { LaborService } from "../labor/service.ts";
@@ -249,6 +250,8 @@ export function createHospitalService(o: HospitalServiceOptions): HospitalServic
             if (info.condition.heldBy === null && cityId !== null)
               for (const site of sites) {
                 if (!site.view.works || site.view.cityId !== cityId) continue;
+                if (buildingAccessOf(ledger)?.check(viewer.id, site.view.buildingId).allowed === false)
+                  continue;
                 const quote = treatmentQuote(now, nowMs, site.input, c);
                 if (!quote) continue;
                 options.push({
@@ -290,6 +293,8 @@ export function createHospitalService(o: HospitalServiceOptions): HospitalServic
       if (!first || first.info.ownerId !== owner.ownerId) return fail("unknown_unit");
       const pre = serviceFacility(o.facilities, input.buildingId, MEDICAL_STAGE);
       if (!pre.ok) return fail(pre.reason === "closed" ? "hospital_closed" : "not_hospital");
+      if (buildingAccessOf(ledger)?.check(userId, input.buildingId).allowed === false)
+        return fail("hospital_closed");
       await writer.durable();
       // 의사 스킬은 DB에서 읽는다 → 읽은 뒤에는 기다림 없이 메모리로 다시 본다
       const [site] = await sitesOf([input.buildingId], owner.ownerId);
@@ -298,6 +303,8 @@ export function createHospitalService(o: HospitalServiceOptions): HospitalServic
       if (found.info.condition.heldBy !== null) return fail("captive");
       const hospital = serviceFacility(o.facilities, input.buildingId, MEDICAL_STAGE);
       if (!hospital.ok) return fail(hospital.reason === "closed" ? "hospital_closed" : "not_hospital");
+      if (buildingAccessOf(ledger)?.check(userId, input.buildingId).allowed === false)
+        return fail("hospital_closed");
       if (!site) return fail("not_hospital");
       const at = o.now();
       const c = o.rules();

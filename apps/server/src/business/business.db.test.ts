@@ -107,8 +107,8 @@ async function withHumans(world: World, name: string) {
       { account: persistence.ledger.ownerAccount(ownerId, ASSET_CREDIT), amount: credit },
     ],
   });
-  // 유닛을 고용하려면 가문이 있어야 한다(D-565)
-  await giveTestHouse(test.db.$client, userId, persistence);
+  // 유닛을 고용하고 도시에 사업장을 지으려면 그 도시·나라 소속 가문이 있어야 한다(D-565·1단계)
+  await giveTestHouse(test.db.$client, userId, persistence, { cityId: city.id, factionId: faction.id });
   const board = persistence.recruits.board({ id: userId, owner: false }, undefined, clock);
   if (!board || board.cityId === null) throw new Error("no board");
   const units: number[] = [];

@@ -192,11 +192,12 @@ export default function GovernmentDialog({ government, onClose, via = "building"
           />
         ) : null}
         {government.houseEntry ? <HouseEntryPolicy cityId={city.id} policy={government.houseEntry} /> : null}
-        {government.houseEntry?.build ? (
+        {government.houseEntry?.build || government.houseEntry?.foreignBuild ? (
           <HouseBuildPolicy
             cityId={city.id}
             build={government.houseEntry.build}
             canSet={government.houseEntry.canSetCity}
+            foreignBuild={government.houseEntry.foreignBuild}
           />
         ) : null}
         <div className="gov-links">

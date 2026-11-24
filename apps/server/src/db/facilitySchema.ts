@@ -46,12 +46,19 @@ export const worldFacilities = pgTable(
     // 층 수(주거 건물, D-591 1 — 층 올리기 공사로 는다, 정원 = 층 × 설정 칸 residence_capacity_per_floor, facilities/floors.ts). 주거 건물이 아니면 읽지 않는다.
     // 열 더하기만(직전 판 앱은 이 열을 모른 채 넣고 처음 값 1을 받는다). 이미 있던 숙소는 마이그레이션이 레벨로 채운다(옛 정원 레벨 × 4를 그대로)
     floors: smallint("floors").notNull().default(1),
+    // 건물별 접근 권한 범위(ADR 2026-11-25-building-access-and-foreign-build.md):
+    // null = 시설 분류 기본값(government = nation_citizen, 그 밖 = anyone). 직전 판 앱은 null로 넣는다
+    accessScope: text("access_scope"),
   },
   (table) => [
     check("world_facilities_level", sql`${table.level} between 0 and 5`),
     check("world_facilities_plots", sql`${table.plots} between 0 and 100`),
     check("world_facilities_floors", sql`${table.floors} between 1 and 100`),
     check("world_facilities_gather_tier", sql`${table.gatherTier} between 0 and 9`),
+    check(
+      "world_facilities_access_scope",
+      sql`${table.accessScope} is null or ${table.accessScope} in ('anyone', 'city_resident', 'city_house', 'nation_citizen')`,
+    ),
     check(
       "world_facilities_claim_choice",
       sql`${table.claimChoice} ~ '^(nation|independent)(:(dictatorship|democracy|capitalism))?$'`,

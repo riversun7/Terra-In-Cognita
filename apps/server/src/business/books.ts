@@ -28,6 +28,7 @@ import {
   sharePm,
 } from "@terra/shared/businessBooks";
 import { laborEscrowCode } from "@terra/sim";
+import type { BuildingAccessScope } from "@terra/shared/facilities";
 import { fairPriceView } from "@terra/shared/fairPrice";
 import type { Ledger } from "../economy/ledger.ts";
 import type { FacilityCatalog } from "../facilities/catalog.ts";
@@ -337,6 +338,19 @@ export interface OwnerLabelSource {
   place(buildingId: number): { ownerId: number | null; cityId: number | null } | undefined;
   isBusiness(buildingId: number): boolean;
   isNpc(ownerId: number): boolean;
+  /** 건물별 접근 권한 범위·현재 사용자 이용 가능·변경 가능 여부(시설일 때만) */
+  readonly access?:
+    | ((buildingId: number) => Promise<
+        | {
+            readonly scope: BuildingAccessScope;
+            readonly ownScope: BuildingAccessScope | null;
+            readonly allowed: boolean;
+            readonly reason: string | null;
+            readonly canSet: boolean;
+          }
+        | undefined
+      >)
+    | undefined;
 }
 
 /**
@@ -365,6 +379,7 @@ export async function readBuildingOwner(
     viewerOwnerId === undefined
       ? 0n
       : (holders.find((holder) => holder.ownerId === viewerOwnerId)?.shares ?? 0n);
+  const access = source.access ? await source.access(buildingId) : undefined;
   return {
     status: "ok",
     buildingId,
@@ -384,5 +399,14 @@ export async function readBuildingOwner(
       viewerOwnerId !== undefined &&
       (business ? majorHolders(holders).includes(viewerOwnerId) : ownerId === viewerOwnerId),
     business,
+    ...(access
+      ? {
+          accessScope: access.scope,
+          ownAccessScope: access.ownScope,
+          accessAllowed: access.allowed,
+          accessBlockReason: access.reason,
+          canSetAccess: access.canSet,
+        }
+      : {}),
   };
 }

@@ -145,8 +145,8 @@ export async function readHouseEntryPolicy(
   const city = await cityHome(q, input.cityId);
   if (!city) return null;
   const [own, nation, mine, owner] = await Promise.all([
-    q.query<{ house_entry_fee: string | null; house_build: boolean | null }>(
-      "select house_entry_fee::text as house_entry_fee, house_build from city_policies where city_id = $1",
+    q.query<{ house_entry_fee: string | null; house_build: boolean | null; foreign_build: boolean | null }>(
+      "select house_entry_fee::text as house_entry_fee, house_build, foreign_build from city_policies where city_id = $1",
       [input.cityId],
     ),
     nationEntryTerms(q, city.nationId, input.rules.npcEntry),
@@ -169,5 +169,14 @@ export async function readHouseEntryPolicy(
     ...(owner.rows[0]?.kind === "player"
       ? { build: { city: own.rows[0]?.house_build ?? null, fallback: input.rules.cityBuildDefault } }
       : {}),
+    // 시민이 아닌 외부인(적대 세력 제외)의 도시 건설 허용 정책(ADR 2026-11-25 — 기본 막음, 정하는 사람 = 도시 주인·국가 지도자)
+    foreignBuild: {
+      city: own.rows[0]?.foreign_build ?? null,
+      fallback: false,
+      canSet:
+        ruled?.cities.has(input.cityId) === true ||
+        (ruled?.nation === true && mine?.factionId === city.nationId) ||
+        elected === city.nationId,
+    },
   };
 }

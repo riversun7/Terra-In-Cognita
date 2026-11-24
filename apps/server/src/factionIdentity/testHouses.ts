@@ -6,14 +6,37 @@ interface Queryable {
   query(text: string, values?: unknown[]): Promise<{ rows: Record<string, unknown>[] }>;
 }
 
-/** userId를 새 가문의 가문장으로 둔다. persistence가 있으면 가문 표를 다시 읽는다. 가문 세력 행 ID */
-export async function giveTestHouse(pool: Queryable, userId: string, persistence?: object): Promise<number> {
-  const { rows } = await pool.query("insert into factions (kind) values ('player') returning id");
+/** userId를 새 가문의 가문장으로 둔다. cityId·factionId를 넘기면 그 도시·나라 소속 가문으로 함께 맞춘다. persistence가 있으면 가문 표를 다시 읽는다. 가문 세력 행 ID */
+export async function giveTestHouse(
+  pool: Queryable,
+  userId: string,
+  persistence?: object,
+  home?: { readonly cityId: number; readonly factionId: number },
+): Promise<number> {
+  const { rows } = await pool.query(
+    "insert into factions (kind, born_of) values ('player', $1) returning id",
+    [home?.factionId ?? null],
+  );
   const factionId = Number(rows[0]?.id);
   await pool.query(
     "insert into house_members (user_id, faction_id, role, joined_at_ms) values ($1, $2, 'leader', 0)",
     [userId, factionId],
   );
+  if (home) {
+    await pool.query("insert into house_homes (faction_id, city_id, set_at_ms) values ($1, $2, 0)", [
+      factionId,
+      home.cityId,
+    ]);
+    await pool.query("update cyborgs set faction_id = $2, start_city_id = $3 where user_id::text = $1", [
+      userId,
+      home.factionId,
+      home.cityId,
+    ]);
+    await pool.query(
+      "insert into faction_members (user_id, faction_id) values ($1, $2) on conflict (user_id) do update set faction_id = excluded.faction_id",
+      [userId, home.factionId],
+    );
+  }
   await houseTiesOf(persistence)?.reload();
   return factionId;
 }

@@ -236,6 +236,8 @@ export function createWorldFacilities(input: {
   >;
   readonly now: () => number;
   readonly ready: () => boolean;
+  /** 짓는 주체와 해당 도시 세력이 전쟁 중인가(전쟁 중이면 외부인 건설 정책이 켜져 있어도 막는다) */
+  readonly isHostileCity?: ((ownerId: number, cityFaction: number) => boolean) | undefined;
   /**
    * NPC 런타임(없으면 undefined): 도시의 지난 하루 끝 생필품 충족 ‰(cityDayStore, 컨디션 음식 몫)과 세계 시드(컨디션 선호, D-535 1151 나 —
    * 구인 카드와 같은 시드). 런타임이 없으면 음식은 모름, 시드는 0
@@ -282,6 +284,7 @@ export function createWorldFacilities(input: {
     },
     // 가문 도시가 정하지 않은 남의 가문 짓기(D-574 2124, 설정 칸 house_city_build_default)
     buildDefault: () => input.rules().house.cityBuildDefault !== 0,
+    isHostileCity: input.isHostileCity,
   });
   const service = createFacilityService({
     loaded: input.loaded,

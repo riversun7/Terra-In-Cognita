@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   HOUSE_CITY_JOIN_PROTOCOL_VERSION,
   HOUSE_CITY_TAX_PROTOCOL_VERSION,
+  HOUSE_FOREIGN_BUILD_PROTOCOL_VERSION,
   HOUSE_HOME_NOTICE_PROTOCOL_VERSION,
   HOUSE_ENTRY_POLICY_PROTOCOL_VERSION,
   legacyHouseMemberAction,
@@ -303,5 +304,19 @@ describe("가문 소속 도시(프로토콜 39, D-565)", () => {
     expect(legacyHouseMemberCode("invalid_period", 71)).toBe("invalid_period");
     expect(legacyHouseMemberCode("invalid_period", 70)).toBe("busy");
     expect(legacyHouseMemberCode("no_debt", 70)).toBe("busy");
+  });
+
+  it("외부인 건설 정책(프로토콜 72): 메시지 왕복과 71판 호환 낮추기", () => {
+    expect(HOUSE_FOREIGN_BUILD_PROTOCOL_VERSION).toBe(72);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(HOUSE_FOREIGN_BUILD_PROTOCOL_VERSION);
+    for (const allow of [true, false, null] as const) {
+      const msg = { t: "house_foreign_build_policy", id: 30, cityId: 9, allow } as const;
+      expect(decodeClientMessage(encodeMessage(msg))).toEqual(msg);
+    }
+    expect(
+      decodes(decodeClientMessage, { t: "house_foreign_build_policy", id: 31, cityId: 9, allow: "yes" }),
+    ).toBe(false);
+    expect(legacyHouseMemberAction("foreign_build_policy_set", 72)).toBe("foreign_build_policy_set");
+    expect(legacyHouseMemberAction("foreign_build_policy_set", 71)).toBe("build_policy_set");
   });
 });

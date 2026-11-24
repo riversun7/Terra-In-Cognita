@@ -237,6 +237,8 @@ export const HOUSE_MEMBER_ACTIONS = [
   // 71판부터(가문 도시세 분리 — ADR 2026-11-25-house-city-tax.md)
   "city_tax_policy_set",
   "city_tax_paid",
+  // 72판부터(외부인 건설 정책 — ADR 2026-11-25-building-access-and-foreign-build.md)
+  "foreign_build_policy_set",
 ] as const;
 export type HouseMemberAction = (typeof HOUSE_MEMBER_ACTIONS)[number];
 
@@ -420,6 +422,9 @@ export const HOUSE_CITY_TAX_PROTOCOL_VERSION = 71;
 export const HOUSE_CITY_TAX_SETTERS = ["mayor", "leader"] as const;
 export type HouseCityTaxSetter = (typeof HOUSE_CITY_TAX_SETTERS)[number];
 
+/** 도시 외부인(비시민) 건설 정책에 필요한 가장 낮은 프로토콜 버전(ADR 2026-11-25-building-access-and-foreign-build.md) */
+export const HOUSE_FOREIGN_BUILD_PROTOCOL_VERSION = 72;
+
 /** 그 연결 판이 모르는 한 일을 옛 판 호환 한 일로 낮춘다 */
 export function legacyHouseMemberAction(
   action: HouseMemberAction,
@@ -449,6 +454,9 @@ export function legacyHouseMemberAction(
     (action === "city_tax_policy_set" || action === "city_tax_paid")
   ) {
     return "tax_set";
+  }
+  if (protocolVersion < HOUSE_FOREIGN_BUILD_PROTOCOL_VERSION && action === "foreign_build_policy_set") {
+    return "build_policy_set";
   }
   return action;
 }
@@ -597,6 +605,14 @@ export const houseCityTaxPayMessage = z.object({
   id: requestId,
 });
 
+/** 도시 주인·국가 지도자가 시민이 아닌 외부인(적대 세력 제외)의 도시 건설 허용 여부를 정한다(null = 기본 false 막음, 프로토콜 72) */
+export const houseForeignBuildPolicyMessage = z.object({
+  t: z.literal("house_foreign_build_policy"),
+  id: requestId,
+  cityId: rowId,
+  allow: z.boolean().nullable(),
+});
+
 export const houseClientMessages = [
   houseFoundMessage,
   houseInviteMessage,
@@ -621,6 +637,7 @@ export const houseClientMessages = [
   nationBlacklistMessage,
   houseCityTaxPolicyMessage,
   houseCityTaxPayMessage,
+  houseForeignBuildPolicyMessage,
 ] as const;
 export const houseServerMessages = [
   houseResultMessage,

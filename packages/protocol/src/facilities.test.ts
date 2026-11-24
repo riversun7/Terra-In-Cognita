@@ -3,6 +3,7 @@ import { decodeClientMessage, decodeServerMessage } from "./codec.ts";
 import { encodeMessage } from "./encode.ts";
 import {
   ATTACK_PROTOCOL_VERSION,
+  FACILITY_ACCESS_PROTOCOL_VERSION,
   FACILITY_PROTOCOL_VERSION,
   LOGISTICS_PROTOCOL_VERSION,
   STORAGE_PROTOCOL_VERSION,
@@ -141,5 +142,19 @@ describe("건물 메시지(프로토콜 10, 창고 11, 공격 12)", () => {
     expect(() =>
       decodeServerMessage(bad({ t: "facility_result", id: 1, ok: false, code: "nope" })),
     ).toThrow();
+  });
+
+  it("건물 접근 권한 설정(프로토콜 72): 4단계 범위·null 왕복과 access_denied 결과 코드", () => {
+    expect(FACILITY_ACCESS_PROTOCOL_VERSION).toBe(72);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(FACILITY_ACCESS_PROTOCOL_VERSION);
+    for (const scope of ["anyone", "city_resident", "city_house", "nation_citizen", null] as const) {
+      const msg = { t: "facility_access", id: 40, buildingId: 12, scope } as const;
+      expect(decodeClientMessage(encodeMessage(msg))).toEqual(msg);
+    }
+    expect(() =>
+      decodeClientMessage(bad({ t: "facility_access", id: 41, buildingId: 12, scope: "vip" })),
+    ).toThrow();
+    const denied = { t: "facility_result", id: 42, ok: false, code: "access_denied" } as const;
+    expect(decodeServerMessage(encodeMessage(denied))).toEqual(denied);
   });
 });

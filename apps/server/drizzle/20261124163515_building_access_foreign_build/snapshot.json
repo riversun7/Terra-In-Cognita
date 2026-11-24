@@ -1,0 +1,110 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "71245480-6cfd-4591-a72c-4fc5e48219ad",
+  "prevIds": [
+    "c45c76bd-a4a8-4e60-bfb1-45665cfa8aef"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_facilities",
+        "access_scope"
+      ],
+      "writes": [
+        "s|col|public.world_facilities.access_scope",
+        "n|col|public.world_facilities.access_scope",
+        "e|col|public.world_facilities.access_scope"
+      ],
+      "reads": [
+        "n|tbl|public.world_facilities",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "city_policies",
+        "foreign_build"
+      ],
+      "writes": [
+        "s|col|public.city_policies.foreign_build",
+        "n|col|public.city_policies.foreign_build",
+        "e|col|public.city_policies.foreign_build"
+      ],
+      "reads": [
+        "n|tbl|public.city_policies",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_facilities"
+      ],
+      "writes": [
+        "s|ck|public.world_facilities.world_facilities_access_scope",
+        "n|ck|public.world_facilities.world_facilities_access_scope",
+        "e|ck|public.world_facilities.world_facilities_access_scope",
+        "n|con|public.world_facilities.world_facilities_access_scope"
+      ],
+      "reads": [
+        "n|tbl|public.world_facilities",
+        "n|sch|public",
+        "n|col|public.world_facilities.access_scope"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_facilities",
+        "name": "access_scope",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "city_policies",
+        "name": "foreign_build",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_facilities",
+        "name": "world_facilities_access_scope",
+        "value": "\"access_scope\" is null or \"access_scope\" in ('anyone', 'city_resident', 'city_house', 'nation_citizen')",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

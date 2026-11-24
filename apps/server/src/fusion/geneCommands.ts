@@ -44,6 +44,7 @@ import type { SecondMap } from "../world/secondMap.ts";
 import { moneyBalance } from "../world/money.ts";
 import type { Settlement } from "../world/settlement.ts";
 import type { WorldFacilities } from "../facilities/world.ts";
+import { buildingAccessOf } from "../facilities/access.ts";
 import { buildingCell } from "../facilities/places.ts";
 import { BIOTECH_STAGE, payServiceFee, serviceFacility, unitCity } from "../temple/places.ts";
 import { UNIT_KIND_CYBORG, UNIT_KIND_HUMAN, isGuardianUnit } from "../world/unitKinds.ts";
@@ -347,6 +348,8 @@ export function createGeneCommands(o: GeneCommandOptions): GeneCommands {
       if (input.lab) {
         const lab = labOf(input.lab.buildingId);
         if (!lab.ok) return fail(lab.code);
+        if (buildingAccessOf(ledger)?.check(userId, input.lab.buildingId).allowed === false)
+          return fail("lab_closed");
         const cell = buildingCell(o.maps, input.lab.buildingId);
         const map = cell ? o.maps.get(cell.mapKey) : undefined;
         if (!cell || !map) return fail("not_lab");
@@ -504,6 +507,8 @@ export function createGeneCommands(o: GeneCommandOptions): GeneCommands {
       if (first) return fail(first);
       const lab = labOf(input.buildingId);
       if (!lab.ok) return fail(lab.code);
+      if (buildingAccessOf(ledger)?.check(userId, input.buildingId).allowed === false)
+        return fail("lab_closed");
       await writer.durable();
       const human = await readHuman(o.pool, input.unit);
       if (!human) return fail("unknown_unit");
@@ -513,6 +518,8 @@ export function createGeneCommands(o: GeneCommandOptions): GeneCommands {
       if (again) return fail(again);
       const checked = labOf(input.buildingId);
       if (!checked.ok) return fail(checked.code);
+      if (buildingAccessOf(ledger)?.check(userId, input.buildingId).allowed === false)
+        return fail("lab_closed");
       const at = o.now();
       if (human.bornAtMs + human.lifespanMs > at) return fail("not_inactive");
       if (checked.cityId === null || unitCity(o.maps, o.facilities, input.unit, at) !== checked.cityId)

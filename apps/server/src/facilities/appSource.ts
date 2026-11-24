@@ -11,6 +11,7 @@ import type { FacilityScreenSource } from "./screen.ts";
 import { readBuildingOwner, readBusinessBooks } from "../business/books.ts";
 import { type OwnerNames, createOwnerNames } from "../business/names.ts";
 import type { QueryPool } from "../world/persist/load.ts";
+import { buildingAccessOf } from "./access.ts";
 import { buildingPlace } from "./places.ts";
 import { attackTargetsOf, ownerFactionsOf } from "./targets.ts";
 
@@ -138,6 +139,13 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
           place: (id) => buildingPlace(facilities.service.places, id),
           isBusiness: (id) => facilities.service.facilities.has(id),
           isNpc,
+          access: async (id) => {
+            const checker = buildingAccessOf(ledger);
+            if (!checker || !facilities.service.facilities.has(id)) return undefined;
+            const checked = checker.check(userId, id);
+            const canSet = await checker.canSet(userId, id);
+            return { ...checked, canSet };
+          },
         },
         settlement.findOwnerOfUser(userId),
         buildingId,

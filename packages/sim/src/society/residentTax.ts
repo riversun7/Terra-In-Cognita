@@ -27,6 +27,8 @@ export interface ResidentAssessment {
   /** 집 몫이면 사는 유닛(그 유닛 지갑에서 낸다). 없으면 주인의 사업장 몫(주인 지갑) */
   readonly unit?: number | undefined;
   readonly property: bigint;
+  /** 참이면 유닛 개별 지갑 대신 소유자(플레이어) 지갑에서 낸다(사이보그 본체·재산 없는 유닛 — ADR 2026-11-24-house-membership-separation.md) */
+  readonly ownerWallet?: boolean | undefined;
 }
 
 /** 그 도시에 사는 유닛 하나(거주 = 집·숙소 배정)와 그 유닛 몫의 집 값 */
@@ -35,6 +37,8 @@ export interface ResidentHome {
   readonly owner: number;
   /** 그 유닛이 사는 집의 몫(집 값 ÷ 그 집에 사는 사람 수). 숙소 없는 집이면 0 */
   readonly housing: bigint;
+  /** 참이면 소유자(플레이어) 지갑에서 낸다(사이보그 본체·재산 없는 유닛) */
+  readonly ownerWallet?: boolean | undefined;
 }
 
 /** 도시 하나의 이번 주기 결과 */
@@ -124,7 +128,13 @@ export function residentAssessments(
     for (const payer of [...new Set(homes.map((home) => home.owner))].toSorted((a, b) => a - b)) {
       out.push({ city, payer, property: businessOf(payer, city) });
       for (const home of homes.filter((entry) => entry.owner === payer).toSorted((a, b) => a.unit - b.unit))
-        out.push({ city, payer, unit: home.unit, property: home.housing });
+        out.push({
+          city,
+          payer,
+          unit: home.unit,
+          property: home.housing,
+          ...(home.ownerWallet === true ? { ownerWallet: true } : {}),
+        });
     }
   }
   return out;
@@ -202,9 +212,9 @@ export function collectResidentTax(
     const before = debts.get(keyOf(a.city, a.payer, a.unit))?.owed ?? 0n;
     const owed = before + due;
     if (owed <= 0n) continue;
-    // 집 몫은 사는 유닛의 지갑(유닛 주인, 화폐, 유닛 지갑 위치 — simulator/humanPurse.ts와 같은 계정 꼴), 사업장 몫은 주인 지갑
+    // 집 몫은 사는 유닛의 지갑(사이보그 본체·재산 없는 유닛은 ownerWallet = true → 소유자 지갑), 사업장 몫은 주인 지갑
     const from =
-      a.unit === undefined
+      a.unit === undefined || a.ownerWallet === true
         ? book.ownerAccount(a.payer, o.asset)
         : book.ownerAccount(a.payer, o.asset, unitPurseLocation(a.unit));
     const have = book.balance(from) + (amounts.get(from) ?? 0n);

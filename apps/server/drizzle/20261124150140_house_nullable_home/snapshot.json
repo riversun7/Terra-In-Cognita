@@ -1,0 +1,63 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "ecbb187b-a7dd-4274-ae81-14f58df5f862",
+  "prevIds": [
+    "4d2ea40e-8741-4dbd-b4a1-07257fc02a7e"
+  ],
+  "footprints": [
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "cyborgs",
+        "faction_id"
+      ],
+      "writes": [
+        "s|colprop|public.cyborgs.faction_id.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.cyborgs",
+        "n|sch|public",
+        "n|col|public.cyborgs.faction_id"
+      ],
+      "sqlHash": "3b05c7555a65e495"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "house_homes",
+        "city_id"
+      ],
+      "writes": [
+        "s|colprop|public.house_homes.city_id.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.house_homes",
+        "n|sch|public",
+        "n|col|public.house_homes.city_id"
+      ],
+      "sqlHash": "b2edef15b253ee74"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"cyborgs\",\"faction_id\"]",
+      "set": {
+        "notNull": false
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"house_homes\",\"city_id\"]",
+      "set": {
+        "notNull": false
+      }
+    }
+  ]
+}

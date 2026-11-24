@@ -31,10 +31,10 @@ export interface UnitHomeWorldInput {
   readonly planetId: string;
   /** 그 플레이어 유닛 가문의 소속 도시(유닛 → 가문 → 도시, D-569 — 가문이 없거나 모르면 undefined) */
   readonly houseCityOf: (unitId: number, userId: string) => number | undefined;
-  /** 사용자의 사이보그 기록(시민권 나라) */
+  /** 사용자의 사이보그 기록(시민권 나라 — 미소속이면 null) */
   readonly cyborgOf: (
     userId: string,
-  ) => { readonly startCityId: number; readonly factionId: number } | undefined;
+  ) => { readonly startCityId: number; readonly factionId: number | null } | undefined;
   /** 거울 세계 휴먼의 사는 도시(NPC 사회 런타임이 없거나 거울 휴먼이 아니면 undefined) */
   readonly npcCityOf: (unitId: number) => number | undefined;
   /** 그 세력(소유 주체 ID)의 수도(NPC 사회 런타임, 없으면 undefined) */
@@ -88,7 +88,7 @@ export function createUnitHomeWorld(input: UnitHomeWorldInput): UnitHome {
     const userId = userOf(ownerId);
     if (userId === null) return input.owners.get(ownerId)?.factionId === null ? undefined : ownerId;
     const nation = input.cyborgOf(userId)?.factionId;
-    return nation === undefined ? undefined : nationOwner(nation);
+    return nation === undefined || nation === null ? undefined : nationOwner(nation);
   };
   /** 도시 주인 주체(거울 세계 → 부팅 도시 표의 세력 행 주체) */
   const cityOwner = (cityId: number): number | undefined => {
@@ -120,12 +120,35 @@ export function createUnitHomeWorld(input: UnitHomeWorldInput): UnitHome {
       const city = input.npcCityOf(unitId);
       return city === undefined || city === HOMELESS ? undefined : city;
     },
-    capitalOf(_unitId, ownerId) {
+    capitalOf(_unitId, ownerId, at) {
       const userId = userOf(ownerId);
       const nation =
         userId === null ? input.owners.get(ownerId)?.factionId : input.cyborgOf(userId)?.factionId;
       if (nation === null || nation === undefined) return undefined;
       const subject = userId === null ? ownerId : nationOwner(nation);
+      // 소속 국가의 도시 중 현재 위치에서 가장 가까운 도시 우선(전쟁 퇴거 뒤 주거지 없음 귀환 — ADR 2026-11-24-house-membership-separation.md)
+      if (at && subject !== undefined) {
+        const world = input.npcWorld();
+        const belongsToNation = (cityId: number): boolean => {
+          let owner = cityOwner(cityId);
+          for (let depth = 0; depth < OVERLORD_DEPTH && owner !== undefined; depth++) {
+            if (owner === subject) return true;
+            owner = world?.factions.get(owner)?.overlord ?? undefined;
+          }
+          return false;
+        };
+        let best: { id: number; same: boolean; d: number } | undefined;
+        for (const cell of input.cityCells()) {
+          if (!belongsToNation(cell.id)) continue;
+          const same = cell.mapKey === at.mapKey;
+          const d = same
+            ? (cell.x - at.x) * (cell.x - at.x) + (cell.y - at.y) * (cell.y - at.y)
+            : mapDistance2(at.mapKey, cell.mapKey);
+          if (!best || (same !== best.same ? same : d !== best.d ? d < best.d : cell.id < best.id))
+            best = { id: cell.id, same, d };
+        }
+        if (best) return best.id;
+      }
       const live = subject === undefined ? undefined : input.npcCapitalOf(subject);
       return live ?? capitalsOf(input.cities(), input.planetId).get(nation)?.id;
     },

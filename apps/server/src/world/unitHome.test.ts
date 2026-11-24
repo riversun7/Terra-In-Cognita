@@ -502,4 +502,19 @@ describe("빨강만 강제 귀환 (battleResults.ts — D-594 보충 2)", () => 
     expect(apart(cellOf(w.b, 21), { x: 120, y: 120 })).toBeLessThan(12);
     w.stop();
   });
+
+  it("주거지·소속 도시가 없을 때 소속 국가 도시 중 현재 위치에서 가장 가까운 도시로 송환한다", () => {
+    // 2차맵 9에 도시 4(같은 나라), 2차맵 10에 수도 5(같은 나라): 2차맵 9에서 진 유닛은 수도보다 가까운 도시 4로 송환
+    const w = homeWorld({
+      startCityId: 77,
+      capital: 5,
+      cityOwners: new Map([
+        [4, NPC_OWNER],
+        [5, NPC_OWNER],
+      ]),
+    });
+    const to = w.home.homeOf(21, PLAYER_OWNER, { mapKey: 9, x: 40, y: 100 });
+    expect(to).toEqual({ mapKey: 9, x: 160, y: 160, tier: "government" });
+    w.stop();
+  });
 });

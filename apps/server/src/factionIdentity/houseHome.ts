@@ -93,17 +93,17 @@ export async function homeChoices(
   return rows.map((row) => homeOf(row, presets));
 }
 
-/** 가문 소속 도시 줄(없으면 null — 이 표 전에 창설했고 가문장 사이보그가 없던 가문). pending = 공고한 새 도시와 옮기는 시각(D-570, 없으면 null) */
+/** 가문 소속 도시 줄(없으면 null — 아직 도시·국가에 가입하지 않은 가문). cityId null = 첫 가입 공고 중. pending = 공고한 새 도시와 옮기는 시각(D-570) */
 export async function houseHomeRow(
   q: IdentityQueryable,
   factionId: number,
 ): Promise<{
-  cityId: number;
+  cityId: number | null;
   setAtMs: number;
   pending: { readonly cityId: number; readonly atMs: number } | null;
 } | null> {
   const { rows } = await q.query<{
-    city_id: string;
+    city_id: string | null;
     set_at_ms: string;
     pending_city_id: string | null;
     pending_at_ms: string | null;
@@ -113,7 +113,7 @@ export async function houseHomeRow(
   const row = rows[0];
   if (!row) return null;
   return {
-    cityId: Number(row.city_id),
+    cityId: row.city_id === null ? null : Number(row.city_id),
     setAtMs: Number(row.set_at_ms),
     pending:
       row.pending_city_id === null || row.pending_at_ms === null
@@ -201,7 +201,7 @@ export function createHouseHome(o: HouseHomeOptions): HouseHomeService {
         if (before?.pending) {
           if (before.pending.cityId === city.id) return fail("same_city");
           // 공고 중에 지금 소속 도시를 다시 고르면 공고를 거둔다(D-570)
-          if (before.cityId === city.id) {
+          if (before.cityId !== null && before.cityId === city.id) {
             await q.query(
               "update house_homes set pending_city_id = null, pending_at_ms = null where faction_id = $1",
               [house.id],
@@ -215,8 +215,9 @@ export function createHouseHome(o: HouseHomeOptions): HouseHomeService {
             audit = { ...base, cancelled: before.pending.cityId };
             return { ok: true, action: "home_cancelled", factionId: house.id };
           }
-        } else if (before?.cityId === city.id) return fail("same_city");
-        if (before && before.setAtMs + o.rules().homeWaitMs > now) return fail("home_wait");
+        } else if (before?.cityId !== null && before?.cityId === city.id) return fail("same_city");
+        if (before && before.cityId !== null && before.setAtMs + o.rules().homeWaitMs > now)
+          return fail("home_wait");
         const noticeMs = o.rules().homeNoticeMs;
         // 들어가는 도시·나라의 정책(도시 정책은 나라가 같아도 — houseEntry.ts). 가입비는 가문이 한꺼번에 내고 못 내면 옮기지 못한다(D-573) —
         // 공고할 때도 미리 본다(옮길 때 다시 본다)
@@ -230,18 +231,22 @@ export function createHouseHome(o: HouseHomeOptions): HouseHomeService {
           "select count(*)::int as n from house_members where faction_id = $1",
           [house.id],
         );
+        const memberCount = counted.rows[0]?.n ?? 0;
         const due: HouseEntryCharge = {
           houseId: house.id,
           leaderId,
           parts: entry.parts,
-          members: counted.rows[0]?.n ?? 0,
+          members: memberCount,
           nowMs: now,
         };
         if (entryShortfall(o.persistence?.(), due) > 0n) return fail("entry_fee_short");
-        if (before && noticeMs > 0) {
-          // 공고(D-570): 공고 기간 뒤 가문 모두가 옮긴다(houseMoves.ts). 다른 도시를 다시 고르면 새 공고로 바꾼다
+        // 1인 가문은 공고 없이 바로 가입·이동한다(ADR 2026-11-24-house-membership-separation.md). 2명 이상일 때만 공고 기간을 둔다
+        if (memberCount > 1 && noticeMs > 0) {
+          // 공고(D-570): 공고 기간 뒤 가문 모두가 옮긴다(houseMoves.ts). 첫 가입 공고면 city_id null 줄을 넣는다
           await q.query(
-            "update house_homes set pending_city_id = $2, pending_at_ms = $3 where faction_id = $1",
+            `insert into house_homes (faction_id, city_id, set_at_ms, pending_city_id, pending_at_ms)
+             values ($1, null, 0, $2, $3)
+             on conflict (faction_id) do update set pending_city_id = excluded.pending_city_id, pending_at_ms = excluded.pending_at_ms`,
             [house.id, city.id, now + noticeMs],
           );
           await notifyOthers(q, house, leaderId, {
@@ -253,7 +258,7 @@ export function createHouseHome(o: HouseHomeOptions): HouseHomeService {
           audit = { ...base, announced: city.id, nation: city.nationId, at: now + noticeMs };
           return { ok: true, action: "home_announced", factionId: house.id };
         }
-        // 바로 옮긴다(공고 기간 0, 또는 소속 도시 줄이 없는 옛 가문)
+        // 바로 옮긴다(1인 가문, 또는 공고 기간 0)
         await moveHouseHome(q, { house, city, leaderName, skip: leaderId, nowMs: now });
         if (entry.parts.length > 0) charge = due;
         audit = { ...base, city: city.id, nation: city.nationId };

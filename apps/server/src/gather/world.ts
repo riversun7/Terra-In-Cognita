@@ -6,8 +6,10 @@ import type { SocietyCoefficients } from "@terra/sim";
 import type { PlaceWorld } from "../facilities/places.ts";
 import type { JobRecord } from "../facilities/state.ts";
 import type { StorageContext } from "../facilities/storage.ts";
+import { PROPERTY_UNIT_KINDS } from "../labor/wagePurse.ts";
 import type { LaborWorkerEntry } from "../labor/workerEntry.ts";
 import { type WorkerRest, attachWorkerRest } from "../labor/workerRest.ts";
+import { nationOfOwner } from "../world/nationVision.ts";
 import { createGatherInjury } from "../world/unitCondition.ts";
 import { UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN, isGuardianUnit } from "../world/unitKinds.ts";
 import { TEST_PLANET_ID, type World } from "../world/world.ts";
@@ -280,6 +282,29 @@ export function startWorldGather(
           return npcFloor.world;
         },
         npcFloorJob: (input) => facilities.service.npcJob({ kind: "floor", ...input }).ok,
+        // 사이보그 본체·재산 없는 유닛은 플레이어(소유자) 지갑에서 집세를 부담한다(ADR 2026-11-24-house-membership-separation.md)
+        useOwnerPurse(unitId) {
+          for (const map of world.maps.values()) {
+            const info = map.unitInfo(unitId);
+            if (info) return !PROPERTY_UNIT_KINDS.has(info.kind);
+          }
+          return false;
+        },
+        // 전쟁 발발 시 적국 도시 주거지 강제 퇴거(ADR 2026-11-24-house-membership-separation.md)
+        isHostileResidence(ownerId, cityId) {
+          const npc = world.npc;
+          if (!npc) return false;
+          const myNationRow = nationOfOwner(world, ownerId);
+          const myNationOwner = myNationRow === undefined ? undefined : npc.houses.ownerOfRow(myNationRow);
+          const wars = myNationOwner === undefined ? undefined : npc.world.factions.get(myNationOwner)?.wars;
+          if (!wars || wars.size === 0) return false;
+          let cityOwner: number | undefined = npc.world.cities.get(cityId)?.owner;
+          for (let depth = 0; depth < 8 && cityOwner !== undefined; depth++) {
+            if (wars.has(cityOwner)) return true;
+            cityOwner = npc.world.factions.get(cityOwner)?.overlord ?? undefined;
+          }
+          return false;
+        },
       });
       registerResidenceService(service, residence.service);
       stopResidence = () => residence.stop();

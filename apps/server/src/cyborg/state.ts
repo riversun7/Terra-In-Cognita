@@ -37,8 +37,8 @@ export interface CyborgRecord {
    * 되고 다시 켜지지 않는다)
    */
   lookAuto: boolean;
-  /** 지금 나라(세력 행 ID). 국적 바꾸기(귀화)가 바꾼다(docs/adr/2026-11-08-citizenship.md) */
-  factionId: number;
+  /** 지금 나라(세력 행 ID). 가문이 도시·국가에 가입하면 맞춰진다(미소속이면 null — ADR 2026-11-24-house-membership-separation.md) */
+  factionId: number | null;
   /** 내 도시(첫 접속 시작 도시, 귀화하면 귀화한 도시 — 구인 기본 도시·거래소 기본 도시·본체를 다시 놓는 곳) */
   startCityId: number;
   unitId: number | null;
@@ -171,7 +171,7 @@ export async function loadCyborgs(pool: QueryPool): Promise<LoadedCyborgs> {
       kPm: statsFromArray(row.k_pm),
       look,
       lookAuto,
-      factionId: num(row.faction_id),
+      factionId: numOrNull(row.faction_id),
       startCityId: num(row.start_city_id),
       unitId: numOrNull(row.unit_id),
       level: num(row.level),

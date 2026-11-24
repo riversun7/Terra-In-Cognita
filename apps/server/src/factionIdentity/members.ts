@@ -30,8 +30,8 @@ export interface HouseMemberOptions {
   readonly db?: Database | undefined;
   readonly rules: () => HouseRules;
   readonly now: () => number;
-  /** 사용자의 나라(사이보그 시민권). 사이보그가 없으면 undefined */
-  readonly nationOf: (userId: string) => number | undefined | Promise<number | undefined>;
+  /** 사용자의 나라(사이보그 시민권). 사이보그가 없으면 undefined, 국가 미소속이면 null */
+  readonly nationOf: (userId: string) => number | null | undefined | Promise<number | null | undefined>;
 }
 
 export interface HouseMembers {

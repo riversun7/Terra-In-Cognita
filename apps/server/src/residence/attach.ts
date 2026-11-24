@@ -42,10 +42,33 @@ import { type NpcRentRules, type NpcRentWorld, createNpcRentSweeper, npcAwarePay
 import { type NpcFloorRules, type NpcFloorWorld, createNpcFloors } from "./npcFloors.ts";
 import { type NpcLandlordRules, type NpcLandlordWorld, createNpcLandlord } from "./npcLandlord.ts";
 import { type ResidenceService, createResidenceService } from "./service.ts";
-import { markResidencePaused } from "./store.ts";
+import { deleteResidence, markResidencePaused } from "./store.ts";
 
 /** 고른 집이 쉬는지 훑는 간격(ms — 질문 2485 가) */
 const PAUSE_SWEEP_MS = 60_000;
+
+/**
+ * 전쟁 시 적국 도시 주거지 강제 퇴거(ADR 2026-11-24-house-membership-separation.md):
+ * 유닛 주인의 소속 국가(가문 나라)와 주거지 건물이 선 도시의 나라가 전쟁 중이면 고른 거주지를 지운다. 퇴거한 유닛 수
+ */
+export async function evictWarResidences(
+  book: ResidenceBook,
+  world: Pick<ResidenceWorld, "building">,
+  isHostile: ((ownerId: number, cityId: number) => boolean) | undefined,
+  pool: QueryPool | undefined,
+): Promise<number> {
+  if (!isHostile) return 0;
+  let evicted = 0;
+  for (const choice of book.all()) {
+    const cityId = world.building(choice.buildingId)?.cityId;
+    if (cityId === null || cityId === undefined) continue;
+    if (!isHostile(choice.ownerId, cityId)) continue;
+    if (pool) await deleteResidence(pool, choice.unitId);
+    book.remove(choice.unitId);
+    evicted += 1;
+  }
+  return evicted;
+}
 
 /**
  * 고른 집이 쉬기 시작했거나 다시 쓸 수 있게 된 유닛의 표시를 고친다(질문 2485 가 — 쉬면 옛 길 숙소 배정으로 돌아가고 주인에게 처리할 일 residence_paused, residence/inbox.ts).
@@ -120,6 +143,10 @@ export interface ResidenceParts {
   }): boolean;
   /** NPC 층 올리기 굴림(0 이상 정수 — 없으면 서버 난수) */
   roll?(): number;
+  /** 참이면 유닛 개별 지갑 대신 소유자(플레이어) 지갑에서 집세를 낸다(사이보그 본체·재산 없는 유닛 — ADR 2026-11-24) */
+  useOwnerPurse?(unitId: number): boolean;
+  /** 유닛 주인의 소속 국가와 해당 도시가 전쟁 중인가(강제 퇴거 — ADR 2026-11-24) */
+  isHostileResidence?(ownerId: number, cityId: number): boolean;
 }
 
 type WorldParts = Pick<ResidenceParts, "facilities" | "maps" | "workerRest" | "rules" | "now" | "npc">;
@@ -175,12 +202,13 @@ function rentPayerOf(parts: ResidenceParts, world: ResidenceWorld): RentPayer {
       ? DEFAULT_RESIDENCE_RENT_PERIOD_MS
       : Math.trunc(value);
   };
-  const purse = (ownerId: number, unitId: number, buildingId?: number): number =>
-    parts.ledger.ownerAccount(
-      ownerId,
-      buildingId === undefined ? moneyOf(parts.ledger, ownerId) : parts.feeAssetOf(buildingId),
-      unitPurseLocation(unitId),
-    );
+  const purse = (ownerId: number, unitId: number, buildingId?: number): number => {
+    const asset = buildingId === undefined ? moneyOf(parts.ledger, ownerId) : parts.feeAssetOf(buildingId);
+    // 사이보그 본체·재산 없는 유닛은 플레이어(소유자) 지갑에서 집세를 부담한다(ADR 2026-11-24-house-membership-separation.md)
+    return parts.useOwnerPurse?.(unitId) === true
+      ? parts.ledger.ownerAccount(ownerId, asset)
+      : parts.ledger.ownerAccount(ownerId, asset, unitPurseLocation(unitId));
+  };
   return {
     periodMs,
     priceOf(unitId, buildingId, kind) {
@@ -318,7 +346,15 @@ export function attachResidence(
     if (sweeping) return;
     sweeping = true;
     const at = parts.now();
-    void renewResidenceRents(book, payer, parts.pool, at)
+    void evictWarResidences(
+      book,
+      world,
+      parts.isHostileResidence
+        ? (ownerId, cityId) => parts.isHostileResidence?.(ownerId, cityId) === true
+        : undefined,
+      parts.pool,
+    )
+      .then(() => renewResidenceRents(book, payer, parts.pool, at))
       .then(() => npcLandlord.sweep(at))
       .then(() => npcFloors.sweep(at))
       .then(() => npcRent.sweep(at))

@@ -129,11 +129,17 @@ async function noticesOf(q: IdentityQueryable, userId: string): Promise<HouseNot
   }));
 }
 
-/** 소속 도시 칸(D-565): 가문이면 가문 소속 도시, 무소속이면 내 도시 */
+/** 소속 도시 칸(D-565·ADR 2026-11-24-house-membership-separation.md): 가문이면 가문 소속 도시(미가입이면 null), 무소속이면 null */
 async function homeView(
   q: IdentityQueryable,
-  input: { userId: string; rules: HouseRules; nowMs: number; presets: readonly NationPreset[] },
-  house: { factionId: number; leader: boolean } | null,
+  input: {
+    userId: string;
+    rules: HouseRules;
+    nowMs: number;
+    presets: readonly NationPreset[];
+    hostileUnitsFor?: ((memberUserIds: readonly string[], targetNationId: number) => number) | undefined;
+  },
+  house: { factionId: number; leader: boolean; memberUserIds: readonly string[] } | null,
 ): Promise<HouseHomeView> {
   const waitMs = input.rules.homeWaitMs;
   if (!house) {
@@ -149,8 +155,8 @@ async function homeView(
     };
   }
   const row = await houseHomeRow(q, house.factionId);
-  const changeAt = row && house.leader ? row.setAtMs + waitMs : null;
-  const city = row ? await cityHome(q, row.cityId, input.presets) : null;
+  const changeAt = row && row.cityId !== null && house.leader ? row.setAtMs + waitMs : null;
+  const city = row && row.cityId !== null ? await cityHome(q, row.cityId, input.presets) : null;
   // 공고한 새 소속 도시(D-570)와 그 도시·나라 정책(도시 정책, 없으면 나라가 바뀔 때 나라 정책 — + 가입비 / − 지원금, 가문이 한꺼번에 D-573)
   const target = row?.pending ? await cityHome(q, row.pending.cityId, input.presets) : null;
   // 가문이 한꺼번에 내고 받는 합(D-573 — 가문원마다 값 × 가문원 수)
@@ -172,12 +178,24 @@ async function homeView(
         members: counted?.rows[0]?.n ?? 0,
       })
     : 0n;
+  const rawChoices = house.leader ? await homeChoices(q, input.presets) : [];
+  const hostileByNation = new Map<number, number>();
+  const choices = input.hostileUnitsFor
+    ? rawChoices.map((choice) => {
+        let count = hostileByNation.get(choice.nationId);
+        if (count === undefined) {
+          count = input.hostileUnitsFor?.(house.memberUserIds, choice.nationId) ?? 0;
+          hostileByNation.set(choice.nationId, count);
+        }
+        return count > 0 ? { ...choice, hostileResidentUnits: count } : choice;
+      })
+    : rawChoices;
   return {
     city,
     changeAt: changeAt !== null && changeAt > input.nowMs ? changeAt : null,
     waitMs,
     locked: await houseHasCity(q, house.factionId),
-    choices: house.leader ? await homeChoices(q, input.presets) : [],
+    choices,
     pending: target && row?.pending ? { city: target, at: row.pending.atMs, terms: terms.toString() } : null,
     noticeMs: input.rules.homeNoticeMs,
   };
@@ -189,11 +207,15 @@ export async function readHouseView(
   input: {
     userId: string;
     nationId: number | null;
+    /** 사이보그가 있는가(미소속 사이보그도 가입할 수 있는 가문 목록을 본다 — 없으면 nationId !== null로 판단) */
+    hasCyborg?: boolean | undefined;
     rules: HouseRules;
     nowMs: number;
     presets?: readonly NationPreset[] | undefined;
     /** 금고 칸이 보일 화폐 = 보는 사람의 돈(소속 국가 화폐, world/money.ts). 없으면 나라 없는 세계의 돈 */
     vaultAsset?: string | undefined;
+    /** 가입·이동 대상 나라와 전쟁 중인 세력 도시에 거주 중인 가문 보유 유닛 수 */
+    hostileUnitsFor?: ((memberUserIds: readonly string[], targetNationId: number) => number) | undefined;
   },
 ): Promise<HouseView> {
   const vaultAsset = input.vaultAsset ?? NO_NATION_MONEY;
@@ -293,7 +315,11 @@ export async function readHouseView(
       joinable: [],
       notices,
       limits,
-      home: await homeView(q, homeInput, { factionId: mine.factionId, leader: mine.role === "leader" }),
+      home: await homeView(q, homeInput, {
+        factionId: mine.factionId,
+        leader: mine.role === "leader",
+        memberUserIds: members.rows.map((row) => row.user_id),
+      }),
     };
   }
   const offered = await q.query<{
@@ -324,10 +350,12 @@ export async function readHouseView(
       expiresAt: Number(row.expires_at_ms),
     });
   }
-  // 가입할 수 있는 가문: 나라를 가리지 않는다(D-565 — 가문은 시작 국가와 별개). 내 나라 가문을 앞에, 그다음 인원 많은 차례
-  const joinable =
-    input.nationId === null
-      ? []
+  // 가입할 수 있는 가문: 나라를 가리지 않는다(D-565·ADR 2026-11-24). 국가 미소속 사이보그도 목록을 본다
+  const canJoin = input.hasCyborg ?? input.nationId !== null;
+  const joinable = !canJoin
+    ? []
+    : input.nationId === null
+      ? await badges(q, `true order by members desc, f.id limit ${HOUSE_LIST_LIMIT}`, [])
       : await badges(
           q,
           `true order by (f.born_of = $1) desc nulls last, members desc, f.id limit ${HOUSE_LIST_LIMIT}`,

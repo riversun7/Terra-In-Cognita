@@ -184,6 +184,7 @@ function MyHouse({
           home={home}
           inHouse
           leader={leader}
+          memberCount={house.members.length}
           busy={busy}
           onChange={(cityId) => void run({ t: "house_home", cityId })}
         />

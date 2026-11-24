@@ -8,7 +8,7 @@ import {
   registerResidenceBook,
   residenceBookOf,
 } from "./book.ts";
-import { sweepResidencePauses } from "./attach.ts";
+import { evictWarResidences, sweepResidencePauses } from "./attach.ts";
 import { type RentPayer, chargeResidence, createRentTable, renewResidenceRents } from "./rent.ts";
 import { createResidenceService } from "./service.ts";
 
@@ -301,5 +301,25 @@ describe("집세·미리 내는 숙박비(D-591 2 — 줄기 residence-3)", () =
         amount: 0n,
       },
     );
+  });
+
+  it("전쟁 발발 시 적국 도시의 주거지는 강제 퇴거되고 비적대 도시는 남는다", async () => {
+    const { world } = fakeWorld();
+    const book = createResidenceBook(world);
+    book.load([
+      // 도시 5(비적대)
+      { unitId: 1, ownerId: 10, buildingId: 100, chosenAtMs: 1 },
+      // 도시 6(적국)
+      { unitId: 2, ownerId: 10, buildingId: 101, chosenAtMs: 2 },
+    ]);
+    const evicted = await evictWarResidences(
+      book,
+      world,
+      (ownerId, cityId) => ownerId === 10 && cityId === 6,
+      undefined,
+    );
+    expect(evicted).toBe(1);
+    expect(book.choiceOf(1)?.buildingId).toBe(100);
+    expect(book.choiceOf(2)).toBeUndefined();
   });
 });

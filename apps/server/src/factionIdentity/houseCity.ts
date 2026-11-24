@@ -16,6 +16,7 @@ import { CELL_UNITS, positionAt } from "@terra/sim";
 import { writeAudit } from "../auth/store.ts";
 import type { Database } from "../db/client.ts";
 import type { NpcRuntime } from "../npc/runtime.ts";
+import { residenceBookOf } from "../residence/book.ts";
 import { houseTiesOf } from "../world/houseTies.ts";
 import { moneyOf, moneySink } from "../world/money.ts";
 import type { World } from "../world/world.ts";
@@ -52,6 +53,11 @@ export interface HouseCityService {
   view(userId: string, house: { factionId: number; leader: boolean }): Promise<HouseCityView>;
   /** 그 사람의 돈(소속 국가 화폐, world/money.ts) — 가문 금고 칸이 이 화폐 잔고를 보인다. 세계가 준비되지 않았으면 undefined */
   moneyOf(userId: string): string | undefined;
+  /**
+   * 가문원 보유 유닛 가운데 대상 나라(targetNationId)와 전쟁 중인 세력의 도시에 거주 중인 유닛 수
+   * (가입 경고 — ADR 2026-11-24-house-membership-separation.md). 세계가 준비되지 않았으면 0
+   */
+  hostileResidentUnits?(memberUserIds: readonly string[], targetNationId: number): number;
 }
 
 type CityWorld = Pick<World, "status" | "persistence" | "npc" | "maps">;
@@ -311,6 +317,38 @@ export function createHouseCity(o: {
       const world = o.world();
       const p = world?.status().state === "ready" ? world.persistence : undefined;
       return p ? moneyOf(p.ledger, p.settlement.findOwnerOfUser(userId)) : undefined;
+    },
+    hostileResidentUnits(memberUserIds, targetNationId) {
+      const world = o.world();
+      const p = world?.status().state === "ready" ? world.persistence : undefined;
+      const npc = world?.npc;
+      if (!p || !npc) return 0;
+      const book = residenceBookOf(p.ledger);
+      if (!book) return 0;
+      const targetOwner = npc.houses.ownerOfRow(targetNationId);
+      const wars = targetOwner === undefined ? undefined : npc.world.factions.get(targetOwner)?.wars;
+      if (!wars || wars.size === 0) return 0;
+      const owners = new Set<number>();
+      for (const uid of memberUserIds) {
+        const owner = p.settlement.findOwnerOfUser(uid);
+        if (owner !== undefined) owners.add(owner);
+      }
+      if (owners.size === 0) return 0;
+      let count = 0;
+      for (const choice of book.all()) {
+        if (!owners.has(choice.ownerId)) continue;
+        const place = book.chosenPlace(choice.unitId);
+        if (!place) continue;
+        let cityOwner: number | undefined = npc.world.cities.get(place.cityId)?.owner;
+        for (let depth = 0; depth < 8 && cityOwner !== undefined; depth++) {
+          if (wars.has(cityOwner)) {
+            count += 1;
+            break;
+          }
+          cityOwner = npc.world.factions.get(cityOwner)?.overlord ?? undefined;
+        }
+      }
+      return count;
     },
     async view(userId, input) {
       const rules = o.rules();

@@ -650,9 +650,8 @@ export const cyborgs = pgTable(
     look: jsonb("look"),
     /** 3D 외형을 서버가 옛 2D 외형에서 넘겨 채웠나(한 번 무료로 고를 수 있다 — 질문 961 나, D-560 1421) */
     lookAuto: boolean("look_auto").notNull().default(false),
-    factionId: bigint("faction_id", { mode: "number" })
-      .notNull()
-      .references(() => factions.id),
+    /** 소속 국가(가문이 도시·국가에 가입하면 맞춰진다, 미소속이면 null — ADR 2026-11-24-house-membership-separation.md) */
+    factionId: bigint("faction_id", { mode: "number" }).references(() => factions.id),
     startCityId: bigint("start_city_id", { mode: "number" })
       .notNull()
       .references(() => worldCities.id),

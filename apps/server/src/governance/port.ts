@@ -292,7 +292,9 @@ export function worldGovernancePort(
       const l = live();
       if (!l) return undefined;
       return (
-        houseTiesOf(l.persistence)?.memberNationOf(userId) ?? l.persistence.cyborgs.record(userId)?.factionId
+        houseTiesOf(l.persistence)?.memberNationOf(userId) ??
+        l.persistence.cyborgs.record(userId)?.factionId ??
+        undefined
       );
     },
   };

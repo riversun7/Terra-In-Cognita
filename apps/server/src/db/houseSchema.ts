@@ -150,7 +150,8 @@ export const houseHomes = pgTable("house_homes", {
   factionId: bigint("faction_id", { mode: "number" })
     .primaryKey()
     .references(() => factions.id, { onDelete: "cascade" }),
-  cityId: bigint("city_id", { mode: "number" }).notNull(),
+  /** 소속 도시(아직 도시·국가에 가입하지 않고 첫 가입 공고 중이면 null — ADR 2026-11-24-house-membership-separation.md) */
+  cityId: bigint("city_id", { mode: "number" }),
   /** 소속 도시를 마지막으로 정한 시각(창설 포함 — 다시 바꾸기 대기 house_home_wait_ms가 센다) */
   setAtMs: bigint("set_at_ms", { mode: "number" }).notNull(),
   /**

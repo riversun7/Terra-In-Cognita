@@ -9,9 +9,9 @@
 //   - 도시 없는 가문: 소속 도시의 나라(factions.born_of, houseHome.ts — D-565).
 //   - 도시를 가진 가문의 소속 도시는 그 가문 도시다(D-569 1743 — D-216·D-340·D-5056): 지금 소속 도시가 가문 도시가 아니면 가장 작은 ID의 가문
 //     도시로 옮겨 적는다(마을 세우기·폐허 복원이 끝난 뒤 다시 읽을 때. 멱등).
-// - 유닛 단위 가문(D-569 1744 "고용한 주체의 가문 소속에 들어간다"): 고용한 유닛은 고용한 사람의 그때 가문(표 house_units, 쓰기 대기열). 사이보그
-//   본체는 그 사람의 가문을 따른다(줄 없음). 가문을 나가거나 내보내지거나 해산하면 그 사람 유닛의 그 가문 줄을 지운다(무소속 — D-565 1747).
-//   가문에 새로 들어도 무소속 유닛은 그대로다(고용할 때의 가문 — [임시] 질문 1842). 이 표는 부팅 때 한 번 읽고 그 뒤는 메모리가 원본이다.
+// - 유닛 가문 소속 통일(ADR 2026-11-24-house-membership-separation.md): 가문 생성 및 가입 시 사이보그 본체와 보유한 모든 유닛이
+//   주인의 가문에 속하며, 가문을 떠나거나 해산하면 함께 무소속이 된다(unitHouseOf = memberHouses.get(userId)). house_units 표 쓰기는
+//   호환용으로 남기되 판정은 항상 주인의 지금 가문을 본다.
 // 메모리 표: 가문 명령 뒤와 1분마다 DB에서 다시 읽는다(시야 틱은 동기로 묻는다). 세계 저장 층마다 하나(WeakMap).
 import type { QueryPool } from "./persist/load.ts";
 import type { WorldPersistence } from "./world.ts";
@@ -106,11 +106,8 @@ export function attachHouseTies(store: HouseTiesStore, pool: QueryPool): HouseTi
     memberNationOf: (userId) => memberNations.get(userId),
     houseOfUser: (userId) => memberHouses.get(userId),
     cityOfHouse: (rowId) => houseCities.get(rowId),
-    unitHouseOf(unitId, userId) {
-      const house = memberHouses.get(userId);
-      if (house === undefined) return undefined;
-      if (store.cyborgs?.userOfUnit(unitId) === userId) return house;
-      return units.get(unitId)?.house === house ? house : undefined;
+    unitHouseOf(_unitId, userId) {
+      return memberHouses.get(userId);
     },
     assignUnit(unitId, userId, nowMs) {
       const house = memberHouses.get(userId);

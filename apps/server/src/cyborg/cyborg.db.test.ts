@@ -183,9 +183,9 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
     await service.roll(b, "trade");
     expect(await service.create(b, { ...input, name: "NOVA" })).toEqual({ ok: false, code: "name_taken" });
     expect(await service.create(b, { ...input, name: "노바" })).toEqual({ ok: true });
-    // 추천(D-218): 두 사이보그 모두 하나뿐인 세력에 들었다. 붐빔은 그 도시에서 시작한 수
+    // 첫 접속은 출발 도시 위치만 고르고 국가 미소속으로 시작한다(ADR 2026-11-24-house-membership-separation.md). 붐빔은 출발 도시 수
     const view = service.creation(b, clock);
-    expect(view.factions[0]).toMatchObject({ recommended: true, cyborgs: 2 });
+    expect(view.factions[0]).toMatchObject({ recommended: true, cyborgs: 0 });
     expect(view.factions[0]?.cities[0]).toMatchObject({ cyborgs: 2, crowding: "quiet" });
   });
 
@@ -421,7 +421,9 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
     );
     expect(saved).toMatchObject({ kind: UNIT_KIND_CYBORG });
     expect(Number(saved?.unit_id)).toBe(unitId);
-    expect(Number(saved?.member)).toBe(start.factionId);
+    // 첫 접속 사이보그는 국가 미소속으로 시작한다(faction_id·faction_members 모두 null)
+    expect(saved?.faction_id).toBeNull();
+    expect(saved?.member).toBeNull();
     expect(Number(saved?.rolls)).toBe(0);
     // 본체는 보유 유닛이 아니다(D-445 178)
     const roster = createWorldRosterSource(world);

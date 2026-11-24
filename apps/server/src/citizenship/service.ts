@@ -30,7 +30,6 @@ import type { CyborgRecord } from "../cyborg/state.ts";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldFacilities } from "../facilities/world.ts";
 import { GOVERNMENT_FACILITY } from "../government/reads.ts";
-import { unitCity } from "../temple/places.ts";
 import type { Viewer } from "../trpc/context.ts";
 import type { OwnerRow } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
@@ -170,35 +169,17 @@ export function createCitizenshipService(o: CitizenshipServiceOptions): Citizens
     return { id: factionRow, code, name: code === null ? null : (o.nationName?.(code) ?? null) };
   };
 
-  /** 사이보그 본체 유닛(띄운 2차맵 어디든) */
-  const bodyInfo = (unitId: number) => {
-    for (const map of o.maps.values()) {
-      const info = map.unitInfo(unitId);
-      if (info) return info;
-    }
-    return undefined;
-  };
-
   /**
-   * 신청을 막는 까닭(값·잔고 앞의 것만). 같은 나라 → 가문원 → 받을 수 없는 나라 → 잡힘 → 그 도시에 없음 → 쉬는 날 차례(화면이 첫 까닭
-   * 하나를 보인다)
+   * 신청을 막는 까닭(값·잔고 앞의 것만). 개인 국가 가입(귀화)은 허용하지 않고 가문 단위로만 도시·국가에 가입한다
    */
   const blockOf = (
     record: CyborgRecord,
     hall: NonNullable<ReturnType<typeof hallOf>>,
-    at: number,
+    _at: number,
   ): Exclude<NaturalizationBlock, "insufficient_funds"> | null => {
-    if (hall.factionRow === record.factionId) return "same_nation";
-    if (o.inHouse?.(record.userId) === true) return "in_house";
-    if (hall.factionRow === null || !hall.alive || !o.cyborgs.joinable(hall.factionRow))
-      return "not_joinable";
-    const held = record.unitId === null ? null : (bodyInfo(record.unitId)?.condition.heldBy ?? null);
-    if (held !== null) return "captive";
-    if (record.unitId === null || unitCity(o.maps, o.facilities, record.unitId, at) !== hall.cityId)
-      return "wrong_city";
-    const until = restUntil(record, o.cyborgs.naturalizationRules(hall.factionRow ?? undefined).restMs);
-    if (until !== null && at < until) return "resting";
-    return null;
+    if (record.factionId !== null && hall.factionRow === record.factionId) return "same_nation";
+    // 개인 국가 가입(귀화)은 허용하지 않는다 — 1인 가문 포함 가문 단위로만 도시·국가에 가입한다(ADR 2026-11-24-house-membership-separation.md)
+    return "in_house";
   };
 
   return {
@@ -230,9 +211,10 @@ export function createCitizenshipService(o: CitizenshipServiceOptions): Citizens
       const until = restUntil(record, rules.restMs);
       const blocked: NaturalizationBlock | null =
         blockOf(record, hall, nowMs) ?? (balance < fee ? "insufficient_funds" : null);
-      const hostile = hostileTo(runtime, treasuryOf(record.factionId), hall.treasury);
-      const before = o.cyborgs.standingOf(viewer.id, record.factionId);
-      const drop = standingDropOf(hostile, rules);
+      const hostile =
+        record.factionId === null ? false : hostileTo(runtime, treasuryOf(record.factionId), hall.treasury);
+      const before = record.factionId === null ? 0 : o.cyborgs.standingOf(viewer.id, record.factionId);
+      const drop = record.factionId === null ? 0 : standingDropOf(hostile, rules);
       const standingView: NaturalizationStanding = {
         now: before,
         drop,
@@ -251,7 +233,10 @@ export function createCitizenshipService(o: CitizenshipServiceOptions): Citizens
                   name: hall.code === null ? null : (o.nationName?.(hall.code) ?? null),
                 }
               : nationView(runtime, hall.factionRow),
-          current: nationView(runtime, record.factionId),
+          current:
+            record.factionId === null
+              ? { id: 0, code: null, name: null }
+              : nationView(runtime, record.factionId),
           cityId: hall.cityId,
           fee: String(fee),
           grant: String(grant),
@@ -288,7 +273,8 @@ export function createCitizenshipService(o: CitizenshipServiceOptions): Citizens
       const grant = grantPayable(hall.treasury, asked.grant);
       if (input.factionId !== target || input.cost !== String(fee - grant)) return fail("terms_changed");
       if (moneyBalance(ledger, ownerId) < fee) return fail("insufficient_funds");
-      const hostile = hostileTo(runtime, treasuryOf(record.factionId), hall.treasury);
+      const hostile =
+        record.factionId === null ? false : hostileTo(runtime, treasuryOf(record.factionId), hall.treasury);
       const standingDrop = standingDropOf(hostile, rules);
       // 한 번의 동기 처리: 원장 거래(입회비 → 받는 나라 국고, 또는 지원금 ← 받는 나라 국고. 옛 나라에는 없음) → 사이보그 행·가입·우호도·기록
       const entries: { account: number; amount: bigint }[] = [];

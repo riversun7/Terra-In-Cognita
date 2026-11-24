@@ -279,10 +279,10 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 이동 정책 (DB)", () => {
     expect((await home.set(moving.leader, 970)).ok).toBe(true);
     expect(book.balanceOf(71, ASSET_CREDIT)).toBe(0n);
     expect(book.balanceOf(70, ASSET_CREDIT)).toBe(120n);
-    // 공고(D-570): 공고할 때 낼 수 있어도 옮길 때 모자라면 거둔다(reason entry_fee)
-    const later = await house({ members: 0 });
+    // 공고(D-570, 2명 이상 가문 — 1인 가문은 공고 없이 바로 옮김): 공고할 때 낼 수 있어도 옮길 때 모자라면 거둔다(reason entry_fee)
+    const later = await house({ members: 1 });
     findLeader = later.leader;
-    fund(40n);
+    fund(80n);
     let now = clock;
     const noticed = createHouseHome({
       pool: test.db.$client,
@@ -296,8 +296,8 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 이동 정책 (DB)", () => {
       kind: "burn",
       atMs: 0,
       entries: [
-        { account: book.ownerAccount(71, ASSET_CREDIT), amount: -40n },
-        { account: issue, amount: 40n },
+        { account: book.ownerAccount(71, ASSET_CREDIT), amount: -80n },
+        { account: issue, amount: 80n },
       ],
     });
     now += 2000;
@@ -320,6 +320,6 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 이동 정책 (DB)", () => {
       "select reason from house_notices where faction_id = $1 and kind = 'home_cancelled'",
       [later.id],
     );
-    expect(reasons.map((row) => row.reason)).toEqual(["entry_fee"]);
+    expect(reasons.map((row) => row.reason)).toEqual(["entry_fee", "entry_fee"]);
   });
 });

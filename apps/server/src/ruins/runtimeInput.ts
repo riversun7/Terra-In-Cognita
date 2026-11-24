@@ -39,7 +39,7 @@ export function npcRuinsInputOf(
       const owner = owners.get(ownerId);
       if (!owner || owner.factionId !== null) return undefined;
       const record = owner.userId ? source()?.cyborgs.record(owner.userId) : undefined;
-      return record ? ownerOfFactionRow(record.factionId) : undefined;
+      return record && record.factionId !== null ? ownerOfFactionRow(record.factionId) : undefined;
     },
   };
 }

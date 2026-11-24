@@ -246,8 +246,8 @@ export function createFactionIdentityServices(
       row?.factionId == null ? Promise.resolve(null) : houseNation(pool, row.factionId),
       cyborgCityOf(pool, viewer.id),
     ]);
-    // 가문 소속 도시 후보(D-565): 아직 창설하지 않았을 때만(창설한 가문은 세력 화면 소속 도시 칸에서 바꾼다)
-    const choices = row?.factionId == null ? await homeChoices(pool, shared.presets()) : [];
+    // 가문 창설은 도시·국가 가입과 별개다(ADR 2026-11-24-house-membership-separation.md): 창설 화면에 도시 선택을 주지 않는다
+    const choices: Awaited<ReturnType<typeof homeChoices>> = [];
     // 이름 대기는 창설한 가문에만(창설 전 초안은 몇 번이고 고친다)
     const renameAt = row?.factionId == null ? 0 : row.nameChangedAt + rules.renameWaitMs;
     return {
@@ -339,14 +339,18 @@ export function createFactionIdentityServices(
   };
 
   const houseOf = async (viewer: IdentityViewer): Promise<HouseView> => {
+    const nation = await nationFromDb(pool, viewer.id);
     const view = await readHouseView(pool, {
       userId: viewer.id,
-      nationId: (await nationFromDb(pool, viewer.id)) ?? null,
+      nationId: nation ?? null,
+      hasCyborg: nation !== undefined,
       rules: shared.rules(),
       nowMs: shared.now(),
       presets: shared.presets(),
       // 금고 칸 = 보는 사람의 돈(소속 국가 화폐)으로 된 금고
       vaultAsset: shared.houseCity?.()?.moneyOf(viewer.id),
+      hostileUnitsFor: (memberUserIds, targetNationId) =>
+        shared.houseCity?.()?.hostileResidentUnits?.(memberUserIds, targetNationId) ?? 0,
     });
     const city = shared.houseCity?.();
     if (!view.house || !city) return view;

@@ -179,10 +179,13 @@ export interface CyborgService {
    */
   changeNation(userId: string, change: NationChange): boolean;
   /**
-   * 가문원의 나라·내 도시를 가문 소속 도시에 맞춘다(기획 D-569 "나라는 하나" — 시민권 = 가문 소속 도시의 나라, world/houseTies.ts가 가문 명령 뒤·
-   * 1분마다 부른다). 값·우호도·쉬는 날·기록 줄은 없다(귀화가 아니다). 도시를 모르면(null) 나라만. 바뀌었으면 true(쓰기 대기열에 넣기만 한다)
+   * 가문원의 나라·내 도시를 가문 소속 도시에 맞춘다(기획 D-569·ADR 2026-11-24-house-membership-separation.md).
+   * factionId null이면 국가 미소속으로 풀고 faction_members 줄을 지운다. 도시를 모르면(null) 나라만. 바뀌었으면 true
    */
-  alignHome(userId: string, home: { readonly factionId: number; readonly cityId: number | null }): boolean;
+  alignHome(
+    userId: string,
+    home: { readonly factionId: number | null; readonly cityId: number | null },
+  ): boolean;
   /**
    * 국적 바꾸기 설정 칸(실효 값, 부를 때마다). fee = 받는 나라(nation)의 귀화 조건(D-526 부호 있는 최소 단위: + 입회비 / − 지원금 — 나라가 정한
    * 값, 없으면 설정 칸 기본값), restMs = 쉬는 기간, standingDrop·standingDropHostile = 옛 나라 우호도 하락(보통·적대 세력으로)
@@ -362,7 +365,8 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
     const perFaction = new Map<number, number>();
     const perCity = new Map<number, number>();
     for (const record of byUser.values()) {
-      perFaction.set(record.factionId, (perFaction.get(record.factionId) ?? 0) + 1);
+      if (record.factionId !== null)
+        perFaction.set(record.factionId, (perFaction.get(record.factionId) ?? 0) + 1);
       perCity.set(record.startCityId, (perCity.get(record.startCityId) ?? 0) + 1);
     }
     return { perFaction, perCity };
@@ -611,7 +615,8 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
         kPm: growthK(options.seed(), rules),
         look,
         lookAuto,
-        factionId: faction.id,
+        // 첫 접속은 출발 도시 위치만 고르고 국가 미소속으로 시작한다(정식 소속은 1인 가문 포함 가문 가입 시 — ADR 2026-11-24-house-membership-separation.md)
+        factionId: null,
         startCityId: city.id,
         unitId,
         level: 1,
@@ -630,7 +635,6 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       byName.set(record.nameKey, userId);
       bodyUnits.set(unitId, userId);
       rolls.delete(userId);
-      writer.upsert("factionMembers", { user_id: userId, faction_id: faction.id });
       writer.upsert("cyborgs", cyborgRow(record));
       writer.remove("cyborgRolls", { user_id: userId });
       await writer.durable();
@@ -646,14 +650,21 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       const checked = checkElementAllocation(elements, elementRule(rules));
       if (!checked.ok) return fail("elements_invalid");
       record.elements = checked.values;
-      // 지원금 전에 만든 사이보그는 이때 한 번 받는다(D-456): 지금 세력의 국고에서, 자기를 뺀 시작 수로 정한 양(만들 때와 같은 규칙)
+      // 지원금 전에 만든 사이보그는 이때 한 번 받는다(D-456): 소속 세력 또는 출발 도시 세력의 국고에서, 자기를 뺀 시작 수로 정한 양
       if (record.startGrant === null) {
-        const at = options.now();
-        const perFaction = new Map(counts().perFaction);
-        perFaction.set(record.factionId, Math.max(0, (perFaction.get(record.factionId) ?? 0) - 1));
-        const grant = grantFor(record.factionId, perFaction, openFactionIds(), rules);
-        const owner = settlement.ownerOfUser(userId, at);
-        record.startGrant = payGrant(userId, owner.id, record.factionId, grant, at);
+        const grantFaction =
+          record.factionId ??
+          options.cities.find((entry) => entry.id === record.startCityId)?.factionId ??
+          null;
+        if (grantFaction !== null) {
+          const at = options.now();
+          const perFaction = new Map(counts().perFaction);
+          if (record.factionId !== null)
+            perFaction.set(record.factionId, Math.max(0, (perFaction.get(record.factionId) ?? 0) - 1));
+          const grant = grantFor(grantFaction, perFaction, openFactionIds(), rules);
+          const owner = settlement.ownerOfUser(userId, at);
+          record.startGrant = payGrant(userId, owner.id, grantFaction, grant, at);
+        }
       }
       writer.upsert("cyborgs", cyborgRow(record));
       await writer.durable();
@@ -723,33 +734,35 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       record.factionId = change.factionId;
       record.startCityId = change.cityId;
       record.nationChangedAtMs = change.atMs;
-      // 옛 나라 우호도(D-526): 떨어진 값을 눈금 안으로 자르고 덮어쓴다
-      const score = Math.max(
-        RELATION_SCORE_MIN,
-        (record.standings.get(from) ?? 0) - Math.max(0, change.standingDrop),
-      );
-      record.standings.set(from, score);
       writer.upsert("factionMembers", { user_id: userId, faction_id: change.factionId });
       writer.upsert("cyborgs", cyborgRow(record));
-      writer.upsert("userNationStandings", {
-        user_id: userId,
-        faction_id: from,
-        score,
-        updated_at_ms: change.atMs,
-      });
-      writer.append("nationalityChanges", {
-        user_id: userId,
-        from_faction: from,
-        to_faction: change.factionId,
-        city_id: change.cityId,
-        building_id: change.buildingId,
-        at_ms: change.atMs,
-        fee: change.fee,
-        grant_returned: 0n,
-        grant_paid: change.grant,
-        standing_drop: Math.max(0, change.standingDrop),
-        hostile: change.hostile,
-      });
+      if (from !== null) {
+        // 옛 나라 우호도(D-526): 떨어진 값을 눈금 안으로 자르고 덮어쓴다
+        const score = Math.max(
+          RELATION_SCORE_MIN,
+          (record.standings.get(from) ?? 0) - Math.max(0, change.standingDrop),
+        );
+        record.standings.set(from, score);
+        writer.upsert("userNationStandings", {
+          user_id: userId,
+          faction_id: from,
+          score,
+          updated_at_ms: change.atMs,
+        });
+        writer.append("nationalityChanges", {
+          user_id: userId,
+          from_faction: from,
+          to_faction: change.factionId,
+          city_id: change.cityId,
+          building_id: change.buildingId,
+          at_ms: change.atMs,
+          fee: change.fee,
+          grant_returned: 0n,
+          grant_paid: change.grant,
+          standing_drop: Math.max(0, change.standingDrop),
+          hostile: change.hostile,
+        });
+      }
       return true;
     },
     alignHome(userId, home) {
@@ -757,8 +770,10 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       if (!record) return false;
       const city = home.cityId ?? record.startCityId;
       if (record.factionId === home.factionId && record.startCityId === city) return false;
-      if (record.factionId !== home.factionId)
-        writer.upsert("factionMembers", { user_id: userId, faction_id: home.factionId });
+      if (record.factionId !== home.factionId) {
+        if (home.factionId === null) writer.remove("factionMembers", { user_id: userId });
+        else writer.upsert("factionMembers", { user_id: userId, faction_id: home.factionId });
+      }
       record.factionId = home.factionId;
       record.startCityId = city;
       writer.upsert("cyborgs", cyborgRow(record));

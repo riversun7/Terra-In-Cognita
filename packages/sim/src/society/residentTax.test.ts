@@ -196,4 +196,20 @@ describe("주민세(D-579)", () => {
       unit: 11,
     });
   });
+
+  it("ownerWallet이 참인 유닛(사이보그 본체·재산 없는 유닛)은 소유자 지갑에서 집 몫을 낸다", () => {
+    const book = bookWith({ 40: 500n });
+    const out = collectResidentTax(book, {
+      nation: NATION,
+      asset: CUR,
+      assessments: [{ city: 3, payer: 40, unit: 99, property: 1_000n, ownerWallet: true }],
+      ratePm: 100,
+      nationSharePm: 0,
+      atMs: 1,
+    });
+    expect(out.arrears).toEqual([]);
+    expect(out.cities).toEqual([{ city: 3, due: 100n, paid: 100n, cityPart: 100n, nationPart: 0n }]);
+    expect(book.balanceOf(40, CUR)).toBe(400n);
+    expect(book.balanceOf(NATION, CUR)).toBe(100n);
+  });
 });

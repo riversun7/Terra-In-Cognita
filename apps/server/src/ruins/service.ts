@@ -160,7 +160,13 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
     const houseOwner = house === undefined ? undefined : runtime.houses.ownerOfRow(house);
     if (houseOwner !== undefined && runtime.world.factions.get(houseOwner)?.alive) return houseOwner;
     const record = owner?.userId ? d.cyborgs.record(owner.userId) : undefined;
-    const join = record ? ownerOfFactionRow(record.factionId) : owner?.factionId ? ownerId : undefined;
+    const join = record
+      ? record.factionId !== null
+        ? ownerOfFactionRow(record.factionId)
+        : undefined
+      : owner?.factionId
+        ? ownerId
+        : undefined;
     return join !== undefined && runtime.world.factions.get(join)?.alive ? join : undefined;
   };
   /** 그 칸의 가장 가까운 도시·폐허(같은 2차맵). 폐허면 그 폐허 */
@@ -474,7 +480,10 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
       const record = d.cyborgs.record(userId);
       if (!record) return fail("no_cyborg");
       const start = runtime.places.get(record.startCityId);
-      const owner = ownerOfFactionRow(record.factionId);
+      const owner =
+        record.factionId !== null
+          ? ownerOfFactionRow(record.factionId)
+          : runtime.world.cities.get(record.startCityId)?.owner;
       if (!start || owner === undefined || !places.maps.has(start.mapKey)) return fail("no_place");
       const taken = [...runtime.places.values()].filter((p) => p.mapKey === start.mapKey);
       let spot: { x: number; y: number } | undefined;

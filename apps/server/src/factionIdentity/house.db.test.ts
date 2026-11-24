@@ -118,7 +118,7 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 가문 (DB)", () => {
 
     expect(
       await rows(test.db, "select kind, code, born_of, parent_id from factions where id = $1", [factionId]),
-    ).toEqual([{ kind: "player", code: null, born_of: String(nation), parent_id: null }]);
+    ).toEqual([{ kind: "player", code: null, born_of: null, parent_id: null }]);
     expect(
       await rows(test.db, "select name, short_name, source from faction_profiles where faction_id = $1", [
         factionId,
@@ -127,13 +127,16 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 가문 (DB)", () => {
     expect(
       await rows(test.db, "select user_id, role from house_members where faction_id = $1", [factionId]),
     ).toEqual([{ user_id: user, role: "leader" }]);
-    // 나라 소속(시민권 — 같은 나라 시야 공유 D-250이 보는 것)은 그대로, 가문은 소유 주체를 만들지 않는다
+    // 창설 직후 가문은 도시·국가 미소속(house_homes 없음), 창설자 기존 시민권은 그대로, 가문은 소유 주체를 만들지 않는다
+    expect(
+      await rows(test.db, "select faction_id from house_homes where faction_id = $1", [factionId]),
+    ).toEqual([]);
     expect(await rows(test.db, "select faction_id from faction_members where user_id = $1", [user])).toEqual([
       { faction_id: String(nation) },
     ]);
     expect(await rows(test.db, "select id from world_owners where faction_id = $1", [factionId])).toEqual([]);
     const mine = await service.mine(viewer(user));
-    expect(mine.house).toEqual({ factionId, foundedAt: clock, nationId: nation });
+    expect(mine.house).toEqual({ factionId, foundedAt: clock, nationId: null });
     expect(await ownerIdentityOf(test.db.$client, user)).toMatchObject({
       name: "등대가문",
       houseId: factionId,
@@ -142,7 +145,7 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 가문 (DB)", () => {
       test.db,
       "select after from audit_log where action = 'faction.house_found'",
     );
-    expect(audit.at(-1)?.after).toMatchObject({ factionId, nationId: nation, paid: "0" });
+    expect(audit.at(-1)?.after).toMatchObject({ factionId, nationId: null, homeCityId: null, paid: "0" });
 
     // 창설 뒤 정체성을 고치면 세력 정체성도 같이 바뀐다(자기 이름은 겹침으로 세지 않는다)
     await service.save(viewer(user), {
@@ -222,7 +225,7 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 가문 (DB)", () => {
       [withCyborg, nation],
     );
     expect(await adoptUnfoundedIdentities(test.db.$client, { now: () => clock })).toBe(1);
-    expect((await identity().mine(viewer(withCyborg))).house?.nationId).toBe(nation);
+    expect((await identity().mine(viewer(withCyborg))).house).toMatchObject({ nationId: null });
     expect((await identity().mine(viewer(noCyborg))).house).toBeNull();
     // 두 번 돌려도 같다
     expect(await adoptUnfoundedIdentities(test.db.$client, { now: () => clock })).toBe(0);

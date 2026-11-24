@@ -100,8 +100,8 @@ export interface UnitHomeDeps {
   readonly userOf: (ownerId: number) => string | null;
   /** 소속 도시 ID(위 머리 주석 2 — 플레이어 유닛은 그 유닛 가문의 도시, fixes-1117k). 없으면 undefined */
   readonly homeCityOf: (unitId: number, ownerId: number) => number | undefined;
-  /** 소속 국가 수도 도시 ID(위 머리 주석 3). 없으면 undefined */
-  readonly capitalOf: (unitId: number, ownerId: number) => number | undefined;
+  /** 소속 국가 귀환 도시 ID(위 머리 주석 3 — at이 있으면 가까운 소속 국가 도시, 없으면 수도). 없으면 undefined */
+  readonly capitalOf: (unitId: number, ownerId: number, at?: MapCell) => number | undefined;
   /** 도시 시청 칸(폐허 아님 — 띄우지 않은 2차맵도, fixes-1117k 2752. 아니면 undefined) */
   readonly cityCell: (cityId: number) => MapCell | undefined;
   /** 그 도시 행정 건물(government_hall) 칸(없으면 undefined) */
@@ -167,7 +167,7 @@ export function createUnitHome(deps: UnitHomeDeps): UnitHome {
       const cityId = deps.homeCityOf(unitId, ownerId);
       const city = cityId === undefined ? undefined : deps.cityCell(cityId);
       if (city) return { ...city, tier: "home_city" };
-      const capital = deps.capitalOf(unitId, ownerId);
+      const capital = deps.capitalOf(unitId, ownerId, at);
       const hall = capital === undefined ? undefined : (deps.hallOf(capital) ?? deps.cityCell(capital));
       if (hall) return { ...hall, tier: "government" };
       const near = at ? deps.nearestCity(unitId, ownerId, at) : undefined;

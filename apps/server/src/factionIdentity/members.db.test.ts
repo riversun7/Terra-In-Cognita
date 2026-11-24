@@ -142,7 +142,7 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 가입·소속 도시 (DB)", () => {
     });
 
     const joined = await view(sea);
-    expect(joined.house).toMatchObject({ factionId: houseId, role: "member", nationId: nationA });
+    expect(joined.house).toMatchObject({ factionId: houseId, role: "member", nationId: null });
     expect(joined.house?.members.map((row) => [row.name, row.role])).toEqual([
       ["Lighthouse1", "leader"],
       ["Bada1", "member"],
@@ -317,9 +317,9 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 가입·소속 도시 (DB)", () => {
     expect((await identity().dismissHouseNotices(viewer(leader), {})).notices).toEqual([]);
   });
 
-  it("소속 도시(D-565): 창설 때 고르면 그 도시의 나라 가문, 가문장이 바꾸면 나라도 바뀜(대기·소식·감사 기록), 시야 나라·구인 자격", async () => {
+  it("소속 도시(ADR 2026-11-24): 창설은 도시·국가 미소속(cityId 무시), 1인 가문은 바로 가입, 2명 이상은 공고 뒤 이동(대기·소식·감사 기록)", async () => {
     const leader = await citizen("Homea8", nationA);
-    // 고른 도시가 없으면 unknown_city, 다른 나라 도시를 고르면 그 나라 가문(시민권과 별개)
+    // 가문 창설은 도시 선택과 별개다 — cityId를 보내도 무시하고 도시·국가 미소속으로 창설한다
     await identity().save(viewer(leader), {
       name: "집가문",
       shortName: "HOM",
@@ -328,12 +328,18 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 가입·소속 도시 (DB)", () => {
       upload: { mode: "none" },
     });
     const founder = createHouseFounder(deps());
-    expect(await founder.found(leader, { cost: "0", cityId: 999_999 })).toEqual({
-      ok: false,
-      code: "unknown_city",
-    });
-    const made = await founder.found(leader, { cost: "0", cityId: 912 });
+    const made = await founder.found(leader, { cost: "0", cityId: 999_999 });
+    expect(made).toMatchObject({ ok: true, paid: "0" });
     const houseId = made.ok ? made.factionId : 0;
+    expect(await rows(test.db, "select born_of from factions where id = $1", [houseId])).toEqual([
+      { born_of: null },
+    ]);
+    expect(await rows(test.db, "select city_id from house_homes where faction_id = $1", [houseId])).toEqual(
+      [],
+    );
+    // 1인 가문은 공고 없이 바로 도시 912에 가입한다
+    const home = createHouseHome({ ...deps(), rules: () => rules });
+    expect(await home.set(leader, 912)).toEqual({ ok: true, action: "home_set", factionId: houseId });
     expect(await rows(test.db, "select born_of from factions where id = $1", [houseId])).toEqual([
       { born_of: String(nationB) },
     ]);
@@ -359,14 +365,13 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 가입·소속 도시 (DB)", () => {
     expect(ties.houseOfUser(member)).toBe(houseId);
     expect(ties.houseOfUser(loner)).toBeUndefined();
 
-    const home = createHouseHome({ ...deps(), rules: () => rules });
     expect(await home.set(member, 911)).toEqual({ ok: false, code: "not_leader" });
     expect(await home.set(loner, 911)).toEqual({ ok: false, code: "not_in_house" });
     expect(await home.set(leader, 912)).toEqual({ ok: false, code: "same_city" });
     expect(await home.set(leader, 999_999)).toEqual({ ok: false, code: "unknown_city" });
     expect(await home.set(leader, 911)).toEqual({ ok: false, code: "home_wait" });
     clock += rules.homeWaitMs;
-    // 공고(D-570): 바로 옮기지 않고 공고 기간 뒤 가문 모두가 옮긴다. 가문원에게 공고 소식, 가문 나라는 아직 그대로
+    // 공고(D-570): 2명 이상 가문은 바로 옮기지 않고 공고 기간 뒤 가문 모두가 옮긴다. 가문원에게 공고 소식, 가문 나라는 아직 그대로
     expect(await home.set(leader, 911)).toEqual({ ok: true, action: "home_announced", factionId: houseId });
     expect(await rows(test.db, "select born_of from factions where id = $1", [houseId])).toEqual([
       { born_of: String(nationB) },
@@ -402,6 +407,7 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 가입·소속 도시 (DB)", () => {
       [leader],
     );
     expect(audit).toMatchObject([
+      { after: { factionId: houseId, beforeCity: null, city: 912, nation: nationB } },
       { after: { factionId: houseId, beforeCity: 912, announced: 911, nation: nationA } },
       { after: { factionId: houseId, beforeNation: nationB, city: 911, nation: nationA, paid: "0" } },
     ]);
@@ -415,11 +421,13 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 가입·소속 도시 (DB)", () => {
   it("소속 도시 공고(D-570): 다시 고르면 새 공고, 지금 도시를 고르면 거둠, 그 사이 가문원이 나가면 남은 가문만 옮김, 도시를 얻으면 공고를 거둠", async () => {
     const leader = await citizen("Movea8", nationA);
     const houseId = await found(leader, "이사가문", "MOV");
+    const home = createHouseHome({ ...deps(), rules: () => rules });
+    // 먼저 1인 가문으로 도시 911에 가입한 뒤 가문원을 들인다
+    expect(await home.set(leader, 911)).toEqual({ ok: true, action: "home_set", factionId: houseId });
     const member = await citizen("Moveb8", nationA);
     const leaver = await citizen("Movec8", nationA);
     for (const name of ["Moveb8", "Movec8"]) await members().invite(leader, name);
     for (const id of [member, leaver]) await members().answer(id, (await view(id)).offers[0]?.id ?? 0, true);
-    const home = createHouseHome({ ...deps(), rules: () => rules });
     const moves = createHouseMoves({ pool: test.db.$client, db: test.db, now: () => clock });
     clock += rules.homeWaitMs;
     expect(await home.set(leader, 912)).toMatchObject({ ok: true, action: "home_announced" });

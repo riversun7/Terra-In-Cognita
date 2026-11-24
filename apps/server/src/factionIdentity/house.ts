@@ -54,11 +54,11 @@ export async function foundHouse(
   return row ? Number(row.id) : null;
 }
 
-/** 창설하지 않은 정체성 줄과 그 창설자의 나라(사이보그 시민권)·내 도시 — 서버를 켤 때 옛 정체성을 가문으로 옮긴다. 다른 가문의 가문원은 뺀다 */
+/** 창설하지 않은 정체성 줄과 그 창설자의 나라(사이보그 시민권, 미소속이면 null)·내 도시 — 서버를 켤 때 옛 정체성을 가문으로 옮긴다. 다른 가문의 가문원은 뺀다 */
 export async function unfoundedIdentities(
   pool: IdentityQueryable,
-): Promise<{ userId: string; nationId: number; cityId: number }[]> {
-  const { rows } = await pool.query<{ user_id: string; faction_id: string; start_city_id: string }>(
+): Promise<{ userId: string; nationId: number | null; cityId: number }[]> {
+  const { rows } = await pool.query<{ user_id: string; faction_id: string | null; start_city_id: string }>(
     `select i.user_id, c.faction_id, c.start_city_id from faction_identities i join cyborgs c on c.user_id = i.user_id
       where i.faction_id is null
         and not exists (select 1 from house_members m where m.user_id = i.user_id)
@@ -66,7 +66,7 @@ export async function unfoundedIdentities(
   );
   return rows.map((row) => ({
     userId: row.user_id,
-    nationId: Number(row.faction_id),
+    nationId: row.faction_id === null ? null : Number(row.faction_id),
     cityId: Number(row.start_city_id),
   }));
 }

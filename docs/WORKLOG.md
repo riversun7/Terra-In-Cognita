@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-25 00:20 | 가문 창설·도시 가입 분리 1단계(도시 선택 제거·국가 미소속 시작·유닛 소속 통일·지갑 수정·전쟁 퇴거) | Antigravity | [25-0020-house-membership-separation-stage1](worklog/2026/11/25-0020-house-membership-separation-stage1.md) |
 | 2026-11-24 21:58 | `pnpm dev` 통합 실행 및 콘텐츠 팩·DB 마이그레이션 자동 재기동 | Antigravity | [24-2158-dev-auto-restart](worklog/2026/11/24-2158-dev-auto-restart.md) |
 | 2026-11-24 15:40 | 옛 세계에 남은 공용 시험 화폐 잔고 없애기 | Claude Code | [24-1540-retire-common-money](worklog/2026/11/24-1540-retire-common-money.md) |
 | 2026-11-24 15:30 | 유닛·사이보그 통합: 유닛 목록에 본체, 유닛 상세 = 사이보그 판, 장비 칸 20칸(옛 프로젝트) | Claude Code | [24-1530-unit-cyborg-unify](worklog/2026/11/24-1530-unit-cyborg-unify.md) |

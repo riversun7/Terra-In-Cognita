@@ -29,6 +29,7 @@ import {
   necessityCost,
 } from "@terra/sim";
 import type { FacilityRecord } from "../facilities/state.ts";
+import { PROPERTY_UNIT_KINDS } from "../labor/wagePurse.ts";
 import { type ResidenceBook, residenceBookOf } from "../residence/book.ts";
 import type { CityRestPlan } from "./cityRest.ts";
 
@@ -52,6 +53,8 @@ export interface ResidentUnit {
   readonly unit: number;
   readonly owner: number;
   readonly lodging: number | null;
+  /** 참이면 소유자(플레이어) 지갑에서 낸다(사이보그 본체·재산 없는 유닛 — ADR 2026-11-24-house-membership-separation.md) */
+  readonly ownerWallet?: boolean | undefined;
 }
 
 export interface ResidentPropertySource {
@@ -146,6 +149,7 @@ export function residentValuer(
           unit: resident.unit,
           owner: resident.owner,
           housing: lodging ? valueOf(city, lodging, asset) / share : 0n,
+          ...(resident.ownerWallet === true ? { ownerWallet: true } : {}),
         };
       });
     },
@@ -199,7 +203,13 @@ export interface ResidentWorld {
       id: string,
     ): { readonly build: FacilityBuildJson | undefined; readonly stage: string } | undefined;
   };
-  readonly maps: ReadonlyMap<number, { buildingOwner(buildingId: number): number | null | undefined }>;
+  readonly maps: ReadonlyMap<
+    number,
+    {
+      buildingOwner(buildingId: number): number | null | undefined;
+      unitInfo?(unitId: number): { readonly kind: number } | undefined;
+    }
+  >;
 }
 
 /** 도시 경제 몫(시세·일꾼 나누기·쉼터 계획) */
@@ -242,6 +252,13 @@ export function residentSourceOf(
     }
     return null;
   };
+  const ownerWalletOf = (unitId: number): boolean => {
+    for (const map of world.maps.values()) {
+      const info = map.unitInfo?.(unitId);
+      if (info) return !PROPERTY_UNIT_KINDS.has(info.kind);
+    }
+    return false;
+  };
   const sim = o.sim;
   return {
     *buildingsIn(cityId) {
@@ -271,8 +288,9 @@ export function residentSourceOf(
             // 플레이어 일꾼: 그 도시 숙소 배정이 있는 유닛
             const players = o.ledger ? playerHomes.get(o.ledger) : undefined;
             if (players) base.push(...players(cityId));
-            // 고른 거주지가 쓸 수 있는 유닛은 그 집 도시에서만 센다(바뀜 residence — D-585 1)
-            yield* withChosenResidences(cityId, base, residenceBookOf(o.ledger));
+            // 고른 거주지가 쓸 수 있는 유닛은 그 집 도시에서만 센다(바뀜 residence — D-585 1). 사이보그 본체·재산 없는 유닛은 소유자 지갑(ownerWallet)
+            for (const resident of withChosenResidences(cityId, base, residenceBookOf(o.ledger)))
+              yield ownerWalletOf(resident.unit) ? { ...resident, ownerWallet: true } : resident;
           },
         }
       : {}),

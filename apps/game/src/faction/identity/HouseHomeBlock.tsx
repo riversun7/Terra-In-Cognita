@@ -16,6 +16,7 @@ export function HouseHomeBlock({
   home,
   inHouse,
   leader,
+  memberCount = 1,
   busy,
   onChange,
 }: {
@@ -23,17 +24,23 @@ export function HouseHomeBlock({
   /** 가문에 들어 있나(아니면 무소속 안내) */
   inHouse: boolean;
   leader: boolean;
+  /** 가문원 수(1인 가문은 공고 없이 바로 가입·이동한다 — ADR 2026-11-24-house-membership-separation.md) */
+  memberCount?: number;
   busy: boolean;
   onChange: (cityId: number) => void;
 }) {
   const id = useId();
   const [picked, setPicked] = useState(String(home.city?.id ?? home.choices[0]?.id ?? ""));
-  const where = home.city === null ? m.fid_home_unknown() : homeChoiceText(home.city);
+  const where = home.city === null ? m.fid_home_none() : homeChoiceText(home.city);
   if (!inHouse)
     return (
       <div className="fid-house-block" data-testid="house-home" data-unaffiliated="">
         <h3 className="fid-house-sub">{m.fid_home_unaffiliated_title()}</h3>
-        <p>{m.fid_home_unaffiliated({ where })}</p>
+        <p>
+          {m.fid_home_unaffiliated({
+            where: home.city === null ? m.fid_home_unknown() : homeChoiceText(home.city),
+          })}
+        </p>
         <p className="faction-muted">{m.fid_home_unaffiliated_hint()}</p>
       </div>
     );
@@ -41,7 +48,15 @@ export function HouseHomeBlock({
   const waiting = home.changeAt !== null;
   const pending = home.pending ?? null;
   const same = picked === String(home.city?.id ?? "") || picked === String(pending?.city.id ?? "");
+  const selectedChoice = home.choices.find((city) => String(city.id) === picked);
+  const hostileUnits = selectedChoice?.hostileResidentUnits ?? 0;
+  const needsNotice = memberCount > 1 && (home.noticeMs ?? 0) > 0;
   const noticeDays = Math.max(0, Math.round((home.noticeMs ?? 0) / 86_400_000));
+  const submitLabel = needsNotice
+    ? m.fid_home_announce()
+    : home.city === null
+      ? m.fid_home_join()
+      : m.fid_home_change();
   return (
     <div className="fid-house-block" data-testid="house-home">
       <h3 className="fid-house-sub">{m.fid_home_title()}</h3>
@@ -105,9 +120,14 @@ export function HouseHomeBlock({
               className="button-small button-primary"
               aria-disabled={busy || same || waiting}
             >
-              {(home.noticeMs ?? 0) > 0 ? m.fid_home_announce() : m.fid_home_change()}
+              {submitLabel}
             </button>
           </span>
+          {hostileUnits > 0 && !same ? (
+            <p className="field-error" role="alert" data-part="house-home-hostile-warning">
+              {m.fid_home_hostile_warning({ count: String(hostileUnits) })}
+            </p>
+          ) : null}
           <span className="faction-muted">
             {waiting
               ? m.fid_home_wait({ when: dateText(home.changeAt ?? 0) })
@@ -117,7 +137,7 @@ export function HouseHomeBlock({
       ) : null}
       {/* 나라는 하나(D-569): 소속 도시를 바꾸면 가문원 모두의 나라가 바뀐다 */}
       {canChange ? <p className="faction-muted">{m.fid_home_change_note()}</p> : null}
-      {canChange && noticeDays > 0 ? (
+      {canChange && needsNotice && noticeDays > 0 ? (
         <p className="faction-muted">{m.fid_home_notice_rule({ days: noticeDays })}</p>
       ) : null}
     </div>

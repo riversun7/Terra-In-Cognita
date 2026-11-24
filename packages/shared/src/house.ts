@@ -191,6 +191,11 @@ export interface HouseHomeCity {
   readonly nationId: number;
   /** 나라 이름(팩 국가 프리셋·가문 정체성 이름). 모르면 null(화면이 "세력 #ID") */
   readonly nation: LocalizedName | null;
+  /**
+   * 이 도시·국가에 가입할 때 적대 세력(전쟁 중) 도시에 거주 중인 가문 보유 유닛 수(ADR 2026-11-24-house-membership-separation.md).
+   * 0이거나 모르면 생략
+   */
+  readonly hostileResidentUnits?: number | undefined;
 }
 
 /**

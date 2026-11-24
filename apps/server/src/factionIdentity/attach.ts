@@ -69,11 +69,15 @@ export function attachHouses(options: {
   stop(): void;
 } {
   const pool = options.db.$client;
-  /** 사용자의 나라: 세계가 준비됐으면 월드 사이보그 기록, 아니면 DB */
-  const nationOf = (userId: string): number | undefined | Promise<number | undefined> => {
+  /** 사용자의 나라: 세계가 준비됐으면 월드 사이보그 기록, 아니면 DB. 사이보그 없으면 undefined, 국가 미소속이면 null */
+  const nationOf = (userId: string): number | null | undefined | Promise<number | null | undefined> => {
     const world = options.world;
     const cyborgs = world?.status().state === "ready" ? world.persistence?.cyborgs : undefined;
-    return cyborgs?.record(userId)?.factionId ?? nationFromDb(pool, userId);
+    if (cyborgs) {
+      const record = cyborgs.record(userId);
+      return record ? record.factionId : undefined;
+    }
+    return nationFromDb(pool, userId);
   };
   void (async () => {
     const adopted = await adoptUnfoundedIdentities(pool, { now: options.now, log: options.log });

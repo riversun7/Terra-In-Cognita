@@ -22,7 +22,7 @@ export function nationOfOwner(source: NationSource, ownerId: number): number | u
   const ties = houseTiesOf(p);
   if (owner.factionId !== null) return ties?.nationOfHouse(owner.factionId) ?? owner.factionId;
   if (owner.userId === null) return undefined;
-  return ties?.memberNationOf(owner.userId) ?? p.cyborgs.record(owner.userId)?.factionId;
+  return ties?.memberNationOf(owner.userId) ?? p.cyborgs.record(owner.userId)?.factionId ?? undefined;
 }
 
 /** 시야에 넘기는 나라 찾기(월드를 잡아 두고 부를 때마다 읽는다) */

@@ -455,6 +455,6 @@ export function governmentReadsOfWorld(
       };
     },
     factionRowOf: (ownerId) => world.persistence?.owners.get(ownerId)?.factionId ?? undefined,
-    myFactionRow: (userId) => world.persistence?.cyborgs.record(userId)?.factionId,
+    myFactionRow: (userId) => world.persistence?.cyborgs.record(userId)?.factionId ?? undefined,
   });
 }

@@ -25,7 +25,6 @@ import { StatusIcon } from "../../ui/StatusIcon.tsx";
 import { text } from "../../ui/text.ts";
 import { IdentityEmblemField } from "./IdentityEmblemField.tsx";
 import { IdentityPreview } from "./IdentityPreview.tsx";
-import { homeChoiceText } from "./homeText.ts";
 import {
   type IdentityDraft,
   type IdentityField,
@@ -127,12 +126,6 @@ export function IdentityStep({
   const [saving, setSaving] = useState(false);
   const [serverError, setServerError] = useState<{ field: IdentityField; message: string } | null>(null);
   const failure = useLiveLines();
-  // 가문 소속 도시(D-565): 기본 = 내 도시(후보에 없으면 첫 후보). 옛 서버는 후보를 보내지 않는다(그러면 고르지 않고 서버 기본값)
-  const homeChoices = mine.homeChoices ?? [];
-  const [homeCity, setHomeCity] = useState<string>(() => {
-    const mineCity = homeChoices.find((city) => city.id === mine.homeCityId);
-    return String(mineCity?.id ?? homeChoices[0]?.id ?? "");
-  });
   const nameRef = useRef<HTMLInputElement>(null);
   const shortRef = useRef<HTMLInputElement>(null);
 
@@ -193,11 +186,8 @@ export function IdentityStep({
         onSaved(saved);
         return;
       }
-      // 가문 창설(WebSocket). 실패해도 저장한 초안은 그대로다
-      const pickedCity = Number(homeCity);
-      const outcome = await sendHouseFound(
-        homeChoices.length > 0 && Number.isSafeInteger(pickedCity) && pickedCity > 0 ? pickedCity : null,
-      );
+      // 가문 창설(WebSocket). 창설은 도시·국가 가입과 별개이므로 도시를 보내지 않는다(ADR 2026-11-24-house-membership-separation.md)
+      const outcome = await sendHouseFound(null);
       if (outcome.ok) {
         onSaved({
           ...saved,
@@ -405,27 +395,6 @@ export function IdentityStep({
         onChange={edit}
       />
 
-      {founding && homeChoices.length > 0 ? (
-        <div className="field fid-group">
-          <label className="field-label" htmlFor={`${id}-home`}>
-            {m.fid_home_found_label()}
-          </label>
-          <select
-            id={`${id}-home`}
-            className="input"
-            data-testid="fid-found-home"
-            value={homeCity}
-            onChange={(event) => setHomeCity(event.target.value)}
-          >
-            {homeChoices.map((city) => (
-              <option key={city.id} value={String(city.id)}>
-                {homeChoiceText(city)}
-              </option>
-            ))}
-          </select>
-          <p className="field-hint">{m.fid_home_found_hint()}</p>
-        </div>
-      ) : null}
       {founding ? (
         <p className="field-hint fid-found-cost" data-testid="fid-found-cost">
           {m.fid_found_cost_free()} {m.fid_found_citizen()}

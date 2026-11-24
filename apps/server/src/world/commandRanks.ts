@@ -81,17 +81,17 @@ export function createCommandRanks(input: {
   };
 }
 
-/** 사용자의 국가 작위: 지금 속한 나라의 명성 구간(D-326·49 S18). 사이보그가 없으면 0 */
+/** 사용자의 국가 작위: 지금 속한 나라의 명성 구간(D-326·49 S18). 사이보그나 소속 국가가 없으면 0 */
 export function titleOfUser(
   cyborgs: {
-    readonly record: (userId: string) => { readonly factionId: number } | undefined;
+    readonly record: (userId: string) => { readonly factionId: number | null } | undefined;
     readonly renownOf: CyborgService["renownOf"];
   },
   rules: Pick<RenownCoefficients, "titleRenown">,
   userId: string,
 ): number {
   const record = cyborgs.record(userId);
-  if (!record) return 0;
+  if (!record || record.factionId === null) return 0;
   return titleOfRenown(cyborgs.renownOf(userId, record.factionId), rules);
 }
 
@@ -99,7 +99,7 @@ export function titleOfUser(
 export function commandRankSource(input: {
   readonly pool: QueryPool | undefined;
   readonly cyborgs: Pick<CyborgService, "userOfUnit" | "renownOf"> & {
-    readonly record: (userId: string) => { readonly factionId: number } | undefined;
+    readonly record: (userId: string) => { readonly factionId: number | null } | undefined;
   };
   readonly config: { readonly combatRankingPaths?: readonly string[] | undefined };
   readonly rules: () => {

@@ -247,10 +247,39 @@ export const cityPolicies = pgTable("city_policies", {
   joinApprover: text("join_approver"),
   /** 자동 승인 최소 우호도 문턱(−100~100, null = 기본 −20). 이 값 미만이면 자동 차단 */
   joinMinStanding: integer("join_min_standing"),
+  /** 가문 도시세 1주기당 일정액(최소 단위 정수, null 또는 0 = 비과세 — ADR 2026-11-25-house-city-tax.md) */
+  houseCityTaxAmount: bigint("house_city_tax_amount", { mode: "bigint" }),
+  /** 가문 도시세 납부 주기(일: 1 | 3 | 7 | 14, null = 기본 7일) */
+  houseCityTaxPeriodDays: integer("house_city_tax_period_days"),
+  /** 가문 도시세율 결정 권한자('mayor' 시장 기본 | 'leader' 국가 원수, null = 'mayor') */
+  houseCityTaxSetter: text("house_city_tax_setter"),
   /** 마지막으로 정한 시각·사람(감사 기록과 같은 값) */
   setAtMs: bigint("set_at_ms", { mode: "number" }).notNull(),
   setBy: uuid("set_by"),
 });
+
+/**
+ * 가문 도시세 징수·체납 상태(ADR 2026-11-25-house-city-tax.md):
+ * 가문마다 한 줄. 마지막 징수 시각과 미납 빚(원장 debt:house_city_tax:... 잔고 요약)을 적어 정부 판·세력 화면에서 바로 읽는다. 세계 표
+ */
+export const houseCityTaxState = pgTable(
+  "house_city_tax_state",
+  {
+    factionId: bigint("faction_id", { mode: "number" })
+      .primaryKey()
+      .references(() => factions.id, { onDelete: "cascade" }),
+    cityId: bigint("city_id", { mode: "number" }).notNull(),
+    lastBilledAtMs: bigint("last_billed_at_ms", { mode: "number" }).notNull(),
+    debt: bigint("debt", { mode: "bigint" }).notNull().default(0n),
+    debtAsset: text("debt_asset"),
+    missedCycles: integer("missed_cycles").notNull().default(0),
+    updatedAtMs: bigint("updated_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    index("house_city_tax_state_city_idx").on(table.cityId),
+    check("house_city_tax_state_nonneg", sql`${table.debt} >= 0 and ${table.missedCycles} >= 0`),
+  ],
+);
 
 /**
  * 가문의 도시 가입 신청 대기줄(ADR 2026-11-25-house-city-approval-and-blacklist.md):

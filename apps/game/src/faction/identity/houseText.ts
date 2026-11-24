@@ -45,6 +45,8 @@ export const HOUSE_MEMBER_ERROR_TEXT: Readonly<Record<HouseMemberResultCode | "o
     standing_too_low: m.fid_house_error_standing_too_low,
     no_home_city: m.fid_house_error_no_home_city,
     already_applied: m.fid_house_error_already_applied,
+    invalid_period: m.fid_house_error_invalid_period,
+    no_debt: m.fid_house_error_no_debt,
     offline: m.fid_found_offline,
     timeout: m.fid_found_offline,
   };
@@ -78,6 +80,8 @@ export const HOUSE_ACTION_TEXT: Readonly<Record<HouseMemberAction | "accepted", 
   city_expelled: m.fid_house_done_city_expelled,
   blacklist_added: m.fid_house_done_blacklist_added,
   blacklist_removed: m.fid_house_done_blacklist_removed,
+  city_tax_policy_set: m.fid_house_done_city_tax_policy,
+  city_tax_paid: m.fid_house_done_city_tax_paid,
 };
 
 /** 가문 도시 명령 결과 코드 → 문장(질문 1005 가) */
@@ -158,6 +162,7 @@ const NOTICE_TEXT: Readonly<Record<HouseNoticeKind, NoticeText>> = {
     m.fid_house_notice_city_apply_declined({ house: v.house, other: v.other, city: v.reason }),
   city_left: (v) => m.fid_house_notice_city_left({ house: v.house, other: v.other }),
   city_expelled: (v) => m.fid_house_notice_city_expelled({ house: v.house, other: v.other }),
+  city_tax_arrears: (v) => m.fid_house_notice_city_tax_arrears({ house: v.house, reason: v.reason }),
 };
 
 /** 가문 소식 한 줄의 문장(모르는 종류는 "가문 소식이 있습니다") */

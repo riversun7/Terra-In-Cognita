@@ -7,6 +7,7 @@
 import type {
   CityJoinApprover,
   HouseCityMode,
+  HouseCityTaxSetter,
   HouseEntryScope,
   HouseCityResultCode,
   HouseMemberAction,
@@ -73,7 +74,16 @@ export type HouseMemberRequest =
       readonly targetUserId?: string;
       readonly bounty?: string;
       readonly reason?: string;
-    };
+    }
+  // 프로토콜 71(3단계): 가문 도시세 정책 설정·체납 빚 납부
+  | {
+      readonly t: "house_city_tax_policy";
+      readonly cityId: number;
+      readonly amount: string | null;
+      readonly periodDays: number | null;
+      readonly setter: HouseCityTaxSetter | null;
+    }
+  | { readonly t: "house_city_tax_pay" };
 
 export type HouseCityOutcome =
   | {

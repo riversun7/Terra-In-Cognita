@@ -1,0 +1,365 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "c45c76bd-a4a8-4e60-bfb1-45665cfa8aef",
+  "prevIds": [
+    "97a8eff6-daae-4924-8086-b4afc7b190ea"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "house_city_tax_state"
+      ],
+      "writes": [
+        "s|tbl|public.house_city_tax_state",
+        "n|tbl|public.house_city_tax_state",
+        "e|tbl|public.house_city_tax_state",
+        "n|rel|public.house_city_tax_state",
+        "n|type|public.house_city_tax_state",
+        "n|rel|public.house_city_tax_state_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "city_policies",
+        "house_city_tax_amount"
+      ],
+      "writes": [
+        "s|col|public.city_policies.house_city_tax_amount",
+        "n|col|public.city_policies.house_city_tax_amount",
+        "e|col|public.city_policies.house_city_tax_amount"
+      ],
+      "reads": [
+        "n|tbl|public.city_policies",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "city_policies",
+        "house_city_tax_period_days"
+      ],
+      "writes": [
+        "s|col|public.city_policies.house_city_tax_period_days",
+        "n|col|public.city_policies.house_city_tax_period_days",
+        "e|col|public.city_policies.house_city_tax_period_days"
+      ],
+      "reads": [
+        "n|tbl|public.city_policies",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "city_policies",
+        "house_city_tax_setter"
+      ],
+      "writes": [
+        "s|col|public.city_policies.house_city_tax_setter",
+        "n|col|public.city_policies.house_city_tax_setter",
+        "e|col|public.city_policies.house_city_tax_setter"
+      ],
+      "reads": [
+        "n|tbl|public.city_policies",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "house_city_tax_state",
+        "house_city_tax_state_city_idx"
+      ],
+      "writes": [
+        "s|idx|public.house_city_tax_state_city_idx",
+        "n|idx|public.house_city_tax_state_city_idx",
+        "e|idx|public.house_city_tax_state_city_idx",
+        "n|rel|public.house_city_tax_state_city_idx"
+      ],
+      "reads": [
+        "n|tbl|public.house_city_tax_state",
+        "n|sch|public",
+        "n|col|public.house_city_tax_state.city_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "house_city_tax_state"
+      ],
+      "writes": [
+        "s|fk|public.house_city_tax_state.house_city_tax_state_faction_id_factions_id_fkey",
+        "n|fk|public.house_city_tax_state.house_city_tax_state_faction_id_factions_id_fkey",
+        "e|fk|public.house_city_tax_state.house_city_tax_state_faction_id_factions_id_fkey",
+        "n|con|public.house_city_tax_state.house_city_tax_state_faction_id_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.house_city_tax_state",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.house_city_tax_state.faction_id",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "house_city_tax_state",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "city_policies",
+        "name": "house_city_tax_amount",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "city_policies",
+        "name": "house_city_tax_period_days",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "city_policies",
+        "name": "house_city_tax_setter",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_city_tax_state",
+        "name": "faction_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_city_tax_state",
+        "name": "city_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_city_tax_state",
+        "name": "last_billed_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_city_tax_state",
+        "name": "debt",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_city_tax_state",
+        "name": "debt_asset",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_city_tax_state",
+        "name": "missed_cycles",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_city_tax_state",
+        "name": "updated_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_city_tax_state",
+        "name": "house_city_tax_state_city_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "city_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_city_tax_state",
+        "name": "house_city_tax_state_faction_id_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "faction_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_city_tax_state",
+        "name": "house_city_tax_state_pkey",
+        "columns": [
+          "faction_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "house_city_tax_state",
+        "name": "house_city_tax_state_nonneg",
+        "value": "\"debt\" >= 0 and \"missed_cycles\" >= 0",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

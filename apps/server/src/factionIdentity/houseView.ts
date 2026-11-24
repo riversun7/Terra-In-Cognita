@@ -23,6 +23,7 @@ import {
 import type { NationPreset } from "../npc/nations.ts";
 import { NO_NATION_MONEY } from "../world/money.ts";
 import { entryTotal, houseEntryTermsOf } from "./houseEntry.ts";
+import { readMyHouseCityTax } from "./houseCityTax.ts";
 import { cityHome, cyborgCityOf, homeChoices, houseHasCity, houseHomeRow } from "./houseHome.ts";
 import { houseVaultCode } from "./houseVault.ts";
 import { membershipOf } from "./members.ts";
@@ -256,7 +257,7 @@ export async function readHouseView(
         : { rows: [] };
     const bornOf = nation.rows[0]?.born_of;
     // 가문 금고(houseVault.ts — 국고와 따로, 보는 사람의 돈으로 된 금고). 보기 값이라 DB 계정 줄을 읽는다(쓰기 대기열이 곧 맞춘다), 없으면 0
-    const [vault, policy, vaultLog, heir] = await Promise.all([
+    const [vault, policy, vaultLog, heir, cityTax] = await Promise.all([
       q.query<{ balance: string }>(
         "select balance::text as balance from ledger_accounts where system_code = $1",
         [houseVaultCode(mine.factionId, vaultAsset)],
@@ -273,6 +274,8 @@ export async function readHouseView(
       ]),
       // 미리 정한 후계자(질문 2491 — D-588 5, house_heirs)
       q.query<{ user_id: string }>("select user_id from house_heirs where faction_id = $1", [mine.factionId]),
+      // 가문 도시세 현황(소속 도시 일정액·체납 빚 — ADR 2026-11-25-house-city-tax.md)
+      readMyHouseCityTax(q, mine.factionId),
     ]);
     const taxMaxPm = input.rules.taxMaxPm;
     return {
@@ -299,6 +302,7 @@ export async function readHouseView(
             })),
             tax: { ratePm: Math.min(taxMaxPm, policy.rows[0]?.tax_pm ?? 0), maxPm: taxMaxPm },
             heirUserId: heir.rows[0]?.user_id ?? null,
+            cityTax,
             requests: requests.rows.map(
               (row): HouseRequestRow => ({
                 id: Number(row.id),

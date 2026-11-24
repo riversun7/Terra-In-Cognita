@@ -1,8 +1,13 @@
 // 정부 판의 [가문 도시 가입 · 추방 · 블랙리스트] 칸 — ADR 2026-11-25-house-city-approval-and-blacklist.md.
 // - 모두에게: 이 도시의 가입 승인 방식(시장/원수/자동 + 최소 우호도), 가문 가입 신청 버튼(또는 차단 사유 + 적대 거주 유닛 경고), 나라 블랙리스트(현상수배) 목록.
 // - 통치 권한자(canSetPolicy / canManage): 가입 승인 정책 저장, 대기 중인 가입 신청 승인/거절, 소속 가문 추방, 블랙리스트 등록/해제.
-import type { CityJoinApprover } from "@terra/protocol";
-import type { CityJoinApproverKind, GovernmentCityMembership } from "@terra/shared/government";
+import type { CityJoinApprover, HouseCityTaxSetter } from "@terra/protocol";
+import {
+  type CityJoinApproverKind,
+  type GovernmentCityMembership,
+  HOUSE_CITY_TAX_PERIOD_DAYS,
+  type HouseCityTaxSetterKind,
+} from "@terra/shared/government";
 import { useId, useState } from "react";
 import { sendHouseMember } from "../faction/identity/houseCommands.ts";
 import { HOUSE_ACTION_TEXT, HOUSE_MEMBER_ERROR_TEXT } from "../faction/identity/houseText.ts";
@@ -14,6 +19,10 @@ function approverLabel(kind: CityJoinApproverKind): string {
   if (kind === "leader") return m.gov_city_join_approver_leader();
   if (kind === "auto") return m.gov_city_join_approver_auto();
   return m.gov_city_join_approver_mayor();
+}
+
+function taxSetterLabel(kind: HouseCityTaxSetterKind): string {
+  return kind === "leader" ? m.gov_house_tax_setter_leader() : m.gov_house_tax_setter_mayor();
 }
 
 function applyBlockText(code: string): string {
@@ -61,6 +70,13 @@ export function CityHousePanel({
   const [blName, setBlName] = useState("");
   const [blBounty, setBlBounty] = useState("0");
   const [blReason, setBlReason] = useState("");
+  const [taxAmountDraft, setTaxAmountDraft] = useState<string>(membership.houseCityTax?.ownAmount ?? "");
+  const [taxPeriodDraft, setTaxPeriodDraft] = useState<string>(
+    String(membership.houseCityTax?.periodDays ?? 7),
+  );
+  const [taxSetterDraft, setTaxSetterDraft] = useState<string>(
+    membership.houseCityTax?.ownSetter ?? "default",
+  );
   const notice = useLiveLines();
   const problem = useLiveLines();
 
@@ -216,6 +232,120 @@ export function CityHousePanel({
         </div>
       ) : null}
 
+      {/* 가문 도시세 정책(일정액·주기·세율 결정권 — ADR 2026-11-25-house-city-tax.md) */}
+      {shown.houseCityTax ? (
+        <div data-part="gov-house-city-tax">
+          <h4 className="gov-section-title">{m.gov_house_tax_title()}</h4>
+          <p className="gov-muted">{m.gov_house_tax_hint()}</p>
+          <dl className="gov-facts">
+            <div className="gov-fact">
+              <dt>{m.gov_house_tax_title()}</dt>
+              <dd>
+                {shown.houseCityTax.amount === "0"
+                  ? m.gov_house_tax_free({
+                      days: shown.houseCityTax.periodDays,
+                      setter: taxSetterLabel(shown.houseCityTax.setter),
+                    })
+                  : m.gov_house_tax_current({
+                      amount: formatAmount(shown.houseCityTax.amount),
+                      days: shown.houseCityTax.periodDays,
+                      setter: taxSetterLabel(shown.houseCityTax.setter),
+                    })}
+              </dd>
+            </div>
+          </dl>
+          {shown.houseCityTax.canSet ? (
+            <div className="gov-entry-edit" data-part="gov-house-city-tax-edit">
+              <input
+                className="gov-entry-input"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder={m.gov_house_tax_amount_input()}
+                aria-label={m.gov_house_tax_amount_input()}
+                value={taxAmountDraft}
+                disabled={busy}
+                onChange={(e) => setTaxAmountDraft(e.target.value)}
+              />
+              <select
+                className="input"
+                value={taxPeriodDraft}
+                disabled={busy}
+                aria-label={m.gov_house_tax_period_label()}
+                onChange={(e) => setTaxPeriodDraft(e.target.value)}
+              >
+                {HOUSE_CITY_TAX_PERIOD_DAYS.map((days) => (
+                  <option key={days} value={String(days)}>
+                    {m.gov_house_tax_period_days({ days })}
+                  </option>
+                ))}
+              </select>
+              {shown.houseCityTax.canSetAuthority ? (
+                <select
+                  className="input"
+                  value={taxSetterDraft}
+                  disabled={busy}
+                  aria-label={m.gov_house_tax_setter_label()}
+                  onChange={(e) => setTaxSetterDraft(e.target.value)}
+                >
+                  <option value="default">{m.gov_city_join_approver_default()}</option>
+                  <option value="mayor">{m.gov_house_tax_setter_mayor()}</option>
+                  <option value="leader">{m.gov_house_tax_setter_leader()}</option>
+                </select>
+              ) : null}
+              <button
+                type="button"
+                className="button-small"
+                disabled={busy}
+                onClick={() => {
+                  const trimmed = taxAmountDraft.trim();
+                  const amount = trimmed === "" ? null : trimmed;
+                  if (amount !== null && !/^(0|[1-9][0-9]{0,14})$/.test(amount)) {
+                    problem.show([m.government_entry_invalid()]);
+                    return;
+                  }
+                  const periodDays = Number.parseInt(taxPeriodDraft, 10);
+                  const setter: HouseCityTaxSetter | null = shown.houseCityTax?.canSetAuthority
+                    ? taxSetterDraft === "mayor" || taxSetterDraft === "leader"
+                      ? taxSetterDraft
+                      : null
+                    : (shown.houseCityTax?.ownSetter ?? null);
+                  void runAction(
+                    () =>
+                      sendHouseMember({
+                        t: "house_city_tax_policy",
+                        cityId,
+                        amount,
+                        periodDays,
+                        setter,
+                      }),
+                    () => {
+                      setShown((prev) =>
+                        prev.houseCityTax
+                          ? {
+                              ...prev,
+                              houseCityTax: {
+                                ...prev.houseCityTax,
+                                amount: amount ?? "0",
+                                ownAmount: amount,
+                                periodDays,
+                                ownPeriodDays: periodDays,
+                                setter: setter ?? "mayor",
+                                ownSetter: setter,
+                              },
+                            }
+                          : prev,
+                      );
+                    },
+                  );
+                }}
+              >
+                {m.gov_house_tax_save()}
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {/* 대기 중인 가문 가입 신청(승인권자) */}
       {shown.canManage ? (
         <div data-part="gov-city-join-apps">
@@ -299,6 +429,9 @@ export function CityHousePanel({
                         leader: house.leaderName ?? "—",
                         count: house.memberCount,
                       })}
+                      {house.taxDebt && house.taxDebt !== "0"
+                        ? ` · ${m.gov_house_tax_house_debt({ amount: formatAmount(house.taxDebt) })}`
+                        : ""}
                     </span>
                   </dt>
                   <dd className="gov-actions">

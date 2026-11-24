@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-25 01:15 KST | 가문 도시세 분리(일정액·시장 기본 권한·주기 정책·체납 빚과 신용 하락, 3단계) | Antigravity | [25-0115-house-city-tax](worklog/2026/11/25-0115-house-city-tax.md) |
 | 2026-11-25 00:50 KST | 가문 도시 가입(정부 방문·승인), 탈퇴·추방, 블랙리스트(2단계) | Antigravity | [25-0050-house-city-approval-blacklist](worklog/2026/11/25-0050-house-city-approval-blacklist.md) |
 | 2026-11-25 00:20 | 가문 창설·도시 가입 분리 1단계(도시 선택 제거·국가 미소속 시작·유닛 소속 통일·지갑 수정·전쟁 퇴거) | Antigravity | [25-0020-house-membership-separation-stage1](worklog/2026/11/25-0020-house-membership-separation-stage1.md) |
 | 2026-11-24 21:58 | `pnpm dev` 통합 실행 및 콘텐츠 팩·DB 마이그레이션 자동 재기동 | Antigravity | [24-2158-dev-auto-restart](worklog/2026/11/24-2158-dev-auto-restart.md) |

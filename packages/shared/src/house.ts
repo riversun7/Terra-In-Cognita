@@ -94,6 +94,8 @@ export const HOUSE_NOTICE_KINDS = [
   "city_apply_declined",
   "city_left",
   "city_expelled",
+  // 3단계(ADR 2026-11-25-house-city-tax.md): 가문 도시세 미납 체납 발생
+  "city_tax_arrears",
 ] as const;
 export type HouseNoticeKind = (typeof HOUSE_NOTICE_KINDS)[number];
 
@@ -248,6 +250,21 @@ export const HOUSE_VAULT_LOG_LIMIT = 30;
 /** 소속 도시 후보 상한(나라·도시 ID 차례) */
 export const HOUSE_HOME_CHOICE_LIMIT = 300;
 
+/** 가문이 소속 도시에 내는 가문 도시세 현황(ADR 2026-11-25-house-city-tax.md) */
+export interface HouseCityTaxView {
+  readonly cityId: number;
+  /** 1주기당 일정액(최소 단위 정수 글자, "0"이면 비과세) */
+  readonly amount: string;
+  /** 납부 주기(일: 1·3·7·14) */
+  readonly periodDays: number;
+  /** 체납 빚(최소 단위 정수 글자, "0"이면 체납 없음) */
+  readonly debt: string;
+  /** 연속 미납 주기 수 */
+  readonly missedCycles: number;
+  /** 다음 징수 예정 시각(비과세면 null) */
+  readonly nextDueAtMs: number | null;
+}
+
 /** factionIdentity.house 응답 */
 export interface HouseView {
   /** 내 나라(사이보그 시민권). 사이보그가 없으면 null — 가입·초대를 할 수 없다 */
@@ -278,6 +295,8 @@ export interface HouseView {
          * 않는다
          */
         readonly heirUserId?: string | null | undefined;
+        /** 가문 도시세 현황(소속 도시에 내는 세금·체납 빚 — ADR 2026-11-25-house-city-tax.md). 소속 도시 없거나 옛 서버면 null·없음 */
+        readonly cityTax?: HouseCityTaxView | null | undefined;
       })
     | null;
   /** 내가 받은 초대·내가 보낸 신청(가문이 없을 때) */

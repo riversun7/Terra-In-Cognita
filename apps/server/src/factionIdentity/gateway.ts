@@ -22,6 +22,7 @@ import type { NationBlacklistService } from "./blacklist.ts";
 import type { HouseFounder, HouseFoundResult } from "./found.ts";
 import type { HouseCityResult, HouseCityService } from "./houseCity.ts";
 import type { HouseCityJoinService } from "./houseCityJoin.ts";
+import type { HouseCityTaxService } from "./houseCityTax.ts";
 import type { HouseEntryPolicyService } from "./houseEntryPolicy.ts";
 import type { HouseHomeService } from "./houseHome.ts";
 import type { HousePolicyService } from "./housePolicy.ts";
@@ -53,6 +54,8 @@ export type HouseMemberClientMessage = ClientMessageOf<
   | "house_city_leave"
   | "house_city_expel"
   | "nation_blacklist"
+  | "house_city_tax_policy"
+  | "house_city_tax_pay"
 >;
 export type HouseCityClientMessage = ClientMessageOf<"house_village" | "house_ruin" | "house_independence">;
 export type HouseRecruitClientMessage = ClientMessageOf<"house_recruit_auto" | "house_recruit_hire">;
@@ -192,8 +195,21 @@ function runMember(
   policy?: HousePolicyService,
   cityJoin?: HouseCityJoinService,
   blacklist?: NationBlacklistService,
+  cityTax?: HouseCityTaxService,
 ): Promise<HouseMemberResult> {
   switch (message.t) {
+    // 3단계: 가문 도시세 정책 설정·체납 빚 납부(프로토콜 71)
+    case "house_city_tax_policy":
+      return cityTax
+        ? cityTax.setPolicy(userId, {
+            cityId: message.cityId,
+            amount: message.amount,
+            periodDays: message.periodDays,
+            setter: message.setter,
+          })
+        : Promise.resolve(memberFail("busy"));
+    case "house_city_tax_pay":
+      return cityTax ? cityTax.payDebt(userId) : Promise.resolve(memberFail("busy"));
     // 2단계: 정부 방문 도시 가입·승인·정책·탈퇴·추방·블랙리스트(프로토콜 70)
     case "house_city_apply":
       return cityJoin
@@ -284,6 +300,8 @@ export function createHouseGateway(options: {
   cityJoin?: (() => HouseCityJoinService | undefined) | undefined;
   /** 나라 블랙리스트 등록·해제(프로토콜 70, 없으면 busy) */
   blacklist?: (() => NationBlacklistService | undefined) | undefined;
+  /** 가문 도시세 정책 설정·체납 납부(프로토콜 71, 없으면 busy) */
+  cityTax?: (() => HouseCityTaxService | undefined) | undefined;
   /** 나라 세금 정하기(프로토콜 57, 질문 2322 나·2373 가, 없으면 busy) */
   nationTax?: (() => NationTaxPolicyService | undefined) | undefined;
   /** 도시 화폐 고르기(프로토콜 69, docs/adr/2026-11-24-city-money.md, 없으면 busy) */
@@ -397,6 +415,7 @@ export function createHouseGateway(options: {
           options.policy?.(),
           options.cityJoin?.(),
           options.blacklist?.(),
+          options.cityTax?.(),
         );
         if (result.ok) {
           options.log.info(

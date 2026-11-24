@@ -126,6 +126,8 @@ export {
 export {
   CITY_JOIN_APPROVERS,
   HOUSE_CITY_JOIN_PROTOCOL_VERSION,
+  HOUSE_CITY_TAX_PROTOCOL_VERSION,
+  HOUSE_CITY_TAX_SETTERS,
   HOUSE_CITY_MODES,
   HOUSE_CITY_PROTOCOL_VERSION,
   HOUSE_INDEPENDENCE_PROTOCOL_VERSION,
@@ -136,6 +138,7 @@ export {
   HOUSE_ENTRY_SCOPES,
   HOUSE_HEIR_PROTOCOL_VERSION,
   type CityJoinApprover,
+  type HouseCityTaxSetter,
   type HouseEntryScope,
   legacyHouseMemberAction,
   legacyHouseMemberCode,

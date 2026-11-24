@@ -185,9 +185,11 @@ function MyHouse({
           inHouse
           leader={leader}
           memberCount={house.members.length}
+          cityTax={house.cityTax}
           busy={busy}
           onChange={(cityId) => void run({ t: "house_home", cityId })}
           onLeaveCity={() => void run({ t: "house_city_leave" })}
+          onPayCityTax={() => void run({ t: "house_city_tax_pay" })}
         />
       ) : null}
       {house.vault === undefined ? null : (

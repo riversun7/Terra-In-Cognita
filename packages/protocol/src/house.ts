@@ -189,6 +189,11 @@ export const HOUSE_MEMBER_RESULT_CODES = [
   "no_home_city",
   /** 이미 이 도시에 가입 신청이 걸려 있다 */
   "already_applied",
+  // 71판부터(가문 도시세 분리 — ADR 2026-11-25-house-city-tax.md)
+  /** 가문 도시세 납부 주기가 허용 목록(1·3·7·14일) 밖이다 */
+  "invalid_period",
+  /** 갚을 가문 도시세 체납 빚이 없다 */
+  "no_debt",
 ] as const;
 export type HouseMemberResultCode = (typeof HOUSE_MEMBER_RESULT_CODES)[number];
 
@@ -229,6 +234,9 @@ export const HOUSE_MEMBER_ACTIONS = [
   "city_expelled",
   "blacklist_added",
   "blacklist_removed",
+  // 71판부터(가문 도시세 분리 — ADR 2026-11-25-house-city-tax.md)
+  "city_tax_policy_set",
+  "city_tax_paid",
 ] as const;
 export type HouseMemberAction = (typeof HOUSE_MEMBER_ACTIONS)[number];
 
@@ -405,6 +413,13 @@ export const HOUSE_CITY_JOIN_PROTOCOL_VERSION = 70;
 export const CITY_JOIN_APPROVERS = ["mayor", "leader", "auto"] as const;
 export type CityJoinApprover = (typeof CITY_JOIN_APPROVERS)[number];
 
+/** 가문 도시세 정책·납부에 필요한 가장 낮은 프로토콜 버전(ADR 2026-11-25-house-city-tax.md) */
+export const HOUSE_CITY_TAX_PROTOCOL_VERSION = 71;
+
+/** 가문 도시세율 결정 권한자: 시장(기본) | 국가 원수 */
+export const HOUSE_CITY_TAX_SETTERS = ["mayor", "leader"] as const;
+export type HouseCityTaxSetter = (typeof HOUSE_CITY_TAX_SETTERS)[number];
+
 /** 그 연결 판이 모르는 한 일을 옛 판 호환 한 일로 낮춘다 */
 export function legacyHouseMemberAction(
   action: HouseMemberAction,
@@ -429,6 +444,12 @@ export function legacyHouseMemberAction(
   ) {
     return "home_set";
   }
+  if (
+    protocolVersion < HOUSE_CITY_TAX_PROTOCOL_VERSION &&
+    (action === "city_tax_policy_set" || action === "city_tax_paid")
+  ) {
+    return "tax_set";
+  }
   return action;
 }
 
@@ -446,6 +467,12 @@ export function legacyHouseMemberCode(
       code === "standing_too_low" ||
       code === "no_home_city" ||
       code === "already_applied")
+  ) {
+    return "busy";
+  }
+  if (
+    protocolVersion < HOUSE_CITY_TAX_PROTOCOL_VERSION &&
+    (code === "invalid_period" || code === "no_debt")
   ) {
     return "busy";
   }
@@ -545,6 +572,31 @@ export const nationBlacklistMessage = z.object({
   reason: z.string().max(200).optional(),
 });
 
+// ---------- 가문 도시세 분리(프로토콜 71부터) ----------
+// ADR docs/adr/2026-11-25-house-city-tax.md.
+
+/** 가문 도시세 정책 설정(일정액·납부 주기 일수·세율 결정자 — 각 칸 null = 기본값) */
+export const houseCityTaxPolicyMessage = z.object({
+  t: z.literal("house_city_tax_policy"),
+  id: requestId,
+  cityId: rowId,
+  /** 1주기당 일정액(10진 최소 단위 정수 글자, "0" 또는 null = 비과세, 15자리까지) */
+  amount: z
+    .string()
+    .regex(/^(0|[1-9][0-9]{0,14})$/)
+    .nullable(),
+  /** 납부 주기(일: 1·3·7·14, null = 기본 7일) */
+  periodDays: z.number().int().min(1).max(30).nullable(),
+  /** 세율 결정 권한자(mayor | leader, null = 기본 mayor) */
+  setter: z.enum(HOUSE_CITY_TAX_SETTERS).nullable(),
+});
+
+/** 가문장이 체납된 가문 도시세 빚을 가문 금고(부족 시 가문장 지갑)에서 즉시 납부한다 */
+export const houseCityTaxPayMessage = z.object({
+  t: z.literal("house_city_tax_pay"),
+  id: requestId,
+});
+
 export const houseClientMessages = [
   houseFoundMessage,
   houseInviteMessage,
@@ -567,6 +619,8 @@ export const houseClientMessages = [
   houseCityLeaveMessage,
   houseCityExpelMessage,
   nationBlacklistMessage,
+  houseCityTaxPolicyMessage,
+  houseCityTaxPayMessage,
 ] as const;
 export const houseServerMessages = [
   houseResultMessage,

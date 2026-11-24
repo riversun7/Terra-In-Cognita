@@ -222,6 +222,33 @@ export interface GovernmentCityMoney {
 /** 도시 가입 승인 권한(ADR 2026-11-25-house-city-approval-and-blacklist.md) */
 export type CityJoinApproverKind = "mayor" | "leader" | "auto";
 
+/** 가문 도시세 납부 주기 허용 목록(일: 매일·3일·1주·2주 — ADR 2026-11-25-house-city-tax.md) */
+export const HOUSE_CITY_TAX_PERIOD_DAYS: readonly number[] = [1, 3, 7, 14];
+
+/** 가문 도시세 납부 주기가 허용 목록 안인가 */
+export const isHouseCityTaxPeriod = (days: number): boolean => HOUSE_CITY_TAX_PERIOD_DAYS.includes(days);
+
+/** 가문 도시세율 결정 권한자(시장 기본 | 국가 원수) */
+export type HouseCityTaxSetterKind = "mayor" | "leader";
+
+/** 정부 판의 가문 도시세 정책(ADR 2026-11-25-house-city-tax.md) */
+export interface GovernmentHouseCityTax {
+  /** 1주기당 일정액(최소 단위 정수 글자, "0" = 비과세) */
+  readonly amount: string;
+  /** 도시 정책 직접 저장값(null = 미설정) */
+  readonly ownAmount: string | null;
+  /** 납부 주기(일: 1·3·7·14) */
+  readonly periodDays: number;
+  readonly ownPeriodDays: number | null;
+  /** 세율 결정 권한자(mayor | leader, 기본 mayor) */
+  readonly setter: HouseCityTaxSetterKind;
+  readonly ownSetter: HouseCityTaxSetterKind | null;
+  /** 보는 사람이 세율·주기를 바꿀 수 있나 */
+  readonly canSet: boolean;
+  /** 보는 사람이 세율 결정 권한자(setter) 자체를 바꿀 수 있나(도시 주인 또는 국가 지도자) */
+  readonly canSetAuthority: boolean;
+}
+
 /** 정부 판의 대기 중인 가문 도시 가입 신청 한 줄 */
 export interface GovernmentCityApplicationRow {
   readonly id: number;
@@ -240,6 +267,8 @@ export interface GovernmentCityHouseRow {
   readonly leaderName: string | null;
   readonly memberCount: number;
   readonly own: boolean;
+  /** 가문 도시세 미납 빚(최소 단위 정수 글자, "0"이면 체납 없음 — ADR 2026-11-25-house-city-tax.md) */
+  readonly taxDebt?: string | undefined;
 }
 
 /** 정부 판의 나라 블랙리스트(현상수배) 한 줄 */
@@ -284,6 +313,8 @@ export interface GovernmentCityMembership {
   readonly houses: readonly GovernmentCityHouseRow[];
   /** 이 나라의 블랙리스트(모두에게 공개 — PVP 명분·현상금 확인) */
   readonly blacklist: readonly GovernmentBlacklistRow[];
+  /** 가문 도시세 정책(ADR 2026-11-25-house-city-tax.md, 옛 서버는 없음) */
+  readonly houseCityTax?: GovernmentHouseCityTax | null | undefined;
 }
 
 export interface GovernmentResponse {

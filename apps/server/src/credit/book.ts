@@ -120,6 +120,16 @@ export interface CreditBook {
   standingOf(ownerId: number): CreditStanding | undefined;
   /** 주민세 빚이 남은 주기(SimHooks.residentTaxArrears — 빚이 늘어난 것만 깎는다) */
   residentArrears(nationId: number, arrears: readonly ResidentArrears[], nowMs: number): void;
+  /** 가문 도시세 체납 빚이 늘어난 주기(ADR 2026-11-25-house-city-tax.md — 빚 계정 잔고가 0이 되면 observe가 자동 복구한다) */
+  houseTaxArrears(
+    entry: {
+      readonly cause: string;
+      readonly ownerId: number;
+      readonly cityId: number;
+      readonly nationId: number;
+    },
+    nowMs: number,
+  ): void;
   /** 원장 거래 하나를 본다(observeLedger로 붙는다 — 시험은 바로 부른다) */
   observe(
     atMs: number,
@@ -284,6 +294,27 @@ export function createCreditBook(deps: CreditBookDeps): CreditBook {
           nowMs,
         );
       }
+    },
+    houseTaxArrears(entry, nowMs) {
+      const rules = creditRulesOf(deps.rules());
+      if (rules.resident === 0 || entry.ownerId === entry.nationId) return;
+      if (!accountOf.has(entry.cause))
+        for (const account of deps.ledger.accounts())
+          if (account.systemCode === entry.cause) accountOf.set(entry.cause, account.id);
+      addPoints(
+        {
+          cause: entry.cause,
+          kind: "resident",
+          ownerId: entry.ownerId,
+          unitId: null,
+          cityId: entry.cityId,
+          nationId: entry.nationId,
+          sinceMs: nowMs,
+        },
+        rules.resident,
+        1,
+        nowMs,
+      );
     },
     observe(atMs, entries, changed) {
       for (const account of changed) {

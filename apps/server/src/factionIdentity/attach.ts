@@ -16,6 +16,7 @@ import { adoptUnfoundedIdentities, createHouseFounder, nationFromDb } from "./fo
 import { createHouseGateway } from "./gateway.ts";
 import { type HouseCityService, createHouseCity } from "./houseCity.ts";
 import { createHouseCityJoin } from "./houseCityJoin.ts";
+import { createHouseCityTaxService } from "./houseCityTax.ts";
 import { createHouseEntryPolicy } from "./houseEntryPolicy.ts";
 import { createHouseHome } from "./houseHome.ts";
 import { createHouseMoves } from "./houseMoves.ts";
@@ -162,6 +163,14 @@ export function attachHouses(options: {
       if (ledger) await blacklistTableOf(ledger)?.reload();
     },
   });
+  // 3단계: 가문 도시세 정책·주기 징수·체납 납부(ADR 2026-11-25-house-city-tax.md)
+  const cityTax = createHouseCityTaxService({
+    pool,
+    db: options.db,
+    now: options.now,
+    persistence,
+    cityMoneyOf: (cityId) => options.world?.npc?.economy?.cityMoney.of(cityId),
+  });
   const taxTable = () => {
     const ledger = options.world?.persistence?.ledger;
     return ledger ? nationTaxesOf(ledger) : undefined;
@@ -243,6 +252,9 @@ export function attachHouses(options: {
   const moveTimer = setInterval(() => {
     if (options.world?.status().state !== "ready") return;
     moves.applyDue().catch((error: unknown) => options.log.error({ err: error }, "house moves failed"));
+    cityTax
+      .collectDue()
+      .catch((error: unknown) => options.log.error({ err: error }, "house city tax collection failed"));
   }, MOVE_SWEEP_MS);
   moveTimer.unref();
   const gateway = createHouseGateway({
@@ -258,6 +270,7 @@ export function attachHouses(options: {
     policy: () => policy,
     cityJoin: () => cityJoin,
     blacklist: () => blacklist,
+    cityTax: () => cityTax,
     // 나라 세금 정하기(독립 나라 가문장 — government/nationTaxPolicy.ts). 메모리 표는 세계가 준비된 뒤 붙는다
     nationTax: () => nationTax,
     // 도시 화폐 고르기(도시 주인 나라 지도자 — government/cityMoneyPolicy.ts)

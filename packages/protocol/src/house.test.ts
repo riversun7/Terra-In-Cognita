@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import {
   HOUSE_CITY_JOIN_PROTOCOL_VERSION,
+  HOUSE_CITY_TAX_PROTOCOL_VERSION,
   HOUSE_HOME_NOTICE_PROTOCOL_VERSION,
   HOUSE_ENTRY_POLICY_PROTOCOL_VERSION,
   legacyHouseMemberAction,
@@ -271,5 +272,36 @@ describe("가문 소속 도시(프로토콜 39, D-565)", () => {
     expect(legacyHouseMemberAction("city_applied", 69)).toBe("home_set");
     expect(legacyHouseMemberCode("blacklisted", 70)).toBe("blacklisted");
     expect(legacyHouseMemberCode("blacklisted", 69)).toBe("busy");
+  });
+
+  it("가문 도시세 정책·체납 납부(프로토콜 71): 2종 메시지 왕복과 70판 호환 낮추기", () => {
+    expect(HOUSE_CITY_TAX_PROTOCOL_VERSION).toBe(71);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(HOUSE_CITY_TAX_PROTOCOL_VERSION);
+    const policy = {
+      t: "house_city_tax_policy",
+      id: 20,
+      cityId: 9,
+      amount: "250",
+      periodDays: 7,
+      setter: "mayor",
+    } as const;
+    const clear = {
+      t: "house_city_tax_policy",
+      id: 21,
+      cityId: 9,
+      amount: null,
+      periodDays: null,
+      setter: null,
+    } as const;
+    const pay = { t: "house_city_tax_pay", id: 22 } as const;
+    for (const msg of [policy, clear, pay]) expect(decodeClientMessage(encodeMessage(msg))).toEqual(msg);
+    expect(decodes(decodeClientMessage, { ...policy, amount: "-10" })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...policy, setter: "auto" })).toBe(false);
+    expect(legacyHouseMemberAction("city_tax_policy_set", 71)).toBe("city_tax_policy_set");
+    expect(legacyHouseMemberAction("city_tax_policy_set", 70)).toBe("tax_set");
+    expect(legacyHouseMemberAction("city_tax_paid", 70)).toBe("tax_set");
+    expect(legacyHouseMemberCode("invalid_period", 71)).toBe("invalid_period");
+    expect(legacyHouseMemberCode("invalid_period", 70)).toBe("busy");
+    expect(legacyHouseMemberCode("no_debt", 70)).toBe("busy");
   });
 });

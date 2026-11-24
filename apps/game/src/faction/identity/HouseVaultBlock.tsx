@@ -29,6 +29,8 @@ const LOG_KIND_TEXT: Readonly<Record<string, () => string>> = {
   business_settle: m.fid_house_vault_log_tax,
   labor_wage: m.fid_house_vault_log_tax,
   house_entry: m.fid_house_vault_log_entry,
+  house_city_tax: m.fid_house_vault_log_city_tax,
+  house_city_tax_pay: m.fid_house_vault_log_city_tax,
 };
 
 /** 장부 한 줄의 종류 문구(모르는 종류는 "그 밖") */

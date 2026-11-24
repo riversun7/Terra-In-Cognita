@@ -27,6 +27,7 @@ import {
   moveHouseHome,
 } from "./houseEntry.ts";
 import { electedNationOf, ruledBy } from "./houseEntryPolicy.ts";
+import { readGovernmentHouseCityTax } from "./houseCityTax.ts";
 import { cityHome, houseHasCity, houseHomeRow } from "./houseHome.ts";
 import {
   type HouseMemberResult,
@@ -757,14 +758,17 @@ export async function readCityMembership(
         house_name: string;
         leader_name: string | null;
         member_count: number;
+        tax_debt: string | null;
       }>(
         `select h.faction_id as house_id, p.name as house_name,
                 (select c.name from house_members l join cyborgs c on c.user_id = l.user_id
                   where l.faction_id = h.faction_id and l.role = 'leader' limit 1) as leader_name,
-                (select count(*)::int from house_members m where m.faction_id = h.faction_id) as member_count
+                (select count(*)::int from house_members m where m.faction_id = h.faction_id) as member_count,
+                s.debt::text as tax_debt
            from house_homes h
            join factions f on f.id = h.faction_id and f.kind = 'player' and f.dissolved_at_ms is null
            join faction_profiles p on p.faction_id = h.faction_id
+           left join house_city_tax_state s on s.faction_id = h.faction_id and s.city_id = h.city_id
           where h.city_id = $1
           order by member_count desc, h.faction_id
           limit 100`,
@@ -786,8 +790,16 @@ export async function readCityMembership(
       leaderName: row.leader_name,
       memberCount: row.member_count,
       own: mine?.factionId === Number(row.house_id),
+      ...(row.tax_debt && row.tax_debt !== "0" ? { taxDebt: row.tax_debt } : {}),
     }));
   }
+
+  const houseCityTax = await readGovernmentHouseCityTax(q, {
+    cityId: city.id,
+    nationId: city.nationId,
+    viewerHouseId: mine?.factionId ?? null,
+    viewerIsLeader: mine?.role === "leader",
+  });
 
   return {
     approver,
@@ -802,5 +814,6 @@ export async function readCityMembership(
     applications,
     houses,
     blacklist,
+    houseCityTax,
   };
 }

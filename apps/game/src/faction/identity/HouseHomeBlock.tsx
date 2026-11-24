@@ -5,7 +5,7 @@
 //   지원금)과 "원치 않으면 그 전에 가문을 나갈 수 있다"를 보이고, 가문장에게는 [공고 거두기](지금 소속 도시를 다시 보낸다)를 준다.
 // - 무소속(가문 없음): 내 도시가 소속 도시이고 개인 세금을 낸다는 안내, 유닛을 고용하려면 가문이 필요하다는 안내.
 // docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-15, D-565)"
-import type { HouseHomeView } from "@terra/shared/house";
+import type { HouseCityTaxView, HouseHomeView } from "@terra/shared/house";
 import { useId, useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import { formatAmount } from "../../roster/rosterText.ts";
@@ -17,9 +17,11 @@ export function HouseHomeBlock({
   inHouse,
   leader,
   memberCount = 1,
+  cityTax,
   busy,
   onChange,
   onLeaveCity,
+  onPayCityTax,
 }: {
   home: HouseHomeView;
   /** 가문에 들어 있나(아니면 무소속 안내) */
@@ -27,10 +29,14 @@ export function HouseHomeBlock({
   leader: boolean;
   /** 가문원 수(1인 가문은 공고 없이 바로 가입·이동한다 — ADR 2026-11-24-house-membership-separation.md) */
   memberCount?: number;
+  /** 가문 도시세 현황(소속 도시에 내는 일정액 세금·체납 빚 — ADR 2026-11-25-house-city-tax.md) */
+  cityTax?: HouseCityTaxView | null | undefined;
   busy: boolean;
   onChange: (cityId: number) => void;
   /** 소속 도시 탈퇴(ADR 2026-11-25) */
   onLeaveCity?: () => void;
+  /** 가문 도시세 체납 빚 납부(ADR 2026-11-25-house-city-tax.md) */
+  onPayCityTax?: () => void;
 }) {
   const id = useId();
   const [picked, setPicked] = useState(String(home.city?.id ?? home.choices[0]?.id ?? ""));
@@ -66,6 +72,46 @@ export function HouseHomeBlock({
       <h3 className="fid-house-sub">{m.fid_home_title()}</h3>
       <p data-part="house-home-city">{m.fid_home_current({ where })}</p>
       <p className="faction-muted">{m.fid_home_hint()}</p>
+      {cityTax ? (
+        <div className="fid-house-block" data-part="house-city-tax">
+          <h4 className="fid-house-sub">{m.fid_house_city_tax_title()}</h4>
+          <p>
+            {cityTax.amount === "0"
+              ? m.fid_house_city_tax_free()
+              : m.fid_house_city_tax_line({
+                  days: cityTax.periodDays,
+                  amount: formatAmount(cityTax.amount),
+                })}
+          </p>
+          {cityTax.nextDueAtMs !== null ? (
+            <p className="faction-muted">
+              {m.fid_house_city_tax_next({ when: dateText(cityTax.nextDueAtMs) })}
+            </p>
+          ) : null}
+          {cityTax.debt !== "0" ? (
+            <div className="fid-house-actions">
+              <p className="field-error" role="alert" data-part="house-city-tax-debt">
+                {m.fid_house_city_tax_debt({
+                  amount: formatAmount(cityTax.debt),
+                  cycles: cityTax.missedCycles,
+                })}
+              </p>
+              {leader && onPayCityTax ? (
+                <button
+                  type="button"
+                  className="button-small button-primary"
+                  aria-disabled={busy}
+                  onClick={() => {
+                    if (!busy) onPayCityTax();
+                  }}
+                >
+                  {m.fid_house_city_tax_pay()}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       {leader && home.locked ? <p className="faction-muted">{m.fid_home_locked()}</p> : null}
       {pending ? (
         // 공고 중(D-570): 새 도시·옮기는 시각·그 나라 정책, 원치 않으면 그 전에 나간다

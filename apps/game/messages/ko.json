@@ -922,6 +922,7 @@
   "planet_resource_loading": "자원 분포를 받는 중…",
   "planet_resource_failed": "자원 분포를 받지 못했습니다.",
   "planet_territory_capital": "수도",
+  "planet_territory_mine": "내 나라",
   "planet_territory_city": "도시",
   "planet_territory_none": "아직 아는 영토가 없습니다.",
   "planet_territory_known": "국가 영토는 도시 원(지금 배후지 기준)과 가까운 같은 국가 도시 사이 땅이고, 도시 소유 영토 비콘이 그 외곽선을 넓힙니다. 다른 국가와 겹친 곳은 영향력 비율(거리 ÷ 원 크기)이 작은 도시가 차지합니다. 비콘 놓기·세금·지방도 이 영토로 정합니다. 아는 도시만 보입니다.",

@@ -631,6 +631,7 @@ function PlanetMapView({
           territory={layers.territory}
           relations={world.relations}
           focusedFactionId={activeFocusFaction}
+          myFactionId={world.myFactionId}
           layer={layer}
           me={shownMe}
           meMoving={travel?.state === "going"}

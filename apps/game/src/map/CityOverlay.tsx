@@ -19,6 +19,7 @@ import { NationEmblem } from "../ui/NationEmblem.tsx";
 import { MapIcon } from "./mapIcons.tsx";
 import { nationHex, nationStyle } from "./nationColor.ts";
 import { type LabelSize, placeLabels, projectTerritory } from "./territoryDraw.ts";
+import type { TerritoryLabelSpot } from "./territoryShapes.ts";
 import { type TerritoryView, territoryViewOf } from "./territoryView.ts";
 import { placeMyUnits, projectMyRoutes } from "./unitOverlay.ts";
 import {
@@ -55,6 +56,8 @@ interface CityOverlayProps {
   readonly relations?: readonly WorldMapRelation[] | undefined;
   /** 지금 강조해서 보는 국가 ID(고른 도시 국가 또는 세력 현황에서 고른 국가) */
   readonly focusedFactionId?: number | null | undefined;
+  /** 내가 속한 국가 ID(영토·이름표를 따로 강조한다). 없으면 강조하지 않는다 */
+  readonly myFactionId?: number | null | undefined;
   /** 지금 레이어(지형·기후·고도·자원·영토). 없으면 terrain */
   readonly layer?: PlanetLayer | undefined;
   /** 내 사이보그 자리(없으면 그리지 않는다) */
@@ -134,6 +137,7 @@ export function CityOverlay(props: CityOverlayProps) {
     relations,
     selected,
     focusedFactionId = null,
+    myFactionId = null,
     register,
     requestFrame,
     milliPerRadian,
@@ -145,6 +149,8 @@ export function CityOverlay(props: CityOverlayProps) {
   // 이름표 크기(px) — 국가·외교가 바뀌거나 글꼴이 다 열리면 다시 잰다
   const labelSizes = useRef(new Map<number, LabelSize>());
   const measureRetryRef = useRef(0);
+  // 국가마다 지난 프레임에 고른 이름표 후보 번호(자리를 붙잡아 확대·이동 중에 튀지 않게, territoryDraw.ts placeLabels)
+  const labelSlots = useRef(new Map<number, number>());
   const meRef = useRef<HTMLButtonElement>(null);
   /** 내 비본체 유닛 핀(유닛 ID → 버튼 요소) */
   const awayRefs = useRef(new Map<number, HTMLButtonElement>());
@@ -198,7 +204,23 @@ export function CityOverlay(props: CityOverlayProps) {
       aboardId: null,
     }));
   }, [props.myUnits, props.away]);
-  const derivedRef = useRef({ warPairs: warInfo.pairs, diplomacyArcs, fallbacks, ownedOtherUnits });
+  // 이름표 자리 차례: 내 국가 먼저(가장 좋은 자리), 그다음 넓은 국가
+  const labelSpots = useMemo(
+    (): readonly TerritoryLabelSpot[] =>
+      myFactionId === null
+        ? territory.labels
+        : territory.labels.toSorted(
+            (a, b) => Number(b.factionId === myFactionId) - Number(a.factionId === myFactionId),
+          ),
+    [territory, myFactionId],
+  );
+  const derivedRef = useRef({
+    warPairs: warInfo.pairs,
+    diplomacyArcs,
+    fallbacks,
+    ownedOtherUnits,
+    labelSpots,
+  });
 
   const factionById = useMemo(() => new Map(factions.map((entry) => [entry.id, entry])), [factions]);
   const cityCounts = useMemo(() => {
@@ -228,8 +250,12 @@ export function CityOverlay(props: CityOverlayProps) {
     latest.current = props;
     const changedShapes = model.current !== territory;
     model.current = territory;
-    derivedRef.current = { warPairs: warInfo.pairs, diplomacyArcs, fallbacks, ownedOtherUnits };
-    if (before.factions !== props.factions || before.relations !== props.relations) {
+    derivedRef.current = { warPairs: warInfo.pairs, diplomacyArcs, fallbacks, ownedOtherUnits, labelSpots };
+    if (
+      before.factions !== props.factions ||
+      before.relations !== props.relations ||
+      before.myFactionId !== props.myFactionId
+    ) {
       labelSizes.current.clear();
       measureRetryRef.current = 0;
     }
@@ -238,6 +264,7 @@ export function CityOverlay(props: CityOverlayProps) {
       before.cities !== props.cities ||
       before.selected !== props.selected ||
       before.focusedFactionId !== props.focusedFactionId ||
+      before.myFactionId !== props.myFactionId ||
       before.me !== props.me ||
       before.meMoving !== props.meMoving ||
       before.away !== props.away ||
@@ -270,6 +297,7 @@ export function CityOverlay(props: CityOverlayProps) {
         diplomacyArcs: arcs,
         fallbacks: labelFallbacks,
         ownedOtherUnits: otherUnits,
+        labelSpots: spotOrder,
       } = derivedRef.current;
       const { width, height } = projector.viewport;
       const shown: { readonly city: WorldMapCity; readonly point: ProjectedPoint; count: number }[] = [];
@@ -374,21 +402,28 @@ export function CityOverlay(props: CityOverlayProps) {
           ? [
               mePoint,
               { x: mePoint.x, y: mePoint.y - 34 },
-              { x: mePoint.x - 32, y: mePoint.y - 34 },
-              { x: mePoint.x + 32, y: mePoint.y - 34 },
+              { x: mePoint.x - 26, y: mePoint.y - 34 },
+              { x: mePoint.x + 26, y: mePoint.y - 34 },
+              { x: mePoint.x - 52, y: mePoint.y - 34 },
+              { x: mePoint.x + 52, y: mePoint.y - 34 },
             ]
           : [];
       const spots = placeLabels(
         projector,
-        shapes.labels,
+        spotOrder,
         labelSizes.current,
         [...shown.map((entry) => entry.point), ...diplomacy.clashes, ...meAvoid],
         labelFallbacks,
+        labelSlots.current,
       );
+      labelSlots.current.clear();
       for (const [nation, label] of labels) {
         const spot = spots.get(nation);
         label.dataset.shown = spot ? "true" : "false";
-        if (spot) place(label, spot);
+        if (spot) {
+          place(label, spot);
+          labelSlots.current.set(nation, spot.slot);
+        }
       }
 
       // 도시 이름표: 수도·선택 도시·교전 도시 우선 배치(국가 이름표와 겹치지 않게)
@@ -515,6 +550,7 @@ export function CityOverlay(props: CityOverlayProps) {
               data-nation={factionColor(factions, nation)}
               data-pattern={patterned ? "hatch" : undefined}
               data-focused={isFocused ? "true" : undefined}
+              data-mine={myFactionId === nation ? "true" : undefined}
               style={patterned ? { ...style, fill: `url(#${patternId(nation)})` } : style}
             />
           );
@@ -528,6 +564,7 @@ export function CityOverlay(props: CityOverlayProps) {
             }}
             className="city-area-edge-shadow"
             data-focused={focusedFactionId === nation ? "true" : undefined}
+            data-mine={myFactionId === nation ? "true" : undefined}
           />
         ))}
         {/* 국가 경계 받침: 두 국가가 맞닿은 선만 판색으로 깔고 그 위에 국가 색 선 */}
@@ -541,6 +578,7 @@ export function CityOverlay(props: CityOverlayProps) {
             className="city-area-edge"
             data-nation={factionColor(factions, nation)}
             data-focused={focusedFactionId === nation ? "true" : undefined}
+            data-mine={myFactionId === nation ? "true" : undefined}
             data-war={warInfo.warringFactions.has(nation) ? "true" : undefined}
             style={nationStyle(factions, nation)}
           />
@@ -615,6 +653,7 @@ export function CityOverlay(props: CityOverlayProps) {
             data-scale={scale}
             data-war={atWar ? "true" : undefined}
             data-focused={focusedFactionId === nation ? "true" : undefined}
+            data-mine={myFactionId === nation ? "true" : undefined}
             data-shown="false"
             aria-hidden="true"
           >
@@ -628,6 +667,9 @@ export function CityOverlay(props: CityOverlayProps) {
               />
             ) : null}
             <span className="city-area-label-name">{factionName(factions, nation)}</span>
+            {myFactionId === nation ? (
+              <span className="city-area-label-mine">{m.planet_territory_mine()}</span>
+            ) : null}
             {atWar ? (
               <span className="city-area-label-war" aria-hidden="true">
                 <MapIcon name="swords" className="city-area-label-war-icon" />

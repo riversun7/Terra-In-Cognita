@@ -17,7 +17,9 @@ export const MIN_BLOB_PX = 12;
 /** 이름표 사이 여유(px) */
 const LABEL_GAP_PX = 4;
 /** 도시 표시 둘레 피할 반지름(px, 표시 점 + 테두리) */
-const MARKER_AVOID_PX = 12;
+const MARKER_AVOID_PX = 14;
+/** 붙잡은 자리에서 더 앞 후보로 돌아갈 때 더 비어 있어야 하는 여유(px) */
+const STICKY_MARGIN_PX = 12;
 
 /** 화면 반지름(px) → 고리 점 솎기 간격 */
 export function vertexStep(radiusPx: number): number {
@@ -162,10 +164,22 @@ const nearViewport = (point: ProjectedPoint, width: number, height: number): boo
   point.y >= -EDGE_REACH_Y_PX &&
   point.y <= height + EDGE_REACH_Y_PX;
 
+/** 이름표 자리 하나: 이름표 가운데 화면 점 + 고른 후보 번호(다음 프레임에 그대로 넘겨 자리를 붙잡는다) + 크기 */
+export interface LabelPlace {
+  readonly x: number;
+  readonly y: number;
+  readonly slot: number;
+  readonly width: number;
+  readonly height: number;
+}
+
 /**
- * 국가 이름표 자리(이름표 가운데 화면 점). 넓은 국가부터(spots 차례) 후보 자리 가운데 다른 이름표·피할 점(보이는 도시 표시)과 겹치지 않고
- * 화면 안인 첫 자리를 고른다. 영토 중심이 화면 가장자리 바깥 살짝 걸쳤거나 다른 덩이 도시만 화면 안에 있을 때도 보이는 기준점으로 당겨
- * 국가 이름이 사라지지 않게 한다.
+ * 국가 이름표 자리(이름표 가운데 화면 점). spots 차례로(앞이 먼저 좋은 자리를 받는다) 영토 가운데 바로 둘레 후보 가운데 다른 이름표·피할 점
+ * (보이는 도시 표시)과 겹치지 않고 화면 안인 첫 자리를 고른다. 영토 중심이 화면 가장자리 바깥 살짝 걸쳤거나 다른 덩이 도시만 화면 안에 있을 때도
+ * 보이는 기준점으로 당겨 국가 이름이 사라지지 않게 한다.
+ * - 후보는 영토 가운데 바로 둘레만 둔다(멀리 밀려 남의 영토 위에 얹히지 않게). 다 막히면 이름표끼리만 피하고 표시를 가장 적게 가리는 자리.
+ * - sticky(지난 프레임에 고른 후보 번호)를 주면 그 자리가 비어 있는 동안 그대로 둔다. 더 앞 후보로는 여유(STICKY_MARGIN_PX)까지 비었을 때만
+ *   돌아간다 — 확대·이동 중에 이름표가 두 자리 사이를 오가지 않는다.
  */
 export function placeLabels(
   projector: PlanetProjector,
@@ -173,7 +187,8 @@ export function placeLabels(
   sizes: ReadonlyMap<number, LabelSize>,
   avoid: readonly { readonly x: number; readonly y: number }[],
   fallbacks?: ReadonlyMap<number, readonly LatLon[]>,
-): Map<number, { x: number; y: number }> {
+  sticky?: ReadonlyMap<number, number>,
+): Map<number, LabelPlace> {
   const { width, height } = projector.viewport;
   const markers: Box[] = avoid.map((point) => ({
     left: point.x - MARKER_AVOID_PX,
@@ -182,7 +197,7 @@ export function placeLabels(
     bottom: point.y + MARKER_AVOID_PX,
   }));
   const labels: Box[] = [];
-  const placed = new Map<number, { x: number; y: number }>();
+  const placed = new Map<number, LabelPlace>();
   for (const spot of spots) {
     const size = sizes.get(spot.factionId);
     if (!size || size.width <= 0) continue;
@@ -205,36 +220,72 @@ export function placeLabels(
     const maxY = Math.max(height / 2, height - size.height / 2 - EDGE_PAD_BOTTOM_PX);
     const clampX = (x: number): number => Math.min(maxX, Math.max(minX, x));
     const clampY = (y: number): number => Math.min(maxY, Math.max(minY, y));
-    const ax = clampX(point.x);
-    const ay = clampY(point.y);
-    const boxAt = (x: number, y: number): Box => ({
-      left: x - size.width / 2,
-      right: x + size.width / 2,
-      top: y - size.height / 2,
-      bottom: y + size.height / 2,
-    });
-    const inside = (box: Box): boolean =>
-      box.left >= 0 && box.top >= 0 && box.right <= width && box.bottom <= height;
-    const free = (box: Box): boolean => inside(box) && !labels.some((other) => overlaps(box, other));
-    // 가운데 → 위 → 아래 → 두 칸 위·아래 → 좌우 → 대각선 순으로 도시 표시도 피하는 첫 자리, 없으면 다른 국가 이름표만 피하는 첫 자리
-    const stepY = size.height + MARKER_AVOID_PX;
-    const stepX = size.width / 2 + MARKER_AVOID_PX * 1.5;
+    const boxAt = (dx: number, dy: number): Box => {
+      const x = clampX(point.x + dx);
+      const y = clampY(point.y + dy);
+      return {
+        left: x - size.width / 2,
+        right: x + size.width / 2,
+        top: y - size.height / 2,
+        bottom: y + size.height / 2,
+      };
+    };
+    // 가운데 → 위 → 아래 → 오른쪽 → 왼쪽 → 대각선 넷. 도시 표시에 딱 붙는 거리만큼만 비킨다
+    const stepY = size.height / 2 + MARKER_AVOID_PX + LABEL_GAP_PX + 2;
+    const stepX = size.width / 2 + MARKER_AVOID_PX + LABEL_GAP_PX + 2;
+    const sideX = size.width / 2;
     const candidates = [
-      boxAt(ax, ay),
-      boxAt(ax, clampY(point.y - stepY)),
-      boxAt(ax, clampY(point.y + stepY)),
-      boxAt(ax, clampY(point.y - 2 * stepY)),
-      boxAt(ax, clampY(point.y + 2 * stepY)),
-      boxAt(clampX(point.x + stepX), ay),
-      boxAt(clampX(point.x - stepX), ay),
-      boxAt(clampX(point.x + stepX * 0.7), clampY(point.y - stepY)),
-      boxAt(clampX(point.x - stepX * 0.7), clampY(point.y - stepY)),
+      boxAt(0, 0),
+      boxAt(0, -stepY),
+      boxAt(0, stepY),
+      boxAt(stepX, 0),
+      boxAt(-stepX, 0),
+      boxAt(sideX, -stepY),
+      boxAt(-sideX, -stepY),
+      boxAt(sideX, stepY),
+      boxAt(-sideX, stepY),
+      // 둘레가 도시로 빽빽할 때만: 한 줄 더 위·아래
+      boxAt(0, -stepY - size.height - LABEL_GAP_PX),
+      boxAt(0, stepY + size.height + LABEL_GAP_PX),
     ];
-    const chosen =
-      candidates.find((box) => free(box) && !markers.some((marker) => overlaps(box, marker))) ??
-      candidates.find((box) => free(box));
+    const before = sticky?.get(spot.factionId) ?? -1;
+    const grown = (box: Box, by: number): Box =>
+      by === 0
+        ? box
+        : { left: box.left - by, right: box.right + by, top: box.top - by, bottom: box.bottom + by };
+    // 지난 자리보다 앞 후보는 여유까지 비어야 돌아간다
+    const reach = (box: Box, index: number): Box =>
+      grown(box, before >= 0 && index < before ? STICKY_MARGIN_PX : 0);
+    const open = (box: Box, index: number): boolean =>
+      box.left >= 0 &&
+      box.top >= 0 &&
+      box.right <= width &&
+      box.bottom <= height &&
+      !labels.some((other) => overlaps(reach(box, index), other));
+    const hits = (box: Box, index: number): number =>
+      markers.reduce((count, marker) => count + Number(overlaps(reach(box, index), marker)), 0);
+    let slot = candidates.findIndex((box, index) => open(box, index) && hits(box, index) === 0);
+    if (slot < 0) {
+      // 다 막혔으면 이름표끼리만 피하고 도시 표시를 가장 적게 가리는 자리(같으면 붙잡은 자리, 그다음 앞 후보)
+      let fewest = Number.POSITIVE_INFINITY;
+      candidates.forEach((box, index) => {
+        if (!open(box, index)) return;
+        const count = hits(box, index) - (index === before ? 0.5 : 0);
+        if (count < fewest) {
+          fewest = count;
+          slot = index;
+        }
+      });
+    }
+    const chosen = candidates[slot];
     if (!chosen) continue;
-    placed.set(spot.factionId, { x: (chosen.left + chosen.right) / 2, y: (chosen.top + chosen.bottom) / 2 });
+    placed.set(spot.factionId, {
+      x: (chosen.left + chosen.right) / 2,
+      y: (chosen.top + chosen.bottom) / 2,
+      slot,
+      width: size.width,
+      height: size.height,
+    });
     labels.push(chosen);
   }
   return placed;

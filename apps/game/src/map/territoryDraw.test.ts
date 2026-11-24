@@ -64,4 +64,40 @@ describe("영토 프레임 그리기", () => {
     expect(Math.abs((a?.y ?? 0) - (b?.y ?? 0)) >= 20 || Math.abs((a?.x ?? 0) - (b?.x ?? 0)) >= 80).toBe(true);
     expect(placeLabels(projector, shapes.labels, new Map(), []).size).toBe(0);
   });
+
+  it("국가 이름표: 도시 표시와 겹치면 바로 위로만 비키고, 멀리 밀려나지 않는다", () => {
+    const projector = flatProjector(40);
+    const sizes = new Map([[20, { width: 80, height: 20 }]]);
+    const spot = shapes.labels.filter((entry) => entry.factionId === 20);
+    const centre = projector.project(spot[0]?.latDeg ?? 0, spot[0]?.lonDeg ?? 0);
+    const free = placeLabels(projector, spot, sizes, []).get(20);
+    expect(free?.slot).toBe(0);
+    const moved = placeLabels(projector, spot, sizes, [{ x: centre?.x ?? 0, y: centre?.y ?? 0 }]).get(20);
+    expect(moved?.slot).toBe(1);
+    expect(moved?.x).toBeCloseTo(centre?.x ?? 0);
+    // 이름표 아래 끝이 표시 바로 위(이름표 높이 한 개 안쪽)
+    expect((centre?.y ?? 0) - (moved?.y ?? 0)).toBeLessThan(20 + 20);
+  });
+
+  it("국가 이름표: 붙잡은 자리는 비어 있는 동안 그대로, 앞 후보는 여유까지 비어야 돌아간다", () => {
+    const projector = flatProjector(40);
+    const sizes = new Map([[20, { width: 80, height: 20 }]]);
+    const spot = shapes.labels.filter((entry) => entry.factionId === 20);
+    const centre = projector.project(spot[0]?.latDeg ?? 0, spot[0]?.lonDeg ?? 0);
+    const cx = centre?.x ?? 0;
+    const cy = centre?.y ?? 0;
+    const held = new Map([[20, 1]]);
+    // 가운데(후보 0)를 겨우 비킨 표시: 처음이면 가운데를 고르지만, 위(1)를 붙잡고 있으면 그대로 둔다
+    const nearby = [{ x: cx, y: cy + 10 + 14 + 4 + 6 }];
+    expect(placeLabels(projector, spot, sizes, nearby).get(20)?.slot).toBe(0);
+    expect(placeLabels(projector, spot, sizes, nearby, undefined, held).get(20)?.slot).toBe(1);
+    // 둘레가 충분히 비면 가운데로 돌아간다
+    expect(placeLabels(projector, spot, sizes, [], undefined, held).get(20)?.slot).toBe(0);
+    // 붙잡은 자리가 막히면 다른 자리로
+    const blocked = [
+      { x: cx, y: cy },
+      { x: cx, y: placeLabels(projector, spot, sizes, [{ x: cx, y: cy }]).get(20)?.y ?? 0 },
+    ];
+    expect(placeLabels(projector, spot, sizes, blocked, undefined, held).get(20)?.slot).toBe(2);
+  });
 });

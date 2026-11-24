@@ -136,6 +136,29 @@
   stroke-width: calc(var(--border-w) * 2.8);
 }
 
+/* 내가 속한 국가: 어느 레이어·단계에서도 한눈에 — 진한 칠 + 밝은 바깥 띠(내 사이보그 표시와 같은 색) + 굵은 국가 색 국경선.
+   이름표에는 "내 나라" 딱지를 붙여 색에만 기대지 않는다 */
+.city-overlay .city-area-fill[data-mine="true"] {
+  fill-opacity: 0.4;
+}
+.city-overlay[data-emphasis="territory"] .city-area-fill[data-mine="true"] {
+  fill-opacity: 0.62;
+}
+.city-overlay[data-layer="elevation"] .city-area-fill[data-mine="true"],
+.city-overlay[data-layer="climate"] .city-area-fill[data-mine="true"],
+.city-overlay[data-layer="resource"] .city-area-fill[data-mine="true"] {
+  fill-opacity: 0.2;
+}
+.city-overlay .city-area-edge-shadow[data-mine="true"] {
+  stroke: var(--color-space-focus);
+  stroke-width: calc(var(--border-w) * 6.4);
+  opacity: 0.95;
+}
+.city-overlay .city-area-edge[data-mine="true"] {
+  stroke-width: calc(var(--border-w) * 2.8);
+  opacity: 1;
+}
+
 /* 전쟁 중인 국경선(맞닿은 교전 국경) & 세력 외교·전선 호 */
 @keyframes planet-war-march {
   from {
@@ -239,7 +262,8 @@
   position: absolute;
   top: 0;
   left: 0;
-  z-index: 1;
+  /* 도시·수도 표시(z-index 1~2)와 도시 이름 위에 쌓는다 — 축소 화면에서 국가 이름이 표시 뒤로 묻히지 않게. 고른 도시·내 유닛 표시는 그 위 */
+  z-index: 3;
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
@@ -274,8 +298,25 @@
     0 var(--hairline) var(--space-2) color-mix(in srgb, var(--color-space) 65%, transparent),
     0 0 var(--space-3) color-mix(in srgb, var(--color-danger) 55%, transparent);
 }
+.city-area-label[data-mine="true"] {
+  border-color: var(--color-space-focus);
+  background-color: color-mix(in srgb, var(--color-space-panel) 94%, transparent);
+  box-shadow:
+    0 0 0 var(--border-w) var(--color-space-focus),
+    0 0 var(--space-3) color-mix(in srgb, var(--color-space-focus) 60%, transparent);
+}
+.city-area-label-mine {
+  flex: none;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-space-focus);
+  color: var(--color-space);
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: 0;
+}
 .city-area-label[data-focused="true"] {
-  z-index: 2;
   border-color: var(--color-space-current);
   background-color: color-mix(in srgb, var(--color-space-panel) 94%, transparent);
 }

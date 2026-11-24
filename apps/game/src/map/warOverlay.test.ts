@@ -96,6 +96,12 @@ describe("1차맵 전쟁 전선·외교 호·도시 이름 우선순위", () => 
     expect(visible.has(capital.id)).toBe(true);
     expect(visible.has(town.id)).toBe(false);
     expect(visible.has(farTown.id)).toBe(true);
+    // 국가 이름표(도시 표시 위에 쌓인다)와 겹치는 도시 이름은 수도라도 양보한다. 떨어져 있으면 그대로
+    const under = new Map([[1, { x: 220, y: 223, width: 120, height: 30 }]]);
+    expect(selectCityLabelIds(shown, null, under).has(capital.id)).toBe(false);
+    expect(selectCityLabelIds(shown, null, under).has(farTown.id)).toBe(true);
+    const above = new Map([[1, { x: 220, y: 173, width: 120, height: 30 }]]);
+    expect(selectCityLabelIds(shown, null, above).has(capital.id)).toBe(true);
   });
 
   it("국가 대체 기준점은 수도 우선이고, 규모 등급은 도시 수를 따른다", () => {

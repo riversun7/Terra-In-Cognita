@@ -256,6 +256,10 @@ interface CityLabelEntry {
   readonly count: number;
 }
 
+/** 도시 이름표 어림 반 크기(px) — 국가 이름표와 겹침을 볼 때 */
+const CITY_NAME_HALF_W_PX = 34;
+const CITY_NAME_HALF_H_PX = 9;
+
 /**
  * 우선순위 기반 도시 이름표 고르기(수도·선택 도시·교전 도시가 먼저 이름을 띄우고 서로 안 겹치는 도시만 추가).
  * 예전처럼 가까운 두 도시가 서로 이름을 지워 버려 수도 이름까지 사라지는 문제를 없앤다.
@@ -263,7 +267,10 @@ interface CityLabelEntry {
 export function selectCityLabelIds(
   shown: readonly CityLabelEntry[],
   selectedCityId: number | null,
-  nationLabelPoints: ReadonlyMap<number, { readonly x: number; readonly y: number }>,
+  nationLabelPoints: ReadonlyMap<
+    number,
+    { readonly x: number; readonly y: number; readonly width?: number; readonly height?: number }
+  >,
 ): Set<number> {
   const priority = (entry: CityLabelEntry): number => {
     let score = entry.city.grade ?? 1;
@@ -286,13 +293,13 @@ export function selectCityLabelIds(
         (other) => Math.abs(other.x - entry.point.x) < 74 && Math.abs(other.y - labelY) < 22,
       );
       if (clashesCity) continue;
-      // 일반 도시는 국가 이름표와 겹치면 양보(수도는 유지)
-      if (!entry.city.capital) {
-        const clashesNation = nationSpots.some(
-          (spot) => Math.abs(spot.x - entry.point.x) < 62 && Math.abs(spot.y - labelY) < 22,
-        );
-        if (clashesNation) continue;
-      }
+      // 국가 이름표(도시 표시 위에 쌓인다)와 겹치면 양보한다 — 수도 이름도 가려진 채 남기지 않는다
+      const clashesNation = nationSpots.some(
+        (spot) =>
+          Math.abs(spot.x - entry.point.x) < (spot.width ?? 124) / 2 + CITY_NAME_HALF_W_PX &&
+          Math.abs(spot.y - labelY) < (spot.height ?? 22) / 2 + CITY_NAME_HALF_H_PX,
+      );
+      if (clashesNation) continue;
     }
     visible.add(entry.city.id);
     kept.push({ x: entry.point.x, y: entry.point.y + 18 });

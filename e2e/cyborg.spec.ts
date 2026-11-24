@@ -207,10 +207,19 @@ test.describe("플레이어: 사이보그 화면", () => {
     await expect(locked).toHaveCount(7);
     await expect(locked.first()).toContainText(message("ko", "cyborg_skill_locked", { count: 1 }));
     await expect(page.locator('.cyborg-skill[data-state="empty"]')).toHaveCount(3);
-    // 속성 12칸, 인공장기 3칸·장비 6칸(팩 unit_kinds)
+    // 속성 12칸, 인공장기 10칸·일반장비 10칸(팩 unit_kinds — 옛 프로젝트 칸 수, docs/adr/2026-11-24-unit-cyborg-unify.md)
     await expect(page.locator(".cyborg-element")).toHaveCount(12);
-    await expect(page.locator('.cyborg-slot-group[data-side="organ"] .cyborg-slot')).toHaveCount(3);
-    await expect(page.locator('.cyborg-slot-group[data-side="gear"] .cyborg-slot')).toHaveCount(6);
+    const organs = page.locator('.cyborg-slot-group[data-side="organ"] .cyborg-slot');
+    const gear = page.locator('.cyborg-slot-group[data-side="gear"] .cyborg-slot');
+    await expect(organs).toHaveCount(10);
+    await expect(gear).toHaveCount(10);
+    // 화면 차례: 인공장기 = 헤드 … 임플란트 5, 일반장비 = 헬멧 … 목걸이
+    await expect(organs.first()).toContainText(message("ko", "roster_slot_organ_head"));
+    await expect(organs.last()).toContainText(
+      message("ko", "roster_slot_numbered", { slot: message("ko", "roster_slot_implant"), number: 5 }),
+    );
+    await expect(gear.first()).toContainText(message("ko", "roster_slot_head"));
+    await expect(gear.last()).toContainText(message("ko", "roster_slot_necklace"));
     await expect(page.locator(".cyborg-footer")).toContainText("E2EPlayer");
 
     expect(await horizontalOverflow(page)).toEqual([]);

@@ -1,7 +1,7 @@
 // 홈 [내 사이보그] 바이오-텔레메트리 도시에 카드 — 이름·상태 칩, 클릭형 경험치 진행 줄 + 상세 팝오버,
 // 2열 전투 자원 포드(HP·MP), 1차 스탯 6종(STR 진홍·VIT 주황·INT 파랑·WIS 보라·DEX 순수 노랑·AGI 초록) 정밀 막대.
 import type { CyborgBody, RosterNames } from "@terra/shared/roster";
-import { PRIMARY_STATS } from "@terra/shared/roster";
+import { PRIMARY_STATS, isOrganSlot } from "@terra/shared/roster";
 import { useEffect, useId, useRef, useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import { localName } from "../../roster/rosterText.ts";
@@ -70,8 +70,8 @@ function CyborgTelemetry({ name, body, names }: { name: string; body: CyborgBody
   const statScale = Math.max(40, Math.ceil(Math.max(...statTotals, 1) * 1.18));
 
   const skills = body.skills.list.slice(0, 3);
-  const organSlots = body.slots.filter((entry) => entry.slot === "organ");
-  const gearSlots = body.slots.filter((entry) => entry.slot !== "organ");
+  const organSlots = body.slots.filter((entry) => isOrganSlot(entry.slot));
+  const gearSlots = body.slots.filter((entry) => !isOrganSlot(entry.slot));
   const equippedOrgans = organSlots.filter((entry) => entry.item !== null).length;
   const equippedGear = gearSlots.filter((entry) => entry.item !== null).length;
 

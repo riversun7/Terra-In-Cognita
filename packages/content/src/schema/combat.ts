@@ -4,7 +4,7 @@
 // [임시] 기획 본문 48(스탯·공식)을 받기 전 기술 기본안이다. 칸 이름·부품 종류·수치 범위는 본문이 오면 맞춘다.
 // 칸 목록은 @terra/shared/roster EQUIP_SLOTS 하나다(아이템 편집기 WP-2에서 세 벌을 모았다). 1차 스탯 코드는 sim 시험이 맞춰 본다.
 import { ELEMENT_IDS, ELEMENT_MAX } from "@terra/shared/cyborg";
-import { EQUIP_SLOTS } from "@terra/shared/roster";
+import { EQUIP_SLOTS, PRIMARY_EQUIP_SLOTS } from "@terra/shared/roster";
 import { z } from "zod";
 import { ContentRef, contentId, localizedText, ref } from "./common.ts";
 
@@ -12,7 +12,7 @@ export const PRIMARY_STAT_CODES = ["str", "dex", "agi", "vit", "int", "wis"] as 
 /** 장비 칸 종류(D-422). 목록은 @terra/shared/roster EQUIP_SLOTS 하나다(팩·sim·화면이 같이 쓴다) */
 export const EQUIP_SLOT_KINDS = EQUIP_SLOTS;
 /** 1차 스탯을 올리는 칸(D-423, 48 §5.2: 장신구·인공장기·부품·크리쳐 안장). 나머지 칸은 2차 수치 */
-export const PRIMARY_STAT_SLOTS: readonly string[] = ["accessory", "organ", "part", "saddle"];
+export const PRIMARY_STAT_SLOTS: readonly string[] = PRIMARY_EQUIP_SLOTS;
 /** 장비가 올리지 않는 2차 행(D-438 1 그대로: 스탯 공격력은 1차·장신구·버프만. 무기 몫은 무기 사양이 더한다, D-502) */
 export const GEAR_FORBIDDEN_ROWS: readonly string[] = ["physical_attack", "elemental_attack"];
 

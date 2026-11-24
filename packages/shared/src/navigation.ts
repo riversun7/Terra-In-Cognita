@@ -13,7 +13,9 @@ import { isSavedId } from "./savedId.ts";
  */
 // 인벤토리(사용자 결정 2026-11-14 "당연", docs/adr/2026-11-14-inventory-screen.md): 끝에 더해 기본 탭(앞 4칸)은 그대로다.
 // 저장된 메뉴 순서에 없으면 parseMenu가 끝에 붙인다
-export const NAV_ITEM_IDS = ["home", "map", "units", "economy", "faction", "cyborg", "inventory"] as const;
+// 사이보그(`cyborg`)는 뺐다(사용자 결정 2026-11-24 "사이보그 패널은 아예 없애라 … 유닛에 넣었으니까 중복" — 본체는 유닛 창의 한 줄이다,
+// docs/adr/2026-11-24-unit-cyborg-unify.md). 저장된 메뉴 순서에 남은 `cyborg`는 모르는 항목으로 걸러진다. 이 ID는 다시 쓰지 않는다
+export const NAV_ITEM_IDS = ["home", "map", "units", "economy", "faction", "inventory"] as const;
 
 export type NavItemId = (typeof NAV_ITEM_IDS)[number];
 

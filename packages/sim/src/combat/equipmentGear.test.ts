@@ -26,9 +26,13 @@ const slotsOf = (id: string) => {
 const ZERO12 = Array.from({ length: 12 }, () => 0);
 
 /** 시험 장비(시험 자료 위에 칸만 더한다) */
-const organ = (id: string, elements: EquipDef["elements"]): EquipDef => ({
+const organ = (
+  id: string,
+  elements: EquipDef["elements"],
+  slot: EquipDef["slot"] = "organ_heart",
+): EquipDef => ({
   id,
-  slot: "organ",
+  slot,
   stats: [{ stat: "vit", min: 1, max: 1 }],
   skills: [],
   elements,
@@ -51,7 +55,8 @@ describe("속성값(D-450): 장비 출처를 더하고 칸마다 10에서 자른
   it("자기 값 + 인공장기 둘 = sumElementSources(같은 규칙 하나)", () => {
     const own = { ...zeroElements(), fire: 7, wind: 3, light: 5 };
     const heart = organ("lab_heart", { fire: 2, frost: 3 });
-    const core = organ("lab_core", { fire: 4, crystal: 12 });
+    // 사이보그 칸: 6 = 심장, 7 = 헤드(팩 unit_kinds — 옛 인공장기 자리)
+    const core = organ("lab_core", { fire: 4, crystal: 12 }, "organ_head");
     const slots = slotsOf("cyborg");
     const equipped: (EquippedItem | null)[] = slots.map(() => null);
     equipped[6] = itemAt(heart, 500);
@@ -233,7 +238,7 @@ describe("1차 합 넘침: 던지지 않고 입력 범위(MAX_STAT_INPUT)에서 
   it("장신구 둘이 1차를 범위 밖으로 올려도 2차 계산이 돈다", () => {
     const huge: EquipDef = {
       id: "lab_huge_ring",
-      slot: "accessory",
+      slot: "ring",
       stats: [{ stat: "str", min: MAX_STAT_INPUT, max: MAX_STAT_INPUT }],
       skills: [],
     };

@@ -2,6 +2,7 @@
 import { loadContentPack } from "@terra/content/node";
 import { DEFAULT_CHARACTER_LOOK } from "@terra/shared/characterLook";
 import { zeroElements } from "@terra/shared/cyborg";
+import { isOrganSlot } from "@terra/shared/roster";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import type { HomeQuery, TrpcContext, Viewer } from "../trpc/context.ts";
@@ -66,14 +67,18 @@ describe("몸 계산", () => {
     // HP = 0 + (43×1500 + 23×1000 + 24×1500 + 40×3000 + 14×1000 + 20×1200) ÷ 1000 = 281(팩 표 = 기획 48 N1, R4b)
     expect(mina.stats.secondary.find((row) => row.id === "hp")?.value).toBe(281);
     expect(mina.stats.source).toBe("computed");
-    // 칸 배치 = 팩 human 6칸, 장비 4개
+    // 칸 배치 = 팩 human 일반장비 10칸(옛 6칸 뒤에 장갑·신발·토템·목걸이, docs/adr/2026-11-24-unit-cyborg-unify.md), 장비 4개
     expect(mina.slots.map((slot) => slot.slot)).toEqual([
       "weapon",
       "offhand",
       "head",
       "body",
-      "accessory",
-      "accessory",
+      "ring",
+      "ring",
+      "hands",
+      "feet",
+      "totem",
+      "necklace",
     ]);
     expect(mina.slots.filter((slot) => slot.item !== null)).toHaveLength(4);
     // 스킬: 고유 먼저(강타·강철 피부), 칸 = 기본 3
@@ -122,9 +127,12 @@ describe("몸 계산", () => {
     expect(view.slots.every((slot) => slot.item === null)).toBe(true);
   });
 
-  it("사이보그 시안: 공통 6칸 + 인공장기, 환생 1 → 스킬 칸 4·등급 상한 4, 인공 심장은 VIT 보너스", () => {
+  it("사이보그 시안: 일반장비 10칸 + 인공장기 10칸, 환생 1 → 스킬 칸 4·등급 상한 4, 인공 심장은 VIT 보너스", () => {
     const body = previewCyborg(catalog);
-    expect(body.slots.filter((slot) => slot.slot === "organ").length).toBeGreaterThan(0);
+    // 옛 프로젝트 칸 수(사용자 결정 2026-11-24): 인공장기 10(헤드·바디·심장·팔·다리 + 임플란트 5), 일반장비 10
+    expect(body.slots.filter((slot) => isOrganSlot(slot.slot))).toHaveLength(10);
+    expect(body.slots.filter((slot) => !isOrganSlot(slot.slot))).toHaveLength(10);
+    expect(body.slots.filter((slot) => slot.slot === "implant")).toHaveLength(5);
     expect(body.skills.slots).toBe(4);
     expect(body.skillGradeCap).toBe(4);
     // 만렙은 팩 N7, 신앙도는 0~100 척도(D-441)
@@ -213,12 +221,12 @@ describe("몸 계산", () => {
       expect(sum).toBe(body.stats.primaries[stat].base + body.stats.primaries[stat].bonus);
       expect(body.primarySources[stat][0]).toEqual({ kind: "body", value: body.stats.primaries[stat].base });
     }
-    expect(body.primarySources.vit.some((source) => source.kind === "item" && source.slot === "organ")).toBe(
+    expect(
+      body.primarySources.vit.some((source) => source.kind === "item" && source.slot === "organ_heart"),
+    ).toBe(true);
+    expect(body.primarySources.str.some((source) => source.kind === "item" && source.slot === "ring")).toBe(
       true,
     );
-    expect(
-      body.primarySources.str.some((source) => source.kind === "item" && source.slot === "accessory"),
-    ).toBe(true);
   });
 
   it("만든 사이보그: K·처음 값은 만렙(N7)에서만 보낸다(D-449), 그 밖에는 null(D-417 숨김)", () => {
@@ -400,6 +408,131 @@ describe("서비스", () => {
   });
 });
 
+/** 세계 유닛 한 줄(기본: 일 없는 휴먼) */
+const rosterRow = (id: number, extra: Partial<WorldRosterRow>): WorldRosterRow => ({
+  id,
+  type: "human",
+  planetId: "s2_test_planet",
+  mapKey: 1,
+  domain: "land",
+  job: null,
+  fatigue: 0,
+  injury: { stage: 0, untilMs: null },
+  captive: false,
+  moving: false,
+  cargo: [],
+  ...extra,
+});
+
+describe("유닛·사이보그 통합(docs/adr/2026-11-24-unit-cyborg-unify.md)", () => {
+  const record: CyborgRecord = {
+    userId: player.id,
+    name: "새싹로봇",
+    nameKey: "새싹로봇",
+    temperament: "balanced",
+    initial: { str: 12, dex: 9, agi: 10, vit: 11, int: 8, wis: 10 },
+    kPm: { str: 1100, dex: 950, agi: 1000, vit: 1050, int: 900, wis: 1000 },
+    look: DEFAULT_CHARACTER_LOOK,
+    lookAuto: false,
+    factionId: 1,
+    startCityId: 1,
+    unitId: 7,
+    level: 12,
+    exp: 0,
+    rebirths: 1,
+    faith: 0,
+    createdAtMs: NOW,
+    elements: { ...zeroElements(), fire: 6, wind: 4 },
+    religion: null,
+    faithPoints: 0,
+    startGrant: 108n,
+    nationChangedAtMs: null,
+    standings: new Map(),
+  };
+  const services = createRosterServices({
+    catalog,
+    world: fakeWorld([rosterRow(7, { type: "cyborg", self: true }), rosterRow(8, {})]),
+    cyborgs: () => ({
+      record: (userId: string) => (userId === player.id ? record : undefined),
+      livingUnpaid: () => false,
+    }),
+  });
+
+  it("사이보그 본체 종류 코드(3)는 화면 종류 사이보그다", () => {
+    expect(unitTypeOf(3)).toBe("cyborg");
+    expect(unitTypeOf(5)).toBe("cyborg");
+  });
+
+  it("사이보그 본체도 유닛 목록에 든다: self 표, 이름·레벨·환생·스탯은 만든 사이보그의 것", async () => {
+    const list = await services.units(player, own);
+    expect(list.units.map((unit) => unit.id)).toEqual(["w7", "w8"]);
+    const [body, human] = list.units;
+    expect(body).toMatchObject({ self: true, type: "cyborg", name: "새싹로봇", level: 12, rebirths: 1 });
+    expect(body?.stats.source).toBe("computed");
+    // 본체 칸 = 일반장비 10 + 인공장기 10, 휴먼 = 일반장비 10
+    expect(body?.slots).toHaveLength(20);
+    expect(human?.slots).toHaveLength(10);
+    expect(human).toMatchObject({ type: "human", name: null, level: null });
+    expect(human?.self).toBeUndefined();
+    // 초상: 본체 줄만 만든 3D 외형을 싣는다(다른 유닛은 화면이 유닛 ID로 기본 외형을 만든다)
+    expect(body?.look).toEqual(DEFAULT_CHARACTER_LOOK);
+    expect(human?.look).toBeUndefined();
+  });
+
+  it("시안을 켜면: 만든 사이보그가 있으면 그 줄 하나, 없으면 시안 본체 줄(p0)을 맨 앞에", async () => {
+    const mine = await services.units(player, withPreview);
+    expect(mine.units.filter((unit) => unit.self === true).map((unit) => unit.id)).toEqual(["w7"]);
+    const none = await createRosterServices({ catalog }).units(dev, withPreview);
+    expect(none.units[0]).toMatchObject({ id: "p0", self: true, preview: true, type: "cyborg", level: 23 });
+    expect(none.units.filter((unit) => unit.self === true)).toHaveLength(1);
+    expect(none.units[0]?.slots).toHaveLength(20);
+  });
+
+  it("units.sheet: 본체의 사양은 사이보그 화면(cyborg.get)과 같은 값이다", async () => {
+    const cyborg = (await services.cyborg(player, own)).body;
+    const answer = await services.unitSheet(player, "w7", own);
+    const sheet = answer.sheet;
+    if (!cyborg || !sheet) throw new Error("본체 사양");
+    expect(answer.unit).toBe("w7");
+    expect(sheet.level).toBe(12);
+    expect(sheet.stats).toEqual(cyborg.stats);
+    expect(sheet.breakdown).toEqual(cyborg.breakdown);
+    expect(sheet.primarySources).toEqual(cyborg.primarySources);
+    expect(sheet.combat).toEqual(cyborg.combat);
+    expect(sheet.buffs).toEqual(cyborg.buffs);
+    expect(sheet.move).toEqual(cyborg.move);
+    expect(sheet.elements).toEqual(cyborg.elements);
+    expect(sheet.skillSlotsMax).toBe(cyborg.skillSlotsMax);
+    // 만렙이 아니라 처음 값·K는 없다(D-449)
+    expect(sheet.growth).toBeNull();
+    expect(answer.names.stats.hp).toBeDefined();
+  });
+
+  it("units.sheet: 다른 유닛도 같은 모양의 사양을 받는다(저장된 스탯이 없는 유닛은 기본 몸)", async () => {
+    const sheet = (await services.unitSheet(player, "w8", own)).sheet;
+    if (!sheet) throw new Error("휴먼 사양");
+    expect(sheet.stats.source).toBe("baseline");
+    expect(sheet.level).toBe(1);
+    expect(sheet.breakdown.map((line) => line.id)).toEqual(sheet.stats.secondary.map((line) => line.id));
+    for (const stat of ["str", "vit", "int", "wis", "dex", "agi"] as const)
+      expect(sheet.primarySources[stat]).toEqual([{ kind: "body", value: BASELINE_PRIMARY }]);
+    expect(sheet.combat?.weapon).toBeNull();
+    expect(sheet.move?.walk).toBeGreaterThan(0);
+    expect(sheet.preview).toBe(false);
+  });
+
+  it("units.sheet: 남의 유닛·없는 유닛·틀린 ID는 null, 시안 유닛은 시안을 켰을 때만", async () => {
+    expect((await services.unitSheet(dev, "w7", own)).sheet).toBeNull();
+    expect((await services.unitSheet(player, "w999", own)).sheet).toBeNull();
+    expect((await services.unitSheet(player, "x1", own)).sheet).toBeNull();
+    expect((await services.unitSheet(dev, "p1", own)).sheet).toBeNull();
+    const preview = (await services.unitSheet(dev, "p1", withPreview)).sheet;
+    expect(preview?.preview).toBe(true);
+    expect(preview?.level).toBe(18);
+    expect((await services.unitSheet(dev, "p999", withPreview)).sheet).toBeNull();
+  });
+});
+
 function callerFor(viewer: Viewer) {
   const ctx: TrpcContext = {
     contentVersion: "test",
@@ -428,6 +561,13 @@ describe("프로시저", () => {
     await expect(callerFor(player).cyborg.get({ preview: true })).rejects.toMatchObject({
       code: "FORBIDDEN",
     });
+    await expect(callerFor(player).units.sheet({ unit: "p1", preview: true })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    await expect(callerFor(player).units.sheet({ unit: "../w1" })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    expect((await callerFor(player).units.sheet({ unit: "w1" })).sheet).toBeNull();
     const list = await callerFor(player).units.list();
     expect(list.preview).toBe(false);
     const preview = await callerFor(dev).units.list({ preview: true });

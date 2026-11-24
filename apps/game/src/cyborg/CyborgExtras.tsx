@@ -1,7 +1,13 @@
 // 사이보그 화면 아래 판들 — 스킬 칸, 속성, 인벤토리, 환생, 랭킹, 상태 줄. CyborgScreen.tsx가 놓는다.
 // - 스킬 칸(D-427): 팩 unit_kinds skillSlots(처음 + 환생마다, 최대). 닫힌 칸이 몇 번째 환생에 열리는지는 서버가 센다(skillSlotUnlocks).
 // - 속성(D-182, 50 §2.1): 6계열 × 기본·강화. 사이보그가 속성값을 얻는 길이 아직 없어 모두 0이다(질문 182 가: 판은 보인다).
-import type { CyborgBody, CyborgGetResponse, CyborgRebirthRule, RosterNames } from "@terra/shared/roster";
+import type {
+  CyborgBody,
+  CyborgGetResponse,
+  CyborgRebirthRule,
+  RosterNames,
+  RosterSheet,
+} from "@terra/shared/roster";
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
 import { SoonButton } from "../roster/parts.tsx";
@@ -11,7 +17,13 @@ import { ElementIcon } from "../ui/elementIcons.tsx";
 import { elementFamilies, elementLabel } from "./cyborgText.ts";
 
 /** 스킬 칸: 연 칸(쓰는 스킬·빈 칸) + 닫힌 칸(환생 n회에 열림) */
-export function SkillSlots({ body, names }: { body: CyborgBody; names: RosterNames }) {
+export function SkillSlots({
+  body,
+  names,
+}: {
+  body: Pick<RosterSheet, "skills" | "skillSlotsMax" | "skillSlotUnlocks" | "skillGradeCap">;
+  names: RosterNames;
+}) {
   const skills = body.skills;
   const empty = Math.max(0, skills.slots - skills.list.length);
   return (

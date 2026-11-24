@@ -43,20 +43,20 @@ export const TAB_MAP_CELL_EM = 3.5;
 
 /**
  * 좁은 단계의 하단 탭 칸 수 계단 — 첫 계단은 4칸, 380px(23.75em)부터 C도 5칸(+지도=6탭)이 들어간다.
- * - A: (칸 수 + 1) × 3.375em → 5칸 20.25em(324px), 6칸 23.625em(378px), 7칸 27em(432px).
- * - C: 2 × ⌈칸 수 ÷ 2⌉ × 3.375em + 3.5em → 5칸 23.75em(380px), 6칸 27em(432px).
+ * - A: (칸 수 + 1) × 3.375em → 5칸 20.25em(324px), 6칸 23.625em(378px).
+ * - C: 지도까지 모든 칸이 같은 폭이다(tabbar.css) → (칸 수 + 1) × 3.5em(지도 칸이 가장 넓어야 한다) → 5칸 21em(336px).
+ *   계단은 그보다 넉넉한 23.75em(380px)부터다.
+ * 끝 계단 = 메뉴 항목 수(A 6칸, C는 지도를 뺀 5칸 — 사이보그 항목을 뺀 뒤, 2026-11-24. layout.test.ts가 NAV_ITEM_IDS와 맞춰 본다)
  */
 export const TAB_SLOT_STEPS: { readonly [L in NavLayout]: readonly TabSlotStep[] } = {
   a: [
     { minEm: 0, slots: 4 },
     { minEm: 20.25, slots: 5 },
     { minEm: 23.625, slots: 6 },
-    { minEm: 27, slots: 7 },
   ],
   c: [
     { minEm: 0, slots: 4 },
     { minEm: 23.75, slots: 5 },
-    { minEm: 27, slots: 6 },
   ],
 };
 

@@ -306,7 +306,7 @@ const WOLF: LabUnit = {
   initial: p(12, 10, 4, 6, 12, 16),
   kPm: p(1000, 900, 800, 900, 1100, 1200),
   elements: elements({ 4: 4 }),
-  equipment: [{ slot: 2, item: "test_ring", pm: 0 }],
+  equipment: [{ slot: 2, item: "test_charm", pm: 0 }],
   skills: [{ id: "power_strike", grade: 1 }],
   row: "front",
 };
@@ -317,7 +317,7 @@ const GOLEM: LabUnit = {
   initial: p(16, 18, 6, 8, 6, 6),
   kPm: p(1100, 1200, 800, 900, 800, 800),
   elements: elements({ 6: 8, 7: 4 }),
-  equipment: [{ slot: 2, item: "test_ring", pm: 1000 }],
+  equipment: [{ slot: 2, item: "test_charm", pm: 1000 }],
   skills: [
     { id: "shock_bash", grade: 1 },
     { id: "iron_skin", grade: 2 },

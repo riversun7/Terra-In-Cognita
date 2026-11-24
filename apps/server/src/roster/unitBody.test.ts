@@ -174,7 +174,7 @@ describe("입은 장비 → 사이보그 화면(cyborg.get 몸)", () => {
     expect(body.stats.primaries.str).toEqual({ base: 10, bonus: 5 });
     expect(body.primarySources.vit).toEqual([
       { kind: "body", value: 10 },
-      { kind: "item", slot: "organ", item: "test_heart", value: 3 },
+      { kind: "item", slot: "organ_heart", item: "test_heart", value: 3 },
     ]);
     // 스탯 공격력 = STR + ⌊VIT ÷ 2⌋ = 15 + 6(2026-11-13)
     expect(body.combat?.attack.statAttack).toBe(21);

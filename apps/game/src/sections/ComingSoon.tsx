@@ -52,6 +52,7 @@ type ComingSoonRoute = Exclude<
   | "dev_battle_replay"
   | "economy"
   | "inventory"
+  | "cyborg"
   | "economy_warehouse"
   | "economy_production"
   | "economy_market"
@@ -68,7 +69,6 @@ type ComingSoonRoute = Exclude<
 const SECTIONS = {
   units: { title: m.nav_units, desc: m.nav_units_desc, icon: "units" },
   faction: { title: m.nav_faction, desc: m.nav_faction_desc, icon: "faction" },
-  cyborg: { title: m.nav_cyborg, desc: m.nav_cyborg_desc, icon: "cyborg" },
   mail: { title: m.shell_mail, icon: "mail" },
 } satisfies Record<ComingSoonRoute, Section>;
 

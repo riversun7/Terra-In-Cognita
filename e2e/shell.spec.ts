@@ -324,7 +324,7 @@ test.describe("플레이어", () => {
       );
     expect(sides390).toEqual([
       ["/", "/units"],
-      ["/economy", "/faction", "/cyborg"],
+      ["/economy", "/faction", "/inventory"],
     ]);
     expect(await horizontalOverflow(page)).toEqual([]);
 
@@ -334,9 +334,10 @@ test.describe("플레이어", () => {
       .evaluateAll((els) =>
         els.map((el) => [...el.querySelectorAll("a")].map((a) => a.getAttribute("href"))),
       );
+    // 메뉴 항목이 6개(사이보그 항목을 뺐다, 2026-11-24)라 더 넓어도 지도 양옆 5칸 그대로다
     expect(sides432).toEqual([
-      ["/", "/units", "/economy"],
-      ["/faction", "/cyborg", "/inventory"],
+      ["/", "/units"],
+      ["/economy", "/faction", "/inventory"],
     ]);
     expect(await horizontalOverflow(page)).toEqual([]);
   });

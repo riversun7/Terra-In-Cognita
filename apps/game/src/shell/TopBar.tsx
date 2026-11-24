@@ -1,5 +1,5 @@
 // 위 띠(40px 컴팩트 규격) — 왼쪽: 브랜드 이름표(태블릿 중간 폭은 앞에 ☰ 레일 토글).
-// 오른쪽: 사이보그 초상(→ /cyborg), 알림 종(→ /inbox), 우편(→ /mail), 모바일 좁은 폭은 맨 오른쪽에 ☰ 드롭다운 단추.
+// 오른쪽: 사이보그 초상(→ 유닛 창의 본체 줄 /units?unit=self), 알림 종(→ /inbox), 우편(→ /mail), 모바일 좁은 폭은 맨 오른쪽에 ☰ 드롭다운 단추.
 import type { CharacterLook } from "@terra/shared/characterLook";
 import { Suspense, lazy } from "react";
 import { useInboxBellCount } from "../inbox/store.ts";
@@ -65,10 +65,9 @@ export function TopBar({ onMenu, railExpanded, current, devTheme = null, look = 
         </button>
       )}
       <AppLink
-        to={{ route: "cyborg" }}
+        to={{ route: "units", search: { unit: "self" } }}
         className="topbar-face"
         aria-label={m.shell_cyborg_face()}
-        aria-current={current === "cyborg" ? "page" : undefined}
       >
         <span className="topbar-face-ring">
           {look === null ? (

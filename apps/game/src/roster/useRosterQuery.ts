@@ -1,8 +1,8 @@
-// 유닛·사이보그 화면 자료 받기(tRPC units.list·cyborg.get) — 화면을 열 때, 시안 자료 스위치가 바뀔 때, [다시 시도],
+// 유닛·사이보그 화면 자료 받기(tRPC units.list·units.sheet·cyborg.get) — 화면을 열 때, 시안 자료 스위치가 바뀔 때, [다시 시도],
 // 다시 보일 때 마지막으로 받은 지 60초가 넘었으면 다시 받는다(홈과 같은 규칙, ADR 37 6절. 주기 타이머는 두지 않는다).
 // 실패는 값으로 둔다(문구 키는 net/apiErrors.ts). 로그인이 끝났으면 세션을 다시 확인한다(틀이 로그인 화면으로 보낸다).
 // 지연 조각 안에서만 쓴다(tRPC 클라이언트 net/api.ts는 첫 화면 묶음에 들어가지 않는다).
-import type { CyborgGetResponse, UnitsListResponse } from "@terra/shared/roster";
+import type { CyborgGetResponse, UnitSheetResponse, UnitsListResponse } from "@terra/shared/roster";
 import { useCallback, useEffect, useState } from "react";
 import { refreshSession } from "../auth/session.ts";
 import { api } from "../net/api.ts";
@@ -26,6 +26,12 @@ export const loadUnits: Loader<UnitsListResponse> = (preview, signal) =>
 
 export const loadCyborg: Loader<CyborgGetResponse> = (preview, signal) =>
   api.cyborg.get.query(preview ? { preview: true } : undefined, { signal });
+
+/** 유닛 하나의 상세 사양(units.sheet — 사이보그 판과 같은 핵심 사양·전투 스펙). 유닛마다 받는 함수를 만든다(화면이 useMemo로 붙든다) */
+export const unitSheetLoader =
+  (unit: string): Loader<UnitSheetResponse> =>
+  (preview, signal) =>
+    api.units.sheet.query(preview ? { unit, preview: true } : { unit }, { signal });
 
 interface Held<T> {
   /** 어느 요청(시안 여부·차례)의 결과인지. 지금 요청과 다르면 받는 중으로 본다 */

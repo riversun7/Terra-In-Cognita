@@ -22,7 +22,6 @@ export const MENU_ITEMS = {
   units: { target: { route: "units" }, name: m.nav_units, desc: m.nav_units_desc, icon: "units" },
   economy: { target: { route: "economy" }, name: m.nav_economy, desc: m.nav_economy_desc, icon: "economy" },
   faction: { target: { route: "faction" }, name: m.nav_faction, desc: m.nav_faction_desc, icon: "faction" },
-  cyborg: { target: { route: "cyborg" }, name: m.nav_cyborg, desc: m.nav_cyborg_desc, icon: "cyborg" },
   inventory: {
     target: { route: "inventory" },
     name: m.nav_inventory,

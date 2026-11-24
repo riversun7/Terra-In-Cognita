@@ -9,6 +9,7 @@ import type {
   UnitCooldownView,
   UnitEffectView,
 } from "@terra/shared/holdings";
+import { isOrganSlot, sortSlotsForDisplay } from "@terra/shared/roster";
 
 export type HoldingFilter = "all" | "equipment" | "consumable";
 export const HOLDING_FILTERS: readonly HoldingFilter[] = ["all", "equipment", "consumable"];
@@ -21,12 +22,17 @@ export interface SlotCell {
   readonly index: number;
   /** 칸 종류(팩 unit_kinds slots 값) */
   readonly kind: string;
+  /** 같은 종류 칸이 여럿일 때의 번호(1부터 — "반지 1"·"임플란트 3"). 하나뿐이면 0 */
+  readonly ordinal: number;
   readonly holding: HoldingView | null;
 }
 
 export interface UnitHoldings {
   readonly unit: number;
+  /** 칸 번호 차례(slots[칸 번호]) */
   readonly slots: readonly SlotCell[];
+  /** 화면 차례의 칸(옛 프로젝트 차례: 헬멧·갑옷·장갑·신발·토템·무기·보조무기·반지·목걸이, 헤드·바디·심장·팔·다리·임플란트) */
+  readonly display: readonly SlotCell[];
   /** 든 물건(입지 않은 것, 칸 배치 밖 번호에 입은 것 포함) */
   readonly carried: readonly HoldingView[];
   /** 지금 걸린 효과(끝난 것 뺌, 남은 시간 짧은 차례) */
@@ -63,19 +69,24 @@ export function unitHoldings(
 ): UnitHoldings {
   const layout = data.units?.find((entry) => entry.unit === unit)?.slots ?? fallbackLayout;
   const mine = data.holdings.filter((holding) => holding.unit === unit);
+  const order = sortSlotsForDisplay(layout);
+  const ordinals = new Map(order.map((cell) => [cell.index, cell.ordinal]));
   const slots = layout.map(
     (kind, index): SlotCell => ({
       index,
       kind,
+      ordinal: ordinals.get(index) ?? 0,
       holding: mine.find((holding) => holding.slot === index) ?? null,
     }),
   );
+  const display = order.flatMap((cell) => slots[cell.index] ?? []);
   const carried = mine
     .filter((holding) => holding.slot === null || holding.slot >= layout.length)
     .toSorted((a, b) => groupOf(a) - groupOf(b) || compare(nameOf(a), nameOf(b)) || a.id - b.id);
   return {
     unit,
     slots,
+    display,
     carried,
     effects: data.effects
       .filter((effect) => effect.unit === unit && effect.until > now)
@@ -83,6 +94,14 @@ export function unitHoldings(
     cooldowns: data.cooldowns
       .filter((cooldown) => cooldown.unit === unit && cooldown.until > now)
       .toSorted((a, b) => a.until - b.until),
+  };
+}
+
+/** 화면 차례의 칸을 인공장기·부품 묶음과 일반장비 묶음으로 나눈다(사이보그 판·유닛 상세의 두 칸 묶음) */
+export function slotGroups(view: UnitHoldings): { organ: SlotCell[]; gear: SlotCell[] } {
+  return {
+    organ: view.display.filter((cell) => isOrganSlot(cell.kind)),
+    gear: view.display.filter((cell) => !isOrganSlot(cell.kind)),
   };
 }
 

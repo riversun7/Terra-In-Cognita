@@ -13,21 +13,12 @@
 // - 생활비(D-453): 마지막 유지비를 못 냈으면 효율 불이익(N38 ‰, @terra/sim livingEfficiencyPm).
 import { DEFAULT_EXP_TABLE, type ExpTableEntryJson, expSpanAt } from "@terra/shared/expTable";
 import type { CyborgBody } from "@terra/shared/roster";
-import { livingEfficiencyPm, skillGradeCap } from "@terra/sim";
+import { livingEfficiencyPm } from "@terra/sim";
 import type { CyborgRecord } from "../cyborg/state.ts";
-import { bodyParts, bodySheet } from "./body.ts";
 import type { RosterCatalog } from "./catalog.ts";
 import { FATIGUE_MAX } from "./preview.ts";
-import {
-  NO_GEAR,
-  type UnitGear,
-  bodySpecOf,
-  buffSharesOf,
-  combatSummaryOfSpec,
-  rosterMoveOf,
-  startEffectsOf,
-  withoutBuffs,
-} from "./unitBody.ts";
+import { NO_GEAR, type UnitGear, bodySpecOf, startEffectsOf } from "./unitBody.ts";
+import { sheetOfSpec } from "./unitSheet.ts";
 
 /** 유닛 공통 경험치 테이블(팩 exp_table, 48 §2.4 · 49 N8)에서 레벨 구간 경험치를 읽는다 */
 export function levelSpan(level: number, table: readonly ExpTableEntryJson[] = DEFAULT_EXP_TABLE): number {
@@ -46,30 +37,21 @@ export function realCyborgBody(
   // K가 보이는 곳(D-449): 사이보그 화면은 만렙일 때만 처음 값·K를 보낸다
   const maxed = record.level >= catalog.society.cyborg.maxLevel;
   const spec = bodySpecOf({ kind: "cyborg", record }, gear);
-  const body = bodySheet(catalog, spec, { revealGrowth: maxed });
-  // 걸린 효과를 뺀 몸: 줄 값(풀이·공격 값)의 기본. 버프 몫은 든 몸과의 차이 + 전투 수치 버프
-  const plainSpec = withoutBuffs(spec);
-  const plain = { spec: plainSpec, parts: bodyParts(catalog, plainSpec) };
-  const buffed = { spec, parts: bodyParts(catalog, spec) };
+  // 핵심 사양·전투 스펙·버프 몫·이동 속도는 유닛 상세 사양과 같은 셈이다(unitSheet.ts sheetOfSpec)
+  const sheet = sheetOfSpec(catalog, spec, { effects: startEffectsOf(gear, nowMs), revealGrowth: maxed });
   return {
+    ...sheet,
     level: record.level,
     maxLevel: catalog.society.cyborg.maxLevel,
     exp: { into: record.exp, span: levelSpan(record.level, catalog.expTable) },
     rebirths: record.rebirths,
-    skillGradeCap: skillGradeCap(record.rebirths, catalog.society),
     faith: record.faith,
     religion: record.religion,
     faithPoints: record.faithPoints,
     living: { unpaid: livingUnpaid, efficiencyPm: livingEfficiencyPm(livingUnpaid, catalog.society) },
-    ...body,
-    breakdown: bodySheet(catalog, plainSpec).breakdown,
     growth: maxed ? { initial: record.initial, kPm: record.kPm } : null,
     // 본체 피로는 아직 직무·생활 규칙이 없어 0이다(피로 회복은 주거에 따른다 D-430, D-445 178 — 그 규칙이 들어올 때 건다)
     fatigue: { value: 0, max: FATIGUE_MAX },
-    combat: combatSummaryOfSpec(catalog, plain.spec, plain.parts),
-    buffs: buffSharesOf(catalog, plain, buffed, startEffectsOf(gear, nowMs)),
-    // 이동 속도 줄(2026-11-12): 서버 걷기 빠르기(D-540 계산식 walk_speed — 2차맵과 같은 실효 AGI = 든 몸)·전투 걸음 간격
-    move: rosterMoveOf(catalog, buffed.parts.loadout.primaries.agi),
     inventory: [],
     rankings: [],
     preview: false,

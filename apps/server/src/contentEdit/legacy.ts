@@ -18,6 +18,11 @@
 //   감사 기록의 옛 판 항목도 같은 규칙(없으면 팩 값)이다. 무게(weight)는 옮기지 않는다(옛 줄 값 그대로).
 // - facilities, 팩 core@32(사용자 답 2026-11-03 "켜고 끄는건 말이 안된다"): 시설의 켬·끔 칸 enabled는 뺀다(true든 false든 = 늘 켜짐).
 //   core@31(건물 편집기)에서 저장한 시설 줄에 이 칸이 있다. 꺼 둔 시설 줄도 켜진 시설로 읽힌다.
+// - unit_kinds·items, 팩 core@153(사용자 결정 2026-11-24 "장비칸, 인공장기칸을 antigavt01대로", docs/adr/2026-11-24-unit-cyborg-unify.md):
+//   core@152까지 저장한 유닛 종류 줄의 칸 배치(slots)가 옛 배치(사람형 공통 6칸 + 인공장기·부품 3칸) 그대로면 지금 팩 배치(일반장비 10 +
+//   인공장기 10)로 읽는다 — 그러지 않으면 타고난 무기만 고친 옛 줄이 새 칸을 가린다. 같은 때까지 저장한 아이템 줄의 칸은 장신구(accessory) →
+//   반지(ring, 크리쳐만 입는 것은 그대로 — 크리쳐 전용 장신구 D-494), 인공장기(organ) → 임플란트(implant)로 읽는다(팩에 같은 항목이 있으면 팩의 칸).
+//   옛 칸 그대로 두면 사람형 유닛이 입을 칸이 없다.
 // 감사 기록의 옛 판 항목(items.historyEntry, 다시 담기)도 같은 함수(upgradeLegacyEntry)로 읽는다.
 import type { ContentEditCategory } from "@terra/shared/contentEdit";
 import type { ContentOverrideRecord } from "./boot.ts";
@@ -110,8 +115,68 @@ function upgradeItemWeapon(entry: EntryJson, pack: EntryJson | undefined): Entry
   return weapon === equip.weapon ? entry : { ...entry, equip: { ...equip, weapon } };
 }
 
-/** 유닛 종류 하나: 타고난 무기·맨손 속성 자료(바뀌지 않으면 같은 객체) */
-function upgradeUnitKind(entry: EntryJson, pack: EntryJson | undefined): EntryJson {
+/** 옛 프로젝트 칸(일반장비 10 + 인공장기 10)이 든 팩 판(core@153, docs/adr/2026-11-24-unit-cyborg-unify.md) */
+export const SLOT_LAYOUT_SINCE = 153;
+
+/** 저장 판(`<팩>@<N>`)이 since 판 전인가. 판을 모르면(감사 기록 옛 판 항목) 전으로 본다 */
+function savedBefore(savedVersion: string | undefined, since: number): boolean {
+  if (savedVersion === undefined) return true;
+  const match = /@(\d+)$/.exec(savedVersion);
+  return match ? Number(match[1]) < since : false;
+}
+
+/** core@152까지의 칸 배치(D-422: 사람형 공통 6칸 + 사이보그 인공장기 3·안드로이드 부품 3) */
+const OLD_COMMON_SLOTS = ["weapon", "offhand", "head", "body", "accessory", "accessory"] as const;
+const OLD_SLOT_LAYOUTS: readonly (readonly string[])[] = [
+  OLD_COMMON_SLOTS,
+  [...OLD_COMMON_SLOTS, "organ", "organ", "organ"],
+  [...OLD_COMMON_SLOTS, "part", "part", "part"],
+];
+const sameList = (a: readonly unknown[], b: readonly unknown[]): boolean =>
+  a.length === b.length && a.every((value, index) => value === b[index]);
+
+/** 유닛 종류 줄의 칸 배치: core@152까지 저장했고 옛 배치 그대로면 지금 팩 배치(바뀌지 않으면 같은 객체) */
+function upgradeUnitSlots(
+  entry: EntryJson,
+  pack: EntryJson | undefined,
+  savedVersion: string | undefined,
+): EntryJson {
+  const slots = entry.slots;
+  const now = pack?.slots;
+  if (!savedBefore(savedVersion, SLOT_LAYOUT_SINCE) || !Array.isArray(slots) || !Array.isArray(now))
+    return entry;
+  if (sameList(slots, now) || !OLD_SLOT_LAYOUTS.some((layout) => sameList(slots, layout))) return entry;
+  return { ...entry, slots: [...now] };
+}
+
+/**
+ * 아이템 줄의 칸: core@152까지 저장한 장신구(accessory) → 반지(ring), 인공장기(organ) → 임플란트(implant). 팩에 같은 항목이 있으면 팩의 칸,
+ * 크리쳐만 입는 장신구는 그대로(D-494). 바뀌지 않으면 같은 객체
+ */
+function upgradeItemSlot(
+  entry: EntryJson,
+  pack: EntryJson | undefined,
+  savedVersion: string | undefined,
+): EntryJson {
+  const equip = entry.equip;
+  if (!savedBefore(savedVersion, SLOT_LAYOUT_SINCE) || !isObject(equip)) return entry;
+  const slot = equip.slot;
+  if (slot !== "accessory" && slot !== "organ") return entry;
+  const packEquip = pack?.equip;
+  const packSlot = isObject(packEquip) && typeof packEquip.slot === "string" ? packEquip.slot : undefined;
+  const kinds = equip.kinds;
+  const creatureOnly = Array.isArray(kinds) && kinds.length > 0 && kinds.every((kind) => kind === "creature");
+  const next = packSlot ?? (slot === "organ" ? "implant" : creatureOnly ? "accessory" : "ring");
+  return next === slot ? entry : { ...entry, equip: { ...equip, slot: next } };
+}
+
+/** 유닛 종류 하나: 타고난 무기·맨손 속성 자료, 옛 칸 배치(바뀌지 않으면 같은 객체) */
+function upgradeUnitKind(
+  saved: EntryJson,
+  pack: EntryJson | undefined,
+  savedVersion: string | undefined,
+): EntryJson {
+  const entry = upgradeUnitSlots(saved, pack, savedVersion);
   const natural = entry.naturalWeapon;
   const bareNatural = isObject(natural) && natural.unarmed === true;
   const weapon = upgradeWeapon(natural, pack?.naturalWeapon, bareNatural);
@@ -132,11 +197,8 @@ function upgradeStartPrice(entry: EntryJson): EntryJson {
 export const LOT_SIZE_SINCE = 29;
 
 /** 저장 판(`<팩>@<N>`)이 묶음 크기 칸 전인가. 판을 모르면(감사 기록 옛 판 항목) 전으로 본다 */
-function beforeLotSize(savedVersion: string | undefined): boolean {
-  if (savedVersion === undefined) return true;
-  const match = /@(\d+)$/.exec(savedVersion);
-  return match ? Number(match[1]) < LOT_SIZE_SINCE : false;
-}
+const beforeLotSize = (savedVersion: string | undefined): boolean =>
+  savedBefore(savedVersion, LOT_SIZE_SINCE);
 
 /** 옛 줄에 묶음 크기가 없고 팩 항목에 있으면 팩 값(302·D-506). 바뀌지 않으면 같은 객체 */
 function upgradeLotSize(
@@ -169,7 +231,7 @@ function upgradeItem(
     if (lines.some((line, index) => line !== effects[index]))
       next = { ...next, use: { ...use, effects: lines } };
   }
-  return upgradeItemWeapon(next, pack);
+  return upgradeItemSlot(upgradeItemWeapon(next, pack), pack, savedVersion);
 }
 
 /** 팩이 지운(이름을 바꾼) 중분류 중 지금 팩에 없는 것 */
@@ -203,7 +265,7 @@ export function upgradeLegacyEntry(
   const pack = core.packEntry(category, id);
   if (category === "items") return upgradeItem(entry, removed, pack, savedVersion);
   if (category === "facilities") return upgradeFacility(entry);
-  return category === "unit_kinds" ? upgradeUnitKind(entry, pack) : entry;
+  return category === "unit_kinds" ? upgradeUnitKind(entry, pack, savedVersion) : entry;
 }
 
 /** 덮어쓰기 줄 목록을 지금 모양으로 읽는다. 고친 줄 키(`<분류>/<ID>`)도 돌려준다 */

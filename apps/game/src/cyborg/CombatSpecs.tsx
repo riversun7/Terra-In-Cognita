@@ -9,12 +9,12 @@
 // 펼치면 공식 끝에 "버프 +n → 전투 m". 몫이 하나라도 있으면 카드 머리 아래에 알약의 뜻을 적는다.
 // 2026-11-12: 기동 묶음에 이동 속도 줄(서버 걷기 빠르기, CombatAttack MoveSpeedRow), 효율 묶음에 원자재별 채집 줄(CombatGather.tsx).
 import {
-  type CyborgBody,
   PRIMARY_STATS,
   type RosterBuffs,
   type RosterCombat,
   type RosterModifierStat,
   type RosterNames,
+  type RosterSheet,
   type RosterStatBreakdown,
 } from "@terra/shared/roster";
 import { useId } from "react";
@@ -69,7 +69,8 @@ const GROUP_TEXT = {
 
 const signed = (value: number): string => `${value >= 0 ? "+" : ""}${formatNumber(value)}`;
 
-export function CombatSpecs({ body, names }: { body: CyborgBody; names: RosterNames }) {
+/** body = 사이보그 본체(CyborgBody) 또는 유닛 상세 사양(units.sheet) — 같은 칸을 쓴다 */
+export function CombatSpecs({ body, names }: { body: RosterSheet; names: RosterNames }) {
   const id = useId();
   const totals = PRIMARY_STATS.map((stat) => {
     const { base, bonus } = body.stats.primaries[stat];

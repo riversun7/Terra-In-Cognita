@@ -60,14 +60,20 @@ export interface LocalizedName {
 }
 
 /**
- * 유닛 종류. human·creature·android·cyborg는 기획 유닛 종류(D-416, 콘텐츠 팩 unit_kinds — 넷으로 고정, 사용자 결정 2026-11-22·기획 D-589),
+ * 유닛 종류. cyborg = 내 사이보그 본체(RosterUnit.self)와 융합한 사이보그 유닛(D-470). human·creature·android·cyborg는 기획 유닛 종류(D-416, 콘텐츠 팩 unit_kinds — 넷으로 고정, 사용자 결정 2026-11-22·기획 D-589),
  * test_unit은 지금 세계에 있는 시험 유닛(서버 world/unitKinds.ts의 관리자 시험 유닛)이다. 신격화한 휴먼(수호신, D-311)은 종류가 아니라 휴먼의
  * 상태다(행 guardian 칸). 시험 일꾼(test_worker)은 없앴다(사용자 지적 2026-11-09 "시험일꾼 다 없애라고").
  */
 export const UNIT_TYPES = ["cyborg", "human", "creature", "android", "test_unit"] as const;
 export type UnitType = (typeof UNIT_TYPES)[number];
 
-/** 장비 칸 종류(D-422, 콘텐츠 팩 unit_kinds slots) */
+/**
+ * 장비 칸 종류(콘텐츠 팩 unit_kinds slots). 사람형 일반장비 10칸(헬멧·갑옷·장갑·신발·토템·무기·보조무기·반지 2·목걸이)과 사이보그 인공장기 10칸
+ * (헤드·바디·심장·팔·다리 + 임플란트 5)은 옛 프로젝트 칸 그대로다(사용자 결정 2026-11-24 "장비칸, 인공장기칸을 antigavt01대로 제대로 수를 맞춰라",
+ * docs/adr/2026-11-24-unit-cyborg-unify.md — D-422의 "공통 6칸"을 바꾼다). accessory = 크리쳐 전용 장신구(D-494), organ = 옛 묶음 인공장기 칸
+ * (지금 유닛 종류는 쓰지 않는다 — 옛 아이템·세계 편집 자료가 읽히게 목록에만 남긴다), part = 안드로이드 부품, saddle = 안장.
+ * 목록 끝에만 더한다(저장된 아이템 정의가 이 값을 쓴다)
+ */
 export const EQUIP_SLOTS = [
   "weapon",
   "offhand",
@@ -77,8 +83,106 @@ export const EQUIP_SLOTS = [
   "organ",
   "part",
   "saddle",
+  "hands",
+  "feet",
+  "totem",
+  "ring",
+  "necklace",
+  "organ_head",
+  "organ_body",
+  "organ_heart",
+  "organ_arm",
+  "organ_leg",
+  "implant",
 ] as const;
 export type EquipSlot = (typeof EQUIP_SLOTS)[number];
+
+/**
+ * 1차 스탯을 올리는 칸(D-423, 48 §5.2: 장신구·인공장기·부품·안장). 나머지 칸(무기·방어구 = 헬멧·갑옷·장갑·신발)은 2차 수치.
+ * 팩 스키마(@terra/content PRIMARY_STAT_SLOTS)·판정(@terra/sim PRIMARY_SLOTS)·아이템 편집기(ITEM_PRIMARY_SLOTS)가 이 목록 하나를 쓴다
+ */
+export const PRIMARY_EQUIP_SLOTS = [
+  "accessory",
+  "organ",
+  "part",
+  "saddle",
+  "totem",
+  "ring",
+  "necklace",
+  "organ_head",
+  "organ_body",
+  "organ_heart",
+  "organ_arm",
+  "organ_leg",
+  "implant",
+] as const satisfies readonly EquipSlot[];
+
+/** 몸에 넣는 강화 칸(사이보그 인공장기·임플란트, 안드로이드 부품) — 화면이 일반장비와 따로 묶는다(인공장기 판, 1차 스탯 출처의 "인공장기" 몫) */
+export const ORGAN_EQUIP_SLOTS = [
+  "organ",
+  "part",
+  "organ_head",
+  "organ_body",
+  "organ_heart",
+  "organ_arm",
+  "organ_leg",
+  "implant",
+] as const satisfies readonly EquipSlot[];
+
+const ORGAN_SLOT_SET: ReadonlySet<string> = new Set(ORGAN_EQUIP_SLOTS);
+/** 인공장기·부품 칸인가(칸 종류 글자 — 서버 칸 배치 값도 받는다) */
+export const isOrganSlot = (slot: string): boolean => ORGAN_SLOT_SET.has(slot);
+
+/**
+ * 화면에 칸을 놓는 차례(옛 프로젝트 화면: 일반장비 = 헬멧·갑옷·장갑·신발·토템 | 무기·보조무기·반지 1·반지 2·목걸이, 인공장기 = 헤드·바디·심장·팔·다리 |
+ * 임플란트 1~5). 칸 번호(보유 물건 slot = 팩 unit_kinds slots의 자리)는 저장된 값이라 팩 차례는 옛 6칸 뒤에 새 칸을 붙였고, 화면만 이 차례로 놓는다
+ * (같은 종류는 칸 번호 차례 — sortSlotsForDisplay)
+ */
+export const EQUIP_SLOT_DISPLAY_ORDER = [
+  "head",
+  "body",
+  "hands",
+  "feet",
+  "totem",
+  "weapon",
+  "offhand",
+  "ring",
+  "necklace",
+  "accessory",
+  "saddle",
+  "organ_head",
+  "organ_body",
+  "organ_heart",
+  "organ_arm",
+  "organ_leg",
+  "implant",
+  "organ",
+  "part",
+] as const satisfies readonly EquipSlot[];
+
+const DISPLAY_RANK: ReadonlyMap<string, number> = new Map(
+  EQUIP_SLOT_DISPLAY_ORDER.map((slot, index) => [slot, index]),
+);
+
+const displayRank = (kind: string): number => DISPLAY_RANK.get(kind) ?? EQUIP_SLOT_DISPLAY_ORDER.length;
+
+/**
+ * 칸 배치 → 화면 차례의 칸 목록. index = 칸 번호(팩 차례의 자리), ordinal = 같은 종류가 여럿일 때의 번호(1부터 — "반지 1"·"임플란트 3"),
+ * 하나뿐이면 0. 모르는 종류는 끝에 팩 차례대로
+ */
+export function sortSlotsForDisplay<T extends string>(
+  layout: readonly T[],
+): { readonly kind: T; readonly index: number; readonly ordinal: number }[] {
+  const total = new Map<string, number>();
+  for (const kind of layout) total.set(kind, (total.get(kind) ?? 0) + 1);
+  const seen = new Map<string, number>();
+  const cells = layout.map((kind, index) => {
+    const nth = (seen.get(kind) ?? 0) + 1;
+    seen.set(kind, nth);
+    return { kind, index, ordinal: (total.get(kind) ?? 0) > 1 ? nth : 0 };
+  });
+  return cells.toSorted((a, b) => displayRank(a.kind) - displayRank(b.kind) || a.index - b.index);
+}
 
 /** 영역(D-372) */
 export type RosterDomain = "space" | "sky" | "land" | "sea";
@@ -173,7 +277,7 @@ export interface RosterStatBreakdown {
 }
 
 /**
- * 1차 스탯 한 칸의 출처 하나(서버가 계산해 보낸다). item = 장비 칸의 아이템(slot "organ"이면 인공장기, "part"면 부품, 보석 몫 포함),
+ * 1차 스탯 한 칸의 출처 하나(서버가 계산해 보낸다). item = 장비 칸의 아이템(slot이 인공장기·부품 칸이면 isOrganSlot, 보석 몫 포함),
  * effect = 걸린 효과(아이템 1차 스탯 버프 D-501, 고정값만 — docs/adr/2026-11-03-item-holdings.md "바뀜 (2026-11-07 …)")
  */
 export type RosterPrimarySource =
@@ -239,6 +343,17 @@ export interface RosterUnit {
   readonly captive: boolean;
   /** 수호신 상태인 휴먼(D-311·D-589 — 그 도시에 머물고 일하지 않는다). 아니면 없음 */
   readonly guardian?: boolean | undefined;
+  /**
+   * 내 사이보그 본체(사용자 결정 2026-11-24 "사이보그도 유닛이므로 유닛 창에 목록에 존재해야한다", docs/adr/2026-11-24-unit-cyborg-unify.md).
+   * 이름·레벨·환생·스탯은 만든 사이보그의 것이다. 보유 유닛 수(주거 상한 D-153)·유지비에는 그대로 세지 않는다(D-445 178·D-453).
+   * 아니면 없음
+   */
+  readonly self?: boolean | undefined;
+  /**
+   * 3D 외형(본체 줄만 — 만든 사이보그의 외형). 목록·상세의 초상에 쓴다. 다른 유닛은 저장된 외형이 없어 화면이 유닛 ID로 기본 외형을 만든다
+   * (@terra/shared/characterLook characterLookForUnit — 2차맵과 같은 모습)
+   */
+  readonly look?: CharacterLook | undefined;
   readonly moving: boolean;
   readonly cargo: readonly RosterCargo[];
   /** 만족도(휴먼, D-219·D-253 = 충성도). 0~100. 없으면 null */
@@ -817,6 +932,41 @@ export interface CyborgBody {
   readonly rankings: readonly CyborgRanking[];
   /** 시안 자료인지(만든 사이보그면 false) */
   readonly preview: boolean;
+}
+
+/**
+ * 유닛 상세 사양(units.sheet) — 사이보그 판의 핵심 사양·상세 전투 스펙·스킬 칸·속성과 같은 자료를 유닛마다 준다(사용자 결정 2026-11-24
+ * "모든 유닛은 사이보그 화면처럼 세부 정보가 뜨게 해야한다", docs/adr/2026-11-24-unit-cyborg-unify.md). 서버가 사이보그 판과 같은 함수로 셈한다
+ * (roster/unitSheet.ts). level = 셈에 쓴 레벨(레벨이 없는 유닛은 1)
+ */
+export type RosterSheet = Pick<
+  CyborgBody,
+  | "level"
+  | "rebirths"
+  | "skillGradeCap"
+  | "stats"
+  | "breakdown"
+  | "growth"
+  | "primarySources"
+  | "elements"
+  | "slots"
+  | "skills"
+  | "skillSlotsMax"
+  | "skillSlotUnlocks"
+  | "combat"
+  | "buffs"
+  | "move"
+  | "gather"
+  | "preview"
+>;
+
+/** units.sheet 응답. sheet = null이면 내 유닛이 아니거나 없는 유닛(화면은 목록 자료의 스탯만 보인다) */
+export interface UnitSheetResponse {
+  /** 요청한 유닛 ID("w<세계 유닛 ID>" 또는 시안 "p<번호>") */
+  readonly unit: string;
+  readonly sheet: RosterSheet | null;
+  readonly names: RosterNames;
+  readonly generatedAt: number;
 }
 
 /**

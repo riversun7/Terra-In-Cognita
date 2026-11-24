@@ -1,4 +1,4 @@
-// 실제 유닛 — 로그인한 사용자의 세계 유닛(world_units)과 그 화물(ledger_accounts 위치 = −유닛 ID), 그 사용자가 잡은 포로.
+// 실제 유닛 — 로그인한 사용자의 세계 유닛(world_units, 사이보그 본체 포함 — self 칸)과 그 화물(ledger_accounts 위치 = −유닛 ID), 그 사용자가 잡은 포로.
 // 읽는 차례는 복귀 요약의 생산 칸(world/summarySources.ts)과 같다: 그 주체를 지금까지 정산하고(직무·피로가 지금 값이 되게)
 // 쓰기 대기열이 비기를 기다린 뒤(DB가 메모리를 따라잡은 뒤) 읽는다. 이동 중인지는 메모리의 움직임으로 본다.
 // 세계 표는 바꾸지 않는다(읽기만). 저장된 스탯·장비가 아직 없어 화면 스탯은 [임시] 기본값이다(body.ts baselineBody).
@@ -29,6 +29,8 @@ export interface WorldRosterRow {
   readonly captive: boolean;
   /** 수호신 상태인 휴먼(D-311·D-589). 아니면 없음 */
   readonly guardian?: boolean | undefined;
+  /** 내 사이보그 본체(유닛 목록에 함께 보인다 — docs/adr/2026-11-24-unit-cyborg-unify.md). 아니면 없음 */
+  readonly self?: boolean | undefined;
   readonly moving: boolean;
   readonly cargo: readonly RosterCargo[];
   /** AI 작전(판단하는 유닛만 칸 — 저장한 적이 없으면 null, D-5039·D-5040) */
@@ -57,12 +59,13 @@ export const EMPTY_WORLD_ROSTER: WorldRosterSource = {
 const DOMAINS: readonly RosterDomain[] = ["space", "sky", "land", "sea"];
 
 /**
- * 세계 유닛 종류 코드 → 화면 종류: 구인으로 고용한 휴먼(4, D-469 — 수호신도 휴먼이다, 상태는 guardian 칸·D-589), 융합한 사이보그 유닛(5, D-470),
+ * 세계 유닛 종류 코드 → 화면 종류: 구인으로 고용한 휴먼(4, D-469 — 수호신도 휴먼이다, 상태는 guardian 칸·D-589), 융합한 사이보그 유닛(5, D-470)과
+ * 사이보그 본체(3 — 줄의 self 칸으로 가른다),
  * 그 밖(관리자 시험 유닛 2, NPC 세력만 갖는 봇 0)은 시험 유닛. 시험 일꾼(1)은 없앴다(부팅이 옛 행을 지운다)
  */
 export function unitTypeOf(kind: number): UnitType {
   if (kind === UNIT_KIND_HUMAN) return "human";
-  if (kind === UNIT_KIND_CYBORG_UNIT) return "cyborg";
+  if (kind === UNIT_KIND_CYBORG_UNIT || kind === UNIT_KIND_CYBORG) return "cyborg";
   return "test_unit";
 }
 
@@ -151,8 +154,8 @@ export function createWorldRosterSource(world: World): WorldRosterSource {
         const mapKey = num(row.map_key);
         const heldBy = numOrNull(row.held_by);
         const mine = num(row.owner_id) === ownerId;
-        // 사이보그 본체는 보유 유닛이 아니다(사이보그 화면, D-445 178)
-        if (mine && num(row.kind) === UNIT_KIND_CYBORG) continue;
+        // 사이보그 본체도 유닛 목록에 든다(사용자 결정 2026-11-24 — 표시 self). 보유 유닛 수·유지비에는 그대로 세지 않는다(count, D-445 178)
+        const self = mine && num(row.kind) === UNIT_KIND_CYBORG;
         const entry: WorldRosterRow = {
           id,
           type: unitTypeOf(num(row.kind)),
@@ -169,6 +172,7 @@ export function createWorldRosterSource(world: World): WorldRosterSource {
           ),
           captive: mine && heldBy !== null,
           ...(row.guardian === true ? { guardian: true } : {}),
+          ...(self ? { self: true } : {}),
           moving: moving(mapKey, id, now),
           // 화물은 주인 계정이다: 내가 잡은 포로의 화물은 보이지 않는다
           cargo: mine ? (cargo.get(id) ?? []) : [],

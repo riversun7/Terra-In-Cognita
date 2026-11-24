@@ -102,9 +102,9 @@ function buildPathTypeErrors(maybe: string | undefined): void {
   // @ts-expect-error 없는 주소 ID
   buildPath("nope");
   // @ts-expect-error 검색어를 받지 않는 주소
-  buildPath("units", { search: { item: "x" } });
+  buildPath("faction", { search: { item: "x" } });
   // @ts-expect-error 검색어를 받지 않는 주소(undefined 값도)
-  buildPath("units", { search: { item: maybe } });
+  buildPath("faction", { search: { item: maybe } });
   // @ts-expect-error inbox가 받지 않는 검색어
   buildPath("inbox", { search: { tab: "x" } });
   // @ts-expect-error 매개변수가 없는 주소에 매개변수
@@ -216,7 +216,8 @@ describe("주소 표", () => {
           "planet-view",
         ],
       ],
-      units: ["/units", "home", "shown", "everyone", []],
+      // ?unit=<유닛 ID·self>: 그 유닛 상세를 연다(본체 줄 = self — 옛 사이보그 화면이 이 줄로 들어왔다)
+      units: ["/units", "home", "shown", "everyone", ["unit"]],
       economy: ["/economy", "home", "shown", "everyone", []],
       // 인벤토리(docs/adr/2026-11-14-inventory-screen.md) — /economy/warehouse는 옛 주소(인벤토리 [창고별]로 바꿔 연다)
       inventory: ["/inventory", "home", "shown", "everyone", ["tab", "unit"]],
@@ -236,9 +237,10 @@ describe("주소 표", () => {
       building_books: ["/buildings/:buildingId/books", "map", "shown", "everyone", []],
       economy_exchange: ["/economy/exchange", "economy", "shown", "everyone", []],
       faction: ["/faction", "home", "shown", "everyone", []],
-      cyborg: ["/cyborg", "home", "shown", "everyone", []],
+      // 옛 사이보그 화면 주소(화면은 없앴다 — /units?unit=self로 넘긴다)
+      cyborg: ["/cyborg", "units", "shown", "everyone", []],
       // 랭킹 판(docs/adr/2026-11-07-ranking.md, D-6010 사이보그·세력 화면 안). ?unit=는 유닛 판(house-10, D-569 1746)
-      cyborg_ranking: ["/cyborg/ranking", "cyborg", "shown", "everyone", ["path", "unit"]],
+      cyborg_ranking: ["/cyborg/ranking", "units", "shown", "everyone", ["path", "unit"]],
       faction_ranking: ["/faction/ranking", "faction", "shown", "everyone", ["house"]],
       faction_identity: ["/faction/identity", "faction", "shown", "everyone", []],
       inbox: ["/inbox", "home", "shown", "everyone", ["item"]],

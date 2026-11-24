@@ -97,7 +97,7 @@ describe("장비 미리 보기", () => {
     const ring = packItem("test_ring");
     const huge = {
       ...ring,
-      equip: { slot: "accessory", stats: [{ stat: "str", min: 10_000_000, max: 10_000_000 }] },
+      equip: { slot: "ring", stats: [{ stat: "str", min: 10_000_000, max: 10_000_000 }] },
     };
     const equip = previewItem(ctx(), huge, DEFAULT_PREVIEW_UNIT).equip;
     expect(equip?.error).toBeNull();

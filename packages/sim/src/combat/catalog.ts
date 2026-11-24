@@ -91,7 +91,11 @@ const CLAWS: WeaponSpec = {
 
 const ELEMENTS = 12;
 const fireOnly = Array.from({ length: ELEMENTS }, (_, i) => (i === 2 ? 100 : 0));
-const COMMON: readonly SlotKind[] = ["weapon", "offhand", "head", "body", "accessory", "accessory"];
+// 칸 배치 = 팩 unit_kinds(서버 combatCatalog.test.ts가 맞춰 본다). 옛 6칸(무기·보조무기·헬멧·갑옷·반지 2) 뒤에 새 칸을 붙였다 — 칸 번호가 저장된
+// 값이라 앞 자리는 그대로다(사용자 결정 2026-11-24 옛 프로젝트 칸: 일반장비 10 + 인공장기 10, docs/adr/2026-11-24-unit-cyborg-unify.md)
+const COMMON: readonly SlotKind[] = ["weapon", "offhand", "head", "body", "ring", "ring"];
+/** 사람형 일반장비의 나머지 4칸(장갑·신발·토템·목걸이) */
+const COMMON_TAIL: readonly SlotKind[] = ["hands", "feet", "totem", "necklace"];
 const GRADES = [1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 2000];
 
 export const TEST_COMBAT_CATALOG: CombatCatalog = {
@@ -346,11 +350,13 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       skills: [],
     },
     { id: "test_helmet", slot: "head", stats: [{ stat: "armor_hp", min: 10, max: 20 }], skills: [] },
-    { id: "test_ring", slot: "accessory", stats: [{ stat: "str", min: 1, max: 3 }], skills: [] },
+    { id: "test_ring", slot: "ring", stats: [{ stat: "str", min: 1, max: 3 }], skills: [] },
+    // 크리쳐 전용 장신구 시험 항목(D-494). 반지(test_ring)는 사람형 반지 칸이라 크리쳐 시안·실험실 샘플이 이것을 쓴다
+    { id: "test_charm", slot: "accessory", stats: [{ stat: "str", min: 1, max: 3 }], skills: [] },
     // 속성값 불 2·빙결 3(D-450: 인공장기 스탯 묶음의 속성값 칸). 사이보그 시안이 코드에 박던 값을 팩으로 옮겼다(아이템 편집기 WP-5)
     {
       id: "test_heart",
-      slot: "organ",
+      slot: "organ_heart",
       stats: [{ stat: "vit", min: 2, max: 4 }],
       skills: [],
       elements: { fire: 2, frost: 3 },
@@ -360,7 +366,20 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
   unitKinds: [
     {
       id: "cyborg",
-      slots: [...COMMON, "organ", "organ", "organ"],
+      slots: [
+        ...COMMON,
+        "organ_heart",
+        "organ_head",
+        "organ_body",
+        ...COMMON_TAIL,
+        "organ_arm",
+        "organ_leg",
+        "implant",
+        "implant",
+        "implant",
+        "implant",
+        "implant",
+      ],
       skillSlots: { base: 3, perRebirth: 1, max: 10 },
       naturalWeapon: UNARMED,
       naturalElementalWeapon: UNARMED_ELEMENTAL,
@@ -368,7 +387,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
     },
     {
       id: "human",
-      slots: COMMON,
+      slots: [...COMMON, ...COMMON_TAIL],
       skillSlots: { base: 3, perRebirth: 1, max: 10 },
       naturalWeapon: UNARMED,
       naturalElementalWeapon: UNARMED_ELEMENTAL,
@@ -376,7 +395,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
     },
     {
       id: "android",
-      slots: [...COMMON, "part", "part", "part"],
+      slots: [...COMMON, "part", "part", "part", ...COMMON_TAIL],
       skillSlots: { base: 3, perRebirth: 1, max: 10 },
       naturalWeapon: UNARMED,
       naturalElementalWeapon: UNARMED_ELEMENTAL,

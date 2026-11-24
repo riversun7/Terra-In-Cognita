@@ -6,6 +6,7 @@ import {
   type ElementCode,
   type RosterPrimarySource,
   type RosterStatBreakdown,
+  isOrganSlot,
 } from "@terra/shared/roster";
 import { m } from "../paraglide/messages.js";
 import { type Locale, getLocale } from "../paraglide/runtime.js";
@@ -124,7 +125,7 @@ export type CorePart = (typeof CORE_PARTS)[number] | "debuff";
 
 /** 출처 하나의 칸: 장비 칸 아이템은 인공장기·부품 칸이면 organ, 그 밖은 gear */
 export function corePartOf(source: RosterPrimarySource): CorePart {
-  if (source.kind === "item") return source.slot === "organ" || source.slot === "part" ? "organ" : "gear";
+  if (source.kind === "item") return isOrganSlot(source.slot) ? "organ" : "gear";
   return source.kind;
 }
 

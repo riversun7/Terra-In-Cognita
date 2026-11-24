@@ -5,7 +5,7 @@ import { EQUIP_SLOTS, type EquipSlot } from "@terra/shared/roster";
 import type { HoldingView, UnitEffectView } from "@terra/shared/holdings";
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
-import { formatMilli, formatNumber, localName, slotLabel } from "../roster/rosterText.ts";
+import { formatMilli, formatNumber, localName, slotCellLabel } from "../roster/rosterText.ts";
 import { formatWait } from "../ui/messageRef.ts";
 import type { ItemFailureCode } from "./itemCommands.ts";
 import { formatClock } from "./holdingsModel.ts";
@@ -51,8 +51,9 @@ export const failureNeedsReload = (code: ItemFailureCode): boolean =>
 
 const isEquipSlot = (value: string): value is EquipSlot => (EQUIP_SLOTS as readonly string[]).includes(value);
 
-/** 칸 종류 이름(모르는 종류면 ID) */
-export const slotKindLabel = (kind: string): string => (isEquipSlot(kind) ? slotLabel(kind) : kind);
+/** 칸 이름(모르는 종류면 ID). ordinal > 0이면 같은 종류 안 번호를 붙인다("반지 1"·"임플란트 3") */
+export const slotKindLabel = (kind: string, ordinal = 0): string =>
+  isEquipSlot(kind) ? slotCellLabel(kind, ordinal) : kind;
 
 const COOLDOWN_LABELS = {
   potion: () => m.holdings_cooldown_potion(),

@@ -1,4 +1,4 @@
-// 유닛·사이보그 화면 라우터 — units.list·cyborg.get(조회). ADR 2026-10-29-app-shell "구현하며 정한 것 (유닛·사이보그 화면)".
+// 유닛·사이보그 화면 라우터 — units.list·units.sheet·cyborg.get(조회). ADR 2026-10-29-app-shell "구현하며 정한 것 (유닛·사이보그 화면)".
 // 사이보그 만들기 조회(cyborg.status·creation·nameCheck)는 docs/adr/2026-11-01-first-login-cyborg.md 4절이다.
 // 응답 타입은 @terra/shared/roster·@terra/shared/cyborg다. 직무 배치·장착·파티 편성·굴리기·만들기 같은 바꾸는 명령은 여기가 아니라
 // WebSocket으로만 보낸다(그 명령을 만들 때 ADR + PROTOCOL_VERSION). 시안 자료(preview)는 홈 시안 자료와 같은 스위치·권한
@@ -14,6 +14,9 @@ const listInput = z.strictObject({ preview: previewField }).optional();
 /** 이름 확인 입력: 서버가 정규화·검사한다(길이 상한만 여기서) */
 const nameInput = z.strictObject({ name: z.string().max(64) });
 
+/** 유닛 ID: 세계 유닛 "w<번호>" 또는 시안 유닛 "p<번호>" */
+const sheetInput = z.strictObject({ unit: z.string().regex(/^[wp]\d{1,15}$/), preview: previewField });
+
 export const unitsRouter = router({
   /**
    * 유닛 추천 표(1차 생산 여섯 가지의 스탯 짝·전투 클래스 표·분류 문턱 — 실효 팩 + 세계 덮어쓰기, docs/adr/2026-11-11-production-six.md).
@@ -24,6 +27,16 @@ export const unitsRouter = router({
   list: signedInProcedure.input(listInput).query(({ ctx, input }) =>
     ctx.roster.units(ctx.viewer, {
       preview: previewRequested(ctx.viewer, input?.preview),
+      now: ctx.now(),
+    }),
+  ),
+  /**
+   * 유닛 하나의 상세 사양(핵심 사양·상세 전투 스펙·스킬 칸·속성 — 사이보그 판과 같은 자료, docs/adr/2026-11-24-unit-cyborg-unify.md).
+   * 내 유닛(본체 포함)과 시안 유닛만. 그 밖은 sheet = null
+   */
+  sheet: signedInProcedure.input(sheetInput).query(({ ctx, input }) =>
+    ctx.roster.unitSheet(ctx.viewer, input.unit, {
+      preview: previewRequested(ctx.viewer, input.preview),
       now: ctx.now(),
     }),
   ),

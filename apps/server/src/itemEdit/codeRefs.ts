@@ -12,6 +12,7 @@ export const ROSTER_PREVIEW_ITEMS: readonly string[] = [
   "iron_ingot",
   "iron_ore",
   "ration",
+  "test_charm",
   "test_heart",
   "test_helmet",
   "test_ring",

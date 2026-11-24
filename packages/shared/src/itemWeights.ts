@@ -14,6 +14,18 @@ export const ITEM_WEIGHT_BY_SLOT: Readonly<Record<EquipSlot, number>> = {
   organ: 400,
   part: 500,
   saddle: 8000,
+  // 옛 프로젝트 칸(사용자 결정 2026-11-24): 장갑 600g, 신발 1kg, 토템 300g, 반지 10g, 목걸이 30g, 인공장기 400g·임플란트 100g
+  hands: 600,
+  feet: 1000,
+  totem: 300,
+  ring: 10,
+  necklace: 30,
+  organ_head: 400,
+  organ_body: 400,
+  organ_heart: 400,
+  organ_arm: 400,
+  organ_leg: 400,
+  implant: 100,
 };
 
 /** 무기 칸 세부(g): 물리 공격 무기 = 한손검 1.2kg, 원소 공격 무기 = 지팡이 1.8kg */

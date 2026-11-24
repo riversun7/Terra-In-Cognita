@@ -21,6 +21,7 @@ import {
   primaryLabel,
   recoveryLeft,
   remaining,
+  slotCellLabel,
   sortUnits,
   statusCounts,
   unitLabel,
@@ -118,6 +119,19 @@ describe("상태·정렬·걸러 보기", () => {
     expect(unitStatus(heavy)).toBe("injured");
     expect(sortUnits(all, "ko").map((entry) => entry.id)).toEqual(["w6", "w5", "w4", "w3", "w2", "w1", "p1"]);
     expect(statusCounts(all)).toEqual({ captive: 1, injured: 2, idle: 1, resting: 1, working: 2 });
+  });
+
+  it("내 사이보그 본체는 상태와 상관없이 맨 위다(사용자 결정 2026-11-24)", () => {
+    const self = unit({ id: "w9", self: true });
+    expect(sortUnits([...all, self], "ko")[0]?.id).toBe("w9");
+  });
+
+  it("칸 이름: 같은 종류가 여럿이면 번호를 붙인다(반지 1·임플란트 3), 하나면 이름만", () => {
+    expect(slotCellLabel("ring", 1, "ko")).toBe("반지 1");
+    expect(slotCellLabel("implant", 3, "ko")).toBe("임플란트 3");
+    expect(slotCellLabel("head", 0, "ko")).toBe("헬멧");
+    expect(slotCellLabel("organ_head", 0, "ko")).toBe("헤드");
+    expect(slotCellLabel("ring", 2, "en")).toBe("Ring 2");
   });
 
   it("종류·상태·거점으로 거르고, 거점 목록은 이름 순", () => {

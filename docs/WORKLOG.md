@@ -6,6 +6,7 @@
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
 | 2026-11-24 15:40 | 옛 세계에 남은 공용 시험 화폐 잔고 없애기 | Claude Code | [24-1540-retire-common-money](worklog/2026/11/24-1540-retire-common-money.md) |
+| 2026-11-24 15:30 | 유닛·사이보그 통합: 유닛 목록에 본체, 유닛 상세 = 사이보그 판, 장비 칸 20칸(옛 프로젝트) | Claude Code | [24-1530-unit-cyborg-unify](worklog/2026/11/24-1530-unit-cyborg-unify.md) |
 | 2026-11-24 14:10 KST | NPC AI 작동 모니터 개편 — 필수요소 점검판 | Claude Code | [24-1410-npc-ai-monitor-rework](worklog/2026/11/24-1410-npc-ai-monitor-rework.md) |
 | 2026-11-24 13:59 | 1차맵 국가 이름표 자리·쌓임 차례 고침, 내 나라 영토 강조 | Claude Code | [24-1359-planet-map-nation-labels](worklog/2026/11/24-1359-planet-map-nation-labels.md) |
 | 2026-11-24 12:50 | 도시 화폐(도시의 기축 통화) 고르기 | Claude Code | [24-1250-city-money](worklog/2026/11/24-1250-city-money.md) |

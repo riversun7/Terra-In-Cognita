@@ -529,7 +529,7 @@
           ]
         },
         {
-          "slots": ["head", "body"],
+          "slots": ["head", "body", "hands", "feet"],
           "weaponTypes": ["shield"],
           "materials": [
             {
@@ -543,7 +543,7 @@
           ]
         },
         {
-          "slots": ["accessory"],
+          "slots": ["accessory", "ring", "necklace", "totem"],
           "weaponTypes": [],
           "materials": [
             {

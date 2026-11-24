@@ -107,17 +107,7 @@ function setup(url = "/", state: unknown = null, history = new FakeHistory(url, 
 describe("화면 종류", () => {
   it("홈 / 첫 단계 화면(부모 홈 + 틀 보임) / 나머지(지도·상세·없는 화면)", () => {
     expect(routeKind("home")).toBe("home");
-    for (const id of [
-      "units",
-      "economy",
-      "faction",
-      "cyborg",
-      "inbox",
-      "mail",
-      "settings",
-      "admin",
-      "dev",
-    ] as const) {
+    for (const id of ["units", "economy", "faction", "inbox", "mail", "settings", "admin", "dev"] as const) {
       expect(routeKind(id), id).toBe("top");
     }
     for (const id of ["map", "map_planet", "dev_planet_editor", "dev_gpu_bench"] as const) {

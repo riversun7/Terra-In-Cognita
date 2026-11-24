@@ -27,7 +27,7 @@ import type {
   CyborgNameCheckResponse,
   CyborgStatusResponse,
 } from "@terra/shared/cyborg";
-import type { CyborgGetResponse, UnitsListResponse } from "@terra/shared/roster";
+import type { CyborgGetResponse, UnitSheetResponse, UnitsListResponse } from "@terra/shared/roster";
 import type { UnitGuideResponse } from "@terra/shared/unitGuide";
 import type { FactionOverviewResponse } from "@terra/shared/faction";
 import type { MailListResponse } from "@terra/shared/mail";
@@ -277,6 +277,8 @@ export interface HomeServices {
  */
 export interface RosterServices {
   units(viewer: Viewer, query: HomeQuery): Promise<UnitsListResponse>;
+  /** 유닛 하나의 상세 사양(사이보그 판과 같은 자료, docs/adr/2026-11-24-unit-cyborg-unify.md). unit = "w<세계 유닛 ID>" 또는 시안 "p<번호>" */
+  unitSheet(viewer: Viewer, unit: string, query: HomeQuery): Promise<UnitSheetResponse>;
   cyborg(viewer: Viewer, query: HomeQuery): Promise<CyborgGetResponse>;
   /** 유닛 추천 표(1차 생산 스탯 짝·전투 클래스, docs/adr/2026-11-11-production-six.md) */
   guide(now: number): UnitGuideResponse;

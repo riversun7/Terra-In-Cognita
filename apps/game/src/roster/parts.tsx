@@ -7,6 +7,7 @@ import {
   type RosterSkills,
   type RosterSlot,
   type RosterStats,
+  sortSlotsForDisplay,
 } from "@terra/shared/roster";
 import type { ReactNode } from "react";
 import { m } from "../paraglide/messages.js";
@@ -14,7 +15,7 @@ import { LiveMessage } from "../ui/LiveMessage.tsx";
 import type { PlainMessageKey } from "../ui/messageRef.ts";
 import { text } from "../ui/text.ts";
 import { StatPairs, pairValuesOf, statScale } from "./StatPairs.tsx";
-import { formatNumber, formatStat, localName, primaryLabel, slotLabel } from "./rosterText.ts";
+import { formatNumber, formatStat, localName, primaryLabel, slotCellLabel } from "./rosterText.ts";
 import { groupStats, statGroupLabel } from "./statGroups.ts";
 import "./roster.css";
 
@@ -138,32 +139,23 @@ export function slotValueText(stat: string, value: number, names: RosterNames): 
   return `${label} ${value >= 0 ? "+" : ""}${formatNumber(value)}`;
 }
 
-/** 장비 칸 목록. only가 있으면 그 칸 종류만(사이보그 화면의 인공장기 판) */
-export function SlotList({
-  slots,
-  names,
-  only,
-  except,
-}: {
-  slots: readonly RosterSlot[];
-  names: RosterNames;
-  only?: RosterSlot["slot"];
-  except?: RosterSlot["slot"];
-}) {
-  const shown = slots.filter(
-    (slot) => (only === undefined || slot.slot === only) && (except === undefined || slot.slot !== except),
-  );
+/** 장비 칸 목록(시안 유닛) — 화면 차례(@terra/shared/roster sortSlotsForDisplay), 같은 종류는 번호를 붙인다 */
+export function SlotList({ slots, names }: { slots: readonly RosterSlot[]; names: RosterNames }) {
+  const shown = sortSlotsForDisplay(slots.map((slot) => slot.slot)).flatMap((cell) => {
+    const slot = slots[cell.index];
+    return slot ? [{ ...slot, ordinal: cell.ordinal }] : [];
+  });
   if (shown.length === 0) return <p className="roster-empty">{m.roster_slots_none()}</p>;
   return (
     <ul className="roster-slots">
       {shown.map((slot, index) => (
-        // 같은 종류 칸이 여럿이다(장신구 2·인공장기 3): 차례로 열쇠를 만든다
+        // 같은 종류 칸이 여럿이다(반지 2·임플란트 5): 차례로 열쇠를 만든다
         <li
           key={`${slot.slot}-${String(index)}`}
           className="roster-slot"
           data-empty={slot.item ? undefined : "true"}
         >
-          <span className="roster-slot-kind">{slotLabel(slot.slot)}</span>
+          <span className="roster-slot-kind">{slotCellLabel(slot.slot, slot.ordinal)}</span>
           {slot.item ? (
             <span className="roster-slot-item">
               <span className="roster-slot-name">{localName(names.items[slot.item.id], slot.item.id)}</span>

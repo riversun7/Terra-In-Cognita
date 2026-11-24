@@ -80,7 +80,7 @@ describe("아이템 권고", () => {
       equip: { ...objectOf(raw.equip), kinds: ["human", "cyborg"] },
     }));
     const kindAdvice = itemAdvice(ctx, heart).find((issue) => issue.code === "advice_kind_no_slot");
-    expect(kindAdvice?.params).toMatchObject({ kind: "human", slot: "organ" });
+    expect(kindAdvice?.params).toMatchObject({ kind: "human", slot: "organ_heart" });
   });
 
   it("탄약 장비(화살통 종류)는 최대 내구도 = 담는 탄 수가 있어야 한다고 알린다(D-497)", () => {

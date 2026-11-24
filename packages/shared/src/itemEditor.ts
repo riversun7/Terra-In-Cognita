@@ -13,7 +13,7 @@ import type {
 import type { MarketKind } from "./economy.ts";
 import type { ItemPatch } from "./itemEditorBulk.ts";
 import type { EffectJson, EffectUsage } from "./itemEditorEffects.ts";
-import type { ElementCode, EquipSlot } from "./roster.ts";
+import { type ElementCode, type EquipSlot, PRIMARY_EQUIP_SLOTS } from "./roster.ts";
 
 /** 아이템 대분류(@terra/content ITEM_CATEGORIES와 같다, 서버 시험이 맞춰 본다) */
 export const ITEM_CATEGORY_IDS = [
@@ -49,7 +49,7 @@ export type WeaponTypeSlotId = (typeof WEAPON_TYPE_SLOT_IDS)[number];
 export const ITEM_PRIMARY_CODES = ["str", "dex", "agi", "vit", "int", "wis"] as const;
 export type ItemPrimaryCode = (typeof ITEM_PRIMARY_CODES)[number];
 /** 1차 스탯을 올리는 칸(D-423, 팩 PRIMARY_STAT_SLOTS). 나머지 칸은 2차 수치 */
-export const ITEM_PRIMARY_SLOTS: readonly EquipSlot[] = ["accessory", "organ", "part", "saddle"];
+export const ITEM_PRIMARY_SLOTS: readonly EquipSlot[] = PRIMARY_EQUIP_SLOTS;
 /** 장비가 올리지 않는 2차 행(D-438 1) */
 export const ITEM_FORBIDDEN_ROWS: readonly string[] = ["physical_attack", "elemental_attack"];
 /** 신선도를 둘 수 있는 대분류 */

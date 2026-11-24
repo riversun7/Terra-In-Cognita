@@ -6,7 +6,28 @@
         "ko": "사이보그",
         "en": "Cyborg"
       },
-      "slots": ["weapon", "offhand", "head", "body", "accessory", "accessory", "organ", "organ", "organ"],
+      "slots": [
+        "weapon",
+        "offhand",
+        "head",
+        "body",
+        "ring",
+        "ring",
+        "organ_heart",
+        "organ_head",
+        "organ_body",
+        "hands",
+        "feet",
+        "totem",
+        "necklace",
+        "organ_arm",
+        "organ_leg",
+        "implant",
+        "implant",
+        "implant",
+        "implant",
+        "implant"
+      ],
       "skillSlots": {
         "base": 3,
         "perRebirth": 1,
@@ -43,7 +64,7 @@
         "ko": "휴먼",
         "en": "Human"
       },
-      "slots": ["weapon", "offhand", "head", "body", "accessory", "accessory"],
+      "slots": ["weapon", "offhand", "head", "body", "ring", "ring", "hands", "feet", "totem", "necklace"],
       "skillSlots": {
         "base": 3,
         "perRebirth": 1,
@@ -80,7 +101,21 @@
         "ko": "안드로이드",
         "en": "Android"
       },
-      "slots": ["weapon", "offhand", "head", "body", "accessory", "accessory", "part", "part", "part"],
+      "slots": [
+        "weapon",
+        "offhand",
+        "head",
+        "body",
+        "ring",
+        "ring",
+        "part",
+        "part",
+        "part",
+        "hands",
+        "feet",
+        "totem",
+        "necklace"
+      ],
       "skillSlots": {
         "base": 3,
         "perRebirth": 1,

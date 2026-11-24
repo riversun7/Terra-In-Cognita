@@ -89,7 +89,8 @@ export const ROUTES = {
     frame: "hidden",
     access: "everyone",
   },
-  units: { path: "/units", search: [], parent: "home", frame: "shown", access: "everyone" },
+  // ?unit=<유닛 ID 또는 self>: 그 유닛의 상세를 연다(self = 내 사이보그 본체 줄 — 위 띠 사이보그 얼굴·옛 /cyborg 주소가 이리로 온다)
+  units: { path: "/units", search: ["unit"], parent: "home", frame: "shown", access: "everyone" },
   economy: { path: "/economy", search: [], parent: "home", frame: "shown", access: "everyone" },
   // 인벤토리(docs/adr/2026-11-14-inventory-screen.md): 전체·유닛별·창고별·건물별 칸(tab), 유닛별 칸에서 펼친 유닛(unit)
   inventory: {
@@ -163,13 +164,15 @@ export const ROUTES = {
     access: "everyone",
   },
   faction: { path: "/faction", search: [], parent: "home", frame: "shown", access: "everyone" },
-  cyborg: { path: "/cyborg", search: [], parent: "home", frame: "shown", access: "everyone" },
-  // 랭킹 판(docs/adr/2026-11-07-ranking.md): 메뉴가 아니라 사이보그·세력 화면 안에서 연다(D-6010). ?path=<경로 ID>는 그 경로 판을 바로 연다.
+  // 옛 사이보그 화면 주소. 화면은 없앴고(사이보그 본체는 유닛 창의 한 줄이다 — 사용자 결정 2026-11-24, docs/adr/2026-11-24-unit-cyborg-unify.md)
+  // 이 주소는 /units?unit=self로 넘긴다(routeViews.tsx — 옛 주소를 지우지 않는다, docs/PROTECTED.md)
+  cyborg: { path: "/cyborg", search: [], parent: "units", frame: "shown", access: "everyone" },
+  // 랭킹 판(docs/adr/2026-11-07-ranking.md): 메뉴가 아니라 유닛 창의 본체 줄·세력 화면 안에서 연다(D-6010). ?path=<경로 ID>는 그 경로 판을 바로 연다.
   // ?unit=<지표>는 유닛 판(house-10 — D-569 1746, combat_power·assets)
   cyborg_ranking: {
     path: "/cyborg/ranking",
     search: ["path", "unit"],
-    parent: "cyborg",
+    parent: "units",
     frame: "shown",
     access: "everyone",
   },

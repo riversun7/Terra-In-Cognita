@@ -7,11 +7,11 @@
 // - 버프 몫(질문 354 → D-515 "기본값과 버프를 나눠 보인다"): 합계 칸 = 기본(몸 값 + 장비) + 걸린 효과의 몫 알약(버프 색, 디버프는 디버프 색).
 //   막대의 효과 칸도 버프 색 빗금, 디버프는 기본 막대 끝에서 깎인 몫을 디버프 색으로. 상세 판의 합계는 판정 값(기본 + 몫).
 import {
-  type CyborgBody,
   PRIMARY_STAT_PAIRS,
   type PrimaryStat,
   type RosterNames,
   type RosterPrimarySource,
+  type RosterSheet,
 } from "@terra/shared/roster";
 import { type KeyboardEvent, useId, useState } from "react";
 import { m } from "../paraglide/messages.js";
@@ -38,7 +38,14 @@ const signed = (value: number): string => `${value >= 0 ? "+" : ""}${formatNumbe
 const percent = (value: number, max: number): string =>
   `${String(Math.round((Math.min(Math.max(0, value), max) / Math.max(1, max)) * 1000) / 10)}%`;
 
-export function CoreStats({ body, names }: { body: CyborgBody; names: RosterNames }) {
+/** body = 사이보그 본체(CyborgBody) 또는 유닛 상세 사양(units.sheet) — 같은 칸을 쓴다 */
+export function CoreStats({
+  body,
+  names,
+}: {
+  body: Pick<RosterSheet, "primarySources" | "growth" | "preview">;
+  names: RosterNames;
+}) {
   const id = useId();
   const [open, setOpen] = useState<PrimaryStat | null>(null);
   const sources = body.primarySources;

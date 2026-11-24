@@ -36,14 +36,20 @@ const tab = (page: Page, key: string, language: Language = "ko") =>
 test.describe("플레이어(실제 자료)", () => {
   test.use({ account: "player" });
 
-  test("유닛이 없으면 빈 안내, 시안 칸은 빈 안내, 시안 스위치가 없다", async ({ page, deviceErrors }) => {
+  test("유닛은 내 사이보그 본체 한 줄뿐, 시안 칸은 빈 안내, 시안 스위치가 없다", async ({
+    page,
+    deviceErrors,
+  }) => {
     await page.goto("/units");
     await unitsReady(page);
     await expect(page.locator(".roster-preview-switch")).toHaveCount(0);
     await expect(page.locator(".roster-notice")).toHaveCount(0);
     // 칸 여덟: 목록·파티·프리셋·관리자·경매·포로·융합·전투(묶음 1116k 군단 명령 3 — 실시간 세계 전투 칸)
     await expect(page.getByRole("tab")).toHaveCount(8);
-    await expect(page.locator(".roster-empty-title")).toHaveText(message("ko", "units_empty_title"));
+    // 사이보그도 유닛이다: 전역 준비가 만든 본체가 목록 맨 위에 "본체" 표로 있다(docs/adr/2026-11-24-unit-cyborg-unify.md)
+    await expect(page.locator(".units-row")).toHaveCount(1);
+    await expect(page.locator('.units-row[data-self="true"] .units-row-name')).toHaveText("E2EPlayer");
+    await expect(page.locator(".units-row .units-self-tag")).toHaveText(message("ko", "units_self_tag"));
     await tab(page, "units_tab_parties").click();
     await expect(page.locator(".roster-empty-title")).toHaveText(message("ko", "units_parties_empty_title"));
     await tab(page, "units_tab_auction").click();
@@ -62,12 +68,17 @@ test.describe("플레이어(실제 자료)", () => {
     expect(deviceErrors).toEqual([]);
   });
 
-  test("사이보그: 첫 접속에서 만든 이름·외형·본체(레벨 1, 스탯), 시안 표시 없음, 유닛 화면 링크", async ({
+  test("사이보그 본체: 옛 /cyborg 주소는 유닛 창의 본체 줄로 넘어간다 — 이름·외형·본체(레벨 1, 스탯), 시안 표시 없음", async ({
     page,
     deviceErrors,
   }) => {
     await page.goto("/cyborg");
+    await expect(page).toHaveURL(
+      (url) => url.pathname === "/units" && url.searchParams.get("unit") === "self",
+    );
     await cyborgReady(page);
+    // 메뉴에 사이보그 항목은 없다(유닛에 합쳤다)
+    await expect(page.locator('a[href="/cyborg"]')).toHaveCount(0);
     // 전역 준비가 만든 사이보그(첫 접속, docs/adr/2026-11-01-first-login-cyborg.md)
     await expect(page.locator(".cyborg-name")).toHaveText("E2EPlayer");
     await expect(page.locator(".cyborg-avatar")).toBeVisible();
@@ -78,10 +89,14 @@ test.describe("플레이어(실제 자료)", () => {
       message("ko", "cyborg_rebirth_faith_value", { need: 50, value: 0 }),
     );
     await expect(page.locator(".roster-tag-preview")).toHaveCount(0);
-    const link = page.locator(".cyborg-units-link");
-    await expect(link).toHaveText(message("ko", "cyborg_units_link", { count: 0 }));
-    await link.click();
-    await expect(page).toHaveURL((url) => url.pathname === "/units");
+    // 목록 동그라미는 유닛 초상이다(본체 = 만든 3D 외형)
+    await expect(page.locator('.units-row[data-self="true"] .roster-avatar')).toHaveAttribute(
+      "data-portrait",
+      "true",
+    );
+    // [목록으로]를 누르면 주소에서 ?unit=이 지워진다
+    await page.locator(".units-detail-back").click();
+    await expect(page).toHaveURL((url) => url.pathname === "/units" && !url.searchParams.has("unit"));
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(deviceErrors).toEqual([]);
   });
@@ -97,8 +112,10 @@ test.describe("dev + 시안 자료", () => {
     await expect(page.locator(".roster-preview-switch")).toHaveAttribute("aria-pressed", "true");
     const rows = page.locator(".units-row");
     expect(await rows.count()).toBeGreaterThanOrEqual(10);
-    // 첫 줄은 손이 필요한 유닛(포로로 잡힌 Sora)
-    await expect(rows.first().locator(".units-row-name")).toHaveText("Sora");
+    // 내 사이보그 본체(있으면 맨 위, "본체" 표) 다음 첫 줄은 손이 필요한 유닛(포로로 잡힌 Sora)
+    await expect(
+      page.locator('.units-row:not([data-self="true"])').first().locator(".units-row-name"),
+    ).toHaveText("Sora");
     // 종류 = 안드로이드 → 2
     await page.getByLabel(message("ko", "units_filter_type")).selectOption("android");
     await expect(rows).toHaveCount(2);
@@ -115,9 +132,11 @@ test.describe("dev + 시안 자료", () => {
     const detail = page.locator(".units-detail");
     await expect(detail.locator(".units-detail-name")).toHaveText("Mina");
     await expect(detail.locator(".units-detail-name")).toBeFocused();
-    await expect(detail.locator(".roster-secondary-row").filter({ hasText: "HP" }).first()).toContainText(
-      "281",
-    );
+    // 유닛 상세도 사이보그 판과 같은 사양 판이다(units.sheet — 핵심 사양·상세 전투 스펙)
+    await expect(detail.locator('.combat-row[data-sec="hp"] .combat-value-base')).toContainText("281", {
+      timeout: 15_000,
+    });
+    await expect(detail.locator(".core-legend")).toBeVisible();
     await expect(
       detail.locator(".roster-slot").filter({ hasText: message("ko", "roster_slot_weapon") }),
     ).toContainText("시험용 검");

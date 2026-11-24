@@ -14,7 +14,7 @@ import {
   elementsToArray,
   sumElementSources,
 } from "@terra/shared/cyborg";
-import { EQUIP_SLOTS } from "@terra/shared/roster";
+import { EQUIP_SLOTS, PRIMARY_EQUIP_SLOTS } from "@terra/shared/roster";
 import type { GemRef } from "./gems.ts";
 import { MAX_STAT_INPUT, type Primaries, type StatRow, computeSecondary } from "./stats.ts";
 import type { WeaponSpec } from "./unitSpec.ts";
@@ -27,7 +27,7 @@ export const SLOT_KINDS = EQUIP_SLOTS;
 export type SlotKind = (typeof SLOT_KINDS)[number];
 
 /** 1차 스탯을 올리는 칸(D-423, 48 §5.2: 장신구·인공장기·부품·크리쳐 안장). 나머지 칸은 2차 수치 */
-export const PRIMARY_SLOTS: ReadonlySet<SlotKind> = new Set(["accessory", "organ", "part", "saddle"]);
+export const PRIMARY_SLOTS: ReadonlySet<SlotKind> = new Set(PRIMARY_EQUIP_SLOTS);
 
 /** 장비가 올리지 않는 2차 행: 스탯 공격력은 1차·장신구·버프만으로 계산한다(D-438 1, 무기 몫은 무기 사양이 더한다 D-502) */
 export const GEAR_FORBIDDEN_ROWS: ReadonlySet<string> = new Set(["physical_attack", "elemental_attack"]);

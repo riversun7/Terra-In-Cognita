@@ -2,6 +2,7 @@
 import type { HoldingView, HoldingsListResponse } from "@terra/shared/holdings";
 import { describe, expect, it } from "vitest";
 import {
+  type SlotCell,
   cooldownFor,
   filterHoldings,
   formatClock,
@@ -12,20 +13,33 @@ import {
   pickSlot,
   ratioTone,
   slotChoices,
+  slotGroups,
   unitHoldings,
 } from "./holdingsModel.ts";
 
 const UNIT = 40;
+/** 팩 unit_kinds cyborg 칸 배치(일반장비 10 + 인공장기 10 — 옛 9칸 자리 뒤에 새 칸을 붙였다) */
 const CYBORG_LAYOUT = [
   "weapon",
   "offhand",
   "head",
   "body",
-  "accessory",
-  "accessory",
-  "organ",
-  "organ",
-  "organ",
+  "ring",
+  "ring",
+  "organ_heart",
+  "organ_head",
+  "organ_body",
+  "hands",
+  "feet",
+  "totem",
+  "necklace",
+  "organ_arm",
+  "organ_leg",
+  "implant",
+  "implant",
+  "implant",
+  "implant",
+  "implant",
 ];
 
 function holding(id: number, item: string, extra: Partial<HoldingView> = {}): HoldingView {
@@ -54,7 +68,7 @@ function holding(id: number, item: string, extra: Partial<HoldingView> = {}): Ho
 }
 
 const ring = (id: number, slot: number | null = null) =>
-  holding(id, `ring_${String(id)}`, { equipSlot: "accessory", slot });
+  holding(id, `ring_${String(id)}`, { equipSlot: "ring", slot });
 const tonic = holding(20, "b_tonic", { kind: "stack", quantity: 3, useCooldown: "potion" });
 const stew = holding(21, "a_stew", { kind: "lot", quantity: 2, useCooldown: "food", freshnessPm: 640 });
 const fish = holding(22, "fish", { kind: "lot", quantity: 5 });
@@ -198,5 +212,53 @@ describe("식품 포장(D-524)", () => {
     expect(isPacked(holding(2, "stew", { kind: "lot", packed: false }))).toBe(false);
     expect(isPacked(holding(3, "stew", { kind: "lot" }))).toBe(false);
     expect(isPacked(holding(4, "vest", { packed: null }))).toBe(false);
+  });
+});
+
+const tag = (cell: SlotCell): string => `${cell.kind}${cell.ordinal > 0 ? String(cell.ordinal) : ""}`;
+
+describe("화면 차례·칸 묶음(옛 프로젝트 칸, docs/adr/2026-11-24-unit-cyborg-unify.md)", () => {
+  const view = unitHoldings(data([ring(1, 5)]), UNIT, CYBORG_LAYOUT, 0, byName, nameOf);
+
+  it("일반장비 10칸 = 헬멧·갑옷·장갑·신발·토템·무기·보조무기·반지 1·2·목걸이, 인공장기 10칸 = 헤드·바디·심장·팔·다리·임플란트 1~5", () => {
+    const groups = slotGroups(view);
+    expect(groups.gear.map(tag)).toEqual([
+      "head",
+      "body",
+      "hands",
+      "feet",
+      "totem",
+      "weapon",
+      "offhand",
+      "ring1",
+      "ring2",
+      "necklace",
+    ]);
+    expect(groups.organ.map(tag)).toEqual([
+      "organ_head",
+      "organ_body",
+      "organ_heart",
+      "organ_arm",
+      "organ_leg",
+      "implant1",
+      "implant2",
+      "implant3",
+      "implant4",
+      "implant5",
+    ]);
+  });
+
+  it("화면 차례를 바꿔도 칸 번호와 입은 물건은 그대로다(slots[칸 번호])", () => {
+    expect(view.slots.map((cell) => cell.index)).toEqual(CYBORG_LAYOUT.map((_, index) => index));
+    const second = slotGroups(view).gear.find((cell) => cell.kind === "ring" && cell.ordinal === 2);
+    expect(second?.index).toBe(5);
+    expect(second?.holding?.id).toBe(1);
+    expect(view.display).toHaveLength(CYBORG_LAYOUT.length);
+  });
+
+  it("인공장기 칸이 없는 유닛(휴먼)은 일반장비 묶음만 있다", () => {
+    const human = unitHoldings(data([]), UNIT, CYBORG_LAYOUT.slice(0, 6), 0, byName, nameOf);
+    expect(slotGroups(human).organ).toEqual([]);
+    expect(slotGroups(human).gear).toHaveLength(6);
   });
 });

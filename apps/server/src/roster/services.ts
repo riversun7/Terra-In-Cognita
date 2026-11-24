@@ -1,4 +1,4 @@
-// 유닛·사이보그 화면 자료 서비스 — tRPC 맥락의 roster(units.list·cyborg.get). 앱을 만들 때 한 번 만든다(trpc/createContext.ts).
+// 유닛·사이보그 화면 자료 서비스 — tRPC 맥락의 roster(units.list·units.sheet·cyborg.get). 앱을 만들 때 한 번 만든다(trpc/createContext.ts).
 // 실제 자료(세계 유닛·화물·포로, 계정 이름)에 시안 자료(preview, dev·admin만: 프로시저가 권한을 본 뒤 true)를 더한다.
 // 응답의 이름 표는 응답에 나온 ID만 담는다(catalog.ts namesFor).
 import {
@@ -8,15 +8,19 @@ import {
   PRIMARY_STATS,
   type PrimaryStat,
   type RosterCondition,
+  type RosterGather,
   type RosterPrisoner,
+  type RosterSheet,
+  type RosterStats,
   type RosterUnit,
+  type UnitSheetResponse,
   type UnitsListResponse,
 } from "@terra/shared/roster";
 import { type ConditionParts, HOME_HOUSING } from "@terra/sim";
 import type { WorkerConditionView } from "../labor/condition.ts";
 import type { HomeQuery, RosterServices, Viewer } from "../trpc/context.ts";
 import type { CyborgService } from "../cyborg/service.ts";
-import { cyborgLookOf } from "../cyborg/state.ts";
+import { type CyborgRecord, cyborgLookOf } from "../cyborg/state.ts";
 import { realCyborgBody } from "./cyborgBody.ts";
 import { type GatherSheetSource, gatherSheetOf } from "./gatherSheet.ts";
 import { type UnitGuideSource, unitGuideOf } from "./guide.ts";
@@ -29,9 +33,19 @@ import {
   previewParties,
   previewPresets,
   previewPrisoners,
+  previewUnitSpec,
   previewUnits,
 } from "./preview.ts";
-import { BASELINE_BASE, NO_GEAR, type UnitGear, effectiveView } from "./unitBody.ts";
+import {
+  BASELINE_BASE,
+  type BodyBase,
+  NO_GEAR,
+  type UnitGear,
+  bodySpecOf,
+  effectiveView,
+  startEffectsOf,
+} from "./unitBody.ts";
+import { sheetOfSpec } from "./unitSheet.ts";
 import { EMPTY_WORLD_ROSTER, type WorldRosterRow, type WorldRosterSource } from "./worldUnits.ts";
 
 const worldId = (id: number): string => `w${id}`;
@@ -70,34 +84,67 @@ export type GearReader = (unitId: number, nowMs: number) => UnitGear;
 
 /**
  * 실제 세계 유닛 → 화면 한 줄. 이름·레벨이 아직 없다. 스탯 = [임시] 기본 몸 + 입은 장비·1차 스탯 버프(사이보그 화면·세계 전투 시작과
- * 같은 unitBody.ts, docs/adr/2026-11-03-item-holdings.md "바뀜 (2026-11-07 …)")
+ * 같은 unitBody.ts, docs/adr/2026-11-03-item-holdings.md "바뀜 (2026-11-07 …)"). 사이보그 본체 줄(row.self)은 만든 사이보그의 이름·레벨·환생·
+ * 몸으로 채운다(self — docs/adr/2026-11-24-unit-cyborg-unify.md). 만든 기록을 못 읽으면(세계 준비 전) 기본 몸으로 둔다
  */
 export function realUnit(
   catalog: RosterCatalog,
   row: WorldRosterRow,
   gear: UnitGear = NO_GEAR,
   condition?: RosterCondition,
+  self?: CyborgRecord,
 ): RosterUnit {
+  const base: BodyBase = row.self === true && self ? { kind: "cyborg", record: self } : BASELINE_BASE;
   return {
     id: worldId(row.id),
-    name: null,
+    name: row.self === true && self ? self.name : null,
     type: row.type,
-    level: null,
-    rebirths: 0,
+    level: row.self === true && self ? self.level : null,
+    rebirths: row.self === true && self ? self.rebirths : 0,
     place: { planetId: row.planetId, mapKey: String(row.mapKey), domain: row.domain, base: null },
     job: row.job,
     energy: { kind: "fatigue", value: row.fatigue, max: FATIGUE_MAX },
     injury: row.injury,
     captive: row.captive,
     ...(row.guardian === true ? { guardian: true } : {}),
+    ...(row.self === true ? { self: true } : {}),
+    ...(row.self === true && self ? { look: cyborgLookOf(self) } : {}),
     moving: row.moving,
     cargo: row.cargo,
     satisfaction: null,
     ...(condition ? { condition } : {}),
     party: null,
     ...(row.tactics === undefined ? {} : { tactics: row.tactics }),
-    ...effectiveView(catalog, BASELINE_BASE, gear),
+    ...effectiveView(catalog, base, gear),
     preview: false,
+  };
+}
+
+/** 시안 본체의 ID(시안 유닛 p1… 과 겹치지 않는다) */
+export const PREVIEW_SELF_ID = "p0";
+
+/** 시안 본체 → 유닛 목록 한 줄(self·preview). 이름은 계정 이름(사이보그 화면 자료 cyborg.get과 같다) */
+export function previewSelfUnit(body: CyborgBody, name: string): RosterUnit {
+  return {
+    id: PREVIEW_SELF_ID,
+    name,
+    type: "cyborg",
+    level: body.level,
+    rebirths: body.rebirths,
+    place: null,
+    job: null,
+    energy: { kind: "fatigue", value: body.fatigue.value, max: body.fatigue.max },
+    injury: { stage: 0, untilMs: null },
+    captive: false,
+    self: true,
+    moving: false,
+    cargo: [],
+    satisfaction: null,
+    party: null,
+    stats: body.stats,
+    slots: body.slots,
+    skills: body.skills,
+    preview: true,
   };
 }
 
@@ -162,20 +209,86 @@ export function createRosterServices(
     const view = rosterConditionOf(condition.read(unitId), condition.cap);
     return view ? { condition: view } : {};
   };
+  /** 원자재별 채집 예상 칸(실효 팩 채집 시설·티어 구간이 있을 때만 — 사이보그 판·유닛 상세 사양이 같이 쓴다) */
+  const gatherOf = (
+    stats: RosterStats,
+    conditionTotal: number,
+    unitId: number | null,
+  ): { gather?: RosterGather[] } => {
+    const source = options.gatherSheet?.();
+    if (!source) return {};
+    const totals = PRIMARY_STATS.reduce<Record<PrimaryStat, number>>(
+      (out, stat) => {
+        const { base, bonus } = stats.primaries[stat];
+        out[stat] = base + bonus;
+        return out;
+      },
+      { str: 0, vit: 0, int: 0, wis: 0, dex: 0, agi: 0 },
+    );
+    return { gather: gatherSheetOf(source, totals, conditionTotal, catalog.society, unitId) };
+  };
+  const sheetNames = (sheet: RosterSheet | null) =>
+    namesFor(catalog, {
+      stats: sheet ? sheet.stats.secondary.map((row) => row.id) : [],
+      items: sheet ? sheet.slots.flatMap((slot) => (slot.item ? [slot.item.id] : [])) : [],
+      skills: sheet ? sheet.skills.list.map((skill) => skill.id) : [],
+      facilities: [],
+    });
   return {
+    /**
+     * 유닛 하나의 상세 사양(사이보그 판과 같은 핵심 사양·전투 스펙, docs/adr/2026-11-24-unit-cyborg-unify.md). 내 세계 유닛(w…, 잡힌 것 포함)과
+     * 시안 유닛(p…, 시안을 켰을 때)만 준다. 그 밖(남의 유닛·내가 잡은 포로·없는 유닛)은 sheet = null
+     */
+    async unitSheet(viewer: Viewer, unit: string, query: HomeQuery): Promise<UnitSheetResponse> {
+      const none: UnitSheetResponse = { unit, sheet: null, names: sheetNames(null), generatedAt: query.now };
+      if (query.preview && unit.startsWith("p")) {
+        const spec = previewUnitSpec(unit);
+        if (!spec) return none;
+        const base = sheetOfSpec(catalog, spec, { preview: true });
+        const sheet = { ...base, ...gatherOf(base.stats, 0, null) };
+        return { ...none, sheet, names: sheetNames(sheet) };
+      }
+      const id = /^w(\d{1,15})$/.exec(unit)?.[1];
+      if (id === undefined) return none;
+      const unitId = Number(id);
+      const row = (await world.read(viewer.id, query.now)).units.find((entry) => entry.id === unitId);
+      if (!row) return none;
+      const record = row.self === true ? options.cyborgs?.()?.record(viewer.id) : undefined;
+      const gear = gearOf(unitId, query.now);
+      const spec = bodySpecOf(record ? { kind: "cyborg", record } : BASELINE_BASE, gear);
+      // K가 보이는 곳(D-449): 본체는 만렙일 때만 처음 값·K를 보낸다(사이보그 화면과 같다)
+      const maxed = record !== undefined && record.level >= catalog.society.cyborg.maxLevel;
+      const base = sheetOfSpec(catalog, spec, {
+        effects: startEffectsOf(gear, query.now),
+        revealGrowth: maxed,
+      });
+      const condition = options.condition?.();
+      const conditionTotal = condition ? (condition.read(unitId)?.total ?? 0) : 0;
+      const sheet: RosterSheet = {
+        ...base,
+        growth: maxed && record ? { initial: record.initial, kPm: record.kPm } : null,
+        ...gatherOf(base.stats, conditionTotal, unitId),
+      };
+      return { ...none, sheet, names: sheetNames(sheet) };
+    },
     async units(viewer: Viewer, query: HomeQuery): Promise<UnitsListResponse> {
       const real = await world.read(viewer.id, query.now);
       const condition = options.condition?.();
+      const record = options.cyborgs?.()?.record(viewer.id);
       const units = real.units.map((row) =>
         realUnit(
           catalog,
           row,
           gearOf(row.id, query.now),
           condition ? rosterConditionOf(condition.read(row.id), condition.cap) : undefined,
+          row.self === true ? record : undefined,
         ),
       );
       const prisoners = real.prisoners.map(realPrisoner);
       if (query.preview) {
+        // 시안 본체 줄: 만든 사이보그가 없을 때만(화면 검토용 — 옛 사이보그 화면의 시안 본체, 상세는 cyborg.get 시안)
+        if (!units.some((unit) => unit.self === true))
+          units.push(previewSelfUnit(previewCyborg(catalog), viewer.loginId));
         units.push(...previewUnits(catalog, query.now));
         prisoners.push(...previewPrisoners(query.now));
       }
@@ -215,28 +328,15 @@ export function createRosterServices(
             }
           : null;
       // 원자재별 채집 예상(효율 묶음, 2026-11-12): 1차 값(몸 + 장비·버프)과 컨디션으로 판정과 같은 함수(gatherSheet.ts)
-      const sheetSource = body ? options.gatherSheet?.() : undefined;
-      if (body && sheetSource) {
-        const primaries = body.stats.primaries;
-        const stats = PRIMARY_STATS.reduce<Record<PrimaryStat, number>>(
-          (out, stat) => {
-            const { base, bonus } = primaries[stat];
-            out[stat] = base + bonus;
-            return out;
-          },
-          { str: 0, vit: 0, int: 0, wis: 0, dex: 0, agi: 0 },
-        );
+      if (body)
         body = {
           ...body,
-          gather: gatherSheetOf(
-            sheetSource,
-            stats,
+          ...gatherOf(
+            body.stats,
             body.condition?.total ?? 0,
-            catalog.society,
             query.preview ? null : (record?.unitId ?? null),
           ),
         };
-      }
       const names = body
         ? namesFor(catalog, {
             stats: body.stats.secondary.map((row) => row.id),

@@ -442,3 +442,16 @@
 .cyborg-look-entry .roster-note {
   margin: 0;
 }
+
+/* ── 유닛 상세 안의 본체 판(CyborgSheet.tsx — 옛 사이보그 화면을 유닛 창의 본체 줄로 옮겼다) ──
+   상세 판은 화면의 한쪽 칸이라 넓은 화면에서도 좁다: 사양 판은 한 열로 놓는다(머리 판의 인공장기 | 그림 | 일반장비는 판 폭을 보는
+   컨테이너 질의가 그대로 정한다) */
+.cyborg-embedded {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.cyborg-embedded .cyborg-columns {
+  grid-template-columns: minmax(0, 1fr);
+}

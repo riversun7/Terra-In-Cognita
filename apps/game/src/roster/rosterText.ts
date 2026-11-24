@@ -35,6 +35,17 @@ const SLOT_LABELS = {
   organ: (locale) => m.roster_slot_organ({}, { locale }),
   part: (locale) => m.roster_slot_part({}, { locale }),
   saddle: (locale) => m.roster_slot_saddle({}, { locale }),
+  hands: (locale) => m.roster_slot_hands({}, { locale }),
+  feet: (locale) => m.roster_slot_feet({}, { locale }),
+  totem: (locale) => m.roster_slot_totem({}, { locale }),
+  ring: (locale) => m.roster_slot_ring({}, { locale }),
+  necklace: (locale) => m.roster_slot_necklace({}, { locale }),
+  organ_head: (locale) => m.roster_slot_organ_head({}, { locale }),
+  organ_body: (locale) => m.roster_slot_organ_body({}, { locale }),
+  organ_heart: (locale) => m.roster_slot_organ_heart({}, { locale }),
+  organ_arm: (locale) => m.roster_slot_organ_arm({}, { locale }),
+  organ_leg: (locale) => m.roster_slot_organ_leg({}, { locale }),
+  implant: (locale) => m.roster_slot_implant({}, { locale }),
 } satisfies Record<EquipSlot, Text>;
 
 const ROLE_LABELS = {
@@ -79,6 +90,11 @@ const TEST_ASSETS: Readonly<Record<string, Text>> = {
 
 export const typeLabel = (type: UnitType, locale: Locale = getLocale()): string => TYPE_LABELS[type](locale);
 export const slotLabel = (slot: EquipSlot, locale: Locale = getLocale()): string => SLOT_LABELS[slot](locale);
+/** 칸 이름 + 같은 종류 안 번호("반지 1"·"임플란트 3", ordinal 0 = 하나뿐이라 번호 없음 — @terra/shared/roster sortSlotsForDisplay) */
+export const slotCellLabel = (slot: EquipSlot, ordinal: number, locale: Locale = getLocale()): string =>
+  ordinal > 0
+    ? m.roster_slot_numbered({ slot: slotLabel(slot, locale), number: String(ordinal) }, { locale })
+    : slotLabel(slot, locale);
 export const roleLabel = (role: PartyRole, locale: Locale = getLocale()): string => ROLE_LABELS[role](locale);
 export const houseLabel = (house: RosterAuctionLot["house"], locale: Locale = getLocale()): string =>
   HOUSE_LABELS[house](locale);
@@ -298,11 +314,17 @@ function typeMatches(type: UnitType, filter: TypeFilter): boolean {
 
 const statusRank = (unit: RosterUnit): number => UNIT_STATUSES.indexOf(unitStatus(unit));
 
-/** 손이 필요한 순(포로 → 부상 무거운 순 → 직무 없음 → 쉼 → 일함), 같으면 이름·번호 순 */
+const selfRank = (unit: RosterUnit): number => (unit.self === true ? 0 : 1);
+
+/**
+ * 내 사이보그 본체가 맨 위(사용자 결정 2026-11-24 "사이보그도 유닛이므로 유닛 창에 목록에 존재해야한다"), 그다음 손이 필요한 순
+ * (포로 → 부상 무거운 순 → 직무 없음 → 쉼 → 일함), 같으면 이름·번호 순
+ */
 export function sortUnits(units: readonly RosterUnit[], locale: Locale = getLocale()): RosterUnit[] {
   const collator = new Intl.Collator(locale, { numeric: true });
   return units.toSorted(
     (a, b) =>
+      selfRank(a) - selfRank(b) ||
       statusRank(a) - statusRank(b) ||
       b.injury.stage - a.injury.stage ||
       collator.compare(unitLabel(a, locale), unitLabel(b, locale)),

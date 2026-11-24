@@ -28,10 +28,23 @@ const table = TEST_COMBAT_CATALOG.statTable;
 const only = (id: string, as: string): EquipDef => ({ ...def(id), id: as, kinds: ["creature"] });
 
 describe("장비 칸과 스탯(D-422~D-424)", () => {
-  it("칸 배치: 사람형 공통 6칸 + 종류별 강화 칸, 크리쳐 3칸(무기·방어구·장신구, D-494)", () => {
-    expect(kind("human").slots).toEqual(["weapon", "offhand", "head", "body", "accessory", "accessory"]);
-    expect(kind("cyborg").slots.slice(6)).toEqual(["organ", "organ", "organ"]);
-    expect(kind("android").slots.slice(6)).toEqual(["part", "part", "part"]);
+  it("칸 배치: 사람형 일반장비 10칸 + 사이보그 인공장기 10칸·안드로이드 부품 3칸, 크리쳐 3칸(무기·방어구·장신구, D-494)", () => {
+    // 옛 6칸 자리(무기·보조무기·헬멧·갑옷·반지 2)는 그대로, 새 칸은 뒤에(칸 번호가 저장된 값 — docs/adr/2026-11-24-unit-cyborg-unify.md)
+    const common = ["weapon", "offhand", "head", "body", "ring", "ring"];
+    const tail = ["hands", "feet", "totem", "necklace"];
+    expect(kind("human").slots).toEqual([...common, ...tail]);
+    expect(kind("cyborg").slots.slice(0, 9)).toEqual([...common, "organ_heart", "organ_head", "organ_body"]);
+    expect(kind("cyborg").slots.slice(9)).toEqual([
+      ...tail,
+      "organ_arm",
+      "organ_leg",
+      "implant",
+      "implant",
+      "implant",
+      "implant",
+      "implant",
+    ]);
+    expect(kind("android").slots).toEqual([...common, "part", "part", "part", ...tail]);
     expect(kind("creature").slots).toEqual(["weapon", "body", "accessory"]);
   });
 
@@ -44,7 +57,7 @@ describe("장비 칸과 스탯(D-422~D-424)", () => {
       equipped: [
         itemAt(claw, 500),
         itemAt(only("test_vest", "lab_hide"), 500),
-        itemAt(only("test_ring", "lab_fang"), 500),
+        itemAt(only("test_charm", "lab_fang"), 500),
       ],
       table,
       unarmed: creature.naturalWeapon,

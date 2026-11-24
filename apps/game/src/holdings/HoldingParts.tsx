@@ -5,6 +5,7 @@
 // 스타일은 holdings.css(토큰만).
 import type { RosterNames } from "@terra/shared/roster";
 import type { HoldingView } from "@terra/shared/holdings";
+import type { CSSProperties } from "react";
 import { m } from "../paraglide/messages.js";
 import { slotValueText } from "../roster/parts.tsx";
 import { formatNumber, remaining } from "../roster/rosterText.ts";
@@ -31,6 +32,13 @@ import {
   usesText,
 } from "./holdingsText.ts";
 import type { HoldingsController, HoldingsNotice } from "./useHoldings.ts";
+
+// style에 CSS 변수를 넣을 수 있게 React 타입에 더한다(map/nationColor.ts와 같은 방식)
+declare module "react" {
+  interface CSSProperties {
+    "--slot-rows"?: string;
+  }
+}
 
 /** 값/최대 막대(색 = 단계). label은 막대 이름, valueText는 읽는 값 */
 export function HoldingBar({
@@ -301,6 +309,14 @@ export function NoticeLine({ notice }: { notice: HoldingsNotice | null }) {
 }
 
 /**
+ * 칸 묶음을 두 줄로 놓는 격자의 줄 수(옛 프로젝트 화면: 왼 줄을 위에서 아래로 채운 뒤 오른 줄 — holdings.css .slot-columns).
+ * 칸이 10개면 5줄 × 2
+ */
+export function slotColumnsStyle(count: number): CSSProperties {
+  return { "--slot-rows": String(Math.max(1, Math.ceil(count / 2))) };
+}
+
+/**
  * 장비 칸 하나(누르면 칸 고르기 창 — 옛 EquipmentSlot). 칸 종류·물건 이름·굴린 스탯·내구도. className은 화면의 칸 모양
  * (사이보그 화면 .cyborg-slot, 유닛 상세 .roster-slot)
  */
@@ -315,7 +331,7 @@ export function SlotTileButton({
   className: string;
   onOpen: () => void;
 }) {
-  const kind = slotKindLabel(cell.kind);
+  const kind = slotKindLabel(cell.kind, cell.ordinal);
   const holding = cell.holding;
   const durability =
     holding && holding.durability !== null && holding.maxDurability !== null

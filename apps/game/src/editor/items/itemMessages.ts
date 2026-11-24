@@ -40,6 +40,17 @@ export const SLOT_TEXT: Readonly<Record<EquipSlot, Text>> = {
   organ: m.roster_slot_organ,
   part: m.roster_slot_part,
   saddle: m.roster_slot_saddle,
+  hands: m.roster_slot_hands,
+  feet: m.roster_slot_feet,
+  totem: m.roster_slot_totem,
+  ring: m.roster_slot_ring,
+  necklace: m.roster_slot_necklace,
+  organ_head: m.roster_slot_organ_head,
+  organ_body: m.roster_slot_organ_body,
+  organ_heart: m.roster_slot_organ_heart,
+  organ_arm: m.roster_slot_organ_arm,
+  organ_leg: m.roster_slot_organ_leg,
+  implant: m.roster_slot_implant,
 };
 
 export const STORAGE_TEXT: Readonly<Record<StorageKindId, Text>> = {

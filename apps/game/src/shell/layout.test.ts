@@ -27,11 +27,12 @@ const FRAME_CSS = { "shell.css": shellCss, "tabbar.css": tabbarCss, "summary.css
 /** px → em(브라우저 기본 글자 크기 16px) */
 const px = (value: number): number => value / 16;
 
-/** 칸 수만큼 놓을 때 가장 좁은 칸이 TAB_CELL_MIN_EM이 되는 폭(em). A는 칸 + ☰가 같은 너비, C는 지도가 가운데라 양쪽이 같다 */
+/**
+ * 칸 수만큼 놓을 때 가장 좁은 칸이 TAB_CELL_MIN_EM이 되는 폭(em). A는 칸 + ☰, C는 칸 + 지도가 모두 같은 너비다(tabbar.css —
+ * C는 지도 칸이 TAB_MAP_CELL_EM 이상이어야 한다)
+ */
 function narrowestNeed(layout: NavLayout, slots: number): number {
-  return layout === "a"
-    ? (slots + 1) * TAB_CELL_MIN_EM
-    : 2 * Math.ceil(slots / 2) * TAB_CELL_MIN_EM + TAB_MAP_CELL_EM;
+  return (slots + 1) * (layout === "a" ? TAB_CELL_MIN_EM : Math.max(TAB_CELL_MIN_EM, TAB_MAP_CELL_EM));
 }
 
 /** tokens.css의 px 값 하나(`--이름: 60px;`) */
@@ -93,20 +94,17 @@ describe("폭 3단계", () => {
 });
 
 describe("슬림 하단 탭 칸 수(D-265: 320px 초소형 4칸, 380px+ 휴대폰 5~6칸)", () => {
-  it("초소형(320px)은 4칸, 표준 스마트폰(380~431px)은 C 5칸·A 6칸, 432px부터 최대 칸. 중간·넓음은 하단 탭 없음", () => {
+  it("초소형(320px)은 4칸, 표준 스마트폰(380px~)은 C 5칸·A 6칸 = 최대 칸(메뉴 항목 6개). 중간·넓음은 하단 탭 없음", () => {
     expect(tabSlotsForWidth(px(320), "c")).toBe(4);
     expect(tabSlotsForWidth(px(320), "a")).toBe(4);
     expect(tabSlotsForWidth(px(324), "a")).toBe(5);
     expect(tabSlotsForWidth(px(375), "a")).toBe(5);
     expect(tabSlotsForWidth(px(375), "c")).toBe(4);
     expect(tabSlotsForWidth(px(378), "a")).toBe(6);
-    for (const width of [380, 390, 393, 412, 414, 428, 431]) {
+    // 메뉴 항목이 6개라(사이보그 항목을 뺐다, 2026-11-24) 더 넓어도 칸이 늘지 않는다
+    for (const width of [380, 390, 393, 412, 414, 428, 431, 432, 480, 540, 599]) {
       expect(tabSlotsForWidth(px(width), "c"), `C ${width}px`).toBe(5);
       expect(tabSlotsForWidth(px(width), "a"), `A ${width}px`).toBe(6);
-    }
-    for (const width of [432, 480, 540, 599]) {
-      expect(tabSlotsForWidth(px(width), "c"), `C ${width}px`).toBe(6);
-      expect(tabSlotsForWidth(px(width), "a"), `A ${width}px`).toBe(7);
     }
     for (const layout of NAV_LAYOUTS) {
       for (const width of [600, 844, 1440]) {
@@ -135,6 +133,15 @@ describe("슬림 하단 탭 칸 수(D-265: 320px 초소형 4칸, 380px+ 휴대�
     expect(TAB_SLOT_STEPS.c[TAB_SLOT_STEPS.c.length - 1]?.slots).toBe(NAV_ITEM_IDS.length - 1);
   });
 
+  it("두 배치 모두 칸을 같은 폭으로 나눈다(C는 지도 양옆 묶음이 칸을 만들지 않는다)", () => {
+    for (const layout of NAV_LAYOUTS) {
+      const body = ruleBody(tabbarCss, `.tabbar[data-layout="${layout}"]`);
+      expect(body, layout).toContain("grid-auto-flow: column");
+      expect(body, layout).toContain("grid-auto-columns: minmax(0, 1fr)");
+    }
+    expect(ruleBody(tabbarCss, ".tabbar-side")).toContain("display: contents");
+  });
+
   it("C의 지도 칸 너비(em)는 tokens.css·tabbar.css 값과 같다", () => {
     expect(tokensCss.length).toBeGreaterThan(1000);
     expect(tabbarCss).toMatch(
@@ -148,9 +155,9 @@ describe("슬림 하단 탭 칸 수(D-265: 320px 초소형 4칸, 380px+ 휴대�
       left: ["home", "units"],
       right: ["economy", "faction"],
     });
-    expect(splitCenterTabs(["home", "units", "economy", "faction", "cyborg"])).toEqual({
+    expect(splitCenterTabs(["home", "units", "economy", "faction", "inventory"])).toEqual({
       left: ["home", "units"],
-      right: ["economy", "faction", "cyborg"],
+      right: ["economy", "faction", "inventory"],
     });
     expect(splitCenterTabs([])).toEqual({ left: [], right: [] });
   });
@@ -174,12 +181,8 @@ describe("슬림 하단 탭 칸 수(D-265: 320px 초소형 4칸, 380px+ 휴대�
       a: [
         { query: "(min-width: 20.25em)", slots: 5 },
         { query: "(min-width: 23.625em)", slots: 6 },
-        { query: "(min-width: 27em)", slots: 7 },
       ],
-      c: [
-        { query: "(min-width: 23.75em)", slots: 5 },
-        { query: "(min-width: 27em)", slots: 6 },
-      ],
+      c: [{ query: "(min-width: 23.75em)", slots: 5 }],
     });
   });
 });

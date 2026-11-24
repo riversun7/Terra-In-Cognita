@@ -597,3 +597,8 @@
 .lb-enemy {
   min-height: var(--tap-size);
 }
+
+/* ── 내 사이보그 본체 줄(목록 맨 위 "본체" 표) ── */
+.units-self-tag {
+  border-color: var(--color-primary-lip);
+}

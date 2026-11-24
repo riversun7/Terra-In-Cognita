@@ -28,7 +28,7 @@ export interface CardView {
 
 export const CARD_VIEWS = {
   inbox: { title: m.card_inbox, to: { route: "inbox" }, Body: InboxCardBody },
-  cyborg: { title: m.card_cyborg, to: { route: "cyborg" }, Body: CyborgCardBody },
+  cyborg: { title: m.card_cyborg, to: { route: "units", search: { unit: "self" } }, Body: CyborgCardBody },
   units: { title: m.card_units, to: { route: "units" }, Body: UnitsCardBody },
   // 자산·경제 요약: 경제 원장 잔고·추정 가치·일일 급여 → 인벤토리 화면(docs/adr/2026-11-14-inventory-screen.md)
   assets: {

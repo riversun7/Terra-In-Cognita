@@ -265,7 +265,7 @@ describe("장비 전투 칸(아이템 편집기 WP-5)", () => {
       },
       {
         id: "lab_beast_ring",
-        slot: "accessory" as const,
+        slot: "ring" as const,
         stats: [{ stat: "str", min: 3, max: 3 }],
         skills: [],
         kinds: ["creature"],

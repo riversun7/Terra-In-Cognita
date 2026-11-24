@@ -25,7 +25,6 @@ const HomeScreen = lazy(() => import("../home/HomeScreen.tsx"));
 const InboxScreen = lazy(() => import("../inbox/InboxScreen.tsx"));
 // 유닛 화면(목록·파티·직무 프리셋·관리인·경매소·포로)과 사이보그 화면(본체): units.list·cyborg.get(ADR 37 "구현하며 정한 것 (유닛·사이보그 화면)")
 const UnitsScreen = lazy(() => import("../units/UnitsScreen.tsx"));
-const CyborgScreen = lazy(() => import("../cyborg/CyborgScreen.tsx"));
 // 첫 접속(사이보그 만들기, 틀 숨김, docs/adr/2026-11-01-first-login-cyborg.md): 사이보그가 없으면 틀이 여기로 보낸다
 const StartScreen = lazy(() => import("../start/StartScreen.tsx"));
 // 경제(창고·생산·거래창·환전, ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)"): 칸마다 다시 따로 조각이다
@@ -95,6 +94,14 @@ const ScopeBar = lazy(() => import("../scope/ScopeBar.tsx"));
 const SecondaryMapScreen = lazy(() => import("../map/SecondaryMapScreen.tsx"));
 const PlanetMapScreen = lazy(() => import("../map/PlanetMapScreen.tsx"));
 
+/** 옛 /cyborg 주소 → /units?unit=self(주소를 바꿔 넣는다 — 뒤로 가기에 옛 주소가 남지 않는다) */
+function RedirectToSelfUnit() {
+  useEffect(() => {
+    navigate({ route: "units", search: { unit: "self" } }, { replace: true });
+  }, []);
+  return null;
+}
+
 /** 화면 이름(문서 제목 `document.title`) */
 export const ROUTE_TITLES = {
   home: m.nav_home,
@@ -113,7 +120,7 @@ export const ROUTE_TITLES = {
   building_books: m.building_finance_title,
   economy_exchange: m.economy_tab_exchange,
   faction: m.nav_faction,
-  cyborg: m.nav_cyborg,
+  cyborg: m.nav_units,
   cyborg_ranking: m.ranking_title,
   faction_ranking: m.ranking_title,
   faction_identity: m.fid_title_create,
@@ -304,9 +311,10 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
     case "mail":
       return <MailScreen />;
     case "units":
-      return <UnitsScreen />;
+      return <UnitsScreen openUnit={match.search.unit} />;
     case "cyborg":
-      return <CyborgScreen />;
+      // 옛 사이보그 화면 주소: 유닛 창의 본체 줄로 넘긴다(사이보그 화면은 없앴다 — docs/adr/2026-11-24-unit-cyborg-unify.md)
+      return <RedirectToSelfUnit />;
     case "cyborg_ranking":
     case "faction_ranking":
       return <RankingScreen match={match} />;

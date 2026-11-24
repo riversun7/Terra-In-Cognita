@@ -308,3 +308,74 @@ describe("시설 켬·끔 칸(팩 core@32, 사용자 답 2026-11-03: 시설은 �
     expect(upgradeLegacyEntry(state.core, "facilities", "kiln", pack)).toBe(pack);
   });
 });
+
+describe("옛 칸 배치(팩 core@153, 일반장비 10 + 인공장기 10 — docs/adr/2026-11-24-unit-cyborg-unify.md)", () => {
+  const state = fresh();
+  const packOf = (category: "items" | "unit_kinds", id: string): EntryJson => {
+    const pack = state.core.packEntry(category, id);
+    if (!pack) throw new Error(`pack ${category}/${id}`);
+    return pack;
+  };
+  const upgrade = (
+    category: "items" | "unit_kinds",
+    id: string,
+    entry: EntryJson,
+    savedVersion: string | undefined,
+  ): EntryJson => upgradeLegacyEntry(state.core, category, id, entry, undefined, savedVersion);
+  const OLD_CYBORG = [
+    "weapon",
+    "offhand",
+    "head",
+    "body",
+    "accessory",
+    "accessory",
+    "organ",
+    "organ",
+    "organ",
+  ];
+
+  it("core@152까지 저장한 유닛 종류 줄의 옛 배치는 지금 팩 배치로 읽는다(다른 고친 칸은 남는다)", () => {
+    const pack = packOf("unit_kinds", "cyborg");
+    const old = { ...pack, slots: OLD_CYBORG, skillSlots: { base: 4, perRebirth: 1, max: 10 } };
+    const read = upgrade("unit_kinds", "cyborg", old, "core@152");
+    expect(read.slots).toEqual(pack.slots);
+    expect(read.slots).toHaveLength(20);
+    expect(read.skillSlots).toEqual({ base: 4, perRebirth: 1, max: 10 });
+  });
+
+  it("core@153부터 저장한 줄과 손으로 바꾼 배치(옛 배치가 아님)는 그대로 둔다", () => {
+    const pack = packOf("unit_kinds", "cyborg");
+    const kept = { ...pack, slots: OLD_CYBORG };
+    expect(upgrade("unit_kinds", "cyborg", kept, "core@153")).toBe(kept);
+    const custom = { ...pack, slots: ["weapon", "body"] };
+    expect(upgrade("unit_kinds", "cyborg", custom, "core@100")).toBe(custom);
+    expect(upgrade("unit_kinds", "cyborg", pack, "core@100")).toBe(pack);
+  });
+
+  it("아이템 줄의 칸: 팩에 있는 항목은 팩의 칸, 만든 항목은 장신구 → 반지·인공장기 → 임플란트, 크리쳐 전용 장신구는 그대로", () => {
+    const ring = packOf("items", "test_ring");
+    const oldRing = { ...ring, equip: { slot: "accessory", stats: [{ stat: "str", min: 2, max: 5 }] } };
+    expect(upgrade("items", "test_ring", oldRing, "core@150").equip).toMatchObject({ slot: "ring" });
+    const heart = packOf("items", "test_heart");
+    const oldHeart = { ...heart, equip: { slot: "organ", stats: [] } };
+    expect(upgrade("items", "test_heart", oldHeart, "core@150").equip).toMatchObject({ slot: "organ_heart" });
+    const made = (slot: string, kinds?: string[]): EntryJson => ({
+      ...ring,
+      id: "e2e_made_gear",
+      equip: { slot, stats: [], ...(kinds ? { kinds } : {}) },
+    });
+    expect(upgrade("items", "e2e_made_gear", made("accessory"), "core@150").equip).toMatchObject({
+      slot: "ring",
+    });
+    expect(upgrade("items", "e2e_made_gear", made("organ"), undefined).equip).toMatchObject({
+      slot: "implant",
+    });
+    const fang = made("accessory", ["creature"]);
+    expect(upgrade("items", "e2e_made_gear", fang, "core@150")).toBe(fang);
+    // core@153부터 저장한 줄(크리쳐 장신구를 일부러 고른 것일 수 있다)과 다른 칸은 그대로
+    const now = made("accessory");
+    expect(upgrade("items", "e2e_made_gear", now, "core@153")).toBe(now);
+    const helmet = made("head");
+    expect(upgrade("items", "e2e_made_gear", helmet, "core@100")).toBe(helmet);
+  });
+});

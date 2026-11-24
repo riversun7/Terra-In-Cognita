@@ -370,7 +370,7 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
     expect(cyborgsOf(later).record(a)?.look).toEqual(look);
   });
 
-  it("놓기: 시작 도시 둘레의 내 세계 유닛(종류 3)이고 시야로 2차맵이 열린다. 한 커밋으로 남고 보유 유닛에는 들지 않는다", async () => {
+  it("놓기: 시작 도시 둘레의 내 세계 유닛(종류 3)이고 시야로 2차맵이 열린다. 한 커밋으로 남고 보유 유닛 수에는 들지 않는다(유닛 목록에는 본체 줄로)", async () => {
     let world = await boot();
     const user = await fakeUser("Place_User");
     const service = cyborgsOf(world);
@@ -426,7 +426,10 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
     // 본체는 보유 유닛이 아니다(D-445 178)
     const roster = createWorldRosterSource(world);
     expect(await roster.count(user, clock)).toBe(0);
-    expect((await roster.read(user, clock)).units).toEqual([]);
+    // 유닛 목록에는 본체 줄(self)로 든다(사용자 결정 2026-11-24, docs/adr/2026-11-24-unit-cyborg-unify.md). 보유 유닛 수는 위처럼 0 그대로
+    const listed = (await roster.read(user, clock)).units;
+    expect(listed).toHaveLength(1);
+    expect(listed[0]).toMatchObject({ type: "cyborg", self: true, captive: false });
     expect(await world.checkInvariants()).toEqual([]);
 
     world = await restart(world);

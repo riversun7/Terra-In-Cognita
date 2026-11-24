@@ -5,7 +5,9 @@
 // - 자료는 units.list 하나(실제 세계 유닛 + dev·admin 시안 자료). 바꾸는 명령(직무 배치·장착·편성·입찰·포로 처리)은 아직 없어
 //   "곧 열림" 버튼이다(명령은 WebSocket으로 만들 때 켠다, AGENTS 4장).
 // - 좁은 폭: 목록 ↔ 상세를 바꿔 보인다(상세 [목록으로]). 넓은 폭(64em 이상): 목록 옆에 상세 판(데스크톱 옆 판, D-6003).
-// - 고른 칸·상세·걸러 보기·다중 선택은 화면 안 상태다(주소에 남기지 않는다. [임시] 뒤로는 화면을 떠난다).
+// - 고른 칸·상세·걸러 보기·다중 선택은 화면 안 상태다(주소에 남기지 않는다. [임시] 뒤로는 화면을 떠난다). 다만 ?unit=<ID·self>로 오면
+//   그 유닛의 상세를 연 채로 시작한다(위 띠 사이보그 얼굴·옛 /cyborg 주소 → 본체 줄, 상세를 닫으면 주소에서 지운다).
+// - 사이보그 본체도 이 목록의 한 줄이다(맨 위 "본체"). 옛 사이보그 화면·메뉴는 없앴다(docs/adr/2026-11-24-unit-cyborg-unify.md).
 // 지연 로딩 조각(routeViews.tsx).
 import type { UnitsListResponse } from "@terra/shared/roster";
 import { type KeyboardEvent, useCallback, useId, useMemo, useState } from "react";
@@ -37,7 +39,8 @@ const TAB_LABELS = {
   battles: m.units_tab_battles,
 } satisfies Record<Tab, () => string>;
 
-export default function UnitsScreen() {
+/** openUnit = 주소의 ?unit=(유닛 ID 또는 self — 내 사이보그 본체 줄). 그 유닛의 상세를 연 채로 시작한다 */
+export default function UnitsScreen({ openUnit }: { openUnit?: string | undefined }) {
   const preview = usePreviewOn();
   const query = useRosterQuery(loadUnits, preview);
   // 생명 수치(D-512): 실제 세계 유닛만, 기기가 분 단위로 셈한다
@@ -135,7 +138,13 @@ export default function UnitsScreen() {
         className="units-panel"
       >
         {state.status === "ready" ? (
-          <TabBody tab={tab} data={state.data} vitals={vitals} onHoldingsChanged={onHoldingsChanged} />
+          <TabBody
+            tab={tab}
+            data={state.data}
+            vitals={vitals}
+            onHoldingsChanged={onHoldingsChanged}
+            openUnit={openUnit}
+          />
         ) : (
           <LoadState state={state} onRetry={query.reload} />
         )}
@@ -149,15 +158,19 @@ function TabBody({
   data,
   vitals,
   onHoldingsChanged,
+  openUnit,
 }: {
   tab: Tab;
   data: UnitsListResponse;
   vitals: VitalsNow;
   onHoldingsChanged: () => void;
+  openUnit: string | undefined;
 }) {
   switch (tab) {
     case "list":
-      return <UnitList data={data} vitals={vitals} onHoldingsChanged={onHoldingsChanged} />;
+      return (
+        <UnitList data={data} vitals={vitals} onHoldingsChanged={onHoldingsChanged} openUnit={openUnit} />
+      );
     case "parties":
       return <PartiesPanel data={data} />;
     case "presets":

@@ -62,17 +62,18 @@ function defaultGear(): { readonly slot: SlotKind; readonly item: string; readon
   const sample = LAB_SAMPLES.find((preset) => preset.id === "sample_new_cyborg");
   if (!sample || sample.kind !== "unit") return [];
   const unit = sample.data;
-  // 새 사이보그 칸 차례(팩 unit_kinds cyborg): 0 무기·1 보조·2 머리·3 몸·4·5 장신구·6~8 인공장기
+  // 새 사이보그 칸 차례(팩 unit_kinds cyborg의 앞 9칸): 0 무기·1 보조무기·2 헬멧·3 갑옷·4·5 반지·6 심장·7 헤드·8 바디.
+  // 샘플 장비는 이 앞 칸만 쓴다(뒤 칸 = 장갑·신발·토템·목걸이·팔·다리·임플란트 5, docs/adr/2026-11-24-unit-cyborg-unify.md)
   const CYBORG: readonly SlotKind[] = [
     "weapon",
     "offhand",
     "head",
     "body",
-    "accessory",
-    "accessory",
-    "organ",
-    "organ",
-    "organ",
+    "ring",
+    "ring",
+    "organ_heart",
+    "organ_head",
+    "organ_body",
   ];
   return [
     ...(unit.weapon.kind === "item"

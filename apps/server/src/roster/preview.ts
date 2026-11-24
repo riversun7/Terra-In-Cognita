@@ -160,7 +160,7 @@ const UNITS: readonly PreviewUnitDef[] = [
     initial: p6([15, 8, 13, 14, 4, 6]),
     k: p6([1100, 900, 1050, 1050, 800, 900]),
     // 크리쳐 칸: 0 무기·1 방어구(몸)·2 장신구(D-494, 아이템 편집기 WP-C). 무기 칸이 비면 타고난 무기(발톱)
-    gear: [[2, "test_ring", 500]],
+    gear: [[2, "test_charm", 500]],
     innate: ["shock_bash", "war_cry"],
     base: "Vega",
     job: null,
@@ -322,6 +322,12 @@ function previewUnit(catalog: RosterCatalog, def: PreviewUnitDef, now: number): 
     ...body,
     preview: true,
   };
+}
+
+/** 시안 유닛 하나의 몸 사양(유닛 상세 사양 units.sheet). 모르는 ID면 undefined */
+export function previewUnitSpec(id: string): BodySpec | undefined {
+  const def = UNITS.find((entry) => entry.id === id);
+  return def ? bodySpecOf(def) : undefined;
 }
 
 export function previewUnits(catalog: RosterCatalog, now: number): RosterUnit[] {

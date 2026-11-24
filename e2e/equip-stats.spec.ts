@@ -79,13 +79,15 @@ async function holdSword(page: Page, language: Language): Promise<void> {
 async function openUnitDetail(page: Page): Promise<Locator> {
   await page.goto("/units");
   await expect(page.locator(".units-panel .status")).toHaveCount(0, { timeout: 15_000 });
-  if ((await page.locator(".units-row .units-row-main").count()) === 0) {
+  // 내 사이보그 본체 줄(맨 위, data-self)은 빼고 고른다 — 이 시험은 본체가 아닌 유닛의 상세를 본다
+  const others = page.locator('.units-row:not([data-self="true"]) .units-row-main');
+  if ((await others.count()) === 0) {
     await ensureHuman(page, "e2e_admin");
     await page.goto("/units");
     await expect(page.locator(".units-panel .status")).toHaveCount(0, { timeout: 15_000 });
-    await expect(page.locator(".units-row .units-row-main").first()).toBeVisible({ timeout: 20_000 });
+    await expect(others.first()).toBeVisible({ timeout: 20_000 });
   }
-  await page.locator(".units-row .units-row-main").first().click();
+  await others.first().click();
   const detail = page.locator(".units-detail");
   await expect(detail.locator(".holdings")).toBeVisible({ timeout: 15_000 });
   return detail;
@@ -158,7 +160,9 @@ test.describe("관리자 계정: 입은 장비 → 사이보그 스탯·공격 �
     test.setTimeout(120_000);
     await rewriteTrpc(page, { "summary.get": hideSummary });
     const detail = await openUnitDetail(page);
-    const armor = detail.locator('.roster-secondary-row[data-stat="armor_hp"] dd');
+    // 유닛 상세의 사양 판(units.sheet — 사이보그 판과 같은 상세 전투 스펙)
+    const armor = detail.locator('.combat-row[data-sec="armor_hp"] .combat-value-base');
+    await expect(armor).toBeVisible({ timeout: 15_000 });
     const body = detail.locator('.holding-slot[data-index="3"]');
     if ((await body.getAttribute("data-empty")) !== "true") {
       // 앞 실행이 입혔으면 카드에서 벗긴다
@@ -223,7 +227,8 @@ test.describe("사진(390·1440 × 파스텔·다크 × 한국어·영어)", () 
         // 유닛 상세: 조끼를 입힌 스탯 판
         const detail = await openUnitDetail(page);
         await wearVest(page, detail, language);
-        const stats = detail.locator(".roster-section").filter({ has: page.locator(".roster-stats") });
+        const stats = detail.locator(".combat-card");
+        await expect(stats).toBeVisible({ timeout: 15_000 });
         await page.evaluate(() => document.fonts.ready.then(() => undefined));
         expect(await horizontalOverflow(page)).toEqual([]);
         await elementShot(stats, `equip-unit-stats-${name}`);

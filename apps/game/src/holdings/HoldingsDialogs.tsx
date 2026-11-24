@@ -73,7 +73,7 @@ export function SlotSheet({
         <>
           <div className="holdings-dialog-head">
             <h2 id={titleId} className="holdings-dialog-title">
-              {m.holdings_slot_title({ slot: slotKindLabel(cell.kind) })}
+              {m.holdings_slot_title({ slot: slotKindLabel(cell.kind, cell.ordinal) })}
             </h2>
             <button type="button" className="button-small" onClick={controller.closeSlot}>
               {m.holdings_close()}

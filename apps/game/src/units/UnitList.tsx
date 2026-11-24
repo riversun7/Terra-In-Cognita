@@ -4,6 +4,7 @@ import type { RosterUnit, UnitsListResponse } from "@terra/shared/roster";
 import { useMemo, useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { PreviewTag, SoonButton } from "../roster/parts.tsx";
+import { navigate } from "../shell/routerStore.ts";
 import {
   NO_FILTER,
   type StatusFilter,
@@ -24,7 +25,7 @@ import { type VitalsNow, type VitalsShown, worldUnitId } from "../roster/useVita
 import { InjuryBadge } from "../roster/InjuryBadge.tsx";
 import { UnitAvatar, UnitDetail } from "./UnitDetail.tsx";
 
-// 사이보그 = 융합한 사이보그 유닛(D-470 "유닛 탭 종류에 사이보그도"). 본체는 사이보그 화면이다
+// 사이보그 = 내 사이보그 본체(맨 위 줄, "본체" 표 — 사용자 결정 2026-11-24)와 융합한 사이보그 유닛(D-470 "유닛 탭 종류에 사이보그도")
 const TYPE_FILTERS = [
   "all",
   "human",
@@ -48,6 +49,16 @@ const isTypeFilter = (value: string): value is TypeFilter =>
 const isStatusFilter = (value: string): value is StatusFilter =>
   value === "all" || (UNIT_STATUSES as readonly string[]).includes(value);
 
+/** 주소가 고른 유닛의 ID(self = 본체 줄). 목록에 없으면 null */
+function requestedUnit(data: UnitsListResponse, openUnit: string | undefined): string | null {
+  if (openUnit === undefined) return null;
+  const found =
+    openUnit === "self"
+      ? data.units.find((unit) => unit.self === true)
+      : data.units.find((unit) => unit.id === openUnit);
+  return found?.id ?? null;
+}
+
 /** 화면 유닛의 지금 생명 수치(실제 세계 유닛만, D-512) */
 const vitalsOf = (vitals: VitalsNow | undefined, unit: RosterUnit): VitalsShown | undefined => {
   const id = worldUnitId(unit.id);
@@ -58,15 +69,24 @@ export function UnitList({
   data,
   vitals,
   onHoldingsChanged,
+  openUnit,
 }: {
   data: UnitsListResponse;
   vitals?: VitalsNow | undefined;
   /** 보유 물건 목록이 다시 왔을 때(장착·해제·사용 뒤): 생명 수치와 유닛 목록(입은 장비가 든 스탯)을 다시 받는다 */
   onHoldingsChanged?: (() => void) | undefined;
+  /** 주소의 ?unit=(유닛 ID 또는 self = 내 사이보그 본체 줄): 그 유닛의 상세를 연다 */
+  openUnit?: string | undefined;
 }) {
   const [filter, setFilter] = useState<UnitFilter>(NO_FILTER);
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(() => requestedUnit(data, openUnit));
+  // 화면이 떠 있는 채로 주소의 ?unit=이 바뀌면(위 띠 사이보그 얼굴) 그 유닛을 연다. 지워지면(상세를 닫음) 그대로 둔다
+  const [applied, setApplied] = useState(openUnit);
+  if (applied !== openUnit) {
+    setApplied(openUnit);
+    if (openUnit !== undefined) setOpenId(requestedUnit(data, openUnit));
+  }
   const rowRefs = useRef(new Map<string, HTMLButtonElement>());
   const sorted = useMemo(() => sortUnits(data.units), [data.units]);
   const shown = useMemo(() => filterUnits(sorted, filter), [sorted, filter]);
@@ -87,6 +107,8 @@ export function UnitList({
   const closeDetail = () => {
     const id = openId;
     setOpenId(null);
+    // 주소로 연 상세면 주소에서 지운다(같은 길을 다시 누르면 또 열리게)
+    if (openUnit !== undefined) navigate({ route: "units" }, { replace: true });
     // 좁은 폭에서 목록이 다시 보이면 보던 줄로 초점을 돌려준다(다음 그리기 뒤)
     if (id !== null) requestAnimationFrame(() => rowRefs.current.get(id)?.focus());
   };
@@ -251,7 +273,12 @@ function UnitRow({
     unit.place?.base ?? null,
   ].filter((part) => part !== null);
   return (
-    <li className="units-row" data-current={current ? "true" : undefined} data-status={status}>
+    <li
+      className="units-row"
+      data-current={current ? "true" : undefined}
+      data-status={status}
+      data-self={unit.self ? "true" : undefined}
+    >
       <label className="units-row-check">
         <input type="checkbox" checked={checked} onChange={onToggle} />
         <span className="visually-hidden">{m.units_select_one({ name: label })}</span>
@@ -267,6 +294,7 @@ function UnitRow({
         <span className="units-row-text">
           <span className="units-row-title">
             <span className="units-row-name">{label}</span>
+            {unit.self ? <span className="roster-tag units-self-tag">{m.units_self_tag()}</span> : null}
             {unit.preview ? <PreviewTag /> : null}
           </span>
           <span className="units-row-meta">{meta.join(" · ")}</span>

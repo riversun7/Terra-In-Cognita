@@ -193,6 +193,8 @@ export interface CyborgService {
   naturalizationRules(nation?: number): NaturalizationRules;
   /** 그 사람과 그 나라 사이 우호도(D-526, −100~100, 없으면 0) */
   standingOf(userId: string, factionId: number): number;
+  /** 그 사람의 그 나라 우호도를 낮춘다(가문 도시 탈퇴 패널티 등, 최소 RELATION_SCORE_MIN). 사이보그가 없으면 undefined */
+  dropStanding(userId: string, factionId: number, drop: number, atMs: number): number | undefined;
   /** 그 사람의 그 나라 명성(D-326, 없으면 0) */
   renownOf(userId: string, factionId: number): number;
   /** 그 사람의 그 나라 명성을 더한다(쓰기 대기열, 동기 — 부르는 쪽 커밋에 든다). 사이보그가 없으면 undefined, 있으면 새 값 */
@@ -709,6 +711,20 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       };
     },
     standingOf: (userId, factionId) => byUser.get(userId)?.standings.get(factionId) ?? 0,
+    dropStanding(userId, factionId, drop, atMs) {
+      const record = byUser.get(userId);
+      if (!record) return undefined;
+      const amount = Math.max(0, Math.trunc(drop));
+      const score = Math.max(RELATION_SCORE_MIN, (record.standings.get(factionId) ?? 0) - amount);
+      record.standings.set(factionId, score);
+      writer.upsert("userNationStandings", {
+        user_id: userId,
+        faction_id: factionId,
+        score,
+        updated_at_ms: atMs,
+      });
+      return score;
+    },
     renownOf: (userId, factionId) => byUser.get(userId)?.renown?.get(factionId) ?? 0,
     addRenown(userId, factionId, amount, atMs) {
       const record = byUser.get(userId);

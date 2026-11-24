@@ -1,6 +1,7 @@
 // 하루 끝 주민세 빚 → 신용 깎기 고리(SimHooks.residentTaxArrears — @terra/sim simulator/societyPayouts.ts) — docs/adr/2026-11-21-credit.md.
 // npc/rulingVault.ts npcRulingHooks가 얹는다(npc/runtime.ts 줄 수 상한). 신용 장부는 원장으로 찾는다(붙기 전이면 아무것도 하지 않는다).
 import type { SimHooks } from "@terra/sim";
+import { blacklistCheckOf } from "../factionIdentity/blacklist.ts";
 import { creditBookOf } from "./book.ts";
 import { coupTruceOf } from "./coupTruce.ts";
 
@@ -26,6 +27,8 @@ export function creditAttackHook(ledger: object) {
     if (!book || mine === undefined || attackerOwner === targetOwner) return;
     // 열린 쿠데타에서 맞선 편끼리면 벌점 없음(D-592 — 가담 벌점만, coupTruce.ts)
     if (coupTruceOf(ledger)?.(attackerOwner, targetOwner) === true) return;
+    // 대상이 공격자 나라의 블랙리스트 유저면 무패널티 PVP 명분(ADR 2026-11-25-house-city-approval-and-blacklist.md)
+    if (blacklistCheckOf(ledger)?.(attackerOwner, targetOwner) === true) return;
     if (book.standingOf(targetOwner)?.nationId === mine)
       book.event(attackerOwner, "same_nation_attack", atMs);
   };
@@ -51,13 +54,18 @@ export function creditUnitAttack(
     if (nation !== undefined) defenderNations.set(owner, nation);
   }
   const truce = coupTruceOf(ledger);
+  const blacklisted = blacklistCheckOf(ledger);
   let marked = 0;
   for (const owner of new Set(attackers)) {
     const mine = book.standingOf(owner)?.nationId;
     if (mine === undefined) continue;
-    // 열린 쿠데타에서 맞선 편인 대상은 세지 않는다(D-592 — 쿠데타 중 같은 나라 공격은 가담 벌점만, coupTruce.ts)
+    // 열린 쿠데타에서 맞선 편·블랙리스트 유저인 대상은 세지 않는다(D-592·ADR 2026-11-25)
     const hit = [...defenderNations].some(
-      ([target, nation]) => target !== owner && nation === mine && truce?.(owner, target) !== true,
+      ([target, nation]) =>
+        target !== owner &&
+        nation === mine &&
+        truce?.(owner, target) !== true &&
+        blacklisted?.(owner, target) !== true,
     );
     if (hit && book.event(owner, "same_nation_attack", atMs)) marked += 1;
   }

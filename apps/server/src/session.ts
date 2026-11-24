@@ -772,6 +772,12 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "house_dissolve":
       case "house_home":
       case "house_entry_policy":
+      case "house_city_apply":
+      case "house_city_decide":
+      case "house_join_policy":
+      case "house_city_leave":
+      case "house_city_expel":
+      case "nation_blacklist":
       case "house_village":
       case "house_ruin":
       case "house_independence":

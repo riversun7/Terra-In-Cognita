@@ -12,6 +12,7 @@ import {
 import { describe, expect, it } from "vitest";
 import { createLedger } from "../economy/ledger.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
+import { setBlacklistCheck } from "../factionIdentity/blacklist.ts";
 import { type CreditMark, attachCreditBook, creditBookOf } from "./book.ts";
 import { setCoupTruce } from "./coupTruce.ts";
 import { creditAttackHook, creditUnitAttack, withCredit } from "./hooks.ts";
@@ -291,6 +292,28 @@ describe("신용 점수 장부(D-581 · D-584 한 점수)", () => {
     expect(w.book.score(ownerSubject, NATION, T0)).toBe(500);
     // 쿠데타와 상관없는 같은 나라 사람은 그대로 벌점
     expect(creditUnitAttack(w.ledger, [PLAYER], [RIVAL, BYSTANDER], T0)).toBe(1);
+    expect(w.book.score(ownerSubject, NATION, T0)).toBe(450);
+  });
+
+  it("블랙리스트 유저 공격은 같은 나라 공격 신용 벌점이 면제된다(무패널티 PVP 명분 — ADR 2026-11-25)", () => {
+    const w = world({ rules: { creditStart: 500 } });
+    const OUTLAW = 41;
+    const CITIZEN = 43;
+    w.book.sweep(
+      T0,
+      new Map([
+        [PLAYER, NATION],
+        [OUTLAW, NATION],
+        [CITIZEN, NATION],
+      ]),
+    );
+    setBlacklistCheck(w.ledger, (_attacker, target) => target === OUTLAW);
+    // 블랙리스트 대상 공격: 유닛·건물 고리 모두 벌점 없음
+    expect(creditUnitAttack(w.ledger, [PLAYER], [OUTLAW], T0)).toBe(0);
+    creditAttackHook(w.ledger)(PLAYER, OUTLAW, T0);
+    expect(w.book.score(ownerSubject, NATION, T0)).toBe(500);
+    // 일반 같은 나라 유저 공격: 벌점 적용
+    expect(creditUnitAttack(w.ledger, [PLAYER], [CITIZEN], T0)).toBe(1);
     expect(w.book.score(ownerSubject, NATION, T0)).toBe(450);
   });
 

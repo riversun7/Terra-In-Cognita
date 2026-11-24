@@ -18,8 +18,10 @@ import {
 } from "@terra/protocol";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
+import type { NationBlacklistService } from "./blacklist.ts";
 import type { HouseFounder, HouseFoundResult } from "./found.ts";
 import type { HouseCityResult, HouseCityService } from "./houseCity.ts";
+import type { HouseCityJoinService } from "./houseCityJoin.ts";
 import type { HouseEntryPolicyService } from "./houseEntryPolicy.ts";
 import type { HouseHomeService } from "./houseHome.ts";
 import type { HousePolicyService } from "./housePolicy.ts";
@@ -45,6 +47,12 @@ export type HouseMemberClientMessage = ClientMessageOf<
   | "house_dissolve"
   | "house_home"
   | "house_entry_policy"
+  | "house_city_apply"
+  | "house_city_decide"
+  | "house_join_policy"
+  | "house_city_leave"
+  | "house_city_expel"
+  | "nation_blacklist"
 >;
 export type HouseCityClientMessage = ClientMessageOf<"house_village" | "house_ruin" | "house_independence">;
 export type HouseRecruitClientMessage = ClientMessageOf<"house_recruit_auto" | "house_recruit_hire">;
@@ -182,8 +190,40 @@ function runMember(
   message: HouseMemberClientMessage,
   entryPolicy?: HouseEntryPolicyService,
   policy?: HousePolicyService,
+  cityJoin?: HouseCityJoinService,
+  blacklist?: NationBlacklistService,
 ): Promise<HouseMemberResult> {
   switch (message.t) {
+    // 2단계: 정부 방문 도시 가입·승인·정책·탈퇴·추방·블랙리스트(프로토콜 70)
+    case "house_city_apply":
+      return cityJoin
+        ? cityJoin.applyAtHall(userId, message.buildingId)
+        : Promise.resolve(memberFail("busy"));
+    case "house_city_decide":
+      return cityJoin
+        ? cityJoin.decideApplication(userId, message.applicationId, message.accept)
+        : Promise.resolve(memberFail("busy"));
+    case "house_join_policy":
+      return cityJoin
+        ? cityJoin.setJoinPolicy(userId, message.cityId, message.approver, message.minStanding)
+        : Promise.resolve(memberFail("busy"));
+    case "house_city_leave":
+      return cityJoin ? cityJoin.leaveCity(userId) : Promise.resolve(memberFail("busy"));
+    case "house_city_expel":
+      return cityJoin
+        ? cityJoin.expelHouse(userId, message.cityId, message.houseId)
+        : Promise.resolve(memberFail("busy"));
+    case "nation_blacklist":
+      return blacklist
+        ? blacklist.handle(userId, {
+            action: message.action,
+            cityId: message.cityId,
+            targetName: message.targetName,
+            targetUserId: message.targetUserId,
+            bounty: message.bounty,
+            reason: message.reason,
+          })
+        : Promise.resolve(memberFail("busy"));
     // 가문 금고 기부·가문세율·도시 짓기 정책(프로토콜 54, D-574 — housePolicy.ts)
     case "house_donate":
       return policy ? policy.donate(userId, BigInt(message.amount)) : Promise.resolve(memberFail("busy"));
@@ -240,6 +280,10 @@ export function createHouseGateway(options: {
   entryPolicy?: (() => HouseEntryPolicyService | undefined) | undefined;
   /** 가문 금고 기부·가문세율·도시 짓기 정책(프로토콜 54, D-574, 없으면 busy) */
   policy?: (() => HousePolicyService | undefined) | undefined;
+  /** 가문 도시 가입(정부 방문·승인·정책)·탈퇴·추방(프로토콜 70, 없으면 busy) */
+  cityJoin?: (() => HouseCityJoinService | undefined) | undefined;
+  /** 나라 블랙리스트 등록·해제(프로토콜 70, 없으면 busy) */
+  blacklist?: (() => NationBlacklistService | undefined) | undefined;
   /** 나라 세금 정하기(프로토콜 57, 질문 2322 나·2373 가, 없으면 busy) */
   nationTax?: (() => NationTaxPolicyService | undefined) | undefined;
   /** 도시 화폐 고르기(프로토콜 69, docs/adr/2026-11-24-city-money.md, 없으면 busy) */
@@ -351,6 +395,8 @@ export function createHouseGateway(options: {
           message,
           options.entryPolicy?.(),
           options.policy?.(),
+          options.cityJoin?.(),
+          options.blacklist?.(),
         );
         if (result.ok) {
           options.log.info(

@@ -128,6 +128,43 @@ const ownSide = (npc: NpcRuntime, house: HouseRow, mode: HouseCityMode): number[
   return out;
 };
 
+/** 가문원들이 보유한 유닛 가운데 대상 나라와 전쟁 중인 도시에 거주하는 유닛 수(ADR 2026-11-24) */
+export function countHostileResidentUnits(
+  world: Pick<World, "status" | "persistence" | "npc"> | undefined,
+  memberUserIds: readonly string[],
+  targetNationId: number,
+): number {
+  const p = world?.status().state === "ready" ? world.persistence : undefined;
+  const npc = world?.npc;
+  if (!p || !npc) return 0;
+  const book = residenceBookOf(p.ledger);
+  if (!book) return 0;
+  const targetOwner = npc.houses.ownerOfRow(targetNationId);
+  const wars = targetOwner === undefined ? undefined : npc.world.factions.get(targetOwner)?.wars;
+  if (!wars || wars.size === 0) return 0;
+  const owners = new Set<number>();
+  for (const uid of memberUserIds) {
+    const owner = p.settlement.findOwnerOfUser(uid);
+    if (owner !== undefined) owners.add(owner);
+  }
+  if (owners.size === 0) return 0;
+  let count = 0;
+  for (const choice of book.all()) {
+    if (!owners.has(choice.ownerId)) continue;
+    const place = book.chosenPlace(choice.unitId);
+    if (!place) continue;
+    let cityOwner: number | undefined = npc.world.cities.get(place.cityId)?.owner;
+    for (let depth = 0; depth < 8 && cityOwner !== undefined; depth++) {
+      if (wars.has(cityOwner)) {
+        count += 1;
+        break;
+      }
+      cityOwner = npc.world.factions.get(cityOwner)?.overlord ?? undefined;
+    }
+  }
+  return count;
+}
+
 export function createHouseCity(o: {
   readonly pool: IdentityQueryable;
   readonly db?: Database | undefined;
@@ -319,36 +356,7 @@ export function createHouseCity(o: {
       return p ? moneyOf(p.ledger, p.settlement.findOwnerOfUser(userId)) : undefined;
     },
     hostileResidentUnits(memberUserIds, targetNationId) {
-      const world = o.world();
-      const p = world?.status().state === "ready" ? world.persistence : undefined;
-      const npc = world?.npc;
-      if (!p || !npc) return 0;
-      const book = residenceBookOf(p.ledger);
-      if (!book) return 0;
-      const targetOwner = npc.houses.ownerOfRow(targetNationId);
-      const wars = targetOwner === undefined ? undefined : npc.world.factions.get(targetOwner)?.wars;
-      if (!wars || wars.size === 0) return 0;
-      const owners = new Set<number>();
-      for (const uid of memberUserIds) {
-        const owner = p.settlement.findOwnerOfUser(uid);
-        if (owner !== undefined) owners.add(owner);
-      }
-      if (owners.size === 0) return 0;
-      let count = 0;
-      for (const choice of book.all()) {
-        if (!owners.has(choice.ownerId)) continue;
-        const place = book.chosenPlace(choice.unitId);
-        if (!place) continue;
-        let cityOwner: number | undefined = npc.world.cities.get(place.cityId)?.owner;
-        for (let depth = 0; depth < 8 && cityOwner !== undefined; depth++) {
-          if (wars.has(cityOwner)) {
-            count += 1;
-            break;
-          }
-          cityOwner = npc.world.factions.get(cityOwner)?.overlord ?? undefined;
-        }
-      }
-      return count;
+      return countHostileResidentUnits(o.world(), memberUserIds, targetNationId);
     },
     async view(userId, input) {
       const rules = o.rules();

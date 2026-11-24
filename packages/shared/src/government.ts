@@ -219,6 +219,73 @@ export interface GovernmentCityMoney {
   readonly options: readonly GovernmentCurrencyOption[];
 }
 
+/** 도시 가입 승인 권한(ADR 2026-11-25-house-city-approval-and-blacklist.md) */
+export type CityJoinApproverKind = "mayor" | "leader" | "auto";
+
+/** 정부 판의 대기 중인 가문 도시 가입 신청 한 줄 */
+export interface GovernmentCityApplicationRow {
+  readonly id: number;
+  readonly houseId: number;
+  readonly houseName: string;
+  readonly leaderName: string | null;
+  readonly memberCount: number;
+  readonly createdAtMs: number;
+  readonly expiresAtMs: number;
+}
+
+/** 정부 판의 도시 소속 가문 한 줄(추방 관리용) */
+export interface GovernmentCityHouseRow {
+  readonly houseId: number;
+  readonly houseName: string;
+  readonly leaderName: string | null;
+  readonly memberCount: number;
+  readonly own: boolean;
+}
+
+/** 정부 판의 나라 블랙리스트(현상수배) 한 줄 */
+export interface GovernmentBlacklistRow {
+  readonly id: number;
+  readonly userId: string;
+  readonly cyborgName: string | null;
+  readonly reason: string | null;
+  /** 사냥 현상금(최소 단위 정수 글자) */
+  readonly bounty: string;
+  /** 사냥 명성·기여도 보상 */
+  readonly renownReward: number;
+  readonly createdAtMs: number;
+}
+
+/**
+ * 정부 판의 가문 도시 가입·추방·블랙리스트 묶음(ADR 2026-11-25-house-city-approval-and-blacklist.md).
+ * 모두에게 가입 정책·신청 버튼(또는 차단 이유)·블랙리스트 목록이 보이며, 승인권자(canManage)에게는 정책 변경·신청 승인/거절·소속 가문 추방·블랙리스트 관리가 열린다.
+ */
+export interface GovernmentCityMembership {
+  /** 지금 적용되는 승인 방식(정책 미설정 시 NPC=auto, 플레이어=mayor) */
+  readonly approver: CityJoinApproverKind;
+  /** 도시 정책에 직접 저장한 승인 방식(null = 기본값) */
+  readonly ownApprover: CityJoinApproverKind | null;
+  /** 자동 승인 최소 우호도(-100~100) */
+  readonly minStanding: number;
+  /** 도시 정책에 직접 저장한 최소 우호도(null = 기본값 -20) */
+  readonly ownMinStanding: number | null;
+  /** 보는 사람이 이 도시의 가입 승인·추방·블랙리스트 권한을 가졌나 */
+  readonly canManage: boolean;
+  /** 보는 사람이 이 도시의 승인 정책을 바꿀 수 있나(도시·국가 통치 가문장) */
+  readonly canSetPolicy: boolean;
+  /** 보는 사람이 지금 이 도시에 가문 가입 신청을 누를 수 있나 */
+  readonly canApply: boolean;
+  /** 신청 불가 사유 코드(가능하면 null): no_house | not_leader | has_city | same_city | wrong_city | home_wait | blacklisted | standing_too_low | already_applied */
+  readonly applyBlock: string | null;
+  /** 이 도시·나라와 전쟁 중인 도시에 거주하는 내 가문 유닛 수(경고 배너용) */
+  readonly hostileResidentUnits: number;
+  /** 이 도시에 가입 신청한 가문 목록(canManage일 때만 채움) */
+  readonly applications: readonly GovernmentCityApplicationRow[];
+  /** 이 도시 소속 플레이어 가문 목록(canManage일 때만 채움) */
+  readonly houses: readonly GovernmentCityHouseRow[];
+  /** 이 나라의 블랙리스트(모두에게 공개 — PVP 명분·현상금 확인) */
+  readonly blacklist: readonly GovernmentBlacklistRow[];
+}
+
 export interface GovernmentResponse {
   readonly status: GovernmentStatus;
   readonly buildingId: number;
@@ -235,5 +302,7 @@ export interface GovernmentResponse {
   readonly taxes?: GovernmentTaxes | null;
   /** 도시 화폐(도시 경제가 도는 서버만 — 없으면 칸 없음) */
   readonly money?: GovernmentCityMoney | null;
+  /** 가문 도시 가입·추방·블랙리스트(ADR 2026-11-25, 읽지 못하면 null·없음) */
+  readonly cityMembership?: GovernmentCityMembership | null;
   readonly generatedAt: number;
 }

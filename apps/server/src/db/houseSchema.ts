@@ -240,10 +240,75 @@ export const cityPolicies = pgTable("city_policies", {
    * house_city_build_default). 정하는 사람은 가문 이동 정책과 같다(factionIdentity/houseBuildPolicy.ts). 바뀜(house-8): 칸을 더하기만 했다
    */
   houseBuild: boolean("house_build"),
+  /**
+   * 가문 도시 가입 승인 권한(ADR 2026-11-25-house-city-approval-and-blacklist.md):
+   * 'mayor'(도시 시장·주인 가문장) | 'leader'(국가 원수·지배 가문장) | 'auto'(자동 승인). null = NPC 도시는 auto, 플레이어 도시는 mayor
+   */
+  joinApprover: text("join_approver"),
+  /** 자동 승인 최소 우호도 문턱(−100~100, null = 기본 −20). 이 값 미만이면 자동 차단 */
+  joinMinStanding: integer("join_min_standing"),
   /** 마지막으로 정한 시각·사람(감사 기록과 같은 값) */
   setAtMs: bigint("set_at_ms", { mode: "number" }).notNull(),
   setBy: uuid("set_by"),
 });
+
+/**
+ * 가문의 도시 가입 신청 대기줄(ADR 2026-11-25-house-city-approval-and-blacklist.md):
+ * 가문장이 정부 건물에 직접 방문해 신청하고, 시장(기본)·국가 원수가 승인한다. 도시×가문마다 한 줄. 세계 표
+ */
+export const cityHouseApplications = pgTable(
+  "city_house_applications",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+    cityId: bigint("city_id", { mode: "number" }).notNull(),
+    houseId: bigint("house_id", { mode: "number" })
+      .notNull()
+      .references(() => factions.id, { onDelete: "cascade" }),
+    requestedBy: uuid("requested_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAtMs: bigint("created_at_ms", { mode: "number" }).notNull(),
+    expiresAtMs: bigint("expires_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("city_house_applications_city_house_idx").on(table.cityId, table.houseId),
+    index("city_house_applications_city_idx").on(table.cityId, table.expiresAtMs),
+    index("city_house_applications_house_idx").on(table.houseId),
+  ],
+);
+
+/**
+ * 국가·도시 블랙리스트(ADR 2026-11-25-house-city-approval-and-blacklist.md):
+ * 악의적 유저를 나라 단위로 등록한다. 블랙리스트 유저는 가입이 차단되며, 사냥 시 신용 벌점 없는 PVP 명분과 현상금·기여도(명성·가문 기여도)를 준다.
+ * 나라×유저마다 한 줄. 세계 표
+ */
+export const nationBlacklist = pgTable(
+  "nation_blacklist",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+    nationId: bigint("nation_id", { mode: "number" })
+      .notNull()
+      .references(() => factions.id, { onDelete: "cascade" }),
+    cityId: bigint("city_id", { mode: "number" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    reason: text("reason"),
+    /** 사냥 시 지급할 현상금(최소 단위 정수, 0 이상) */
+    bounty: bigint("bounty", { mode: "bigint" }).notNull().default(0n),
+    /** 사냥 시 지급할 국가 명성·기여도 보상(정수, 0 이상) */
+    renownReward: integer("renown_reward").notNull().default(10),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAtMs: bigint("created_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("nation_blacklist_nation_user_idx").on(table.nationId, table.userId),
+    index("nation_blacklist_user_idx").on(table.userId),
+    check("nation_blacklist_bounty", sql`${table.bounty} >= 0`),
+    check("nation_blacklist_renown", sql`${table.renownReward} >= 0`),
+    check("nation_blacklist_reason", sql`${table.reason} is null or char_length(${table.reason}) <= 200`),
+  ],
+);
 
 /**
  * 가문의 정책(기획 D-574 2150 — 가문 금고는 가문원 기부 + 가문원 수입의 일부를 가문세로, 세율은 가문장이 정한다 — 기획 해석): 가문(세력 행)마다

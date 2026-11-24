@@ -176,6 +176,19 @@ export const HOUSE_MEMBER_RESULT_CODES = [
   "insufficient_funds",
   /** 가문세율이 설정 칸 상한(house_tax_max_pm)을 넘는다(house_tax) */
   "tax_too_high",
+  // 70판부터(가문 도시 가입·탈퇴·추방·블랙리스트 — ADR 2026-11-25-house-city-approval-and-blacklist.md)
+  /** 행정 건물(government_hall)이 아니거나 도시에 묶이지 않았다 */
+  "not_government",
+  /** 가문장 사이보그 본체가 그 도시에 서 있지 않다 */
+  "wrong_city",
+  /** 가문원 가운데 이 나라 블랙리스트에 오른 사람이 있다 */
+  "blacklisted",
+  /** 자동 승인 최소 우호도보다 낮다 */
+  "standing_too_low",
+  /** 소속 도시가 없는 가문이라 탈퇴할 수 없다 */
+  "no_home_city",
+  /** 이미 이 도시에 가입 신청이 걸려 있다 */
+  "already_applied",
 ] as const;
 export type HouseMemberResultCode = (typeof HOUSE_MEMBER_RESULT_CODES)[number];
 
@@ -207,6 +220,15 @@ export const HOUSE_MEMBER_ACTIONS = [
   "vault_taken",
   // 62판부터(house_heir의 답에만): 후계자를 정하거나 풂(질문 2491 — D-588 5)
   "heir_set",
+  // 70판부터(가문 도시 가입·탈퇴·추방·블랙리스트 — ADR 2026-11-25-house-city-approval-and-blacklist.md)
+  "city_applied",
+  "city_apply_accepted",
+  "city_apply_declined",
+  "join_policy_set",
+  "city_left",
+  "city_expelled",
+  "blacklist_added",
+  "blacklist_removed",
 ] as const;
 export type HouseMemberAction = (typeof HOUSE_MEMBER_ACTIONS)[number];
 
@@ -376,23 +398,58 @@ export const HOUSE_HOME_PROTOCOL_VERSION = 39;
 /** 소속 도시 공고(D-570, 한 일 home_announced·home_cancelled)를 받는 가장 낮은 프로토콜 버전 */
 export const HOUSE_HOME_NOTICE_PROTOCOL_VERSION = 48;
 
-/** 그 연결 판이 모르는 한 일(공고·공고 거둠)을 home_set으로 낮춘다(47판 기기는 바뀐 소속 도시를 다시 읽는다) */
+/** 가문 도시 가입(정부 방문 신청·승인·정책·탈퇴·추방·블랙리스트)에 필요한 가장 낮은 프로토콜 버전 */
+export const HOUSE_CITY_JOIN_PROTOCOL_VERSION = 70;
+
+/** 도시 가입 승인 방식: 시장 | 국가 원수 | 자동 승인 */
+export const CITY_JOIN_APPROVERS = ["mayor", "leader", "auto"] as const;
+export type CityJoinApprover = (typeof CITY_JOIN_APPROVERS)[number];
+
+/** 그 연결 판이 모르는 한 일을 옛 판 호환 한 일로 낮춘다 */
 export function legacyHouseMemberAction(
   action: HouseMemberAction,
   protocolVersion: number,
 ): HouseMemberAction {
-  return protocolVersion < HOUSE_HOME_NOTICE_PROTOCOL_VERSION &&
+  if (
+    protocolVersion < HOUSE_HOME_NOTICE_PROTOCOL_VERSION &&
     (action === "home_announced" || action === "home_cancelled")
-    ? "home_set"
-    : action;
+  ) {
+    return "home_set";
+  }
+  if (
+    protocolVersion < HOUSE_CITY_JOIN_PROTOCOL_VERSION &&
+    (action === "city_applied" ||
+      action === "city_apply_accepted" ||
+      action === "city_apply_declined" ||
+      action === "join_policy_set" ||
+      action === "city_left" ||
+      action === "city_expelled" ||
+      action === "blacklist_added" ||
+      action === "blacklist_removed")
+  ) {
+    return "home_set";
+  }
+  return action;
 }
 
-/** 가문 이동 가입비 모자람(D-573, 50판)을 더 낮은 판 연결에는 busy로 낮춘다(그 판 기기가 모르는 코드) */
+/** 더 낮은 판 연결이 모르는 결과 코드를 옛 코드로 낮춘다 */
 export function legacyHouseMemberCode(
   code: HouseMemberResultCode,
   protocolVersion: number,
 ): HouseMemberResultCode {
-  return protocolVersion < 50 && code === "entry_fee_short" ? "busy" : code;
+  if (protocolVersion < 50 && code === "entry_fee_short") return "busy";
+  if (
+    protocolVersion < HOUSE_CITY_JOIN_PROTOCOL_VERSION &&
+    (code === "not_government" ||
+      code === "wrong_city" ||
+      code === "blacklisted" ||
+      code === "standing_too_low" ||
+      code === "no_home_city" ||
+      code === "already_applied")
+  ) {
+    return "busy";
+  }
+  return code;
 }
 
 /**
@@ -431,6 +488,63 @@ export const houseEntryPolicyMessage = z.object({
   fee: entryFee.nullable(),
 });
 
+// ---------- 가문 도시 가입(정부 방문·승인)·탈퇴·추방·블랙리스트(프로토콜 70부터) ----------
+// ADR docs/adr/2026-11-25-house-city-approval-and-blacklist.md.
+
+/** 가문장이 해당 도시 행정 건물에 방문해 가문 도시 가입을 신청한다 */
+export const houseCityApplyMessage = z.object({
+  t: z.literal("house_city_apply"),
+  id: requestId,
+  buildingId: rowId,
+});
+
+/** 도시 시장·국가 원수가 대기 중인 가문 도시 가입 신청을 승인 또는 거절한다 */
+export const houseCityDecideMessage = z.object({
+  t: z.literal("house_city_decide"),
+  id: requestId,
+  applicationId: rowId,
+  accept: z.boolean(),
+});
+
+/** 도시·국가 통치 가문장이 도시 가입 승인 권한과 자동 승인 최소 우호도를 정한다(null = 기본값) */
+export const houseJoinPolicyMessage = z.object({
+  t: z.literal("house_join_policy"),
+  id: requestId,
+  cityId: rowId,
+  approver: z.enum(CITY_JOIN_APPROVERS).nullable(),
+  minStanding: z.number().int().min(-100).max(100).nullable(),
+});
+
+/** 가문장이 현재 소속 도시·국가에서 탈퇴한다(재가입 대기 + 우호도 하락) */
+export const houseCityLeaveMessage = z.object({
+  t: z.literal("house_city_leave"),
+  id: requestId,
+});
+
+/** 시장·국가 원수가 소속 가문을 도시에서 추방한다(우호도 변화 없음) */
+export const houseCityExpelMessage = z.object({
+  t: z.literal("house_city_expel"),
+  id: requestId,
+  cityId: rowId,
+  houseId: rowId,
+});
+
+/** 시장·국가 원수가 나라 블랙리스트에 유저를 등록하거나 해제한다 */
+export const nationBlacklistMessage = z.object({
+  t: z.literal("nation_blacklist"),
+  id: requestId,
+  action: z.enum(["add", "remove"]),
+  cityId: rowId,
+  /** add 때 대상 사이보그 이름(또는 targetUserId) */
+  targetName: z.string().min(1).max(32).optional(),
+  /** remove(또는 add) 때 대상 사용자 ID */
+  targetUserId: userId.optional(),
+  /** 사냥 현상금(최소 단위, 10진 정수 글자, add 때 선택 — 기본 "0") */
+  bounty: amount.optional(),
+  /** 사유(add 때 선택, 최대 200자) */
+  reason: z.string().max(200).optional(),
+});
+
 export const houseClientMessages = [
   houseFoundMessage,
   houseInviteMessage,
@@ -447,6 +561,12 @@ export const houseClientMessages = [
   houseHomeMessage,
   houseEntryPolicyMessage,
   houseIndependenceMessage,
+  houseCityApplyMessage,
+  houseCityDecideMessage,
+  houseJoinPolicyMessage,
+  houseCityLeaveMessage,
+  houseCityExpelMessage,
+  nationBlacklistMessage,
 ] as const;
 export const houseServerMessages = [
   houseResultMessage,

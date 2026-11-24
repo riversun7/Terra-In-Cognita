@@ -43,6 +43,7 @@ function fakeService(calls: string[]): CyborgService {
       calls.push(`look:${userId}:${typeof look}`);
       return ok({ ok: false, code: "look_locked" });
     },
+    dropStanding: () => undefined,
     livingUnpaid: () => false,
     record: () => undefined,
     isBodyUnit: () => false,

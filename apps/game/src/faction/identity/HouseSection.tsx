@@ -187,6 +187,7 @@ function MyHouse({
           memberCount={house.members.length}
           busy={busy}
           onChange={(cityId) => void run({ t: "house_home", cityId })}
+          onLeaveCity={() => void run({ t: "house_city_leave" })}
         />
       ) : null}
       {house.vault === undefined ? null : (

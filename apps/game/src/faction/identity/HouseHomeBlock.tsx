@@ -19,6 +19,7 @@ export function HouseHomeBlock({
   memberCount = 1,
   busy,
   onChange,
+  onLeaveCity,
 }: {
   home: HouseHomeView;
   /** 가문에 들어 있나(아니면 무소속 안내) */
@@ -28,9 +29,12 @@ export function HouseHomeBlock({
   memberCount?: number;
   busy: boolean;
   onChange: (cityId: number) => void;
+  /** 소속 도시 탈퇴(ADR 2026-11-25) */
+  onLeaveCity?: () => void;
 }) {
   const id = useId();
   const [picked, setPicked] = useState(String(home.city?.id ?? home.choices[0]?.id ?? ""));
+  const [askingLeave, setAskingLeave] = useState(false);
   const where = home.city === null ? m.fid_home_none() : homeChoiceText(home.city);
   if (!inHouse)
     return (
@@ -139,6 +143,38 @@ export function HouseHomeBlock({
       {canChange ? <p className="faction-muted">{m.fid_home_change_note()}</p> : null}
       {canChange && needsNotice && noticeDays > 0 ? (
         <p className="faction-muted">{m.fid_home_notice_rule({ days: noticeDays })}</p>
+      ) : null}
+      {leader && home.city !== null && !home.locked && onLeaveCity ? (
+        <div className="fid-house-actions" data-part="house-home-leave">
+          {askingLeave ? (
+            <span className="fid-house-confirm" role="group" aria-label={m.fid_home_leave_city_confirm()}>
+              <span>{m.fid_home_leave_city_confirm()}</span>
+              <button
+                type="button"
+                className="button-small button-primary"
+                aria-disabled={busy}
+                onClick={() => {
+                  setAskingLeave(false);
+                  if (!busy) onLeaveCity();
+                }}
+              >
+                {m.fid_home_leave_city_yes()}
+              </button>
+              <button type="button" className="button-small" onClick={() => setAskingLeave(false)}>
+                {m.cancel()}
+              </button>
+            </span>
+          ) : (
+            <button
+              type="button"
+              className="button-small"
+              aria-disabled={busy}
+              onClick={() => setAskingLeave(true)}
+            >
+              {m.fid_home_leave_city()}
+            </button>
+          )}
+        </div>
       ) : null}
     </div>
   );

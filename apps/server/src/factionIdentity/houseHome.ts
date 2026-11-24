@@ -216,7 +216,7 @@ export function createHouseHome(o: HouseHomeOptions): HouseHomeService {
             return { ok: true, action: "home_cancelled", factionId: house.id };
           }
         } else if (before?.cityId !== null && before?.cityId === city.id) return fail("same_city");
-        if (before && before.cityId !== null && before.setAtMs + o.rules().homeWaitMs > now)
+        if (before && before.setAtMs > 0 && before.setAtMs + o.rules().homeWaitMs > now)
           return fail("home_wait");
         const noticeMs = o.rules().homeNoticeMs;
         // 들어가는 도시·나라의 정책(도시 정책은 나라가 같아도 — houseEntry.ts). 가입비는 가문이 한꺼번에 내고 못 내면 옮기지 못한다(D-573) —

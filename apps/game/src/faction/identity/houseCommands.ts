@@ -5,6 +5,7 @@
 // 질문 926 나·985 다, docs/adr/2026-11-11-faction-identity.md "바뀜 (926~935 답)"·"바뀜 (981~986 답)". 게임 상태를 바꾸는 명령은 WebSocket으로만.
 // 국적 바꾸기 명령(government/naturalizeCommands.ts)과 같은 틀이다: 인사 전이면 기다렸다 보내고, 끊기면 "offline", TIMEOUT_MS 안에 답이 없으면 "timeout".
 import type {
+  CityJoinApprover,
   HouseCityMode,
   HouseEntryScope,
   HouseCityResultCode,
@@ -52,7 +53,27 @@ export type HouseMemberRequest =
   | { readonly t: "house_donate"; readonly amount: string }
   | { readonly t: "house_vault_take"; readonly amount: string }
   | { readonly t: "house_tax"; readonly ratePm: number }
-  | { readonly t: "house_build_policy"; readonly cityId: number; readonly allow: boolean | null };
+  | { readonly t: "house_build_policy"; readonly cityId: number; readonly allow: boolean | null }
+  // 프로토콜 70(2단계): 정부 방문 도시 가입 신청·승인·정책·탈퇴·추방·블랙리스트
+  | { readonly t: "house_city_apply"; readonly buildingId: number }
+  | { readonly t: "house_city_decide"; readonly applicationId: number; readonly accept: boolean }
+  | {
+      readonly t: "house_join_policy";
+      readonly cityId: number;
+      readonly approver: CityJoinApprover | null;
+      readonly minStanding: number | null;
+    }
+  | { readonly t: "house_city_leave" }
+  | { readonly t: "house_city_expel"; readonly cityId: number; readonly houseId: number }
+  | {
+      readonly t: "nation_blacklist";
+      readonly action: "add" | "remove";
+      readonly cityId: number;
+      readonly targetName?: string;
+      readonly targetUserId?: string;
+      readonly bounty?: string;
+      readonly reason?: string;
+    };
 
 export type HouseCityOutcome =
   | {

@@ -76,13 +76,15 @@ export function attachHouseTies(store: HouseTiesStore, pool: QueryPool): HouseTi
   const units = new Map<number, UnitHouse>();
   let unitsLoaded = false;
 
-  /** 가문원 시민권·내 도시를 가문에 맞춘다(D-569). 바뀐 수 */
+  /** 가문원 시민권·내 도시를 가문에 맞춘다(D-569·ADR 2026-11-24/25: 소속 도시를 잃은 가문은 국가 미소속으로 푼다). 바뀐 수 */
   const align = (homes: ReadonlyMap<string, number | null>): number => {
     const cyborgs = store.cyborgs;
     if (!cyborgs) return 0;
     let changed = 0;
-    for (const [userId, nation] of memberNations)
+    for (const userId of memberHouses.keys()) {
+      const nation = memberNations.get(userId) ?? null;
       if (cyborgs.alignHome(userId, { factionId: nation, cityId: homes.get(userId) ?? null })) changed += 1;
+    }
     return changed;
   };
 

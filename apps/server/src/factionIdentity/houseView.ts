@@ -155,7 +155,7 @@ async function homeView(
     };
   }
   const row = await houseHomeRow(q, house.factionId);
-  const changeAt = row && row.cityId !== null && house.leader ? row.setAtMs + waitMs : null;
+  const changeAt = row && row.setAtMs > 0 && house.leader ? row.setAtMs + waitMs : null;
   const city = row && row.cityId !== null ? await cityHome(q, row.cityId, input.presets) : null;
   // 공고한 새 소속 도시(D-570)와 그 도시·나라 정책(도시 정책, 없으면 나라가 바뀔 때 나라 정책 — + 가입비 / − 지원금, 가문이 한꺼번에 D-573)
   const target = row?.pending ? await cityHome(q, row.pending.cityId, input.presets) : null;

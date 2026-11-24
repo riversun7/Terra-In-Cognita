@@ -16,6 +16,7 @@
 // [임시] 투표·지분 의결이 아직 없어 어느 체제든 지도자 = 지배 가문의 장이 나라를 대표한다(질문 2254 — 선출·해임은 별도 줄기 governance, 질문 2315).
 // 바뀜(tax-2, 질문 2322 나·2373 가): 나라 세금 칸(taxes — 소득세·주민세 세율·주기·국세 몫, 정한 곳, 지도자면 정하기 — nationTaxPolicy.ts).
 import {
+  type GovernmentCityMembership,
   type GovernmentHouseEntry,
   type GovernmentMayor,
   type GovernmentResponse,
@@ -125,6 +126,10 @@ export interface GovernmentSource {
     | undefined;
   /** 가문 이동 정책 칸(질문 2018 답, factionIdentity/houseEntryPolicy.ts). 없으면 칸 없음 */
   houseEntry?: ((viewer: Viewer, cityId: number) => Promise<GovernmentHouseEntry | null>) | undefined;
+  /** 가문 도시 가입·추방·블랙리스트 칸(ADR 2026-11-25, factionIdentity/houseCityJoin.ts). 없으면 칸 없음 */
+  cityMembership?:
+    | ((viewer: Viewer, cityId: number, nowMs: number) => Promise<GovernmentCityMembership | null>)
+    | undefined;
   /** 나라 세금 칸(줄기 tax-2 — 질문 2322 나·2373 가, government/nationTaxPolicy.ts). 없으면 칸 없음 */
   nationTaxes?:
     | ((
@@ -292,6 +297,8 @@ export function createGovernmentReads(source: GovernmentSource): GovernmentReads
         headRow !== undefined ? await source.houseLeader?.(headRow).catch(() => undefined) : undefined;
       const ruling = leaderUnit === undefined ? undefined : runtime.rulingHouseOf?.(city.owner);
       const houseEntry = (await source.houseEntry?.(viewer, city.id).catch(() => null)) ?? null;
+      const cityMembership =
+        (await source.cityMembership?.(viewer, city.id, nowMs).catch(() => null)) ?? null;
       // 나라 세금(tax-2): 소득세 기본값 = 그 나라 거래세율(도시 경제가 없으면 기본 거래세 — 사업장 소득세와 같은 뒷길)
       const taxes =
         (await source
@@ -397,6 +404,7 @@ export function createGovernmentReads(source: GovernmentSource): GovernmentReads
         houseEntry,
         taxes,
         money,
+        cityMembership,
         generatedAt: nowMs,
       };
     },
@@ -416,6 +424,7 @@ export function governmentReadsOfWorld(
     | "seesUnit"
     | "houseLeader"
     | "houseEntry"
+    | "cityMembership"
     | "nationTaxes"
   >,
 ): GovernmentReads {

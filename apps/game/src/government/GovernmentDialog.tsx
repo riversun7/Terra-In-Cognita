@@ -31,6 +31,7 @@ import {
   populationText,
   taxText,
 } from "./governmentData.ts";
+import { CityHousePanel } from "./CityHousePanel.tsx";
 import { HouseBuildPolicy } from "./HouseBuildPolicy.tsx";
 import { HouseEntryPolicy } from "./HouseEntryPolicy.tsx";
 import { CityMoneyPolicy } from "./CityMoneyPolicy.tsx";
@@ -183,6 +184,13 @@ export default function GovernmentDialog({ government, onClose, via = "building"
           </h3>
           <CityShareMarket cityId={city.id} />
         </section>
+        {government.cityMembership ? (
+          <CityHousePanel
+            cityId={city.id}
+            buildingId={government.buildingId}
+            membership={government.cityMembership}
+          />
+        ) : null}
         {government.houseEntry ? <HouseEntryPolicy cityId={city.id} policy={government.houseEntry} /> : null}
         {government.houseEntry?.build ? (
           <HouseBuildPolicy

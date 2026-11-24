@@ -670,7 +670,7 @@ export function worldMapReadsOf(options: {
   readonly society?: (() => SocietyCoefficients) | undefined;
   /** 정부 판의 가문 몫(플레이어 가문 나라 지도자·가문 이동 정책 — government/houseRule.ts). 없으면 그 칸이 없다 */
   readonly governmentHouses?:
-    | Pick<GovernmentSource, "houseLeader" | "houseEntry" | "nationTaxes">
+    | Pick<GovernmentSource, "houseLeader" | "houseEntry" | "cityMembership" | "nationTaxes">
     | undefined;
 }): () =>
   | (WorldMapReadServices &

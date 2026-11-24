@@ -47,6 +47,7 @@ import { type BattleService, createBattleService } from "./battles.ts";
 import { type BattleBodies, createBattleBodies } from "./battleBodies.ts";
 import { walkSpeedsOf } from "./walkSpeed.ts";
 import { commandRankSource } from "./commandRanks.ts";
+import { blacklistReward } from "../factionIdentity/blacklistReward.ts";
 import { defenseRenown } from "./defenseRenown.ts";
 import { attachDeliveryRenown } from "./deliveryRenown.ts";
 import { type BoatHooks, createBoatHooks } from "../boats/hooks.ts";
@@ -615,6 +616,7 @@ export function startWorld(
     // 세계 전투 시작 사양의 몸: 사이보그 화면·유닛 상세와 같은 셈(입은 장비·인공장기·버프), 지휘 계급(D-558 랭킹·작위)
     const commandRankOf = commandRankSource({ pool: db, cyborgs, config, rules: societyRules, now }).rankOf;
     battleApply.onApplied(defenseRenown({ maps, owners, cyborgs, rules: societyRules })); // 방어 명성(D-326·D-571)
+    battleApply.onApplied(blacklistReward({ maps, owners, cyborgs, ledger, pool: db, log })); // 블랙리스트 사냥 보상(ADR 2026-11-25)
     const bodies = createBattleBodies({ maps, cyborgs, gearOf, catalog: config.roster, commandRankOf });
     factory.attachWalk?.(
       walkSpeedsOf(cyborgs, holdings.gearOf, config.roster, now, societyRules, boatHooks.speedPm),

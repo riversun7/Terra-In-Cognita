@@ -3,8 +3,11 @@
 // - 플레이어 가문 나라(도시를 가진 가문 — 소유 주체가 있는 가문 세력 행)의 지도자 = 그 가문장: 사이보그 본체 유닛·이름·가문 이름(세력 정체성).
 // - 가문 이동 정책 칸: factionIdentity/houseEntryPolicy.ts readHouseEntryPolicy(보는 사람이 정할 수 있는지 포함).
 // - 나라 세금 칸(tax-2): nationTaxPolicy.ts readNationTaxes(지도자면 정하기).
+import { countHostileResidentUnits } from "../factionIdentity/houseCity.ts";
+import { readCityMembership } from "../factionIdentity/houseCityJoin.ts";
 import { readHouseEntryPolicy } from "../factionIdentity/houseEntryPolicy.ts";
 import { type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
+import { unitCity } from "../temple/places.ts";
 import { readNationTaxes } from "./nationTaxPolicy.ts";
 import { TEST_HOUSE_RULES, houseRulesFrom } from "../factionIdentity/rules.ts";
 import type { IdentityQueryable } from "../factionIdentity/store.ts";
@@ -12,11 +15,12 @@ import type { World } from "../world/world.ts";
 import type { GovernmentSource } from "./reads.ts";
 
 export function houseGovernmentSources(
-  world: Pick<World, "persistence">,
+  world: Pick<World, "status" | "persistence" | "maps" | "npc">,
   pool: IdentityQueryable,
   /** 설정 칸 실효 값(없으면 시험 계수표 — 팩 없이 띄운 서버) */
   tuning: { society(): SocietyCoefficients } | undefined,
-): Required<Pick<GovernmentSource, "houseLeader" | "houseEntry" | "nationTaxes">> {
+): Required<Pick<GovernmentSource, "houseLeader" | "houseEntry" | "cityMembership" | "nationTaxes">> {
+  const rules = () => (tuning ? houseRulesFrom(tuning.society()) : TEST_HOUSE_RULES);
   return {
     async houseLeader(factionRow) {
       const { rows } = await pool.query<{ user_id: string; cyborg: string | null; house: string | null }>(
@@ -37,8 +41,27 @@ export function houseGovernmentSources(
       readHouseEntryPolicy(pool, {
         cityId,
         viewerId: viewer.id,
-        rules: tuning ? houseRulesFrom(tuning.society()) : TEST_HOUSE_RULES,
+        rules: rules(),
       }),
+    cityMembership: (viewer, cityId, nowMs) => {
+      const p = world.status().state === "ready" ? world.persistence : undefined;
+      const cyborg = p?.cyborgs.record(viewer.id);
+      const viewerInCity =
+        p !== undefined &&
+        cyborg !== undefined &&
+        cyborg.unitId !== null &&
+        unitCity(world.maps, p.facilities, cyborg.unitId, nowMs) === cityId;
+      return readCityMembership(pool, {
+        cityId,
+        viewerId: viewer.id,
+        nowMs,
+        rules: rules(),
+        viewerInCity,
+        viewerStanding: p ? (nationId) => p.cyborgs.standingOf(viewer.id, nationId) : undefined,
+        hostileUnitsFor: (memberUserIds, targetNationId) =>
+          countHostileResidentUnits(world, memberUserIds, targetNationId),
+      });
+    },
     // 나라 세금 칸(tax-2 — nationTaxPolicy.ts): 설정 칸 실효 값(없으면 시험 계수표)
     nationTaxes: (viewer, nation) =>
       readNationTaxes(pool, {

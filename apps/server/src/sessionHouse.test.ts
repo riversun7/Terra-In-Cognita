@@ -1,6 +1,7 @@
 // 가문 소켓 메시지의 판 문턱·준비 전 답(sessionHouse.ts — session.ts에서 덜어 낸 그대로) 시험
 import {
   COUP_PROTOCOL_VERSION,
+  HOUSE_CITY_JOIN_PROTOCOL_VERSION,
   HOUSE_CITY_PROTOCOL_VERSION,
   HOUSE_LEAGUE_PROTOCOL_VERSION,
   HOUSE_MEMBER_PROTOCOL_VERSION,
@@ -28,6 +29,17 @@ describe("가문 소켓 메시지", () => {
     expect(houseMessageNeed({ t: "house_dissolve" })).toBe(HOUSE_CITY_PROTOCOL_VERSION);
     expect(houseMessageNeed({ t: "gov_coup" })).toBe(COUP_PROTOCOL_VERSION);
     expect(houseMessageNeed({ t: "house_league" })).toBe(HOUSE_LEAGUE_PROTOCOL_VERSION);
+    for (const t of [
+      "house_city_apply",
+      "house_city_decide",
+      "house_join_policy",
+      "house_city_leave",
+      "house_city_expel",
+      "nation_blacklist",
+    ] as const) {
+      expect(houseMessageNeed({ t })).toBe(HOUSE_CITY_JOIN_PROTOCOL_VERSION);
+      expect(replyOf(t)).toEqual({ t: "house_member_result", id: 7, ok: false, code: "busy" });
+    }
     for (const t of HOUSE_SOCKET_TYPES) {
       expect(houseMessageNeed({ t })).toBeLessThanOrEqual(PROTOCOL_VERSION);
     }

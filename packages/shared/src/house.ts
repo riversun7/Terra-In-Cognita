@@ -89,6 +89,11 @@ export const HOUSE_NOTICE_KINDS = [
   "home_cancelled",
   // 알박기(D-572·D-574): 짓던 정부 건물이 멈춤(ruins/landClaim.ts)
   "claim_halted",
+  // 2단계(ADR 2026-11-25-house-city-approval-and-blacklist.md): 도시 가입 신청 승인·거절, 도시 탈퇴, 도시 추방
+  "city_apply_accepted",
+  "city_apply_declined",
+  "city_left",
+  "city_expelled",
 ] as const;
 export type HouseNoticeKind = (typeof HOUSE_NOTICE_KINDS)[number];
 

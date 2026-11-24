@@ -39,6 +39,12 @@ export const HOUSE_MEMBER_ERROR_TEXT: Readonly<Record<HouseMemberResultCode | "o
     entry_fee_short: m.fid_home_error_entry_fee,
     insufficient_funds: m.fid_house_error_insufficient_funds,
     tax_too_high: m.fid_house_error_tax_too_high,
+    not_government: m.fid_house_error_not_government,
+    wrong_city: m.fid_house_error_wrong_city,
+    blacklisted: m.fid_house_error_blacklisted,
+    standing_too_low: m.fid_house_error_standing_too_low,
+    no_home_city: m.fid_house_error_no_home_city,
+    already_applied: m.fid_house_error_already_applied,
     offline: m.fid_found_offline,
     timeout: m.fid_found_offline,
   };
@@ -64,6 +70,14 @@ export const HOUSE_ACTION_TEXT: Readonly<Record<HouseMemberAction | "accepted", 
   tax_set: m.fid_house_done_tax_set,
   build_policy_set: m.fid_house_done_build_policy,
   heir_set: m.fid_house_done_heir,
+  city_applied: m.fid_house_done_city_applied,
+  city_apply_accepted: m.fid_house_done_city_apply_accepted,
+  city_apply_declined: m.fid_house_done_city_apply_declined,
+  join_policy_set: m.fid_house_done_join_policy,
+  city_left: m.fid_house_done_city_left,
+  city_expelled: m.fid_house_done_city_expelled,
+  blacklist_added: m.fid_house_done_blacklist_added,
+  blacklist_removed: m.fid_house_done_blacklist_removed,
 };
 
 /** 가문 도시 명령 결과 코드 → 문장(질문 1005 가) */
@@ -138,6 +152,12 @@ const NOTICE_TEXT: Readonly<Record<HouseNoticeKind, NoticeText>> = {
           ? m.fid_house_notice_home_cancelled_fee({ house: v.house })
           : m.fid_house_notice_home_cancelled({ house: v.house, other: v.other }),
   claim_halted: () => m.fid_house_notice_claim_halted(),
+  city_apply_accepted: (v) =>
+    m.fid_house_notice_city_apply_accepted({ house: v.house, other: v.other, city: v.reason }),
+  city_apply_declined: (v) =>
+    m.fid_house_notice_city_apply_declined({ house: v.house, other: v.other, city: v.reason }),
+  city_left: (v) => m.fid_house_notice_city_left({ house: v.house, other: v.other }),
+  city_expelled: (v) => m.fid_house_notice_city_expelled({ house: v.house, other: v.other }),
 };
 
 /** 가문 소식 한 줄의 문장(모르는 종류는 "가문 소식이 있습니다") */

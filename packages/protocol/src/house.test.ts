@@ -1,6 +1,7 @@
 // 가문 창설(프로토콜 22)·가입(23) 메시지 스키마 시험( docs/adr/2026-11-11-faction-identity.md "바뀜 (926~935 답)") — 왕복, 값 모양, 결과 코드
 import { describe, expect, it } from "vitest";
 import {
+  HOUSE_CITY_JOIN_PROTOCOL_VERSION,
   HOUSE_HOME_NOTICE_PROTOCOL_VERSION,
   HOUSE_ENTRY_POLICY_PROTOCOL_VERSION,
   legacyHouseMemberAction,
@@ -223,5 +224,52 @@ describe("가문 소속 도시(프로토콜 39, D-565)", () => {
     expect(legacyHouseMemberCode("entry_fee_short", 50)).toBe("entry_fee_short");
     expect(legacyHouseMemberCode("entry_fee_short", 49)).toBe("busy");
     expect(legacyHouseMemberCode("home_wait", 49)).toBe("home_wait");
+  });
+
+  it("가문 도시 가입 승인·탈퇴·추방·블랙리스트(프로토콜 70): 6종 메시지 왕복과 69판 호환 낮추기", () => {
+    const USER = "0b6f3f7e-1a2b-4c3d-8e9f-0123456789ab";
+    expect(HOUSE_CITY_JOIN_PROTOCOL_VERSION).toBe(70);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(HOUSE_CITY_JOIN_PROTOCOL_VERSION);
+    const messages = [
+      { t: "house_city_apply", id: 10, buildingId: 55 },
+      { t: "house_city_decide", id: 11, applicationId: 3, accept: true },
+      { t: "house_join_policy", id: 12, cityId: 9, approver: "leader", minStanding: -10 },
+      { t: "house_join_policy", id: 13, cityId: 9, approver: null, minStanding: null },
+      { t: "house_city_leave", id: 14 },
+      { t: "house_city_expel", id: 15, cityId: 9, houseId: 40 },
+      {
+        t: "nation_blacklist",
+        id: 16,
+        action: "add",
+        cityId: 9,
+        targetName: "악당",
+        bounty: "500",
+        reason: "약탈",
+      },
+      { t: "nation_blacklist", id: 17, action: "remove", cityId: 9, targetUserId: USER },
+    ] as const;
+    for (const msg of messages) expect(decodeClientMessage(encodeMessage(msg))).toEqual(msg);
+    expect(
+      decodes(decodeClientMessage, {
+        t: "house_join_policy",
+        id: 1,
+        cityId: 9,
+        approver: "bad",
+        minStanding: 0,
+      }),
+    ).toBe(false);
+    expect(
+      decodes(decodeClientMessage, {
+        t: "house_join_policy",
+        id: 1,
+        cityId: 9,
+        approver: "auto",
+        minStanding: 101,
+      }),
+    ).toBe(false);
+    expect(legacyHouseMemberAction("city_applied", 70)).toBe("city_applied");
+    expect(legacyHouseMemberAction("city_applied", 69)).toBe("home_set");
+    expect(legacyHouseMemberCode("blacklisted", 70)).toBe("blacklisted");
+    expect(legacyHouseMemberCode("blacklisted", 69)).toBe("busy");
   });
 });

@@ -9,9 +9,13 @@
 import type { Database } from "../db/client.ts";
 import type { NationPreset } from "../npc/nations.ts";
 import type { World } from "../world/world.ts";
+import { GOVERNMENT_FACILITY } from "../government/reads.ts";
+import { unitCity } from "../temple/places.ts";
+import { attachBlacklist, blacklistTableOf, createNationBlacklistService } from "./blacklist.ts";
 import { adoptUnfoundedIdentities, createHouseFounder, nationFromDb } from "./found.ts";
 import { createHouseGateway } from "./gateway.ts";
 import { type HouseCityService, createHouseCity } from "./houseCity.ts";
+import { createHouseCityJoin } from "./houseCityJoin.ts";
 import { createHouseEntryPolicy } from "./houseEntryPolicy.ts";
 import { createHouseHome } from "./houseHome.ts";
 import { createHouseMoves } from "./houseMoves.ts";
@@ -127,6 +131,37 @@ export function attachHouses(options: {
     now: options.now,
     persistence,
   });
+  // 2단계: 가문 도시 가입(정부 방문·승인·정책)·탈퇴·추방 및 나라 블랙리스트(ADR 2026-11-25)
+  const cityJoin = createHouseCityJoin({
+    pool,
+    db: options.db,
+    rules: options.rules,
+    now: options.now,
+    presets: options.presets,
+    persistence,
+    checkHallVisit(userId, buildingId, nowMs) {
+      const world = options.world;
+      const p = world?.status().state === "ready" ? world.persistence : undefined;
+      if (!world || !p) return { ok: false, code: "busy" };
+      const fac = p.facilities.service.facilities.get(buildingId);
+      if (!fac || fac.facilityId !== GOVERNMENT_FACILITY || fac.cityId === null)
+        return { ok: false, code: "not_government" };
+      const cyborg = p.cyborgs.record(userId);
+      if (!cyborg || cyborg.unitId === null) return { ok: false, code: "no_cyborg" };
+      if (unitCity(world.maps, p.facilities, cyborg.unitId, nowMs) !== fac.cityId)
+        return { ok: false, code: "wrong_city" };
+      return { ok: true, cityId: fac.cityId };
+    },
+  });
+  const blacklist = createNationBlacklistService({
+    pool,
+    db: options.db,
+    now: options.now,
+    afterChange: async () => {
+      const ledger = options.world?.persistence?.ledger;
+      if (ledger) await blacklistTableOf(ledger)?.reload();
+    },
+  });
   const taxTable = () => {
     const ledger = options.world?.persistence?.ledger;
     return ledger ? nationTaxesOf(ledger) : undefined;
@@ -187,6 +222,11 @@ export function attachHouses(options: {
       attachNationTaxes({ pool, ledger: p.ledger, owners: p.owners })
         .reload()
         .catch((error: unknown) => options.log.error({ err: error }, "nation tax rates load failed"));
+    // 나라 블랙리스트 메모리 표(ADR 2026-11-25): PVP 벌점 면제·전투 사냥 현상금/기여도 지급이 원장으로 찾는다
+    if (!blacklistTableOf(p.ledger))
+      attachBlacklist({ pool, ledger: p.ledger, owners: p.owners })
+        .reload()
+        .catch((error: unknown) => options.log.error({ err: error }, "nation blacklist load failed"));
     if (houseTaxerOf(p.ledger)) return;
     const taxer = attachHouseTax({
       pool,
@@ -216,6 +256,8 @@ export function attachHouses(options: {
     home: () => home,
     entryPolicy: () => entryPolicy,
     policy: () => policy,
+    cityJoin: () => cityJoin,
+    blacklist: () => blacklist,
     // 나라 세금 정하기(독립 나라 가문장 — government/nationTaxPolicy.ts). 메모리 표는 세계가 준비된 뒤 붙는다
     nationTax: () => nationTax,
     // 도시 화폐 고르기(도시 주인 나라 지도자 — government/cityMoneyPolicy.ts)

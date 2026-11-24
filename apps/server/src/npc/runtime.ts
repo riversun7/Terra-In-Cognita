@@ -91,6 +91,7 @@ import { type NpcRuinsInput, liftGovernments, ruinedGoodsHomeOf, syncAdminLevels
 import { ruinsOf } from "./ruinsState.ts";
 import { npcRulingHooks } from "./rulingVault.ts";
 import { type NpcAiBridge, bridgeTies, createNpcAiBridge } from "./aiBridge.ts";
+import type { AiMonitorView } from "./aiMonitor.ts";
 import { loadNpcState, recruitOf } from "./state.ts";
 import { createWarOutcomePersist, loadWarOutcomes } from "./warOutcomes.ts";
 import { applyLostCities, createLostCityPersist, loadLostCities } from "./lostCities.ts";
@@ -221,6 +222,8 @@ export interface NpcRuntime {
   mayorOf(cityId: number): number | undefined;
   /** NPC 도시의 가문(질문 1848 답·D-573, cityHouses.ts — 도시 등급마다 수, 지배 가문장 = 국가 지도자) */
   readonly cityHouses: NpcCityHouses;
+  /** AI 작동 모니터(/dev/npc-ai [모니터] 탭 — npc/aiMonitor.ts, 읽기만) */
+  aiMonitor(cityId?: number): AiMonitorView;
   readonly unitTraits: (unitId: number) => ReturnType<NpcAiBridge["factionBaseTraits"]>; // 유닛 7축 성향(aiBridge — NPC 가문의 연맹·지분 판단은 가문장 성향)
   /** NPC 휴먼 이름(기획 답 773 나, humanNames.ts — 그 휴먼 나라의 팩 목록). 거울 세계 휴먼이 아니거나 목록이 없으면 undefined */
   humanName(unitId: number): string | undefined;
@@ -891,6 +894,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     units,
     maps,
     mapKeyOfCity: (cityId) => persist.places.get(cityId)?.mapKey,
+    cityNameOf: (cityId) => persist.places.get(cityId)?.name ?? undefined,
     ties: bridgeTies(cityHouses, society, ledger, econ),
   });
   const syncPeople = (): void => {
@@ -996,6 +1000,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     }),
     mayorOf: (cityId) => people.mayorOf(cityId),
     cityHouses,
+    aiMonitor: (cityId) => aiBridge.monitor(o.now(), cityId),
     unitTraits: (unitId) => aiBridge.humanPlacesOptions().traitsOf?.(unitId),
     // 휴먼 이름(773 나): 그 휴먼 주인 세력이 따르는 나라의 목록(도시 이름과 같은 길)
     humanName(unitId) {

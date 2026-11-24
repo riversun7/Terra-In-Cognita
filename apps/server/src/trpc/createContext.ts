@@ -98,6 +98,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   territory?: (() => TerritoryReadServices | undefined) | undefined;
   /** 세계 배치 화면(기획 D-528, 세계가 준비되면 서비스). 없으면 늘 준비 전 */
   worldLayout?: (() => WorldLayoutSource | undefined) | undefined;
+  /** NPC AI 작동 모니터(/dev/npc-ai, 세계가 준비되고 NPC 사회 런타임이 있으면). 없으면 늘 준비 전 */
+  npcAiMonitor?: TrpcContext["npcAiMonitor"];
   /** 범위 줄의 행성 목록 재료(콘텐츠 팩 행성 원본). 없으면 플레이 행성 ID만 보인다 */
   planetScope?: (() => readonly ScopePlanetSource[]) | undefined;
   /** 지도 흐름 조회(세계가 준비되면 서비스, src/worldMap/reads.ts). 없으면 늘 준비 전 */
@@ -270,6 +272,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
       territory: options.territory,
       worldLayout:
         options.worldLayout && request ? { service: options.worldLayout, ip: request.ip } : undefined,
+      npcAiMonitor: options.npcAiMonitor,
       planetScope: options.planetScope,
       worldMap: options.worldMap,
       gather: options.gather,

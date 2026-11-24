@@ -29,7 +29,7 @@ import { field } from "../../net/json.ts";
 /** 담은 변경: 설정 칸 ID → 새 정수 값(null = 팩 기본값으로 되돌리기) */
 export type NpcAiPending = ReadonlyMap<string, number | null>;
 
-export const NPC_AI_TABS = ["blend", "unit", "strategy", "combat", "lab"] as const;
+export const NPC_AI_TABS = ["blend", "unit", "strategy", "combat", "lab", "monitor"] as const;
 export type NpcAiTabId = (typeof NPC_AI_TABS)[number];
 
 /** 7축 성향 표시 메타(한국어·영어 이름과 양극 이름) */

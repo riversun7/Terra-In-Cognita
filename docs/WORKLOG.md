@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-23 21:45 | /dev/npc-ai [작동 모니터] 탭: 서버에서 도는 NPC AI 상태를 한 장으로 | Claude Code | [23-2145-npc-ai-monitor-tab](worklog/2026/11/23-2145-npc-ai-monitor-tab.md) |
 | 2026-11-23 00:05 | 아이템 편집기 3단계 소분류 일반화 및 기본 티어 정렬 | Antigravity | [23-0005-item-microcategories-and-tier-sort](worklog/2026/11/23-0005-item-microcategories-and-tier-sort.md) |
 | 2026-11-22 20:20 | 가문 없는 유닛의 소속 도시 (질문 2774 답) | Claude Code | [22-2020-fix-2774](worklog/2026/11/22-2020-fix-2774.md) |
 | 2026-11-22 19:45~ | 2026-11-22 묶음 1117l 합치기 (1117k 기획 검토 고침 / 기획 미러 1955bd7(D-351 대체 표시)) — 리셋 필요 없음 | Claude Code | [22-1945-batch-1117l-merge](worklog/2026/11/22-1945-batch-1117l-merge.md) |

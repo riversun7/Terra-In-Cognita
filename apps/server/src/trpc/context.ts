@@ -2,6 +2,8 @@
 // 이 타입은 AppRouter 타입에 들어가 게임 앱의 타입 검사에도 쓰인다.
 // 그래서 Node 전용 타입(fastify, pg, drizzle, better-auth 등)을 여기에 직접 넣지 않는다.
 // 넣으면 기기 코드에서 Node 전역(process, Buffer)이 타입 오류 없이 보이게 된다 — scripts/check-boundaries.mjs가 잡는다.
+import type { OfflineStewardStats } from "../labor/offlineSteward.ts";
+import type { AiMonitorView } from "../npc/aiMonitor.ts";
 import type { FactionIdentityServices } from "../factionIdentity/services.ts";
 import type { OpsServices } from "../ops/services.ts";
 import type { PlacementService } from "../world/placementService.ts";
@@ -480,6 +482,15 @@ export interface TrpcContext {
    */
   worldLayout?:
     | { readonly service: () => WorldLayoutSource | undefined; readonly ip: string | null }
+    | undefined;
+  /**
+   * NPC AI 작동 모니터(/dev/npc-ai [모니터] 탭, src/npc/aiMonitor.ts). NPC 사회 런타임이 없거나 부팅 복구 전이면 undefined(not_ready로 답한다).
+   * steward = 비접속 유저 유닛 관리인의 마지막 기록
+   */
+  npcAiMonitor?:
+    | ((
+        cityId?: number,
+      ) => { readonly view: AiMonitorView; readonly steward: OfflineStewardStats | null } | undefined)
     | undefined;
   /** 범위 줄의 행성 목록 재료(콘텐츠 팩 행성 원본, docs/adr/2026-11-11-planet-scope.md). 없으면 플레이 행성 ID만 보인다 */
   planetScope?: (() => readonly ScopePlanetSource[]) | undefined;

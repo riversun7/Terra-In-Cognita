@@ -41,6 +41,15 @@ interface StewardMap {
 export interface OfflineSteward {
   /** 살필 때가 되었으면 살피고 맺은 계약 수를 돌려준다(아니면 0) */
   sweep(nowMs: number): Promise<number>;
+  /** 모니터(/dev/npc-ai): 마지막 살피기 시각·그때 비접속 유저 수·맺은 계약 수, 켜진 뒤 맺은 계약 합. 아직 살피지 않았으면 lastSweepAtMs null */
+  stats(): OfflineStewardStats;
+}
+
+export interface OfflineStewardStats {
+  readonly lastSweepAtMs: number | null;
+  readonly lastAway: number;
+  readonly lastAccepted: number;
+  readonly totalAccepted: number;
 }
 
 /**
@@ -98,7 +107,9 @@ export function createOfflineSteward(o: {
   if (exempt) o.settlement.exemptOffline?.(exempt);
   let nextAt = 0;
   let busy = false;
+  const seen = { lastSweepAtMs: null as number | null, lastAway: 0, lastAccepted: 0, totalAccepted: 0 };
   return {
+    stats: () => ({ ...seen }),
     async sweep(nowMs) {
       const ai = o.rules().npcAi;
       if (busy || nowMs < nextAt) return 0;
@@ -110,6 +121,7 @@ export function createOfflineSteward(o: {
           .offlineUsers()
           .filter((user) => nowMs - user.sinceMs >= ai.offlineStewardAfterMs)
           .toSorted((a, b) => a.sinceMs - b.sinceMs || (a.userId < b.userId ? -1 : 1));
+        seen.lastAway = away.length;
         const owners = new Map<number, string>();
         for (const user of away) {
           const owner = o.settlement.findOwnerOfUser(user.userId);
@@ -173,6 +185,9 @@ export function createOfflineSteward(o: {
         return accepted;
       } finally {
         busy = false;
+        seen.lastSweepAtMs = nowMs;
+        seen.lastAccepted = accepted;
+        seen.totalAccepted += accepted;
       }
     },
   };

@@ -691,6 +691,11 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       // 영토 조회(내 세력·개발 화면 전체)
       territory: territoryService,
       worldLayout,
+      // NPC AI 작동 모니터(/dev/npc-ai [모니터] 탭): 세계가 준비되고 NPC 사회 런타임이 있을 때
+      npcAiMonitor: (cityId) => {
+        const npc = world?.status().state === "ready" ? world.npc : undefined;
+        return npc ? { view: npc.aiMonitor(cityId), steward: world?.offlineSteward() ?? null } : undefined;
+      },
       // 범위 줄의 행성 목록(이름·면 레벨은 팩 행성 원본에서)
       planetScope: () => options.planets?.sources ?? [],
       worldMap: worldMapService,

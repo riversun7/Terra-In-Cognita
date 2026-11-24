@@ -17,6 +17,7 @@ import { useUndoShortcut, useUndoStack } from "../content/contentEditorUndo.ts";
 import { NpcAiBlendTab } from "./NpcAiBlendTab.tsx";
 import { NpcAiCombatTab } from "./NpcAiCombatTab.tsx";
 import { NpcAiLabTab } from "./NpcAiLabTab.tsx";
+import { NpcAiMonitorTab } from "./NpcAiMonitorTab.tsx";
 import { NpcAiStrategyTab } from "./NpcAiStrategyTab.tsx";
 import { NpcAiUnitTab } from "./NpcAiUnitTab.tsx";
 import {
@@ -84,6 +85,7 @@ const TAB_LABELS: Readonly<Record<NpcAiTabId, () => string>> = {
   strategy: m.dev_npc_ai_tab_strategy,
   combat: m.dev_npc_ai_tab_combat,
   lab: m.dev_npc_ai_tab_lab,
+  monitor: m.dev_npc_ai_tab_monitor,
 };
 
 export default function NpcAiEditorScreen() {
@@ -312,6 +314,7 @@ export default function NpcAiEditorScreen() {
             <NpcAiCombatTab entries={entries} byId={byId} pending={pending} ko={ko} onStage={onStage} />
           ) : null}
           {tab === "lab" ? <NpcAiLabTab entries={entries} pending={pending} ko={ko} /> : null}
+          {tab === "monitor" ? <NpcAiMonitorTab /> : null}
 
           {pending.size > 0 ? (
             <div

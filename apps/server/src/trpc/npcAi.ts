@@ -91,6 +91,14 @@ const combatMoveInput = z.strictObject({
 const read = permissionProcedure({ tuning: ["read"] });
 
 export const npcAiRouter = router({
+  /**
+   * AI 작동 모니터(/dev/npc-ai [모니터] 탭): 스위치·세계 합계·도시 표(지시 불복 많은 차례)·마지막 하루 끝·관리인 기록. cityId를 주면 그 도시
+   * 가문 표(집계·깃발·금고)를 붙인다. 읽기만 한다
+   */
+  monitor: read.input(z.strictObject({ cityId: z.int().min(1).optional() })).query(({ ctx, input }) => {
+    const found = ctx.npcAiMonitor?.(input.cityId);
+    return found ? { status: "ready" as const, ...found } : { status: "not_ready" as const };
+  }),
   /** 가상 유닛의 D-558 전개 방식 + WP-4 달리기·이동 스킬 허용 미리보기 */
   previewCombatMove: read.input(combatMoveInput).query(({ input }) => {
     const map = new Map<string, number>(Object.entries(input.tuningValues ?? {}));

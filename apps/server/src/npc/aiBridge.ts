@@ -10,13 +10,17 @@ import {
   npcBaseDailyWage,
   npcDailyWage,
 } from "@terra/sim";
+import { houseStatusOf } from "@terra/sim/npcAi";
 import type { Ledger } from "../economy/ledger.ts";
 import type { NpcCityHouses } from "./cityHouses.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { restCycleOf } from "./cityRest.ts";
 import type { ServerEconomy } from "./economy.ts";
 import { type HumanPlacesInput, createHumanPlaces } from "./humanPlaces.ts";
+import { type AiMonitorView, buildAiMonitor } from "./aiMonitor.ts";
 import { type HouseCareDay, createHouseCare } from "./houseCare.ts";
+import { HOUSE_VAULT_PREFIX } from "../factionIdentity/houseVault.ts";
+import { npcHouseVaultCode } from "./rulingVault.ts";
 import { type LaborOrders, createLaborOrders } from "./laborOrders.ts";
 import { type NpcHouseAiService, createNpcHouseAi } from "./npcHouseAi.ts";
 import type { CityPlace } from "./persist.ts";
@@ -29,6 +33,8 @@ export interface NpcAiBridge {
   readonly labor: LaborOrders;
   /** 하루 끝 가문세·돌봄 배당(임금·생활비 다음, 만족도 앞 — houseCare.ts) */
   houseDay(nowMs: number): HouseCareDay;
+  /** AI 작동 모니터(/dev/npc-ai 탭, aiMonitor.ts — 읽기만). cityId를 주면 그 도시 가문 표를 붙인다 */
+  monitor(nowMs: number, cityId?: number): AiMonitorView;
   /** 가문 일 지시 점검: 바뀐 도시의 일꾼 수를 도시 경제에 다시 세게 하고 바뀐 도시 수를 돌려준다 */
   laborTick(nowMs: number, econ?: Pick<ServerEconomy, "refreshCity">): number;
   /** humanPlaces.sync에 덧붙이는 5상태 FSM · 경비대 순찰 반경 옵션 */
@@ -67,6 +73,8 @@ export function createNpcAiBridge(o: {
     Pick<SecondMap, "forEachBuilding" | "unitInfo" | "setHome" | "setTraits" | "stream">
   >;
   readonly mapKeyOfCity: (cityId: number) => number | undefined;
+  /** 도시 이름(모니터 표). 없으면 번호만 보인다 */
+  readonly cityNameOf?: ((cityId: number) => string | undefined) | undefined;
   /**
    * 가문 고리(가문 일 지시·가문 금고): NPC 도시 가문 표, 지금 날(불복 굴림은 하루에 한 번), 원장, 세력 화폐(임금 화폐 — 경제가 없으면 undefined).
    * 없으면 모두 가문 없는 휴먼으로 보고 가문 금고는 돌지 않는다
@@ -75,7 +83,8 @@ export function createNpcAiBridge(o: {
     | {
         readonly cityHouses: Pick<NpcCityHouses, "of" | "housesOfCity" | "membersOf" | "headOf">;
         readonly society: { currentDay(): number };
-        readonly ledger: Pick<Ledger, "systemAccount" | "ownerAccount" | "balance" | "post">;
+        readonly ledger: Pick<Ledger, "systemAccount" | "ownerAccount" | "balance" | "post"> &
+          Partial<Pick<Ledger, "accounts">>;
         readonly currencyOf: (owner: number) => string | undefined;
       }
     | undefined;
@@ -138,6 +147,10 @@ export function createNpcAiBridge(o: {
       })
     : undefined;
   const laborOf = (unitId: number) => o.units.get(unitId);
+  // 모니터가 보는 마지막 기록(이 서버가 켜진 뒤 — 저장하지 않는다)
+  let lastHouseDay: AiMonitorView["lastHouseDay"] = null;
+  let lastLaborChange: AiMonitorView["lastLaborChange"] = null;
+  let laborChanges = 0;
 
   // 욕구·만족도(1차 값): 거울 세계 휴먼의 그날 식사 몫·만족도를 그대로 읽는다
   const needsOf = (unitId: number) => {
@@ -158,12 +171,67 @@ export function createNpcAiBridge(o: {
     labor,
     houseDay(nowMs) {
       // 가문세·돌봄 배당. 가문 연맹은 가문끼리 맺는 조약이라 금고·투자가 없다(D-587 2461·2464 — factionIdentity/houseLeague.ts)
-      return care?.day(nowMs) ?? { taxed: 0, cared: 0 };
+      const day = care?.day(nowMs) ?? { taxed: 0, cared: 0 };
+      lastHouseDay = { atMs: nowMs, taxed: day.taxed, cared: day.cared };
+      return day;
     },
     laborTick(nowMs, econ) {
       const changed = labor.tick(nowMs);
       for (const cityId of changed) econ?.refreshCity(cityId, nowMs);
+      if (changed.length > 0) {
+        lastLaborChange = { atMs: nowMs, cities: changed.length };
+        laborChanges += changed.length;
+      }
       return changed.length;
+    },
+    monitor(nowMs, cityId) {
+      const ai = o.rules().npcAi;
+      return buildAiMonitor({
+        nowMs,
+        day: ties?.society.currentDay() ?? 0,
+        switches: {
+          npcAi: o.rules().switches.npcAiEnabled,
+          unitAi: ai.unitAiEnabled,
+          houseAi: ai.houseAiEnabled,
+        },
+        units: o.units.values(),
+        cities: o.cities,
+        planOf: (id) => labor.planOf(id),
+        cityName: (id) => o.cityNameOf?.(id),
+        lastHouseDay,
+        lastLaborChange,
+        laborChanges,
+        unfedBelowPm: ai.houseUnfedBelowPm,
+        cityId,
+        housesOf: (id, plan) => {
+          if (!ties) return [];
+          const currency = ties.currencyOf(o.cities.get(id)?.owner ?? -1);
+          // 금고 잔고는 읽기만 한다(계정을 만들지 않게 있는 계정만 훑는다)
+          const vaults = new Map<string, bigint>();
+          for (const account of ties.ledger.accounts?.() ?? [])
+            if (account.systemCode?.startsWith(HOUSE_VAULT_PREFIX))
+              vaults.set(account.systemCode, account.balance);
+          return ties.cityHouses
+            .housesOfCity(id)
+            .toSorted((a, b) => a - b)
+            .map((houseId) => {
+              const head = ties.cityHouses.headOf(houseId);
+              const seen = plan?.houses.get(houseId);
+              return {
+                id: houseId,
+                // 가문 이름은 가문원 줄에서 읽는다(지배 가문장 = 국가 지도자 유닛은 가문원 줄이 없다)
+                name:
+                  [head, ...ties.cityHouses.membersOf(houseId).slice(0, 1)]
+                    .flatMap((unitId) => (unitId === undefined ? [] : [ties.cityHouses.of(unitId)?.name]))
+                    .find((name) => name !== undefined) ?? null,
+                head: head ?? null,
+                status: seen?.status ?? houseStatusOf([]),
+                flags: seen?.flags ?? [],
+                vault: String(currency ? (vaults.get(npcHouseVaultCode(houseId, currency)) ?? 0n) : 0n),
+              };
+            });
+        },
+      });
     },
 
     humanPlacesOptions() {
@@ -218,7 +286,7 @@ export function createNpcAiBridge(o: {
 export function bridgeTies(
   cityHouses: Pick<NpcCityHouses, "of" | "housesOfCity" | "membersOf" | "headOf">,
   society: { currentDay(): number },
-  ledger: Pick<Ledger, "systemAccount" | "ownerAccount" | "balance" | "post">,
+  ledger: Pick<Ledger, "systemAccount" | "ownerAccount" | "balance" | "post" | "accounts">,
   econ: { readonly economy: { readonly currencyOf: ReadonlyMap<number, string> } } | undefined,
 ): NonNullable<Parameters<typeof createNpcAiBridge>[0]["ties"]> {
   return {

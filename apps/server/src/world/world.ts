@@ -2,7 +2,7 @@
 // ADR 2026-10-28-s1-second-map.md(S1), 2026-10-31-s3-server-stage.md 1·2절(S3 저장·복구)
 // - DB가 없으면 S1처럼 메모리에만 둔다(시험·DB 없는 서버).
 // - DB가 있으면 부팅 때 건물·유닛을 다시 놓고 예약을 다시 건 뒤 준비 완료(ready). 바뀜은 쓰기 대기열이 0.25초마다 커밋, 10초마다 생존 시각, 끌 때 비운다.
-import { createOfflineSteward } from "../labor/offlineSteward.ts";
+import { type OfflineStewardStats, createOfflineSteward } from "../labor/offlineSteward.ts";
 import { startHeartbeat } from "./heartbeat.ts";
 import { randomInt, randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
@@ -275,6 +275,8 @@ export interface World extends WorldDirectory {
   readonly persistence: WorldPersistence | undefined;
   /** NPC 사회 런타임(켜져 있고 DB가 있을 때만) */
   readonly npc: NpcRuntime | undefined;
+  /** 비접속 유저 유닛 관리인의 마지막 기록(모니터 — labor/offlineSteward.ts). 아직 켜지 않았으면 undefined */
+  offlineSteward(): OfflineStewardStats | undefined;
   /** 불변 조건 검사(메모리 + DB). 위반 목록 */
   checkInvariants(): Promise<string[]>;
   /** 지난 호출 뒤 구간의 지표(지표 한 줄에 붙인다). 부르면 구간을 비운다 */
@@ -319,6 +321,7 @@ export function startWorld(
   let persistence: WorldPersistence | undefined;
   const boatHooks = createBoatHooks();
   let npc: NpcRuntime | undefined;
+  let stewardStats: (() => OfflineStewardStats) | undefined;
   let heartbeat: ReturnType<typeof setInterval> | undefined;
   let stopped = false;
   const bootId = randomUUID();
@@ -853,6 +856,7 @@ export function startWorld(
 
     const beat = () => writer.upsert("heartbeat", { id: 1, boot_id: bootId, alive_at_ms: now() });
     const steward = createOfflineSteward({ rules: societyRules, settlement, labor, maps, log });
+    stewardStats = () => steward.stats();
     const tasks = { "house ties reload": () => ties.reload(), "offline steward": () => steward.sweep(now()) };
     heartbeat = startHeartbeat({ everyMs: HEARTBEAT_MS, beat, tasks, log });
 
@@ -973,6 +977,7 @@ export function startWorld(
     get npc() {
       return npc;
     },
+    offlineSteward: () => stewardStats?.(),
     isReady: () => status.state === "ready",
     ownerOfUser: (userId) => persistence?.settlement.findOwnerOfUser(userId),
     map: (mapKey) => (status.state === "ready" ? maps.get(mapKey) : undefined),

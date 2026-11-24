@@ -10,14 +10,19 @@ import {
   npcBaseDailyWage,
   npcDailyWage,
 } from "@terra/sim";
-import { houseStatusOf } from "@terra/sim/npcAi";
 import type { Ledger } from "../economy/ledger.ts";
 import type { NpcCityHouses } from "./cityHouses.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { restCycleOf } from "./cityRest.ts";
 import type { ServerEconomy } from "./economy.ts";
 import { type HumanPlacesInput, createHumanPlaces } from "./humanPlaces.ts";
-import { type AiMonitorView, buildAiMonitor } from "./aiMonitor.ts";
+import {
+  type AiMonitorView,
+  type MonitorCityEcon,
+  type MonitorUnitInput,
+  buildAiMonitor,
+} from "./aiMonitor.ts";
+import { monitorBodyOf } from "./aiMonitorSource.ts";
 import { type HouseCareDay, createHouseCare } from "./houseCare.ts";
 import { HOUSE_VAULT_PREFIX } from "../factionIdentity/houseVault.ts";
 import { npcHouseVaultCode } from "./rulingVault.ts";
@@ -34,7 +39,11 @@ export interface NpcAiBridge {
   /** 하루 끝 가문세·돌봄 배당(임금·생활비 다음, 만족도 앞 — houseCare.ts) */
   houseDay(nowMs: number): HouseCareDay;
   /** AI 작동 모니터(/dev/npc-ai 탭, aiMonitor.ts — 읽기만). cityId를 주면 그 도시 가문 표를 붙인다 */
-  monitor(nowMs: number, cityId?: number): AiMonitorView;
+  monitor(
+    nowMs: number,
+    cityId?: number,
+    econOf?: (cityId: number) => MonitorCityEcon | undefined,
+  ): AiMonitorView;
   /** 가문 일 지시 점검: 바뀐 도시의 일꾼 수를 도시 경제에 다시 세게 하고 바뀐 도시 수를 돌려준다 */
   laborTick(nowMs: number, econ?: Pick<ServerEconomy, "refreshCity">): number;
   /** humanPlaces.sync에 덧붙이는 5상태 FSM · 경비대 순찰 반경 옵션 */
@@ -184,8 +193,26 @@ export function createNpcAiBridge(o: {
       }
       return changed.length;
     },
-    monitor(nowMs, cityId) {
+    monitor(nowMs, cityId, econOf) {
       const ai = o.rules().npcAi;
+      const unitRows = function* (): Generator<MonitorUnitInput> {
+        for (const unit of o.units.values()) {
+          const seen = monitorBodyOf(o.maps, o.mapKeyOfCity(unit.city), unit.id, nowMs);
+          yield {
+            id: unit.id,
+            city: unit.city,
+            guard: unit.guard,
+            satisfactionMilli: unit.satisfactionMilli,
+            fedPm: unit.fedPm,
+            paidToday: unit.paidToday,
+            onStrike: unit.onStrike,
+            laborRank: unit.laborRank,
+            injuryStage: seen.injury,
+            houseId: ties?.cityHouses.of(unit.id)?.id ?? null,
+            body: seen.body,
+          };
+        }
+      };
       return buildAiMonitor({
         nowMs,
         day: ties?.society.currentDay() ?? 0,
@@ -194,16 +221,17 @@ export function createNpcAiBridge(o: {
           unitAi: ai.unitAiEnabled,
           houseAi: ai.houseAiEnabled,
         },
-        units: o.units.values(),
+        units: unitRows(),
         cities: o.cities,
         planOf: (id) => labor.planOf(id),
         cityName: (id) => o.cityNameOf?.(id),
+        econOf: (id) => econOf?.(id),
         lastHouseDay,
         lastLaborChange,
         laborChanges,
         unfedBelowPm: ai.houseUnfedBelowPm,
         cityId,
-        housesOf: (id, plan) => {
+        housesOf: (id) => {
           if (!ties) return [];
           const currency = ties.currencyOf(id);
           // 금고 잔고는 읽기만 한다(계정을 만들지 않게 있는 계정만 훑는다)
@@ -216,7 +244,6 @@ export function createNpcAiBridge(o: {
             .toSorted((a, b) => a - b)
             .map((houseId) => {
               const head = ties.cityHouses.headOf(houseId);
-              const seen = plan?.houses.get(houseId);
               return {
                 id: houseId,
                 // 가문 이름은 가문원 줄에서 읽는다(지배 가문장 = 국가 지도자 유닛은 가문원 줄이 없다)
@@ -225,8 +252,6 @@ export function createNpcAiBridge(o: {
                     .flatMap((unitId) => (unitId === undefined ? [] : [ties.cityHouses.of(unitId)?.name]))
                     .find((name) => name !== undefined) ?? null,
                 head: head ?? null,
-                status: seen?.status ?? houseStatusOf([]),
-                flags: seen?.flags ?? [],
                 vault: String(currency ? (vaults.get(npcHouseVaultCode(houseId, currency)) ?? 0n) : 0n),
               };
             });

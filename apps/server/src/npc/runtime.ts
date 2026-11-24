@@ -93,6 +93,7 @@ import { ruinsOf } from "./ruinsState.ts";
 import { npcRulingHooks } from "./rulingVault.ts";
 import { type NpcAiBridge, bridgeTies, createNpcAiBridge } from "./aiBridge.ts";
 import type { AiMonitorView } from "./aiMonitor.ts";
+import { monitorCityEcon } from "./aiMonitorSource.ts";
 import { loadNpcState, recruitOf } from "./state.ts";
 import { createWarOutcomePersist, loadWarOutcomes } from "./warOutcomes.ts";
 import { applyLostCities, createLostCityPersist, loadLostCities } from "./lostCities.ts";
@@ -1007,7 +1008,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     }),
     mayorOf: (cityId) => people.mayorOf(cityId),
     cityHouses,
-    aiMonitor: (cityId) => aiBridge.monitor(o.now(), cityId),
+    aiMonitor: (cityId) =>
+      aiBridge.monitor(o.now(), cityId, econ ? (id) => monitorCityEcon(econ, world, id) : undefined),
     unitTraits: (unitId) => aiBridge.humanPlacesOptions().traitsOf?.(unitId),
     // 휴먼 이름(773 나): 그 휴먼 주인 세력이 따르는 나라의 목록(도시 이름과 같은 길)
     humanName(unitId) {

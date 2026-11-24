@@ -296,6 +296,23 @@ export function resolveBotAiState(
   return { state: dec.state, job: dec.job, nextReevalMs: dec.nextReevalMs };
 }
 
+/**
+ * 지금 하는 일(읽기만 — 작동 모니터 npc/aiMonitorSource.ts): FSM이 켜져 있으면 그 상태·일감, 아니면 옛 규칙(운반 → 일터 → 집)을 같은 말로.
+ * 목적지(targetOf)와 같은 판단이라 화면에 보이는 움직임과 어긋나지 않는다
+ */
+export function botActivity(
+  home: BotHome,
+  unitId: number,
+  nowMs: number,
+): { readonly state: UnitAiState; readonly job: UnitJobKind | null } {
+  const fsm = resolveBotAiState(home, unitId, nowMs);
+  if (fsm) return { state: fsm.state, job: fsm.job };
+  if (hauling(home, nowMs)) return { state: "work", job: "haul" };
+  if (home.work && atWork(home.shift ?? DEFAULT_WORK_SHIFT, unitId, nowMs))
+    return { state: "work", job: "post" };
+  return { state: "rest", job: null };
+}
+
 /** 지금 가려는 네모: FSM이 켜져 있으면 5상태 목적지(일은 일감에 따라), 아니면 기존 운반 → 일터 → 집 규칙 */
 function targetOf(home: BotHome, unitId: number, nowMs: number): TripArea {
   const baseHome: TripArea = { x: home.x, y: home.y, radius: home.homeRadius ?? HOME_RADIUS_CELLS };

@@ -542,17 +542,127 @@
   color: var(--color-text);
 }
 
-/* 작동 모니터 탭: 합계 칸 줄·마지막 기록 목록 */
-.na-mon-kpis {
+/* 작동 모니터 탭: 단계 색(정상·주의·문제)은 상태색 토큰만 쓴다 */
+.na-mon-status {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block-start: var(--space-2);
+}
+
+.na-mon-verdict {
+  padding: var(--space-1) var(--space-3);
+  border: var(--hairline) solid var(--na-mon-tone, var(--color-border));
+  border-radius: var(--radius-control);
+  background-color: var(--na-mon-surface, var(--color-surface-2));
+  color: var(--na-mon-tone, var(--color-text));
+  font-weight: var(--font-weight-strong);
+}
+
+.na-tab-body [data-level="ok"] {
+  --na-mon-tone: var(--color-success);
+  --na-mon-surface: var(--color-success-surface);
+}
+
+.na-tab-body [data-level="warn"] {
+  --na-mon-tone: var(--color-warning);
+  --na-mon-surface: var(--color-warning-surface);
+}
+
+.na-tab-body [data-level="bad"] {
+  --na-mon-tone: var(--color-danger);
+  --na-mon-surface: var(--color-danger-surface);
+}
+
+.na-tab-body [data-level="none"] {
+  --na-mon-tone: var(--color-text-muted);
+  --na-mon-surface: var(--color-surface-2);
+}
+
+.na-mon-level {
+  border-color: var(--na-mon-tone, var(--color-border));
+  background-color: var(--na-mon-surface, transparent);
+  color: var(--na-mon-tone, var(--color-text));
+}
+
+.na-mon-level + .na-mon-level {
+  margin-inline-start: var(--space-1);
+}
+
+.na-mon-pillars {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
   gap: var(--space-2);
   margin-block-start: var(--space-3);
+}
+
+.na-mon-pillar {
+  display: grid;
+  gap: var(--space-1);
+  align-content: start;
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-inline-start: var(--border-w) solid var(--na-mon-tone, var(--color-border));
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+}
+
+.na-mon-pillar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.na-mon-pillar-main {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text);
+}
+
+.na-mon-track {
+  display: block;
+  block-size: var(--space-1);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-border);
+}
+
+.na-mon-fill {
+  display: block;
+  block-size: 100%;
+  border-radius: var(--radius-pill);
+  background-color: var(--na-mon-tone, var(--color-primary));
+}
+
+.na-mon-rows {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.na-mon-row {
+  display: grid;
+  grid-template-columns: minmax(0, 8rem) 1fr max-content;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.na-mon-row[data-level="bad"],
+.na-mon-row[data-level="warn"] {
+  color: var(--na-mon-tone);
+  font-weight: var(--font-weight-strong);
 }
 
 .na-mon-last {
   display: grid;
   grid-template-columns: max-content 1fr;
+  align-content: start;
   gap: var(--space-1) var(--space-3);
   margin: 0;
   font-size: var(--font-size-sm);
@@ -565,4 +675,54 @@
 .na-mon-last dd {
   margin: 0;
   font-family: var(--font-mono);
+}
+
+/* 표 칸: 주의·문제만 색을 입힌다(정상은 그대로 — 색이 문제만 가리키게) */
+.na-mon-cell[data-level="warn"],
+.na-mon-cell[data-level="bad"] {
+  color: var(--na-mon-tone);
+  font-weight: var(--font-weight-strong);
+}
+
+.na-mon-cell[data-level="none"] {
+  color: var(--color-text-muted);
+}
+
+.dev-table tbody tr[data-picked] > * {
+  background-color: var(--dev-row-selected);
+}
+
+.na-mon-detail {
+  display: grid;
+  gap: var(--space-4);
+  margin-block-start: var(--space-3);
+}
+
+.na-mon-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-block: var(--space-2);
+}
+
+.na-mon-chip {
+  min-block-size: var(--tap-size);
+  padding: 0 var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+}
+
+.na-mon-chip[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  background-color: var(--dev-row-selected);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-strong);
+}
+
+.na-mon-units {
+  max-block-size: 70vh;
+  overflow-y: auto;
 }

@@ -1,12 +1,10 @@
-// 하단 탭(좁은 폭만, D-6007·D-6010·D-265) — 메뉴 순서의 앞에서부터 화면 폭에 맞는 칸 수만큼(useLayout().tabSlots[배치]).
-// - 배치 C: 칸을 가운데 큰 지도 버튼의 양쪽에 나눈다(홀수면 오른쪽이 하나 더 많다 — 칸이 늘어도 앞 칸 자리가 그대로,
-//   layout.ts splitCenterTabs). 지도는 메뉴 순서와 상관없이 가운데다.
-// - 배치 A: 칸 + 끝칸 ☰(서랍 열기).
-// 이름은 늘 보인다(아이콘만 두지 않는다). 지금 화면은 aria-current="page"(같은 탭을 다시 누르면 맨 위로 — 라우터).
-// DOM 순서 = 보이는 순서 = 초점 순서다. 중간·넓음 폭에서는 CSS가 숨긴다(사이드 메뉴만 쓴다).
+// 슬림 플랫 하단 탭(좁은 폭 48px, 솟는 원형 단추 없음, 메뉴별 컬러 시그니처 아이콘 + 상단 활성 표시선).
+// - 배치 C: 가운데 지도 칸의 양쪽에 나눈다(layout.ts splitCenterTabs).
+// - 배치 A: 칸 + 끝칸 ☰(우측 드롭다운 메뉴 열기).
 import { type NavItemId, type NavigationSettings, type RouteId, visibleTabs } from "@terra/shared";
 import { m } from "../paraglide/messages.js";
 import { Icon } from "../ui/icons.tsx";
+import { SignatureIcon } from "../ui/SignatureIcon.tsx";
 import { AppLink } from "./AppLink.tsx";
 import { CountBadge } from "./CountBadge.tsx";
 import { splitCenterTabs } from "./layout.ts";
@@ -34,11 +32,12 @@ function TabLink({ id, current, badge }: { id: NavItemId; current: RouteId | nul
     <AppLink
       to={item.target}
       className="tab"
+      data-item={id}
       aria-current={here ? "page" : undefined}
       aria-label={badge > 0 ? m.shell_item_alerts({ name, count: badge }) : undefined}
     >
       <span className="tab-icon">
-        <Icon name={item.icon} />
+        <SignatureIcon name={item.icon} />
         <CountBadge count={badge} />
       </span>
       <span className="tab-label">{name}</span>
@@ -58,10 +57,11 @@ export function TabBar({ nav, slots, current, badges, onMenu }: TabBarProps) {
         <AppLink
           to={MENU_ITEMS.map.target}
           className="tab tab-map"
+          data-item="map"
           aria-current={mapHere ? "page" : undefined}
         >
-          <span className="tab-map-button">
-            <Icon name={MENU_ITEMS.map.icon} />
+          <span className="tab-icon tab-map-button">
+            <SignatureIcon name="map" />
           </span>
           <span className="tab-label">{MENU_ITEMS.map.name()}</span>
         </AppLink>

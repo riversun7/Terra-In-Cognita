@@ -72,9 +72,7 @@
   background-color: var(--color-border);
 }
 .nav-layout-sketch[data-layout="c"] .nav-layout-sketch-special {
-  justify-self: center;
-  width: calc(var(--preview-line) * 5);
-  height: calc(var(--preview-line) * 5);
+  height: calc(var(--preview-line) * 3);
   background-color: var(--color-primary);
 }
 /* A: 특별한 칸(☰)을 끝으로 보낸다 */
@@ -190,9 +188,9 @@
 .nav-preview-map-button {
   display: grid;
   place-items: center;
-  width: calc(var(--icon-md) + var(--space-4));
-  height: calc(var(--icon-md) + var(--space-4));
+  width: var(--tabbar-map-size);
+  height: 1.5rem;
   border-radius: var(--radius-pill);
-  background-color: var(--color-primary);
-  color: var(--color-on-primary);
+  background-color: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface-2));
+  border: var(--hairline) solid color-mix(in srgb, var(--color-primary) 38%, var(--color-border));
 }

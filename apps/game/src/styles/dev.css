@@ -95,9 +95,6 @@
 :root[data-tabbar] {
   --dev-dock-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
 }
-:root[data-tabbar="c"] {
-  --dev-dock-bottom: calc(var(--tabbar-h) + var(--space-6) + env(safe-area-inset-bottom));
-}
 
 /* 위 띠의 개발 화면 테마 단추(shell/TopBar.tsx) */
 .topbar-dev-theme {

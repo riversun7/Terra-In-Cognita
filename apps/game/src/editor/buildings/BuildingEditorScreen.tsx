@@ -29,7 +29,13 @@ import { editKeyOf, useUndoShortcut, useUndoStack } from "../content/contentEdit
 import { useMountFocus } from "../../ui/useMountFocus.ts";
 import { CheckLater } from "../content/contentEditorCheckLater.tsx";
 import { ContentHistory } from "../content/contentEditorHistory.tsx";
-import { EditorSummary, ExportPanel, KeyHelp, useEditorKeys } from "../content/contentEditorLayout.tsx";
+import {
+  EditorSummary,
+  EditorTabs,
+  ExportPanel,
+  KeyHelp,
+  useEditorKeys,
+} from "../content/contentEditorLayout.tsx";
 import {
   type ContentErrorInfo,
   contentErrorOf,
@@ -41,6 +47,7 @@ import { PendingBar, type PendingEntry } from "../content/contentEditorPending.t
 import { BuildingDetail } from "./BuildingDetail.tsx";
 import { BuildingList, type BuildingQuery, EMPTY_BUILDING_QUERY, filterFacilities } from "./BuildingList.tsx";
 import { BuildingSleeping, type CheckState, checkStatus } from "./BuildingPanels.tsx";
+import { BuildingTechTree } from "./BuildingTechTree.tsx";
 import { errorText } from "./buildingMessages.ts";
 import {
   type BuildingStage,
@@ -76,10 +83,13 @@ function rebaseStaged(
   };
 }
 
+type BuildingTab = "edit" | "tree";
+
 export default function BuildingEditorScreen({ initialId }: { initialId?: string | undefined }) {
   const locale = getLocale() === "en" ? "en" : "ko";
   const headingRef = useMountFocus<HTMLHeadingElement>(true);
   const [load, setLoad] = useState<Load>({ status: "loading" });
+  const [tab, setTab] = useState<BuildingTab>("edit");
   const [selected, setSelected] = useState<string | null>(initialId ?? null);
   const [view, setView] = useState<"list" | "detail">(initialId ? "detail" : "list");
   const [stage, setStage] = useState<BuildingStage>(EMPTY_STAGE);
@@ -311,7 +321,15 @@ export default function BuildingEditorScreen({ initialId }: { initialId?: string
   };
 
   const pick = (key: string): void => {
-    if (!key.startsWith("sleeping/")) select(key);
+    if (!key.startsWith("sleeping/")) {
+      setTab("edit");
+      select(key);
+    }
+  };
+
+  const openFromTree = (id: string): void => {
+    setTab("edit");
+    select(id);
   };
 
   const canApply = keys.length > 0 && checkState.status === "done" && checkState.errors === 0 && !busy;
@@ -426,45 +444,82 @@ export default function BuildingEditorScreen({ initialId }: { initialId?: string
             <LiveMessage tone="success" lines={notice.lines} version={notice.version} />
             <LiveMessage tone="error" lines={problem.lines} version={problem.version} />
           </div>
-          <div className="ce-layout be-split" data-view={view}>
-            <aside className="ce-side">
-              <BuildingList
-                list={list}
-                rows={shown}
-                locale={locale}
-                selected={selected}
-                stage={stage}
-                query={query}
-                onQuery={setQuery}
-                searchRef={searchRef}
-                onSelect={select}
-              />
-              <KeyHelp />
-            </aside>
-            <div className="ce-detail be-detail-pane">
-              {selected && row && draft ? (
-                <BuildingDetail
-                  key={selected}
+          <EditorTabs
+            id="be-tabs"
+            label={m.dev_buildings_tabs_label()}
+            selected={tab}
+            onSelect={setTab}
+            className="be-tab"
+            tabs={[
+              {
+                value: "edit",
+                label: m.dev_buildings_tab_edit(),
+                staged: keys.length > 0 ? keys.length : undefined,
+              },
+              {
+                value: "tree",
+                label: m.dev_buildings_tab_tree(),
+              },
+            ]}
+          />
+          {tab === "edit" ? (
+            <div
+              role="tabpanel"
+              id="be-tabs-edit-panel"
+              aria-labelledby="be-tabs-edit"
+              className="ce-layout be-split"
+              data-view={view}
+            >
+              <aside className="ce-side">
+                <BuildingList
                   list={list}
-                  row={row}
-                  draft={draft}
+                  rows={shown}
                   locale={locale}
-                  staged={staged !== undefined}
-                  reverting={reverting}
-                  issues={issues.filter((issue) => issue.id === null || issue.id === selected)}
-                  checking={staged !== undefined && checked === null}
-                  onEdit={edit}
-                  onRevert={revert}
-                  onUnstage={unstage}
-                  onBack={() => setView("list")}
-                  onPrev={at > 0 ? () => step(-1) : null}
-                  onNext={at >= 0 && at < shownIds.length - 1 ? () => step(1) : null}
+                  selected={selected}
+                  stage={stage}
+                  query={query}
+                  onQuery={setQuery}
+                  searchRef={searchRef}
+                  onSelect={select}
                 />
-              ) : (
-                <p className="ce-pick be-pick">{m.dev_buildings_pick()}</p>
-              )}
+                <KeyHelp />
+              </aside>
+              <div className="ce-detail be-detail-pane">
+                {selected && row && draft ? (
+                  <BuildingDetail
+                    key={selected}
+                    list={list}
+                    row={row}
+                    draft={draft}
+                    locale={locale}
+                    staged={staged !== undefined}
+                    reverting={reverting}
+                    issues={issues.filter((issue) => issue.id === null || issue.id === selected)}
+                    checking={staged !== undefined && checked === null}
+                    onEdit={edit}
+                    onRevert={revert}
+                    onUnstage={unstage}
+                    onBack={() => setView("list")}
+                    onPrev={at > 0 ? () => step(-1) : null}
+                    onNext={at >= 0 && at < shownIds.length - 1 ? () => step(1) : null}
+                  />
+                ) : (
+                  <p className="ce-pick be-pick">{m.dev_buildings_pick()}</p>
+                )}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div role="tabpanel" id="be-tabs-tree-panel" aria-labelledby="be-tabs-tree">
+              <BuildingTechTree
+                list={list}
+                stage={stage}
+                locale={locale}
+                selectedId={selected}
+                onSelectId={setSelected}
+                onOpenEdit={openFromTree}
+              />
+            </div>
+          )}
           {keys.length > 0 ? (
             <PendingBar
               label={m.dev_buildings_stage_label()}

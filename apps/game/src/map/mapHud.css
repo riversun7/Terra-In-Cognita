@@ -12,7 +12,7 @@
   padding-right: 0;
 }
 .map-screen[data-nav="bottom"] .map-hud-bottom {
-  bottom: calc(var(--map-nav-h) + var(--space-2));
+  bottom: calc(var(--map-nav-h) + var(--chatbar-h) + var(--space-2));
 }
 .map-nav {
   position: absolute;
@@ -27,12 +27,12 @@
   min-block-size: var(--map-nav-h);
   padding: 0 max(var(--space-1), env(safe-area-inset-right)) env(safe-area-inset-bottom)
     max(var(--space-1), env(safe-area-inset-left));
-  border-top: var(--border-w) solid var(--color-border);
-  background-color: var(--color-surface);
+  border-top: var(--hairline) solid var(--color-border-strong);
+  background-color: var(--color-nav-bg);
 }
 @media (min-width: 48em) {
   .map-screen[data-nav="bottom"] .map-hud-bottom {
-    bottom: calc(var(--map-nav-h) + var(--space-5));
+    bottom: calc(var(--map-nav-h) + var(--chatbar-h) + var(--space-5));
   }
   .map-nav {
     left: 50%;
@@ -51,6 +51,9 @@
   .map-screen[data-nav="bottom"] {
     --map-nav-h: 0px;
     --map-rail-w: calc(var(--rail-w) + env(safe-area-inset-left));
+  }
+  .map-screen[data-nav="bottom"] .map-hud-bottom {
+    bottom: max(var(--space-3), env(safe-area-inset-bottom));
   }
   .map-screen[data-nav="bottom"] .map-hud,
   .map-screen[data-nav="bottom"] .map-city {

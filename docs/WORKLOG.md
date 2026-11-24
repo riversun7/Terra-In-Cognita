@@ -8,8 +8,10 @@
 | 2026-11-24 15:40 | 옛 세계에 남은 공용 시험 화폐 잔고 없애기 | Claude Code | [24-1540-retire-common-money](worklog/2026/11/24-1540-retire-common-money.md) |
 | 2026-11-24 14:10 KST | NPC AI 작동 모니터 개편 — 필수요소 점검판 | Claude Code | [24-1410-npc-ai-monitor-rework](worklog/2026/11/24-1410-npc-ai-monitor-rework.md) |
 | 2026-11-24 12:50 | 도시 화폐(도시의 기축 통화) 고르기 | Claude Code | [24-1250-city-money](worklog/2026/11/24-1250-city-money.md) |
+| 2026-11-24 12:40 | 모바일·태블릿·PC 반응형 앱 틀·2차맵 HUD 밀도 개편 및 다채널 채팅 도크 추가 | Antigravity | [24-1240-compact-responsive-ui-and-chat](worklog/2026/11/24-1240-compact-responsive-ui-and-chat.md) |
 | 2026-11-23 22:05 | 공용 시험 화폐 없애기: 주체의 돈 = 소속 국가 화폐, 외환 보유고·주식 표시 | Claude Code | [23-2205-nation-money](worklog/2026/11/23-2205-nation-money.md) |
 | 2026-11-23 21:45 | /dev/npc-ai [작동 모니터] 탭: 서버에서 도는 NPC AI 상태를 한 장으로 | Claude Code | [23-2145-npc-ai-monitor-tab](worklog/2026/11/23-2145-npc-ai-monitor-tab.md) |
+| 2026-11-23 22:25 | 건물 편집기(/dev/buildings) 테크트리 시각화 탭 추가 및 UI 개편 | Antigravity | [23-0855-building-tech-tree-tab](worklog/2026/11/23-0855-building-tech-tree-tab.md) |
 | 2026-11-23 00:05 | 아이템 편집기 3단계 소분류 일반화 및 기본 티어 정렬 | Antigravity | [23-0005-item-microcategories-and-tier-sort](worklog/2026/11/23-0005-item-microcategories-and-tier-sort.md) |
 | 2026-11-22 20:20 | 가문 없는 유닛의 소속 도시 (질문 2774 답) | Claude Code | [22-2020-fix-2774](worklog/2026/11/22-2020-fix-2774.md) |
 | 2026-11-22 19:45~ | 2026-11-22 묶음 1117l 합치기 (1117k 기획 검토 고침 / 기획 미러 1955bd7(D-351 대체 표시)) — 리셋 필요 없음 | Claude Code | [22-1945-batch-1117l-merge](worklog/2026/11/22-1945-batch-1117l-merge.md) |

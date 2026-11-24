@@ -7,8 +7,7 @@ import type { ReactNode } from "react";
 import { m } from "../paraglide/messages.js";
 import { AppLink } from "../shell/AppLink.tsx";
 import { mapSwitchTarget } from "../shell/MapSwitch.tsx";
-import { Icon } from "../ui/icons.tsx";
-import { MapIcon } from "./mapIcons.tsx";
+import { SignatureIcon } from "../ui/SignatureIcon.tsx";
 import "./mapHud.css";
 
 /** 아래 판을 여는 탭 */
@@ -69,7 +68,7 @@ export function MapBottomNav({ active, mapKey, unitCount, onTab }: MapBottomNavP
         className="tab map-nav-button map-nav-planet"
       >
         <span className="tab-icon">
-          <Icon name="globe" />
+          <SignatureIcon name="globe" />
         </span>
         <span className="tab-label">{m.map_nav_planet()}</span>
       </AppLink>
@@ -77,7 +76,7 @@ export function MapBottomNav({ active, mapKey, unitCount, onTab }: MapBottomNavP
         tab="units"
         active={active}
         label={m.map_nav_units()}
-        icon={<Icon name="units" />}
+        icon={<SignatureIcon name="units" />}
         badge={unitCount}
         onTab={onTab}
       />
@@ -85,21 +84,21 @@ export function MapBottomNav({ active, mapKey, unitCount, onTab }: MapBottomNavP
         tab="city"
         active={active}
         label={m.map_nav_city()}
-        icon={<MapIcon name="city" />}
+        icon={<SignatureIcon name="city" />}
         onTab={onTab}
       />
       <NavButton
         tab="bag"
         active={active}
         label={m.map_nav_bag()}
-        icon={<MapIcon name="storage" />}
+        icon={<SignatureIcon name="inventory" />}
         onTab={onTab}
       />
       <NavButton
         tab="nearby"
         active={active}
         label={m.map_nav_nearby()}
-        icon={<MapIcon name="nearby" />}
+        icon={<SignatureIcon name="nearby" />}
         onTab={onTab}
       />
     </nav>

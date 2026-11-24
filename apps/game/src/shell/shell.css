@@ -1,20 +1,21 @@
 /*
- * 화면 틀 — 위 띠·사이드 메뉴(레일·서랍)·본문(ADR 2026-10-29-app-shell 3·10절). 첫 화면 묶음과 함께 내려온다.
- * 하단 탭은 tabbar.css, 연결 줄·지도 위 단추·방향 안내는 overlays.css다.
- * 값은 styles/tokens.css의 var(--…)만 쓴다("화면 틀" 블록). 폭 3단계 경계는 미디어 쿼리에 em 숫자로 쓴다:
- * 37.5em(600px)·64em(1024px). 같은 값이 shell/layout.ts에 있고 layout.test.ts가 이 파일의 숫자와 같은지 본다.
- * 좁음 = 하단 탭 + ☰ 서랍, 중간 = 접는 레일(접힘은 data-rail), 넓음 = 늘 펼친 사이드 메뉴. 문서 전체가 스크롤된다
- * (위 띠는 sticky, 하단 탭은 fixed): 주소창이 줄고 늘어나는 휴대폰 브라우저와 스크롤 되돌리기(window.scrollY)에 맞다.
+ * 화면 틀 — 40px 슬림 위 띠 · 64px 접이식 레일 / 216px 사이드바 · 모바일 우측 ☰ 드롭다운 · 본문.
+ * 값은 styles/tokens.css의 var(--…)만 쓴다. 폭 미디어 쿼리는 37.5em·64em 두 경계만 쓴다(layout.test.ts).
  */
 
-/* 아이콘(ui/icons.tsx) — 글자와 같은 색 */
-.icon {
+/* 아이콘(ui/icons.tsx · ui/SignatureIcon.tsx) */
+.icon,
+.sig-icon {
   flex: none;
   width: var(--icon-md);
   height: var(--icon-md);
 }
+.sig-icon {
+  display: block;
+  object-fit: contain;
+}
 
-/* ── 틀 격자 — 좁음: 위 띠 / 본문(하단 탭은 화면 아래에 붙는다) ───────────── */
+/* ── 틀 격자 — 좁음: 위 띠 / 본문(하단 탭·1줄 채팅바는 화면 아래 고정) ───────────── */
 .frame {
   min-height: 100dvh;
   display: grid;
@@ -25,7 +26,6 @@
     "main";
 }
 
-/* 본문으로 건너뛰기 — 키보드로 처음 초점이 왔을 때만 보인다 */
 .skip-link {
   position: fixed;
   top: max(var(--space-2), env(safe-area-inset-top));
@@ -45,37 +45,39 @@
 }
 
 /*
- * 위 띠·하단 탭이 초점 둔 본문 요소를 가리지 않게 — 초점·scrollIntoView로 스크롤할 때 본문 요소마다 이만큼 띄운다
- * (Shell.tsx가 <html>에 data-topbar·data-tabbar="배치"를 붙인다). 문서 뿌리의 scroll-padding으로 두면 sticky인 위 띠·레일 안
- * 단추에 초점이 갈 때 문서가 튄다(Chrome: 띠 밑 여백 안의 요소로 보고 스크롤, 2026-10-29 화면에서 잼) → 본문 요소의
- * scroll-margin으로 둔다(:where — 화면이 더 띄울 요소는 제 규칙으로 덮는다). 새 버전 배너가 뜬 동안의 여백은
- * styles.css :root[data-update-banner]가 더한다.
- * 하단 탭이 있는 동안 새 버전 배너(styles.css .update-banner)는 탭 위에 뜬다.
- * 배치 C는 가운데 지도 버튼이 띠 위로 솟는다(tabbar.css .tab-map-button의 음수 위 여백 --space-6, 실제로 솟는 높이는
- * 그보다 조금 작다) → 아래 여백과 배너를 그만큼 더 띄운다(layout.test.ts가 두 파일의 값을 대 본다).
+ * 위 띠·하단 탭(플랫 48px)이 초점 둔 본문 요소를 가리지 않게 scroll-margin을 둔다.
+ * 하단 탭이 있는 동안 새 버전 배너(.update-banner)는 탭(및 채팅바) 위에 뜬다.
  */
-:where(:root[data-topbar] .frame-main *) {
-  scroll-margin-top: calc(var(--topbar-h) + env(safe-area-inset-top) + var(--space-3));
-}
-:where(:root[data-tabbar] .frame-main *) {
-  scroll-margin-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-3));
-}
-:where(:root[data-tabbar="c"] .frame-main *) {
-  scroll-margin-bottom: calc(var(--tabbar-h) + var(--space-6) + env(safe-area-inset-bottom) + var(--space-3));
-}
-:root[data-tabbar] .update-banner {
-  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-3));
-}
-:root[data-tabbar="c"] .update-banner {
-  bottom: calc(var(--tabbar-h) + var(--space-6) + env(safe-area-inset-bottom) + var(--space-3));
+:root {
+  --chatbar-offset: 0px;
 }
 
-/* ── 위 띠 ─────────────────────────────────────────── */
+:where(:root[data-topbar] .frame-main *) {
+  scroll-margin-top: calc(
+    var(--topbar-h) +
+    var(--status-strip-h) +
+    env(safe-area-inset-top) +
+    var(--space-3)
+  );
+}
+:where(:root[data-tabbar] .frame-main *) {
+  scroll-margin-bottom: calc(
+    var(--tabbar-h) +
+    var(--chatbar-offset) +
+    env(safe-area-inset-bottom) +
+    var(--space-3)
+  );
+}
+:root[data-tabbar] .update-banner {
+  bottom: calc(var(--tabbar-h) + var(--chatbar-offset) + env(safe-area-inset-bottom) + var(--space-3));
+}
+
+/* ── 위 띠(40px 컴팩트 규격) ─────────────────────────────────────────── */
 .frame-top {
   grid-area: top;
   position: sticky;
   top: 0;
-  z-index: 3;
+  z-index: 5;
   min-width: 0;
   background-color: var(--color-nav-bg);
   border-bottom: var(--hairline) solid var(--color-border);
@@ -83,15 +85,42 @@
 .topbar {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
   min-height: calc(var(--topbar-h) + env(safe-area-inset-top));
-  padding: env(safe-area-inset-top) max(var(--space-3), env(safe-area-inset-right)) 0
+  padding: env(safe-area-inset-top) max(var(--space-2), env(safe-area-inset-right)) 0
     max(var(--space-3), env(safe-area-inset-left));
+}
+.topbar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-primary);
+  text-decoration: none;
+  min-width: 0;
+}
+.topbar-brand-mark {
+  width: var(--mark-sm);
+  height: var(--mark-sm);
+  border-radius: var(--radius-sm);
+  object-fit: contain;
+  flex: none;
+}
+.topbar-brand-title {
+  font-family: var(--font-display);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: 0.04em;
+  color: var(--color-primary);
+  white-space: nowrap;
 }
 .topbar-spacer {
   flex: 1 1 auto;
 }
-/* 아이콘 단추(☰·종·우편) — 정갈한 미니멀 터미널 단추. 누르는 곳은 44px */
+.status-strip-placeholder {
+  min-height: var(--status-strip-h);
+}
+
+/* 아이콘 단추(☰·종·우편·얼굴) — 32px 컴팩트 규격 */
 .topbar-button,
 .topbar-face {
   --button-lip: transparent;
@@ -117,7 +146,6 @@
 .topbar-face {
   border: 0;
   background: none;
-  box-shadow: none;
   color: var(--color-text);
 }
 .topbar-button[aria-current="page"] {
@@ -129,16 +157,19 @@
 .topbar-face:active {
   background-color: var(--color-nav-active);
 }
-/* 사이보그 얼굴 — 기본 실루엣(사이보그가 있으면 3D 외형의 머리·어깨 초상, TopBarFace.tsx) */
 .topbar-face-ring {
   display: grid;
   place-items: center;
-  width: calc(var(--tap-size) - var(--space-2));
-  height: calc(var(--tap-size) - var(--space-2));
+  width: calc(var(--tap-size) - var(--space-1));
+  height: calc(var(--tap-size) - var(--space-1));
   overflow: hidden;
   border: var(--hairline) solid var(--color-border-strong);
   border-radius: var(--radius-pill);
   background-color: var(--color-surface-2);
+}
+.topbar-face-fallback {
+  width: var(--icon-md);
+  height: var(--icon-md);
 }
 .topbar-face-portrait[data-portrait="3d"] {
   width: 100%;
@@ -152,14 +183,11 @@
   display: none;
 }
 
-/*
- * 숫자 배지 — 위험 상태색 쌍(대비 검사함). 판 색 테두리로 아이콘과 떼어 놓는다.
- * 아이콘의 가운데에서 오른쪽으로 자란다(두 자리·"99+"가 아이콘을 덮지 않게). 크기는 rem이라 글자를 키우면 함께 큰다
- */
+/* 숫자 배지 */
 .count-badge {
   position: absolute;
-  top: calc(var(--space-1) * -1);
-  left: 55%;
+  top: calc(var(--space-1) * -0.5);
+  left: 54%;
   min-width: var(--badge-size);
   height: var(--badge-size);
   padding: 0 var(--space-1);
@@ -167,7 +195,7 @@
   border-radius: var(--radius-pill);
   background-color: var(--color-danger);
   color: var(--color-danger-surface);
-  font-size: var(--font-size-xs);
+  font-size: var(--tab-label-size);
   font-weight: var(--font-weight-strong);
   line-height: calc(var(--badge-size) - 2 * var(--border-w));
   text-align: center;
@@ -175,8 +203,8 @@
   font-variant-numeric: tabular-nums;
 }
 .topbar-button .count-badge {
-  top: var(--space-1);
-  left: 50%;
+  top: 0;
+  left: 52%;
 }
 
 /* ── 본문 ──────────────────────────────────────────── */
@@ -185,18 +213,16 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-5) max(var(--space-4), env(safe-area-inset-right))
-    calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-8))
-    max(var(--space-4), env(safe-area-inset-left));
+  gap: var(--space-3);
+  padding: var(--space-3) max(var(--space-3), env(safe-area-inset-right))
+    calc(var(--tabbar-h) + var(--chatbar-offset) + env(safe-area-inset-bottom) + var(--space-6))
+    max(var(--space-3), env(safe-area-inset-left));
   background-image: var(--dash-grid);
   background-size: var(--dash-grid-size) var(--dash-grid-size);
 }
-/* 본문은 건너뛰기 링크·초점 옮기기의 도착점일 뿐이라 테두리를 그리지 않는다(안의 단추는 그대로 보인다) */
 .frame-main:focus {
   outline: none;
 }
-/* 화면 하나의 너비: 글·칸 화면은 좁게(--content-max), 홈 격자처럼 넓게 쓰는 화면은 .screen-wide */
 .frame-main > .screen,
 .frame-main > .shell-loading {
   width: 100%;
@@ -206,7 +232,6 @@
 .frame-main > .screen-wide {
   max-width: var(--content-max-wide);
 }
-/* 틀을 숨긴 화면의 본문(지도는 화면 전체를 덮는다) */
 .bare-main {
   min-height: 100dvh;
 }
@@ -220,39 +245,50 @@
   height: var(--icon-sm);
 }
 
-/* ── 사이드 메뉴 내용(서랍·레일·넓은 폭 공통) ─────────────────── */
+/* ── 사이드 메뉴 내용(우측 드롭다운·레일·PC 사이드바 공통, 컴팩트 34~36px 행) ── */
 .side {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
   min-height: 100%;
-  padding: var(--space-4) var(--space-3);
+  padding: var(--space-2);
 }
 .side-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-2) var(--space-3);
-  border: 0;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-2);
   border-bottom: var(--hairline) solid var(--color-border);
-  border-radius: 0;
-  background-color: transparent;
-  box-shadow: none;
 }
-/* 메뉴 머리의 이름표는 본문 크기(좁은 서랍에서 영어 이름이 두 줄로 꺾이지 않게).
-   styles.css의 .brand-small .brand-title보다 뒤에 오지 않으므로(묶음 순서) 선택자를 하나 더 붙인다 */
-.side .side-head .brand-title {
-  font-size: var(--font-size-md);
-  letter-spacing: var(--letter-spacing-display);
+.side-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.side-brand-mark {
+  width: var(--mark-sm);
+  height: var(--mark-sm);
+  border-radius: var(--radius-sm);
+  object-fit: contain;
+  flex: none;
+}
+.side-brand-title {
+  font-family: var(--font-display);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: 0.02em;
+  color: var(--color-primary);
+  white-space: nowrap;
 }
 .side-account {
   grid-column: 1 / -1;
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
   justify-self: start;
-  padding: calc(var(--space-1) / 2) var(--space-2);
+  padding: 0.1rem var(--space-2);
   border: var(--hairline) solid var(--color-border);
   border-radius: var(--radius-pill);
   background-color: var(--color-surface);
@@ -271,8 +307,8 @@
 .side-close {
   --button-lip: transparent;
   --button-press: 0px;
-  min-width: var(--tap-size);
-  min-height: var(--tap-size);
+  min-width: var(--control-h-sm);
+  min-height: var(--control-h-sm);
   padding: 0;
   border: var(--hairline) solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -282,7 +318,7 @@
 .side-list {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--space-1) / 2);
+  gap: 0.12rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -290,7 +326,7 @@
 .side-list > li {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--space-1) / 2);
+  gap: 0.12rem;
 }
 .side-item {
   --button-lip: transparent;
@@ -299,24 +335,24 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: var(--space-3);
+  gap: var(--space-2);
   width: 100%;
-  min-height: var(--tap-size);
-  padding: var(--space-1) var(--space-3);
+  min-height: var(--control-h);
+  padding: 0.15rem var(--space-2);
   border: var(--hairline) solid transparent;
   border-radius: var(--radius-sm);
   background-color: transparent;
   box-shadow: none;
   color: var(--color-text);
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-regular);
+  font-weight: var(--font-weight-strong);
   text-align: start;
   text-decoration: none;
   touch-action: manipulation;
   transition:
-    background-color var(--duration-base) var(--easing-out),
-    border-color var(--duration-base) var(--easing-out),
-    color var(--duration-base) var(--easing-out);
+    background-color var(--duration-fast) var(--easing-out),
+    border-color var(--duration-fast) var(--easing-out),
+    color var(--duration-fast) var(--easing-out);
 }
 .side-item:active {
   background-color: var(--color-surface-2);
@@ -333,23 +369,35 @@
   flex: none;
   width: var(--nav-icon-box);
   height: var(--nav-icon-box);
-  border: 0;
   border-radius: var(--radius-sm);
-  background-color: transparent;
-  color: var(--color-text-muted);
-  transition:
-    background-color var(--duration-base) var(--easing-out),
-    color var(--duration-base) var(--easing-out);
 }
-.side-icon .icon {
-  width: var(--icon-sm);
-  height: var(--icon-sm);
+.side-icon .sig-icon {
+  width: 1.35rem;
+  height: 1.35rem;
 }
-.side-item[aria-current="page"] .side-icon {
-  background-color: transparent;
-  color: var(--color-primary);
+/* 지도 한 줄 가로 분할(2차맵 | 1차맵) — 사이드바·모바일 서랍 공통 */
+.side-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-1);
 }
-/* 펼친 메뉴의 배지는 줄 끝에 둔다(아이콘을 덮지 않게). 접은 레일은 아래에서 항목 오른쪽 위 */
+.side-split-item {
+  gap: var(--space-1);
+  padding: 0.15rem var(--space-1);
+  border-color: color-mix(in srgb, var(--color-border) 60%, transparent);
+  background-color: color-mix(in srgb, var(--color-surface) 45%, transparent);
+}
+.side-split-item .side-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.side-split-item .sig-icon {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+.side-split-item .side-name {
+  font-size: var(--font-size-xs);
+}
 .side-item .count-badge {
   position: static;
   flex: none;
@@ -358,56 +406,48 @@
 .side-text {
   display: flex;
   flex-direction: column;
-  gap: 0;
   min-width: 0;
 }
 .side-name {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-strong);
   line-height: var(--line-height-snug);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.side-desc {
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-tight);
-  color: var(--color-text-muted);
-}
-/* 지도 밑 작은 링크(1차맵) — 트리 가지처럼 들여쓰기 + 연결선 */
 .side-sub {
   min-height: var(--control-h-sm);
-  width: calc(100% - var(--space-5));
-  margin-inline-start: var(--space-5);
-  padding: var(--space-1) var(--space-3);
-  border-inline-start: var(--border-strong-w) solid var(--color-border);
+  width: calc(100% - var(--space-4));
+  margin-inline-start: var(--space-4);
+  padding: 0.1rem var(--space-2);
+  border-inline-start: var(--border-w) solid var(--color-border);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  background-color: transparent;
-  box-shadow: none;
   font-size: var(--font-size-xs);
 }
 .side-sub .side-icon {
   width: var(--icon-sm);
   height: var(--icon-sm);
-  border: 0;
-  background: none;
 }
-.side-sub .icon {
+.side-sub .sig-icon {
   width: var(--icon-sm);
   height: var(--icon-sm);
 }
 .side-sub .side-name {
-  font-weight: var(--font-weight-strong);
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
 .side-sub[aria-current="page"] .side-name {
   color: var(--color-text);
 }
-/* [메뉴 편집] — 미니멀 고스트 링크 */
+
 .side-edit {
   align-self: stretch;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: var(--space-2);
   min-height: var(--control-h-sm);
-  padding: 0 var(--space-3);
+  padding: 0 var(--space-2);
   border: var(--hairline) solid var(--color-border);
   border-radius: var(--radius-sm);
   background-color: transparent;
@@ -415,33 +455,22 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-strong);
   text-decoration: none;
-  transition:
-    background-color var(--duration-base) var(--easing-out),
-    border-color var(--duration-base) var(--easing-out),
-    color var(--duration-base) var(--easing-out);
 }
-/* 시스템 묶음(설정·개발자·관리자·로그아웃)은 맨 아래 */
+.side-edit-ico {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
 .side-system {
   margin-top: auto;
-  padding-top: var(--space-3);
+  padding-top: var(--space-2);
   border-top: var(--hairline) solid var(--color-border);
-  gap: calc(var(--space-1) / 2);
 }
 .side-system .side-item {
   min-height: var(--control-h-sm);
-  padding: var(--space-1) var(--space-3);
-  background-color: transparent;
-  box-shadow: none;
-  color: var(--color-text-muted);
 }
-.side-system .side-item[aria-current="page"] {
-  background-color: var(--color-nav-active);
-  color: var(--color-text);
-  box-shadow: inset var(--accent-bar) 0 0 var(--color-primary);
-}
-.side-system .side-icon {
-  width: var(--nav-icon-box);
-  height: var(--nav-icon-box);
+.side-logout .side-name {
+  color: var(--color-danger);
 }
 .side-button {
   cursor: pointer;
@@ -450,11 +479,11 @@
   display: none;
 }
 
-/* ── ☰ 서랍(좁음) ─────────────────────────────────────── */
+/* ── 모바일 ☰ 사이드 서랍(<dialog class="frame-drawer">) — 옆에서 슬라이드 인 ── */
 .frame-drawer {
   position: fixed;
-  inset: 0 auto 0 0;
-  width: min(calc(var(--sidebar-w) + env(safe-area-inset-left)), 88vw);
+  inset: 0 0 0 auto;
+  width: min(calc(var(--sidebar-w) + var(--space-5) + env(safe-area-inset-right)), 86vw);
   height: 100dvh;
   max-width: none;
   max-height: none;
@@ -465,8 +494,8 @@
   scrollbar-width: thin;
   scrollbar-color: var(--color-border) transparent;
   border: 0;
-  border-right: var(--border-w) solid var(--color-border-strong);
-  border-radius: 0 var(--radius-panel) var(--radius-panel) 0;
+  border-left: var(--border-w) solid var(--color-border-strong);
+  border-radius: var(--radius-panel) 0 0 var(--radius-panel);
   background-color: var(--color-nav-bg);
   color: var(--color-text);
   box-shadow: var(--shadow-panel);
@@ -474,7 +503,7 @@
 .frame-drawer::backdrop {
   background-color: var(--color-overlay);
 }
-/* 여는 움직임만 둔다(닫기는 바로 — 시스템 응답은 짧게). 동작 줄이기면 토큰이 0이다 */
+/* 여는 슬라이드 모션(동작 줄이기면 토큰이 0이다) */
 .frame-drawer[open] {
   animation: shell-drawer-in var(--duration-base) var(--easing-out);
 }
@@ -482,12 +511,14 @@
   animation: shell-fade-in var(--duration-base) var(--easing-out);
 }
 .frame-drawer .side {
-  padding: max(var(--space-4), env(safe-area-inset-top)) var(--space-3)
-    max(var(--space-4), env(safe-area-inset-bottom)) max(var(--space-3), env(safe-area-inset-left));
+  min-height: 100%;
+  gap: var(--space-2);
+  padding: max(var(--space-3), env(safe-area-inset-top)) max(var(--space-2), env(safe-area-inset-right))
+    max(var(--space-4), env(safe-area-inset-bottom)) var(--space-2);
 }
 @keyframes shell-drawer-in {
   from {
-    transform: translateX(-100%);
+    transform: translateX(100%);
   }
 }
 @keyframes shell-fade-in {
@@ -496,12 +527,11 @@
   }
 }
 
-/* 레일·사이드 메뉴(중간·넓음)는 좁음에서 숨긴다 */
 .frame-side {
   display: none;
 }
 
-/* ── 중간(37.5em 이상): 접는 레일 + 위 띠, 하단 탭 없음 ───────────── */
+/* ── 중간(37.5em 이상, 태블릿): 64px 접이식 레일 + 40px 위 띠 ───────────── */
 @media (min-width: 37.5em) {
   .frame {
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -521,71 +551,80 @@
     overscroll-behavior: contain;
     border-right: var(--border-w) solid var(--color-border);
     background-color: var(--color-nav-bg);
-    box-shadow: var(--shadow-control);
     scrollbar-width: thin;
     scrollbar-color: var(--color-border) transparent;
   }
   .frame[data-rail="collapsed"] .frame-side {
     width: calc(var(--rail-w) + env(safe-area-inset-left));
   }
-  /* 중간 폭에서는 배치와 상관없이 ☰가 레일을 펴고 접는다 */
   .frame[data-nav-layout="a"] .topbar-menu {
     display: inline-grid;
   }
-  .frame-main {
-    padding: var(--space-6) max(var(--space-6), env(safe-area-inset-right))
-      max(var(--space-8), env(safe-area-inset-bottom)) var(--space-6);
+  .topbar-brand {
+    display: none;
   }
-  /* 접은 레일: 아이콘 + 짧은 이름(세로로), 한 줄 설명·아이디·작은 링크는 숨긴다 */
+  .frame[data-rail="collapsed"] .topbar-brand {
+    display: inline-flex;
+  }
+  .status-strip-placeholder {
+    min-height: 1.9rem;
+  }
+  .frame-main {
+    padding: var(--space-4) max(var(--space-4), env(safe-area-inset-right))
+      calc(var(--chatbar-offset) + max(var(--space-6), env(safe-area-inset-bottom))) var(--space-4);
+  }
   .frame[data-rail="collapsed"] .side {
-    padding: var(--space-3) var(--space-1);
+    padding: var(--space-2) var(--space-1);
   }
   .frame[data-rail="collapsed"] .side-head {
     grid-template-columns: minmax(0, 1fr);
     justify-items: center;
     padding: 0 0 var(--space-2);
   }
-  .frame[data-rail="collapsed"] .side-head .brand-title,
+  .frame[data-rail="collapsed"] .side-brand-title,
   .frame[data-rail="collapsed"] .side-account,
-  .frame[data-rail="collapsed"] .side-desc,
   .frame[data-rail="collapsed"] .side-sub,
+  .frame[data-rail="collapsed"] .side-split-planet,
   .frame[data-rail="collapsed"] .side-edit {
     display: none;
+  }
+  .frame[data-rail="collapsed"] .side-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .frame[data-rail="collapsed"] .side-split-item {
+    border-color: transparent;
+    background-color: transparent;
   }
   .frame[data-rail="collapsed"] .side-item {
     flex-direction: column;
     justify-content: center;
-    gap: var(--space-1);
-    padding: var(--space-2) var(--space-1);
+    gap: 0.15rem;
+    padding: var(--space-1) 0.1rem;
     text-align: center;
   }
   .frame[data-rail="collapsed"] .side-item .count-badge {
     position: absolute;
-    top: var(--space-1);
-    left: 55%;
+    top: 0.1rem;
+    left: 54%;
     margin-left: 0;
   }
   .frame[data-rail="collapsed"] .side-name {
     max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: var(--font-size-xs);
+    font-size: var(--tab-label-size);
   }
 }
 
-/* ── 넓음(64em 이상): 사이드 메뉴는 늘 펼친다(☰ 없음), 본문은 가운데 ───────── */
+/* ── 넓음(64em 이상, PC 데스크톱): 216px 고정 사이드바 + 다단 본문 + 우측 채팅 열 ── */
 @media (min-width: 64em) {
   .topbar-menu,
   .frame[data-nav-layout="a"] .topbar-menu {
     display: none;
   }
   .frame-main {
-    padding-inline: max(var(--space-8), env(safe-area-inset-right)) var(--space-8);
+    padding: var(--space-5) max(var(--space-5), env(safe-area-inset-right)) var(--space-6) var(--space-5);
   }
 }
 
-/* 마우스가 있는 기기에서만: 올리면 둘째 판 색. 터치는 누를 때 가짜 hover가 생겨서 뺀다 */
 @media (hover: hover) and (pointer: fine) {
   .topbar-button:hover,
   .topbar-face:hover .topbar-face-ring,
@@ -596,29 +635,21 @@
     background-color: var(--color-surface-2);
     color: var(--color-text);
   }
-  .side-item:hover .side-icon {
-    color: var(--color-text);
-  }
   .side-item[aria-current="page"]:hover {
     background-color: var(--color-nav-active);
   }
-  .side-item[aria-current="page"]:hover .side-icon {
-    color: var(--color-primary);
-  }
 }
 
-/* 키가 낮은 화면(휴대폰 가로 등)의 접은 레일: 항목을 촘촘히(레일 안 스크롤을 줄인다) */
 @media (max-height: 30em) {
   .frame[data-rail="collapsed"] .side {
-    gap: var(--space-2);
+    gap: var(--space-1);
   }
   .frame[data-rail="collapsed"] .side-item {
     gap: 0;
-    padding-block: var(--space-1);
+    padding-block: 0.1rem;
   }
 }
 
-/* 윈도 고대비(강제 색) — 바탕색이 지워지므로 지금 화면 표시를 테두리로 */
 @media (forced-colors: active) {
   .side-item[aria-current="page"],
   .topbar-button[aria-current="page"] {

@@ -54,8 +54,8 @@
 .map-heading {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-1);
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-1);
 }
 /* [뒤로]는 낱말 중간에서 끊지 않는다 — 전환 단추 자리를 비운 좁은 위 판(운영자 표시 + 영어)에서는 제목이 대신 줄을 바꾼다 */
 .map-heading > .button-small {
@@ -65,7 +65,7 @@
 .map-title {
   font-family: var(--font-display);
   font-weight: var(--font-weight-display);
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-md);
   line-height: var(--line-height-tight);
   letter-spacing: var(--letter-spacing-display);
   text-shadow: var(--shadow-heading);

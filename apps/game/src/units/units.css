@@ -191,10 +191,7 @@
   box-shadow: var(--shadow-panel);
 }
 :root[data-tabbar] .units-selection {
-  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-2));
-}
-:root[data-tabbar="c"] .units-selection {
-  bottom: calc(var(--tabbar-h) + var(--space-6) + env(safe-area-inset-bottom) + var(--space-2));
+  bottom: calc(var(--tabbar-h) + var(--chatbar-offset) + env(safe-area-inset-bottom) + var(--space-2));
 }
 .units-selection-count {
   font-weight: var(--font-weight-strong);

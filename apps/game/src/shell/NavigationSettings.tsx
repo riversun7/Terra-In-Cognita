@@ -22,6 +22,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { Icon } from "../ui/icons.tsx";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
+import { SignatureIcon } from "../ui/SignatureIcon.tsx";
 import { splitCenterTabs } from "./layout.ts";
 import { MENU_ITEMS } from "./menuItems.ts";
 import { changeNavigation, useNavigation } from "./shellPrefs.ts";
@@ -194,7 +195,7 @@ export function NavigationSettings() {
             return (
               <li key={id} className="nav-order-row" data-in-tabs={where === null ? undefined : "true"}>
                 <span className="nav-order-icon" aria-hidden="true">
-                  <Icon name={item.icon} />
+                  <SignatureIcon name={item.icon} />
                 </span>
                 <span className="nav-order-text">
                   <span className="nav-order-name">{name}</span>
@@ -254,7 +255,7 @@ export function NavigationSettings() {
 function previewCell(id: NavItemId) {
   return (
     <span key={id} className="nav-preview-cell">
-      <Icon name={MENU_ITEMS[id].icon} />
+      <SignatureIcon name={MENU_ITEMS[id].icon} />
       <span>{MENU_ITEMS[id].name()}</span>
     </span>
   );
@@ -274,7 +275,7 @@ function TabPreview({ items, layout, slots }: { items: NavItemId[]; layout: NavL
         {layout === "c" ? (
           <span className="nav-preview-cell nav-preview-map">
             <span className="nav-preview-map-button">
-              <Icon name={MENU_ITEMS.map.icon} />
+              <SignatureIcon name="map" />
             </span>
             <span>{MENU_ITEMS.map.name()}</span>
           </span>

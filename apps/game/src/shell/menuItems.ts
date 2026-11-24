@@ -4,6 +4,7 @@
 import type { NavItemId, RouteTarget } from "@terra/shared";
 import { m } from "../paraglide/messages.js";
 import type { IconName } from "../ui/icons.tsx";
+import type { SignatureIconName } from "../ui/SignatureIcon.tsx";
 
 export interface MenuItem {
   /** 누르면 갈 화면 */
@@ -12,7 +13,7 @@ export interface MenuItem {
   readonly name: () => string;
   /** 한 줄 설명(펼친 사이드 메뉴) */
   readonly desc: () => string;
-  readonly icon: IconName;
+  readonly icon: IconName & SignatureIconName;
 }
 
 export const MENU_ITEMS = {

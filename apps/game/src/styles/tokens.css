@@ -22,53 +22,54 @@
   /* 공식·계산 줄(사이보그 화면 상세 전투 스펙) — 기기 고정폭 글꼴만(받지 않는다) */
   --font-mono: ui-monospace, "SFMono-Regular", "Menlo", "Consolas", "D2Coding", monospace;
 
-  /* 크기 단계 — 약 1.2배씩. rem이라 브라우저 기본 글자 크기를 키운 사람에게는 함께 커진다(기본 16px일 때 괄호 값) */
-  --font-size-xs: 0.75rem; /* 12px */
-  --font-size-sm: 0.875rem; /* 14px */
-  --font-size-md: 1rem; /* 16px */
+  /* 크기 단계 — 고밀도 모바일·전략 게임 기준(rem이라 기기 글자 크기를 키우면 함께 커진다, 기본 16px일 때 괄호 값) */
+  --font-size-xs: 0.6875rem; /* 11px */
+  --font-size-sm: 0.75rem; /* 12px */
+  --font-size-md: 0.84375rem; /* 13.5px */
   /* 입력칸은 16px 이상: iOS 사파리가 16px보다 작은 입력칸을 누르면 화면을 확대한다 */
-  --font-size-input: max(16px, 1rem);
-  --font-size-lg: 1.1875rem; /* 19px */
-  --font-size-xl: 1.375rem; /* 22px */
-  --font-size-2xl: 1.625rem; /* 26px */
-  --font-size-3xl: 2rem; /* 32px */
+  --font-size-input: max(16px, 0.875rem);
+  --font-size-lg: 0.9375rem; /* 15px */
+  --font-size-xl: 1.0625rem; /* 17px */
+  --font-size-2xl: 1.25rem; /* 20px */
+  --font-size-3xl: 1.5rem; /* 24px */
+  --tab-label-size: 0.65625rem; /* 10.5px */
 
   /* 굵기 — 본문 글꼴은 400·600 파일만 받는다. 다른 값은 가까운 굵기로 그려진다(500 → 400, 700 → 600) */
   --font-weight-regular: 400;
   --font-weight-strong: 600;
   --font-weight-display: 600;
 
-  /* 줄 간격 — 한글 본문은 넉넉히 */
+  /* 줄 간격 — 촘촘한 전략 화면에서도 한글이 또렷하게 읽히도록 */
   --line-height-tight: 1.2;
-  --line-height-snug: 1.35;
-  --line-height-body: 1.55;
-  --letter-spacing-display: -0.025em;
+  --line-height-snug: 1.32;
+  --line-height-body: 1.48;
+  --letter-spacing-display: -0.02em;
   --letter-spacing-body: -0.005em;
 
-  /* 간격 — 4px 단위 */
+  /* 간격 — 정밀 밀도 단계 */
   --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-  --space-10: 40px;
-  --space-12: 48px;
+  --space-2: 6px;
+  --space-3: 10px;
+  --space-4: 14px;
+  --space-5: 18px;
+  --space-6: 22px;
+  --space-8: 28px;
+  --space-10: 36px;
+  --space-12: 44px;
 
   /* 모서리 — 위계별로 다르게: 판 > 조작부 > 작은 칩 (현대적 전략 UI 비례) */
-  --radius-sm: 8px;
-  --radius-control: 12px;
-  --radius-panel: 16px;
+  --radius-sm: 6px;
+  --radius-control: 8px;
+  --radius-panel: 12px;
   --radius-pill: 999px;
 
-  /* 조작부 크기 */
-  --control-h: 46px;
-  --control-h-sm: 38px;
+  /* 조작부 크기 — 모바일·데스크톱 모두 컴팩트 전략 터미널 규격 */
+  --control-h: 34px;
+  --control-h-sm: 28px;
   /* 나란한 버튼의 기본 너비(글자 크기 기준) */
-  --button-basis: 8em;
-  /* 누르는 영역의 권장 크기(가로·세로). 배치 값(위 띠 높이 등)에 쓴다 */
-  --tap-size: 44px;
+  --button-basis: 6.5em;
+  /* 누르는 영역의 권장 크기(가로·세로). 배치 값(위 띠·사이드 행 높이 등)에 쓴다 */
+  --tap-size: 32px;
   /* 누르는 영역의 최소 크기 — WCAG 2.2 AA 2.5.8(24px). 화면 시험 smallTapTargets가 본다(ADR 2026-11-21-tap-target-relax) */
   --tap-min: 24px;
   /* 가는 선(미리 보기 테두리, 칩), 읽기 프로그램 전용 글의 크기 */
@@ -76,28 +77,28 @@
   --border-w: 1px;
   --border-strong-w: 2px;
   --field-border-w: 1px;
-  --focus-w: 3px;
+  --focus-w: 2px;
   --focus-offset: 2px;
   /* 버튼 아래 턱 두께 — 모던 전략 터미널 기준 0 */
   --lip: 0px;
   --accent-bar: 3px;
-  --nav-icon-box: 34px;
-  --icon-sm: 20px;
-  --icon-md: 22px;
-  /* 앱 아이콘(이름표): 로그인 화면, 다른 화면 */
-  --mark-lg: 72px;
-  --mark-sm: 32px;
-  --status-dot: 10px;
-  --select-arrow: 5px;
-  --switch-w: 52px;
-  --switch-h: 32px;
-  --switch-thumb: 22px;
-  /* 새 버전 배너가 떠 있을 때 화면 아래에 비우는 높이(두 줄로 접힌 배너보다 조금 크게) */
-  --banner-reserve: 136px;
-  --preview-h: 64px;
-  --preview-dot: 8px;
-  --preview-line: 6px;
-  --content-max: 480px;
+  --nav-icon-box: 26px;
+  --icon-sm: 16px;
+  --icon-md: 18px;
+  /* 앱 아이콘(이름표): 로그인 화면, 다른 화면(개발자 패널 규격 22~24px) */
+  --mark-lg: 60px;
+  --mark-sm: 22px;
+  --status-dot: 8px;
+  --select-arrow: 4px;
+  --switch-w: 40px;
+  --switch-h: 24px;
+  --switch-thumb: 16px;
+  /* 새 버전 배너가 떠 있을 때 화면 아래에 비우는 높이 */
+  --banner-reserve: 112px;
+  --preview-h: 56px;
+  --preview-dot: 7px;
+  --preview-line: 5px;
+  --content-max: 560px;
 
   /* 움직임 — 누름 반응은 짧게. 기기의 "동작 줄이기"를 켜면 0(아래) */
   --duration-fast: 120ms;
@@ -113,35 +114,39 @@
  * 색은 새로 만들지 않는다: 겹침 바탕은 --color-overlay, 처리할 일 분류는 상태색(--color-danger 등)
  */
 :root {
-  /* 위 띠 높이(안전 영역 제외). 누르는 곳(--tap-size) + 위아래 6px */
-  --topbar-h: 56px;
-  /* 하단 탭 높이(안전 영역 제외). 아이콘 + 늘 보이는 이름 한 줄 */
-  --tabbar-h: 64px;
-  /* 배치 C의 가운데 큰 지도 버튼 지름 */
-  --tabbar-map-size: 60px;
-  /* 중간 폭의 접은 레일(아이콘 + 짧은 이름) */
-  --rail-w: 80px;
-  /* 펼친 사이드 메뉴(이름 + 한 줄 설명). 넓은 폭은 늘 펼침, 중간 폭은 펴면 이 폭 */
-  --sidebar-w: 256px;
-  /* 넓은 폭의 본문 최대 너비(홈 3열 커맨드 데크) */
-  --content-max-wide: 1320px;
-  /* 숫자 배지(종·메뉴 항목)의 지름(기본 글자 크기에서 20px). 두 자리부터는 가로로 늘린다.
-     rem이라 글자를 키우면 함께 커진다(배지 글자가 넘치지 않게) */
-  --badge-size: 1.25rem;
+  /* 위 띠 높이(개발자 패널 규격 40px) */
+  --topbar-h: 40px;
+  /* 상단 핵심 자산·상태 요약 바 높이(좁은 화면 2번째 줄) */
+  --status-strip-h: 36px;
+  /* 슬림 플랫 하단 탭 높이(솟는 원형 단추 없음, 48px) */
+  --tabbar-h: 48px;
+  /* 배치 C의 가운데 지도 칸 아이콘 틀 폭(42px + 양옆 --space-4 14px = 56px = 3.5em) */
+  --tabbar-map-size: 42px;
+  /* 중간 폭의 접은 레일(개발자 패널 규격 64px) */
+  --rail-w: 64px;
+  /* 펼친 사이드 메뉴·모바일 우측 드롭다운 메뉴 폭(개발자 패널 규격 216px) */
+  --sidebar-w: 216px;
+  /* 하단 1줄 접힘 채팅바 높이 */
+  --chatbar-h: 30px;
+  /* 데스크톱 우측 상시 채팅 패널 폭 */
+  --chat-dock-w: 280px;
+  /* 넓은 폭의 본문 최대 너비(다단 전략 데스크) */
+  --content-max-wide: 1480px;
+  /* 숫자 배지(종·메뉴 항목)의 지름. 두 자리부터는 가로로 늘린다 */
+  --badge-size: 1.0625rem;
 }
 
 /*
- * 홈 카드 — 대시보드 격자(ADR 37 6절). 처음 값이다. 이 블록은 홈(W4)이 고친다.
- * 320px 폭에서도 2열이 된다: 본문 288px(양옆 여백 --space-4) ≥ 2 × --card-min + --card-gap = 284px
+ * 홈 카드 — 대시보드 격자(ADR 37 6절). 모바일 2열·태블릿 2~3열·PC 4열 확장.
  */
 :root {
   /* 1칸 카드의 가장 좁은 너비 */
-  --card-min: 136px;
+  --card-min: 132px;
   /* 넓은 폭(64em 이상)의 1칸 카드 가장 좁은 너비 — 4열 벤토 격자로 카드마다 충분한 정보를 담는다 */
-  --card-min-wide: 240px;
+  --card-min-wide: 212px;
   /* 격자 한 줄의 가장 낮은 높이(1×1 카드). 글이 길면 줄이 늘어난다(잘리지 않게) */
-  --card-row: 148px;
-  --card-gap: 16px;
+  --card-row: 124px;
+  --card-gap: 12px;
   /* 프로 대시보드 전용 치수(막대·스파크라인·팝오버·강조선) */
   --dash-grid-size: 28px;
   --dash-bar-h: 6px;
@@ -313,39 +318,39 @@
   --dash-popover-shadow: 0 16px 36px rgb(15 23 42 / 16%), 0 2px 8px rgb(15 23 42 / 8%);
 }
 
-/* 다크(택티컬 옵시디언) — 깊이감 있는 슬레이트·흑요석 바탕과 정밀 금융·전략 터미널. 세계(지도) 조명은 바꾸지 않는다(D-070) → 판은 불투명 */
+/* 다크(딥 네이비·청록 전략 터미널) — 깊은 우주 슬레이트·네이비 바탕과 청록/민트 포인트. 세계(지도) 조명은 바꾸지 않는다(D-070) → 판은 불투명 */
 :root[data-theme="dark"],
 [data-theme-preview="dark"] {
   color-scheme: dark;
-  --color-bg: #0b0f19;
-  --color-bg-image: linear-gradient(180deg, #0b0f19 0%, #0d1220 58%, #0f1626 100%);
-  --color-surface: #101522;
-  --color-surface-2: #172034;
-  --color-nav-bg: #0b0f19;
-  --color-nav-item: #101625;
-  --color-nav-active: #102a29;
-  --color-card-head: #131a2b;
-  --color-text: #f1f5f9;
-  --color-text-muted: #94a7c4;
-  --color-primary: #34d399;
-  --color-on-primary: #042619;
-  --color-primary-lip: #0d9468;
+  --color-bg: #070d14;
+  --color-bg-image: linear-gradient(180deg, #070d14 0%, #09121c 56%, #0b1623 100%);
+  --color-surface: #0d1622;
+  --color-surface-2: #132133;
+  --color-nav-bg: #070d14;
+  --color-nav-item: #0d1622;
+  --color-nav-active: #0d2b2b;
+  --color-card-head: #101b2a;
+  --color-text: #eef6fc;
+  --color-text-muted: #93aec9;
+  --color-primary: #26e0b8;
+  --color-on-primary: #03221a;
+  --color-primary-lip: #0d9476;
   --color-highlight: #fbbf24;
-  --color-secondary-lip: #090d16;
-  --color-success: #6ee7b7;
-  --color-success-surface: #12332a;
+  --color-secondary-lip: #060a10;
+  --color-success: #5eead4;
+  --color-success-surface: #0e2e2b;
   --color-warning: #fcd34d;
-  --color-warning-surface: #352a16;
+  --color-warning-surface: #332712;
   --color-danger: #fda4af;
-  --color-danger-surface: #3b1c2a;
+  --color-danger-surface: #391a28;
   /* 시세 파랑 — 한국식 시세 색의 내림·매도(D-442). 오름·매수는 위험색(빨강), 서양식은 성공색·위험색 */
-  --color-market-blue: #8ab8ff;
+  --color-market-blue: #7cc4ff;
   --color-focus: #38bdf8;
-  --color-border: #1f2b42;
-  --color-border-strong: #334669;
-  --color-field-bg: #0c111d;
-  --color-field-border: #6e83a6;
-  --color-overlay: rgb(4 8 16 / 72%);
+  --color-border: #1b2f45;
+  --color-border-strong: #2c4a6b;
+  --color-field-bg: #09111b;
+  --color-field-border: #6887a8;
+  --color-overlay: rgb(3 7 14 / 74%);
   --shadow-control: inset 0 1px 0 rgb(255 255 255 / 5%), 0 2px 8px rgb(0 0 0 / 32%);
   --shadow-panel:
     inset 0 1px 0 rgb(255 255 255 / 5%), 0 10px 28px rgb(0 0 0 / 42%), 0 2px 6px rgb(0 0 0 / 26%);

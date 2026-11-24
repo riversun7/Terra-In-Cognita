@@ -56,6 +56,7 @@ import { MapTargetGate } from "./MapTargetGate.tsx";
 import { screenNotice } from "./secondMapNotice.ts";
 import { CyborgActions, TravelLine } from "./SecondMapTravel.tsx";
 import { MapBottomNav, type MapNavTab } from "./MapBottomNav.tsx";
+import { ChatDock } from "../shell/chat/ChatDock.tsx";
 import { BagSheet } from "./BagSheet.tsx";
 import { BuildSheet } from "./construction/BuildSheet.tsx";
 import { createBuildMode } from "./construction/buildMode.ts";
@@ -845,6 +846,10 @@ function SecondMapView({
           onClose={closeCity}
         />
       ) : null}
+      <ChatDock
+        variant="map"
+        authorName={session.kind === "signed_in" ? session.user.loginId : "Commander"}
+      />
       <MapBottomNav
         active={navActive}
         mapKey={mapKey}

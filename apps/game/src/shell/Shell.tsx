@@ -27,6 +27,7 @@ import { setRailExpanded, useNavigation, useRailExpanded } from "./shellPrefs.ts
 import { SIDE_NAV_ID, SideMenu } from "./SideMenu.tsx";
 import { TabBar } from "./TabBar.tsx";
 import { TopBar } from "./TopBar.tsx";
+import { ChatDock } from "./chat/ChatDock.tsx";
 import { useLayout } from "./useLayout.ts";
 import { gateHolds, gateRedirect, useCyborgGate } from "../start/cyborgGate.ts";
 import "./shell.css";
@@ -34,6 +35,8 @@ import "./overlays.css";
 
 // 정찰 끝 화면 알림(기획 답 612 나, map/ScoutWatch.tsx): 지연 조각 — 첫 화면 묶음에 tRPC 클라이언트를 넣지 않는다
 const ScoutWatch = lazy(() => import("../map/ScoutWatch.tsx"));
+// 상단 핵심 자산·상태 요약 바(StatusStrip.tsx): 지연 조각 — 첫 화면 묶음에 tRPC 클라이언트를 넣지 않는다
+const StatusStrip = lazy(() => import("./StatusStrip.tsx"));
 
 /** 칸 열쇠 → 그 칸에서 보던 스크롤 위치(뒤로·앞으로) */
 const entryScroll = new Map<string, number>();
@@ -234,7 +237,7 @@ export function Shell({ user, monitor }: { user: AccountView; monitor: FrameMoni
   }, [route.overlay, narrow, hidden]);
 
   // 하단 탭이 있는 동안 새 버전 배너를 탭 위로 올리고, 위 띠·하단 탭 높이만큼 본문 요소의 스크롤 여백(scroll-margin)을
-  // 둔다(shell.css :root[data-topbar]·[data-tabbar] — 초점 둔 요소가 가려지지 않게). 값은 배치(c·a): C는 지도 버튼이 띠 위로 솟는다
+  // 둔다(shell.css :root[data-topbar]·[data-tabbar] — 초점 둔 요소가 가려지지 않게). 값은 배치(c·a)다
   useEffect(() => {
     const root = document.documentElement;
     if (tabsShown) root.setAttribute("data-tabbar", nav.layout);
@@ -302,11 +305,19 @@ export function Shell({ user, monitor }: { user: AccountView; monitor: FrameMoni
             devTheme={devSurface ? devTheme : null}
             look={gate.status === "ready" ? gate.look : null}
           />
+          {devSurface ? null : (
+            <ChunkErrorBoundary fallback={null}>
+              <Suspense fallback={<div className="status-strip-placeholder" aria-hidden="true" />}>
+                <StatusStrip />
+              </Suspense>
+            </ChunkErrorBoundary>
+          )}
           <ConnectionNotice floating={false} showLost />
         </header>
         <main id="main" className="frame-main" tabIndex={-1}>
           {view}
         </main>
+        {devSurface ? null : <ChatDock variant="shell" authorName={user.loginId} />}
         <TabBar
           nav={nav}
           slots={layout.tabSlots[nav.layout]}

@@ -186,7 +186,7 @@ test.describe("플레이어", () => {
     const closers: Record<string, () => Promise<void>> = {
       Esc: () => page.keyboard.press("Escape"),
       "닫기 단추": () => page.locator(".frame-drawer .side-close").click(),
-      바깥: () => page.mouse.click(380, 400),
+      바깥: () => page.mouse.click(24, 400),
       "시스템 뒤로": async () => {
         await page.goBack();
       },
@@ -281,7 +281,7 @@ test.describe("플레이어", () => {
     expect(await focused(page)).toContain("topbar");
   });
 
-  test("배치 C: 새 버전 배너와 본문 아래 여백이 가운데 지도 버튼을 피한다", async ({ page }) => {
+  test("배치 C: 새 버전 배너와 본문 아래 여백이 하단 탭과 채팅바를 피한다", async ({ page }) => {
     await page.goto("/units");
     await framed(page);
     await expect(page.locator("html")).toHaveAttribute("data-tabbar", "c");
@@ -292,35 +292,51 @@ test.describe("플레이어", () => {
       banner.dataset["open"] = "true";
       document.documentElement.setAttribute("data-update-banner", "");
       const box = banner.getBoundingClientRect();
+      const chat = document.querySelector(".chat-dock")?.getBoundingClientRect();
       const map = document.querySelector(".tab-map-button")?.getBoundingClientRect();
       const heading = document.querySelector("#main h1");
-      return map === undefined || heading === null
+      const barTop = chat?.top ?? map?.top;
+      return barTop === undefined || heading === null
         ? null
         : {
             bannerBottom: box.bottom,
-            mapTop: map.top,
+            barTop,
             reserve: Number.parseFloat(getComputedStyle(heading).scrollMarginBottom),
-            mapFromBottom: window.innerHeight - map.top,
+            barFromBottom: window.innerHeight - barTop,
           };
     });
     expect(geometry).not.toBeNull();
     if (geometry === null) return;
-    expect(geometry.bannerBottom).toBeLessThanOrEqual(geometry.mapTop);
-    expect(geometry.reserve).toBeGreaterThanOrEqual(geometry.mapFromBottom);
+    expect(geometry.bannerBottom).toBeLessThanOrEqual(geometry.barTop);
+    expect(geometry.reserve).toBeGreaterThanOrEqual(geometry.barFromBottom);
   });
 
-  test("508px C 5칸: 남는 칸은 지도 오른쪽(앞 4칸 자리 그대로), 가로 넘침 없음", async ({ page }) => {
-    await page.setViewportSize({ width: 508, height: 844 });
+  test("390px C 5칸·432px C 6칸: 남는 칸은 지도 오른쪽(앞 칸 자리 그대로), 가로 넘침 없음", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/units");
     await framed(page);
-    const sides = await page
+    const sides390 = await page
       .locator(".tabbar .tabbar-side")
       .evaluateAll((els) =>
         els.map((el) => [...el.querySelectorAll("a")].map((a) => a.getAttribute("href"))),
       );
-    expect(sides).toEqual([
+    expect(sides390).toEqual([
       ["/", "/units"],
       ["/economy", "/faction", "/cyborg"],
+    ]);
+    expect(await horizontalOverflow(page)).toEqual([]);
+
+    await page.setViewportSize({ width: 432, height: 844 });
+    const sides432 = await page
+      .locator(".tabbar .tabbar-side")
+      .evaluateAll((els) =>
+        els.map((el) => [...el.querySelectorAll("a")].map((a) => a.getAttribute("href"))),
+      );
+    expect(sides432).toEqual([
+      ["/", "/units", "/economy"],
+      ["/faction", "/cyborg", "/inventory"],
     ]);
     expect(await horizontalOverflow(page)).toEqual([]);
   });

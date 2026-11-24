@@ -1,6 +1,6 @@
 // 폭 경계 시험 — 화면 틀 CSS(shell.css·tabbar.css)와 복귀 요약 겹침(summary/summary.css)의 미디어 쿼리 숫자와
-// layout.ts의 값이 같다(ADR 2026-10-29-app-shell 3절),
-// 하단 탭 칸 수(D-265)·배치 C의 칸 나누기, C 지도 버튼이 솟는 만큼 비우는 여백
+// layout.ts의 값이 같다(ADR 2026-10-29-app-shell 3절 · 2026-11-24-compact-responsive-shell-and-chat.md),
+// 슬림 플랫 48px 하단 탭 칸 수(D-265)·배치 C의 칸 나누기, 채팅바·하단 탭 여백 보정
 import { NAV_ITEM_IDS, NAV_LAYOUTS, type NavLayout } from "@terra/shared";
 import { describe, expect, it } from "vitest";
 import tokensCss from "../styles/tokens.css?raw";
@@ -92,27 +92,22 @@ describe("폭 3단계", () => {
   });
 });
 
-describe("하단 탭 칸 수(D-265: 좁은 휴대폰은 4칸, 넓으면 더)", () => {
-  it("휴대폰 세로 폭(320~440px): C 4칸, A는 432px부터 5칸. 중간·넓음은 하단 탭 없음", () => {
-    for (const width of [320, 360, 375, 390, 393, 412, 414, 428, 430, 431]) {
-      expect(tabSlotsForWidth(px(width), "c"), `C ${width}px`).toBe(4);
-      expect(tabSlotsForWidth(px(width), "a"), `A ${width}px`).toBe(4);
+describe("슬림 하단 탭 칸 수(D-265: 320px 초소형 4칸, 380px+ 휴대폰 5~6칸)", () => {
+  it("초소형(320px)은 4칸, 표준 스마트폰(380~431px)은 C 5칸·A 6칸, 432px부터 최대 칸. 중간·넓음은 하단 탭 없음", () => {
+    expect(tabSlotsForWidth(px(320), "c")).toBe(4);
+    expect(tabSlotsForWidth(px(320), "a")).toBe(4);
+    expect(tabSlotsForWidth(px(324), "a")).toBe(5);
+    expect(tabSlotsForWidth(px(375), "a")).toBe(5);
+    expect(tabSlotsForWidth(px(375), "c")).toBe(4);
+    expect(tabSlotsForWidth(px(378), "a")).toBe(6);
+    for (const width of [380, 390, 393, 412, 414, 428, 431]) {
+      expect(tabSlotsForWidth(px(width), "c"), `C ${width}px`).toBe(5);
+      expect(tabSlotsForWidth(px(width), "a"), `A ${width}px`).toBe(6);
     }
-    expect(tabSlotsForWidth(px(432), "a")).toBe(5);
-    expect(tabSlotsForWidth(px(440), "a")).toBe(5);
-    expect(tabSlotsForWidth(px(504), "a")).toBe(6);
-    expect(tabSlotsForWidth(px(575), "a")).toBe(6);
-    // 인벤토리를 더해(2026-11-14) 576px(36em)부터 7칸
-    expect(tabSlotsForWidth(px(576), "a")).toBe(7);
-    expect(tabSlotsForWidth(px(599), "a")).toBe(7);
-    // C: 지도를 가운데 둔 채 5칸(오른쪽 3칸)이 들어가는 508px부터
-    expect(tabSlotsForWidth(px(440), "c")).toBe(4);
-    expect(tabSlotsForWidth(px(507), "c")).toBe(4);
-    expect(tabSlotsForWidth(px(508), "c")).toBe(5);
-    expect(tabSlotsForWidth(px(511), "c")).toBe(5);
-    // 인벤토리를 더해(2026-11-14) 512px(32em)부터 6칸(양쪽 3칸)
-    expect(tabSlotsForWidth(px(512), "c")).toBe(6);
-    expect(tabSlotsForWidth(px(599), "c")).toBe(6);
+    for (const width of [432, 480, 540, 599]) {
+      expect(tabSlotsForWidth(px(width), "c"), `C ${width}px`).toBe(6);
+      expect(tabSlotsForWidth(px(width), "a"), `A ${width}px`).toBe(7);
+    }
     for (const layout of NAV_LAYOUTS) {
       for (const width of [600, 844, 1440]) {
         expect(tabSlotsForWidth(px(width), layout), `${layout} ${width}px`).toBe(0);
@@ -120,7 +115,7 @@ describe("하단 탭 칸 수(D-265: 좁은 휴대폰은 4칸, 넓으면 더)", (
     }
   });
 
-  it("계단 시작 폭에서 가장 좁은 칸이 4.5em 이상이다(A: 모든 칸이 같다, C: 지도 가운데 + 많은 쪽 칸)", () => {
+  it("계단 시작 폭에서 가장 좁은 칸이 TAB_CELL_MIN_EM(3.375em = 54px) 이상이다", () => {
     for (const layout of NAV_LAYOUTS) {
       const steps = TAB_SLOT_STEPS[layout];
       expect(steps[0], layout).toEqual({ minEm: 0, slots: 4 });
@@ -131,19 +126,16 @@ describe("하단 탭 칸 수(D-265: 좁은 휴대폰은 4칸, 넓으면 더)", (
         expect(narrowestNeed(layout, step.slots), `${layout} ${step.slots}칸`).toBeLessThanOrEqual(
           step.minEm,
         );
-        // 계단은 넓어질수록 한 칸씩 는다. 마지막 계단도 중간 단계보다 좁다
         expect(step.minEm).toBeGreaterThan(before.minEm);
         expect(step.slots).toBe(before.slots + 1);
         expect(step.minEm).toBeLessThan(MEDIUM_MIN_EM);
       }
     }
-    // 마지막 계단 = 놓을 수 있는 항목 수(A 6개, C는 가운데 지도를 뺀 5개)
     expect(TAB_SLOT_STEPS.a[TAB_SLOT_STEPS.a.length - 1]?.slots).toBe(NAV_ITEM_IDS.length);
     expect(TAB_SLOT_STEPS.c[TAB_SLOT_STEPS.c.length - 1]?.slots).toBe(NAV_ITEM_IDS.length - 1);
   });
 
   it("C의 지도 칸 너비(em)는 tokens.css·tabbar.css 값과 같다", () => {
-    // 빈 문자열이면 CSS를 읽지 못한 것이다(vitest.config.ts test.css.include)
     expect(tokensCss.length).toBeGreaterThan(1000);
     expect(tabbarCss).toMatch(
       /\.tab-map \{\s*min-width: calc\(var\(--tabbar-map-size\) \+ var\(--space-4\)\);/,
@@ -163,22 +155,15 @@ describe("하단 탭 칸 수(D-265: 좁은 휴대폰은 4칸, 넓으면 더)", (
     expect(splitCenterTabs([])).toEqual({ left: [], right: [] });
   });
 
-  it("배치 C는 지도 버튼이 띠 위로 솟는 높이(음수 위 여백 --space-6)만큼 본문 아래 스크롤 여백·새 버전 배너를 더 띄운다", () => {
-    expect(ruleBody(tabbarCss, ".tab-map-button")).toContain("margin-top: calc(var(--space-6) * -1);");
-    for (const selector of [
-      ':where(:root[data-tabbar="c"] .frame-main *)',
-      ':root[data-tabbar="c"] .update-banner',
-    ]) {
-      expect(ruleBody(shellCss, selector), selector).toContain("var(--tabbar-h) + var(--space-6)");
-    }
-    // A(솟는 것 없음)는 하단 탭 높이만
+  it("플랫 48px 하단 탭은 위로 솟지 않고, 본문 아래 스크롤 여백·새 버전 배너는 탭과 채팅바 높이(--chatbar-offset)를 함께 비운다", () => {
+    expect(ruleBody(tabbarCss, ".tab-map-button")).not.toContain("margin-top");
     for (const selector of [
       ":where(:root[data-tabbar] .frame-main *)",
       ":root[data-tabbar] .update-banner",
     ]) {
       const body = ruleBody(shellCss, selector);
       expect(body, selector).toContain("var(--tabbar-h)");
-      expect(body, selector).not.toContain("--space-6");
+      expect(body, selector).toContain("var(--chatbar-offset)");
     }
     // 문서 뿌리의 scroll-padding은 두지 않는다(sticky 위 띠·레일 단추에 초점이 가면 문서가 튄다)
     expect(shellCss.replace(/\/\*[\s\S]*?\*\//g, "")).not.toMatch(/scroll-padding/);
@@ -187,13 +172,13 @@ describe("하단 탭 칸 수(D-265: 좁은 휴대폰은 4칸, 넓으면 더)", (
   it("JS가 듣는 칸 수 미디어 쿼리는 계단과 같은 em 값이다", () => {
     expect(TAB_SLOT_QUERIES).toEqual({
       a: [
-        { query: "(min-width: 27em)", slots: 5 },
-        { query: "(min-width: 31.5em)", slots: 6 },
-        { query: "(min-width: 36em)", slots: 7 },
+        { query: "(min-width: 20.25em)", slots: 5 },
+        { query: "(min-width: 23.625em)", slots: 6 },
+        { query: "(min-width: 27em)", slots: 7 },
       ],
       c: [
-        { query: "(min-width: 31.75em)", slots: 5 },
-        { query: "(min-width: 32em)", slots: 6 },
+        { query: "(min-width: 23.75em)", slots: 5 },
+        { query: "(min-width: 27em)", slots: 6 },
       ],
     });
   });

@@ -1,0 +1,98 @@
+/*
+ * 상단 핵심 자산·상태 요약 바 — 모바일은 5열 그리드, 태블릿·PC는 가로 인라인 지표 띠(부가 정보 노출).
+ * 색·px 값은 모두 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast).
+ */
+.status-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--status-strip-h);
+  padding: var(--space-1) max(var(--space-2), env(safe-area-inset-right)) var(--space-1)
+    max(var(--space-2), env(safe-area-inset-left));
+  border-top: var(--hairline) solid color-mix(in srgb, var(--color-border) 72%, transparent);
+  background-color: color-mix(in srgb, var(--color-surface) 78%, var(--color-nav-bg));
+  font-variant-numeric: tabular-nums;
+}
+
+.status-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.08rem;
+  min-width: 0;
+}
+
+.status-cell-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  max-width: 100%;
+}
+
+.status-ico {
+  width: 0.95rem;
+  height: 0.95rem;
+  flex: none;
+}
+
+.status-k {
+  font-size: var(--tab-label-size);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-v {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-tight);
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-cell[data-tone="gold"] .status-v {
+  color: var(--color-highlight);
+}
+.status-cell[data-tone="cyan"] .status-v {
+  color: var(--color-primary);
+}
+.status-cell[data-tone="sky"] .status-v {
+  color: var(--color-stat-int);
+}
+.status-cell[data-tone="emerald"] .status-v {
+  color: var(--color-success);
+}
+.status-cell[data-tone="amber"] .status-v {
+  color: var(--color-warning);
+}
+
+/* 좁은 모바일에서는 보조 단위·분모를 숨겨 5열 숫자가 한눈에 들어오게 한다 */
+.status-extra {
+  display: none;
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+@media (min-width: 37.5em) {
+  .status-strip {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: var(--space-2) var(--space-5);
+    min-height: 1.9rem;
+    padding-inline: max(var(--space-4), env(safe-area-inset-right)) var(--space-4);
+  }
+  .status-cell {
+    flex-direction: row;
+    gap: var(--space-2);
+  }
+  .status-extra {
+    display: inline;
+  }
+}

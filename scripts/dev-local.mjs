@@ -1,13 +1,18 @@
 // 로컬 개발 서버 통합 실행 + 테스트 데이터(사이보그·샘플 영토 비콘) 자동 시드
-// 사용: node scripts/dev-local.mjs [--reset] [--seed-only]
+// 사용: node scripts/dev-local.mjs [--reset] [--seed-only] (별칭: pnpm dev, pnpm dev:local)
 // - dev-db.mjs로 로컬 DB 마이그레이션·계정 준비 후 서버(4100)·프론트(5173)를 띄운다.
 // - 서버가 준비되면 실제 HTTP·WebSocket 프로토콜로 dev·player 기본 사이보그와 샘플 비콘을 멱등하게 만든다.
+// - 실행 중 apps/server/drizzle이 바뀌면 자동으로 db:migrate를 돌리고, 새 마이그레이션 적용 시 서버를 재기동한다.
 // - --seed-only는 이미 떠 있는 로컬 서버에 시드만 확인·적용하고 종료한다(자동 검사·초기화용).
-import { spawn, spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { execFile, spawn, spawnSync } from "node:child_process";
+import { existsSync, readFileSync, watch } from "node:fs";
 import path from "node:path";
+import { promisify } from "node:util";
 import { PROTOCOL_VERSION } from "../packages/protocol/src/version.ts";
 import { assertLocalDatabaseUrl, ensureLocalEnv, REPO_ROOT } from "./dev-env.mjs";
+import { createMigrationWatcher, parseAppliedMigrations, stopProcessGracefully } from "./dev-local-watch.mjs";
+
+const execFileAsync = promisify(execFile);
 
 const resetMode = process.argv.includes("--reset");
 const seedOnly = process.argv.includes("--seed-only");
@@ -237,36 +242,92 @@ if (seedOnly) {
   process.exit(0);
 }
 
-const serverProc = spawn("pnpm", ["--filter", "@terra/server", "dev"], {
-  cwd: REPO_ROOT,
-  env,
-  stdio: "inherit",
+let shuttingDown = false;
+let restartingServer = false;
+let resolveUnexpectedExit;
+const exitWatcher = new Promise((resolve) => {
+  resolveUnexpectedExit = resolve;
 });
+
+const useProcessGroup = process.platform !== "win32";
+
+function spawnServer() {
+  const proc = spawn("pnpm", ["--filter", "@terra/server", "dev"], {
+    cwd: REPO_ROOT,
+    env,
+    stdio: "inherit",
+    detached: useProcessGroup,
+  });
+  proc.once("exit", (code) => {
+    if (!restartingServer) resolveUnexpectedExit({ who: "server", code });
+  });
+  return proc;
+}
+
+let serverProc = spawnServer();
 const gameProc = spawn("pnpm", ["--filter", "@terra/game", "dev"], {
   cwd: REPO_ROOT,
   env,
   stdio: "inherit",
+  detached: useProcessGroup,
+});
+gameProc.once("exit", (code) => resolveUnexpectedExit({ who: "game", code }));
+
+const migrationWatcher = createMigrationWatcher({
+  runMigrate: async () => {
+    const { stdout, stderr } = await execFileAsync(
+      "pnpm",
+      ["--filter", "@terra/server", "exec", "tsx", "src/migrate.ts"],
+      { cwd: REPO_ROOT, env },
+    );
+    if (stdout.trim()) process.stdout.write(stdout);
+    if (stderr.trim()) process.stderr.write(stderr);
+    return parseAppliedMigrations(stdout);
+  },
+  onApplied: async (applied) => {
+    if (shuttingDown) return;
+    console.log(`· 새 DB 마이그레이션 적용(${applied.join(", ")}) — 백엔드 서버를 재기동합니다...`);
+    restartingServer = true;
+    try {
+      await stopProcessGracefully(serverProc, 5000, { killGroup: useProcessGroup });
+      if (!shuttingDown) serverProc = spawnServer();
+    } finally {
+      restartingServer = false;
+    }
+  },
+  onError: (error) => {
+    console.error("✗ 자동 DB 마이그레이션 실패:", error instanceof Error ? error.message : String(error));
+  },
 });
 
-let shuttingDown = false;
-const shutdown = (signal) => {
+const drizzleDir = path.join(REPO_ROOT, "apps/server/drizzle");
+const drizzleFsWatcher = existsSync(drizzleDir)
+  ? watch(drizzleDir, { recursive: true }, () => {
+      if (!shuttingDown) migrationWatcher.trigger();
+    })
+  : null;
+
+const shutdown = async () => {
   if (shuttingDown) return;
   shuttingDown = true;
-  serverProc.kill(signal);
-  gameProc.kill(signal);
+  migrationWatcher.close();
+  drizzleFsWatcher?.close();
+  await Promise.all([
+    stopProcessGracefully(serverProc, 5000, { killGroup: useProcessGroup }),
+    stopProcessGracefully(gameProc, 5000, { killGroup: useProcessGroup }),
+  ]);
 };
-process.once("SIGINT", () => shutdown("SIGINT"));
-process.once("SIGTERM", () => shutdown("SIGTERM"));
-
-const exitWatcher = Promise.race([
-  new Promise((resolve) => serverProc.once("exit", (code) => resolve({ who: "server", code }))),
-  new Promise((resolve) => gameProc.once("exit", (code) => resolve({ who: "game", code }))),
-]);
+process.once("SIGINT", () => {
+  void shutdown().then(() => process.exit(0));
+});
+process.once("SIGTERM", () => {
+  void shutdown().then(() => process.exit(0));
+});
 
 seedWorldFixtures().catch((error) => {
   console.error("✗ 로컬 개발 데이터 시드 실패:", error instanceof Error ? error.message : String(error));
 });
 
 const ended = await exitWatcher;
-shutdown("SIGTERM");
+await shutdown();
 process.exit(ended.code ?? 0);

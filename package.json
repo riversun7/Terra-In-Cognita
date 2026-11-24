@@ -8,6 +8,7 @@
     "node": ">=24.0.0"
   },
   "scripts": {
+    "dev": "node scripts/dev-local.mjs",
     "dev:server": "pnpm --filter @terra/server dev",
     "dev:game": "pnpm --filter @terra/game dev",
     "dev:db": "node scripts/dev-db.mjs",

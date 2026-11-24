@@ -15,7 +15,7 @@
 
 로컬 PostgreSQL(`127.0.0.1:5432`)만 사용하며, 스크립트가 `127.0.0.1`·`localhost`·`::1` 외 DB 주소를 차단해 NAS·운영 DB에 영향을 주지 않는다.
 
-- `pnpm dev:local` — 로컬 DB 준비(`dev:db`) 후 백엔드(`4100`)·프론트엔드(`5173`)를 함께 띄우고, 기본 사이보그(`DevCyborg`, `TestPlayer`)와 샘플 영토 비콘을 멱등하게 시드한다.
+- `pnpm dev` / `pnpm dev:local` — 로컬 DB 준비(`dev:db`) 후 백엔드(`4100`)·프론트엔드(`5173`)를 함께 띄우고, 기본 사이보그(`DevCyborg`, `TestPlayer`)와 샘플 영토 비콘을 멱등하게 시드한다. 코드·`content/core`·`apps/server/drizzle` 마이그레이션이 바뀌면 자동으로 반영·재기동한다.
 - `pnpm dev:db` — `.env`가 없으면 `.env.example`로 생성한 뒤 로컬 DB(`terra_dev`) 생성, `db:migrate`(최신 마이그레이션 적용), 표준 계정(`dev`, `player`) 준비를 수행한다.
 - `pnpm dev:reset` — `.env`와 계정(`dev`, `player`)은 남기고 세계 표만 비운 뒤(`reset-world`) 마이그레이션을 다시 맞춘다. 다음 `pnpm dev:local` 때 최신 `content/core/` 기준으로 세계가 새로 생성된다.
 - `pnpm dev:server` / `pnpm dev:game` — 백엔드(`4100`)·프론트엔드(`5173`)를 각각 따로 실행한다.

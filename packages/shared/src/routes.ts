@@ -396,6 +396,14 @@ export const ROUTES = {
     frame: "shown",
     access: "dev_admin",
   },
+  // 개발자 시안 모음(/dev/mockups): 아이콘·화면 시안 보드와 교체 전 기존 에셋 보관·비교
+  dev_mockups: {
+    path: "/dev/mockups",
+    search: ["tab"],
+    parent: "dev",
+    frame: "shown",
+    access: "dev_admin",
+  },
   dev_gpu_bench: {
     path: "/dev/gpu-bench",
     search: [],

@@ -9463,5 +9463,19 @@
   "faction_house_only_chip": "국가 미소속",
   "faction_house_only_nation": "미소속(도시·국가 미가입)",
   "faction_house_only_body": "가문이 창설되어 있습니다. 도시의 정부 건물에 방문해 가입 신청을 하거나 도시를 세워 국가에 속할 수 있습니다.",
-  "faction_field_nation": "소속 국가"
+  "faction_field_nation": "소속 국가",
+  "shell_route_dev_mockups": "시안 모음",
+  "dev_tool_mockups_desc": "아이콘·UI 시안 보드와 교체 전 기존 에셋을 모아 보고 비교합니다",
+  "scope_note_mockups": "디자인 시안 보관함입니다. 세계 자료를 바꾸지 않습니다.",
+  "dev_mockups_lead": "메뉴 아이콘 시안 보드와 교체 전 기존 에셋을 보관해 두고 비교하는 개발자 전용 아카이브입니다.",
+  "dev_mockups_tabs_label": "시안 분류",
+  "dev_mockups_tab_icons": "아이콘",
+  "dev_mockups_boards_title": "저장된 아이콘 시안 보드 (3장)",
+  "dev_mockups_boards_hint": "보드를 누르면 전체 화면으로 확대해 1~5번 시안을 자세히 볼 수 있습니다.",
+  "dev_mockups_compare_title": "현재 적용 아이콘 · 기존 보관 아이콘 비교",
+  "dev_mockups_compare_hint": "선택한 15종 아이콘이 적용되어 있으며, 교체 전 기존 아이콘 21종을 함께 보관합니다.",
+  "dev_mockups_current": "현재 적용",
+  "dev_mockups_legacy": "기존 보관",
+  "dev_mockups_zoom": "크게 보기",
+  "dev_mockups_close": "닫기"
 }

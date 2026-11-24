@@ -87,6 +87,8 @@ const WorldLayoutScreen = lazy(() => import("../editor/worldLayout/WorldLayoutSc
 const GatherObjectsScreen = lazy(() => import("../editor/gatherObjects/GatherObjectsScreen.tsx"));
 // 구인 카드 시험(틀 안, D-469): 조각 이름 RecruitLabScreen-*(미리 캐시 규칙 [Rr]ecruitLab)
 const RecruitLabScreen = lazy(() => import("../editor/recruit/RecruitLabScreen.tsx"));
+// 시안 모음(틀 안): 조각 이름 MockupsGalleryScreen-*(미리 캐시 규칙 [Mm]ockupsGallery)
+const MockupsGalleryScreen = lazy(() => import("../editor/mockups/MockupsGalleryScreen.tsx"));
 // 범위 줄(docs/adr/2026-11-11-planet-scope.md): 틀이 보이는 개발·운영 화면 위에 "어디에 반영되는가"(모든 행성 공통·행성 고르기)를 그린다.
 // 화면과 같은 Suspense 안이라 함께 나타난다. 틀을 숨긴 화면은 자기 머리에 둔다(scope/ScopeBar.tsx inline)
 const ScopeBar = lazy(() => import("../scope/ScopeBar.tsx"));
@@ -153,6 +155,7 @@ export const ROUTE_TITLES = {
   dev_terrain_objects: m.shell_route_dev_terrain_objects,
   dev_gather_objects: m.shell_route_dev_gather_objects,
   dev_battle_replay: m.shell_route_dev_battle_replay,
+  dev_mockups: m.shell_route_dev_mockups,
   dev_gpu_bench: m.shell_route_dev_gpu_bench,
 } satisfies Record<RouteId, () => string>;
 
@@ -304,6 +307,8 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
       return <RecruitLabScreen initialCity={match.search.city} />;
     case "dev_battle_replay":
       return <BalancePanelScreen key="battle-replay" initialTab="replay" initialReplaySource="demo" />;
+    case "dev_mockups":
+      return <MockupsGalleryScreen initialTab={match.search.tab} />;
     case "faction":
       return <FactionScreen />;
     case "faction_identity":

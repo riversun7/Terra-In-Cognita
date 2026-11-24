@@ -62,6 +62,7 @@ const ROUTE_SCOPES: { readonly [Id in RouteId]?: RouteScope } = {
   dev_planet_editor: { kind: "library", note: m.scope_note_planet_editor },
   dev_star_system: { kind: "system", note: m.scope_note_star_system },
   // 행성과 상관없음
+  dev_mockups: { kind: "none", note: m.scope_note_mockups },
   dev_gpu_bench: { kind: "none", note: m.scope_note_device },
   dev_ops_grants: { kind: "none", note: m.scope_note_accounts },
   admin: { kind: "none", note: m.scope_note_accounts },

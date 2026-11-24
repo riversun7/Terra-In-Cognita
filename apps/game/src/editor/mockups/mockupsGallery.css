@@ -1,0 +1,266 @@
+/*
+ * 개발자 시안 모음(/dev/mockups) — 시안 보드 갤러리와 현재·기존(레거시) 아이콘 비교 그리드.
+ * 값은 styles/tokens.css의 var(--…)만 쓴다(check-contrast.mjs 원시 색·px 금지).
+ */
+
+.mockups-screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.mockups-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  border-bottom: var(--hairline) solid var(--color-border);
+  padding-bottom: var(--space-2);
+}
+
+.mockups-tab {
+  min-height: var(--control-h);
+  padding: 0 var(--space-4);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  cursor: pointer;
+}
+
+.mockups-tab[aria-selected="true"] {
+  border-color: var(--color-primary);
+  background-color: var(--color-nav-active);
+  color: var(--color-primary);
+}
+
+.mockups-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.mockups-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.mockups-section-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.mockups-boards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
+  gap: var(--space-4);
+}
+
+.mockups-board-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface-2);
+}
+
+.mockups-board-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.mockups-badge {
+  display: inline-block;
+  margin-bottom: var(--space-1);
+  padding: 0.1rem var(--space-2);
+  border: var(--hairline) solid var(--color-primary);
+  border-radius: var(--radius-pill);
+  background-color: color-mix(in srgb, var(--color-primary) 14%, transparent);
+  color: var(--color-primary);
+  font-family: var(--font-mono);
+  font-size: var(--tab-label-size);
+  font-weight: var(--font-weight-strong);
+}
+
+.mockups-board-title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+
+.mockups-board-desc {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: var(--line-height-snug);
+}
+
+.mockups-board-preview {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: var(--hairline) solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background-color: var(--color-bg);
+  overflow: hidden;
+  cursor: zoom-in;
+}
+
+.mockups-board-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* 현재 vs 기존(레거시) 아이콘 비교 카드 그리드 */
+.mockups-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 13.5rem), 1fr));
+  gap: var(--space-3);
+}
+
+.mockups-icon-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+}
+
+.mockups-icon-card[data-changed="true"] {
+  border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border));
+}
+
+.mockups-icon-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.mockups-icon-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+}
+
+.mockups-icon-id {
+  font-family: var(--font-mono);
+  font-size: var(--tab-label-size);
+  color: var(--color-text-muted);
+}
+
+.mockups-icon-pair {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg);
+}
+
+.mockups-icon-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.mockups-icon-slot img {
+  width: 2.75rem;
+  height: 2.75rem;
+  object-fit: contain;
+}
+
+.mockups-icon-slot figcaption {
+  font-size: var(--tab-label-size);
+  color: var(--color-text-muted);
+}
+
+.mockups-icon-slot[data-kind="current"] figcaption {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-strong);
+}
+
+.mockups-icon-arrow {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.mockups-icon-source {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: var(--line-height-snug);
+}
+
+/* 라이트박스 확대 모달 */
+.mockups-lightbox {
+  max-width: min(94vw, 76rem);
+  max-height: 92dvh;
+  width: 100%;
+  padding: 0;
+  border: var(--border-w) solid var(--color-border-strong);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-panel);
+}
+
+.mockups-lightbox::backdrop {
+  background-color: var(--color-overlay);
+}
+
+.mockups-lightbox-inner {
+  display: flex;
+  flex-direction: column;
+  max-height: 92dvh;
+}
+
+.mockups-lightbox-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--hairline) solid var(--color-border);
+}
+
+.mockups-lightbox-head > div {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.mockups-lightbox-head .mockups-badge {
+  margin-bottom: 0;
+}
+
+.mockups-lightbox-title {
+  font-size: var(--font-size-md);
+}
+
+.mockups-lightbox-stage {
+  overflow: auto;
+  padding: var(--space-3);
+  background-color: var(--color-bg);
+}
+
+.mockups-lightbox-stage img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin-inline: auto;
+}

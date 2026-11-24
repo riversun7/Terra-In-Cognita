@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-25 04:25 | SF 메뉴 아이콘 15종 교체 적용 및 개발자 시안 모음(/dev/mockups) 페이지 추가 | Antigravity | [25-0425-sf-menu-icons-and-dev-mockups](worklog/2026/11/25-0425-sf-menu-icons-and-dev-mockups.md) |
 | 2026-11-25 03:25 KST | 작업 기록 — 국가 미가입 가문의 세력 화면·홈 카드 모순 수정 | Antigravity | [25-0325-fix-nationless-house-faction-card](worklog/2026/11/25-0325-fix-nationless-house-faction-card.md) |
 | 2026-11-25 01:48 KST | 작업 기록 — 건물별 접근 권한 범위 및 외부인 건설 정책(4단계) | Antigravity | [25-0148-building-access-foreign-build](worklog/2026/11/25-0148-building-access-foreign-build.md) |
 | 2026-11-25 01:15 KST | 가문 도시세 분리(일정액·시장 기본 권한·주기 정책·체납 빚과 신용 하락, 3단계) | Antigravity | [25-0115-house-city-tax](worklog/2026/11/25-0115-house-city-tax.md) |

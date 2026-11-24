@@ -50,6 +50,7 @@ type ComingSoonRoute = Exclude<
   | "dev_terrain_objects"
   | "dev_gather_objects"
   | "dev_battle_replay"
+  | "dev_mockups"
   | "economy"
   | "inventory"
   | "cyborg"

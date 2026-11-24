@@ -241,6 +241,15 @@ const DEV_TOOLS = {
     tagEn: "ACCESS · Developer only",
     ready: true,
   },
+  // 시안 모음(/dev/mockups): 아이콘·UI 시안 보드와 교체 전 기존 에셋 보관
+  dev_mockups: {
+    name: m.shell_route_dev_mockups,
+    desc: m.dev_tool_mockups_desc,
+    mark: <SparkIcon />,
+    tagKo: "DESIGN · 아이콘·시안",
+    tagEn: "DESIGN · Mockups",
+    ready: true,
+  },
   dev_gpu_bench: {
     name: m.shell_route_dev_gpu_bench,
     desc: m.dev_tool_gpu_bench_desc,
@@ -306,6 +315,14 @@ const DEV_SECTIONS: readonly DevSection[] = [
       "dev_terrain_objects",
       "dev_gather_objects",
     ],
+  },
+  {
+    id: "design",
+    titleKo: "디자인 · 시안 모음",
+    titleEn: "Design & Mockups Archive",
+    subKo: "메뉴 아이콘 시안 보드, 교체 전 기존 에셋, UI 개편 시안을 모아 보고 비교합니다.",
+    subEn: "Browse and compare menu icon candidate boards, archived legacy assets, and UI mockups.",
+    routes: ["dev_mockups"],
   },
   {
     id: "diag",

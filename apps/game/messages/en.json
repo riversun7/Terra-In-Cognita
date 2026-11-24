@@ -9463,5 +9463,19 @@
   "faction_house_only_chip": "No nation",
   "faction_house_only_nation": "None (not joined to a city/nation)",
   "faction_house_only_body": "Your house is founded. Visit a city's government hall to apply to join a city and nation, or found a city of your own.",
-  "faction_field_nation": "Nation"
+  "faction_field_nation": "Nation",
+  "shell_route_dev_mockups": "Mockups",
+  "dev_tool_mockups_desc": "Browse icon and UI mockup boards alongside archived legacy assets",
+  "scope_note_mockups": "Design mockup archive. Does not modify world data.",
+  "dev_mockups_lead": "Developer-only archive storing menu icon candidate boards and legacy icons for side-by-side comparison.",
+  "dev_mockups_tabs_label": "Mockup categories",
+  "dev_mockups_tab_icons": "Icons",
+  "dev_mockups_boards_title": "Saved Icon Mockup Boards (3)",
+  "dev_mockups_boards_hint": "Click any board to inspect candidate concepts 1–5 in fullscreen.",
+  "dev_mockups_compare_title": "Current Active Icons vs Archived Legacy Icons",
+  "dev_mockups_compare_hint": "15 chosen sci-fi icons are live, and all 21 previous legacy icons are archived alongside them.",
+  "dev_mockups_current": "Active",
+  "dev_mockups_legacy": "Legacy",
+  "dev_mockups_zoom": "Inspect",
+  "dev_mockups_close": "Close"
 }

@@ -7,6 +7,7 @@
 // [임시] 표시가 있는 값은 기획에 값이 없어 기술이 정한 기본안이다(docs/questions/2026-10-31-ui-faction-mail.md, 질문 153~162).
 // 기획 답 D-443(2026-10-31)이 기본안(가)을 받았다. 수치는 설정값(49)이고, 값이 없는 것만 [임시]로 남긴다.
 
+import type { AssetTag } from "./economy.ts";
 import type { NationEmblemView } from "./nationEditor.ts";
 
 /** 사람이 지은 이름이 아닌 것(아이템 등)의 두 언어 이름 — 콘텐츠 팩 이름과 같은 모양 */
@@ -253,11 +254,13 @@ export type OfferState = "pending" | "accepted" | "refused" | "expired";
 
 /** 자산 잔고. amount는 최소 단위 정수의 10진 글자다(JSON에 BigInt가 없다) */
 export interface AssetBalance {
-  /** 원장 자산 코드(예: s3_test_credit, 세력 화폐 코드) */
+  /** 원장 자산 코드(예: cur:<화폐 코드>, share_<도시 ID>, share:biz_<건물 ID>) */
   readonly asset: string;
   /** 사람이 지은 이름(세력 화폐)이면 두 언어에서 같은 글자. 없으면 기기가 아는 이름이나 코드를 쓴다 */
   readonly name: string | null;
   readonly amount: string;
+  /** 자산 표시 정보(기준 통화·외환·주식 나눔, 국기·사업장·도시 — @terra/shared/economy AssetTag). 옛 서버·시안 자료는 없음 */
+  readonly tag?: AssetTag;
 }
 
 /** 다른 세력을 가리키는 값 */

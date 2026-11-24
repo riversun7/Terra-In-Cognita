@@ -27,7 +27,7 @@ function setup(lodgingLevel: number | null, lodgingOwner = 9) {
     }),
     npcTaken: () => undefined,
     ledger,
-    feeAsset: "credit",
+    feeAssetOf: () => "credit",
   });
   return { rest, ledger };
 }

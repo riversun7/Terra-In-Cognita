@@ -2,7 +2,7 @@
 // docs/adr/2026-11-11-house-village.md "바뀜 (2026-11-12)". 규칙은 npc/houseRecruit.ts(자동 = NPC와 같은 구인 규칙식).
 // - 켬·끔: 가문장만, 가문을 거울 세계에 들인 뒤(도시를 얻은 뒤)만. factions.recruit_auto에 쓰고(쓰기 대기열) 감사 기록 faction.house_recruit_auto.
 // - 사기: 가문장만, 가문 도시만. 기기가 본 창·자리·값이 지금 카드와 같아야 한다(cards_changed). 값은 가문 국고(가문 화폐)에서 소각하고,
-//   국고가 모자라면 가문장 지갑(기준 통화, 같은 수)에서 소각한다 [임시](질문 1097 — 가문 국고에 돈을 넣는 길이 아직 없어 첫 주민을 들일 수
+//   국고가 모자라면 가문장 지갑(가문장 주체의 돈 = 소속 국가 화폐, 같은 수)에서 소각한다 [임시](질문 1097 — 가문 국고에 돈을 넣는 길이 아직 없어 첫 주민을 들일 수
 //   없다). 산 휴먼은 가문 소유 주체의 도시 주민이고, 저장(2차맵 봇 세우기·휴먼 행)은 NPC 사회 런타임 처리가 한다.
 import type { HouseRecruitPayer, HouseRecruitResultCode } from "@terra/protocol";
 import type { HouseRecruitView } from "@terra/shared/house";
@@ -11,7 +11,7 @@ import { writeAudit } from "../auth/store.ts";
 import type { Database } from "../db/client.ts";
 import type { NpcRuntime } from "../npc/runtime.ts";
 import { cardView } from "../recruit/service.ts";
-import { ASSET_CREDIT, SYSTEM_SINK_CREDIT } from "../world/settlement.ts";
+import { moneyBalance, moneyOf, moneySink } from "../world/money.ts";
 import type { World } from "../world/world.ts";
 import { houseRowOf } from "./houseCity.ts";
 import { membershipOf } from "./members.ts";
@@ -80,12 +80,12 @@ export function houseRecruitView(
         },
       ];
     });
-  const asset = npc.economy?.hooks.treasuryAsset(faction) ?? ASSET_CREDIT;
+  const asset = npc.economy?.hooks.treasuryAsset(faction) ?? moneyOf(p.ledger, owner);
   const me = input.leader ? p.settlement.findOwnerOfUser(input.userId) : undefined;
   return {
     auto: npc.houseRecruit.auto(owner),
     treasury: String(p.ledger.balanceOf(owner, asset)),
-    leaderWallet: me === undefined ? null : String(p.ledger.balanceOf(me, ASSET_CREDIT)),
+    leaderWallet: me === undefined ? null : String(moneyBalance(p.ledger, me)),
     window,
     endsAtMs,
     cities,
@@ -155,15 +155,18 @@ export function createHouseRecruitService(o: {
       if (input.window !== view.window || !card || String(card.cost) !== input.cost)
         return fail("cards_changed");
       if ((view.taken & (1 << input.slot)) !== 0) return fail("taken");
-      const asset = npc.economy?.hooks.treasuryAsset(faction) ?? ASSET_CREDIT;
+      const asset = npc.economy?.hooks.treasuryAsset(faction) ?? moneyOf(p.ledger, owner);
       let payer: HouseRecruitPayer = "treasury";
       let me: number | undefined;
+      // 가문장 지갑 몫 = 가문장 주체의 돈(소속 국가 화폐 — 가문 국고 화폐와 다를 수 있다)
+      let walletAsset = asset;
       if (p.ledger.balanceOf(owner, asset) < card.cost) {
         // 국고가 모자라면 가문장 지갑에서 [임시](질문 1097). 잔고는 지금까지 정산한 뒤 본다(유지비가 먼저 빠진다)
         payer = "leader";
         me = p.settlement.ownerOfUser(userId, at).id;
         p.settlement.settleOwner(me, at);
-        if (p.ledger.balanceOf(me, ASSET_CREDIT) < card.cost) return fail("insufficient_funds");
+        walletAsset = moneyOf(p.ledger, me);
+        if (p.ledger.balanceOf(me, walletAsset) < card.cost) return fail("insufficient_funds");
       }
       const unit = npc.houseRecruit.hire(owner, city.id, input.slot, at, payer === "leader");
       if (!unit) return fail(payer === "treasury" ? "insufficient_funds" : "taken");
@@ -172,8 +175,8 @@ export function createHouseRecruitService(o: {
           kind: "house_recruit",
           atMs: at,
           entries: [
-            { account: p.ledger.ownerAccount(me, ASSET_CREDIT), amount: -card.cost },
-            { account: p.ledger.systemAccount(SYSTEM_SINK_CREDIT, ASSET_CREDIT), amount: card.cost },
+            { account: p.ledger.ownerAccount(me, walletAsset), amount: -card.cost },
+            { account: moneySink(p.ledger, walletAsset), amount: card.cost },
           ],
         });
       // 거울 세계의 새 휴먼을 저장한다(2차맵 봇·휴먼 행·산 칸 — 런타임 처리가 돌고 있으면 그 처리가 저장한다)

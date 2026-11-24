@@ -8,7 +8,7 @@ import { type AffinityBook, type AffinityRules, attachAffinityBook } from "./aff
 import { type BreachBook, type BreachRules, attachBreachBook } from "./breaches.ts";
 import { tributeAmount } from "./clauses.ts";
 import type { GovernanceNation, GovernancePort } from "../governance/port.ts";
-import { ASSET_CREDIT } from "../world/settlement.ts";
+import { NO_NATION_MONEY, moneyOf } from "../world/money.ts";
 import type { World } from "../world/world.ts";
 
 export interface DiplomacyPort
@@ -47,8 +47,13 @@ export function worldDiplomacyPort(
       : undefined;
   };
   const faction = (nation: GovernanceNation) => live()?.npc.world.factions.get(nation.ownerId);
-  const assetOf = (nation: GovernanceNation): string =>
-    live()?.npc.economy?.economy.currencyOf.get(nation.ownerId) ?? ASSET_CREDIT;
+  const assetOf = (nation: GovernanceNation): string => {
+    const l = live();
+    return (
+      l?.npc.economy?.economy.currencyOf.get(nation.ownerId) ??
+      (l ? moneyOf(l.persistence.ledger, nation.ownerId) : NO_NATION_MONEY)
+    );
+  };
   return {
     ready: () => governance.ready(),
     nations: () => governance.nations(),

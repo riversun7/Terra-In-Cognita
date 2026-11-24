@@ -278,6 +278,9 @@
   border-radius: var(--radius-sm);
   background-color: var(--color-surface-2);
 }
+.fact-wide {
+  grid-column: 1 / -1;
+}
 .fact-label {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-strong);

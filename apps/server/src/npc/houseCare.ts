@@ -36,8 +36,8 @@ export function createHouseCare(o: {
   readonly rules: () => SocietyCoefficients;
   readonly units: ReadonlyMap<number, CareUnit>;
   readonly cities: ReadonlyMap<number, { readonly owner: number }>;
-  /** 그 도시 주인의 화폐(임금 화폐). 없으면 그 도시는 건너뛴다 */
-  readonly currencyOf: (owner: number) => string | undefined;
+  /** 도시 화폐(임금 화폐 — npc/cityMoney.ts). 없으면 그 도시는 건너뛴다 */
+  readonly currencyOf: (cityId: number) => string | undefined;
   /** 하루 임금(배당 한 사람 몫의 상한) */
   readonly dailyWage: () => bigint;
   readonly housesOfCity: (cityId: number) => readonly number[];
@@ -53,8 +53,8 @@ export function createHouseCare(o: {
       if (o.rules().npcAi.houseAiEnabled !== 1) return out;
       const rules = houseOrderRulesFromAi(o.rules().npcAi);
       const cap = o.dailyWage();
-      for (const [cityId, city] of [...o.cities].toSorted((a, b) => a[0] - b[0])) {
-        const currency = o.currencyOf(city.owner);
+      for (const cityId of [...o.cities.keys()].toSorted((a, b) => a - b)) {
+        const currency = o.currencyOf(cityId);
         if (!currency) continue;
         const delta = new Map<number, bigint>();
         const shift = (account: number, amount: bigint): void => {

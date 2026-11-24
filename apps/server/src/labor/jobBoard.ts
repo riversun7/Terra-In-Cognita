@@ -23,7 +23,7 @@ import type { Ledger } from "../economy/ledger.ts";
 import type { CityRow } from "../world/cities.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
-import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
+import type { Settlement } from "../world/settlement.ts";
 import type { WageRules } from "./rules.ts";
 import { jobRow } from "./store.ts";
 
@@ -137,6 +137,8 @@ export function createJobBoard(options: {
   unitBusy: (unitId: number) => boolean;
   /** 유닛이 그 시설과 같은 2차맵에 있나(522 ①) */
   onSiteMap: (unitId: number, buildingId: number) => boolean;
+  /** 그 시설 계약의 화폐(건물의 돈, 없으면 고용하는 쪽 주체의 돈 — service.ts moneyAt) */
+  moneyAt: (buildingId: number, employer: number) => string;
   /** 새 계약 ID(쓰기 전에 보기만 한다) */
   nextContractId: () => number;
   /** 맺은 계약을 서비스에 넣고 저장한다 */
@@ -192,7 +194,7 @@ export function createJobBoard(options: {
           ownerId: me,
           // 직무는 시설이 정한다: 서버 시설은 아직 시험 채집 하나
           job: "gather",
-          asset: ASSET_CREDIT,
+          asset: options.moneyAt(input.buildingId, me),
           adjustPm: input.adjustPm,
           slots: input.slots,
           termHours: input.termHours ?? null,

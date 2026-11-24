@@ -8,8 +8,8 @@ import { PROTOCOL_VERSION } from "../../packages/protocol/src/version.ts";
 /** 시험 2차맵 키(@terra/protocol S1_TEST_MAP_KEY = S2 시험 행성 F9 면 0 (282, 328)) */
 const S1_TEST_MAP_KEY = 312_905_547_382_793;
 
-/** 시험 화폐 자산 코드(서버 world/settlement.ts ASSET_CREDIT) */
-const ASSET_CREDIT = "s3_test_credit";
+/** 그 주체의 돈(소속 국가 화폐) — 운영자 지급의 자산 별칭(서버 ops/services.ts OPS_MONEY_ALIAS) */
+const ASSET_CREDIT = "money";
 
 /**
  * 브라우저에서 WebSocket 명령을 차례로 보낸다(같은 출처라 쿠키가 실린다). 결과 메시지들(result, 2차맵 사이 이동은 travel_result,
@@ -144,8 +144,15 @@ export async function trpc(page: Page, path: string, input: unknown, mutation = 
   return data;
 }
 
+/** 지금 로그인한 계정의 돈(소속 국가 화폐) 원장 자산 코드. 서버가 모르면(나라 없는 세계) 옛 공용 화폐 */
+export async function myMoneyAsset(page: Page): Promise<string> {
+  const holdings = await trpc(page, "economy.holdings", undefined);
+  const code = pick(holdings, "homeCurrency");
+  return typeof code === "string" ? `cur:${code}` : "s3_test_credit";
+}
+
 /**
- * 운영자 지급으로 그 계정(아이디)의 소유 주체에 시험 화폐 amount를 준다(부르는 계정은 admin·dev — 운영 권한 ledger_grant). 지급 뒤 잔고
+ * 운영자 지급으로 그 계정(아이디)의 소유 주체에 그 주체의 돈(소속 국가 화폐) amount를 준다(부르는 계정은 admin·dev — 운영 권한 ledger_grant). 지급 뒤 잔고
  */
 export async function grantCredit(page: Page, loginId: string, amount: number): Promise<bigint> {
   if (!page.url().startsWith("http")) await page.goto("/health");

@@ -491,6 +491,12 @@ export const worldCities = pgTable(
     necessitiesPm: smallint("necessities_pm"),
     /** 지난 하루 끝 배후지 채집 다툼 결과(질문 1061 나, npc/catchmentStore.ts — 19칸: 반경·넓이·칸·겹친 칸·캐려는 양·합 몫·원자재 여섯 몫·여섯 땅 몫·산지 몫). null = 아직 */
     catchment: integer("catchment").array(),
+    /**
+     * 도시 화폐(도시의 기축 통화, 원장 자산 코드 cur:<코드> — npc/cityMoney.ts, docs/adr/2026-11-24-city-money.md). null = 주인 나라 화폐.
+     * currencyOwnerId = 고른 주인(소유 주체) — 지금 주인과 다르면 쓰지 않는다
+     */
+    currency: text("currency"),
+    currencyOwnerId: bigint("currency_owner_id", { mode: "number" }),
   },
   (table) => [
     index("world_cities_map_idx").on(table.mapKey),

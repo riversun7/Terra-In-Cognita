@@ -23,7 +23,7 @@ import {
   type OpsUnitRow,
   isOpsPermission,
 } from "@terra/shared/ops";
-import { ASSET_CREDIT } from "../world/settlement.ts";
+import { moneyBalance, moneyOf, NO_NATION_MONEY } from "../world/money.ts";
 import type { World } from "../world/world.ts";
 import { type OpsQueryable, opsAccessOf } from "./access.ts";
 import { planetTotals } from "./planetReads.ts";
@@ -85,6 +85,9 @@ export type OpsGrantView =
   | { ok: true; txId: number; balance: string }
   | Extract<OpsGrantResult, { ok: false }>;
 
+/** 운영자 지급의 자산 별칭: 그 주체의 돈(소속 국가 화폐) */
+export const OPS_MONEY_ALIAS = "money";
+
 export type OpsActionResult<C extends string = string> = { ok: true } | { ok: false; code: C };
 
 export function createOpsServices(shared: OpsShared, request: { ip: string | null }) {
@@ -92,7 +95,11 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
   const profileDeps: ProfileDeps = {
     pool,
     presets: shared.presets ?? [],
-    baseAsset: ASSET_CREDIT,
+    // 나라 프리셋이 없는 세력의 화폐 = 기축 통화(첫 고정 나라 화폐), 나라 없는 세계면 그 세계의 돈
+    get baseAsset() {
+      const ledger = shared.world()?.persistence?.ledger;
+      return ledger ? moneyOf(ledger, undefined) : NO_NATION_MONEY;
+    },
     now: shared.now,
   };
   /** 이 요청의 세력 정체성·화폐 표시(처음 부를 때 모자란 줄을 정하고 읽는다) */
@@ -126,7 +133,7 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
   };
   const credit = (ownerId: number | null): string => {
     const ledger = shared.world()?.persistence?.ledger;
-    return ownerId === null || !ledger ? "0" : ledger.balanceOf(ownerId, ASSET_CREDIT).toString();
+    return ownerId === null || !ledger ? "0" : moneyBalance(ledger, ownerId).toString();
   };
   const unitCount = (ownerId: number | null): number => {
     const world = shared.world();
@@ -563,7 +570,8 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
     async economy(input: { asset: string }): Promise<OpsEconomy> {
       await identity();
       const world = shared.world();
-      const asset = input.asset || ASSET_CREDIT;
+      const ledgerNow = world?.persistence?.ledger;
+      const asset = input.asset || (ledgerNow ? moneyOf(ledgerNow, undefined) : NO_NATION_MONEY);
       const totals = world ? ledgerTotals(world) : [];
       const top = world ? topHolders(world, asset, 20) : [];
       const large = await reads.largeEntries(pool, { asset: input.asset, window: 5000, limit: 30 });
@@ -671,6 +679,10 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
       const world = shared.world();
       if (!world) return { ok: false, code: "not_ready" };
       const requestId = randomUUID();
+      // 자산 "money" = 그 주체의 돈(소속 국가 화폐 — world/money.ts). 화면 시험·운영 도구가 화폐 코드를 몰라도 지급한다
+      const grantLedger = world.persistence?.ledger;
+      if (input.asset === OPS_MONEY_ALIAS && grantLedger)
+        input = { ...input, asset: moneyOf(grantLedger, input.ownerId) };
       const result = await postOperatorGrant(world, { ...input, requestId, nowMs: shared.now() });
       if (!result.ok) return result;
       const owner = world.persistence?.owners.get(input.ownerId);

@@ -25,6 +25,7 @@ import { createHouseMembers } from "./members.ts";
 import { createHouseSuccession } from "./succession.ts";
 import { houseTiesOf } from "../world/houseTies.ts";
 import { attachNationTaxes, nationTaxesOf } from "../government/nationTax.ts";
+import { createCityMoneyPolicy } from "../government/cityMoneyPolicy.ts";
 import { applyNationTaxes, createNationTaxPolicy } from "../government/nationTaxPolicy.ts";
 import type { HouseRules } from "./rules.ts";
 import { type GovernanceAttached, attachGovernance } from "../governance/attach.ts";
@@ -144,6 +145,27 @@ export function attachHouses(options: {
       };
     },
   });
+  const cityMoney = createCityMoneyPolicy({
+    pool,
+    db: options.db,
+    now: options.now,
+    world() {
+      const w = options.world;
+      const p = w?.status().state === "ready" ? w.persistence : undefined;
+      const npc = w?.npc;
+      const economy = npc?.economy;
+      if (!p || !npc || !economy) return undefined;
+      return {
+        cityOwner: (cityId) => npc.world.cities.get(cityId)?.owner,
+        factionRowOf: (ownerId) => p.owners.get(ownerId)?.factionId ?? undefined,
+        nationMoneyOf: (ownerId) => economy.economy.currencyOf.get(ownerId) ?? economy.economy.base,
+        issued: (asset) => economy.economy.issuer.has(asset),
+        balanceOf: (ownerId, asset) => p.ledger.balanceOf(ownerId, asset),
+        cityMoneyOf: (cityId) => economy.cityMoney.of(cityId),
+        apply: (cityId, asset, nowMs) => economy.setCityMoney(cityId, asset, nowMs),
+      };
+    },
+  });
   // 가문세 표(houseTax.ts — 배당·임금이 원장으로 찾는다): 세계가 준비되면 원장에 붙이고 세율을 읽는다(5초마다 보고, 붙으면 멈춘다)
   const taxTimer = setInterval(() => {
     const p = options.world?.status().state === "ready" ? options.world.persistence : undefined;
@@ -192,6 +214,8 @@ export function attachHouses(options: {
     policy: () => policy,
     // 나라 세금 정하기(독립 나라 가문장 — government/nationTaxPolicy.ts). 메모리 표는 세계가 준비된 뒤 붙는다
     nationTax: () => nationTax,
+    // 도시 화폐 고르기(도시 주인 나라 지도자 — government/cityMoneyPolicy.ts)
+    cityMoney: () => cityMoney,
     afterMembership: async () => {
       await houseTiesOf(options.world?.persistence)?.reload();
     },

@@ -2,6 +2,7 @@
 // 없음"), 기획 46 §2(행정 건물 = 도시의 정부, 구인 카드 D-469)·D-510(행정 건물 = 옛 마을회관). 2차맵에서 행정 건물을 누르면 그 도시와 주인
 // 나라(이름·지도자·시장)·세율·행정 레벨·휴먼 수를 보이고, 구인 카드(recruit.board → WebSocket recruit_hire)·창고·거래소로 잇는다.
 // 읽기만 한다. 서버가 거른다: 내가 모르는 도시(1차맵 도시 안개와 같은 규칙)의 건물이면 unknown_building(없는 건물과 같은 답).
+import type { AssetNation } from "./economy.ts";
 import type { NationEmblemView } from "./nationEditor.ts";
 import type { LocalizedName, PrimaryStat } from "./roster.ts";
 
@@ -186,6 +187,38 @@ export interface GovernmentTaxes {
   readonly canSet: boolean;
 }
 
+/** 도시 화폐로 고를 수 있는 화폐 하나(지도자에게만 간다) */
+export interface GovernmentCurrencyOption {
+  /** 화폐 코드 */
+  readonly code: string;
+  /** 그 화폐를 찍는 나라(국기) */
+  readonly nation: AssetNation | null;
+  /** 이 도시 주인 나라의 화폐인가(국고 조건 없음) */
+  readonly own: boolean;
+  /** 주인 나라 국고의 그 화폐 잔고(최소 단위 정수 글자) */
+  readonly reserve: string;
+  /** 지금 고를 수 있나(주인 나라 화폐이거나 국고가 reserveMin 이상) */
+  readonly allowed: boolean;
+}
+
+/**
+ * 정부 판의 도시 화폐(도시의 기축 통화 — docs/adr/2026-11-24-city-money.md, 사용자 결정 2026-11-24): 그 도시의 거래소 값·거래세·사업장 돈이 모두 이 화폐다.
+ * 모두에게 보인다. 고르기는 WebSocket city_currency(도시 주인 나라 지도자만, canSet).
+ */
+export interface GovernmentCityMoney {
+  /** 지금 도시 화폐 코드 */
+  readonly code: string;
+  /** 그 화폐를 찍는 나라(국기) */
+  readonly nation: AssetNation | null;
+  /** 주인 나라 화폐인가(고르지 않았거나 같은 화폐) */
+  readonly own: boolean;
+  /** 다른 나라 화폐를 고를 때 국고에 있어야 하는 그 화폐 양(최소 단위 정수 글자) */
+  readonly reserveMin: string;
+  readonly canSet: boolean;
+  /** 고를 수 있는 화폐(주인 나라 화폐가 맨 앞, canSet일 때만 — 아니면 빈 목록) */
+  readonly options: readonly GovernmentCurrencyOption[];
+}
+
 export interface GovernmentResponse {
   readonly status: GovernmentStatus;
   readonly buildingId: number;
@@ -200,5 +233,7 @@ export interface GovernmentResponse {
   readonly houseEntry?: GovernmentHouseEntry | null;
   /** 나라 세금(줄기 tax-2). 읽지 못하면(DB 없는 서버·옛 서버) null·없음 */
   readonly taxes?: GovernmentTaxes | null;
+  /** 도시 화폐(도시 경제가 도는 서버만 — 없으면 칸 없음) */
+  readonly money?: GovernmentCityMoney | null;
   readonly generatedAt: number;
 }

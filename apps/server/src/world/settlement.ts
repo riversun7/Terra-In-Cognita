@@ -22,34 +22,48 @@ import {
   type JobRules,
   type JobState,
   type OutputSegment,
-  TEST_ASSET_CREDIT,
+  type SettleAccounts,
   TEST_ASSET_ORE,
-  TEST_SYSTEM_ISSUE_CREDIT,
   TEST_SYSTEM_RESERVE_ORE,
-  TEST_SYSTEM_SINK_CREDIT,
   UPKEEP_PERIOD_MS,
   settleOwnerPeriod,
-  testSettleAccounts,
 } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
+import { NO_NATION_MONEY, moneyIssue, moneyOf, moneySink } from "./money.ts";
 import type { OwnerRow } from "./persist/load.ts";
 import type { WorldWriter } from "./persist/writer.ts";
 import { NO_JOB, type SecondMap, type UnitJob } from "./secondMap.ts";
 
+/**
+ * 나라가 없는 세계(단위 시험·NPC 사회를 끈 서버)의 돈(world/money.ts NO_NATION_MONEY). 서버 코드는 이 값을 직접 쓰지 않고 주체의 돈
+ * moneyOf(ledger, 주체)를 쓴다(docs/adr/2026-11-23-nation-money.md). 시험이 나라 없는 세계의 잔고를 볼 때만 쓴다
+ */
+export const ASSET_CREDIT = NO_NATION_MONEY;
+/** 나라 없는 세계의 돈이 나오는 곳·사라지는 곳(시험이 잔고를 채울 때 쓴다. 코드는 moneyIssue·moneySink와 같다) */
+export const SYSTEM_ISSUE_CREDIT = `issue:${NO_NATION_MONEY}`;
+export const SYSTEM_SINK_CREDIT = `sink:${NO_NATION_MONEY}`;
 /** [임시] 시험 자산 코드·시스템 계정(@terra/sim settle/owner.ts, 시뮬레이터와 같은 값) */
-export const ASSET_CREDIT = TEST_ASSET_CREDIT;
 export const ASSET_ORE = TEST_ASSET_ORE;
-export const SYSTEM_ISSUE_CREDIT = TEST_SYSTEM_ISSUE_CREDIT;
-export const SYSTEM_SINK_CREDIT = TEST_SYSTEM_SINK_CREDIT;
 /** 총량 자원은 쓴 만큼 행성 매장량으로 돌아간다(D-112·D-116) — 산출은 매장량에서 나온다 */
 export const SYSTEM_RESERVE_ORE = TEST_SYSTEM_RESERVE_ORE;
-/** [임시] 시험 NPC 세력이 처음 받는 시험 화폐 */
+/** [임시] 고정 NPC 국가가 처음 받는 국고(자기 화폐, 국력 등급 천분율을 곱한다) */
 export const NPC_START_CREDIT = 1_000_000_000n;
 
 /** 이보다 오래 정산하지 않은 주체는 주기 정산한다 */
 export const SETTLE_EVERY_MS = 60 * 60 * 1000;
 const SWEEP_INTERVAL_MS = 60_000;
 const SWEEP_BATCH = 50;
+
+/** 주체의 정산 계정: 유지비 = 그 주체의 돈(소속 국가 화폐)에서 내고 그 화폐 소각 계정으로, 산출 = 시험 광석 */
+function settleAccountsOf(ledger: Ledger, ownerId: number): SettleAccounts {
+  const money = (): string => moneyOf(ledger, ownerId);
+  return {
+    wallet: () => ledger.ownerAccount(ownerId, money()),
+    sink: () => moneySink(ledger, money()),
+    reserve: () => ledger.systemAccount(SYSTEM_RESERVE_ORE, ASSET_ORE),
+    stock: () => ledger.ownerAccount(ownerId, ASSET_ORE),
+  };
+}
 
 export interface SettleReport {
   /** 끝난 일 주기(= 시험 자원 산출) */
@@ -263,7 +277,7 @@ export function createSettlement(options: {
     const routes = router?.(owner.id, from, toMs);
     // 건물 작업에 묶인 유닛은 그 구간 산출이 없다(D-516 364). 멈춤이 없는 유닛은 계약 몫 구간 그대로
     const pauses = pauser?.(owner.id);
-    const own = testSettleAccounts(ledger, owner.id);
+    const own = settleAccountsOf(ledger, owner.id);
     const base = (): number => own.stock();
     // 산출 구간이 없는 유닛은 기본 산출이 없다(직무가 없는 유닛은 어차피 내지 않는다 → 구간을 넘기지 않는다)
     const noOutput: readonly OutputSegment[] = [{ untilMs: toMs, stock: null }];
@@ -300,7 +314,7 @@ export function createSettlement(options: {
         unitRules: restHook?.(owner.id, units, from, toMs),
       },
       ledger,
-      testSettleAccounts(ledger, owner.id),
+      settleAccountsOf(ledger, owner.id),
     );
     units.forEach((unit, index) => {
       const next = result.jobs[index];
@@ -407,8 +421,8 @@ export function createSettlement(options: {
         kind: "issue",
         atMs: nowMs,
         entries: [
-          { account: ledger.systemAccount(SYSTEM_ISSUE_CREDIT, ASSET_CREDIT), amount: -amount },
-          { account: ledger.ownerAccount(ownerId, ASSET_CREDIT), amount },
+          { account: moneyIssue(ledger, moneyOf(ledger, ownerId)), amount: -amount },
+          { account: ledger.ownerAccount(ownerId, moneyOf(ledger, ownerId)), amount },
         ],
       });
     },

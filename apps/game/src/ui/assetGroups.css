@@ -1,0 +1,87 @@
+/* 자산 묶음(AssetGroups.tsx) — 기준 통화·외환 보유고·주식을 나눠 보인다. 토큰만 쓴다(pnpm check:contrast) */
+.asset-groups {
+  /* 주식 색(거래소 파랑 — 금색 돈 표시와 다른 계열) */
+  --share-ink: var(--color-market-blue);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-inline-size: 0;
+}
+.asset-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+.asset-group-title {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+.asset-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.asset-money {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  min-inline-size: 0;
+}
+.asset-flag {
+  flex: none;
+  vertical-align: middle;
+}
+/* 주식: 동전·금색 숫자를 쓰지 않는다(화폐와 구분) */
+.asset-share {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  padding: var(--space-1) var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+.asset-share-icon {
+  flex: none;
+  inline-size: 1.2em;
+  block-size: 1.2em;
+  fill: none;
+  stroke: var(--share-ink);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.asset-share-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+.asset-share-name {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  overflow-wrap: anywhere;
+  color: var(--color-text);
+  font-weight: var(--font-weight-strong);
+}
+.asset-share-place {
+  overflow-wrap: anywhere;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.asset-share-count {
+  flex: none;
+  color: var(--share-ink);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+}

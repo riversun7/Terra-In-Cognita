@@ -116,10 +116,7 @@ export function createMarketService(d: MarketDeps): MarketService | undefined {
   /** 그 화폐(원장 자산)를 쓰는 나라의 도시에 외환 거래소 건물이 있나 */
   const fxOpen = (currency: string): boolean =>
     d.exchanges !== undefined &&
-    fxExchangeCurrencies(d.exchanges, (cityId) => {
-      const owner = world.cities.get(cityId)?.owner;
-      return owner === undefined ? undefined : econ.economy.currencyOf.get(owner);
-    }).has(currency);
+    fxExchangeCurrencies(d.exchanges, (cityId) => econ.cityMoney.of(cityId)).has(currency);
 
   const commit = async <T>(result: T): Promise<T> => {
     await d.writer.durable();
@@ -254,9 +251,7 @@ export function createMarketService(d: MarketDeps): MarketService | undefined {
         return fail(unitId === undefined && units.length > 0 ? "locker_max" : "unknown_unit");
       const steps = unit.steps;
       if (steps >= maxSteps) return fail("locker_max");
-      const owner = world.cities.get(cityId)?.owner;
-      const currency =
-        (owner === undefined ? undefined : econ.economy.currencyOf.get(owner)) ?? econ.economy.base;
+      const currency = econ.cityMoney.of(cityId) ?? econ.economy.base;
       const price = BigInt(Math.max(0, Math.floor(rules.exchangeLockerStepPrice)));
       if (d.ledger.balanceOf(me, currency) < price) return fail("insufficient_funds");
       if (

@@ -18,6 +18,7 @@
 // - 지급준비율(D-564 1623): 주인 또는 대주주(D-570 1790 — D-555 1502). 정산이 이 비율로 금고에 돈을 남긴다(core.ts·reserve.ts).
 // - 선물(1508): 내 유닛의 유닛 지갑(@terra/shared/businessBooks unitPurseLocation)에 내 지갑 돈을 준다.
 // - 화폐는 서버 시험 화폐가 기본 [임시](요금·임금과 같다). 넣기·정산은 고른 화폐.
+import { moneyOf } from "../world/money.ts";
 import type { BusinessResultCode } from "@terra/protocol";
 import {
   EXCHANGE_FEE_ITEM,
@@ -103,7 +104,8 @@ export interface BusinessCommandDeps {
   cityAdminLevel(cityId: number): number | undefined;
   /** 사용자의 소유 주체(없으면 undefined) */
   ownerOf(userId: string, atMs: number): number | undefined;
-  readonly fallbackAsset: string;
+  /** 그 사업장에서 오가는 돈의 화폐(건물의 돈 — facilities/buildingMoney.ts) */
+  assetOf(buildingId: number): string;
   readonly now: () => number;
   /** 바뀐 것을 커밋까지 기다린다 */
   durable(): Promise<void>;
@@ -154,7 +156,7 @@ export interface BusinessCommands {
    */
   repairFee(buildingId: number, ms: number): bigint | null;
   /** 그 사람 지갑(기본 화폐)에 fee가 있나 */
-  canPay(ownerId: number, fee: bigint): boolean;
+  canPay(ownerId: number, fee: bigint, buildingId: number): boolean;
   /**
    * 외주 요금을 낸다: 지갑 → 그 사업장 금고(소득세). 모자라면 "insufficient_funds". asset = 요금 화폐(없으면 서버 기준 화폐 — 물류센터는 그 나라 화폐,
    * 기획 대조 2277), keep = 낸 뒤에도 지갑에 남아야 할 돈(같은 화폐로 곧 낼 물건 값)
@@ -252,11 +254,11 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
     const here = businessLocation(buildingId);
     if (ledger.balanceOf(seller, asset, here) < amount) return fail("insufficient_goods");
     const cost = unit * amount;
-    const wallet = ledger.ownerAccount(me, deps.fallbackAsset);
+    const wallet = ledger.ownerAccount(me, deps.assetOf(buildingId));
     if (ledger.balance(wallet) < cost) return fail("insufficient_funds");
     // 물건부터 운반꾼에 싣는다(운반꾼이 없으면 돈·물건 그대로 — D-569 1784). 거리가 없으면 바로 도시 창고로. 물류센터에 맡기면(기획 대조 2273) 요금을
     // 낸 뒤에도 물건 값이 남아야 한다(keep)
-    const keep = { asset: deps.fallbackAsset, amount: cost };
+    const keep = { asset: deps.assetOf(buildingId), amount: cost };
     const carried = deps.carry?.(seller, me, buildingId, asset, amount, atMs, via, keep);
     if (
       carried === "unknown_unit" ||
@@ -281,7 +283,7 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
     core.receive({
       from: wallet,
       buildingId,
-      asset: deps.fallbackAsset,
+      asset: deps.assetOf(buildingId),
       amount: cost,
       kind: "business_sale",
       atMs,
@@ -294,14 +296,16 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
     if (ownerId === undefined) return fail("unknown_unit");
     if (ownerId !== me) return fail("forbidden");
     if (amount <= 0n) return fail("invalid_amount");
-    const wallet = ledger.ownerAccount(me, deps.fallbackAsset);
+    // 선물 = 내 돈(소속 국가 화폐)을 내 유닛 지갑으로
+    const money = moneyOf(ledger, me);
+    const wallet = ledger.ownerAccount(me, money);
     if (ledger.balance(wallet) < amount) return fail("insufficient_funds");
     ledger.post({
       kind: "unit_gift",
       atMs,
       entries: [
         { account: wallet, amount: -amount },
-        { account: ledger.ownerAccount(me, deps.fallbackAsset, unitPurseLocation(unitId)), amount },
+        { account: ledger.ownerAccount(me, money, unitPurseLocation(unitId)), amount },
       ],
     });
     return { ok: true, paid: amount };
@@ -444,7 +448,7 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
       const unit = priceOf(buildingId, asset);
       if (unit === null || qty <= 0n) return 0n;
       const have = ledger.balanceOf(place.ownerId, asset, businessLocation(buildingId));
-      const wallet = ledger.ownerAccount(buyer, deps.fallbackAsset);
+      const wallet = ledger.ownerAccount(buyer, deps.assetOf(buildingId));
       const afford = ledger.balance(wallet) / unit;
       let n = qty < have ? qty : have;
       if (afford < n) n = afford;
@@ -453,7 +457,7 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
       core.receive({
         from: wallet,
         buildingId,
-        asset: deps.fallbackAsset,
+        asset: deps.assetOf(buildingId),
         amount: unit * n,
         kind: "business_sale",
         atMs,
@@ -467,8 +471,9 @@ export function createBusinessCommands(deps: BusinessCommandDeps): BusinessComma
       if (rate.perHour <= 0n) return null;
       return serviceFeeOf(rate.perHour, ms);
     },
-    canPay: (ownerId, fee) => ledger.balance(ledger.ownerAccount(ownerId, deps.fallbackAsset)) >= fee,
-    chargeService(ownerId, buildingId, fee, kind, atMs, asset = deps.fallbackAsset, keep = 0n) {
+    canPay: (ownerId, fee, buildingId) =>
+      ledger.balance(ledger.ownerAccount(ownerId, deps.assetOf(buildingId))) >= fee,
+    chargeService(ownerId, buildingId, fee, kind, atMs, asset = deps.assetOf(buildingId), keep = 0n) {
       if (fee <= 0n) return null;
       const wallet = ledger.ownerAccount(ownerId, asset);
       if (ledger.balance(wallet) < fee + (keep > 0n ? keep : 0n)) return "insufficient_funds";

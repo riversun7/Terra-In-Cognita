@@ -8,7 +8,7 @@ import type { SkillData } from "@terra/sim";
 import { attachStewardCare, createStewardCare } from "../labor/stewardCare.ts";
 import { npcTravelOf } from "../travel/npcTravel.ts";
 import { houseTiesOf } from "../world/houseTies.ts";
-import { ASSET_CREDIT } from "../world/settlement.ts";
+import { moneyOf } from "../world/money.ts";
 import { injuryRules } from "../world/unitCondition.ts";
 import { UNIT_KIND_BOT } from "../world/unitKinds.ts";
 import type { World } from "../world/world.ts";
@@ -60,9 +60,9 @@ export function hospitalServiceOf(
         travel: () => ready()?.travel,
         playerPayer: (ownerId) => {
           const p = ready();
-          return p
-            ? { ownerId, account: p.ledger.ownerAccount(ownerId, ASSET_CREDIT), asset: ASSET_CREDIT }
-            : undefined;
+          if (!p) return undefined;
+          const asset = moneyOf(p.ledger, ownerId);
+          return { ownerId, account: p.ledger.ownerAccount(ownerId, asset), asset };
         },
         balance: (account) => ready()?.ledger.balance(account) ?? 0n,
         npc: () => {

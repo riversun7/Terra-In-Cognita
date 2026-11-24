@@ -5,14 +5,26 @@
 import { creditBookOf } from "../credit/book.ts";
 import type { MarketViews } from "../market/views.ts";
 import type { World } from "../world/world.ts";
+import type { NationNameReads } from "../worldMap/reads.ts";
+import { loadEmblemHashes } from "../nationEdit/emblems.ts";
+import { createAssetTagger } from "./assetTags.ts";
 import type { EconomyAccountRow, EconomyWorldSource } from "./services.ts";
 
 export function worldEconomySource(
   world: World,
   market?: () => MarketViews | undefined,
   knownCityIds?: EconomyWorldSource["knownCityIds"],
+  names?: () => Partial<NationNameReads> | undefined,
 ): EconomyWorldSource {
   return {
+    // 지갑 줄 표시 정보(기준 통화·외환, 국기 — assetTags.ts). 올린 국가 마크를 읽지 못해도 만든 마크로 보인다
+    async assetTagger() {
+      const pool = world.persistence?.pool;
+      if (!pool) return undefined;
+      const nationNames = names?.()?.nationNames;
+      const uploaded = nationNames ? await loadEmblemHashes(pool).catch(() => undefined) : undefined;
+      return createAssetTagger(world, nationNames, uploaded);
+    },
     ownerOf: (userId) => world.persistence?.settlement.findOwnerOfUser(userId),
     accountsOf(ownerId) {
       const ledger = world.persistence?.ledger;

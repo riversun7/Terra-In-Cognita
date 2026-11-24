@@ -47,8 +47,8 @@ export interface NpcWagesDeps {
   /** 사업장 장부(없으면 시험 — 숙박비는 숙소 주인 지갑, 임금은 국고) */
   readonly business?: Pick<BusinessCore, "vault" | "vaultBalance" | "invest" | "taxIncome"> | undefined;
   readonly restPlans: ReadonlyMap<number, CityRestPlan>;
-  /** 세력 화폐 */
-  currencyOf(owner: number): string;
+  /** 도시 화폐(npc/cityMoney.ts) */
+  currencyOf(cityId: number): string;
   /** 도시 경제 시설의 건물 ID(도시 직무면 null) */
   buildingOf(facilityId: number): number | null;
   readonly rules: () => SocietyCoefficients;
@@ -153,7 +153,7 @@ export function createNpcWages(deps: NpcWagesDeps): {
     for (const cityId of [...deps.restPlans.keys()].toSorted((a, b) => a - b)) {
       const city = world.cities.get(cityId);
       if (!city) continue;
-      const currency = deps.currencyOf(city.owner);
+      const currency = deps.currencyOf(cityId);
       const treasury = book.ownerAccount(city.owner, currency);
       // 숙소마다: 낸 사람(지갑 — 옛 판은 국고 하나)과 양
       const byLodging = new Map<number, { owner: number; entries: LedgerEntry[]; total: bigint }>();

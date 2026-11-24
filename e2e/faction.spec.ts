@@ -14,7 +14,7 @@
 // 자리는 화면 부품의 class·role로 찾는다(apps/game/src/faction/*.tsx, sections/screenParts.tsx). 문구는 메시지 원본.
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
-import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
+import { elementShot, horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type Language, type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc, watchTrpc } from "./helpers/trpc.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
@@ -374,6 +374,16 @@ test.describe("조약 제안: 독재(D-444 167)", () => {
   });
 });
 
+/** 국기 자료(만든 마크 기본 모양 + 시그니처 컬러) */
+const NATION_A = {
+  name: { ko: "우카우 연방", en: "Ukau Union" },
+  emblem: { spec: {}, color: "#3366cc", uploaded: null },
+};
+const NATION_B = {
+  name: { ko: "잘레타 공국", en: "Zaleta Duchy" },
+  emblem: { spec: {}, color: "#cc5533", uploaded: null },
+};
+
 /** 플레이어 응답을 도시를 가진 고정 NPC 국가(독재)의 시민으로 고친다 — 서버가 DB(world_cities·factions)에서 읽는 모양(C8) */
 const asCitizen = (data: unknown): void => {
   if (typeof data !== "object" || data === null) throw new Error("faction.overview 응답 모양이 다릅니다");
@@ -394,7 +404,31 @@ const asCitizen = (data: unknown): void => {
     overlord: null,
     vassals: [],
     currency: null,
-    treasury: [{ asset: "s3_test_credit", name: null, amount: "1000000000" }],
+    // 국고 = 기준 통화(소속 국가 화폐) + 외환(국기) + 주식(도시 지분·사업장 지분) — 서버가 붙이는 표시 정보 모양(AssetTag)
+    treasury: [
+      { asset: "cur:ukau", name: "우카우", amount: "599931877", tag: { kind: "home", nation: NATION_A } },
+      { asset: "cur:zaleta", name: "잘레타", amount: "7940", tag: { kind: "foreign", nation: NATION_B } },
+      { asset: "cur:kosal", name: "코샬", amount: "5429", tag: { kind: "foreign", nation: null } },
+      {
+        asset: "share_1",
+        name: null,
+        amount: "1000",
+        tag: { kind: "city_share", nation: NATION_A, city: "올더", cityId: 1 },
+      },
+      {
+        asset: "share:biz_42",
+        name: null,
+        amount: "250",
+        tag: {
+          kind: "business_share",
+          nation: NATION_B,
+          city: "잘레타 항구",
+          cityId: 2,
+          buildingId: 42,
+          business: { ko: "제재소", en: "Sawmill" },
+        },
+      },
+    ],
   });
   Reflect.set(data, "locks", [
     {
@@ -431,6 +465,17 @@ test.describe("NPC 국가 시민(실제 자료 모양, C8)", () => {
     await expect(card).toContainText(message("ko", "faction_currency_unknown"));
     await expect(card).not.toContainText(message("ko", "faction_currency_none"));
     await expect(page.locator(".faction-lock[data-open=true]")).toHaveCount(2);
+    // 국고: 기준 통화 → 외환 보유고(국기) → 주식(동전 없이 사업장 이름 #번호·도시) — docs/adr/2026-11-23-nation-money.md
+    const groups = card.locator(".asset-groups");
+    await expect(groups.locator('[data-kind="home"]')).toContainText(message("ko", "asset_group_home"));
+    await expect(groups.locator('[data-kind="home"]')).toContainText("우카우");
+    await expect(groups.locator('[data-kind="foreign"] .asset-money')).toHaveCount(2);
+    await expect(groups.locator('[data-kind="foreign"] .asset-flag')).toHaveCount(1);
+    await expect(groups.locator('[data-kind="shares"] .asset-share')).toHaveCount(2);
+    await expect(groups.locator('[data-kind="shares"] .money-coin')).toHaveCount(0);
+    await expect(groups.locator('[data-kind="shares"]')).toContainText("제재소 #42");
+    await expect(groups.locator('[data-kind="shares"]')).toContainText("잘레타 항구");
+    await elementShot(card, "faction-treasury-groups");
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(deviceErrors).toEqual([]);
   });

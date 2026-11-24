@@ -98,8 +98,8 @@ export interface HaulServiceDeps {
     asset: string,
     keep: bigint,
   ): "insufficient_funds" | null;
-  /** 서버 기준 화폐(요금 화폐를 모를 때) */
-  readonly fallbackAsset: string;
+  /** 기축 통화(요금 화폐를 모를 때·적정가를 센 눈금 — 이 화폐면 환산하지 않는다). 함수면 부를 때마다 읽는다 */
+  readonly fallbackAsset: string | (() => string);
   now(): number;
 }
 
@@ -139,7 +139,9 @@ export function createHaulService(deps: HaulServiceDeps): HaulService {
   let money: HaulMoney | undefined;
   let prefs: HaulPrefs | undefined;
   let carrier: ((spec: CarrySpec) => CarryResult) | undefined;
-  const assetOf = (buildingId: number): string => money?.assetOf(buildingId) ?? deps.fallbackAsset;
+  const fallbackAsset = (): string =>
+    typeof deps.fallbackAsset === "string" ? deps.fallbackAsset : deps.fallbackAsset();
+  const assetOf = (buildingId: number): string => money?.assetOf(buildingId) ?? fallbackAsset();
   const isCenter = (buildingId: number): boolean => {
     const world = deps.places();
     const record = world?.facilities.get(buildingId);
@@ -158,9 +160,9 @@ export function createHaulService(deps: HaulServiceDeps): HaulService {
     // 한 단위 나르는 시간(옮김 셈을 끄면 0 — 인건비 0)
     const ms = haulMs(BigInt(unitG), unitCells, 1, rules);
     const base = fairOf(perPorter, ms, rules, ownerId === null ? 0 : deps.taxRateOf(buildingId, ownerId));
-    // 나라 화폐로(기획 대조 2277 — 서버 기준 화폐면 그대로)
+    // 나라 화폐로(기획 대조 2277 — 기축 통화면 그대로)
     const asset = assetOf(buildingId);
-    return money && asset !== deps.fallbackAsset ? money.toLocal(base, asset) : base;
+    return money && asset !== fallbackAsset() ? money.toLocal(base, asset) : base;
   };
 
   const rate = (buildingId: number): { perUnit: bigint; set: boolean } => {

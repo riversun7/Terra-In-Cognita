@@ -210,7 +210,7 @@ function addWorth(stocks: Map<number, OwnerStocks>, values: WorthValues["owners"
 
 /**
  * 경계가 지났으면 한 번 센다. 센 것이 없으면 null. 앞 상태가 그새 바뀌었으면(다른 집계가 먼저 씀) 쓰지 않고 null.
- * creditAsset = 국고로 치는 자산(시험 화폐, src/world/settlement.ts ASSET_CREDIT)
+ * creditAsset = 기축 통화(걸린 주문의 사는 쪽 돈·옛 거래소 줄 화폐, 국고는 나라 화폐도 함께 센다 — ranking/measures.ts)
  */
 export async function runSnapshot(
   pool: RankingPool,

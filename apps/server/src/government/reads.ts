@@ -27,6 +27,8 @@ import type { LocalizedName } from "@terra/shared/roster";
 import type { SimCity, SimFaction, SimUnit } from "@terra/sim";
 import type { Viewer } from "../trpc/context.ts";
 import { BASELINE_HUMAN_STAT } from "../npc/cityPeople.ts";
+import { currencyCode } from "../market/fxViews.ts";
+import { FOREIGN_CITY_MONEY_MIN } from "../npc/cityMoney.ts";
 import { DEFAULT_TAX_BP } from "../npc/currency.ts";
 import { type LeaderUnits, leaderUnitOf } from "../npc/leaders.ts";
 import type { SecondMap } from "../world/secondMap.ts";
@@ -62,6 +64,23 @@ export interface GovernmentSource {
         };
         readonly places: ReadonlyMap<number, { readonly mapKey: number; readonly name?: string | undefined }>;
         readonly taxOf?: ((factionId: number) => number | undefined) | undefined;
+        /**
+         * 도시 화폐(npc/cityMoney.ts — docs/adr/2026-11-24-city-money.md): 지금 화폐·주인 나라 화폐(원장 자산)와 찍는 나라가 있는 화폐마다 찍는 세력·
+         * 주인 나라 국고 잔고. 도시 경제가 없으면 undefined
+         */
+        readonly cityMoney?:
+          | ((cityId: number) =>
+              | {
+                  readonly currency: string;
+                  readonly own: string;
+                  readonly options: readonly {
+                    readonly currency: string;
+                    readonly issuer: number;
+                    readonly reserve: bigint;
+                  }[];
+                }
+              | undefined)
+          | undefined;
         /** 그 도시 지난 하루 끝 생필품 충족 ‰(781 나, npc/cityDayStore.ts). 경제가 없거나 아직 하루 끝 전이면 undefined */
         readonly necessitiesPm?: ((cityId: number) => number | undefined) | undefined;
         /** 그 도시 시장 유닛(npc/cityPeople.ts). 없으면 undefined */
@@ -283,6 +302,43 @@ export function createGovernmentReads(source: GovernmentSource): GovernmentReads
             tradeTaxBp: runtime.taxOf?.(city.owner) ?? DEFAULT_TAX_BP,
           })
           .catch(() => null)) ?? null;
+      // 도시 화폐(지도자 = 나라 세금을 정하는 사람과 같다)
+      const moneyNow = runtime.cityMoney?.(city.id);
+      const nationOfCurrency = async (issuer: number | undefined) => {
+        const issuerCode = issuer === undefined ? undefined : runtime.world.factions.get(issuer)?.code;
+        if (issuerCode === undefined) return null;
+        return {
+          name: source.nationName(issuerCode) ?? null,
+          emblem: (await source.nationEmblem?.(issuerCode).catch(() => null)) ?? null,
+        };
+      };
+      const canSetMoney = taxes?.canSet === true;
+      const money = moneyNow
+        ? {
+            code: currencyCode(moneyNow.currency),
+            nation: await nationOfCurrency(
+              moneyNow.options.find((entry) => entry.currency === moneyNow.currency)?.issuer,
+            ),
+            own: moneyNow.currency === moneyNow.own,
+            reserveMin: String(FOREIGN_CITY_MONEY_MIN),
+            canSet: canSetMoney,
+            options: canSetMoney
+              ? await Promise.all(
+                  moneyNow.options
+                    .toSorted(
+                      (a, b) => Number(b.currency === moneyNow.own) - Number(a.currency === moneyNow.own),
+                    )
+                    .map(async (entry) => ({
+                      code: currencyCode(entry.currency),
+                      nation: await nationOfCurrency(entry.issuer),
+                      own: entry.currency === moneyNow.own,
+                      reserve: String(entry.reserve),
+                      allowed: entry.currency === moneyNow.own || entry.reserve >= FOREIGN_CITY_MONEY_MIN,
+                    })),
+                )
+              : [],
+          }
+        : null;
       const code = faction?.code ?? null;
       const mayorId = runtime.mayorOf?.(city.id);
       const mayorUnit = mayorId === undefined ? undefined : runtime.world.units.get(mayorId);
@@ -340,6 +396,7 @@ export function createGovernmentReads(source: GovernmentSource): GovernmentReads
             : mayorView(mayorId, mayorUnit, runtime.humanName?.(mayorId)),
         houseEntry,
         taxes,
+        money,
         generatedAt: nowMs,
       };
     },
@@ -373,6 +430,21 @@ export function governmentReadsOfWorld(
         world: npc.world,
         places: npc.places,
         taxOf: (factionId) => npc.economy?.economy.taxOf.get(factionId),
+        cityMoney: (cityId) => {
+          const economy = npc.economy;
+          const owner = npc.world.cities.get(cityId)?.owner;
+          const currency = economy?.cityMoney.of(cityId);
+          if (!economy || owner === undefined || currency === undefined) return undefined;
+          return {
+            currency,
+            own: economy.economy.currencyOf.get(owner) ?? economy.economy.base,
+            options: [...economy.economy.issuer].map(([asset, issuer]) => ({
+              currency: asset,
+              issuer,
+              reserve: npc.world.book.balanceOf(owner, asset),
+            })),
+          };
+        },
         // 지난 하루 끝 값(781 나 — 만족도·발전도와 같은 날, 저장해 다시 켜도 같다). 도시 경제가 없으면 값이 없다
         necessitiesPm: (cityId) => (npc.economy ? npc.necessitiesOf(cityId) : undefined),
         mayorOf: (cityId) => npc.mayorOf(cityId),

@@ -2,7 +2,7 @@
 // NPC 사회 런타임의 거울 세계에 시뮬과 같은 경제 실행(@terra/sim runEconomy: 생산·생필품 유지비·NPC 거래·운송·세력 고리)을 붙인다.
 // 서버 몫만 여기 둔다:
 // - 화폐(WP6 나라 화폐, npc/currency.ts): 도시 거래소 값 = 그 도시 주인 나라의 국가 프리셋 화폐(반란 세력은 부모 것), 거래세 = 그 프리셋 세율.
-//   기준 통화 = 서버 시험 화폐(ASSET_CREDIT, 유저 지갑·서버 돈). 환전 = 나라 화폐 ↔ 기준 통화 동시호가(market/fx.ts, 시뮬 createFxMarket·onFx·quoteFx
+//   기축 통화 = 첫 고정 나라 화폐(npc/currency.ts hubCurrency, 서버 돈은 주체마다 소속 국가 화폐 — world/money.ts). 환전 = 나라 화폐 ↔ 기축 통화 동시호가(market/fx.ts, 시뮬 createFxMarket·onFx·quoteFx
 //   그대로), 처음 발행(E6)·하루 끝 중앙은행(bankDay)도 시뮬 함수 그대로 돈다. 중앙은행의 아직 소각하지 못한 이자(interestOwed)는 메모리다(다시 켜면 0).
 // - 거래소: market/books.ts 모음(도시 × 물건, 저장·복원). 시뮬 Economy.markets가 그 표를 그대로 본다.
 // - 생산 시설(@terra/sim planCityFacilities): 그 도시에 선 NPC 세력 시설(건물, 다 지은 것)은 그 시설의 특산 레시피(나라 특산 = 국가 프리셋
@@ -82,11 +82,19 @@ import { type FxRegistry, createFxRegistry } from "../market/fx.ts";
 import { fxFeeHook } from "../market/fxFeeHook.ts";
 import { loadFx, loadMarkets } from "../market/load.ts";
 import { type Lockers, createLockers, loadLockers } from "../market/lockers.ts";
+import { type CityMoney, createCityMoney, loadCityMoney } from "./cityMoney.ts";
 import type { OwnerRow, QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
-import { ASSET_CREDIT } from "../world/settlement.ts";
+import { NO_NATION_MONEY } from "../world/money.ts";
 import { convertStaleCityFunds } from "./cityFundFx.ts";
-import { DEFAULT_TAX_BP, MINT_KEY, mintNationCurrencies, nationCurrencies } from "./currency.ts";
+import {
+  DEFAULT_TAX_BP,
+  MINT_KEY,
+  START_KEY,
+  issueStartTreasuries,
+  mintNationCurrencies,
+  nationCurrencies,
+} from "./currency.ts";
 import { type NationPersonality, type NationPreset, nationPresetOf } from "./nations.ts";
 
 export { DEFAULT_TAX_BP } from "./currency.ts";
@@ -214,6 +222,10 @@ export interface FacilityRun {
 export interface ServerEconomy {
   readonly economy: Economy;
   readonly registry: MarketRegistry;
+  /** 도시 화폐(도시의 기축 통화 — npc/cityMoney.ts). 도시 안에서 오가는 돈은 모두 이것으로 읽는다 */
+  readonly cityMoney: CityMoney;
+  /** 도시 화폐를 바꾼다(null = 주인 나라 화폐): 메모리 값 + 그 도시 거래소 화폐 돌리기. 저장(world_cities)은 부르는 쪽이 한다 */
+  setCityMoney(cityId: number, currency: string | null, nowMs: number): void;
   /** 거래소 개인 창고 넓힌 칸(기획 D-571 1943, market/lockers.ts) */
   readonly lockers: Lockers;
   /** 환전 시장 모음(나라 화폐 ↔ 기준 통화) */
@@ -282,6 +294,8 @@ export interface ServerEconomyOptions {
    * 없는 휴먼은 일꾼으로 세지 않는다(생필품은 그대로 그 도시 몫으로 쓴다 [임시]). 없으면 모두 있는 것으로 센다(시험)
    */
   readonly away?: ((unitId: number, cityId: number) => boolean) | undefined;
+  /** 고정 나라가 처음 받는 국고 양(자기 화폐, 나라마다 한 번 — npc/currency.ts issueStartTreasuries). 없으면 내지 않는다(시험) */
+  readonly startCredit?: ((faction: SimFaction) => bigint) | undefined;
 }
 
 /** 세력·사회 계수표 → 채집 손잡이(시뮬 run.ts와 같은 칸) */
@@ -327,9 +341,18 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     );
   const endowed = await keysLike(ENDOW_KEY);
   const minted = await keysLike(MINT_KEY);
+  const started = await keysLike(START_KEY);
 
   // 나라 화폐(npc/currency.ts): 세력마다 화폐·세율, 화폐마다 찍는 나라
-  const { currencyOf, taxOf, issuer } = nationCurrencies(world, catalog, ASSET_CREDIT);
+  const currencies = nationCurrencies(world, catalog, NO_NATION_MONEY);
+  const { base, currencyOf, taxOf, issuer } = currencies;
+  // 도시 화폐(npc/cityMoney.ts): 고른 도시는 그 화폐, 아니면 주인 나라 화폐
+  const cityMoney = createCityMoney({
+    chosen: await loadCityMoney(o.pool),
+    ownerOf: (cityId) => world.cities.get(cityId)?.owner,
+    nationMoneyOf: (owner) => currencyOf.get(owner) ?? base,
+  });
+  const cityCurrency = (cityId: number): string => cityMoney.of(cityId) ?? base;
   const isUser = (ownerId: number): boolean => (o.owners.get(ownerId)?.userId ?? null) !== null;
   // NPC 운반꾼 화물(2052·2088): 시설 산출·거래소 운반이 같이 쓴다. 빈 일꾼 운반꾼 = 그 도시 휴먼 중 운반하지 않는 사람(2155)
   // NPC 물류센터 운반꾼은 자기 짐 운반꾼에서 뺀다(fixes-1116t — 물류센터에 맡긴 짐을 진다, npcLogistics.ts staffIn). 물류센터 표는 아래에서 만든다
@@ -347,7 +370,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     configOf: (cityId, asset) => {
       const owner = world.cities.get(cityId)?.owner ?? 0;
       return {
-        currency: currencyOf.get(owner) ?? ASSET_CREDIT,
+        currency: cityCurrency(cityId),
         taxBp: taxOf.get(owner) ?? DEFAULT_TAX_BP,
         treasuryOwner: owner,
         lotSize: lotSizeOf(catalog, asset),
@@ -403,19 +426,19 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     ledger: book,
     writer,
     loaded: loadedFx,
-    base: ASSET_CREDIT,
+    base,
     lotSize: SERVER_ECONOMY_SETTINGS.fxLot,
     isUser,
     now: o.now,
-    fee: fxFeeHook(o.input, book, (cityId) => currencyOf.get(world.cities.get(cityId)?.owner ?? -1)),
+    fee: fxFeeHook(o.input, book, (cityId) => cityMoney.of(cityId), base),
   });
-  for (const currency of issuer.keys()) fx.ensure(currency);
+  for (const currency of issuer.keys()) fx.ensure(currency); // 기축 통화는 짝이 없다(ensure가 건너뛴다)
   let lastOrderId = 0;
   const economy: Economy = {
     catalog,
     settings: SERVER_ECONOMY_SETTINGS,
     gather: gatherSettingsOf(o.rules()),
-    base: ASSET_CREDIT,
+    base,
     markets: registry.markets,
     fx: fx.markets,
     currencyOf,
@@ -466,6 +489,9 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     lodgingDue: (cityId) => wagesRef.current?.living.lodgingDue?.(cityId),
     foodPm: (_cityId, unitId, pm) => fed.set(unitId, pm),
   });
+  // 고정 나라 처음 국고(자기 화폐 + 기축 통화 몫, npc/currency.ts): 나라마다 한 번
+  if (o.startCredit)
+    issueStartTreasuries({ world, book, currencies, started, amountOf: o.startCredit, atMs: o.startMs });
   // 처음 발행(E6): 찍는 나라마다 한 번
   for (const [currency, amount] of mintNationCurrencies({
     world,
@@ -551,7 +577,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     economy,
     business: o.input.business,
     restPlans,
-    currencyOf: (owner) => currencyOf.get(owner) ?? ASSET_CREDIT,
+    currencyOf: cityCurrency,
     buildingOf: (facilityId) => runs.get(facilityId)?.buildingId ?? null,
     rules: o.rules,
   });
@@ -795,7 +821,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         shops.set(note.buildingId, {
           cityId: city.id,
           owner: city.owner,
-          currency: currencyOf.get(city.owner) ?? ASSET_CREDIT,
+          currency: cityCurrency(city.id),
         });
     }
     const swept = deliveries.sweep(shops, o.startMs);
@@ -813,7 +839,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     ...run.hooks,
     factionBorn: (child, parent) => {
       run.hooks.factionBorn(child, parent);
-      currencyOf.set(child.id, currencyOf.get(parent.id) ?? ASSET_CREDIT);
+      currencyOf.set(child.id, currencyOf.get(parent.id) ?? base);
     },
     cityFounded: (cityId, units, nowMs) => {
       run.hooks.cityFounded?.(cityId, units, nowMs);
@@ -832,6 +858,15 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   return {
     economy,
     registry,
+    cityMoney,
+    setCityMoney(cityId, currency, nowMs) {
+      const owner = world.cities.get(cityId)?.owner;
+      if (owner === undefined) return;
+      cityMoney.set(cityId, currency);
+      // 그 도시 거래소를 새 화폐로(걸린 주문은 돌려준다 — 주인이 바뀔 때와 같은 길). 도시 지분 주문은 다음 회차가 거둔다(cityShares/market.ts)
+      for (const market of registry.markets.get(cityId)?.values() ?? [])
+        market.retarget(nowMs, cityCurrency(cityId), owner, taxOf.get(owner) ?? DEFAULT_TAX_BP);
+    },
     lockers,
     fx,
     carry,
@@ -853,7 +888,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
           deliveries?.resume({
             buildingId: shopId,
             owner: shopCity.owner,
-            currency: currencyOf.get(shopCity.owner) ?? ASSET_CREDIT,
+            currency: cityCurrency(shopCity.id),
             cityId: shopCity.id,
             inputs: facility.recipe.inputs,
             atMs: nowMs,
@@ -885,7 +920,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
             buildingId,
             cityId: city.id,
             owner: city.owner,
-            currency: currencyOf.get(city.owner) ?? ASSET_CREDIT,
+            currency: cityCurrency(city.id),
             outputs,
             inputs: facility.recipe.inputs,
             to: haul.to,
@@ -933,7 +968,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
           world,
           business: o.input.business,
           logistics: centers,
-          currencyOf: (owner) => currencyOf.get(owner) ?? ASSET_CREDIT,
+          currencyOf: cityCurrency,
           rules: o.rules,
           foodPm: (unitId) => fed.get(unitId),
         },

@@ -9,7 +9,7 @@
 //   (있는 만큼). 산 시간이 지나고 부두를 떠났으면 머묾이 끝난다.
 // - 내 배(같은 주인)는 내 시설에서 요금이 없다. 주인 없는 시설은 요금을 받지 않는다.
 // D-559(docs/adr/2026-11-15-shipyard-harbor.md "바뀜 (2026-11-15) D-559"):
-// - 요금 화폐 = 그 시설이 선 나라 화폐(1524, deps.feeAssetOf — 모르면 서버 시험 화폐).
+// - 요금 화폐 = 그 시설이 선 나라 화폐(1524, deps.feeAssetOf — 모르면 deps.feeAsset(시험)).
 // - 도크에 든 배(yardId)는 2차맵 유닛이 없다(처지 docked — 닳지 않는다, 정시 살피기는 dock.ts가 본다).
 // - 연료·오버히트·갑판병 수리(1529·1533·1540): 정시 살피기마다 지난 구간에 움직인 시간으로 연료를 쓰고(오버히트면 더), 오버히트 닳음·갑판병 수리를 더한다.
 import { buildingLocation } from "@terra/shared/goodsPlaces";
@@ -257,7 +257,7 @@ export function createHarbor(
       .filter((state) => state.tradeId === buildingId)
       .toSorted((a, b) => a.boatId - b.boatId);
 
-  // 요금 화폐 = 그 시설이 선 나라 화폐(D-559 1524), 모르면 서버 시험 화폐
+  // 요금 화폐 = 그 시설이 선 나라 화폐(D-559 1524), 모르면 deps.feeAsset(시험)
   const assetAt = (buildingId: number): string | undefined => deps.feeAssetOf?.(buildingId) ?? deps.feeAsset;
 
   const balanceOf = (ownerId: number, buildingId: number): bigint => {

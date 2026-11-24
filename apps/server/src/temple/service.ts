@@ -49,7 +49,8 @@ import type { WorldFacilities } from "../facilities/world.ts";
 import type { QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
-import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
+import { moneyBalance } from "../world/money.ts";
+import type { Settlement } from "../world/settlement.ts";
 import { unavailable } from "../world/unitCondition.ts";
 import { UNIT_KIND_HUMAN, isGuardianUnit } from "../world/unitKinds.ts";
 import { buildTempleOverview } from "./overview.ts";
@@ -255,11 +256,11 @@ export function createTempleService(o: TempleServiceOptions): TempleService {
       const temple = templeOf(input.buildingId);
       if (!temple.ok) return fail(temple.code);
       const amount = BigInt(input.amount);
-      if (ledger.balanceOf(owner.ownerId, ASSET_CREDIT) < amount) return fail("insufficient_funds");
+      if (moneyBalance(ledger, owner.ownerId) < amount) return fail("insufficient_funds");
       const gain = devotionGain("offer", amount, o.rules().temple);
       await writer.durable();
       // 읽는 동안 잔고가 바뀌었을 수 있다 → 다시 본다
-      if (ledger.balanceOf(owner.ownerId, ASSET_CREDIT) < amount) return fail("insufficient_funds");
+      if (moneyBalance(ledger, owner.ownerId) < amount) return fail("insufficient_funds");
       payServiceFee(
         o.facilities,
         ledger,
@@ -305,7 +306,7 @@ export function createTempleService(o: TempleServiceOptions): TempleService {
           nowMs: at,
           window: inactiveWindow(human.bornAtMs, human.lifespanMs, c),
           faith: faith.faith,
-          currency: ledger.balanceOf(owner.ownerId, ASSET_CREDIT),
+          currency: moneyBalance(ledger, owner.ownerId),
           guardians: temple.cityId === null ? 0 : (guardians.get(temple.cityId) ?? 0),
         },
         c,

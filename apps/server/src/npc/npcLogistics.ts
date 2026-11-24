@@ -198,8 +198,8 @@ export interface HaulerWageDeps {
   /** 사업장 장부(없으면 국고에서) */
   readonly business?: Pick<BusinessCore, "vault" | "vaultBalance" | "invest"> | undefined;
   readonly logistics: Pick<NpcLogistics, "centersIn">;
-  /** 세력 화폐 */
-  currencyOf(owner: number): string;
+  /** 도시 화폐(npc/cityMoney.ts) */
+  currencyOf(cityId: number): string;
   readonly rules: () => SocietyCoefficients;
   /** 그날 그 휴먼의 포만감 효율 배율(‰ — livingDay foodPm 고리). 모르면 1000 */
   readonly foodPm?: ((unitId: number) => number | undefined) | undefined;
@@ -241,7 +241,7 @@ export function payCenterHaulers(deps: HaulerWageDeps, nowMs: number): HaulerWag
   for (const cityId of [...deps.world.cities.keys()].toSorted((a, b) => a - b)) {
     const owner = deps.world.cities.get(cityId)?.owner;
     if (owner === undefined) continue;
-    const currency = deps.currencyOf(owner);
+    const currency = deps.currencyOf(cityId);
     for (const [buildingId, staff] of [...deps.logistics.centersIn(cityId)].toSorted((a, b) => a[0] - b[0])) {
       if (staff.length === 0) continue;
       const pays = staff.map((unitId) => ({ unitId, pay: payOf(unitId) }));

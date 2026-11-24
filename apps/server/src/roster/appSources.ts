@@ -8,7 +8,6 @@ import type { GatherKind } from "../gather/kinds.ts";
 import { fishRangesOfKinds } from "../gather/npcTiers.ts";
 import { currencyCode } from "../market/fxViews.ts";
 import type { TuningState } from "../tuning/state.ts";
-import { ASSET_CREDIT } from "../world/settlement.ts";
 import type { World } from "../world/world.ts";
 import type { GatherPlace, GatherSheetSource } from "./gatherSheet.ts";
 import type { UnitGuideSource } from "./guide.ts";
@@ -22,11 +21,10 @@ export function worldGatherPlace(world: World | undefined): (unitId: number) => 
     const runtime = world.npc;
     const economy = runtime?.economy;
     const cityId = place.cityId;
-    const owner = cityId === null ? undefined : runtime?.world.cities.get(cityId)?.owner;
     const currency =
       cityId === null || !economy
         ? undefined
-        : currencyCode(economy.economy.currencyOf.get(owner ?? 0) ?? ASSET_CREDIT);
+        : currencyCode(economy.cityMoney.of(cityId) ?? economy.economy.base);
     return {
       ...(place.workplace ? { workplace: place.workplace } : {}),
       lastPrice: (item) => {

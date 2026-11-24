@@ -18,6 +18,7 @@ import type { World } from "../world/world.ts";
 import { UNIT_KIND_NPC_LEADER } from "../world/unitKinds.ts";
 import { loadEmblemHashes } from "../nationEdit/emblems.ts";
 import type { NationNameReads } from "../worldMap/reads.ts";
+import { createAssetTagger } from "../economyView/assetTags.ts";
 import { readOccupationRows } from "./occupations.ts";
 
 /** pg Pool·Client 모양(query만). 시험은 시험 DB 연결을 넣는다 */
@@ -228,11 +229,28 @@ export function createWorldFactionSource(
       const nationNames = names?.()?.nationNames;
       const real = await readFactionReal(persistence.pool, userId);
       // 올린 국가 마크(있을 때만 그림이 먼저). 읽지 못해도 화면은 만든 마크로 뜬다
-      const uploaded =
-        nationNames && real.faction
-          ? await loadEmblemHashes(persistence.pool).catch(() => undefined)
-          : undefined;
-      return withNationNames(real, nationNames ? { nationNames } : undefined, uploaded);
+      const uploaded = nationNames
+        ? await loadEmblemHashes(persistence.pool).catch(() => undefined)
+        : undefined;
+      // 잔고마다 표시 정보(기준 통화·외환·주식, 국기·사업장·도시 — economyView/assetTags.ts)
+      const tagger = createAssetTagger(world, nationNames, uploaded);
+      const tagged = (balances: readonly AssetBalance[], owner: number | undefined): AssetBalance[] =>
+        balances.map((balance) => {
+          const tag = tagger.tag(balance.asset, owner);
+          return tag ? { ...balance, tag } : balance;
+        });
+      const treasuryOwner =
+        real.faction === null
+          ? undefined
+          : [...persistence.owners.values()].find(
+              (owner) => owner.factionId === real.faction?.id && owner.userId === null,
+            )?.id;
+      const withTags: FactionReal = {
+        ...real,
+        owner: real.owner && { ...real.owner, balances: tagged(real.owner.balances, ownerId) },
+        faction: real.faction && { ...real.faction, treasury: tagged(real.faction.treasury, treasuryOwner) },
+      };
+      return withNationNames(withTags, nationNames ? { nationNames } : undefined, uploaded);
     },
   };
 }

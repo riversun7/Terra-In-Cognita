@@ -10,7 +10,7 @@ import type { FacilityResultCode } from "@terra/protocol";
 import { buildingLocation, cityLocation } from "@terra/shared/goodsPlaces";
 import { type FacilityRuntimeRules, conditionWorks, storageCapacityAt } from "@terra/shared/facilityRuntime";
 import type { Ledger } from "../economy/ledger.ts";
-import { TEST_ASSET_CREDIT as ASSET_CREDIT } from "@terra/sim";
+import { isMoneyAsset } from "../world/money.ts";
 import type { FacilityCatalog } from "./catalog.ts";
 import {
   type PlaceWorld,
@@ -115,9 +115,6 @@ export function moveStorage(
   ctx.ledger.post({ kind: "storage_move", atMs, entries });
   return null;
 }
-
-/** 화폐 자산인가(서버 시험 화폐·나라 화폐 cur:<코드>) */
-const isMoneyAsset = (asset: string): boolean => asset === ASSET_CREDIT || asset.startsWith("cur:");
 
 /**
  * 사라진 건물(관리자가 지움 등)의 건물 창고 물건을 주인마다 그 도시 창고로(도시를 모르면 위치 없음) 돌려놓는다. 거래 하나. 옮긴 계정 수.

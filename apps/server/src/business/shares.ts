@@ -90,8 +90,8 @@ export interface ShareMarketsDeps {
   readonly writer: WorldWriter;
   readonly planetId: string;
   readonly loaded: LoadedShares;
-  /** 값을 매기는 화폐(원장 자산 — 사업장 금고 화폐) */
-  readonly asset: string;
+  /** 그 사업장 지분 값을 매기는 화폐(원장 자산 — 사업장 금고 화폐 = 건물의 돈, facilities/buildingMoney.ts) */
+  assetOf(buildingId: number): string;
   /** 건물 주인(없는 건물이면 undefined, 주인 없음이면 null) */
   owner(buildingId: number): number | null | undefined;
   /** 사업장(시설 줄이 있는 건물)인가 */
@@ -251,7 +251,7 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
       {
         id: buildingId,
         base: businessShareAsset(buildingId),
-        quote: deps.asset,
+        quote: deps.assetOf(buildingId),
         lotSize: 1n,
         prefix: SHARE_MARKET_PREFIX,
         // 체결되지 않은 몫은 다음 회차에 남는다(D-587 질문 2472 나)
@@ -346,18 +346,24 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
       // 이용료는 주문을 낸 증권 거래소가 받는다(없거나 일하지 않으면 그 사업장 도시 거래소 — 바뀜 gov-fix-4 D-591 2523)
       const feeTo = feeTargetOf(levy, rate, sell.exchangeId, cityId ?? 0);
       const cut = shareLevyAmounts(sell.filled * price, rate, sell.owner, feeTo);
-      const from = ledger.ownerAccount(sell.owner, deps.asset);
+      const from = ledger.ownerAccount(sell.owner, deps.assetOf(buildingId));
       if (cut.tax > 0n && ledger.balance(from) >= cut.tax)
         ledger.post({
           kind: "share_trade_tax",
           atMs,
           entries: [
             { account: from, amount: -cut.tax },
-            { account: ledger.ownerAccount(rate.treasuryOwner, deps.asset), amount: cut.tax },
+            { account: ledger.ownerAccount(rate.treasuryOwner, deps.assetOf(buildingId)), amount: cut.tax },
           ],
         });
       if (cut.fee > 0n && feeTo)
-        levy.pay({ from, buildingId: feeTo.buildingId, asset: deps.asset, amount: cut.fee, atMs });
+        levy.pay({
+          from,
+          buildingId: feeTo.buildingId,
+          asset: deps.assetOf(buildingId),
+          amount: cut.fee,
+          atMs,
+        });
     }
   };
 
@@ -440,7 +446,7 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
               ? total(buildingId)
               : 0n;
         if (have < shares) return { ok: false, code: "insufficient_shares" };
-      } else if (ledger.balanceOf(ownerId, deps.asset) < price * shares)
+      } else if (ledger.balanceOf(ownerId, deps.assetOf(buildingId)) < price * shares)
         return { ok: false, code: "insufficient_funds" };
       ensureIssued(buildingId, atMs);
       const market = marketOf(buildingId);
@@ -507,7 +513,7 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
           preview.price === undefined || preview.lots <= 0n
             ? null
             : { price: String(preview.price), shares: String(preview.lots) },
-        asset: deps.asset,
+        asset: deps.assetOf(buildingId),
         issued: issued(buildingId) > 0n,
         total: String(total(buildingId)),
         lastPrice:
@@ -521,7 +527,9 @@ export function createShareMarkets(deps: ShareMarketsDeps): ShareMarkets {
         bidShares: String(bid),
         askShares: String(ask),
         myShares: String(viewerOwnerId === undefined ? 0n : sharesOf(buildingId, viewerOwnerId)),
-        myCash: String(viewerOwnerId === undefined ? 0n : ledger.balanceOf(viewerOwnerId, deps.asset)),
+        myCash: String(
+          viewerOwnerId === undefined ? 0n : ledger.balanceOf(viewerOwnerId, deps.assetOf(buildingId)),
+        ),
         myOrders: orders
           .filter((order) => viewerOwnerId !== undefined && order.owner === viewerOwnerId)
           .map((order) => ({

@@ -36,9 +36,10 @@ import { type FacilityService, createFacilityService } from "./service.ts";
 import { roomGrams } from "./storage.ts";
 import { type BusinessCore, EMPTY_BUSINESS, createBusinessCore } from "../business/core.ts";
 import { type BusinessCommands, createBusinessCommands } from "../business/commands.ts";
+import { buildingMoneyOf } from "./buildingMoney.ts";
 import { EMPTY_SHARES, type ShareMarkets, createShareMarkets } from "../business/shares.ts";
 import { createWorldShareLevy } from "../cityShares/levyWorld.ts";
-import { ASSET_CREDIT } from "../world/settlement.ts";
+import { NO_NATION_MONEY } from "../world/money.ts";
 import { nationIncomeTaxBp } from "../government/nationTax.ts";
 import { creditAttackHook, creditUpkeepHook } from "../credit/hooks.ts";
 import { DEFAULT_TAX_BP } from "../npc/currency.ts";
@@ -71,6 +72,8 @@ export interface WorldFacilities {
   readonly gatherKinds: () => readonly GatherKind[];
   /** 세력·사회 계수표(설정 칸 실효 값) */
   readonly rules: () => SocietyCoefficients;
+  /** 건물의 돈(그 도시 주인 나라 화폐 → 건물 주인의 돈, buildingMoney.ts) */
+  money(buildingId: number): string;
   /** 노동 계약을 잇는다(계약 서비스가 건물 서비스보다 늦게 만들어진다) */
   attachLabor(labor: LaborService): void;
   /**
@@ -249,7 +252,13 @@ export function createWorldFacilities(input: {
             /** 도시 경제(세력마다 거래세 — 사업장 소득세율로 쓴다 [임시]; 나라 화폐·환전 체결가 — 물류센터 요금 화폐, 기획 대조 2277) */
             readonly economy?:
               | {
-                  readonly economy: { readonly taxOf: ReadonlyMap<number, number> } & HaulEconomy;
+                  readonly economy: {
+                    readonly taxOf: ReadonlyMap<number, number>;
+                    /** 기축 통화(환전 짝의 기준 — 적정가를 센 눈금) */
+                    readonly base?: string | undefined;
+                  } & HaulEconomy;
+                  /** 도시 화폐(npc/cityMoney.ts — 건물의 돈·물류 요금 화폐) */
+                  readonly cityMoney?: { of(cityId: number): string | undefined } | undefined;
                   /** NPC 물류센터 운반꾼(house-10 2301 — 적정가 인건비) */
                   centerStaff(buildingId: number): readonly number[];
                 }
@@ -313,6 +322,13 @@ export function createWorldFacilities(input: {
   });
   input.holdings.setLocked((holdingId) => service.holdingLocked(holdingId));
   const npcCity = (cityId: number) => input.npc?.()?.world.cities?.get(cityId);
+  // 건물의 돈(그 도시 주인 나라 화폐 → 건물 주인의 돈, buildingMoney.ts): 사업장 금고·가게·지분·노동 계약·숙박비가 같은 화폐로 돈다
+  const money = buildingMoneyOf({
+    ledger: input.ledger,
+    npc: () => input.npc?.(),
+    cityOf: (buildingId) => service.facilities.get(buildingId)?.cityId,
+    ownerOf: (buildingId) => buildingPlace(service.places, buildingId)?.ownerId,
+  });
   const core = createBusinessCore({
     ledger: input.ledger,
     writer: input.writer,
@@ -333,13 +349,13 @@ export function createWorldFacilities(input: {
     now: input.now,
   });
   business = core;
-  // 생산시설 지분 시장(값 = 사업장 금고 화폐 [임시] — shares.ts)
+  // 생산시설 지분 시장(값 = 사업장 금고 화폐 = 건물의 돈 — shares.ts)
   const shareMarkets = createShareMarkets({
     ledger: input.ledger,
     writer: input.writer,
     planetId: TEST_PLANET_ID,
     loaded: input.loaded.business?.shares ?? EMPTY_SHARES,
-    asset: ASSET_CREDIT,
+    assetOf: money,
     owner: (buildingId) => {
       const place = buildingPlace(service.places, buildingId);
       return place === undefined ? undefined : place.ownerId;
@@ -382,7 +398,7 @@ export function createWorldFacilities(input: {
       service.carryOut(seller, buyer, buildingId, asset, qty, atMs, via, keep),
     cityAdminLevel: (cityId) => npcCity(cityId)?.adminLevel,
     ownerOf: (userId, atMs) => input.settlement.ownerOfUser(userId, atMs).id,
-    fallbackAsset: ASSET_CREDIT,
+    assetOf: money,
     now: input.now,
     durable: () => input.writer.durable(),
     shares: () => shareMarkets,
@@ -432,7 +448,8 @@ export function createWorldFacilities(input: {
     rules: input.rules,
     charge: (ownerId, buildingId, fee, kind, atMs, asset, keep) =>
       commands.chargeService(ownerId, buildingId, fee, kind, atMs, asset, keep),
-    fallbackAsset: ASSET_CREDIT,
+    // 적정가를 센 눈금 = 기축 통화(나라 없는 세계면 그 세계의 돈)
+    fallbackAsset: () => input.npc?.()?.economy?.economy.base ?? NO_NATION_MONEY,
     now: input.now,
   });
   // 요금 화폐(기획 대조 2277 — 그 도시 주인 나라 화폐)·계정 자동 맡기기(2272 — user_settings.auto_haul, 켤 때 한 번 읽는다)
@@ -537,6 +554,7 @@ export function createWorldFacilities(input: {
     catalog,
     gatherKinds: () => input.config?.gatherKinds?.() ?? [],
     rules: input.rules,
+    money,
     attachLabor(next) {
       labor = next;
       // 보증금 적자·임대료 소득세(D-555 1503·1504)

@@ -18,7 +18,7 @@ import { AppLink } from "../shell/AppLink.tsx";
 import { amountText, dateText, durationText } from "../sections/screenText.ts";
 import { localName } from "../roster/rosterText.ts";
 import { NationEmblem } from "../ui/NationEmblem.tsx";
-import { Money } from "../ui/Money.tsx";
+import { AssetGroups } from "../ui/AssetGroups.tsx";
 import { currencyName, indexCatalog } from "../economy/economyText.ts";
 import { NO_ARGS, useCatalog } from "../economy/queries.ts";
 import { Icon } from "../ui/icons.tsx";
@@ -35,24 +35,18 @@ import { formatPermille } from "./factionView.ts";
 function BalanceList({ balances }: { balances: readonly AssetBalance[] }) {
   const catalog = useCatalog(NO_ARGS);
   const index = indexCatalog(catalog.data);
-  const sorted = balances.toSorted((a, b) => {
-    const left = BigInt(a.amount);
-    const right = BigInt(b.amount);
-    return left === right ? a.asset.localeCompare(b.asset) : left > right ? -1 : 1;
+  // 기준 통화(소속 국가 화폐) → 외환 보유고(국기) → 주식(사업장·도시)으로 나눠 보인다(ui/AssetGroups.tsx, 사용자 요청 2026-11-23)
+  const rows = balances.map((balance) => {
+    const code = balance.asset.startsWith("cur:") ? balance.asset.slice(4) : null;
+    return {
+      key: balance.asset,
+      amount: amountText(balance.amount),
+      name: balance.name ?? (code === null ? assetName(balance) : currencyName(index, code)),
+      qty: BigInt(balance.amount),
+      tag: balance.tag,
+    };
   });
-  return (
-    <ul className="faction-plain-list faction-money-list">
-      {sorted.map((balance) => {
-        const code = balance.asset.startsWith("cur:") ? balance.asset.slice(4) : null;
-        const name = balance.name ?? (code === null ? assetName(balance) : currencyName(index, code));
-        return (
-          <li key={balance.asset}>
-            <Money amount={amountText(balance.amount)} unit={name} />
-          </li>
-        );
-      })}
-    </ul>
-  );
+  return <AssetGroups rows={rows} />;
 }
 
 function NameLine({ faction }: { faction: FactionSummary }) {
@@ -157,7 +151,7 @@ function FactionCard({ faction, rules }: { faction: FactionSummary; rules: Facti
           )}
         </Fact>
         <Fact label={m.faction_field_currency()}>{currencyText(faction)}</Fact>
-        <Fact label={m.faction_field_treasury()}>
+        <Fact label={m.faction_field_treasury()} wide>
           {faction.treasury.length === 0 ? (
             m.faction_none_value()
           ) : (
@@ -215,7 +209,7 @@ function MyHoldings({ me }: { me: MySummary }) {
         <dl className="facts">
           <Fact label={m.faction_me_units()}>{formatCount(me.units)}</Fact>
           <Fact label={m.faction_me_buildings()}>{formatCount(me.buildings)}</Fact>
-          <Fact label={m.faction_me_balances()}>
+          <Fact label={m.faction_me_balances()} wide>
             {me.balances.length === 0 ? m.faction_none_value() : <BalanceList balances={me.balances} />}
           </Fact>
         </dl>

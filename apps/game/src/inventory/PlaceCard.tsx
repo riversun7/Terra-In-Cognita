@@ -19,7 +19,7 @@ import { Amount, PreviewTag } from "../economy/parts.tsx";
 import { SPOIL_SOON_MS } from "../economy/shape.ts";
 import { m } from "../paraglide/messages.js";
 import { AppLink } from "../shell/AppLink.tsx";
-import { Money } from "../ui/Money.tsx";
+import { AssetGroups } from "../ui/AssetGroups.tsx";
 
 export function placeTitle(place: HoldingPlace): string {
   if (place.name !== null) return place.name;
@@ -155,18 +155,18 @@ export function WalletPanel({ wallet, index }: { wallet: readonly HoldingLine[];
       {wallet.length === 0 ? (
         <p className="eco-empty">{m.economy_wallet_empty()}</p>
       ) : (
-        <ul className="eco-hold-list">
-          {wallet.map((line) => (
-            <li key={line.asset} className="eco-hold-row">
-              <span className="eco-hold-name">
-                <span className="eco-hold-title">{assetName(index, line)}</span>
-                {line.preview ? <PreviewTag /> : null}
-              </span>
-              {/* 돈 표시(동전 + 금색 숫자, 사용자 지적 2026-11-15) */}
-              <Money amount={fmt(line.qty)} size="lg" className="eco-hold-qty" />
-            </li>
-          ))}
-        </ul>
+        // 기준 통화(소속 국가 화폐) → 외환 보유고(국기)로 나눠 보인다(ui/AssetGroups.tsx, 사용자 요청 2026-11-23)
+        <AssetGroups
+          size="lg"
+          rows={wallet.map((line) => ({
+            key: line.asset,
+            amount: fmt(line.qty),
+            name: assetName(index, line),
+            qty: BigInt(line.qty),
+            tag: line.tag,
+            extra: line.preview ? <PreviewTag /> : null,
+          }))}
+        />
       )}
     </section>
   );

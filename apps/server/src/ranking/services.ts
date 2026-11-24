@@ -136,7 +136,8 @@ export function createRankingRuntime(options: {
   readonly pool: RankingPool;
   readonly paths: readonly RankingPathInfo[];
   readonly coefficients: () => RankingCoefficients;
-  readonly creditAsset: string;
+  /** 걸린 주문의 사는 쪽 돈·옛 거래소 줄의 화폐(기축 통화). 집계 때마다 읽게 함수도 받는다 */
+  readonly creditAsset: string | (() => string);
   readonly now: () => number;
   /** 전투력·자산 셈 출처(house-9 — worthSource.ts). 없으면 두 지표 0 */
   readonly worth?: (() => WorthSource | undefined) | undefined;
@@ -161,7 +162,7 @@ export function createRankingRuntime(options: {
     const report = await runSnapshot(options.pool, {
       paths: options.paths,
       coefficients: options.coefficients(),
-      creditAsset: options.creditAsset,
+      creditAsset: typeof options.creditAsset === "function" ? options.creditAsset() : options.creditAsset,
       nowMs: options.now(),
       worth: options.worth,
     });

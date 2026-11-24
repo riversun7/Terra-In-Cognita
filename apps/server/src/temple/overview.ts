@@ -16,7 +16,8 @@ import type { Ledger } from "../economy/ledger.ts";
 import type { QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
-import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
+import { moneyBalance } from "../world/money.ts";
+import type { Settlement } from "../world/settlement.ts";
 import { UNIT_KIND_HUMAN, isGuardianUnit } from "../world/unitKinds.ts";
 import { BIOTECH_STAGE, RELIGION_STAGE } from "./places.ts";
 import { readFaith, readGuardianCounts, readGuardians, readLastPrayer } from "./rows.ts";
@@ -46,7 +47,7 @@ export async function buildTempleOverview(
   const record = o.cyborgs?.record(viewer.id);
   const base = {
     hasCyborg: o.hasCyborg(viewer.id),
-    balance: String(ownerId === undefined ? 0n : o.ledger.balanceOf(ownerId, ASSET_CREDIT)),
+    balance: String(moneyBalance(o.ledger, ownerId)),
     cyborgFaith: record ? { faith: record.faith, faithPoints: record.faithPoints } : null,
     rules: {
       inactiveCapMs: Math.max(0, c.inactiveCapMs),

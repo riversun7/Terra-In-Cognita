@@ -7,7 +7,7 @@
 // - 요금(D-555 1508·1514, docs/adr/2026-11-15-business-ledger.md): 숙소에서 쉬면 일·쉼 한 바퀴(restPeriodMs)마다 하룻밤 요금(설정 칸
 //   lodging_fee_per_night)을 그 유닛의 사유재산(유닛 지갑 = @terra/shared/businessBooks unitPurseLocation, D-097)에서 그 숙소 금고로 낸다(제 주인 숙소여도
 //   — 유닛 돈과 주인 돈은 다르다). 지갑이 모자라면 남은 만큼만 내고, 그동안 회복이 떨어진다(노숙 회복 [임시]). 주인은 유닛에게 돈을 줄 수 있다
-//   (선물 unit_gift). 화폐 = 서버 시험 화폐 [임시]. 바퀴 나머지 ms·못 낸 표시는 메모리(다시 켜면 0부터) [임시].
+//   (선물 unit_gift). 화폐 = 그 숙소의 돈(건물의 돈 = 그 도시 주인 나라 화폐, facilities/buildingMoney.ts). 바퀴 나머지 ms·못 낸 표시는 메모리(다시 켜면 0부터) [임시].
 // - 바뀜(residence-3, D-591 2): 그 숙소를 사는 곳으로 골라 숙박비를 기간만큼 미리 냈으면(residence/rent.ts — 사는 곳 장부 prepaidAt) 그 기간에는 밤마다 다시
 //   걷지 않는다. 미리 낼 값 = 그 기간에 드는 밤 수 × 하룻밤 요금(periodFee — 밤마다 걷는 것과 같은 바퀴 셈).
 // - 도시 계획은 짧게(PLAN_TTL_MS) 들고 쓴다 — 정산마다 도시 숙소를 다시 훑지 않게. 정수만 쓴다.
@@ -29,7 +29,7 @@ import { registerPlayerHomes } from "../npc/residentProperty.ts";
 import { residenceBookOf } from "../residence/book.ts";
 import type { NpcRuntime } from "../npc/runtime.ts";
 import type { SecondMap } from "../world/secondMap.ts";
-import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
+import type { Settlement } from "../world/settlement.ts";
 import type { LaborService } from "./service.ts";
 
 /** 도시 계획을 다시 셈하기까지(ms) */
@@ -52,7 +52,8 @@ export interface WorkerRestDeps {
   speedOf?: ((unitId: number) => number | undefined) | undefined;
   /** 요금(없으면 요금 없음): 원장·화폐 */
   readonly ledger?: Ledger | undefined;
-  readonly feeAsset?: string | undefined;
+  /** 그 숙소의 숙박비 화폐(건물의 돈 — facilities/buildingMoney.ts) */
+  feeAssetOf?: ((lodgingId: number) => string) | undefined;
   /** 사업장 장부(숙소 금고로 받기·소득세). 없으면 숙소 주인 지갑(옛 길, 시험) */
   readonly business?: Pick<BusinessCore, "receive"> | undefined;
 }
@@ -158,7 +159,7 @@ export function createWorkerRest(deps: WorkerRestDeps): WorkerRest {
     const c = deps.rules();
     const fee = BigInt(Math.max(0, Math.trunc(c.logistics.lodgingFeePerNight)));
     const ledger = deps.ledger;
-    const asset = deps.feeAsset;
+    const asset = rest.lodgingId === null ? undefined : deps.feeAssetOf?.(rest.lodgingId);
     if (
       !ledger ||
       !asset ||
@@ -267,7 +268,7 @@ export function attachWorkerRest(parts: {
       return undefined;
     },
     ledger: parts.ledger,
-    feeAsset: ASSET_CREDIT,
+    feeAssetOf: (lodgingId) => facilities.money(lodgingId),
     business: facilities.business,
   });
   parts.settlement.restRules((ownerId, units, fromMs, toMs) => rest.rulesFor(ownerId, units, fromMs, toMs));

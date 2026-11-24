@@ -345,6 +345,8 @@ export function createFactionIdentityServices(
       rules: shared.rules(),
       nowMs: shared.now(),
       presets: shared.presets(),
+      // 금고 칸 = 보는 사람의 돈(소속 국가 화폐)으로 된 금고
+      vaultAsset: shared.houseCity?.()?.moneyOf(viewer.id),
     });
     const city = shared.houseCity?.();
     if (!view.house || !city) return view;

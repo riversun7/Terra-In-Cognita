@@ -19,6 +19,7 @@ import { houseClientMessages, houseServerMessages } from "./house.ts";
 import { houseRecruitClientMessages, houseRecruitServerMessages } from "./houseRecruit.ts";
 import { governanceClientMessages, governanceServerMessages } from "./governance.ts";
 import { housePolicyClientMessages } from "./housePolicy.ts";
+import { cityMoneyClientMessages, cityMoneyServerMessages } from "./cityMoney.ts";
 import { nationTaxClientMessages, nationTaxServerMessages } from "./nationTax.ts";
 import { cityShareClientMessages, cityShareServerMessages } from "./cityShares.ts";
 import { houseLeagueClientMessages, houseLeagueServerMessages } from "./league.ts";
@@ -80,6 +81,7 @@ export const clientMessageSchema = z.discriminatedUnion("t", [
   ...housePolicyClientMessages,
   ...governanceClientMessages,
   ...nationTaxClientMessages,
+  ...cityMoneyClientMessages,
   ...cityShareClientMessages,
   ...houseLeagueClientMessages,
   ...residenceClientMessages,
@@ -137,6 +139,7 @@ export const serverMessageSchema = z.discriminatedUnion("t", [
   ...houseRecruitServerMessages,
   ...governanceServerMessages,
   ...nationTaxServerMessages,
+  ...cityMoneyServerMessages,
   ...cityShareServerMessages,
   ...houseLeagueServerMessages,
   ...residenceServerMessages,

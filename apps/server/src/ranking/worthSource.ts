@@ -70,7 +70,8 @@ export function worldWorthSource(world: World | undefined, base: string, now: ()
     const at = now();
     const books = econ ? [...econ.registry.books()] : [];
     const valueOf = createAssetPricer({
-      base,
+      // 기준 = 기축 통화(첫 고정 나라 화폐). 도시 경제가 없으면 넘겨받은 값
+      base: econ?.economy.base ?? base,
       fxLot: econ?.economy.settings.fxLot ?? 1n,
       fxRate: (currency) => {
         if (!econ) return undefined;

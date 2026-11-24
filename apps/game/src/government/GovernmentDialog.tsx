@@ -33,6 +33,7 @@ import {
 } from "./governmentData.ts";
 import { HouseBuildPolicy } from "./HouseBuildPolicy.tsx";
 import { HouseEntryPolicy } from "./HouseEntryPolicy.tsx";
+import { CityMoneyPolicy } from "./CityMoneyPolicy.tsx";
 import { NationTaxPolicy } from "./NationTaxPolicy.tsx";
 import { CityShareMarket } from "../shares/CityShareMarket.tsx";
 import { MayorFact } from "./MayorFact.tsx";
@@ -173,6 +174,7 @@ export default function GovernmentDialog({ government, onClose, via = "building"
           </dl>
         </section>
         <GovernmentDay day={city.day} />
+        {government.money ? <CityMoneyPolicy cityId={city.id} money={government.money} /> : null}
         {government.taxes ? <NationTaxPolicy taxes={government.taxes} /> : null}
         {/* 정부 지분 시장(D-583 — 주주 전체·호가창·주문·국고 지분 팔기) */}
         <section className="gov-section" aria-labelledby={`${titleId}-shares`} data-part="government-shares">

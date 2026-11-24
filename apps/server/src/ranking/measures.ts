@@ -200,7 +200,7 @@ export interface FactionScaleRow {
 }
 
 /**
- * 사라지지 않은 세력마다 규모. 국고 = 그 세력 소유 주체의 creditAsset 위치 없는 계정 잔고 + 그 세력 사업장 금고(건물 위치 계정, 지분만큼 — 지금은 주인
+ * 사라지지 않은 세력마다 규모. 국고 = 그 세력 소유 주체의 돈(나라 화폐 모두 + creditAsset, 화폐끼리 환산하지 않고 더한다 [임시]) 위치 없는 계정 잔고 + 그 세력 사업장 금고(건물 위치 계정, 지분만큼 — 지금은 주인
  * 하나 = 전부, 기획 D-555 1512, docs/adr/2026-11-15-business-ledger.md)
  */
 export async function readFactionScales(db: Queryable, creditAsset: string): Promise<FactionScaleRow[]> {
@@ -210,7 +210,7 @@ export async function readFactionScales(db: Queryable, creditAsset: string): Pro
             (select coalesce(sum(c.development), 0)::int from world_cities c where c.faction_id = f.id) as dev,
             (select count(*)::int from world_humans h join world_cities c on c.id = h.city_id where c.faction_id = f.id) as humans,
             (select coalesce(sum(a.balance), 0)::text from ledger_accounts a join world_owners o on o.id = a.owner_id
-              where o.faction_id = f.id and a.asset = $1 and (a.location is null or a.location >= $2)) as treasury
+              where o.faction_id = f.id and (a.asset = $1 or a.asset like 'cur:%') and (a.location is null or a.location >= $2)) as treasury
        from factions f
       where f.dissolved_at_ms is null
       order by f.id`,

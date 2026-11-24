@@ -88,8 +88,11 @@ export function lodgingPeriodFeeOf(level: number, periodMs: number, rules: Socie
 export function npcRentWorldOf(
   npc: NpcRuntime | undefined,
   rules: () => SocietyCoefficients,
-  /** 집세 화폐(주인이 정한 값의 화폐 — 서버 시험 화폐 [임시] 질문 2673) */
-  rentAsset: string,
+  /**
+   * 집세 값의 화폐가 그 도시 화폐와 다를 때만 준다(그 화폐 → 도시 화폐로 올림 환산). 없으면 집세는 건물의 돈 = 그 도시 주인 나라 화폐라 환산하지
+   * 않는다(docs/adr/2026-11-23-nation-money.md, facilities/buildingMoney.ts)
+   */
+  rentAsset?: string,
 ): NpcRentWorld | undefined {
   if (!npc) return undefined;
   const world = npc.world;
@@ -101,11 +104,11 @@ export function npcRentWorldOf(
       return faction !== undefined && faction.player !== true;
     },
     currencyOf(cityId) {
-      const city = world.cities.get(cityId);
-      if (!city) return undefined;
-      return economy?.economy.currencyOf.get(city.owner) ?? economy?.economy.base;
+      if (!world.cities.has(cityId)) return undefined;
+      return economy?.cityMoney.of(cityId) ?? economy?.economy.base;
     },
-    toLocal: (amount, asset) => convertUp(economy?.economy, amount, rentAsset, asset),
+    toLocal: (amount, asset) =>
+      rentAsset === undefined ? amount : convertUp(economy?.economy, amount, rentAsset, asset),
     commerceOf: (owner) => world.factions.get(owner)?.traits.commerce,
     lodgingPeriodFee: (level, periodMs) => lodgingPeriodFeeOf(level, periodMs, rules()),
     traits: (unitId) => npc.unitTraits(unitId),

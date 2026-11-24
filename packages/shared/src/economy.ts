@@ -7,6 +7,8 @@
 // - 팩 항목 이름은 두 언어(LocalizedName), 사람·NPC가 지은 이름(도시)은 글자 하나다(번역하지 않는다, D-6046).
 // 이 파일은 타입과 상수(+ 작은 규칙 함수 marketKindOf)만 둔다(첫 화면 묶음에 넣지 않는다: 경로 "@terra/shared/economy"로만 가져온다).
 
+import type { NationEmblemView } from "./nationEditor.ts";
+
 /** 최소 단위 정수의 10진 글자(음수 없음, 앞자리 0 없음. "0"은 된다) */
 export type DecimalString = string;
 
@@ -176,6 +178,31 @@ export interface EconomyCatalogResponse {
 
 // ── 창고 ─────────────────────────────────────────
 
+/** 자산이 속한 나라(국기·이름). 모르면 칸마다 null */
+export interface AssetNation {
+  readonly name: LocalizedName | null;
+  readonly emblem: NationEmblemView | null;
+}
+
+/**
+ * 자산 표시 정보(서버가 붙인다 — docs/adr/2026-11-23-nation-money.md, 사용자 요청 2026-11-23): 화면이 기준 통화·외환·주식을 나눠 보인다.
+ * - home = 그 주체의 소속 국가 화폐(기준 통화), foreign = 다른 나라 화폐(외환 보유고 — 화폐 뒤에 그 나라 국기),
+ * - city_share = 도시(정부) 지분, business_share = 사업장 지분(화폐가 아니다 — 동전 표시 없이 사업장 이름·도시로 보인다)
+ */
+export interface AssetTag {
+  readonly kind: "home" | "foreign" | "city_share" | "business_share";
+  /** 화폐를 찍는 나라·지분이 있는 도시의 나라 */
+  readonly nation: AssetNation | null;
+  /** 사업장 지분: 사업장 이름(시설 이름, 화면이 건물 번호를 붙여 세계에서 하나가 되게 보인다). 모르면 null */
+  readonly business?: LocalizedName | null;
+  /** 사업장 지분: 건물 번호(사업장 이름을 하나로 만드는 번호) */
+  readonly buildingId?: number;
+  /** 지분이 있는 도시 이름(번역하지 않는다, D-476). 모르면 null */
+  readonly city?: string | null;
+  /** 지분이 있는 도시 ID(이름을 모를 때 화면이 "도시 #ID"). 모르면 없음 */
+  readonly cityId?: number;
+}
+
 /** 보유 한 줄 = 원장 계정 하나(주체, 자산, 위치) */
 export interface HoldingLine {
   /** 원장 자산 코드(예: "item:iron_ore", "cur:placeholder_cur_01", 시험 자원 "s3_test_ore") */
@@ -191,6 +218,8 @@ export interface HoldingLine {
   readonly spoilsAt: number | null;
   /** 시안 자료 줄(실제 잔고와 섞여 보일 때 화면이 "시험 자료"를 붙인다) */
   readonly preview?: true;
+  /** 자산 표시 정보(지갑 화폐 줄: 기준 통화·외환과 국기). 옛 서버·시안 자료는 없음 */
+  readonly tag?: AssetTag;
 }
 
 /** 창고 종류(D-121). [임시] 종류별 규칙은 기획 Step 5 */
@@ -221,6 +250,8 @@ export interface EconomyHoldingsResponse extends EconomyResponseHead {
   /** 화폐(위치 없는 화폐 계정) */
   readonly wallet: readonly HoldingLine[];
   readonly places: readonly HoldingPlace[];
+  /** 내 기준 통화 = 소속 국가 화폐의 코드(잔고가 0이어도 준다). 옛 서버·모르면 없음 */
+  readonly homeCurrency?: string | null;
 }
 
 /**
@@ -599,7 +630,7 @@ export interface FxMyDone {
 
 /** economy.exchange */
 export interface EconomyExchangeResponse extends EconomyResponseHead {
-  /** 기준 통화 코드(실제 자료는 서버 기준 통화 s3_test_credit, 시안은 첫 나라 화폐). 없으면 null */
+  /** 기축 통화 코드(환전 짝의 기준 = 첫 고정 나라 화폐). 없으면 null */
   readonly base: string | null;
   readonly baseBalance: DecimalString;
   /** 회차 길이(ms, E8 기존 1시간) */

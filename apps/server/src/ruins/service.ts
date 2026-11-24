@@ -5,7 +5,7 @@
 //   주인이 된다(값 없이 — 재료·시간은 건물 규칙). 복원하면 도시가 드는 세력 = 그 유저의 나라(사이보그 세력, 확인 대기 질문 481).
 // - 모금 열기·넣기(restoration_open·restoration_fund): 거울 세계 규칙을 부르고, 바뀐 폐허·낸 값·복원한 도시 행을 같은 동기 처리에서 쓰기
 //   대기열에 넣는다(flushRuins — 원장 거래와 같은 커밋). 커밋 뒤 답한다(S3 U2).
-// - 화폐 = 도시가 드는 세력의 국고 화폐(서버는 시험 화폐 하나, D-441 해석과 같은 [임시]).
+// - 화폐 = 도시가 드는 세력의 국고 화폐(나라 화폐 — 조회의 잔고는 보는 사람의 돈 = 소속 국가 화폐, world/money.ts).
 // - 개발 시험 폐허(dev_make_ruin): 내 시작 도시 둘레 빈 자리에 주인 없는 폐허를 하나 둔다(옛 주인 = 내 나라, 웨이브를 켜지 않고 시험하려고).
 // - 폐허 2(기획 답 480 다·485 다·487 다·489 다, ADR "바뀜 (기획 답 480~489, 472, 535)"): 정부 건물 상태(짓는 중·서 있음·0%·사라짐)를 거울
 //   세계 규칙에 고리로 알려 준다(attachGovernment) — 다 지어야 모금을 열고 넣고, 0%·사라지면 다시 지은 쪽이 주인(낸 값은 사업에 남음). 모금
@@ -27,7 +27,8 @@ import type { NpcRuntime } from "../npc/runtime.ts";
 import type { CityPlace } from "../npc/persist.ts";
 import type { OwnerRow } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
-import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
+import { moneyBalance, moneyOf } from "../world/money.ts";
+import type { Settlement } from "../world/settlement.ts";
 import type { HouseTies } from "../world/houseTies.ts";
 import { type ClaimNotice, foundPersonalHouse, nameUnnamedHouses, writeClaimNotices } from "./claimHouse.ts";
 import { type LandClaimKind, createLandClaims } from "./landClaim.ts";
@@ -76,7 +77,7 @@ export interface RuinService extends RuinReadServices {
   devMakeRuin(userId: string): Promise<RuinCommandResult>;
   /**
    * 이 유저가 폐허에 넣는 화폐 = 들어갈 나라의 화폐(시뮬 treasuryAsset — 거래소 나라 화폐 534 가 뒤 나라 화폐, 질문 546). 사이보그·나라·경제가
-   * 없으면 undefined(개발 시험 화폐 받기가 이 화폐도 같이 준다)
+   * 없으면 undefined(개발 화폐 받기가 이 화폐도 같이 준다)
    */
   fundCurrencyOf(userId: string): string | undefined;
   /** 정부 건물 상태(건물 서비스 시설 줄): 짓는 중·서 있음·0%·사라짐(기획 답 480 다·487 다) */
@@ -417,8 +418,8 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
                 })),
               }
             : null,
-        balance: String(me === undefined ? 0n : d.ledger.balanceOf(me, ASSET_CREDIT)),
-        currency: ASSET_CREDIT,
+        balance: String(moneyBalance(d.ledger, me)),
+        currency: moneyOf(d.ledger, me),
         hasCyborg: d.cyborgs.record(viewer.id) !== undefined,
         dev: viewer.devGrant,
         generatedAt: nowMs,

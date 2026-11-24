@@ -10,7 +10,7 @@
 // - 생활비(D-453): 본체도 유닛 유지비를 내고(world/settlement.ts), 못 냈으면 livingUnpaid가 참 → 화면 효율 불이익(N38).
 // - 정착 지원금(D-455 190, N39): 만들기와 같은 동기 처리에서 그 세력 국고 → 사용자 주체로 한 번 옮긴다(원장 거래 settlement_grant,
 //   중복 방지 키 settlement_grant:<사용자>, 사이보그 행 start_grant에 기록 — 세력을 바꿔도 다시 주지 않는다). 새 화폐를 만들지 않는다:
-//   국고가 모자라면 국고에 있는 만큼만 준다. [임시] 세력 화폐가 서버에 없어 국고의 시험 화폐(유지비와 같은 자산)로 낸다.
+//   국고가 모자라면 국고에 있는 만큼만 준다. 국고 주체의 돈(그 나라 화폐, world/money.ts)으로 낸다.
 //   지원금 전에 만든 사이보그(start_grant null)는 다음 접속의 한 번 속성 분배 때 같은 키로 한 번 받는다(D-456).
 // - 시작 재료(docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산", 질문 520): 같은 동기 처리에서 첫 건물 재료(설정 칸 [임시] 소나무 원목·석재
 //   개수)를 그 시작 도시의 내 도시 창고(원장 위치 = 도시 ID)에 넣는다. 생산원 source:item:<ID>에서 나온다(시뮬 시작 물자·개발 재료와 같은
@@ -47,7 +47,8 @@ import type { CyborgReadServices } from "../trpc/context.ts";
 import type { CityRow } from "../world/cities.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
-import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
+import { moneyOf } from "../world/money.ts";
+import type { Settlement } from "../world/settlement.ts";
 import { UNIT_KIND_CYBORG } from "../world/unitKinds.ts";
 import {
   type CyborgRecord,
@@ -384,7 +385,8 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
   ): bigint => {
     const treasury = options.treasuryOf(factionId);
     if (treasury === undefined) return 0n;
-    const available = ledger.balanceOf(treasury, ASSET_CREDIT);
+    const asset = moneyOf(ledger, treasury); // 내는 쪽(국고)의 돈
+    const available = ledger.balanceOf(treasury, asset);
     const paid = grant < available ? grant : available;
     if (paid > 0n) {
       ledger.post({
@@ -392,8 +394,8 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
         atMs: at,
         key: `settlement_grant:${userId}`,
         entries: [
-          { account: ledger.ownerAccount(treasury, ASSET_CREDIT), amount: -paid },
-          { account: ledger.ownerAccount(ownerId, ASSET_CREDIT), amount: paid },
+          { account: ledger.ownerAccount(treasury, asset), amount: -paid },
+          { account: ledger.ownerAccount(ownerId, asset), amount: paid },
         ],
       });
     }

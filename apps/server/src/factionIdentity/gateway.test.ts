@@ -111,6 +111,7 @@ describe("가문 연결 처리(넘기기·해산·가문 도시, 프로토콜 24
         },
       }),
       city: () => ({
+        moneyOf: () => undefined,
         village: (userId, input) => {
           calls.push(
             `village:${userId}:${input.mapKey}:${input.x}:${input.y}:${input.mode}:${input.regime ?? "-"}`,

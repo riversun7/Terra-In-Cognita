@@ -41,7 +41,8 @@ import { carriedBy } from "../holdings/state.ts";
 import type { QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
-import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
+import { moneyBalance } from "../world/money.ts";
+import type { Settlement } from "../world/settlement.ts";
 import type { WorldFacilities } from "../facilities/world.ts";
 import { buildingCell } from "../facilities/places.ts";
 import { BIOTECH_STAGE, payServiceFee, serviceFacility, unitCity } from "../temple/places.ts";
@@ -351,7 +352,7 @@ export function createGeneCommands(o: GeneCommandOptions): GeneCommands {
         if (!cell || !map) return fail("not_lab");
         const amount = BigInt(Math.max(0, society.fusion.incubateCurrency));
         if (String(amount) !== input.lab.cost) return fail("cost_changed");
-        if (ledger.balanceOf(owner.ownerId, ASSET_CREDIT) < amount) return fail("insufficient_funds");
+        if (moneyBalance(ledger, owner.ownerId) < amount) return fail("insufficient_funds");
         birth = { map, x: cell.x, y: cell.y, cityId: lab.cityId };
         fee = { to: lab.ownerId, buildingId: input.lab.buildingId, amount };
       } else {
@@ -518,7 +519,7 @@ export function createGeneCommands(o: GeneCommandOptions): GeneCommands {
         return fail("wrong_city");
       const cost = BigInt(Math.max(0, o.rules().fusion.geneConvertCurrency));
       if (String(cost) !== input.cost) return fail("cost_changed");
-      if (ledger.balanceOf(owner.ownerId, ASSET_CREDIT) < cost) return fail("insufficient_funds");
+      if (moneyBalance(ledger, owner.ownerId) < cost) return fail("insufficient_funds");
       payServiceFee(
         o.facilities,
         ledger,

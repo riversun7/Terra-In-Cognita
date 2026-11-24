@@ -301,8 +301,11 @@
  *      받는다(그 도시에 닿은 병력은 진행 중인 전투에 참전 — governance.ts COUP_BATTLE_JOIN_PROTOCOL_VERSION).
  *    - 줄기 league-3(줄기는 판을 올리지 않았다 — 사용자 결정 D-593 "연맹은 친목"): house_league의 clause_on·clause_off 행동은 이제 늘 invalid_clause로 답한다
  *      (연맹 조항 카드와 그 강제를 없앴다 — 66판에서 더한 행동의 뜻이 바뀌었다. 칸 clause는 받기만 하고 쓰지 않는다).
+ * 69: (줄기 city-money — 사용자 결정 2026-11-24 "도시는 기축통화로 화폐 한가지를 정해야하며 …", docs/adr/2026-11-24-city-money.md) city_currency(도시 화폐 고르기 —
+ *    그 도시 주인 나라 지도자, currency null = 주인 나라 화폐) → city_currency_result(결과 코드 10개 — cityMoney.ts CITY_MONEY_PROTOCOL_VERSION). 더하기만 했다.
+ *    68판 기기는 새 메시지를 보내지 않는다.
  */
-export const PROTOCOL_VERSION = 68;
+export const PROTOCOL_VERSION = 69;
 
 /**
  * 서버가 받아주는 가장 낮은 기기 프로토콜 버전. 원칙은 현재 + 직전 1개 지원이다(ADR 7). 5부터 3판 기기는 인사에서
@@ -314,7 +317,7 @@ export const PROTOCOL_VERSION = 68;
  * 속성 분배 전 사이보그(elements null)는 이제 기기가 만들지 않는다(5판부터 만들기에 분배가 꼭 든다). 화면 시험의 legacy 계정은
  * 지금 판으로 만든 뒤 서버를 끄고 DB에서 속성값을 비워 다시 켠다(e2e/global-setup.ts).
  */
-export const MIN_SUPPORTED_PROTOCOL_VERSION = 67;
+export const MIN_SUPPORTED_PROTOCOL_VERSION = 68;
 
 /** WebSocket 메시지 1개의 최대 크기 (바이트) */
 export const MAX_MESSAGE_BYTES = 64 * 1024;

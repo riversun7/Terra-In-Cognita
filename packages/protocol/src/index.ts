@@ -172,6 +172,11 @@ export {
   type GovernanceResultCode,
 } from "./governance.ts";
 export {
+  CITY_MONEY_PROTOCOL_VERSION,
+  CITY_MONEY_RESULT_CODES,
+  type CityMoneyResultCode,
+} from "./cityMoney.ts";
+export {
   NATION_TAX_LIMITS,
   NATION_TAX_PERIOD_PROTOCOL_VERSION,
   NATION_TAX_PROTOCOL_VERSION,

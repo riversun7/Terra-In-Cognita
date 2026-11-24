@@ -121,6 +121,7 @@ describe("환전 이용료(질문 2086)", () => {
       },
       book,
       (cityId) => (cityId === 5 ? "cur:other" : CUR),
+      ASSET_CREDIT,
     );
     const fx = createFxRegistry({
       ledger: book,

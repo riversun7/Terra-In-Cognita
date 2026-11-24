@@ -2,15 +2,15 @@
 // 2222 확정(채우는 길 = 기부 + 가문세, 가입비는 금고 먼저·모자라면 가문장 지갑 그대로). docs/adr/2026-11-11-faction-identity.md "바뀜 (house-8, D-574)".
 // - 세율: 표 house_policies.tax_pm(가문장이 house_tax로 정함, 줄이 없으면 0). 설정 칸 house_tax_max_pm보다 크면 읽을 때 상한으로 자른다.
 // - 떼는 곳(기술 기본값 — 최소부터, 질문 2252): ① 사업장 배당(사업장 금고 정산 business_settle — 받는 주체가 가문원 사용자면 그 사람 가문 금고로)
-//   ② 임금형 계약의 임금(labor_wage — 일한 유닛의 가문 D-569, 유닛 지갑 대신 그 몫을 가문 금고로). 기본 화폐(ASSET_CREDIT)만 뗀다(가문 금고 칸이
-//   기본 화폐 잔고만 보인다 — 나라 화폐는 질문 2252). NPC 가문(npc_houses)은 세율이 없다(가문장이 정하는 규칙이 없다).
+//   ② 임금형 계약의 임금(labor_wage — 일한 유닛의 가문 D-569, 유닛 지갑 대신 그 몫을 가문 금고로). 돈 자산(나라 화폐, world/money.ts isMoneyAsset)만 뗀다(가문 금고는
+//   화폐마다 따로 쌓인다 — 금고 칸은 보는 사람의 돈(소속 국가 화폐) 잔고를 보인다). NPC 가문(npc_houses)은 세율이 없다(가문장이 정하는 규칙이 없다).
 // - 세금 = 수입 × 세율 ÷ 1000(내림, 정수). 0이면 떼지 않는다. 떼는 쪽 원장 거래 하나에 줄을 더한다(새 거래 종류 없음 — 한 거래 안에서 0 합).
 // - 표: 세계 저장 층의 원장(ledger)마다 하나(WeakMap). 배당·임금 코드는 원장만 들고 있어 원장으로 찾는다(houseTaxerOf). 가문 표가 붙기 전(서버를
 //   켠 직후 첫 맞추기 전)에는 떼지 않는다.
 import type { Ledger } from "../economy/ledger.ts";
 import type { HouseTies } from "../world/houseTies.ts";
 import type { OwnerRow, QueryPool } from "../world/persist/load.ts";
-import { ASSET_CREDIT } from "../world/settlement.ts";
+import { isMoneyAsset } from "../world/money.ts";
 import { vaultAccount } from "./houseVault.ts";
 
 /** 떼는 몫: 가문 금고 계정과 세금 */
@@ -61,7 +61,7 @@ export function attachHouseTax(o: {
   const rateOf = (houseId: number): number =>
     Math.min(rates.get(houseId) ?? 0, Math.min(1000, Math.max(0, Math.trunc(o.maxPm()))));
   const cut = (houseId: number | undefined, asset: string, amount: bigint): HouseTaxCut | undefined => {
-    if (houseId === undefined || asset !== ASSET_CREDIT) return undefined;
+    if (houseId === undefined || !isMoneyAsset(asset)) return undefined;
     const tax = houseTaxAmount(amount, rateOf(houseId));
     return tax > 0n ? { account: vaultAccount(o.ledger, houseId, asset), tax } : undefined;
   };

@@ -5,6 +5,8 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-24 12:50 | 도시 화폐(도시의 기축 통화) 고르기 | Claude Code | [24-1250-city-money](worklog/2026/11/24-1250-city-money.md) |
+| 2026-11-23 22:05 | 공용 시험 화폐 없애기: 주체의 돈 = 소속 국가 화폐, 외환 보유고·주식 표시 | Claude Code | [23-2205-nation-money](worklog/2026/11/23-2205-nation-money.md) |
 | 2026-11-23 21:45 | /dev/npc-ai [작동 모니터] 탭: 서버에서 도는 NPC AI 상태를 한 장으로 | Claude Code | [23-2145-npc-ai-monitor-tab](worklog/2026/11/23-2145-npc-ai-monitor-tab.md) |
 | 2026-11-23 00:05 | 아이템 편집기 3단계 소분류 일반화 및 기본 티어 정렬 | Antigravity | [23-0005-item-microcategories-and-tier-sort](worklog/2026/11/23-0005-item-microcategories-and-tier-sort.md) |
 | 2026-11-22 20:20 | 가문 없는 유닛의 소속 도시 (질문 2774 답) | Claude Code | [22-2020-fix-2774](worklog/2026/11/22-2020-fix-2774.md) |

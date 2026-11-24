@@ -422,6 +422,12 @@
   gap: var(--space-1);
   min-width: 0;
 }
+/* 도시 화폐 칸(CityMoneyPolicy.tsx): 화폐 이름 뒤 국기 */
+.gov-money-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
 .gov-tax-actions {
   display: flex;
   flex-wrap: wrap;

@@ -1,4 +1,5 @@
 // 건물 화면 자료(tRPC facilities.overview) — docs/adr/2026-11-07-buildings-runtime.md. 읽기만 한다(게임 상태를 바꾸지 않는다).
+import { isMoneyAsset } from "../world/money.ts";
 import { EXCHANGE_LOCKS } from "@terra/shared/exchange";
 import type {
   FacilitiesOverviewResponse,
@@ -86,8 +87,7 @@ export interface BeaconEntry {
 }
 
 /** 화폐(지갑)·지분(사업장 지분 share:biz_<건물> — 물건이 아니다, docs/adr/2026-11-15-building-screen.md)은 자리 목록에 넣지 않는다 */
-const isCash = (asset: string): boolean =>
-  asset.startsWith("cur:") || asset === "s3_test_credit" || asset.startsWith("share:");
+const isCash = (asset: string): boolean => isMoneyAsset(asset) || asset.startsWith("share:");
 
 /** 그 도시의 물자 거래소 건물(다 지은 것 가운데 가장 작은 건물 ID, 없으면 null — market/exchangeBuildings.ts와 같은 고르기, 상태는 서버 명령이 본다) */
 function goodsExchangeIn(world: PlaceWorld, catalog: FacilityCatalog, cityId: number | null): number | null {

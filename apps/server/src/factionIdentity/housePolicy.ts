@@ -1,6 +1,6 @@
 // 가문 금고 기부·가문세율·도시 짓기 정책 명령(WebSocket house_donate·house_tax·house_build_policy → house_member_result, 프로토콜 54) —
 // 기획 D-574(사용자 답 2026-11-16) 2150 나·2124 나, 기획 대조 2222 확정. docs/adr/2026-11-11-faction-identity.md "바뀜 (house-8, D-574)".
-// - 기부(2150): 가문원(가문장 포함)이 자기 지갑의 기본 화폐를 가문 금고(houseVault.ts)로 넣는다. 지갑은 지금까지 정산한 뒤 본다(모자라면
+// - 기부(2150): 가문원(가문장 포함)이 자기 지갑의 돈(소속 국가 화폐, world/money.ts)을 가문 금고(houseVault.ts)로 넣는다. 지갑은 지금까지 정산한 뒤 본다(모자라면
 //   insufficient_funds). 원장 거래 house_donate 하나. 바뀜(gov-fix-4 — D-591 2532 (1) 나): 넣은 양을 그 가문원 기여도(house_members.contribution)에 더한다
 //   (계승 서열이 직위 다음에 본다).
 // - 꺼내기(2222 → 사용자 D-576 "가문장이 개인 지갑으로"): 가문장만, 금고 잔고까지(넘으면 insufficient_funds). 원장 거래 house_vault_take. 넣기·꺼내기
@@ -12,7 +12,7 @@
 // - 감사 기록: faction.house_donate·faction.house_tax·faction.house_build_policy.
 import { writeAudit } from "../auth/store.ts";
 import type { Database } from "../db/client.ts";
-import { ASSET_CREDIT } from "../world/settlement.ts";
+import { moneyOf } from "../world/money.ts";
 import type { HouseMovePersistence } from "./houseEntry.ts";
 import { ruledBy } from "./houseEntryPolicy.ts";
 import { houseTaxerOf } from "./houseTax.ts";
@@ -67,14 +67,16 @@ export function createHousePolicy(o: {
       if (owner === undefined) return fail("no_cyborg");
       const nowMs = o.now();
       p.settlement.settleOwner(owner, nowMs);
-      if (p.ledger.balanceOf(owner, ASSET_CREDIT) < amount) return fail("insufficient_funds");
+      // 넣는 사람의 돈(소속 국가 화폐)으로 넣는다 — 금고는 화폐마다 따로 쌓인다
+      const asset = moneyOf(p.ledger, owner);
+      if (p.ledger.balanceOf(owner, asset) < amount) return fail("insufficient_funds");
       p.ledger.post({
         kind: "house_donate",
         atMs: nowMs,
         key: `house_donate:${mine.factionId}:${owner}:${nowMs}`,
         entries: [
-          { account: p.ledger.ownerAccount(owner, ASSET_CREDIT), amount: -amount },
-          { account: vaultAccount(p.ledger, mine.factionId, ASSET_CREDIT), amount },
+          { account: p.ledger.ownerAccount(owner, asset), amount: -amount },
+          { account: vaultAccount(p.ledger, mine.factionId, asset), amount },
         ],
       });
       await p.writer.durable();
@@ -95,15 +97,17 @@ export function createHousePolicy(o: {
       if (!p) return fail("busy");
       const owner = p.settlement.findOwnerOfUser(userId);
       if (owner === undefined) return fail("no_cyborg");
-      if (vaultBalance(p.ledger, mine.factionId, ASSET_CREDIT) < amount) return fail("insufficient_funds");
+      // 받는 사람(가문장)의 돈으로 된 금고에서 꺼낸다
+      const asset = moneyOf(p.ledger, owner);
+      if (vaultBalance(p.ledger, mine.factionId, asset) < amount) return fail("insufficient_funds");
       const nowMs = o.now();
       p.ledger.post({
         kind: "house_vault_take",
         atMs: nowMs,
         key: `house_vault_take:${mine.factionId}:${owner}:${nowMs}`,
         entries: [
-          { account: vaultAccount(p.ledger, mine.factionId, ASSET_CREDIT), amount: -amount },
-          { account: p.ledger.ownerAccount(owner, ASSET_CREDIT), amount },
+          { account: vaultAccount(p.ledger, mine.factionId, asset), amount: -amount },
+          { account: p.ledger.ownerAccount(owner, asset), amount },
         ],
       });
       await p.writer.durable();
@@ -117,7 +121,9 @@ export function createHousePolicy(o: {
       const p = o.persistence();
       const owner = p?.settlement.findOwnerOfUser(userId);
       if (!p || owner === undefined) return 0n;
-      const amount = vaultBalance(p.ledger, houseId, ASSET_CREDIT);
+      // 해산 돌려주기 = 가문장의 돈으로 된 금고 잔고 [임시](다른 화폐로 쌓인 금고 몫은 남는다)
+      const asset = moneyOf(p.ledger, owner);
+      const amount = vaultBalance(p.ledger, houseId, asset);
       if (amount <= 0n) return 0n;
       const nowMs = o.now();
       p.ledger.post({
@@ -125,8 +131,8 @@ export function createHousePolicy(o: {
         atMs: nowMs,
         key: `house_vault_dissolve:${houseId}:${nowMs}`,
         entries: [
-          { account: vaultAccount(p.ledger, houseId, ASSET_CREDIT), amount: -amount },
-          { account: p.ledger.ownerAccount(owner, ASSET_CREDIT), amount },
+          { account: vaultAccount(p.ledger, houseId, asset), amount: -amount },
+          { account: p.ledger.ownerAccount(owner, asset), amount },
         ],
       });
       await p.writer.durable();

@@ -7,6 +7,7 @@
 //   화폐로 그 휴먼 지갑에서(npcAwarePayer), 장부의 유닛 주인은 2차맵에 없으면 거울 세계 휴먼 주인.
 // - 바뀜(fixes-1117j, 질문 2735 — D-555 1509): NPC 나라도 제 숙소에 집세를 정해 세를 놓는다(npcLandlord.ts). 1분 훑기 = 다음 기간 걷기 → NPC 집주인 → NPC 세 들기 → 쉼.
 // - 바뀜(fixes-1117k, 기획 검토 2762 — D-555 1509): NPC 나라도 정원이 찬 숙소의 층을 올린다(npcFloors.ts — 투자 판단 틀). 1분 훑기의 NPC 집주인 다음.
+import { moneyOf } from "../world/money.ts";
 import { randomInt } from "node:crypto";
 import type { ResidenceFloorQuote } from "@terra/shared/residence";
 import { unitPurseLocation } from "@terra/shared/businessBooks";
@@ -100,8 +101,8 @@ export interface ResidenceParts {
   readonly workerRest: Pick<WorkerRest, "restOf" | "periodFee">;
   /** 사는 곳 규칙(정원·층·집세 기간 — 설정 칸) */
   rules(): ResidenceRules;
-  /** 집세·숙박비 화폐(숙박비와 같은 서버 시험 화폐 [임시]) */
-  readonly feeAsset: string;
+  /** 그 건물의 집세·숙박비 화폐(건물의 돈 — facilities/buildingMoney.ts, 숙박비와 같다) */
+  feeAssetOf(buildingId: number): string;
   /** 층 올리기 견적(residence/floorQuote.ts — 없으면 견적 없음) */
   floorQuote?(buildingId: number, ownerId: number): ResidenceFloorQuote | null;
   ownerOf(userId: string): number | undefined;
@@ -174,8 +175,12 @@ function rentPayerOf(parts: ResidenceParts, world: ResidenceWorld): RentPayer {
       ? DEFAULT_RESIDENCE_RENT_PERIOD_MS
       : Math.trunc(value);
   };
-  const purse = (ownerId: number, unitId: number): number =>
-    parts.ledger.ownerAccount(ownerId, parts.feeAsset, unitPurseLocation(unitId));
+  const purse = (ownerId: number, unitId: number, buildingId?: number): number =>
+    parts.ledger.ownerAccount(
+      ownerId,
+      buildingId === undefined ? moneyOf(parts.ledger, ownerId) : parts.feeAssetOf(buildingId),
+      unitPurseLocation(unitId),
+    );
   return {
     periodMs,
     priceOf(unitId, buildingId, kind) {
@@ -183,16 +188,16 @@ function rentPayerOf(parts: ResidenceParts, world: ResidenceWorld): RentPayer {
       if (kind === "lodging") return parts.workerRest.periodFee(unitId, buildingId, periodMs());
       return world.building(buildingId)?.rent ?? undefined;
     },
-    purseBalance: (ownerId, unitId) => parts.ledger.balance(purse(ownerId, unitId)),
+    purseBalance: (ownerId, unitId, buildingId) => parts.ledger.balance(purse(ownerId, unitId, buildingId)),
     pay(input) {
       if (input.kind === "own" || input.amount <= 0n) return true;
-      const from = purse(input.ownerId, input.unitId);
+      const from = purse(input.ownerId, input.unitId, input.buildingId);
       const kind = RENT_TX_KIND[input.kind];
       if (
         parts.facilities.business?.receive({
           from,
           buildingId: input.buildingId,
-          asset: parts.feeAsset,
+          asset: parts.feeAssetOf(input.buildingId),
           amount: input.amount,
           kind,
           atMs: input.atMs,
@@ -207,7 +212,10 @@ function rentPayerOf(parts: ResidenceParts, world: ResidenceWorld): RentPayer {
         atMs: input.atMs,
         entries: [
           { account: from, amount: -input.amount },
-          { account: parts.ledger.ownerAccount(owner, parts.feeAsset), amount: input.amount },
+          {
+            account: parts.ledger.ownerAccount(owner, parts.feeAssetOf(input.buildingId)),
+            amount: input.amount,
+          },
         ],
       });
       return true;

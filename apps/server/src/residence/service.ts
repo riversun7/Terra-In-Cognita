@@ -109,7 +109,7 @@ export function createResidenceService(o: {
       // 돈을 먼저 확인하고(쓰기 전) 표를 쓴 뒤 걷는다 — 표 쓰기가 실패하면 돈은 그대로
       const price = extras?.payer.priceOf(unitId, buildingId, charge);
       if (!extras || price === undefined) return fail("not_eligible");
-      if (extras.payer.purseBalance(ownerId, unitId) < price) return fail("insufficient_funds");
+      if (extras.payer.purseBalance(ownerId, unitId, buildingId) < price) return fail("insufficient_funds");
       paidUntilMs = at + Math.max(1, Math.trunc(extras.payer.periodMs()));
     }
     const choice = { unitId, ownerId, buildingId, chosenAtMs: at, paidUntilMs };

@@ -7,7 +7,8 @@
 // - 유닛·시설이 사라지거나 유닛 주인이 바뀌면 마지막 정산 시각에 끝낸다(남은 보증금은 돌려준다). 임대형은 유닛이 사라져도 유예에
 //   들고(임차인 물건, D-161 해석), 시설이 사라지면 유예 없이(유예 중이면 유예만) 끝낸다.
 // - 구인 게시판(jobBoard.ts): 시설 주인이 일자리를 내고 남의 유닛 주인이 받으면 임금형 계약(고용주 ≠ 유닛 주인)이 된다.
-// - [임시] 화폐 = 서버 시험 화폐(s3_test_credit), 산출 = 시험 광석. 임금을 받는 곳 = 휴먼의 유닛 지갑(사유재산, D-097·D-127·D-564 1631 —
+// - 화폐 = 그 시설의 돈(건물의 돈 = 그 도시 주인 나라 화폐, facilities/buildingMoney.ts — 고리 moneyAt이 없으면 고용하는 쪽 주체의 돈,
+//   docs/adr/2026-11-23-nation-money.md), [임시] 산출 = 시험 광석. 임금을 받는 곳 = 휴먼의 유닛 지갑(사유재산, D-097·D-127·D-564 1631 —
 //   wagePurse.ts. 재산이 없는 유닛은 소유 주체 지갑). 임금 = 효율점수 × 단가 × 고용주 조정(N28) — 유닛 스탯이 아직 없어 효율점수는 새 유닛 평균 1차 스탯 하나,
 //   단가는 도시 노동 시장이 아직 없어 N27 기준 단가 그대로다(rules.ts).
 // - 시설 창고(docs/adr/2026-11-07-buildings-runtime.md "바뀜 (창고·직무)", D-516 382): 임대형 임차인 몫 산출은 그 건물 창고(원장 위치 = 그
@@ -68,7 +69,8 @@ import {
 import type { CityRow } from "../world/cities.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
-import { ASSET_CREDIT, ASSET_ORE, type Settlement } from "../world/settlement.ts";
+import { moneyOf } from "../world/money.ts";
+import { ASSET_ORE, type Settlement } from "../world/settlement.ts";
 import { type JobBoardFilter, type LaborPostInput, createJobBoard } from "./jobBoard.ts";
 import { laborRulesView, wageRulesOf } from "./rules.ts";
 import { type WalkToWork, shiftPayStart } from "./walkToWork.ts";
@@ -223,11 +225,19 @@ export function createLaborService(options: {
   outputBonusPm?: ((buildingId: number) => number) | undefined;
   /** NPC 세력 주체의 성향(일시 중지 계약을 기다릴지 — D-573 2045, npcWait.ts). 플레이어·모르면 undefined(처리할 일로 손으로) */
   npcTraits?: ((ownerId: number) => { readonly commerce: number } | undefined) | undefined;
+  /**
+   * 그 시설에서 오가는 돈(임금·보증금·임대료)의 화폐 = 건물의 돈(facilities/buildingMoney.ts — 사업장 금고와 같은 화폐). 없으면 고용하는 쪽
+   * (시설 쪽) 주체의 돈(world/money.ts)
+   */
+  moneyAt?: ((buildingId: number) => string) | undefined;
 }): LaborService {
   const { maps, settlement, ledger, writer, now } = options;
   const contracts = new Map<number, LaborContract>(options.loaded.contracts.map((c) => [c.id, c]));
   const rents = new Map<number, RentRow>(options.loaded.rents.map((r) => [r.buildingId, r]));
   let lastId = options.loaded.maxId;
+  /** 그 시설 계약의 화폐: 건물의 돈, 고리가 없으면 고용하는 쪽(시설 쪽) 주체의 돈 */
+  const moneyAt = (buildingId: number, employer: number | null | undefined): string =>
+    options.moneyAt?.(buildingId) ?? moneyOf(ledger, employer ?? undefined);
   // 시설 주인 쪽 = 그 시설의 사업장 금고(D-548·D-555 1504): 보증금·채우기를 내고, 돌려받고(옛 계약도 금고로 — 주인이 정산으로 꺼낸다),
   // 임대료를 받는다(소득세는 정산 뒤 taxRent)
   // 임금을 받는 곳 = 휴먼의 유닛 지갑(D-097·D-564 1631, wagePurse.ts)
@@ -527,6 +537,7 @@ export function createLaborService(options: {
     buildingOwnerOf,
     unitBusy,
     onSiteMap,
+    moneyAt,
     nextContractId: () => lastId + 1,
     addContract: (c) => {
       lastId = Math.max(lastId, c.id);
@@ -663,7 +674,7 @@ export function createLaborService(options: {
       // 임금형 보증금은 그 사업장 금고에서(D-555 1504) — 있는 만큼만 묶고(D-564 1624), 한 주기 임금도 없으면 고용을 막는다(D-570 1789)
       const deposit =
         input.kind === "wage" && rate > 0n && (input.termHours === undefined || input.termHours > 0)
-          ? depositFor(input.buildingId, ownerId, ASSET_CREDIT, rate, at)
+          ? depositFor(input.buildingId, ownerId, moneyAt(input.buildingId, ownerId), rate, at)
           : undefined;
       if (deposit === null) return fail("insufficient_funds");
       const result = openLabor(
@@ -674,7 +685,7 @@ export function createLaborService(options: {
           workerOwnerId: me,
           unitId: input.unitId,
           buildingId: input.buildingId,
-          asset: ASSET_CREDIT,
+          asset: moneyAt(input.buildingId, ownerId),
           rate,
           atMs: at,
           endsAtMs: input.termHours === undefined ? null : at + input.termHours * HOUR_MS,
@@ -748,7 +759,7 @@ export function createLaborService(options: {
         buildingId,
         // 임대료 줄의 주인 = 건물 주인(대주주·운영자가 정해도 받는 금고는 주인 사업장 금고)
         ownerId: buildingOwner,
-        asset: ASSET_CREDIT,
+        asset: moneyAt(buildingId, buildingOwner),
         rentPerHour: rent,
         updatedAtMs: at,
       };
@@ -822,7 +833,7 @@ export function createLaborService(options: {
         status: "ready",
         buildingId,
         generatedAt: at,
-        currency: ASSET_CREDIT,
+        currency: moneyAt(buildingId, owner),
         rules: laborRulesView(options.rules()),
         canManage: manager,
         ownerless: owner === null,
@@ -899,8 +910,9 @@ export function createLaborService(options: {
       return {
         status: options.ready() ? "ready" : "not_ready",
         generatedAt: at,
-        currency: ASSET_CREDIT,
-        balance: String(me === undefined ? 0n : ledger.balanceOf(me, ASSET_CREDIT)),
+        // 내 돈(소속 국가 화폐) — 계약마다의 화폐는 계약 줄에 있다
+        currency: moneyOf(ledger, me),
+        balance: String(me === undefined ? 0n : ledger.balanceOf(me, moneyOf(ledger, me))),
         rules: {
           wageCycleMs: rules.labor.wageCycleMs,
           depositDays: rules.labor.depositDays,

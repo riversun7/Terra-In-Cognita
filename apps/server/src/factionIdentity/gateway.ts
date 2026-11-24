@@ -26,6 +26,7 @@ import type { HousePolicyService } from "./housePolicy.ts";
 import type { HouseMemberResult, HouseMembers } from "./members.ts";
 import type { HouseRecruitResult, HouseRecruitService } from "./houseRecruit.ts";
 import type { HouseSuccession } from "./succession.ts";
+import type { CityMoneyPolicyService, CityMoneyResult } from "../government/cityMoneyPolicy.ts";
 import type { NationTaxPolicyService, NationTaxResult } from "../government/nationTaxPolicy.ts";
 
 export type HouseMemberClientMessage = ClientMessageOf<
@@ -49,9 +50,12 @@ export type HouseCityClientMessage = ClientMessageOf<"house_village" | "house_ru
 export type HouseRecruitClientMessage = ClientMessageOf<"house_recruit_auto" | "house_recruit_hire">;
 /** 나라 세금 정하기(프로토콜 57 — 나라 지도자 = 독립 나라 가문장, government/nationTaxPolicy.ts) */
 export type NationTaxClientMessage = ClientMessageOf<"nation_tax">;
+/** 도시 화폐 고르기(프로토콜 69 — 도시 주인 나라 지도자, government/cityMoneyPolicy.ts) */
+export type CityCurrencyClientMessage = ClientMessageOf<"city_currency">;
 export type HouseClientMessage =
   | ClientMessageOf<"house_found">
   | NationTaxClientMessage
+  | CityCurrencyClientMessage
   | HouseMemberClientMessage
   | HouseCityClientMessage
   | HouseRecruitClientMessage;
@@ -152,6 +156,8 @@ function nationTaxText(id: number, result: NationTaxResult, protocolVersion: num
 
 const recruitFail = (code: HouseRecruitResultCode): HouseRecruitResult => ({ ok: false, code });
 const taxFail = (code: NationTaxResultCode): NationTaxResult => ({ ok: false, code });
+const moneyText = (id: number, result: CityMoneyResult): string =>
+  encodeMessage({ t: "city_currency_result", id, ...result });
 const fail = (code: HouseResultCode): HouseFoundResult => ({ ok: false, code });
 const cityFail = (code: HouseCityResultCode): HouseCityResult => ({ ok: false, code });
 const memberFail = (code: HouseMemberResultCode): HouseMemberResult => ({ ok: false, code });
@@ -236,6 +242,8 @@ export function createHouseGateway(options: {
   policy?: (() => HousePolicyService | undefined) | undefined;
   /** 나라 세금 정하기(프로토콜 57, 질문 2322 나·2373 가, 없으면 busy) */
   nationTax?: (() => NationTaxPolicyService | undefined) | undefined;
+  /** 도시 화폐 고르기(프로토콜 69, docs/adr/2026-11-24-city-money.md, 없으면 busy) */
+  cityMoney?: (() => CityMoneyPolicyService | undefined) | undefined;
   /** 창설·가입·넘기기·해산·소속 도시가 성공한 뒤(시야 묶음·가문 표 다시 읽기 — 가문원 나라·구인 자격이 바뀐다) */
   afterMembership?: (() => Promise<void>) | undefined;
   now: () => number;
@@ -264,6 +272,9 @@ export function createHouseGateway(options: {
       const replyRecruit = (id: number, result: HouseRecruitResult): void => {
         if (!closed) link.send(recruitText(id, result));
       };
+      const replyMoney = (id: number, result: CityMoneyResult): void => {
+        if (!closed) link.send(moneyText(id, result));
+      };
       const replyTax = (id: number, result: NationTaxResult): void => {
         if (!closed) link.send(nationTaxText(id, result, link.protocolVersion ?? PROTOCOL_VERSION));
       };
@@ -277,6 +288,7 @@ export function createHouseGateway(options: {
       ): void => {
         if (message.t === "house_found") reply(message.id, fail(code));
         else if (message.t === "nation_tax") replyTax(message.id, taxFail(code));
+        else if (message.t === "city_currency") replyMoney(message.id, { ok: false, code });
         else if (message.t === "house_recruit_auto" || message.t === "house_recruit_hire")
           replyRecruit(message.id, recruitFail(code));
         else if (
@@ -397,8 +409,25 @@ export function createHouseGateway(options: {
           );
         replyTax(message.id, result);
       };
+      const processMoney = async (message: CityCurrencyClientMessage): Promise<void> => {
+        const viewer = await link.viewer();
+        if (closed) return;
+        if (!viewer) return replyMoney(message.id, { ok: false, code: "sign_in_required" });
+        const service = options.cityMoney?.();
+        if (!service) return replyMoney(message.id, { ok: false, code: "busy" });
+        if (!memberLimiter.take(viewer.id))
+          return replyMoney(message.id, { ok: false, code: "rate_limited" });
+        const result = await service.set(viewer.id, message.cityId, message.currency);
+        if (result.ok)
+          options.log.info(
+            { userId: viewer.id, cityId: result.cityId, currency: result.currency },
+            "city currency set",
+          );
+        replyMoney(message.id, result);
+      };
       const process = async (message: HouseClientMessage): Promise<void> => {
         if (message.t === "nation_tax") return processTax(message);
+        if (message.t === "city_currency") return processMoney(message);
         if (message.t === "house_village" || message.t === "house_ruin" || message.t === "house_independence")
           return processCity(message);
         if (message.t === "house_recruit_auto" || message.t === "house_recruit_hire")

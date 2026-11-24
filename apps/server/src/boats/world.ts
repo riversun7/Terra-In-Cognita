@@ -10,7 +10,6 @@ import { convertFair, fairPrice, fairPriceView, laborCostOf } from "@terra/share
 import { buildingPlace } from "../facilities/places.ts";
 import { TEST_PLANET_ID, type World } from "../world/world.ts";
 import { nationOfOwner } from "../world/nationVision.ts";
-import { ASSET_CREDIT } from "../world/settlement.ts";
 import type { GatherKind } from "../gather/kinds.ts";
 import type { GatherWorld } from "../gather/world.ts";
 import { exchangeRoom } from "../market/lockerRoom.ts";
@@ -70,13 +69,8 @@ export function startWorldBoats(
         return world.npc !== undefined && row !== undefined && row.userId === null && row.factionId !== null;
       };
       // 요금 화폐(D-559 1524): 시설이 선 도시 주인 나라의 화폐
-      const feeAssetOf = (buildingId: number): string | undefined => {
-        const cityId = facilities.service.places?.facilities.get(buildingId)?.cityId;
-        const runtime = world.npc;
-        if (cityId === null || cityId === undefined || !runtime?.economy) return undefined;
-        const owner = runtime.world.cities.get(cityId)?.owner;
-        return owner === undefined ? undefined : runtime.economy.economy.currencyOf.get(owner);
-      };
+      // (도시·경제가 없으면 시설 주인의 돈 — 건물의 돈, facilities/buildingMoney.ts)
+      const feeAssetOf = (buildingId: number): string => facilities.money(buildingId);
       built = createBoatService({
         maps: world.maps,
         now: options.now,
@@ -101,9 +95,8 @@ export function startWorldBoats(
           return found.rows.length > 0;
         },
         feeAssetOf,
-        feeAsset: ASSET_CREDIT,
         business: facilities.business,
-        // 배 주문·수리 적정가(D-570 1822): 재료 기준 값 + 조선소 일꾼 인건비 × 시간 + 수수료 + 세금. 셈은 서버 기준 통화 눈금, 보이는 값·받는 값은 그
+        // 배 주문·수리 적정가(D-570 1822): 재료 기준 값 + 조선소 일꾼 인건비 × 시간 + 수수료 + 세금. 셈은 기축 통화 눈금, 보이는 값·받는 값은 그
         // 항구 나라 화폐(기획 대조 2158 — 지난 환전 체결가, 없으면 같은 값)
         fairOf: (buildingId, materials, ms) => {
           const owner = buildingPlace(facilities.service.places, buildingId)?.ownerId ?? null;
@@ -115,8 +108,8 @@ export function startWorldBoats(
           });
           const asset = feeAssetOf(buildingId);
           const economy = world.npc?.economy?.economy;
-          if (asset === undefined || asset === ASSET_CREDIT || !economy) return fairPriceView(fair);
-          // 기준 통화 C → 나라 화폐 = C × 로트 ÷ (로트당 기준 통화 값)
+          if (!economy || asset === economy.base) return fairPriceView(fair);
+          // 기축 통화 C → 나라 화폐 = C × 로트 ÷ (로트당 기준 통화 값)
           const rate = economy.fx.get(asset)?.lastPrice ?? economy.settings.fxLot;
           return fairPriceView(convertFair(fair, economy.settings.fxLot, rate));
         },

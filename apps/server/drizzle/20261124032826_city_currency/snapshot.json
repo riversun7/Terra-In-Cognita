@@ -1,0 +1,81 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "4d2ea40e-8741-4dbd-b4a1-07257fc02a7e",
+  "prevIds": [
+    "8c414816-db08-43d6-91e0-171a93d148b2"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_cities",
+        "currency"
+      ],
+      "writes": [
+        "s|col|public.world_cities.currency",
+        "n|col|public.world_cities.currency",
+        "e|col|public.world_cities.currency"
+      ],
+      "reads": [
+        "n|tbl|public.world_cities",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_cities",
+        "currency_owner_id"
+      ],
+      "writes": [
+        "s|col|public.world_cities.currency_owner_id",
+        "n|col|public.world_cities.currency_owner_id",
+        "e|col|public.world_cities.currency_owner_id"
+      ],
+      "reads": [
+        "n|tbl|public.world_cities",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_cities",
+        "name": "currency",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_cities",
+        "name": "currency_owner_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

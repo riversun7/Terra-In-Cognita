@@ -13,7 +13,7 @@ import { economyCatalogFromPack } from "../economyView/catalog.ts";
 import { type NationPreset, presetOfCode } from "../npc/nations.ts";
 import { nationPresetsOf } from "../npc/presets.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
-import { ASSET_CREDIT, SYSTEM_ISSUE_CREDIT } from "../world/settlement.ts";
+import { moneyIssue, moneyOf } from "../world/money.ts";
 import { createWorldSummaryBackend } from "../world/summarySources.ts";
 import { silentLog, legacyNationPresets } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
@@ -99,7 +99,7 @@ const endowOf = async (cityId: number): Promise<Record<string, string>> =>
     ).map((row) => [row.asset, row.amount]),
   );
 
-/** 시험 사용자(소유 주체 + 시험 화폐) */
+/** 시험 사용자(소유 주체 + 그 주체의 돈 — 나라가 없어 기축 통화) */
 async function trader(
   world: World,
   name: string,
@@ -118,8 +118,12 @@ async function trader(
     kind: "issue",
     atMs: clock,
     entries: [
-      { account: persistence.ledger.systemAccount(SYSTEM_ISSUE_CREDIT, ASSET_CREDIT), amount: -credit },
-      { account: persistence.ledger.ownerAccount(ownerId, ASSET_CREDIT), amount: credit },
+      // 나라 없는 시험 사용자의 돈 = 기축 통화(첫 고정 나라 화폐 — world/money.ts)
+      { account: moneyIssue(persistence.ledger, moneyOf(persistence.ledger, ownerId)), amount: -credit },
+      {
+        account: persistence.ledger.ownerAccount(ownerId, moneyOf(persistence.ledger, ownerId)),
+        amount: credit,
+      },
     ],
   });
   await persistence.writer.durable();
@@ -142,7 +146,13 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
     expect(await count(`select id from ledger_transactions where idempotency_key like 'npc_endow:%'`)).toBe(
       3,
     );
-    const cityId = [...npc.world.cities.keys()].toSorted((a, b) => a - b)[0] ?? 0;
+    // 기축 나라(첫 고정 나라)가 아닌 나라의 도시: 그 화폐는 기축 통화와 환전 짝이 있다
+    const hub = econ.economy.base;
+    expect(hub.startsWith("cur:")).toBe(true);
+    const cityId =
+      [...npc.world.cities.keys()]
+        .toSorted((a, b) => a - b)
+        .find((id) => econ.economy.currencyOf.get(npc.world.cities.get(id)?.owner ?? 0) !== hub) ?? 0;
     const owner = npc.world.cities.get(cityId)?.owner ?? 0;
     expect(ledger.balanceOf(owner, "item:ration", cityId)).toBeGreaterThan(0n);
 
@@ -161,7 +171,7 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
     expect(npcAsks).toBeGreaterThan(0);
     expect(await world.checkInvariants()).toEqual([]);
 
-    // 나라 화폐: 나라마다 화폐 하나(처음 발행 한 번), 도시 거래소 값 = 그 도시 주인 나라 화폐, 환전 짝 셋·회차 둘(1·2시간)
+    // 나라 화폐: 나라마다 화폐 하나(처음 발행 한 번), 도시 거래소 값 = 그 도시 주인 나라 화폐, 환전 짝 둘(기축 통화 = 첫 나라 화폐는 짝이 없다)·회차 둘(1·2시간)
     const currency = econ.economy.currencyOf.get(owner) ?? "";
     expect(currency.startsWith("cur:")).toBe(true);
     expect(econ.economy.issuer.size).toBe(3);
@@ -171,7 +181,15 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
       true,
     );
     expect(await count(`select id from market_books where currency like 'cur:%'`)).toBeGreaterThan(0);
-    expect(await count(`select id from fx_rounds`)).toBe(6);
+    expect(await count(`select id from fx_rounds`)).toBe(4);
+    // 처음 국고(docs/adr/2026-11-23-nation-money.md): 고정 나라마다 한 번 자기 화폐로, 기축 나라가 아니면 기축 통화 몫을 더 받는다.
+    // 옛 공용 시험 화폐 계정은 생기지 않는다
+    expect(await count(`select id from ledger_transactions where idempotency_key like 'npc_start:%'`)).toBe(
+      3,
+    );
+    expect(currency).not.toBe(hub);
+    expect(ledger.balanceOf(owner, hub)).toBeGreaterThan(0n);
+    expect(await count(`select id from ledger_accounts where asset = 's3_test_credit'`)).toBe(0);
 
     // 유저가 NPC 매물을 산다(지정가 = 가장 싼 매도 호가): 바로 체결, 산 물건은 그 도시 내 창고
     const source = marketSourceOf(world, () => clock)();
@@ -182,7 +200,7 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
       .toSorted((a, b) => a.id - b.id)[0];
     const best = ask?.market.best("sell");
     if (!ask || !best) throw new Error("no npc ask");
-    // 기준 통화만 있으면 나라 화폐 값의 물건을 살 수 없다
+    // 기축 통화만 있으면 다른 나라 화폐 값의 물건을 살 수 없다
     expect(
       await source.service.place(buyer.userId, {
         city: ask.cityId,
@@ -194,10 +212,11 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
         expiryDays: 7,
       }),
     ).toEqual({ ok: false, code: "insufficient_funds" });
-    // 환전: 기준 통화로 그 나라 화폐를 산다(상한 200/로트) → 다음 회차에 나라의 매도 값(지난 환율 102%)으로 체결
+    // 환전: 기축 통화로 그 나라 화폐를 산다(상한 200/로트) → 다음 회차에 나라의 매도 값(지난 환율 102%)으로 체결
     const code = currency.slice(4);
     const exchange = source.views.exchange(buyer.userId, clock);
-    expect(exchange.base).toBe(ASSET_CREDIT);
+    expect(exchange.base).toBe(hub.slice(4));
+    expect(moneyOf(ledger, buyer.ownerId)).toBe(hub);
     expect(exchange.pairs.map((pair) => pair.currency)).toContain(code);
     expect(exchange.pairs.find((pair) => pair.currency === code)?.sells.length).toBeGreaterThan(0);
     expect(
@@ -215,7 +234,7 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
       lots: "20",
     });
     if (!fxBuy.ok || fxBuy.orderId === undefined) throw new Error("fx buy");
-    expect(ledger.balanceOf(buyer.ownerId, ASSET_CREDIT)).toBe(1_000_000n - 4_000n);
+    expect(ledger.balanceOf(buyer.ownerId, hub)).toBe(1_000_000n - 4_000n);
     expect(source.views.exchange(buyer.userId, clock).open?.map((order) => order.id)).toEqual([
       String(fxBuy.orderId),
     ]);
@@ -228,7 +247,7 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
     });
     if (!fxCancel.ok || fxCancel.orderId === undefined) throw new Error("fx cancel");
     expect(await source.service.fxCancel(buyer.userId, fxCancel.orderId)).toEqual({ ok: true });
-    expect(ledger.balanceOf(buyer.ownerId, ASSET_CREDIT)).toBe(1_000_000n - 4_000n);
+    expect(ledger.balanceOf(buyer.ownerId, hub)).toBe(1_000_000n - 4_000n);
     for (let step = 0; step < 12; step += 1) {
       clock += 5 * 60_000;
       await npc.tick();
@@ -426,6 +445,58 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
     expect(pair?.market.lastPrice).toBeDefined();
     expect(reloaded.fx.check()).toEqual([]);
     expect(await count(`select id from ledger_transactions where idempotency_key like 'npc_mint:%'`)).toBe(3);
+    expect(await again.checkInvariants()).toEqual([]);
+  });
+
+  it("도시 화폐(docs/adr/2026-11-24-city-money.md): 고르면 그 도시 거래소가 새 화폐로 돌고 걸린 주문을 돌려주며, 다시 켜도 그 화폐다", async () => {
+    const world = await boot();
+    const npc = world.npc;
+    const econ = npc?.economy;
+    if (!npc || !econ || !world.persistence) throw new Error("city economy");
+    for (let step = 0; step < 24; step += 1) {
+      clock += 5 * 60_000;
+      await npc.tick();
+    }
+    const hub = econ.economy.base;
+    const cityId =
+      [...npc.world.cities.keys()]
+        .toSorted((a, b) => a - b)
+        .find(
+          (id) => econ.cityMoney.of(id) !== hub && [...econ.registry.books()].some((b) => b.cityId === id),
+        ) ?? 0;
+    const owner = npc.world.cities.get(cityId)?.owner ?? 0;
+    const own = econ.cityMoney.of(cityId);
+    expect(own).toBe(econ.economy.currencyOf.get(owner));
+    const booksOf = (e: typeof econ) => [...e.registry.books()].filter((book) => book.cityId === cityId);
+    expect(booksOf(econ).length).toBeGreaterThan(0);
+
+    // 정책이 하는 일 그대로: 저장(고른 주인과 함께) + 메모리·거래소
+    await test.db.$client.query(
+      "update world_cities set currency = $2, currency_owner_id = $3 where id = $1",
+      [cityId, hub, owner],
+    );
+    econ.setCityMoney(cityId, hub, clock);
+    expect(econ.cityMoney.of(cityId)).toBe(hub);
+    expect(econ.cityMoney.chosenOf(cityId)).toBe(hub);
+    expect(booksOf(econ).every((book) => book.market.config.currency === hub)).toBe(true);
+    // 옛 화폐로 걸린 주문은 돌려주었다
+    expect(booksOf(econ).flatMap((book) => book.market.orders())).toEqual([]);
+    expect(econ.registry.check()).toEqual([]);
+    await world.persistence.writer.durable();
+    expect(await world.checkInvariants()).toEqual([]);
+
+    await world.stop();
+    worlds.splice(worlds.indexOf(world), 1);
+    const again = await boot();
+    const reloaded = again.npc?.economy;
+    if (!reloaded) throw new Error("city economy");
+    expect(reloaded.cityMoney.of(cityId)).toBe(hub);
+    expect(booksOf(reloaded).every((book) => book.market.config.currency === hub)).toBe(true);
+    expect(reloaded.registry.check()).toEqual([]);
+    // 되돌리면 주인 나라 화폐
+    reloaded.setCityMoney(cityId, null, clock);
+    expect(reloaded.cityMoney.of(cityId)).toBe(own);
+    expect(booksOf(reloaded).every((book) => book.market.config.currency === own)).toBe(true);
     expect(await again.checkInvariants()).toEqual([]);
   });
 

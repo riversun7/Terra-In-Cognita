@@ -22,7 +22,7 @@ import {
 } from "@terra/sim";
 import { houseVaultCode } from "../factionIdentity/houseVault.ts";
 import { npcHouseVaultCode } from "../npc/rulingVault.ts";
-import { ASSET_CREDIT } from "../world/settlement.ts";
+import { moneyOf } from "../world/money.ts";
 import type { World } from "../world/world.ts";
 import { type GovernancePortCoupBattle, worldGovernancePortCoupBattle } from "./coupWorldBattle.ts";
 import { confiscateSharesToHouse, houseTailOf } from "./houseShares.ts";
@@ -165,8 +165,8 @@ export function worldGovernancePortCoup(
     payCoupCost(nation, key, amount, nowMs) {
       const l = live();
       if (!l || amount <= 0n) return 0n;
-      const asset = l.npc.economy?.economy.currencyOf.get(nation.ownerId) ?? ASSET_CREDIT;
       const ledger = l.persistence.ledger;
+      const asset = l.npc.economy?.economy.currencyOf.get(nation.ownerId) ?? moneyOf(ledger, nation.ownerId);
       const id = Number(key.slice(2));
       const code = key.startsWith("n:") ? npcHouseVaultCode(id, asset) : houseVaultCode(id, asset);
       const vault = ledger.systemAccount(code, asset);

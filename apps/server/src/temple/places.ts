@@ -7,7 +7,7 @@ import type { Ledger } from "../economy/ledger.ts";
 import { buildingPlace, cityAt } from "../facilities/places.ts";
 import type { WorldFacilities } from "../facilities/world.ts";
 import type { SecondMap } from "../world/secondMap.ts";
-import { ASSET_CREDIT, SYSTEM_SINK_CREDIT } from "../world/settlement.ts";
+import { moneyOf, moneySink } from "../world/money.ts";
 
 /** 신앙 시설 단계(팩 FACILITY_STAGES) — 기도·헌금·환생·신격화 */
 export const RELIGION_STAGE = "religion";
@@ -69,13 +69,14 @@ export function payServiceFee(
   kind: string,
 ): void {
   if (amount <= 0n) return;
-  const from = ledger.ownerAccount(payer, ASSET_CREDIT);
+  const asset = moneyOf(ledger, payer); // 내는 주체의 돈(소속 국가 화폐)
+  const from = ledger.ownerAccount(payer, asset);
   if (
     facility.ownerId !== null &&
     world?.business.receive({
       from,
       buildingId: facility.buildingId,
-      asset: ASSET_CREDIT,
+      asset,
       amount,
       kind,
       atMs,
@@ -87,7 +88,7 @@ export function payServiceFee(
     atMs,
     entries: [
       { account: from, amount: -amount },
-      { account: ledger.systemAccount(SYSTEM_SINK_CREDIT, ASSET_CREDIT), amount },
+      { account: moneySink(ledger, asset), amount },
     ],
   });
 }

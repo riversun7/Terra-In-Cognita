@@ -5,11 +5,13 @@ import type { PlaceWorld } from "../facilities/places.ts";
 import type { FacilityRecord } from "../facilities/state.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { createTestMap, flatTerrain } from "../world/testSupport.ts";
+import { NO_NATION_MONEY } from "../world/money.ts";
 import { UNIT_KIND_BOAT } from "../world/unitKinds.ts";
 import { createBoatService } from "./service.ts";
 
 export const START = 1_798_000_000_000;
-export const CREDIT = "s3_test_credit";
+/** 시험 항구의 돈(나라 없는 세계의 돈) */
+export const CREDIT = NO_NATION_MONEY;
 /** 지형 칸 x ≥ 64(배치 칸 x ≥ 128)가 바다인 2차맵 */
 export function coastTerrain() {
   const terrain = flatTerrain();

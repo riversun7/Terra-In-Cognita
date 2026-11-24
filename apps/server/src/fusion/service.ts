@@ -1,7 +1,7 @@
 // 사이보그 유닛 융합·유전자 서비스(서버) — 기획 D-470·D-478·D-481·D-516, 49 N46·N47, docs/adr/2026-11-07-cyborg-fusion-genes.md.
 // 규칙(섞기·보너스, 유전자 합성·인큐베이터)은 @terra/sim society/fusion.ts·genes.ts 한 벌이다. 여기는 소유·종류·잔고 확인, 저장, 화면 자료.
 // - 융합(옛 craftCyborg): 내가 고용한 휴먼(유닛 종류 4) + 기계 부품(부품 쪽 스탯 = 설정 칸 n46_parts_stat — 서버에 안드로이드 유닛이
-//   아직 없다, 370 가: 안드로이드 유닛이 생기면 단추 하나 더함) + 화폐(시험 화폐 [임시]) + 재료(티타늄 괴·마이크로칩, 장부 물자). 같은 유닛이
+//   아직 없다, 370 가: 안드로이드 유닛이 생기면 단추 하나 더함) + 화폐(주체의 돈 = 소속 국가 화폐) + 재료(티타늄 괴·마이크로칩, 장부 물자). 같은 유닛이
 //   사이보그 유닛(종류 5)이 된다: 화물·지닌 물건·생명 수치·노동 계약이 따라온다. 휴먼 행(수명)은 지우고 사이보그 유닛 행을 넣는다. 휴먼
 //   지갑은 서버에 아직 없어 상속할 것이 없다(D-470 "지갑은 상속처럼" — 휴먼 지갑이 생기면 이 자리에서 @terra/sim inherit를 부른다).
 // - 유전자(D-516): 수명·합성·주입·인큐베이터·개발 시험은 geneCommands.ts. 유전자 하나하나는 보유 물건 인스턴스(item_holdings.gene)다.
@@ -36,12 +36,8 @@ import type { HoldingService } from "../holdings/service.ts";
 import type { QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
-import {
-  ASSET_CREDIT,
-  SYSTEM_ISSUE_CREDIT,
-  SYSTEM_SINK_CREDIT,
-  type Settlement,
-} from "../world/settlement.ts";
+import { moneyIssue, moneyOf, moneySink } from "../world/money.ts";
+import type { Settlement } from "../world/settlement.ts";
 import { UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN, isGuardianUnit } from "../world/unitKinds.ts";
 import type { CyborgService } from "../cyborg/service.ts";
 import type { WorldFacilities } from "../facilities/world.ts";
@@ -116,7 +112,7 @@ export interface FusionServiceOptions {
   /** 사이보그(신전 기도·헌금이 본체 신앙도를 올린다) */
   readonly cyborgs?: CyborgService | undefined;
   /**
-   * 개발 시험 화폐 받기가 기준 통화와 함께 주는 화폐(그 유저 나라의 화폐 — 폐허 모금 화폐, 질문 546). 없거나 기준 통화와 같으면 기준 통화만
+   * 개발 화폐 받기가 그 유저의 돈(소속 국가 화폐)과 함께 주는 화폐(폐허 모금 화폐, 질문 546). 없거나 그 유저의 돈과 같으면 그 돈만
    */
   readonly devExtraCurrency?: ((userId: string) => string | undefined) | undefined;
   /** 인큐베이터 휴먼을 만든 사람의 가문에 적는다(질문 1847 답, geneCommands.ts) */
@@ -238,7 +234,7 @@ export function createFusionService(o: FusionServiceOptions): FusionService {
             });
       const base = {
         hasCyborg: o.hasCyborg(viewer.id),
-        balance: String(balanceOf(ASSET_CREDIT)),
+        balance: String(balanceOf(moneyOf(ledger, ownerId))),
         rules: {
           currency: String(Math.max(0, c.currency)),
           materials,
@@ -333,7 +329,8 @@ export function createFusionService(o: FusionServiceOptions): FusionService {
       const cost = BigInt(Math.max(0, c.currency));
       if (String(cost) !== input.cost) return fail("cost_changed");
       const { ownerId, map } = checked;
-      if (ledger.balanceOf(ownerId, ASSET_CREDIT) < cost) return fail("insufficient_funds");
+      const money = moneyOf(ledger, ownerId);
+      if (ledger.balanceOf(ownerId, money) < cost) return fail("insufficient_funds");
       const materials = materialsOf(o.content().items, c);
       for (const material of materials)
         if (ledger.balanceOf(ownerId, goodsAsset(material.item)) < BigInt(material.qty))
@@ -349,8 +346,8 @@ export function createFusionService(o: FusionServiceOptions): FusionService {
           kind: "fusion",
           atMs: at,
           entries: [
-            { account: ledger.ownerAccount(ownerId, ASSET_CREDIT), amount: -cost },
-            { account: ledger.systemAccount(SYSTEM_SINK_CREDIT, ASSET_CREDIT), amount: cost },
+            { account: ledger.ownerAccount(ownerId, money), amount: -cost },
+            { account: moneySink(ledger, money), amount: cost },
           ],
         });
       for (const material of materials)
@@ -377,16 +374,17 @@ export function createFusionService(o: FusionServiceOptions): FusionService {
       const owner = o.settlement.ownerOfUser(userId, at);
       const quantity = BigInt(input.quantity);
       if (input.item === DEV_GRANT_CURRENCY) {
+        const money = moneyOf(ledger, owner.id);
         ledger.post({
           kind: "dev_grant",
           atMs: at,
           entries: [
-            { account: ledger.systemAccount(SYSTEM_ISSUE_CREDIT, ASSET_CREDIT), amount: -quantity },
-            { account: ledger.ownerAccount(owner.id, ASSET_CREDIT), amount: quantity },
+            { account: moneyIssue(ledger, money), amount: -quantity },
+            { account: ledger.ownerAccount(owner.id, money), amount: quantity },
           ],
         });
         const extra = o.devExtraCurrency?.(userId);
-        if (extra !== undefined && extra !== ASSET_CREDIT)
+        if (extra !== undefined && extra !== money)
           ledger.post({
             kind: "dev_grant",
             atMs: at,

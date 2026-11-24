@@ -273,9 +273,10 @@ export function StateChip({ tone, label }: { tone: "good" | "warn" | "bad" | "pl
 }
 
 /** 이름·값 한 쌍(dl 안에 둔다) */
-export function Fact({ label, children }: { label: string; children: ReactNode }) {
+/** wide = 표 한 줄을 다 쓴다(잔고 묶음처럼 긴 값) */
+export function Fact({ label, children, wide }: { label: string; children: ReactNode; wide?: boolean }) {
   return (
-    <div className="fact">
+    <div className={wide ? "fact fact-wide" : "fact"}>
       <dt className="fact-label">{label}</dt>
       <dd className="fact-value">{children}</dd>
     </div>

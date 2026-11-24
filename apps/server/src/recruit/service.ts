@@ -4,9 +4,9 @@
 //   (어느 도시에서 고용할 수 있는지·행정 건물 화면은 UX가 정해지지 않았다).
 // - 카드 묶음 = @terra/sim recruitCards(세계 시드 = NPC 사회 시드, 도시, 고용 주체 = 내 소유 주체, 창). NPC 세력과 같은 함수·같은 규칙이고
 //   고용 주체마다 묶음이 따로다. 산 칸은 recruit_draws(고용 주체 × 도시, 창이 지나면 0 — 쌓이지 않음).
-// - 고용 = 한 번의 동기 처리: 값 소각(원장 recruit: 내 시험 화폐 → sink, 옛 코드는 지갑에서 빼기만 했다) → 도시 둘레에 휴먼 유닛
+// - 고용 = 한 번의 동기 처리: 값 소각(원장 recruit: 내 돈(소속 국가 화폐) → 그 화폐 sink, 옛 코드는 지갑에서 빼기만 했다) → 도시 둘레에 휴먼 유닛
 //   (종류 4)을 세움 → 휴먼 행(레벨 1·카드 스탯·속성, 고용한 때부터 수명) → 산 칸. 커밋 뒤 답한다.
-// - [임시] 도시 화폐 = 시험 화폐(서버에 세력 화폐가 아직 없다, 정착 지원금·유지비와 같은 자산).
+// - 값 = 사는 주체의 돈(소속 국가 화폐, world/money.ts — 정착 지원금·유지비와 같은 자산).
 // - 아직 안 하는 것: 유저 휴먼의 수명·만족도·상속(NPC 사회 런타임은 시험 봇 휴먼만 돌린다), 직무 배치(노동 계약 줄기).
 // - 가문(기획 D-565): 유닛을 새로 고용하려면 가문이 있어야 한다(만들었거나 든 가문). 없으면 no_house(카드는 보이되 살 수 없다 — 조회 hasHouse).
 //   이미 가문 없이 고용한 유닛은 무소속으로 그대로 남는다(지우거나 막지 않는다). 가문 도시 구인(factionIdentity/houseRecruit.ts)은 가문장만이라
@@ -35,7 +35,8 @@ import type { RecruitReadServices } from "../trpc/context.ts";
 import type { RecruitDrawRow } from "../npc/state.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
-import { ASSET_CREDIT, SYSTEM_SINK_CREDIT, type Settlement } from "../world/settlement.ts";
+import { moneyBalance, moneyOf, moneySink } from "../world/money.ts";
+import type { Settlement } from "../world/settlement.ts";
 import { UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
 
 /** 고용한 휴먼을 세울 빈 칸을 찾는 반지름(칸) */
@@ -140,7 +141,7 @@ export function createRecruitService(o: RecruitServiceOptions): RecruitService {
         window,
         endsAtMs: recruitWindowEndMs(window, rules),
         refreshMs: rules.refreshMs,
-        balance: String(ownerId === undefined ? 0n : o.ledger.balanceOf(ownerId, ASSET_CREDIT)),
+        balance: String(moneyBalance(o.ledger, ownerId)),
         hasCyborg: record !== undefined,
         hasHouse: o.hasHouse?.(viewer.id) ?? true,
         generatedAt: nowMs,
@@ -200,7 +201,8 @@ export function createRecruitService(o: RecruitServiceOptions): RecruitService {
       const key = `${owner.id}:${city.id}`;
       const next = takeRecruitSlot(draws.get(key), window, input.slot, cards.length);
       if (!next) return fail("taken");
-      if (o.ledger.balanceOf(owner.id, ASSET_CREDIT) < card.cost) return fail("insufficient_funds");
+      const money = moneyOf(o.ledger, owner.id);
+      if (o.ledger.balanceOf(owner.id, money) < card.cost) return fail("insufficient_funds");
       // 여기부터 한 번의 동기 처리: 유닛 → 값 소각 → 휴먼 행 → 산 칸(같은 커밋)
       const unitId = o.nextUnitId();
       let placed = false;
@@ -226,8 +228,8 @@ export function createRecruitService(o: RecruitServiceOptions): RecruitService {
           kind: "recruit",
           atMs: at,
           entries: [
-            { account: o.ledger.ownerAccount(owner.id, ASSET_CREDIT), amount: -card.cost },
-            { account: o.ledger.systemAccount(SYSTEM_SINK_CREDIT, ASSET_CREDIT), amount: card.cost },
+            { account: o.ledger.ownerAccount(owner.id, money), amount: -card.cost },
+            { account: moneySink(o.ledger, money), amount: card.cost },
           ],
         });
       // 수명 굴림은 시뮬 구인과 같은 흐름(세계 시드 × 유닛 ID)

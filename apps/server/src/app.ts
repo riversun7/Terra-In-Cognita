@@ -102,7 +102,7 @@ import {
   createBattleReplayServices,
 } from "./battleReplay/services.ts";
 import { createTerrainService } from "./world/terrainService.ts";
-import { TEST_MAP_KEY, TEST_PLANET_ID, startWorld, testMapKey } from "./world/world.ts";
+import { TEST_MAP_KEY, TEST_PLANET_ID, type World, startWorld, testMapKey } from "./world/world.ts";
 import { primaryPlanetId } from "./world/playablePlanets.ts";
 import { planetGaugesOf } from "./ops/planetReads.ts";
 import { placementSourceOf } from "./world/placementService.ts";
@@ -111,7 +111,7 @@ import { nationName } from "./npc/nations.ts";
 import type { AppOptions } from "./appOptions.ts";
 import { createRankingRuntime, createRankingServices } from "./ranking/services.ts";
 import { rankingWorldHooks } from "./ranking/worthSource.ts";
-import { ASSET_CREDIT } from "./world/settlement.ts";
+import { NO_NATION_MONEY, moneyOf } from "./world/money.ts";
 import { beaconFacilityView } from "./territory/facility.ts";
 import { createTerritoryGateway } from "./territory/gateway.ts";
 import type { TerritoryService } from "./territory/service.ts";
@@ -121,6 +121,11 @@ export const SOCKET_VIEWER_TTL_MS = 15_000;
 
 /** 로그인하지 않은 사용자(인증이 꺼져 있거나 믿을 수 없는 연결) */
 const signedOut = (): Promise<Viewer | null> => Promise.resolve(null);
+/** 기축 통화(첫 고정 나라 화폐). 세계가 준비되지 않았거나 나라가 없으면 나라 없는 세계의 돈 */
+const hubMoney = (world: World): string => {
+  const ledger = world.persistence?.ledger;
+  return ledger ? moneyOf(ledger, undefined) : NO_NATION_MONEY;
+};
 
 /**
  * 빌드 파일 중 이름에 내용 해시가 있는 것(/assets/: JS·CSS·글꼴)의 캐시. 한 번 받으면 다시 묻지 않는다.
@@ -521,9 +526,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       pool: rankingPool,
       paths: rankingPaths,
       coefficients: rankingCoefficients ?? (() => TEST_RANKING_COEFFICIENTS),
-      creditAsset: ASSET_CREDIT,
+      creditAsset: () => hubMoney(world),
       now,
-      ...rankingWorldHooks(world, ASSET_CREDIT, now), // 준비·쓰기 대기열·전투력·자산 출처(house-9 D-576)
+      ...rankingWorldHooks(world, NO_NATION_MONEY, now), // 준비·쓰기 대기열·전투력·자산 출처(house-9 D-576)
       log: app.log,
     });
     // 월드 부팅 복구(앞 onReady 훅) 뒤에 일정을 건다. 집계는 준비를 막지 않는다(뒤에서 돈다)
@@ -710,6 +715,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
                   () => marketSource()?.views,
                   // 경제 화면 도시 이름 = 1차맵 도시 안개와 같은 아는 도시(기획 답 621 나)
                   async (viewer) => worldMapService?.()?.knownCityIds(viewer),
+                  worldMapService,
                 )
               : undefined,
           })

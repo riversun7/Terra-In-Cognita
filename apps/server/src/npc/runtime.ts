@@ -64,7 +64,8 @@ import type { Ledger } from "../economy/ledger.ts";
 import type { OwnerRow, QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
-import { ASSET_CREDIT, NPC_START_CREDIT, SYSTEM_ISSUE_CREDIT } from "../world/settlement.ts";
+import { NO_NATION_MONEY, moneyIssue, moneyOf } from "../world/money.ts";
+import { NPC_START_CREDIT } from "../world/settlement.ts";
 import { UNIT_KIND_BOT } from "../world/unitKinds.ts";
 import { createNpcCapitals } from "./capitals.ts";
 import { createCatchmentStore, loadCatchment } from "./catchmentStore.ts";
@@ -608,24 +609,28 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     const n = perCity.get(city.id) ?? 0;
     if (n + 2 > city.housing) city.housing = Math.floor((n * 13) / 10) + 2;
   }
-  // 고정 국가는 처음에 시험 화폐를 받는다(시험 NPC 세력과 같다, 봇 유지비·짓는 값)
-  for (const faction of factions.values()) {
-    if (!faction.fixed) continue;
-    if ([...ledger.accounts()].some((a) => a.ownerId === faction.id && a.asset === ASSET_CREDIT)) continue;
-    // 처음 국고 = 고정 국가 처음 화폐 × 국력 등급 천분율(등급이 없으면 1000‰ — 옛 값 그대로)
-    const credit =
-      (NPC_START_CREDIT *
-        BigInt(nationStartOf(c.worldSeed, presetOfCode(faction.code, seedPresets)).creditPm)) /
-      1000n;
-    ledger.post({
-      kind: "issue",
-      atMs: startMs,
-      entries: [
-        { account: ledger.systemAccount(SYSTEM_ISSUE_CREDIT, ASSET_CREDIT), amount: -credit },
-        { account: ledger.ownerAccount(faction.id, ASSET_CREDIT), amount: credit },
-      ],
-    });
-  }
+  // 고정 국가의 처음 국고 = 고정 국가 처음 화폐 × 국력 등급 천분율(등급이 없으면 1000‰). 도시 경제가 돌면 그 나라 화폐로 경제 런타임이
+  // 낸다(npc/currency.ts issueStartTreasuries — docs/adr/2026-11-23-nation-money.md). 도시 경제가 없는 세계(나라 화폐 없음)만 여기서 낸다
+  const startCreditOfFaction = (faction: { readonly code: string }): bigint =>
+    (NPC_START_CREDIT *
+      BigInt(nationStartOf(c.worldSeed, presetOfCode(faction.code, seedPresets)).creditPm)) /
+    1000n;
+  const issueNoNationTreasuries = (): void => {
+    for (const faction of factions.values()) {
+      if (!faction.fixed) continue;
+      if ([...ledger.accounts()].some((a) => a.ownerId === faction.id && a.asset === NO_NATION_MONEY))
+        continue;
+      const credit = startCreditOfFaction(faction);
+      ledger.post({
+        kind: "issue",
+        atMs: startMs,
+        entries: [
+          { account: moneyIssue(ledger, NO_NATION_MONEY), amount: -credit },
+          { account: ledger.ownerAccount(faction.id, NO_NATION_MONEY), amount: credit },
+        ],
+      });
+    }
+  };
   await persist.refillSpares(SPARE_FACTIONS);
   let metrics = zeroMetrics();
   // 기록기는 "N일째"를 시작 시각 + N × 24시간으로 센다 → 이어 돈 날 수와 UTC 0시 하루 끝에 맞춘 시작 시각을 준다
@@ -699,6 +704,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         startMs,
         now: o.now,
         log,
+        startCredit: startCreditOfFaction,
         goodsHome: ruinedGoodsHomeOf(world, persist.places, o.ruins?.nationOf),
         // 배후지 채집 다툼(npc/catchmentGeometry.ts): 도시 2차맵
         cityMapOf: (cityId) => persist.places.get(cityId)?.mapKey,
@@ -716,6 +722,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         hasCity: (cityId) => world.cities.has(cityId),
       })
     : undefined;
+  if (!econ) issueNoNationTreasuries();
   econRef.current = econ;
   // 사회·판단 고리 = 경제 고리(태어날 때 부모는 규칙이 세력 칸 bornOf에 적는다 — 기획 답 620 나)
   // + NPC 지배 가문 금고(2223 고침·house-9·10, rulingVault.ts — 남은 이익 → 지배 가문 금고 → 국고·가문장 지갑·배당·수도 사업장 투자)
@@ -774,7 +781,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       // 공성 결과(D-520): 약탈·점령 상태 = 대상 국고 화폐, 점령·귀속(재건 비용) = 점령자 국고 화폐
       onWarOutcome: (event) => {
         const payer = event.outcome === "integrate" ? event.attacker : event.target;
-        warPersist.record(event, econ?.hooks.treasuryAsset(payer) ?? ASSET_CREDIT);
+        warPersist.record(event, econ?.hooks.treasuryAsset(payer) ?? NO_NATION_MONEY);
       },
       // 남은 상태가 끝난 까닭(D-527): 재건·저절로 회복·몰아냄 등
       onWarStateEnd: (entry, reason, nowMs) => warPersist.ended(entry, reason, nowMs),
@@ -805,7 +812,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     catalog: o.combatCatalog ?? (() => TEST_COMBAT_CATALOG),
     cellOf: (cityId) => persist.places.get(cityId)?.mapKey,
     ownerOfRow: (rowId) => ownerOfRow.get(rowId),
-    treasuryOf: (ownerId) => ledger.balanceOf(ownerId, ASSET_CREDIT),
+    treasuryOf: (ownerId) => ledger.balanceOf(ownerId, moneyOf(ledger, ownerId)),
     timeScale: dayMs / DAY_MS,
     startBattle: o.startBattle,
     hasGuardians: o.ruins?.hasGuardians,
@@ -859,8 +866,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         cities: faction.cities.size,
         population: faction.units.size,
         tech: faction.tech,
-        // 국고 = 그 나라 화폐(시뮬 run.ts와 같은 칸, 도시 경제가 없으면 시험 화폐)
-        treasury: ledger.balanceOf(faction.id, econ?.hooks.treasuryAsset(faction) ?? ASSET_CREDIT),
+        // 국고 = 그 나라 화폐(시뮬 run.ts와 같은 칸, 도시 경제가 없으면 나라 없는 세계의 돈)
+        treasury: ledger.balanceOf(faction.id, econ?.hooks.treasuryAsset(faction) ?? NO_NATION_MONEY),
         ...society.dayFields(faction),
       });
     }

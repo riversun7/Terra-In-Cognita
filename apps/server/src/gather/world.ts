@@ -24,7 +24,6 @@ import { floorQuoteOf } from "../residence/floorQuote.ts";
 import { npcFloorWorldOf, npcRentWorldOf } from "../residence/npcRentWorld.ts";
 import { loadResidenceRents } from "../residence/rent.ts";
 import { loadResidences } from "../residence/store.ts";
-import { ASSET_CREDIT } from "../world/settlement.ts";
 import type { ResidenceService } from "../residence/service.ts";
 
 /** 조회가 쓰는 채집 세계 */
@@ -258,8 +257,8 @@ export function startWorldGather(
         workerRest,
         // 사는 곳 정원 = 층 × 설정 칸, 층 올리기·집세 기간(질문 2481 가·D-591 — 줄기 governance-6·residence-3)
         rules: () => rules().business,
-        // 집세·미리 내는 숙박비 화폐 = 숙박비와 같은 서버 시험 화폐 [임시](labor/workerRest.ts)
-        feeAsset: ASSET_CREDIT,
+        // 집세·미리 내는 숙박비 화폐 = 그 건물의 돈(숙박비와 같다 — labor/workerRest.ts, facilities/buildingMoney.ts)
+        feeAssetOf: (buildingId) => facilities.money(buildingId),
         floorQuote: (buildingId, ownerId) =>
           floorQuoteOf(
             { places, ledger: parts.ledger, rules, jobs: () => facilities.service.jobs },
@@ -271,7 +270,7 @@ export function startWorldGather(
         // NPC 휴먼 세 들기(npc-rent, 질문 2674 — D-555 1509): NPC 런타임이 켜진 뒤 읽는다(같은 런타임이면 같은 몫)
         npc: () => {
           if (world.npc !== npcRent.runtime)
-            npcRent = { runtime: world.npc, world: npcRentWorldOf(world.npc, rules, ASSET_CREDIT) };
+            npcRent = { runtime: world.npc, world: npcRentWorldOf(world.npc, rules) };
           return npcRent.world;
         },
         // NPC 층 올리기(fixes-1117k 2762 — D-555 1509): 같은 층 공사 길(건물 서비스 npcJob kind floor)

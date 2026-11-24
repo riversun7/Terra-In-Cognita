@@ -58,13 +58,9 @@ import type { TerrainService } from "./terrainService.ts";
 import { createMapFactory, exploredStoreOf } from "./mapFactory.ts";
 import { type MapSpawner, attachMapSpawn, bootExtraMaps, sameLevelAs, viewPartsOf } from "./mapSpawnWorld.ts";
 import { openForView } from "./viewOpen.ts";
-import {
-  ASSET_CREDIT,
-  NPC_START_CREDIT,
-  SYSTEM_ISSUE_CREDIT,
-  type Settlement,
-  createSettlement,
-} from "./settlement.ts";
+import { NO_NATION_MONEY, moneyIssue, setMoneyResolver } from "./money.ts";
+import { nationOfOwner } from "./nationVision.ts";
+import { NPC_START_CREDIT, type Settlement, createSettlement } from "./settlement.ts";
 import { emptyWorldStats, resetWorldStats, summarizeWorldStats } from "./worldStats.ts";
 import {
   type NationPreset,
@@ -451,6 +447,24 @@ export function startWorld(
       nextTxId: nextId.tx,
       accounts: loaded.accounts,
     });
+    // 주체의 돈 = 소속 국가 화폐(world/money.ts): 세력 주체는 경제 런타임의 그 세력 화폐, 사용자는 그 사람 나라의 화폐, 나라가 없으면 기축 통화.
+    // 경제 런타임이 뜨기 전·없는 세계는 나라 없는 세계의 돈
+    const nationOwners = new Map<number, number>(); // 세력 행 → 그 세력의 소유 주체(찾은 것만 기억)
+    setMoneyResolver(ledger, (ownerId) => {
+      const economy = npc?.economy?.economy;
+      if (!economy) return undefined;
+      const direct = economy.currencyOf.get(ownerId);
+      if (direct !== undefined) return direct;
+      const nationRow = nationOfOwner({ persistence }, ownerId);
+      if (nationRow === undefined) return economy.base;
+      let nationOwner = nationOwners.get(nationRow);
+      if (nationOwner === undefined) {
+        for (const owner of owners.values())
+          if (owner.factionId === nationRow && owner.userId === null) nationOwner = owner.id;
+        if (nationOwner !== undefined) nationOwners.set(nationRow, nationOwner);
+      }
+      return (nationOwner === undefined ? undefined : economy.currencyOf.get(nationOwner)) ?? economy.base;
+    });
     // 탐사 기록: 구독할 때 읽고, 시야 틱이 바뀐 것을 쓰기 대기열로 쓴다
     const explored = exploredStoreOf(db, writer, TEST_PLANET_ID, now);
     factory.attach({ persist, ids: nextId, botOwnerId: npcOwnerId, explored, db });
@@ -666,6 +680,7 @@ export function startWorld(
       ready: () => status.state === "ready",
       buildingWorks: (buildingId) => facilities.service.works(buildingId),
       unitInJob: (unitId) => facilities.service.unitInJob(unitId),
+      moneyAt: (buildingId) => facilities.money(buildingId), // 건물의 돈(facilities/buildingMoney.ts)
       ...laborWorldHooks(() => ({ temple: persistence?.fusion.temple, npc })), // 신전·NPC 성향(D-573 2045)
     });
     facilities.attachLabor(labor);
@@ -775,18 +790,20 @@ export function startWorld(
     // 도시 가진 가문의 시야 묶음(houseTies.ts, D-250): 부팅 때 읽고 1분마다 다시 읽는다(가문 명령 뒤에도 다시 읽는다)
     const ties = attachHouseTies(persistence, db);
     await ties.reload();
-    // [임시] 시험 NPC 세력은 처음에 시험 화폐를 받는다(봇 유지비를 낸다). NPC 사회 세계는 그 국가(1번)의 국력 등급 천분율만큼
+    // 시험 NPC 세력의 처음 국고(봇 유지비를 낸다). 도시 경제가 도는 세계는 NPC 사회 런타임이 그 나라 화폐로 낸다(npc/currency.ts
+    // issueStartTreasuries). 나라 화폐가 없는 세계(NPC 사회·도시 경제 없음)만 여기서 나라 없는 세계의 돈으로 낸다
     const npcSeed = config.npc ? (config.cyborgRules ?? defaultCyborgRules)().worldSeed : undefined;
     const testNpcCredit = startCreditOf(NPC_START_CREDIT, npcSeed, config.npc?.presets);
     if (
-      !loaded.accounts.some((account) => account.ownerId === npcOwnerId && account.asset === ASSET_CREDIT)
+      !(config.npc && config.economy) &&
+      !loaded.accounts.some((account) => account.ownerId === npcOwnerId && account.asset === NO_NATION_MONEY)
     ) {
       ledger.post({
         kind: "issue",
         atMs: now(),
         entries: [
-          { account: ledger.systemAccount(SYSTEM_ISSUE_CREDIT, ASSET_CREDIT), amount: -testNpcCredit },
-          { account: ledger.ownerAccount(npcOwnerId, ASSET_CREDIT), amount: testNpcCredit },
+          { account: moneyIssue(ledger, NO_NATION_MONEY), amount: -testNpcCredit },
+          { account: ledger.ownerAccount(npcOwnerId, NO_NATION_MONEY), amount: testNpcCredit },
         ],
       });
     }

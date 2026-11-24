@@ -17,7 +17,7 @@ import { writeAudit } from "../auth/store.ts";
 import type { Database } from "../db/client.ts";
 import type { NpcRuntime } from "../npc/runtime.ts";
 import { houseTiesOf } from "../world/houseTies.ts";
-import { ASSET_CREDIT, SYSTEM_SINK_CREDIT } from "../world/settlement.ts";
+import { moneyOf, moneySink } from "../world/money.ts";
 import type { World } from "../world/world.ts";
 import { claimCityIds, independenceOpen } from "./houseIndependence.ts";
 import { houseRecruitView } from "./houseRecruit.ts";
@@ -50,6 +50,8 @@ export interface HouseCityService {
   independence(userId: string, input: { regime: HouseRegime }): Promise<HouseCityResult>;
   /** 세력 화면 "내 가문" 칸의 도시 줄(가문장이면 마을 자리 제안·고를 폐허) */
   view(userId: string, house: { factionId: number; leader: boolean }): Promise<HouseCityView>;
+  /** 그 사람의 돈(소속 국가 화폐, world/money.ts) — 가문 금고 칸이 이 화폐 잔고를 보인다. 세계가 준비되지 않았으면 undefined */
+  moneyOf(userId: string): string | undefined;
 }
 
 type CityWorld = Pick<World, "status" | "persistence" | "npc" | "maps">;
@@ -207,7 +209,9 @@ export function createHouseCity(o: {
       // 잔고는 지금까지 정산한 뒤 본다(유지비가 먼저 빠진다)
       p.settlement.settleOwner(me, at);
       const cost = rules.villageCost;
-      if (p.ledger.balanceOf(me, ASSET_CREDIT) < cost) return fail("insufficient_funds");
+      // 세우는 값 = 세우는 사람의 돈(소속 국가 화폐, world/money.ts)
+      const asset = moneyOf(p.ledger, me);
+      if (p.ledger.balanceOf(me, asset) < cost) return fail("insufficient_funds");
       const owner = settle(npc, house, input, at);
       if (owner === undefined) return fail("busy");
       const planetId = [...npc.places.values()].find((place) => place.mapKey === input.mapKey)?.planetId;
@@ -222,8 +226,8 @@ export function createHouseCity(o: {
           kind: "house_village",
           atMs: at,
           entries: [
-            { account: p.ledger.ownerAccount(me, ASSET_CREDIT), amount: -cost },
-            { account: p.ledger.systemAccount(SYSTEM_SINK_CREDIT, ASSET_CREDIT), amount: cost },
+            { account: p.ledger.ownerAccount(me, asset), amount: -cost },
+            { account: moneySink(p.ledger, asset), amount: cost },
           ],
         });
       npc.houses.flush(owner, cityId);
@@ -303,6 +307,11 @@ export function createHouseCity(o: {
       return { ok: true, factionId: house.id, mode: "independent", cityId, paid: "0" };
     },
 
+    moneyOf(userId) {
+      const world = o.world();
+      const p = world?.status().state === "ready" ? world.persistence : undefined;
+      return p ? moneyOf(p.ledger, p.settlement.findOwnerOfUser(userId)) : undefined;
+    },
     async view(userId, input) {
       const rules = o.rules();
       const { rows } = await o.pool.query<{ parent_id: string | null; regime: string; owned: boolean }>(

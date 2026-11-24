@@ -21,7 +21,7 @@ import {
   normalizeEmblem,
 } from "@terra/shared/nationEmblem";
 import type { NationPreset } from "../npc/nations.ts";
-import { ASSET_CREDIT } from "../world/settlement.ts";
+import { NO_NATION_MONEY } from "../world/money.ts";
 import { entryTotal, houseEntryTermsOf } from "./houseEntry.ts";
 import { cityHome, cyborgCityOf, homeChoices, houseHasCity, houseHomeRow } from "./houseHome.ts";
 import { houseVaultCode } from "./houseVault.ts";
@@ -192,8 +192,11 @@ export async function readHouseView(
     rules: HouseRules;
     nowMs: number;
     presets?: readonly NationPreset[] | undefined;
+    /** 금고 칸이 보일 화폐 = 보는 사람의 돈(소속 국가 화폐, world/money.ts). 없으면 나라 없는 세계의 돈 */
+    vaultAsset?: string | undefined;
   },
 ): Promise<HouseView> {
+  const vaultAsset = input.vaultAsset ?? NO_NATION_MONEY;
   const notices = await noticesOf(q, input.userId);
   const limits = limitsOf(input.rules);
   const mine = await membershipOf(q, input.userId);
@@ -230,11 +233,11 @@ export async function readHouseView(
           )
         : { rows: [] };
     const bornOf = nation.rows[0]?.born_of;
-    // 가문 금고(houseVault.ts — 국고와 따로). 보기 값이라 DB 계정 줄을 읽는다(쓰기 대기열이 곧 맞춘다), 없으면 0
+    // 가문 금고(houseVault.ts — 국고와 따로, 보는 사람의 돈으로 된 금고). 보기 값이라 DB 계정 줄을 읽는다(쓰기 대기열이 곧 맞춘다), 없으면 0
     const [vault, policy, vaultLog, heir] = await Promise.all([
       q.query<{ balance: string }>(
         "select balance::text as balance from ledger_accounts where system_code = $1",
-        [houseVaultCode(mine.factionId, ASSET_CREDIT)],
+        [houseVaultCode(mine.factionId, vaultAsset)],
       ),
       // 가문세율(D-574 2150 — house_policies, 상한으로 자른 값)
       q.query<{ tax_pm: number }>("select tax_pm from house_policies where faction_id = $1", [
@@ -242,7 +245,7 @@ export async function readHouseView(
       ]),
       // 금고 장부(D-576 — 넣기·꺼내기 모두 가문원에게 공개, 보기 값: DB 원장 줄)
       q.query<{ at_ms: string; kind: string; amount: string; who: string | null }>(VAULT_LOG_SQL, [
-        houseVaultCode(mine.factionId, ASSET_CREDIT),
+        houseVaultCode(mine.factionId, vaultAsset),
         mine.factionId,
         HOUSE_VAULT_LOG_LIMIT,
       ]),

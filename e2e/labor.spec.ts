@@ -15,7 +15,7 @@ import { message } from "./helpers/messages.ts";
 import { elementShot, horizontalOverflow } from "./helpers/screen.ts";
 import { type Language, type Theme, deviceOptions, expect, test, watchDeviceErrors } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
-import { cyborgMapKey, ensureHuman, grantCredit, sendCommands } from "./helpers/wsCommands.ts";
+import { cyborgMapKey, ensureHuman, grantCredit, myMoneyAsset, sendCommands } from "./helpers/wsCommands.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
 
 /** 브라우저의 Intl 단위 글(앱 formatDuration과 같은 방법, helpers/messages.ts 머리 주석) */
@@ -27,11 +27,11 @@ function unitText(page: Page, value: number, unit: "day" | "hour", locale = "ko"
   );
 }
 
-/** 시험 건물 사업장 금고에 시험 화폐를 넣는다(business_invest — 주인 지갑 → 금고). 같은 ID 명령은 한 번만 하므로 부를 때마다 firstId를 바꾼다 */
+/** 시험 건물 사업장 금고에 내 돈(소속 국가 화폐)을 넣는다(business_invest — 주인 지갑 → 금고). 같은 ID 명령은 한 번만 하므로 부를 때마다 firstId를 바꾼다 */
 async function investVault(page: Page, buildingId: number, amount: number, firstId: number): Promise<void> {
   const [reply] = await sendCommands(
     page,
-    [{ t: "business_invest", buildingId, asset: "s3_test_credit", amount: String(amount) }],
+    [{ t: "business_invest", buildingId, asset: await myMoneyAsset(page), amount: String(amount) }],
     firstId,
   );
   expect(reply, JSON.stringify(reply)).toMatchObject({ t: "business_result", ok: true });

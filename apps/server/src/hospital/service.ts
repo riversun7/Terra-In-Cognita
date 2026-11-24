@@ -37,7 +37,8 @@ import { payServiceFee, serviceFacility, unitCity } from "../temple/places.ts";
 import type { QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
-import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
+import { moneyBalance, moneyOf } from "../world/money.ts";
+import type { Settlement } from "../world/settlement.ts";
 import { injure, injuryNowOf, injuryStateOf, withInjury } from "../world/unitCondition.ts";
 import { UNIT_KIND_CYBORG } from "../world/unitKinds.ts";
 
@@ -232,7 +233,7 @@ export function createHospitalService(o: HospitalServiceOptions): HospitalServic
       const c = o.rules();
       const ownerId = o.ready() ? settlement.findOwnerOfUser(viewer.id) : undefined;
       const sites = o.ready() ? await sitesOf(hospitalIds(), ownerId) : [];
-      const balance = ownerId === undefined ? 0n : ledger.balanceOf(ownerId, ASSET_CREDIT);
+      const balance = moneyBalance(ledger, ownerId);
       const units: InjuredUnitView[] = [];
       if (ownerId !== undefined)
         for (const map of o.maps.values())
@@ -274,7 +275,7 @@ export function createHospitalService(o: HospitalServiceOptions): HospitalServic
         status: o.ready() ? "ready" : "not_ready",
         devGrant: viewer.devGrant,
         generatedAt: nowMs,
-        currency: ASSET_CREDIT,
+        currency: moneyOf(ledger, ownerId),
         balance: String(balance),
         healMs: [...c.healMs],
         hospitals: sites.map((site) => site.view),
@@ -307,7 +308,7 @@ export function createHospitalService(o: HospitalServiceOptions): HospitalServic
       const quote = treatmentQuote(now, at, site.input, c);
       if (!quote) return fail("not_faster");
       if (String(quote.cost) !== input.cost) return fail("cost_changed");
-      if (ledger.balanceOf(owner.ownerId, ASSET_CREDIT) < quote.cost) return fail("insufficient_funds");
+      if (moneyBalance(ledger, owner.ownerId) < quote.cost) return fail("insufficient_funds");
       payServiceFee(
         o.facilities,
         ledger,

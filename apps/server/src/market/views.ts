@@ -22,7 +22,7 @@ import type { BookOrder } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import { bookLevels, candles, changeBp, recentTrades, tradeStats } from "../economyView/marketShape.ts";
 import type { NpcRuntime } from "../npc/runtime.ts";
-import { ASSET_CREDIT } from "../world/settlement.ts";
+import { moneyOf } from "../world/money.ts";
 import type { MarketBook, TradeRecord } from "./books.ts";
 import { type ExchangeDirectory, fxExchangeCurrencies } from "./exchangeBuildings.ts";
 import { exchangeHolding } from "./exchangeStock.ts";
@@ -104,11 +104,8 @@ export function createMarketViews(src: MarketViewSource): MarketViews {
   };
   const cityIds = (): number[] => [...runtime.world.cities.keys()].toSorted((a, b) => a - b);
   const exchanges = src.exchanges;
-  /** 도시 → 그 도시 주인 나라 화폐 */
-  const cityCurrency = (cityId: number): string | undefined => {
-    const owner = runtime.world.cities.get(cityId)?.owner;
-    return owner === undefined ? undefined : runtime.economy?.economy.currencyOf.get(owner);
-  };
+  /** 도시 → 도시 화폐(npc/cityMoney.ts) */
+  const cityCurrency = (cityId: number): string | undefined => runtime.economy?.cityMoney.of(cityId);
   const fxViews = createFxViews({
     runtime,
     ledger,
@@ -163,11 +160,10 @@ export function createMarketViews(src: MarketViewSource): MarketViews {
     const owner = runtime.world.cities.get(cityId)?.owner ?? 0;
     return econ().economy.taxOf.get(owner) ?? 0;
   };
-  /** 도시 거래소의 화폐(원장 자산): 만든 거래소면 그 설정, 아니면 도시 주인 나라 화폐 */
+  /** 도시 거래소의 화폐(원장 자산): 만든 거래소면 그 설정, 아니면 도시 화폐 */
   const currencyOf = (cityId: number, book?: MarketBook): string => {
     if (book) return book.market.config.currency;
-    const owner = runtime.world.cities.get(cityId)?.owner ?? 0;
-    return econ().economy.currencyOf.get(owner) ?? ASSET_CREDIT;
+    return econ().cityMoney.of(cityId) ?? econ().economy.base;
   };
 
   const orderView = (book: MarketBook, order: BookOrder): MyOrder => {
@@ -219,7 +215,7 @@ export function createMarketViews(src: MarketViewSource): MarketViews {
           cities: cities.length,
           volume: String(volume),
           last: last === undefined ? null : String(last),
-          currency: currencyCode(home === undefined ? ASSET_CREDIT : currencyOf(home, homeBook)),
+          currency: currencyCode(home === undefined ? moneyOf(ledger, me) : currencyOf(home, homeBook)),
           changeBp: changeBp(stats?.last, stats?.first),
           spark: homeBook
             ? candles(homeBook.trades, end - DAY, end, HOUR_MS).map((candle) => candle.close)

@@ -95,8 +95,8 @@ export interface RentPayer {
   periodMs(): number;
   /** 그 유닛이 이 집에서 한 기간 낼 값(own = 0n). 셀 수 없으면 undefined(걷지 않는다) */
   priceOf(unitId: number, buildingId: number, kind: ResidencePay): bigint | undefined;
-  /** 유닛 지갑 잔고 */
-  purseBalance(ownerId: number, unitId: number): bigint;
+  /** 유닛 지갑 잔고(그 건물의 돈으로 — 건물을 주지 않으면 유닛 주인의 돈) */
+  purseBalance(ownerId: number, unitId: number, buildingId?: number): bigint;
   /** 유닛 지갑 → 그 건물 금고(소득세 포함). 걷었으면 true */
   pay(input: {
     readonly ownerId: number;
@@ -137,7 +137,7 @@ export function chargeResidence(
   if (amount === undefined || amount < 0n) return { ok: false, code: "not_eligible" };
   const paidUntilMs = input.atMs + Math.max(1, Math.trunc(payer.periodMs()));
   if (amount === 0n) return { ok: true, paidUntilMs, amount };
-  if (payer.purseBalance(input.ownerId, input.unitId) < amount)
+  if (payer.purseBalance(input.ownerId, input.unitId, input.buildingId) < amount)
     return { ok: false, code: "insufficient_funds" };
   if (!payer.pay({ ...input, amount })) return { ok: false, code: "not_eligible" };
   return { ok: true, paidUntilMs, amount };

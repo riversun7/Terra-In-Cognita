@@ -6,7 +6,7 @@
 // - 정부에 직접 가야 한다: 내 사이보그 본체가 그 도시(그 칸의 도시 = 행정 건물의 도시)에 서 있어야 한다(병원·신전과 같은 셈, [임시] 질문 791).
 // - 값(D-526): 받는 나라의 귀화 조건(나라가 정한 값, 없으면 설정 칸 citizenship_fee — NPC 국가는 기본값) 하나. + 입회비 = 옮겨 오는 사람 → 받는
 //   나라 국고, − 지원금 = 받는 나라 국고 → 옮겨 오는 사람(국고가 모자라면 있는 만큼 — 새 화폐를 만들지 않는다, [임시] 질문 845). 옛 나라에는
-//   돌려주지 않는다. 시험 화폐(정착 지원금과 같은 자산). 입회비가 잔고보다 크면 insufficient_funds(일부만 내지 않는다).
+//   돌려주지 않는다. 입회비 = 옮겨 오는 사람의 돈(옛 나라 화폐), 지원금 = 받는 나라 국고의 돈(world/money.ts — 내는 쪽 화폐). 입회비가 잔고보다 크면 insufficient_funds(일부만 내지 않는다).
 // - 우호도(D-526): 떠난 사람과 옛 나라 사이 우호도가 설정 칸 citizenship_standing_drop만큼, 받는 나라가 옛 나라와 전쟁 중(적대 세력)이면
 //   citizenship_standing_drop_hostile만큼 떨어진다(−100~100 눈금, 표 user_nation_standings).
 // - 쉬는 날: 마지막으로 바꾼 뒤 설정 칸 citizenship_rest_ms 동안 다시 바꿀 수 없다(첫 접속 고르기는 세지 않는다).
@@ -35,7 +35,8 @@ import type { Viewer } from "../trpc/context.ts";
 import type { OwnerRow } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
-import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
+import { moneyBalance, moneyOf } from "../world/money.ts";
+import type { Settlement } from "../world/settlement.ts";
 
 export type NationalityCommandResult =
   | {
@@ -134,7 +135,7 @@ export function createCitizenshipService(o: CitizenshipServiceOptions): Citizens
   /** 받는 나라가 실제로 줄 수 있는 지원금(국고가 모자라면 있는 만큼, [임시] 질문 845) */
   const grantPayable = (treasury: number, asked: bigint): bigint => {
     if (asked <= 0n) return 0n;
-    const available = ledger.balanceOf(treasury, ASSET_CREDIT);
+    const available = moneyBalance(ledger, treasury);
     if (available <= 0n) return 0n;
     return asked < available ? asked : available;
   };
@@ -225,7 +226,7 @@ export function createCitizenshipService(o: CitizenshipServiceOptions): Citizens
       const fee = asked.fee;
       const grant = grantPayable(hall.treasury, asked.grant);
       const ownerId = o.settlement.findOwnerOfUser(viewer.id);
-      const balance = ownerId === undefined ? 0n : ledger.balanceOf(ownerId, ASSET_CREDIT);
+      const balance = moneyBalance(ledger, ownerId);
       const until = restUntil(record, rules.restMs);
       const blocked: NaturalizationBlock | null =
         blockOf(record, hall, nowMs) ?? (balance < fee ? "insufficient_funds" : null);
@@ -286,18 +287,21 @@ export function createCitizenshipService(o: CitizenshipServiceOptions): Citizens
       const fee = asked.fee;
       const grant = grantPayable(hall.treasury, asked.grant);
       if (input.factionId !== target || input.cost !== String(fee - grant)) return fail("terms_changed");
-      if (ledger.balanceOf(ownerId, ASSET_CREDIT) < fee) return fail("insufficient_funds");
+      if (moneyBalance(ledger, ownerId) < fee) return fail("insufficient_funds");
       const hostile = hostileTo(runtime, treasuryOf(record.factionId), hall.treasury);
       const standingDrop = standingDropOf(hostile, rules);
       // 한 번의 동기 처리: 원장 거래(입회비 → 받는 나라 국고, 또는 지원금 ← 받는 나라 국고. 옛 나라에는 없음) → 사이보그 행·가입·우호도·기록
       const entries: { account: number; amount: bigint }[] = [];
+      // 내는 쪽 화폐로: 입회비 = 옮겨 오는 사람의 돈(바꾸기 전 나라 화폐), 지원금 = 받는 나라 국고의 돈
+      const feeAsset = moneyOf(ledger, ownerId);
+      const grantAsset = moneyOf(ledger, hall.treasury);
       if (fee > 0n) {
-        entries.push({ account: ledger.ownerAccount(ownerId, ASSET_CREDIT), amount: -fee });
-        entries.push({ account: ledger.ownerAccount(hall.treasury, ASSET_CREDIT), amount: fee });
+        entries.push({ account: ledger.ownerAccount(ownerId, feeAsset), amount: -fee });
+        entries.push({ account: ledger.ownerAccount(hall.treasury, feeAsset), amount: fee });
       }
       if (grant > 0n) {
-        entries.push({ account: ledger.ownerAccount(hall.treasury, ASSET_CREDIT), amount: -grant });
-        entries.push({ account: ledger.ownerAccount(ownerId, ASSET_CREDIT), amount: grant });
+        entries.push({ account: ledger.ownerAccount(hall.treasury, grantAsset), amount: -grant });
+        entries.push({ account: ledger.ownerAccount(ownerId, grantAsset), amount: grant });
       }
       if (entries.length > 0)
         ledger.post({

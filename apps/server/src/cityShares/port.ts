@@ -1,12 +1,12 @@
 // 도시 지분 시장이 세계에서 읽는 것(세계 포트) — docs/adr/2026-11-21-share-market.md. 읽기만 한다(원장 쓰기는 시장 market.ts가 한다).
-// - 도시 화폐 = 그 도시 주인 세력의 나라 화폐(NPC 경제 currencyOf — 없으면 서버 기준 화폐). 도시가 없으면(폐허·모르는 도시) undefined.
+// - 도시 화폐 = 도시가 고른 화폐, 고르지 않으면 주인 세력의 나라 화폐(NPC 경제 cityMoney — 없으면 그 주체의 돈 — world/money.ts). 도시가 없으면(폐허·모르는 도시) undefined.
 // - 도시 이름 = NPC 런타임 도시 자리 이름(경제 화면 창고 곳 이름과 같다).
 // - 내 계정 = 사용자 소유 주체(정산 findOwnerOfUser — 없으면 만들지 않는다), 내 가문 = 내가 든 플레이어 가문(houseTies houseOfUser — 가문장인지는
 //   서비스가 본다).
 import type { Ledger } from "../economy/ledger.ts";
 import { houseTiesOf } from "../world/houseTies.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
-import { ASSET_CREDIT } from "../world/settlement.ts";
+import { moneyOf } from "../world/money.ts";
 import type { World } from "../world/world.ts";
 import type { ShareLevy } from "./levy.ts";
 import type { NpcShareHouse, NpcShareNation } from "./npcTrade.ts";
@@ -76,7 +76,7 @@ export function worldCitySharePort(world: () => ShareWorld | undefined): CitySha
       const l = live();
       const city = l?.npc.world.cities.get(cityId);
       if (!l || !city) return undefined;
-      return l.npc.economy?.economy.currencyOf.get(city.owner) ?? ASSET_CREDIT;
+      return l.npc.economy?.cityMoney.of(cityId) ?? moneyOf(l.persistence.ledger, city.owner);
     },
     cityName: (cityId) => live()?.npc.places.get(cityId)?.name,
     cityOwner: (cityId) => live()?.npc.world.cities.get(cityId)?.owner,
@@ -102,7 +102,8 @@ export function worldCitySharePort(world: () => ShareWorld | undefined): CitySha
         if (l.npc.cityHouses.controlOf(faction.id) !== "npc") continue;
         out.push({
           ownerId: faction.id,
-          asset: l.npc.economy?.economy.currencyOf.get(faction.id) ?? ASSET_CREDIT,
+          asset:
+            l.npc.economy?.economy.currencyOf.get(faction.id) ?? moneyOf(l.persistence.ledger, faction.id),
           commerce: faction.traits.commerce,
         });
       }
@@ -116,7 +117,8 @@ export function worldCitySharePort(world: () => ShareWorld | undefined): CitySha
         const nation = l.npc.world.factions.get(city.owner);
         // 플레이어 가문 도시·플레이어가 이끄는 나라의 도시 가문은 빼고 NPC 쪽만(나라 사기와 같은 문)
         if (!nation?.alive || nation.player || l.npc.cityHouses.controlOf(nation.id) !== "npc") continue;
-        const asset = l.npc.economy?.economy.currencyOf.get(nation.id) ?? ASSET_CREDIT;
+        const asset =
+          l.npc.economy?.economy.currencyOf.get(nation.id) ?? moneyOf(l.persistence.ledger, nation.id);
         for (const houseId of l.npc.cityHouses.housesOfCity(city.id)) {
           const head = l.npc.cityHouses.headOf(houseId);
           const greed = head === undefined ? undefined : l.npc.unitTraits(head)?.greed;

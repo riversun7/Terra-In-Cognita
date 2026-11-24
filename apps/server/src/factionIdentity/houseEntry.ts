@@ -8,7 +8,8 @@ import { npcHouseEntryFee } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { OwnerRow } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
-import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
+import { moneyOf } from "../world/money.ts";
+import type { Settlement } from "../world/settlement.ts";
 import { vaultAccount, vaultTake } from "./houseVault.ts";
 import { notify } from "./members.ts";
 import type { HouseRules } from "./rules.ts";
@@ -207,19 +208,22 @@ function feeSplit(
   charge: HouseEntryCharge,
   total: bigint,
 ): {
+  /** 가입비를 내는 돈 = 가문장 주체의 돈(소속 국가 화폐, world/money.ts) — 금고·지갑을 이 화폐 하나로 본다 */
+  readonly asset: string;
   readonly vault: bigint;
   readonly leader: number | undefined;
   readonly fromLeader: bigint;
   readonly short: bigint;
 } {
-  const vault = vaultTake(p.ledger, charge.houseId, ASSET_CREDIT, total);
-  const rest = total - vault;
   const leader = charge.leaderId === null ? undefined : p.settlement.findOwnerOfUser(charge.leaderId);
-  if (rest <= 0n || leader === undefined) return { vault, leader, fromLeader: 0n, short: rest };
+  const asset = moneyOf(p.ledger, leader);
+  const vault = vaultTake(p.ledger, charge.houseId, asset, total);
+  const rest = total - vault;
+  if (rest <= 0n || leader === undefined) return { asset, vault, leader, fromLeader: 0n, short: rest };
   p.settlement.settleOwner(leader, charge.nowMs);
-  const available = p.ledger.balanceOf(leader, ASSET_CREDIT);
+  const available = p.ledger.balanceOf(leader, asset);
   const fromLeader = rest < available ? rest : available;
-  return { vault, leader, fromLeader, short: rest - fromLeader };
+  return { asset, vault, leader, fromLeader, short: rest - fromLeader };
 }
 
 /** 가입비 몫의 합 */
@@ -254,27 +258,29 @@ export async function chargeHouseEntry(
   if (fees > 0n) {
     const split = feeSplit(p, charge, fees);
     if (split.vault > 0n)
-      entries.push({ account: vaultAccount(p.ledger, charge.houseId, ASSET_CREDIT), amount: -split.vault });
+      entries.push({ account: vaultAccount(p.ledger, charge.houseId, split.asset), amount: -split.vault });
     if (split.leader !== undefined && split.fromLeader > 0n)
-      entries.push({ account: p.ledger.ownerAccount(split.leader, ASSET_CREDIT), amount: -split.fromLeader });
+      entries.push({ account: p.ledger.ownerAccount(split.leader, split.asset), amount: -split.fromLeader });
     // 낸 만큼을 몫 차례로 나눠 받는 국고에
     let left = split.vault + split.fromLeader;
     for (const line of lines) {
       if (line.total <= 0n || left <= 0n) continue;
       const part = line.total < left ? line.total : left;
-      entries.push({ account: p.ledger.ownerAccount(line.treasury, ASSET_CREDIT), amount: part });
+      entries.push({ account: p.ledger.ownerAccount(line.treasury, split.asset), amount: part });
       left -= part;
       paid += part;
     }
   }
   for (const line of lines) {
     if (line.total >= 0n) continue;
-    const available = p.ledger.balanceOf(line.treasury, ASSET_CREDIT);
+    // 지원금 = 주는 나라 국고의 돈(그 나라 화폐)으로 가문 금고에
+    const grantAsset = moneyOf(p.ledger, line.treasury);
+    const available = p.ledger.balanceOf(line.treasury, grantAsset);
     const part = -line.total < available ? -line.total : available;
     if (part <= 0n) continue;
     entries.push(
-      { account: p.ledger.ownerAccount(line.treasury, ASSET_CREDIT), amount: -part },
-      { account: vaultAccount(p.ledger, charge.houseId, ASSET_CREDIT), amount: part },
+      { account: p.ledger.ownerAccount(line.treasury, grantAsset), amount: -part },
+      { account: vaultAccount(p.ledger, charge.houseId, grantAsset), amount: part },
     );
     granted += part;
   }

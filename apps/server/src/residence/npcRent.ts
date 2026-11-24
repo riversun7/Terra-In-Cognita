@@ -183,10 +183,10 @@ export function npcAwarePayer(
         ? undefined
         : npc.toLocal(rent, asset);
     },
-    purseBalance(ownerId, unitId) {
+    purseBalance(ownerId, unitId, buildingId) {
       const npc = o.npc();
       const unit = npcTenant(npc, unitId);
-      if (!npc || !unit) return base.purseBalance(ownerId, unitId);
+      if (!npc || !unit) return base.purseBalance(ownerId, unitId, buildingId);
       const found = purse(npc, unit);
       return found ? o.ledger.balance(found.account) : 0n;
     },

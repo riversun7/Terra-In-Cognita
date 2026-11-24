@@ -9,6 +9,7 @@ import { workerFor } from "../labor/workerEntry.ts";
 import { type DeskTrader, type ExchangeDeskSource, deskViewOf, lockerViewOf } from "./exchangeDesk.ts";
 import { type MarketService, createMarketService } from "./service.ts";
 import { type MarketViews, createMarketViews } from "./views.ts";
+import { NO_NATION_MONEY } from "../world/money.ts";
 
 export interface MarketSource {
   readonly service: MarketService;
@@ -98,10 +99,8 @@ export function marketSourceOf(world: World | undefined, now: () => number): () 
           business: facilities.business,
         },
         persistence.ledger,
-        (cityId) => {
-          const owner = runtime.world.cities.get(cityId)?.owner;
-          return owner === undefined ? undefined : runtime.economy?.economy.currencyOf.get(owner);
-        },
+        (cityId) => runtime.economy?.cityMoney.of(cityId),
+        runtime.economy?.economy.base ?? NO_NATION_MONEY,
       )?.of,
     });
     built = { runtime, source: service ? { service, views } : undefined };

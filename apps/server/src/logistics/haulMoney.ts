@@ -7,17 +7,19 @@ import type { HaulMoney } from "./haulService.ts";
 
 /** 이 모듈이 읽는 도시 경제(NPC 런타임 economy.economy의 일부) */
 export interface HaulEconomy {
-  readonly currencyOf?: ReadonlyMap<number, string> | undefined;
   readonly fx?: ReadonlyMap<string, { readonly lastPrice?: bigint | undefined }> | undefined;
   readonly settings?: { readonly fxLot: bigint } | undefined;
 }
 
 /** NPC 런타임에서 읽는 것(facilities/world.ts input.npc의 일부) */
 interface HaulRuntime {
-  readonly world: {
-    readonly cities?: ReadonlyMap<number, { readonly owner: number }> | undefined;
-  };
-  readonly economy?: { readonly economy: HaulEconomy } | undefined;
+  readonly economy?:
+    | {
+        readonly economy: HaulEconomy;
+        /** 도시 화폐(npc/cityMoney.ts) */
+        readonly cityMoney?: { of(cityId: number): string | undefined } | undefined;
+      }
+    | undefined;
 }
 
 export function haulMoneyOf(
@@ -29,8 +31,7 @@ export function haulMoneyOf(
       const cityId = cityOf(buildingId);
       const npc = runtime();
       if (cityId === null || cityId === undefined || !npc?.economy) return undefined;
-      const owner = npc.world.cities?.get(cityId)?.owner;
-      return owner === undefined ? undefined : npc.economy.economy.currencyOf?.get(owner);
+      return npc.economy.cityMoney?.of(cityId);
     },
     toLocal(fair, asset) {
       const economy = runtime()?.economy?.economy;

@@ -85,7 +85,7 @@ export function createNpcAiBridge(o: {
         readonly society: { currentDay(): number };
         readonly ledger: Pick<Ledger, "systemAccount" | "ownerAccount" | "balance" | "post"> &
           Partial<Pick<Ledger, "accounts">>;
-        readonly currencyOf: (owner: number) => string | undefined;
+        readonly currencyOf: (cityId: number) => string | undefined;
       }
     | undefined;
 }): NpcAiBridge {
@@ -205,7 +205,7 @@ export function createNpcAiBridge(o: {
         cityId,
         housesOf: (id, plan) => {
           if (!ties) return [];
-          const currency = ties.currencyOf(o.cities.get(id)?.owner ?? -1);
+          const currency = ties.currencyOf(id);
           // 금고 잔고는 읽기만 한다(계정을 만들지 않게 있는 계정만 훑는다)
           const vaults = new Map<string, bigint>();
           for (const account of ties.ledger.accounts?.() ?? [])
@@ -287,12 +287,12 @@ export function bridgeTies(
   cityHouses: Pick<NpcCityHouses, "of" | "housesOfCity" | "membersOf" | "headOf">,
   society: { currentDay(): number },
   ledger: Pick<Ledger, "systemAccount" | "ownerAccount" | "balance" | "post" | "accounts">,
-  econ: { readonly economy: { readonly currencyOf: ReadonlyMap<number, string> } } | undefined,
+  econ: { readonly cityMoney: { of(cityId: number): string | undefined } } | undefined,
 ): NonNullable<Parameters<typeof createNpcAiBridge>[0]["ties"]> {
   return {
     cityHouses,
     society,
     ledger,
-    currencyOf: (owner) => econ?.economy.currencyOf.get(owner),
+    currencyOf: (cityId) => econ?.cityMoney.of(cityId),
   };
 }

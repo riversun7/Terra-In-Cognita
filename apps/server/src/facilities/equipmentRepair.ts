@@ -199,7 +199,7 @@ export function startEquipmentRepair(
   if (!hasGoods(deps.ledger, payer, materials, scope)) return fail("insufficient_materials");
   // 외주 요금: 낼 수 있는지 먼저 보고(재료를 빼기 전), 재료를 뺀 뒤 그 사업장 금고로(소득세)
   const business = deps.business();
-  if (fee > 0n && !business?.canPay(me, fee)) return fail("insufficient_funds");
+  if (fee > 0n && !business?.canPay(me, fee, buildingId)) return fail("insufficient_funds");
   if (
     !spendGoods(deps.ledger, payer, materials, at, outsource ? "outsource_repair" : "equipment_repair", scope)
   )

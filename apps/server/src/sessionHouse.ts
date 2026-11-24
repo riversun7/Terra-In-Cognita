@@ -6,6 +6,7 @@
 // 지도자끼리 조약(2026-11-21-diplomacy-treaties.md)은 DIPLOMACY_PROTOCOL_VERSION, 가문 연맹(npc-invest-2)은 HOUSE_LEAGUE_PROTOCOL_VERSION의 메시지다.
 // 더 낮게 인사한 연결은 모르는 메시지로 본다(session.ts가 invalid_message로 끊는다).
 import {
+  CITY_MONEY_PROTOCOL_VERSION,
   CITY_SHARE_PROTOCOL_VERSION,
   type ClientMessage,
   COUP_PROTOCOL_VERSION,
@@ -29,6 +30,7 @@ import {
 export const HOUSE_SOCKET_TYPES = [
   "house_found",
   "nation_tax",
+  "city_currency",
   "house_invite",
   "house_apply",
   "house_answer",
@@ -75,6 +77,7 @@ const MEMBER_POLICY = Math.max(HOUSE_MEMBER_PROTOCOL_VERSION, HOUSE_POLICY_PROTO
 const HOUSE_MESSAGE_NEED: Readonly<Record<HouseSocketMessage["t"], number>> = {
   house_found: HOUSE_PROTOCOL_VERSION,
   nation_tax: NATION_TAX_PROTOCOL_VERSION,
+  city_currency: CITY_MONEY_PROTOCOL_VERSION,
   house_invite: HOUSE_MEMBER_PROTOCOL_VERSION,
   house_apply: HOUSE_MEMBER_PROTOCOL_VERSION,
   house_answer: HOUSE_MEMBER_PROTOCOL_VERSION,
@@ -123,6 +126,8 @@ export function houseBusyReply(message: HouseSocketHead): ServerMessage {
       return { t: "house_result", id, ok: false, code: "busy" };
     case "nation_tax":
       return { t: "nation_tax_result", id, ok: false, code: "busy" };
+    case "city_currency":
+      return { t: "city_currency_result", id, ok: false, code: "busy" };
     case "house_village":
     case "house_ruin":
     case "house_independence":

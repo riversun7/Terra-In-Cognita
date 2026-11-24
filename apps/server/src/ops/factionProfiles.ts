@@ -200,7 +200,9 @@ export async function ensureProfiles(deps: ProfileDeps): Promise<{ factions: num
     symbol?: string | undefined;
     ticker?: string | undefined;
     source: ProfileSource;
-  }[] = [{ asset: deps.baseAsset, name: "기준 통화", symbol: "¤", ticker: "CRD", source: "default" }];
+  }[] = deps.baseAsset.startsWith("cur:")
+    ? [] // 기축 통화가 나라 화폐면 그 프리셋 줄이 이름을 정한다(docs/adr/2026-11-23-nation-money.md)
+    : [{ asset: deps.baseAsset, name: "공용 화폐", symbol: "¤", ticker: "CRD", source: "default" }];
   for (const preset of presets) {
     const asset = assetOfPreset(preset);
     if (!preset.currency || !asset) continue;

@@ -1,5 +1,5 @@
 // 홈 [경제 요약] 가로 3분할 재무 데스크 — 절제된 기관 금융 스타일(중립 표면 + 상단 2px 포인트 라인):
-// 1) 보유 자금(골드 라인): 기준 통화·주요 지갑 잔고 + 주문 묶임·화폐 종수
+// 1) 보유 자금(골드 라인): 기준 통화(소속 국가 화폐, 서버가 알려 준다 — 사용자 결정 2026-11-23) 잔고 + 주문 묶임·외환 종수
 // 2) 자산·화폐 환산(시안 라인, data-metric="value"): 창고·유닛 물건 추정가 + 타 도시 화폐 환산
 // 3) 일일 급여·거래 현황(바이올렛 라인): 일일 급여 합계(BigInt) + 가동 시설·진행 주문 수
 // 금액 계산은 BigInt 정수만 쓴다(AGENTS 4장).
@@ -22,13 +22,12 @@ import { m } from "../../paraglide/messages.js";
 import { HomeLoading } from "../InboxBody.tsx";
 import { formatCount } from "../numbers.ts";
 
-/** 지갑에서 기준 통화(없으면 잔고가 가장 큰 화폐)를 고른다 */
-function primaryWalletLine(wallet: readonly HoldingLine[], baseCurrency: string | null): HoldingLine | null {
+/**
+ * 지갑에서 기준 통화 줄을 고른다. 기준 통화(소속 국가 화폐)를 알면 그 줄만(잔고가 없으면 null — 0으로 보인다), 모르면(옛 서버) 잔고가 가장 큰 화폐
+ */
+function primaryWalletLine(wallet: readonly HoldingLine[], homeCurrency: string | null): HoldingLine | null {
+  if (homeCurrency !== null) return wallet.find((line) => line.currency === homeCurrency) ?? null;
   if (wallet.length === 0) return null;
-  if (baseCurrency !== null) {
-    const exact = wallet.find((line) => line.currency === baseCurrency);
-    if (exact !== undefined) return exact;
-  }
   let best = wallet[0] ?? null;
   for (const line of wallet) {
     if (best === null || toBig(line.qty) > toBig(best.qty)) best = line;
@@ -36,7 +35,7 @@ function primaryWalletLine(wallet: readonly HoldingLine[], baseCurrency: string 
   return best;
 }
 
-/** 타 도시 화폐 지갑 잔고를 환율(last ?? indicative)로 기준 통화 환산(BigInt 정수) */
+/** 다른 나라 화폐(외환) 지갑 잔고를 환율(last ?? indicative)로 기축 통화 환산(BigInt 정수). 기축 통화 자체는 그대로 더한다 */
 function convertedOtherCurrencies(
   wallet: readonly HoldingLine[],
   exchange: EconomyExchangeResponse | null,
@@ -50,6 +49,10 @@ function convertedOtherCurrencies(
     const qty = toBig(line.qty) + toBig(line.locked);
     if (qty <= 0n) continue;
     count += 1;
+    if (line.currency === exchange?.base) {
+      totalBase += qty;
+      continue;
+    }
     const pair = pairMap.get(line.currency);
     const rateStr = pair?.last ?? pair?.indicative ?? null;
     if (pair !== undefined && rateStr !== null) {
@@ -99,13 +102,16 @@ export function AssetsCardBody() {
   const baseCode = exchange.data?.base ?? catalog.data?.baseCurrency ?? null;
   const summary = holdingsSummary(data);
 
-  // 1) 보유 자금(기준 통화 또는 최다 보유 화폐)
-  const mainWallet = primaryWalletLine(data.wallet, baseCode);
-  const cashCurrency = mainWallet?.currency ?? baseCode;
+  // 1) 보유 자금 = 기준 통화(소속 국가 화폐). 옛 서버는 알려 주지 않아 잔고가 가장 큰 화폐
+  const homeCode = data.homeCurrency ?? null;
+  const mainWallet = primaryWalletLine(data.wallet, homeCode);
+  const cashCurrency = mainWallet?.currency ?? homeCode ?? baseCode;
   const cashQty = mainWallet ? toBig(mainWallet.qty) : 0n;
   const cashLocked = mainWallet ? toBig(mainWallet.locked) : 0n;
   const cashUnit = cashCurrency !== null ? currencyName(index, cashCurrency) : "";
-  const activeCurrencies = data.wallet.filter((line) => toBig(line.qty) + toBig(line.locked) > 0n).length;
+  const foreignCurrencies = data.wallet.filter(
+    (line) => line.currency !== cashCurrency && toBig(line.qty) + toBig(line.locked) > 0n,
+  ).length;
 
   // 2) 창고·유닛 추정 가치 + 타 도시 화폐 환산
   const inventoryVal = estimateValue(
@@ -143,7 +149,7 @@ export function AssetsCardBody() {
         <span className="dash-kpi-sub">
           {cashLocked > 0n
             ? m.home_eco_cash_locked({ amount: `${fmt(cashLocked)} ${cashUnit}`.trim() })
-            : m.home_eco_cash_currencies({ count: formatCount(activeCurrencies) })}
+            : m.home_eco_cash_base({ count: formatCount(foreignCurrencies) })}
         </span>
       </div>
 

@@ -1,4 +1,5 @@
 // 사업장 장부 명령 시험 — 기획 D-555(1501·1502·1507·1508)·D-569(1781 판매만·1784 실제 운반), docs/adr/2026-11-15-business-ledger.md
+import { setMoneyResolver } from "../world/money.ts";
 import { businessLocation, unitPurseLocation } from "@terra/shared/businessBooks";
 import { cityLocation } from "@terra/shared/goodsPlaces";
 import { START_BUSINESS, createLedgerBook } from "@terra/sim";
@@ -69,6 +70,8 @@ function setup(
     rules: () => START_BUSINESS,
     holders: opts.holders,
   });
+  // 이 시험 세계의 주체 돈 = 시험 화폐 하나(world/money.ts — 선물은 내 돈으로 낸다)
+  setMoneyResolver(ledger, () => ASSET);
   const commands = createBusinessCommands({
     core,
     ledger,
@@ -80,7 +83,7 @@ function setup(
     carry,
     cityAdminLevel: () => admin,
     ownerOf: (userId) => (userId === "owner" ? OWNER : userId === "buyer" ? BUYER : undefined),
-    fallbackAsset: ASSET,
+    assetOf: () => ASSET,
     now: () => 1000,
     durable: () => Promise.resolve(),
     boatTypes: opts.boatTypes,

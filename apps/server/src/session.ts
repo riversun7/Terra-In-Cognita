@@ -756,6 +756,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       }
       case "house_found":
       case "nation_tax":
+      case "city_currency":
       case "house_invite":
       case "house_apply":
       case "house_answer":

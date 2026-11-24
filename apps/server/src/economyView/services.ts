@@ -26,6 +26,8 @@ import type {
 import { placeKey, placeOfLocation } from "@terra/shared/goodsPlaces";
 import type { MarketViews } from "../market/views.ts";
 import { reasonedError } from "../trpc/init.ts";
+import { isMoneyAsset } from "../world/money.ts";
+import type { AssetTagger } from "./assetTags.ts";
 import type { EconomyQuery, EconomyServices, Viewer } from "../trpc/context.ts";
 import { bookLevels, candles, changeBp, recentTrades, tradeStats } from "./marketShape.ts";
 import { FX_INTERVAL_MS, nextAuctionAt, previewFxPairs } from "./previewExchange.ts";
@@ -68,6 +70,8 @@ export interface EconomyWorldSource {
   ownerOf(userId: string): number | undefined;
   /** 그 주체의 계정(잔고 포함) */
   accountsOf(ownerId: number): readonly EconomyAccountRow[];
+  /** 자산 표시 정보(기준 통화·외환·국기 — assetTags.ts). 세계가 준비되지 않았으면 undefined */
+  readonly assetTagger?: (() => Promise<AssetTagger | undefined>) | undefined;
   /** 실제 거래소·도시 생산 화면 자료(도시 경제가 돌 때만) */
   readonly market?: (() => MarketViews | undefined) | undefined;
   /** 도시 이름(팩 도시 이름, 번역하지 않는다 D-476 — NPC 런타임 도시 자리). 없거나 이름 없는 도시는 undefined */
@@ -87,8 +91,6 @@ export interface EconomyWorldSource {
 const PREVIEW_ORDER_MAX = 10;
 /** [임시] 지정가 만료로 고르는 날(기획 잠정 7일, E10) */
 const EXPIRY_DAYS = [1, 3, 7] as const;
-/** 시험 화폐 자산(S3 시험 자원 정산). 위치 없는 화폐로 본다 */
-const TEST_CREDIT_ASSETS = new Set(["s3_test_credit"]);
 
 /** 원장 자산 → 보유 한 줄 */
 function holdingLine(row: EconomyAccountRow): HoldingLine {
@@ -111,7 +113,8 @@ export function holdingsFromAccounts(
     // 사업장 지분(share:biz_<건물>)은 물건도 화폐도 아니다 — 건물 장부·지분 칸이 보인다(docs/adr/2026-11-15-building-screen.md)
     if (row.balance <= 0n || row.asset.startsWith("share:")) continue;
     const line = holdingLine(row);
-    if (row.location === null && (line.currency !== null || TEST_CREDIT_ASSETS.has(row.asset))) {
+    // 위치 없는 돈(나라 화폐·나라 없는 세계의 돈) = 지갑
+    if (row.location === null && isMoneyAsset(row.asset)) {
       wallet.push(line);
       continue;
     }
@@ -280,13 +283,25 @@ export function createEconomyServices(options: {
         owner === undefined
           ? { wallet: [], places: [] }
           : holdingsFromAccounts(world?.accountsOf(owner) ?? [], world?.cityName);
+      // 지갑 줄마다 기준 통화(소속 국가 화폐)·외환과 국기를 붙이고, 내 기준 통화 코드를 함께 보낸다(잔고가 0이어도 화면이 그 이름으로 보인다)
+      const tagger = owner === undefined ? undefined : await world?.assetTagger?.();
+      const home = tagger?.homeAsset(owner);
+      const tagged = {
+        wallet: real.wallet.map((line) => {
+          const tag = tagger?.tag(line.asset, owner);
+          return tag ? { ...line, tag } : line;
+        }),
+        places: real.places,
+        ...(home?.startsWith("cur:") ? { homeCurrency: home.slice(4) } : {}),
+      };
       if (!query.preview) {
-        return { ...head(query, true), hasOwner: owner !== undefined, ...real };
+        return { ...head(query, true), hasOwner: owner !== undefined, ...tagged };
       }
       return {
         ...head(query, true),
         hasOwner: true,
-        wallet: [...previewWallet(catalog), ...real.wallet],
+        ...tagged,
+        wallet: [...previewWallet(catalog), ...tagged.wallet],
         places: [...previewPlaces(catalog, query.now), ...real.places],
       };
     },

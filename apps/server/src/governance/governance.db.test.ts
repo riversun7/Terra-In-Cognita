@@ -11,6 +11,8 @@ import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { createContentEditState } from "../contentEdit/state.ts";
 import { createFactionIdentityServices, createFactionIdentityShared } from "../factionIdentity/services.ts";
 import { createHouseFounder } from "../factionIdentity/found.ts";
+import { createHouseHome } from "../factionIdentity/houseHome.ts";
+import { TEST_HOUSE_RULES } from "../factionIdentity/rules.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { silentLog } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
@@ -103,6 +105,9 @@ async function citizen(world: World, name: string, nationIndex = 0) {
     elements: { fire: 6, wind: 4 },
   });
   if (!made.ok) throw new Error(`cyborg ${made.code}`);
+  // 첫 접속은 국가 미소속으로 시작한다(ADR 2026-11-24-house-membership-separation.md). 이 시험은 그 나라 시민에서
+  // 출발하므로, 가문이 그 나라 도시에 가입했을 때와 같은 맞춤(alignHome)으로 국적을 준다
+  persistence.cyborgs.alignHome(userId, { factionId: faction.id, cityId: city.id });
   await persistence.writer.durable();
   return { userId, nation: faction.id };
 }
@@ -126,6 +131,17 @@ async function house(world: World, leader: string, name: string, short: string):
     cost: "0",
   });
   if (!founded.ok) throw new Error(founded.code);
+  // 창설은 도시·국가 미소속이다(ADR 2026-11-24-house-membership-separation.md) — 가문장의 출발 도시에 가입해 그 나라 가문이
+  // 된다(1인 가문은 공고 없이 바로)
+  const startCity = parts(world).persistence.cyborgs.record(leader)?.startCityId;
+  if (startCity === undefined) throw new Error("no start city");
+  const joined = await createHouseHome({
+    pool,
+    db: test.db,
+    rules: () => TEST_HOUSE_RULES,
+    now: () => clock,
+  }).set(leader, startCity);
+  if (!joined.ok) throw new Error(`home ${joined.code}`);
   return founded.factionId;
 }
 

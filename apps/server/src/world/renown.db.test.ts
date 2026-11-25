@@ -70,6 +70,9 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 명성 → 작위(D-326·D-571)", ()
       elements: { fire: 6, wind: 4 },
     });
     if (!made.ok) throw new Error(`cyborg ${made.code}`);
+    // 첫 접속은 국가 미소속으로 시작한다(ADR 2026-11-24-house-membership-separation.md). 이 시험은 그 나라 시민에서
+    // 출발하므로, 가문이 그 나라 도시에 가입했을 때와 같은 맞춤(alignHome)으로 국적을 준다
+    p.cyborgs.alignHome(userId, { factionId: faction.id, cityId: city.id });
     expect(titleOfUser(p.cyborgs, DEFAULT_RENOWN_COEFFICIENTS, userId)).toBe(0);
     expect(p.cyborgs.addRenown(userId, faction.id, 600, clock)).toBe(600);
     expect(p.cyborgs.addRenown(userId, faction.id, 450, clock + 1)).toBe(1050);

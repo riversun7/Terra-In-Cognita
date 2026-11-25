@@ -39,6 +39,7 @@ import type {
 import {
   type LaborContract,
   type LaborEndReason,
+  type LaborJob,
   type LaborRules,
   type OutputSegment,
   type SocietyCoefficients,
@@ -71,7 +72,12 @@ import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { moneyOf } from "../world/money.ts";
 import { ASSET_ORE, type Settlement } from "../world/settlement.ts";
-import { type JobBoardFilter, type LaborPostInput, createJobBoard } from "./jobBoard.ts";
+import {
+  type JobBoardFilter,
+  type JobCommandResult,
+  type LaborPostInput,
+  createJobBoard,
+} from "./jobBoard.ts";
 import { laborRulesView, wageRulesOf } from "./rules.ts";
 import { type WalkToWork, shiftPayStart } from "./walkToWork.ts";
 import { npcQuits } from "./npcWait.ts";
@@ -160,6 +166,26 @@ export interface LaborService {
   attachStation(hook: StationHook | undefined): void;
   /** 사업장 장부를 잇는다(건물 세계 — 보증금 적자·임대료 소득세, D-555 1503·1504) */
   attachBusiness(hook: LaborBusinessHook | undefined): void;
+  /** NPC 고용주(나라 소유 주체)의 구인(npc/npcJobs.ts — 사용자 없이 주체로 낸다, 사용자 지시 2026-11-25 "NPC 시설에 일하는 기능") */
+  readonly npcJobs: NpcJobDesk;
+}
+
+/** NPC 고용주가 쓰는 구인 몫(npc/npcJobs.ts). 쓰기는 월드 쓰기 대기열에만 넣는다(다음 묶음에 커밋) */
+export interface NpcJobDesk {
+  /** 그 시설 주인 주체로 일자리를 낸다(시설마다 열린 게시 하나 — 앞 게시는 거둔다) */
+  post(ownerId: number, input: LaborPostInput, atMs: number): JobCommandResult;
+  /** 그 시설의 열린 게시를 거둔다(없으면 아무것도 안 함) */
+  withdraw(buildingId: number, atMs: number): void;
+  /** 그 시설의 열린 게시(없으면 undefined) */
+  openAt(buildingId: number): LaborJob | undefined;
+  /** 고용주 조정 ‰일 때 기준 유닛의 주기당 임금과 임금 주기(ms)·한 계약 보증금 전부(N48) */
+  terms(adjustPm: number): { readonly wage: bigint; readonly cycleMs: number; readonly deposit: bigint };
+  /** 고용주 조정 범위(N28) */
+  range(): { readonly minPm: number; readonly maxPm: number };
+  /** 그 시설의 빈 일자리 수(일터 자리 − 지금 일하는 유닛). 일터가 아니면 0 */
+  freeSlots(buildingId: number): number;
+  /** 그 시설에서 남의 유닛이 일하는 열린 임금형 계약 수 */
+  hired(buildingId: number): number;
 }
 
 /** 노동 계약이 쓰는 사업장 장부 고리(business/core.ts의 일부) */
@@ -593,6 +619,45 @@ export function createLaborService(options: {
     attachStation: (hook) => work.attachStation(hook),
     attachBusiness(hook) {
       business = hook;
+    },
+    npcJobs: {
+      post: (ownerId, input, atMs) => board.post(ownerId, input, atMs),
+      withdraw(buildingId, atMs) {
+        for (const job of Array.from(board.jobs.values()))
+          if (job.buildingId === buildingId) board.withdraw(job.ownerId, job.id, atMs);
+      },
+      openAt(buildingId) {
+        for (const job of board.jobs.values())
+          if (job.buildingId === buildingId && job.state === "open") return job;
+        return undefined;
+      },
+      terms(adjustPm) {
+        const rules = wageRulesOf(options.rules());
+        const perCycle = wagePerCycle(
+          BigInt(wage(rules.efficiency, rules.rateMilli, adjustPm, rules.society)),
+          rules.labor,
+        );
+        return {
+          wage: perCycle,
+          cycleMs: Math.max(1, rules.labor.wageCycleMs),
+          deposit: requiredDeposit(perCycle, rules.labor),
+        };
+      },
+      range() {
+        const rules = wageRulesOf(options.rules());
+        return { minPm: rules.adjustMinPm, maxPm: rules.adjustMaxPm };
+      },
+      freeSlots(buildingId) {
+        const site = workplaceOf(buildingId);
+        return site ? Math.max(0, site.slots - workersAt(buildingId).length) : 0;
+      },
+      hired(buildingId) {
+        let count = 0;
+        for (const c of contracts.values())
+          if (c.buildingId === buildingId && c.kind === "wage" && isOpen(c) && c.ownerId !== c.workerOwnerId)
+            count += 1;
+        return count;
+      },
     },
     afterSettle(ownerId) {
       // 채집소 일꾼 피로 덜기(직무 상태를 적은 뒤, 직무를 끄기 전)

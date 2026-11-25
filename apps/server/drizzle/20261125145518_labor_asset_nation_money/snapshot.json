@@ -1,0 +1,88 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "3d8620b4-32a7-4aff-bf4b-e2a34931f846",
+  "prevIds": [
+    "5a1cddd7-05bf-421b-899a-8ce0f382f22d"
+  ],
+  "footprints": [
+    {
+      "statementType": "alter_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "labor_contracts"
+      ],
+      "writes": [
+        "s|ck|public.labor_contracts.labor_contracts_asset_format"
+      ],
+      "reads": [
+        "n|tbl|public.labor_contracts",
+        "n|sch|public",
+        "n|col|public.labor_contracts.asset",
+        "e|col|public.labor_contracts.asset"
+      ],
+      "sqlHash": "a3d52ebcf10d6137"
+    },
+    {
+      "statementType": "alter_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "labor_rents"
+      ],
+      "writes": [
+        "s|ck|public.labor_rents.labor_rents_asset_format"
+      ],
+      "reads": [
+        "n|tbl|public.labor_rents",
+        "n|sch|public",
+        "n|col|public.labor_rents.asset",
+        "e|col|public.labor_rents.asset"
+      ],
+      "sqlHash": "a5167fbe4ec0dad7"
+    },
+    {
+      "statementType": "alter_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "labor_postings"
+      ],
+      "writes": [
+        "s|ck|public.labor_postings.labor_postings_asset_format"
+      ],
+      "reads": [
+        "n|tbl|public.labor_postings",
+        "n|sch|public",
+        "n|col|public.labor_postings.asset",
+        "e|col|public.labor_postings.asset"
+      ],
+      "sqlHash": "23d3a038f5cf22d8"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "alter",
+      "key": "checks\u0000[\"public\",\"labor_contracts\",\"labor_contracts_asset_format\"]",
+      "set": {
+        "value": "\"asset\" ~ '^[a-z][a-z0-9_]{1,47}(:[a-z][a-z0-9_]{1,47})?$'"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "checks\u0000[\"public\",\"labor_rents\",\"labor_rents_asset_format\"]",
+      "set": {
+        "value": "\"asset\" ~ '^[a-z][a-z0-9_]{1,47}(:[a-z][a-z0-9_]{1,47})?$'"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "checks\u0000[\"public\",\"labor_postings\",\"labor_postings_asset_format\"]",
+      "set": {
+        "value": "\"asset\" ~ '^[a-z][a-z0-9_]{1,47}(:[a-z][a-z0-9_]{1,47})?$'"
+      }
+    }
+  ]
+}

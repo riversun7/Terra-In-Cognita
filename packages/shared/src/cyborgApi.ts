@@ -110,6 +110,11 @@ export interface CreationFaction {
   readonly cities: readonly CreationCity[];
   /** 자세한 정보(2026-11-11). 옛 서버·프리셋이 없는 나라는 없음 */
   readonly profile?: CreationNationProfile | undefined;
+  /**
+   * 이 나라가 가문 가입비를 받으면 그 값(가문원마다, 최소 단위 정수 문자열). 있으면 이 나라에서 시작할 수 없다(사용자 결정
+   * 2026-11-25 — 서버도 만들기를 거절한다). 가입비가 없거나 지원금을 주는 나라는 없음
+   */
+  readonly entryFee?: string | undefined;
 }
 
 /** cyborg.creation — /start 화면 자료 */

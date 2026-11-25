@@ -27,6 +27,7 @@ function fakeService(calls: string[]): CyborgService {
       throw new Error("not used");
     },
     nameCheck: () => ({ ok: true, display: "x" }),
+    startFees: () => Promise.resolve(new Map()),
     roll: (userId, temperament, options) => {
       calls.push(`roll:${userId}:${temperament}${options?.unlimited ? ":unlimited" : ""}`);
       return ok({ ok: true, roll });

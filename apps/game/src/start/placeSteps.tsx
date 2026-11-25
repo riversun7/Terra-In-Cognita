@@ -59,12 +59,15 @@ export function FactionStep({
         {data.factions.map((faction) => {
           const profile = faction.profile;
           const chosen = selected === faction.id;
+          // 가입비를 받는 나라: 시작할 수 없다(누르면 StartScreen이 경고 창을 띄우고 고르지 않는다)
+          const fee = faction.entryFee;
           return (
             <label
               key={faction.id}
               className="start-choice start-nation"
               data-faction={faction.id}
               data-recommended={faction.recommended ? "true" : "false"}
+              data-fee={fee === undefined ? undefined : fee}
             >
               <input
                 type="radio"
@@ -94,6 +97,11 @@ export function FactionStep({
                       {m.start_faction_recommended()}
                     </span>
                   ) : null}
+                  {fee === undefined ? null : (
+                    <span className="start-badge" data-badge="fee">
+                      {m.start_faction_fee_badge()}
+                    </span>
+                  )}
                 </span>
                 {/* 크기 줄: 조각마다 줄을 바꾸지 않는다(390px에서 "사이보그 / 1"로 갈라지지 않게) */}
                 <span className="start-choice-meta start-nation-size" data-part="size">
@@ -108,9 +116,15 @@ export function FactionStep({
                   <span className="start-choice-meta start-nation-intro">{localName(profile.intro)}</span>
                 ) : null}
                 {/* 정착 지원금(D-455 190·N39): 강하 때 한 번, 덜 붐빈 세력일수록 많다 */}
-                <span className="start-choice-meta start-faction-grant" data-grant={faction.grant}>
-                  {m.start_faction_grant({ amount: formatNumber(Number(faction.grant)) })}
-                </span>
+                {fee === undefined ? (
+                  <span className="start-choice-meta start-faction-grant" data-grant={faction.grant}>
+                    {m.start_faction_grant({ amount: formatNumber(Number(faction.grant)) })}
+                  </span>
+                ) : (
+                  <span className="start-choice-meta start-faction-fee">
+                    {m.start_faction_fee_line({ amount: formatNumber(Number(fee)) })}
+                  </span>
+                )}
                 {chosen && profile ? <NationFacts profile={profile} cyborgs={faction.cyborgs} /> : null}
               </span>
             </label>

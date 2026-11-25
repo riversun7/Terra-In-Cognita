@@ -85,6 +85,21 @@ async function bodyElements(page: Page): Promise<unknown> {
   });
 }
 
+/**
+ * cyborg.creation 응답에서 추천이 아닌 마지막 나라를 가입비 받는 나라로 바꾼다(가입비를 받는 나라는 시작할 수 없다 — 경고 창,
+ * docs/adr/2026-11-25-npc-facility-jobs.md). 추천이 아닌 나라가 없으면 그대로 둔다
+ */
+function markFeeNation(data: unknown): void {
+  const factions: unknown =
+    typeof data === "object" && data !== null ? Reflect.get(data, "factions") : undefined;
+  if (!Array.isArray(factions)) return;
+  const target = factions.findLast(
+    (entry: unknown) =>
+      typeof entry === "object" && entry !== null && Reflect.get(entry, "recommended") !== true,
+  );
+  if (typeof target === "object" && target !== null) Reflect.set(target, "entryFee", "40");
+}
+
 test.describe("첫 접속: 새 플레이어", () => {
   test.use({ account: "fresh" });
 
@@ -93,7 +108,7 @@ test.describe("첫 접속: 새 플레이어", () => {
     deviceErrors,
   }) => {
     test.setTimeout(120_000);
-    await rewriteTrpc(page, { "summary.get": hideSummary });
+    await rewriteTrpc(page, { "summary.get": hideSummary, "cyborg.creation": markFeeNation });
     // 어느 주소로 열어도 /start(설정은 연다)
     await page.goto("/units");
     await expect(page).toHaveURL(/\/start$/);
@@ -253,6 +268,21 @@ test.describe("첫 접속: 새 플레이어", () => {
       recommended.locator(".start-nation-fact[data-fact='tax'] .start-nation-fact-value"),
     ).toContainText("%");
     await expect(page.locator(".start-nation-facts")).toHaveCount(1);
+    // 가입비를 받는 나라(시험이 조회 응답에 얹었다): "시작 불가" 표시, 누르면 경고 창만 뜨고 고른 나라는 그대로다
+    const feeCard = page.locator(".start-choice[data-fee]").first();
+    if ((await feeCard.count()) > 0) {
+      await expect(feeCard.locator(".start-badge[data-badge='fee']")).toBeVisible();
+      await expect(feeCard.locator(".start-faction-fee")).toContainText("40");
+      await feeCard.click();
+      const warning = page.locator(".start-fee-dialog[open]");
+      await expect(warning).toBeVisible();
+      await expect(warning).toContainText("시작할 수 없습니다");
+      await shot(page, "first-login-fee-nation-warning");
+      await warning.locator(".button-primary").click();
+      await expect(page.locator(".start-fee-dialog[open]")).toHaveCount(0);
+      await expect(feeCard.locator("input")).not.toBeChecked();
+      await expect(recommended.locator("input")).toBeChecked();
+    }
     expect(await horizontalOverflow(page)).toEqual([]);
     await next(page);
     await expectStep(page, "city");

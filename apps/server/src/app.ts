@@ -107,6 +107,7 @@ import { primaryPlanetId } from "./world/playablePlanets.ts";
 import { planetGaugesOf } from "./ops/planetReads.ts";
 import { placementSourceOf } from "./world/placementService.ts";
 import { cityLayoutServiceOf } from "./facilities/cityLayoutView.ts";
+import { npcJobValueOf } from "./npc/npcJobValue.ts";
 import { nationName } from "./npc/nations.ts";
 import type { AppOptions } from "./appOptions.ts";
 import { createRankingRuntime, createRankingServices } from "./ranking/services.ts";
@@ -341,6 +342,23 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
           ? () => tuningState.society()
           : rosterCatalog
             ? () => rosterCatalog.society
+            : undefined,
+        // NPC 시설 일자리의 임금 기준 값(npc/npcJobValue.ts — 사이보그 판 채집 예상과 같은 셈, 실효 팩·설정 칸을 부를 때마다 읽는다)
+        npcJobValue:
+          contentEditState && tuningState
+            ? npcJobValueOf(
+                () => {
+                  const effective = contentEditState.effective();
+                  return {
+                    facilities: effective.facilities,
+                    gatherTiers: effective.gatherTiers,
+                    itemSubcategories: effective.itemSubcategories,
+                    items: effective.items,
+                    kinds: options.gatherObjects ?? [],
+                  };
+                },
+                () => tuningState.society(),
+              )
             : undefined,
         // 정원사 웨이브 전투(docs/adr/2026-11-01-gardener-r5b.md): 팩 전투 자료, 설정 칸 실효 값을 얹은 전투 계수(부를 때마다)
         // 팩 항목 덮어쓰기(스킬 편집기)·가중치 표 덮어쓰기를 얹은 실효 자료, 전투를 열 때마다 읽는다

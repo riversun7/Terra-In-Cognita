@@ -99,6 +99,7 @@ import {
 import { type NationPersonality, type NationPreset, nationPresetOf } from "./nations.ts";
 
 export { DEFAULT_TAX_BP } from "./currency.ts";
+import type { NpcJobSite } from "./npcJobs.ts";
 /** [임시] 보이는 운반 일정에 더하는 내려놓는 시간(ms) */
 const HAUL_SHOWN_EXTRA_MS = 20_000;
 /** 처음 창고 중복 방지 키 앞머리 */
@@ -265,6 +266,19 @@ export interface ServerEconomy {
   expire(nowMs: number): number;
   /** 다음 환전 회차 시각(회차 길이의 정시, 564 다: 마지막 회차 다음 정시, 아직 없으면 켠 시각 다음 정시) */
   nextFxAt(): number;
+  /**
+   * NPC 채집·생산 시설 건물(도시 주인 나라 것, 다 지은 것 — 도시 경제가 쓰는 건물 그대로). 플레이어 일자리(npc/npcJobs.ts)가 본다
+   */
+  shops(): NpcJobSite[];
+  /** 그 도시 거래소의 그 물건 마지막 체결가(없으면 undefined — 시작 시세를 쓴다) */
+  lastPrice(cityId: number, asset: string): bigint | undefined;
+  /**
+   * 그 시설 금고를 target까지 채운다(npcJobs.ts — 새 일꾼 보증금): 모자란 만큼 NPC 주인이 국고에서 넣는다(business invest). 국고가 모자라거나
+   * 사업장 장부가 없으면 넣지 않는다. 넣은 양
+   */
+  fundShop(site: NpcJobSite, target: bigint, nowMs: number): bigint;
+  /** 그 시설들의 창고 물건(나라 것)을 그 도시 창고로 보내고 나라가 사들인다(npcDelivery.ts sweep). 옮긴 줄 수 */
+  collectShops(sites: readonly NpcJobSite[], nowMs: number): number;
   /** 지난 호출 뒤 구간 지표 */
   takeMetrics(): Record<string, number>;
   check(): string[];
@@ -1040,6 +1054,41 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       const count = registry.expire(nowMs);
       metrics.expired += count;
       return count;
+    },
+    shops() {
+      const out: NpcJobSite[] = [];
+      for (const city of world.cities.values())
+        for (const entry of o.input.facilitiesIn(city.id))
+          if (entry.ownerId === city.owner && entry.level >= 1)
+            out.push({
+              buildingId: entry.buildingId,
+              cityId: city.id,
+              owner: city.owner,
+              facility: entry.facility,
+              level: entry.level,
+              plots: entry.plots,
+            });
+      return out;
+    },
+    lastPrice: (cityId, asset) => registry.existing(cityId, asset)?.market.lastPrice ?? undefined,
+    fundShop(site, target, nowMs) {
+      const business = o.input.business;
+      if (!business || o.rules().business.npcBooks !== 1 || business.suspended(site.buildingId)) return 0n;
+      const currency = cityCurrency(site.cityId);
+      const short = target - business.vaultBalance(site.buildingId, site.owner, currency);
+      if (short <= 0n || book.balance(book.ownerAccount(site.owner, currency)) < short) return 0n;
+      return business.invest(site.buildingId, site.owner, currency, short, nowMs) ? short : 0n;
+    },
+    collectShops(sites, nowMs) {
+      if (!deliveries || o.rules().business.npcBooks !== 1) return 0;
+      const shops = new Map<number, { cityId: number; owner: number; currency: string }>();
+      for (const site of sites)
+        shops.set(site.buildingId, {
+          cityId: site.cityId,
+          owner: site.owner,
+          currency: cityCurrency(site.cityId),
+        });
+      return deliveries.sweep(shops, nowMs);
     },
     takeMetrics() {
       const bids = run.bidsPlaced();

@@ -162,14 +162,23 @@ describe("chargeHouseEntry·entryShortfall — 가문이 한꺼번에(D-573, 질
 /** 도시 정책 줄·나라 줄만 답하는 가짜 질의(houseEntryTermsOf가 묻는 두 SQL) */
 function fakePolicies(
   cityFee: { fee: string; owner: number } | null,
-  nation: { fee: string | null; kind: string; traits: unknown } | null,
+  nation: { fee: string | null; kind: string; traits: unknown; fixed?: boolean } | null,
 ): EntryQueryable {
   return {
     query: async (text: string) => {
       if (text.includes("from city_policies"))
         return { rows: cityFee ? [{ house_entry_fee: cityFee.fee, faction_id: String(cityFee.owner) }] : [] };
       return {
-        rows: nation ? [{ house_entry_fee: nation.fee, kind: nation.kind, traits: nation.traits }] : [],
+        rows: nation
+          ? [
+              {
+                house_entry_fee: nation.fee,
+                kind: nation.kind,
+                traits: nation.traits,
+                fixed: nation.fixed ?? false,
+              },
+            ]
+          : [],
       };
     },
   };
@@ -210,6 +219,20 @@ describe("houseEntryTermsOf — 도시·나라 정책(질문 2018 답)", () => {
     expect((await houseEntryTermsOf(player, base)).terms).toBe(0n);
     expect((await houseEntryTermsOf(merchant, { ...base, npc: undefined })).terms).toBe(0n);
   });
+  it("고정 NPC 나라(시작 나라)의 규칙식은 가입비를 내지 않는다: 가입비면 0, 지원금은 그대로, 지도자가 정한 가입비는 그대로", async () => {
+    const merchant = fakePolicies(null, {
+      fee: null,
+      kind: "npc",
+      traits: [500, 1000, 500, 500],
+      fixed: true,
+    });
+    expect(await houseEntryTermsOf(merchant, base)).toEqual({ terms: 0n, parts: [] });
+    const giver = fakePolicies(null, { fee: null, kind: "npc", traits: [500, 0, 500, 500], fixed: true });
+    expect((await houseEntryTermsOf(giver, base)).terms).toBe(-BigInt(npc.grantMax));
+    const set = fakePolicies(null, { fee: "40", kind: "npc", traits: [500, 0, 500, 500], fixed: true });
+    expect((await houseEntryTermsOf(set, base)).terms).toBe(40n);
+  });
+
   it("npcEntryTerms: 상업 성향 낮음 = 지원금, 성향 없음 = 0", () => {
     expect(npcEntryTerms([500, 0, 500, 500], npc)).toBe(-BigInt(npc.grantMax));
     expect(npcEntryTerms(null, npc)).toBe(0n);

@@ -6,7 +6,8 @@
 //   집이면 느리다(3분에 1점), 숙소 Lv3이면 빠르다.
 // - 요금(D-555 1508·1514, docs/adr/2026-11-15-business-ledger.md): 숙소에서 쉬면 일·쉼 한 바퀴(restPeriodMs)마다 하룻밤 요금(설정 칸
 //   lodging_fee_per_night)을 그 유닛의 사유재산(유닛 지갑 = @terra/shared/businessBooks unitPurseLocation, D-097)에서 그 숙소 금고로 낸다(제 주인 숙소여도
-//   — 유닛 돈과 주인 돈은 다르다). 지갑이 모자라면 남은 만큼만 내고, 그동안 회복이 떨어진다(노숙 회복 [임시]). 주인은 유닛에게 돈을 줄 수 있다
+//   — 유닛 돈과 주인 돈은 다르다. 다만 사이보그 본체·재산 없는 유닛은 유닛 지갑이 없어 소유자 지갑에서 낸다 — useOwnerPurse, ADR
+//   2026-11-24-house-membership-separation.md 5). 지갑이 모자라면 남은 만큼만 내고, 그동안 회복이 떨어진다(노숙 회복 [임시]). 주인은 유닛에게 돈을 줄 수 있다
 //   (선물 unit_gift). 화폐 = 그 숙소의 돈(건물의 돈 = 그 도시 주인 나라 화폐, facilities/buildingMoney.ts). 바퀴 나머지 ms·못 낸 표시는 메모리(다시 켜면 0부터) [임시].
 // - 바뀜(residence-3, D-591 2): 그 숙소를 사는 곳으로 골라 숙박비를 기간만큼 미리 냈으면(residence/rent.ts — 사는 곳 장부 prepaidAt) 그 기간에는 밤마다 다시
 //   걷지 않는다. 미리 낼 값 = 그 기간에 드는 밤 수 × 하룻밤 요금(periodFee — 밤마다 걷는 것과 같은 바퀴 셈).
@@ -31,6 +32,7 @@ import type { NpcRuntime } from "../npc/runtime.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { Settlement } from "../world/settlement.ts";
 import type { LaborService } from "./service.ts";
+import { PROPERTY_UNIT_KINDS } from "./wagePurse.ts";
 
 /** 도시 계획을 다시 셈하기까지(ms) */
 const PLAN_TTL_MS = 30_000;
@@ -56,6 +58,12 @@ export interface WorkerRestDeps {
   feeAssetOf?: ((lodgingId: number) => string) | undefined;
   /** 사업장 장부(숙소 금고로 받기·소득세). 없으면 숙소 주인 지갑(옛 길, 시험) */
   readonly business?: Pick<BusinessCore, "receive"> | undefined;
+  /**
+   * 그 유닛은 유닛 지갑이 아니라 소유자(플레이어) 지갑에서 내나: 사이보그 본체·재산 없는 유닛(크리쳐·안드로이드) — 본체의 돈은 플레이어
+   * 지갑에 있어 유닛 지갑은 늘 비어 있다(사용자 결정 2026-11-24 "사이보그 본체·재산 없는 유닛의 주거비·주민세는 소유자 지갑에서 부담",
+   * ADR 2026-11-24-house-membership-separation.md 5 — 집세 residence/attach.ts와 같은 규칙). 없으면 늘 유닛 지갑
+   */
+  useOwnerPurse?: ((unitId: number) => boolean) | undefined;
 }
 
 /** 일꾼 하나의 쉼터와 회복(화면·정산) */
@@ -177,8 +185,11 @@ export function createWorkerRest(deps: WorkerRestDeps): WorkerRest {
     const nights = Math.floor(total / period);
     carry.set(unitId, total % period);
     if (nights <= 0) return !unpaid.has(unitId);
-    // 유닛 사유재산(D-097)에서 낸다
-    const from = ledger.ownerAccount(ownerId, asset, unitPurseLocation(unitId));
+    // 유닛 사유재산(D-097)에서 낸다. 사이보그 본체·재산 없는 유닛은 소유자 지갑에서(집세와 같은 규칙 — ADR 2026-11-24 5)
+    const from =
+      deps.useOwnerPurse?.(unitId) === true
+        ? ledger.ownerAccount(ownerId, asset)
+        : ledger.ownerAccount(ownerId, asset, unitPurseLocation(unitId));
     const due = BigInt(nights) * fee;
     const have = ledger.balance(from);
     const pay = have < due ? have : due;
@@ -270,6 +281,13 @@ export function attachWorkerRest(parts: {
     ledger: parts.ledger,
     feeAssetOf: (lodgingId) => facilities.money(lodgingId),
     business: facilities.business,
+    useOwnerPurse: (unitId) => {
+      for (const map of parts.maps.values()) {
+        const info = map.unitInfo(unitId);
+        if (info) return !PROPERTY_UNIT_KINDS.has(info.kind);
+      }
+      return false;
+    },
   });
   parts.settlement.restRules((ownerId, units, fromMs, toMs) => rest.rulesFor(ownerId, units, fromMs, toMs));
   // 주민세 거주(D-581 2372 — 숙소 배정이 있는 플레이어 일꾼은 그 도시 주민, npc/residentProperty.ts)

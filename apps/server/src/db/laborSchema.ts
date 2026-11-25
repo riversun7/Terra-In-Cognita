@@ -60,7 +60,10 @@ export const laborContracts = pgTable(
       "labor_contracts_end",
       sql`(${table.state} in ('active', 'paused')) = (${table.endReason} is null) and (${table.state} = 'grace') = (${table.graceUntilMs} is not null)`,
     ),
-    check("labor_contracts_asset_format", sql`${table.asset} ~ '^[a-z][a-z0-9_]{1,47}$'`),
+    check(
+      "labor_contracts_asset_format",
+      sql`${table.asset} ~ '^[a-z][a-z0-9_]{1,47}(:[a-z][a-z0-9_]{1,47})?$'`,
+    ),
     check(
       "labor_contracts_leftovers",
       sql`${table.leftoversMovedAtMs} is null or (${table.state} = 'ended' and ${table.kind} = 'lease')`,
@@ -83,7 +86,7 @@ export const laborRents = pgTable(
   },
   (table) => [
     check("labor_rents_nonnegative", sql`${table.rentPerHour} >= 0`),
-    check("labor_rents_asset_format", sql`${table.asset} ~ '^[a-z][a-z0-9_]{1,47}$'`),
+    check("labor_rents_asset_format", sql`${table.asset} ~ '^[a-z][a-z0-9_]{1,47}(:[a-z][a-z0-9_]{1,47})?$'`),
   ],
 );
 
@@ -120,7 +123,10 @@ export const laborPostings = pgTable(
     ),
     check("labor_postings_term", sql`${table.termHours} is null or ${table.termHours} > 0`),
     check("labor_postings_closed", sql`(${table.state} = 'open') = (${table.closedAtMs} is null)`),
-    check("labor_postings_asset_format", sql`${table.asset} ~ '^[a-z][a-z0-9_]{1,47}$'`),
+    check(
+      "labor_postings_asset_format",
+      sql`${table.asset} ~ '^[a-z][a-z0-9_]{1,47}(:[a-z][a-z0-9_]{1,47})?$'`,
+    ),
   ],
 );
 

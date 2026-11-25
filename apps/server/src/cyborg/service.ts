@@ -104,6 +104,8 @@ export interface CreationView {
   readonly unlimitedRolls?: boolean | undefined;
   /** 이 세계에 올린 국가 마크 그림(프리셋 ID → 해시). 못 읽었으면 없음(만든 마크만 보인다) */
   readonly emblemUploads?: ReadonlyMap<string, string> | undefined;
+  /** 나라마다 가문 가입 조건(+ 가입비 / − 지원금, startFees). 가입비를 받는 나라는 시작할 수 없다고 알린다. 못 읽었으면 없음 */
+  readonly entryFees?: ReadonlyMap<number, bigint> | undefined;
 }
 
 /** 굴리기 명령의 부르는 사람 몫 */
@@ -150,6 +152,11 @@ export interface CreateInput {
 export interface CyborgService {
   status(userId: string): CyborgStatusResponse;
   creation(userId: string, nowMs: number, view?: CreationView): CyborgCreationResponse;
+  /**
+   * 시작할 수 있는 나라마다 가문 가입 조건(+ 가입비 / − 지원금, 최소 단위). 가입비를 받는 나라에서는 시작할 수 없다(사용자 결정
+   * 2026-11-25 — 미소속으로 시작한 뒤 그 나라에 들 돈이 없다). 조건을 읽는 길이 없으면(DB 없음) 빈 표
+   */
+  startFees(): Promise<ReadonlyMap<number, bigint>>;
   nameCheck(input: string): CyborgNameCheckResponse;
   roll(userId: string, temperament: string, options?: RollOptions): Promise<CyborgCommandResult>;
   create(userId: string, input: CreateInput): Promise<CyborgCommandResult>;
@@ -241,6 +248,11 @@ export interface CyborgServiceOptions {
   maps: ReadonlyMap<number, SecondMap>;
   /** 부팅 때 읽은 도시(시작 도시 표시 D-341) */
   cities: readonly CityRow[];
+  /**
+   * 그 나라의 가문 가입 조건(+ 가입비 / − 지원금 — factionIdentity/houseEntry.ts nationEntryTerms). 가입비(양수)를 받는 나라에서는
+   * 시작하지 못한다. 없으면 막지 않는다(DB 없는 세계·시험). rules = 이 명령이 쓰는 설정 칸 값 한 벌(NPC 나라 규칙식)
+   */
+  entryFeeOf?: ((factionId: number, rules: CyborgRules) => Promise<bigint>) | undefined;
   settlement: Settlement;
   /** 원장(정착 지원금을 세력 국고에서 옮긴다) */
   ledger: Ledger;
@@ -456,12 +468,16 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       const open = factions
         .map((faction) => ({ faction, cities: startCitiesOf(faction.id) }))
         .filter((entry) => entry.cities.length > 0);
+      // 가입비를 받는 나라는 시작할 수 없어 추천에서 뺀다(사용자 결정 2026-11-25)
+      const feeOf = (factionId: number): bigint => view.entryFees?.get(factionId) ?? 0n;
       const recommended = recommendedNations(
-        open.map((entry) => ({
-          id: entry.faction.id,
-          cyborgs: perFaction.get(entry.faction.id) ?? 0,
-          startCities: entry.cities.length,
-        })),
+        open
+          .filter((entry) => feeOf(entry.faction.id) <= 0n)
+          .map((entry) => ({
+            id: entry.faction.id,
+            cyborgs: perFaction.get(entry.faction.id) ?? 0,
+            startCities: entry.cities.length,
+          })),
       );
       const profileOf = options.nationProfiles?.(view.emblemUploads);
       const list: CreationFaction[] = open.map(({ faction, cities }) => ({
@@ -496,6 +512,7 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
           // 기본 선택 = 가장 덜 붐비는 곳(D-6041): 붐빔 적은 차례, 같으면 앞 도시
           .toSorted((a, b) => a.cyborgs - b.cyborgs || a.number - b.number),
         ...profileField(faction.code === null ? undefined : profileOf?.(faction.code)),
+        ...(feeOf(faction.id) > 0n ? { entryFee: String(feeOf(faction.id)) } : {}),
       }));
       const rollNow: CyborgRollView | null = roll ? rollView(roll, rules, unlimited) : null;
       const record = byUser.get(userId);
@@ -566,8 +583,34 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       await writer.durable();
       return { ok: true, roll: rollView(record, rules, unlimited) };
     },
+    async startFees() {
+      const out = new Map<number, bigint>();
+      const read = options.entryFeeOf;
+      if (!read) return out;
+      const rules = options.rules();
+      await Promise.all(
+        openFactionIds().map(async (factionId) => {
+          out.set(factionId, await read(factionId, rules));
+        }),
+      );
+      return out;
+    },
+
     async create(userId, input) {
       if (!options.ready()) return fail("busy");
+      // 이 명령은 시작할 때 받은 설정 칸 값 한 벌만 쓴다(가입 조건·분배 검사·지원금·성장 K)
+      const rules = options.rules();
+      // 가입비를 받는 나라에서는 시작하지 못한다(사용자 결정 2026-11-25: 미소속으로 시작한 사람은 그 나라에 들 돈이 없다). 기다림은
+      // 여기 한 번뿐이다 — 아래 검사부터 커밋까지는 기다림 없이 이어져야 같은 사람의 두 번 만들기가 겹치지 않는다
+      if (options.entryFeeOf) {
+        let fee: bigint;
+        try {
+          fee = await options.entryFeeOf(input.factionId, rules);
+        } catch {
+          return fail("busy");
+        }
+        if (fee > 0n) return fail("unknown_faction");
+      }
       if (byUser.has(userId)) return fail("already_created");
       const roll = rolls.get(userId);
       if (!roll) return fail("roll_required");
@@ -591,8 +634,6 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       if (!faction || cities.length === 0) return fail("unknown_faction");
       const city = cities.find((entry) => entry.id === input.cityId);
       if (!city) return fail("unknown_city");
-      // 이 명령은 시작할 때 받은 설정 칸 값 한 벌만 쓴다(분배 검사·지원금·성장 K). 커밋 전까지 기다림이 없어 시작 = 커밋 때 값
-      const rules = options.rules();
       let elements: CyborgRecord["elements"] = null;
       if (input.elements !== undefined) {
         const checked = checkElementAllocation(input.elements, elementRule(rules));
@@ -838,9 +879,11 @@ export function cyborgReadsOf(
       const emblemUploads = extras.emblemUploads
         ? await extras.emblemUploads().catch(() => undefined)
         : undefined;
+      const entryFees = await service.startFees().catch(() => undefined);
       return service.creation(viewer.id, nowMs, {
         unlimitedRolls: hasStaffRole(viewer.roles),
         emblemUploads,
+        entryFees,
       });
     },
     nameCheck: (name) => service.nameCheck(name),

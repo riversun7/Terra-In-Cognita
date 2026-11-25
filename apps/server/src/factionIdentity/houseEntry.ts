@@ -103,14 +103,19 @@ export async function houseEntryTermsOf(
   return { terms: parts.reduce((sum, part) => sum + part.terms, 0n), parts };
 }
 
-/** 그 나라의 가문 이동 정책: 지도자가 정한 값(factions.house_entry_fee) → 없고 NPC 나라면 성향 규칙식(npc 입력이 있을 때) → 0 */
+/**
+ * 그 나라의 가문 이동 정책: 지도자가 정한 값(factions.house_entry_fee) → 없고 NPC 나라면 성향 규칙식(npc 입력이 있을 때) → 0.
+ * 고정 NPC 나라(시작 나라 — factions.fixed)의 규칙식은 가입비를 내지 않는다(사용자 결정 2026-11-25 "시작 NPC국가는 무조건 지원이고, 가입비를
+ * 받는나라에서 시작을 할 수 없다" — docs/adr/2026-11-25-npc-facility-jobs.md): 규칙식이 가입비(양수)면 0으로 친다. 지원금(음수)은 그대로.
+ * 지도자가 값을 정한 나라는 그 값 그대로다(가입비면 그 나라에서 시작할 수 없다 — cyborg/service.ts)
+ */
 export async function nationEntryTerms(
   q: EntryQueryable,
   nationId: number,
   npc: HouseRules["npcEntry"] | undefined,
 ): Promise<{ readonly terms: bigint; readonly source: HouseEntrySource }> {
   const { rows } = await q.query(
-    "select house_entry_fee::text as house_entry_fee, kind, traits from factions where id = $1",
+    "select house_entry_fee::text as house_entry_fee, kind, traits, fixed from factions where id = $1",
     [nationId],
   );
   const nation = rows[0];
@@ -118,7 +123,8 @@ export async function nationEntryTerms(
   const fee = feeOf(nation.house_entry_fee);
   if (fee !== null) return { terms: fee, source: "nation" };
   if (nation.kind !== "npc" || !npc) return { terms: 0n, source: "none" };
-  return { terms: npcEntryTerms(nation.traits, npc), source: "npc" };
+  const terms = npcEntryTerms(nation.traits, npc);
+  return { terms: nation.fixed === true && terms > 0n ? 0n : terms, source: "npc" };
 }
 
 /**

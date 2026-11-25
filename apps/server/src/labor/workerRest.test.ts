@@ -7,7 +7,7 @@ import { createWorkerRest } from "./workerRest.ts";
 const rules = TEST_SOCIETY_COEFFICIENTS;
 const area = (x: number, y: number) => ({ x, y, radius: 4 });
 
-function setup(lodgingLevel: number | null, lodgingOwner = 9) {
+function setup(lodgingLevel: number | null, lodgingOwner = 9, ownerPurseUnits: readonly number[] = []) {
   let ids = 1;
   const ledger = createLedgerBook({ nextAccountId: () => ids++, nextTxId: () => ids++ });
   const rest = createWorkerRest({
@@ -28,6 +28,7 @@ function setup(lodgingLevel: number | null, lodgingOwner = 9) {
     npcTaken: () => undefined,
     ledger,
     feeAssetOf: () => "credit",
+    useOwnerPurse: (unitId) => ownerPurseUnits.includes(unitId),
   });
   return { rest, ledger };
 }
@@ -78,6 +79,29 @@ describe("createWorkerRest", () => {
     });
     own.rest.rulesFor(5, [{ id: 100 }], 0, period * 3);
     expect(own.ledger.balance(ownPurse)).toBe(10n - 3n * fee);
+  });
+
+  it("사이보그 본체·재산 없는 유닛의 숙박비는 소유자 지갑에서 낸다(유닛 지갑이 없다 — ADR 2026-11-24 5)", () => {
+    const { rest, ledger } = setup(1, 9, [100]);
+    // 돈은 소유자(플레이어) 지갑에만 있다 — 유닛 지갑은 비어 있다
+    ledger.post({
+      kind: "grant",
+      atMs: 0,
+      entries: [
+        { account: ledger.systemAccount("issue:credit", "credit"), amount: -10n },
+        { account: ledger.ownerAccount(5, "credit"), amount: 10n },
+      ],
+    });
+    const view = rest.restOf(100);
+    if (!view) throw new Error("no rest");
+    const period = restPeriodMs(view.place, view.commuteCells, rules);
+    rest.rulesFor(5, [{ id: 100 }], 0, period * 2 + 5);
+    const fee = BigInt(rules.logistics.lodgingFeePerNight);
+    expect(ledger.balanceOf(5, "credit")).toBe(10n - 2n * fee);
+    expect(ledger.balanceOf(9, "credit")).toBe(2n * fee);
+    expect(ledger.balanceOf(5, "credit", unitPurseLocation(100))).toBe(0n);
+    // 다 냈으니 못 낸 표시가 없다(회복이 떨어지지 않는다)
+    expect(rest.restOf(100)?.unpaid).toBe(false);
   });
 
   it("숙박비를 다 못 내면 회복이 떨어진다(노숙 회복)", () => {

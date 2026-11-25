@@ -9,7 +9,7 @@
 // 좁은 폭(휴대폰 세로)이 기준이고, 넓은 폭은 가운데 한 열(--content-max)로 둔다. 지연 로딩 조각(shell/routeViews.tsx).
 import type { AccountView } from "@terra/shared";
 import { type CharacterLook, DEFAULT_CHARACTER_LOOK } from "@terra/shared/characterLook";
-import type { CyborgCreationResponse, CyborgRollView } from "@terra/shared/cyborg";
+import type { CreationFaction, CyborgCreationResponse, CyborgRollView } from "@terra/shared/cyborg";
 import type { WorldCitiesResponse } from "@terra/shared/worldMap";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { refreshSession, signOut } from "../auth/session.ts";
@@ -36,6 +36,7 @@ import {
 } from "./elementsStep.tsx";
 import { LooksStep } from "./LooksStep.tsx";
 import { NameStep } from "./nameLookSteps.tsx";
+import { FeeNationDialog } from "./FeeNationDialog.tsx";
 import { CityStep, DescentStep, FactionStep } from "./placeSteps.tsx";
 import { commandErrorText } from "./startText.ts";
 import { StatsStep } from "./statsStep.tsx";
@@ -71,11 +72,15 @@ function prefersReducedMotion(): boolean {
   }
 }
 
-/** 고른 세력·도시가 목록에 없으면 기본(추천 세력, 그 세력의 첫 도시 = 가장 덜 붐빔) */
+/**
+ * 고른 세력·도시가 목록에 없으면 기본(추천 세력, 그 세력의 첫 도시 = 가장 덜 붐빔). 가입비를 받는 나라는 시작할 수 없어 기본으로 고르지
+ * 않는다(모든 나라가 가입비를 받으면 첫 나라를 보이되 [다음]이 막힌다)
+ */
 function pickPlace(data: CyborgCreationResponse, factionId: number | null, cityId: number | null) {
   const faction =
     data.factions.find((entry) => entry.id === factionId) ??
     data.factions.find((entry) => entry.recommended) ??
+    data.factions.find((entry) => entry.entryFee === undefined) ??
     data.factions[0];
   const city = faction?.cities.find((entry) => entry.id === cityId) ?? faction?.cities[0];
   return { faction, city };
@@ -92,6 +97,7 @@ export default function StartScreen({ user }: { user: AccountView }) {
   const [temperament, setTemperament] = useState<string>("balanced");
   const [elements, setElements] = useState<ElementDraft>(EMPTY_ELEMENT_DRAFT);
   const [factionId, setFactionId] = useState<number | null>(null);
+  const [feeWarning, setFeeWarning] = useState<CreationFaction | null>(null);
   const [cityId, setCityId] = useState<number | null>(null);
   const [descending, setDescending] = useState(false);
   const [world, setWorld] = useState<WorldCitiesResponse | null>(null);
@@ -239,7 +245,7 @@ export default function StartScreen({ user }: { user: AccountView }) {
       : step === "elements"
         ? data !== null && elementDraftValid(elements, ruleOf(data))
         : step === "faction"
-          ? place.faction !== undefined
+          ? place.faction !== undefined && place.faction.entryFee === undefined
           : step === "city"
             ? place.city !== undefined
             : true;
@@ -327,6 +333,14 @@ export default function StartScreen({ user }: { user: AccountView }) {
                 data={data}
                 selected={place.faction?.id ?? null}
                 onSelect={(next) => {
+                  // 가입비를 받는 나라는 고르지 않고 경고 창만 띄운다(사용자 결정 2026-11-25)
+                  const blocked = data.factions.find(
+                    (entry) => entry.id === next && entry.entryFee !== undefined,
+                  );
+                  if (blocked) {
+                    setFeeWarning(blocked);
+                    return;
+                  }
                   setFactionId(next);
                   setCityId(null);
                 }}
@@ -385,6 +399,7 @@ export default function StartScreen({ user }: { user: AccountView }) {
           </div>
         </>
       ) : null}
+      <FeeNationDialog faction={feeWarning} onClose={() => setFeeWarning(null)} />
     </section>
   );
 }

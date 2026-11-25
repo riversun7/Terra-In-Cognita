@@ -1,0 +1,3 @@
+ALTER TABLE "labor_contracts" DROP CONSTRAINT "labor_contracts_asset_format", ADD CONSTRAINT "labor_contracts_asset_format" CHECK ("asset" ~ '^[a-z][a-z0-9_]{1,47}(:[a-z][a-z0-9_]{1,47})?$');--> statement-breakpoint
+ALTER TABLE "labor_rents" DROP CONSTRAINT "labor_rents_asset_format", ADD CONSTRAINT "labor_rents_asset_format" CHECK ("asset" ~ '^[a-z][a-z0-9_]{1,47}(:[a-z][a-z0-9_]{1,47})?$');--> statement-breakpoint
+ALTER TABLE "labor_postings" DROP CONSTRAINT "labor_postings_asset_format", ADD CONSTRAINT "labor_postings_asset_format" CHECK ("asset" ~ '^[a-z][a-z0-9_]{1,47}(:[a-z][a-z0-9_]{1,47})?$');

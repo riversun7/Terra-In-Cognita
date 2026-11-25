@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-26 00:15 | NPC 시설 일자리(자원 값 안의 임금), 가입비 나라 시작 막기, 본체 숙박비, 노동 표 화폐 제약 | Claude Code | [26-0015-npc-facility-jobs-and-start-fee-block](worklog/2026/11/26-0015-npc-facility-jobs-and-start-fee-block.md) |
 | 2026-11-25 23:15 | 사이보그 본체 피로가 늘 0으로 보이던 것 고침(채집 피로) | Claude Code | [25-2315-cyborg-body-fatigue](worklog/2026/11/25-2315-cyborg-body-fatigue.md) |
 | 2026-11-25 22:40 | 홈 [도시 활동] 카드: 2차맵에 들어가지 않고 건물 목록·건물 판 | Claude Code | [25-2240-home-city-card](worklog/2026/11/25-2240-home-city-card.md) |
 | 2026-11-25 22:30 | 상태 0% 건물은 폐허: 고칠 수 없고 원래 건물로 치지 않는다 | Claude Code | [25-2230-ruined-buildings](worklog/2026/11/25-2230-ruined-buildings.md) |

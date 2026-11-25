@@ -49,6 +49,10 @@ import { type BattleBodies, createBattleBodies } from "./battleBodies.ts";
 import { walkSpeedsOf } from "./walkSpeed.ts";
 import { commandRankSource } from "./commandRanks.ts";
 import { blacklistReward } from "../factionIdentity/blacklistReward.ts";
+import { nationEntryTerms } from "../factionIdentity/houseEntry.ts";
+import { houseRulesFrom } from "../factionIdentity/rules.ts";
+import type { NpcJobValue } from "../npc/npcJobValue.ts";
+import { type NpcJobs, npcJobsOf } from "../npc/npcJobs.ts";
 import { defenseRenown } from "./defenseRenown.ts";
 import { attachDeliveryRenown } from "./deliveryRenown.ts";
 import { type BoatHooks, createBoatHooks } from "../boats/hooks.ts";
@@ -195,6 +199,11 @@ export interface WorldConfig {
   facilities?: FacilitiesConfig | undefined;
   /** NPC 도시 경제·거래소의 경제 목록(docs/adr/2026-11-07-play-flow.md WP4, market/catalog.ts). 없으면 경제 없음(시험) */
   economy?: (() => ServerEconomyCatalog) | undefined;
+  /**
+   * NPC 시설 일자리의 임금 기준 값(npc/npcJobValue.ts — 그 시설에서 기준 유닛이 한 시간에 캐는 물건의 기대 금액). 없으면 NPC는 일자리를 내지
+   * 않는다(시험·팩 없는 세계)
+   */
+  npcJobValue?: NpcJobValue | undefined;
 }
 export interface WorldLog extends MapLog {
   info(obj: object, message: string): void;
@@ -273,6 +282,8 @@ export interface World extends WorldDirectory {
   readonly persistence: WorldPersistence | undefined;
   /** NPC 사회 런타임(켜져 있고 DB가 있을 때만) */
   readonly npc: NpcRuntime | undefined;
+  /** NPC 시설 일자리(npc/npcJobs.ts). NPC 경제나 임금 기준 값이 없으면 undefined */
+  readonly npcJobs: NpcJobs | undefined;
   /** 비접속 유저 유닛 관리인의 마지막 기록(모니터 — labor/offlineSteward.ts). 아직 켜지 않았으면 undefined */
   offlineSteward(): OfflineStewardStats | undefined;
   /** 불변 조건 검사(메모리 + DB). 위반 목록 */
@@ -319,6 +330,7 @@ export function startWorld(
   let persistence: WorldPersistence | undefined;
   const boatHooks = createBoatHooks();
   let npc: NpcRuntime | undefined;
+  let npcJobs: NpcJobs | undefined;
   let stewardStats: (() => OfflineStewardStats) | undefined;
   let heartbeat: ReturnType<typeof setInterval> | undefined;
   let stopped = false;
@@ -545,6 +557,9 @@ export function startWorld(
       ready: () => status.state === "ready",
       log,
       factionName: (code) => nationName(code, config.npc?.presets),
+      // 가입비를 받는 나라에서는 시작하지 못한다(사용자 결정 2026-11-25): 가문이 그 나라에 들 때와 같은 조건을 읽는다
+      entryFeeOf: async (factionId, rules) =>
+        (await nationEntryTerms(db, factionId, houseRulesFrom(rules).npcEntry)).terms,
       // 나라 고르기 카드의 자세한 정보(2026-11-11): 실효 프리셋 + NPC 사회 런타임 거울 세계(부를 때마다 지금 npc를 읽는다)
       nationProfiles: (uploads) =>
         nationProfilesOf(
@@ -946,7 +961,12 @@ export function startWorld(
     const beat = () => writer.upsert("heartbeat", { id: 1, boot_id: bootId, alive_at_ms: now() });
     const steward = createOfflineSteward({ rules: societyRules, settlement, labor, maps, log });
     stewardStats = () => steward.stats();
-    const tasks = { "house ties reload": () => ties.reload(), "offline steward": () => steward.sweep(now()) };
+    const tasks = {
+      "house ties reload": () => ties.reload(),
+      "offline steward": () => steward.sweep(now()),
+      // NPC 시설 일자리(npc/npcJobs.ts): 점검 주기가 지났을 때만 돈다. NPC 사회가 켜진 뒤에 생긴다
+      "npc jobs": () => Promise.resolve(npcJobs?.due(now())),
+    };
     heartbeat = startHeartbeat({ everyMs: HEARTBEAT_MS, beat, tasks, log });
 
     const problems = [
@@ -1003,6 +1023,7 @@ export function startWorld(
           onHumanDied: (unitId) => void npcTravelOf(travel).cancel(unitId, true),
         });
         attachDeliveryRenown(npc.economy, { owners, cyborgs, rules: societyRules }); // 납품 명성(D-326)
+        npcJobs = npcJobsOf(npc.economy, labor, config.npcJobValue); // NPC 시설 일자리(사용자 지시 2026-11-25)
         await finishTierApply(db, TEST_PLANET_ID, now(), seeded?.tierApply, npc.seedReport, log);
       } catch (error) {
         log.error({ err: error }, "npc society failed to start; bots keep walking");
@@ -1065,6 +1086,9 @@ export function startWorld(
     },
     get npc() {
       return npc;
+    },
+    get npcJobs() {
+      return npcJobs;
     },
     offlineSteward: () => stewardStats?.(),
     isReady: () => status.state === "ready",

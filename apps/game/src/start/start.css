@@ -232,6 +232,50 @@
 .start-badge[data-crowding="busy"] {
   background: var(--color-danger-surface);
 }
+/* 가입비를 받는 나라: 시작할 수 없다(누르면 경고 창, FeeNationDialog.tsx) */
+.start-badge[data-badge="fee"] {
+  background: var(--color-danger-surface);
+}
+.start-nation[data-fee] .start-choice-body {
+  opacity: 0.6;
+}
+.start-faction-fee {
+  color: var(--color-danger);
+}
+.start-fee-dialog {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--content-max);
+  padding: var(--space-4);
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+}
+.start-fee-dialog::backdrop {
+  background-color: var(--color-overlay);
+}
+.start-fee-dialog-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-4);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-panel);
+}
+.start-fee-dialog-panel p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.start-fee-dialog-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
+  overflow-wrap: anywhere;
+}
 /* 고른 시작 도시의 둘레 땅(D-6041 "주변 자원·기후", map/LandFacts.tsx) */
 .start-city-land {
   display: grid;

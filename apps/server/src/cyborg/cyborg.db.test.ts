@@ -189,6 +189,35 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
     expect(view.factions[0]?.cities[0]).toMatchObject({ cyborgs: 2, crowding: "quiet" });
   });
 
+  it("가입비를 받는 나라에서는 시작할 수 없다(사용자 결정 2026-11-25): 조회가 가입비를 알리고 추천에서 빼며, 만들기를 거절한다", async () => {
+    const world = await boot();
+    const service = cyborgsOf(world);
+    const user = await fakeUser("Fee_Starter");
+    const start = startOf(world, user);
+    const input = { name: "Feeless", appearance: DEFAULT_CYBORG_APPEARANCE, ...start, elements: fireWind };
+    await service.roll(user, "combat");
+    // 지도자가 가입비를 정한 나라(factions.house_entry_fee — 가문이 그 나라에 들 때와 같은 조건)
+    await test.db.$client.query("update factions set house_entry_fee = 40 where id = $1", [start.factionId]);
+    const fees = await service.startFees();
+    expect(fees.get(start.factionId)).toBe(40n);
+    const listed = service
+      .creation(user, clock, { entryFees: fees })
+      .factions.find((entry) => entry.id === start.factionId);
+    expect(listed?.entryFee).toBe("40");
+    expect(listed?.recommended).toBe(false);
+    expect(await service.create(user, input)).toEqual({ ok: false, code: "unknown_faction" });
+    expect(service.record(user)).toBeUndefined();
+    // 지원금(음수)이나 0이면 시작할 수 있고 조회에 가입비 칸이 없다
+    await test.db.$client.query("update factions set house_entry_fee = -15 where id = $1", [start.factionId]);
+    const open = await service.startFees();
+    expect(
+      service
+        .creation(user, clock, { entryFees: open })
+        .factions.find((entry) => entry.id === start.factionId)?.entryFee,
+    ).toBeUndefined();
+    expect(await service.create(user, input)).toEqual({ ok: true });
+  });
+
   it("3D 외형(docs/adr/2026-11-11-character-3d.md 5절): 서버가 목록·범위를 보고 저장한다. 옛 칸은 그 외형에서 넘긴 값, 다시 켜도 남는다", async () => {
     const world = await boot();
     const service = cyborgsOf(world);

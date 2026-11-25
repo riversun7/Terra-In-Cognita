@@ -132,6 +132,8 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 이동 정책 (DB)", () => {
       canSetNation: true,
       // 가문 도시라 다른 가문 짓기 칸도(D-574 2124 — 정하지 않음 = 기본값 허용)
       build: { city: null, fallback: true },
+      // 외부 세력 짓기 정책(4단계 — ADR 2026-11-25-building-access-and-foreign-build.md): 정하지 않음 = 막음, 도시 주인이 정한다
+      foreignBuild: { city: null, fallback: false, canSet: true },
     });
     // 비우면 나라 값을 따른다
     await policy().set(mine.leader, { scope: "city", cityId: 950, fee: null });
@@ -157,6 +159,8 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 이동 정책 (DB)", () => {
       nationSource: "npc",
       canSetCity: false,
       canSetNation: false,
+      // 외부 세력 짓기 정책(4단계): NPC 도시는 남이 정하지 못한다
+      foreignBuild: { city: null, fallback: false, canSet: false },
     });
     const audits = await rows(
       test.db,

@@ -9,11 +9,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { createContentEditState } from "../contentEdit/state.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
+import { houseTiesOf } from "../world/houseTies.ts";
 import { ASSET_CREDIT, SYSTEM_ISSUE_CREDIT } from "../world/settlement.ts";
 import { silentLog } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
 import { createHouseFounder } from "./found.ts";
 import { createHouseCity } from "./houseCity.ts";
+import { createHouseHome } from "./houseHome.ts";
 import { createHouseRecruitService } from "./houseRecruit.ts";
 import { createHouseMembers } from "./members.ts";
 import { TEST_HOUSE_RULES } from "./rules.ts";
@@ -138,6 +140,18 @@ async function house(
     nationOf,
   }).found(leader, { cost: "0" });
   if (!founded.ok) throw new Error(founded.code);
+  // 창설은 도시·국가 미소속이다(ADR 2026-11-24-house-membership-separation.md) — 가문원을 들이기 전에(1인 가문은 공고 없이
+  // 바로) 가문장의 출발 도시에 가입해 그 나라 가문이 된다
+  const startCity = persistence.cyborgs.record(leader)?.startCityId;
+  if (startCity === undefined) throw new Error("no start city");
+  const joined = await createHouseHome({
+    pool,
+    db: test.db,
+    rules: () => TEST_HOUSE_RULES,
+    now: () => clock,
+    nationOf,
+  }).set(leader, startCity);
+  if (!joined.ok) throw new Error(`home ${joined.code}`);
   const members = createHouseMembers({
     pool,
     db: test.db,
@@ -151,6 +165,8 @@ async function house(
     if (!offer) throw new Error("no offer");
     await members.answer(joiner.userId, offer.id, true);
   }
+  // 서버는 가문 일이 바뀔 때마다 가문 소속 표를 다시 읽는다(attach.ts afterChange) — 가문원 국적·내 도시가 가문 나라로 맞춰진다
+  await houseTiesOf(persistence)?.reload();
   return { factionId: founded.factionId, identity };
 }
 

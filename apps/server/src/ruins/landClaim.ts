@@ -32,6 +32,8 @@
 //   · 정부 건물이 있는 2차맵(짓는 중·주인 없음 포함)에는 다른 정부를 짓지 못한다(governmentOn — ruins/service.ts 짓기 검사, 땅 규칙 미리
 //     묻기 governmentExists). 그래서 새로 시작하는 경쟁은 없다. 이 규칙 앞에 같이 짓던 건물은 옛 규칙(먼저 다 지은 쪽, haltRivals)을 따른다.
 //   · 나라에 들지 않은 가문(국가 미소속 창설)은 귀속할 나라가 없어 늘 독립 도시국가로 선다.
+//   · 상태 0%가 된 정부 건물은 폐허다(수리 불가 — facilities/service.ts target_ruined, ADR 2026-11-25-ruined-buildings.md): 원래 건물로 치지
+//     않아 차지할 수 없고(vacantAt), 그 2차맵의 정부 건설을 막지 않는다(governmentOn).
 import type { SocietyCoefficients } from "@terra/sim";
 import { isCellKey } from "@terra/planet";
 import { DEFAULT_LAND_CLAIM_MODE, type LandClaimChoice } from "@terra/shared/facilities";
@@ -298,6 +300,9 @@ export function createLandClaims(d: LandClaimDeps): LandClaims {
     governmentOn(mapKey) {
       for (const record of d.facilities.facilities.values()) {
         if (record.cityId !== null || !isGovernment(record)) continue;
+        // 상태 0% = 폐허: 원래 건물로 치지 않는다 — 폐허가 된 정부 건물은 그 2차맵에 없는 것과 같아 정부를 새로 짓는다(사용자 결정
+        // 2026-11-25 "폐허가된 정부건물은 사실상 2차맵에 존재하지 않기에 정부건물건설가능"). 짓는 중(레벨 0)은 있는 것으로 친다
+        if (record.level >= 1 && record.conditionPpm <= 0) continue;
         if (cellOf(places, record)?.mapKey === mapKey) return true;
       }
       return false;

@@ -145,6 +145,9 @@ export function createServerNpcBuilder(o: ServerNpcBuilderOptions): NpcBuilder {
       const facilities: SiteFacility[] = [];
       for (const record of service.facilities.values()) {
         if (record.cityId !== cityId || at.map.buildingOwner(record.buildingId) !== faction.id) continue;
+        // 상태 0% = 폐허: 원래 건물로 치지 않는다(사용자 결정 2026-11-25, ADR 2026-11-25-ruined-buildings.md) — 수에 넣지 않아 NPC가 그
+        // 시설을 없는 것으로 보고 새로 짓고, 수리 대상에도 넣지 않는다(고칠 수 없다)
+        if (record.level >= 1 && record.conditionPpm <= 0) continue;
         counts.set(record.facilityId, (counts.get(record.facilityId) ?? 0) + 1);
         if (record.level >= 1)
           facilities.push({

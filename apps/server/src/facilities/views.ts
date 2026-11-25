@@ -334,14 +334,17 @@ export function facilitiesOverview(
       const level = Math.max(1, record.level);
       const max = maxDurabilityAt(def.durability, level, rt);
       const weightOf = (item: string) => catalog.weightOf(item);
-      const next = record.level >= 1 && record.level < def.maxLevel && def.build ? record.level + 1 : null;
+      // 상태 0% = 폐허: 올리기·수리 칸을 보이지 않는다(서버가 target_ruined로 막는다 — ADR 2026-11-25-ruined-buildings.md)
+      const ruined = record.level >= 1 && condition <= 0;
+      const next =
+        !ruined && record.level >= 1 && record.level < def.maxLevel && def.build ? record.level + 1 : null;
       const current = def.build
         ? {
             materials: buildCostAt(def.build, level),
             ms: buildTimeAt(def.build, level, weightOf, rules.facilityBuild).ms,
           }
         : { materials: [], ms: 0 };
-      const restore = record.level >= 1 ? repairRestorePpm(condition, 1, rt) : 0;
+      const restore = record.level >= 1 && !ruined ? repairRestorePpm(condition, 1, rt) : 0;
       const works = record.level >= 1 && conditionWorks(condition, rt);
       if (def.repair && def.repair.length > 0)
         shops.push({ buildingId: building.id, def, works, outside: false });

@@ -154,11 +154,13 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 인구 상한·레벨 올리기�
       expect(city.beds ?? 0).toBe(0);
     }
 
-    // 깎인 시설(전투 피해와 같은 길 — service.damage): 문턱(700‰) 아래 → 다음 판단에 수리 작업 → 끝나면 가득
+    // 깎인 시설: 문턱(700‰) 아래 → 다음 판단에 수리 작업 → 끝나면 가득
     const [cityId] = [...npc.world.cities.keys()];
     const target = seeded.find((record) => record.cityId === cityId && record.facilityId === "storehouse");
     if (!target) throw new Error("no seeded storehouse");
-    expect(service.damage(target.buildingId, 1_000_000, false, clock)).toBe(true);
+    // (0%까지 깎이면 폐허라 고칠 수 없다 — 아래에서 따로 본다. 여기서는 손상 상태 40%로 둔다)
+    target.conditionPpm = 400_000;
+    target.conditionAtMs = clock;
     expect(target.conditionPpm).toBeLessThan(700_000);
     // 판단마다 수리 작업을 거는지 보며 민다(끝나면 작업 줄이 지워진다)
     let sawRepair = false;
@@ -170,8 +172,28 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 인구 상한·레벨 올리기�
     }
     expect(sawRepair).toBe(true);
     await advance(world, 6 * HOUR_MS);
-    expect(service.facilities.get(target.buildingId)?.conditionPpm).toBe(CONDITION_FULL);
+    // 수리가 끝난 뒤 남은 시간만큼은 다시 조금 닳는다(쓰지 않을 때의 노화)
+    expect(service.facilities.get(target.buildingId)?.conditionPpm).toBeGreaterThan(990_000);
     expect(await world.checkInvariants()).toEqual([]);
+
+    // 상태 0% = 폐허(사용자 결정 2026-11-25): 고칠 수 없고 원래 건물로 치지 않는다 — NPC는 수리 작업을 걸지 않는다
+    expect(service.damage(target.buildingId, 1_000_000, false, clock)).toBe(true);
+    expect(target.conditionPpm).toBe(0);
+    expect(
+      service.npcJob({
+        ownerId: npc.world.cities.get(cityId ?? -1)?.owner ?? -1,
+        buildingId: target.buildingId,
+        kind: "repair",
+        restorePpm: 100_000,
+        materials: [],
+        ms: 0,
+      }),
+    ).toEqual({ ok: false, code: "target_ruined" });
+    for (let step = 0; step < 8; step++) await advance(world, 15 * 60_000);
+    expect(
+      [...service.jobs.values()].some((job) => job.kind === "repair" && job.buildingId === target.buildingId),
+    ).toBe(false);
+    expect(service.facilities.get(target.buildingId)?.conditionPpm).toBe(0);
 
     // 씨앗 뒤에 지은 숙소는 인구 상한에 든다(NPC 증축과 같은 길 — 건물 서비스 npcBuild)
     const city = npc.world.cities.get(cityId ?? -1);

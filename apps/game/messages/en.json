@@ -9558,5 +9558,6 @@
   "vacant_hall_taken": "You took the government building. Your house's city now stands here.",
   "vacant_hall_err_gone": "This is not an unowned government building. Another house may have taken it first.",
   "vacant_hall_err_not_here": "The house head's cyborg must be on this map to take it.",
-  "vacant_hall_err_mode": "You cannot take it with that choice. A house outside any nation can only go independent, and a house that already has a city keeps its status."
+  "vacant_hall_err_mode": "You cannot take it with that choice. A house outside any nation can only go independent, and a house that already has a city keeps its status.",
+  "facility_ruined_note": "This is a ruin. A building at 0% cannot be repaired or upgraded and no longer counts as that building."
 }

@@ -200,6 +200,20 @@ describe.skipIf(!TEST_DATABASE_URL)("빈 2차맵 알박기 완성(D-572·D-574·
       ownerKind: null,
       vacantHall: true,
     });
+    // 상태 0% = 폐허(사용자 결정 2026-11-25 "폐허가된 정부건물은 사실상 2차맵에 존재하지 않기에 정부건물건설가능"): 폐허가 된 정부는
+    // 차지할 수 없고 그 2차맵의 정부 건설을 막지 않는다. 상태가 돌아오면(시험에서만 되돌린다 — 폐허는 고칠 수 없다) 다시 막는다
+    const hallRecord = facilities.service.facilities.get(hallOne);
+    if (!hallRecord) throw new Error("hall one");
+    const fullPpm = hallRecord.conditionPpm;
+    expect(facilities.service.damage(hallOne, 0, true, clock)).toBe(true);
+    expect(hallRecord.conditionPpm).toBe(0);
+    expect(persistence.ruins.vacantHall(hallOne)).toBeUndefined();
+    expect(persistence.ruins.governmentOn(empty)).toBe(false);
+    expect((await screen.landRule(two.viewer, empty)).governmentExists).toBeUndefined();
+    hallRecord.conditionPpm = fullPpm;
+    expect(persistence.ruins.governmentOn(empty)).toBe(true);
+    expect(persistence.ruins.vacantHall(hallOne)).toEqual({ mapKey: empty });
+
     // 지은 사람이 뒤에 가문을 만들어도 저절로 갖지 않는다(지은 사람에게 우선권 없음 — 차지해야 한다)
     const startCity = persistence.cyborgs.record(one.userId)?.startCityId;
     if (startCity === undefined) throw new Error("no start city");

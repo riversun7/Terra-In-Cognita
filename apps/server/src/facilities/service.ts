@@ -760,6 +760,11 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
             ? floorOpen(record, def, options.rules().business)
             : null;
       if (closed) return fail(closed);
+      // 상태 0% = 폐허(다 지은 건물): NPC도 고치거나 올리지 못한다(플레이어와 같은 규칙)
+      if (record.level >= 1 && input.kind !== "build") {
+        advance(record, at);
+        if (record.conditionPpm <= 0) return fail("target_ruined");
+      }
       let restore = 0;
       if (input.kind === "repair") {
         advance(record, at);
@@ -815,6 +820,9 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       if (jobOn((job) => job.buildingId === buildingId && job.kind !== "equipment"))
         return fail("job_running");
       if (record.level < 1) return fail("under_construction");
+      // 상태 0% = 폐허: 원래 건물로 치지 않는다 — 올리지도 고치지도 못한다(사용자 결정 2026-11-25, ADR 2026-11-25-ruined-buildings.md)
+      advance(record, at);
+      if (record.conditionPpm <= 0) return fail("target_ruined");
       if (record.level >= def.maxLevel || !def.build) return fail("max_level");
       const unitProblem = checkUnits(me, unitIds);
       if (unitProblem) return fail(unitProblem);
@@ -862,6 +870,8 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
           return fail("job_running");
         if (found.record.level < 1) return fail("under_construction");
         advance(found.record, at);
+        // 상태 0% = 폐허: 수리할 수 없다(사용자 결정 2026-11-25 "0%건물은 폐허이고 수리가 불가능")
+        if (found.record.conditionPpm <= 0) return fail("target_ruined");
         kind = "repair";
         condition = found.record.conditionPpm;
         cost = levelCost(found.def, found.record.level);

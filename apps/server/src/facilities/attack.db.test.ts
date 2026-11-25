@@ -288,13 +288,17 @@ describe.skipIf(!TEST_DATABASE_URL)("건물·영토 비콘 공격(질문 381)", 
       ok: false,
       code: "target_ruined",
     });
-    // 수리로 되돌린다(일꾼 하나, 끝까지)
-    const repaired = await p.facilities.service.repair(owner, { buildingId: yard }, 10, helper);
-    expect(repaired.ok).toBe(true);
-    clock = repaired.ok ? (repaired.doneAtMs ?? clock) : clock;
-    p.facilities.service.finishDue(clock);
-    expect(p.facilities.service.facilities.get(yard)?.conditionPpm).toBe(CONDITION_FULL);
-    expect(p.facilities.service.works(yard)).toBe(true);
+    // 폐허(0%)는 고치거나 올릴 수 없다 — 원래 건물로 치지 않는다(사용자 결정 2026-11-25, ADR 2026-11-25-ruined-buildings.md)
+    expect(await p.facilities.service.repair(owner, { buildingId: yard }, 10, helper)).toEqual({
+      ok: false,
+      code: "target_ruined",
+    });
+    expect(await p.facilities.service.upgrade(owner, yard, helper)).toEqual({
+      ok: false,
+      code: "target_ruined",
+    });
+    expect(p.facilities.service.facilities.get(yard)?.conditionPpm).toBe(0);
+    expect(p.facilities.service.works(yard)).toBe(false);
     expect(raiderId).not.toBe(ownerId);
     expect(await world.checkInvariants()).toEqual([]);
   });

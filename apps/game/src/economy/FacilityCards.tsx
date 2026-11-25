@@ -109,7 +109,9 @@ export function FacilityCard({
   const cost = data.catalog.find((entry) => entry.id === facility.facilityId)?.levels[level - 1];
   const one = repairPlan(data, facility.conditionPpm, 1, cost, units.length);
   const full = repairPlan(data, facility.conditionPpm, 10, cost, units.length);
-  const idle = facility.job === null && facility.level >= 1;
+  // 상태 0% = 폐허: 원래 건물로 치지 않는다 — 고치거나 올리지 못한다(서버 target_ruined, 사용자 결정 2026-11-25)
+  const ruined = facility.level >= 1 && facility.state === "ruin";
+  const idle = facility.job === null && facility.level >= 1 && !ruined;
   // 재료 자리: 이 건물이 선 도시 창고 + 그 도시의 내 창고 시설 + 이 2차맵 내 유닛 화물(D-516 361)
   const stock = stockAt(data, facility.mapKey, facility.cityId);
   return (
@@ -131,6 +133,11 @@ export function FacilityCard({
         </span>
       </div>
       <ConditionBar ppm={facility.conditionPpm} label={m.facility_condition_label()} state={facility.state} />
+      {ruined ? (
+        <p className="eco-footnote" data-part="facility-ruined">
+          {m.facility_ruined_note()}
+        </p>
+      ) : null}
       <p className="eco-row-meta">
         {m.facility_card_meta({
           durability: facility.durability,

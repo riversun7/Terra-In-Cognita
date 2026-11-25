@@ -10,6 +10,7 @@ import type { HouseBadge, HouseView } from "@terra/shared/house";
 import { type ReactNode, useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import { dateText } from "../../sections/screenText.ts";
+import { EntityRef } from "../../ui/EntityRef.tsx";
 import { NationEmblem } from "../../ui/NationEmblem.tsx";
 import { HouseCityBlock } from "./HouseCityBlock.tsx";
 import { HouseHomeBlock } from "./HouseHomeBlock.tsx";
@@ -54,7 +55,7 @@ function BadgeLine({ house, children }: { house: HouseBadge; children?: ReactNod
       <NationEmblem spec={house.emblem} color={house.color} uploaded={house.uploaded} size={24} />
       <span className="fid-house-row-main">
         <span className="fid-house-row-name" translate="no">
-          {house.name}{" "}
+          <EntityRef kind="house" name={house.name} />{" "}
           <span
             className="fid-house-short"
             style={{ backgroundColor: house.color, color: labelTextOn(house.color) }}
@@ -216,8 +217,13 @@ function MyHouse({
           {house.members.map((member) => (
             <li key={member.userId} className="fid-house-row" data-role={member.role}>
               <span className="fid-house-row-main">
-                <span className="fid-house-row-name" translate="no">
-                  {member.name ?? m.fid_house_someone()}
+                <span className="fid-house-row-name">
+                  <EntityRef
+                    kind="unit"
+                    role={member.role === "leader" ? "leader" : "cyborg"}
+                    name={member.name ?? m.fid_house_someone()}
+                    noTranslate={member.name !== null}
+                  />
                 </span>
                 <span className="faction-muted">
                   {member.role === "leader" ? m.fid_house_role_leader() : m.fid_house_role_member()}
@@ -310,8 +316,13 @@ function MyHouse({
             {house.requests.map((request) => (
               <li key={request.id} className="fid-house-row" data-kind={request.kind}>
                 <span className="fid-house-row-main">
-                  <span className="fid-house-row-name" translate="no">
-                    {request.name ?? m.fid_house_someone()}
+                  <span className="fid-house-row-name">
+                    <EntityRef
+                      kind="unit"
+                      role="cyborg"
+                      name={request.name ?? m.fid_house_someone()}
+                      noTranslate={request.name !== null}
+                    />
                   </span>
                   <span className="faction-muted">
                     {request.kind === "invite" ? m.fid_house_request_invite() : m.fid_house_request_apply()} ·{" "}

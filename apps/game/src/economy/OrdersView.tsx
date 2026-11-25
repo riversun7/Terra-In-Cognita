@@ -54,7 +54,7 @@ function OpenRow({
         <OrderTitle order={order} index={index} />
         <span className="eco-row-meta">
           {m.economy_order_at({ price: fmt(order.price), qty: fmt(order.qty) })} ·{" "}
-          {currencyName(index, order.currency)}
+          <span className="eco-currency-unit">{currencyName(index, order.currency)}</span>
           {order.type === "conditional" ? ` · ${m.economy_kind_conditional()}` : ""}
         </span>
         <span className="eco-row-meta">

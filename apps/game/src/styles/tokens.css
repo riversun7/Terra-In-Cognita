@@ -21,6 +21,9 @@
     "Pretendard", -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
   /* 공식·계산 줄(사이보그 화면 상세 전투 스펙) — 기기 고정폭 글꼴만(받지 않는다) */
   --font-mono: ui-monospace, "SFMono-Regular", "Menlo", "Consolas", "D2Coding", monospace;
+  /* 화폐 단위 전용 명조/세리프 각인체(사용자 요청 2026-11-25) — 본문 고딕(Pretendard)과 구분 */
+  --font-currency:
+    "Noto Serif KR", "AppleMyungjo", "Batang", "Malgun Myungjo", "Georgia", "Times New Roman", serif;
 
   /* 크기 단계 — 고밀도 모바일·전략 게임 기준(rem이라 기기 글자 크기를 키우면 함께 커진다, 기본 16px일 때 괄호 값) */
   --font-size-xs: 0.6875rem; /* 11px */
@@ -316,6 +319,14 @@
   --dash-popover-bg: #ffffff;
   --dash-popover-border: #cbd5e1;
   --dash-popover-shadow: 0 16px 36px rgb(15 23 42 / 16%), 0 2px 8px rgb(15 23 42 / 8%);
+  /* 고유명사(엔티티) 구분 색 — 바탕·판·둘째 판 위 글자 4.5:1 이상 */
+  --color-entity-nation: #0369a1;
+  --color-entity-city: #0f766e;
+  --color-entity-house: #6d28d9;
+  --color-entity-unit: #9a4a00;
+  --color-entity-mayor: #1d4ed8;
+  --color-entity-leader: #854d0e;
+  --color-entity-hover: #dce7f5;
 }
 
 /* 다크(딥 네이비·청록 전략 터미널) — 깊은 우주 슬레이트·네이비 바탕과 청록/민트 포인트. 세계(지도) 조명은 바꾸지 않는다(D-070) → 판은 불투명 */
@@ -421,6 +432,14 @@
   --dash-popover-bg: #0c111d;
   --dash-popover-border: rgb(56 189 248 / 38%);
   --dash-popover-shadow: 0 20px 48px rgb(0 0 0 / 72%), 0 0 28px rgb(56 189 248 / 18%);
+  /* 고유명사(엔티티) 구분 색 — 다크 판 위 글자 4.5:1 이상 */
+  --color-entity-nation: #38bdf8;
+  --color-entity-city: #34d399;
+  --color-entity-house: #c084fc;
+  --color-entity-unit: #fcd34d;
+  --color-entity-mayor: #7cc4ff;
+  --color-entity-leader: #fbbf24;
+  --color-entity-hover: #1a2d44;
 }
 
 /* 선명 — 고대비(본문 7:1 이상) + 색각 배려(성공=파랑, 위험=주황빨강, 상태는 늘 아이콘·글자와 함께). 그림자 없음 */
@@ -521,6 +540,14 @@
   --dash-popover-bg: #ffffff;
   --dash-popover-border: #0a1424;
   --dash-popover-shadow: none;
+  /* 고유명사(엔티티) 구분 색 — 선명 고대비 */
+  --color-entity-nation: #074a87;
+  --color-entity-city: #065f46;
+  --color-entity-house: #4c1d95;
+  --color-entity-unit: #6f3900;
+  --color-entity-mayor: #084298;
+  --color-entity-leader: #634200;
+  --color-entity-hover: #dbe4f0;
 }
 /* 선명: 초점 표시를 4px로(테두리는 이미 2px). 굵기 값은 바꾸지 않는다(본문 글꼴은 400·600만 받는다) */
 :root[data-theme="contrast"] {
@@ -639,6 +666,14 @@
   --dash-popover-bg: #080b16;
   --dash-popover-border: rgb(0 240 255 / 48%);
   --dash-popover-shadow: 0 20px 48px rgb(0 0 0 / 80%), 0 0 28px rgb(0 240 255 / 24%);
+  /* 고유명사(엔티티) 구분 색 — 정거장 네온 HUD */
+  --color-entity-nation: #38e8ff;
+  --color-entity-city: #3dffa0;
+  --color-entity-house: #d28cff;
+  --color-entity-unit: #ffd15c;
+  --color-entity-mayor: #59c7ff;
+  --color-entity-leader: #ffc233;
+  --color-entity-hover: #192642;
 }
 
 /* 촘촘 변형 — 관리자·거래창처럼 빽빽한 화면(data-density="compact"): 턱 0, 모서리 작게, 조작부 44px */
@@ -793,6 +828,13 @@
   --dev-row-hover: #1b1e38;
   --dev-row-selected: #0c2b33;
   --dev-code: #7fe9ff;
+  --color-entity-nation: #38e8ff;
+  --color-entity-city: #3dffa0;
+  --color-entity-house: #d28cff;
+  --color-entity-unit: #ffd15c;
+  --color-entity-mayor: #59c7ff;
+  --color-entity-leader: #ffc233;
+  --color-entity-hover: #1b1e38;
 }
 
 /* 라이트(개발 화면) — 밝은 회색 바탕, 흰 판, 파랑 주색, 자홍 초점 */
@@ -868,6 +910,13 @@
   --dev-row-hover: #e8f0fc;
   --dev-row-selected: #dbe8fb;
   --dev-code: #0a5584;
+  --color-entity-nation: #0369a1;
+  --color-entity-city: #0f766e;
+  --color-entity-house: #6d28d9;
+  --color-entity-unit: #9a4a00;
+  --color-entity-mayor: #1d4ed8;
+  --color-entity-leader: #854d0e;
+  --color-entity-hover: #e2ebf8;
 }
 
 /* 개발 화면 층: 터치 기기(휴대폰)는 입력칸 16px(iOS 확대 막기), 조작부·누르는 곳을 조금 크게 */

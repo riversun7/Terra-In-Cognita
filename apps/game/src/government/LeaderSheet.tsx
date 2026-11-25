@@ -10,6 +10,7 @@ import { Suspense, lazy, useEffect, useId, useState, useSyncExternalStore } from
 import type { LeaderTagState } from "../map/leaderTags.ts";
 import { m } from "../paraglide/messages.js";
 import { ChunkErrorBoundary } from "../ui/ChunkErrorBoundary.tsx";
+import { EntityRef } from "../ui/EntityRef.tsx";
 import { LeaderMark } from "./LeaderHead.tsx";
 import { cityTitle, leaderTitle, loadLeaderGovernment, nationTitle } from "./governmentData.ts";
 import "./government.css";
@@ -64,10 +65,12 @@ export function LeaderSheet({ tags, selected, mapKey, embedded = false }: Leader
         {m.government_leader_kicker()}
       </p>
       <Heading id={titleId} className="gov-sheet-title">
-        {leaderTitle(leader)}
+        <EntityRef kind="unit" role="leader" name={leaderTitle(leader)} />
       </Heading>
-      <p className="gov-muted">
-        {m.government_leader_sheet_line({ nation: nationTitle(nation), city: cityTitle(city) })}
+      <p className="gov-sheet-line">
+        <EntityRef kind="nation" emblem={nation.emblem} name={nationTitle(nation)} />
+        <span aria-hidden="true">·</span>
+        <EntityRef kind="city" name={cityTitle(city)} />
       </p>
       <div className="gov-actions">
         <button

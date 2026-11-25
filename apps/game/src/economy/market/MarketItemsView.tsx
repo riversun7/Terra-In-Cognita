@@ -82,7 +82,9 @@ export default function MarketItemsView() {
                 {data.preview ? <PreviewTag /> : null}
               </div>
               {data.items[0]?.currency ? (
-                <p className="eco-footnote">{currencyName(index, data.items[0].currency)}</p>
+                <p className="eco-footnote eco-currency-unit">
+                  {currencyName(index, data.items[0].currency)}
+                </p>
               ) : null}
               <ul className="eco-rows">
                 {data.items.map((row) => (

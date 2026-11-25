@@ -23,37 +23,41 @@
 
 .bp-head {
   display: grid;
-  gap: var(--space-2);
-  padding-bottom: var(--space-2);
-  border-bottom: var(--hairline) solid var(--color-border);
+  gap: var(--space-1);
+  padding-bottom: var(--space-1);
 }
 
 .bp-title-row {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-2);
   min-inline-size: 0;
 }
 
 .bp-title {
   flex: 1 1 auto;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-display);
+  letter-spacing: var(--letter-spacing-display);
   overflow-wrap: anywhere;
 }
 
 .bp-level {
   flex: none;
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   background-color: var(--color-primary);
   color: var(--color-on-primary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 
 .bp-chips {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-1);
   min-inline-size: 0;
 }
@@ -65,7 +69,7 @@
   max-inline-size: 100%;
   padding: var(--space-1) var(--space-2);
   border: var(--hairline) solid var(--color-border);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   background-color: var(--color-surface-2);
   color: var(--color-text);
   font-size: var(--font-size-xs);
@@ -73,9 +77,37 @@
   line-height: var(--line-height-snug);
 }
 
+.bp-chip-btn {
+  --button-lip: transparent;
+  appearance: none;
+  cursor: pointer;
+  min-inline-size: var(--tap-min);
+  min-block-size: var(--tap-min);
+  font-family: inherit;
+  transition:
+    background-color var(--duration-fast) var(--easing-out),
+    border-color var(--duration-fast) var(--easing-out);
+}
+
+.bp-chip-btn:hover {
+  background-color: var(--color-entity-hover);
+  border-color: var(--color-border-strong);
+}
+
+.bp-chip-btn:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+
 .bp-chip-label {
   color: var(--color-text-muted);
-  font-weight: var(--font-weight-regular);
+  font-weight: var(--font-weight-strong);
+}
+
+.bp-chip-arrow {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1;
 }
 
 .bp-owner-name {
@@ -98,38 +130,65 @@
 .bp-mine-dot {
   flex: none;
   padding: 0 var(--space-1);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   background-color: var(--color-success-surface);
   color: var(--color-success);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-strong);
 }
 
-/* ── 탭 ─────────────────────────────────────────── */
+/* ── 탭(안 C: 미니 아이콘 + 짧은 글자 언더라인 전략 탭바) ─────────────────── */
 .bp-tabs {
   display: flex;
-  gap: var(--space-1);
+  align-items: stretch;
+  gap: 0;
   overflow-x: auto;
-  padding-block: var(--space-1);
-  scrollbar-width: thin;
+  border-bottom: var(--hairline) solid var(--color-border);
+  scrollbar-width: none;
   overscroll-behavior-x: contain;
 }
 
 .bp-tab {
   --button-lip: transparent;
-  flex: none;
+  position: relative;
+  flex: 1 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-inline-size: var(--tap-min);
   min-block-size: var(--tap-size);
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-pill);
-  background-color: var(--color-surface);
-  font-size: var(--font-size-sm);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-bottom: var(--border-strong-w) solid transparent;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background-color: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color var(--duration-fast) var(--easing-out),
+    background-color var(--duration-fast) var(--easing-out),
+    border-color var(--duration-fast) var(--easing-out);
+}
+
+.bp-tab:hover {
+  color: var(--color-text);
+  background-color: var(--color-surface-2);
 }
 
 .bp-tab[aria-selected="true"] {
-  --button-lip: var(--color-primary-lip);
-  border-color: transparent;
-  background-color: var(--color-primary);
-  color: var(--color-on-primary);
+  border-bottom-color: var(--color-primary);
+  background-color: transparent;
+  color: var(--color-primary);
+}
+
+.bp-tab-icon {
+  flex: none;
+  inline-size: var(--icon-sm);
+  block-size: var(--icon-sm);
 }
 
 /* ── 칸 몸(넘김) ─────────────────────────────────────── */
@@ -149,29 +208,53 @@
 }
 
 .bp-lead {
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-body);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
 }
 
 .bp-muted {
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
 }
 
 .bp-card {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-1);
   min-inline-size: 0;
-  padding: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
   border-radius: var(--radius-control);
   background-color: var(--color-surface-2);
 }
 
+.bp-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-2);
+}
+
 .bp-card-title {
   margin: 0;
-  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-strong);
   line-height: var(--line-height-snug);
+  letter-spacing: var(--letter-spacing-display);
+}
+
+.bp-scope-pill {
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-body);
 }
 
 /* 카드 안 작은 제목(사는 곳 카드의 주인 칸 — 집세·층 올리기, D-591) */
@@ -194,9 +277,11 @@
 .bp-alert,
 .bp-warn,
 .bp-notice {
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
 }
 
 .bp-alert {

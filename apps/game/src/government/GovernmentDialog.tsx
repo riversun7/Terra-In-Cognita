@@ -17,6 +17,7 @@ import type { GovernmentResponse } from "@terra/shared/government";
 import { useEffect, useId, useRef } from "react";
 import { RecruitPanel } from "../economy/RecruitPanel.tsx";
 import { m } from "../paraglide/messages.js";
+import { EntityRef, EntitySymbol } from "../ui/EntityRef.tsx";
 import { NationEmblem } from "../ui/NationEmblem.tsx";
 import { navigate } from "../shell/routerStore.ts";
 import { GovernmentDay } from "./GovernmentDay.tsx";
@@ -38,7 +39,6 @@ import { CityMoneyPolicy } from "./CityMoneyPolicy.tsx";
 import { NationTaxPolicy } from "./NationTaxPolicy.tsx";
 import { CityShareMarket } from "../shares/CityShareMarket.tsx";
 import { MayorFact } from "./MayorFact.tsx";
-import { PersonFact } from "./PersonFact.tsx";
 import "../economy/economy.css";
 import "../economy/labor.css";
 import "../economy/facilities.css";
@@ -82,6 +82,15 @@ export default function GovernmentDialog({ government, onClose, via = "building"
 
   const { city, nation, leader } = government;
   if (!city || !nation) return null;
+  const cityName = cityTitle(city);
+  const nationName = nationTitle(nation);
+  const leaderName = leaderTitle(leader);
+  const houseText = leaderHouseText(leader);
+  const ruleText = leaderRuleText(leader);
+  const openFaction = (): void => {
+    close();
+    navigate({ route: "faction" });
+  };
   return (
     <dialog
       ref={dialogRef}
@@ -96,8 +105,9 @@ export default function GovernmentDialog({ government, onClose, via = "building"
           {via === "leader" ? (
             <LeaderHead government={government} titleId={titleId} headingRef={headingRef} />
           ) : (
-            <h2 id={titleId} ref={headingRef} className="gov-title" tabIndex={-1}>
-              {m.government_title({ city: cityTitle(city) })}
+            <h2 id={titleId} ref={headingRef} className="gov-title gov-title-city" tabIndex={-1}>
+              <EntitySymbol kind="city" size={20} />
+              <span>{m.government_title({ city: cityName })}</span>
             </h2>
           )}
           <button type="button" className="button-small gov-close" onClick={close}>
@@ -128,32 +138,94 @@ export default function GovernmentDialog({ government, onClose, via = "building"
           <h3 id={`${titleId}-rulers`} className="gov-section-title">
             {m.government_rulers_title()}
           </h3>
+          {/* 1순위: 도시 시장(가장 눈에 띄게) → 2순위: 소속 국가·지도자·지배 가문 통합 카드 */}
           <dl className="gov-people">
-            <PersonFact
-              part="government-nation"
-              role="nation"
-              label={m.government_field_nation()}
-              name={nationTitle(nation)}
-            />
-            <PersonFact
-              part="government-leader"
-              role="leader"
-              label={m.government_field_leader()}
-              name={leaderTitle(leader)}
-              empty={leader === null}
-              notes={[
-                ...(leader !== null && !leader.here ? [{ text: m.government_leader_away_note() }] : []),
-                // 지배 가문(질문 2012 답 — 국가 지도자 = 지배 가문의 장)
-                ...(leaderHouseText(leader) === null
-                  ? []
-                  : [{ text: leaderHouseText(leader) ?? "", part: "government-leader-house" }]),
-                // 나라를 이끄는 방식(D-574 10 — 체제대로: 독재자·투표·지분)
-                ...(leaderRuleText(leader) === null
-                  ? []
-                  : [{ text: leaderRuleText(leader) ?? "", part: "government-leader-rule" }]),
-              ]}
-            />
-            <MayorFact mayor={government.mayor} />
+            <MayorFact mayor={government.mayor} cityName={cityName} />
+            <div className="gov-nation-card" data-part="government-nation-group">
+              <div className="gov-nation-row" data-part="government-nation" data-role="nation">
+                <dt className="gov-role-inline">{m.government_field_nation()}</dt>
+                <dd className="gov-nation-body">
+                  <EntityRef
+                    kind="nation"
+                    emblem={nation.emblem}
+                    name={nationName}
+                    popup={{
+                      kind: "nation",
+                      title: nationName,
+                      kindLabel: m.entity_kind_nation(),
+                      emblem: nation.emblem,
+                      subtitle: cityName,
+                      facts: [
+                        { label: m.government_field_leader(), value: leaderName },
+                        ...(leader?.house
+                          ? [{ label: m.government_ruling_house_label(), value: leader.house.name }]
+                          : []),
+                        ...(ruleText ? [{ label: m.government_regime_label(), value: ruleText }] : []),
+                        { label: m.government_field_tax(), value: taxText(nation.taxBp) },
+                      ],
+                      action: { label: m.entity_open_faction(), onClick: openFaction },
+                    }}
+                  />
+                </dd>
+              </div>
+              <div className="gov-nation-row" data-part="government-leader" data-role="leader">
+                <dt className="gov-role-inline">{m.government_field_leader()}</dt>
+                <dd className="gov-nation-body">
+                  {leader === null ? (
+                    <span className="gov-person-name" data-empty="true">
+                      {leaderName}
+                    </span>
+                  ) : (
+                    <EntityRef
+                      kind="unit"
+                      role="leader"
+                      name={leaderName}
+                      popup={{
+                        kind: "unit",
+                        role: "leader",
+                        title: leaderName,
+                        kindLabel: m.entity_kind_leader(),
+                        subtitle: nationName,
+                        facts: [
+                          { label: m.government_field_nation(), value: nationName },
+                          ...(leader.house
+                            ? [{ label: m.government_ruling_house_label(), value: leader.house.name }]
+                            : []),
+                          ...(ruleText ? [{ label: m.government_regime_label(), value: ruleText }] : []),
+                        ],
+                        action: { label: m.entity_open_faction(), onClick: openFaction },
+                      }}
+                    />
+                  )}
+                  {leader !== null && !leader.here ? (
+                    <span className="gov-person-note">{m.government_leader_away_note()}</span>
+                  ) : null}
+                  {houseText !== null && leader?.house ? (
+                    <span className="gov-person-note government-leader-house">
+                      <EntityRef
+                        kind="house"
+                        name={houseText}
+                        popup={{
+                          kind: "house",
+                          title: leader.house.name,
+                          kindLabel: m.entity_kind_house(),
+                          subtitle: nationName,
+                          facts: [
+                            { label: m.government_field_nation(), value: nationName },
+                            { label: m.government_field_leader(), value: leaderName },
+                            ...(ruleText ? [{ label: m.government_regime_label(), value: ruleText }] : []),
+                          ],
+                          action: { label: m.entity_open_faction(), onClick: openFaction },
+                        }}
+                      />
+                    </span>
+                  ) : null}
+                  {ruleText !== null ? (
+                    <span className="gov-person-note government-leader-rule">{ruleText}</span>
+                  ) : null}
+                </dd>
+              </div>
+            </div>
           </dl>
         </section>
         <section

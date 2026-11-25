@@ -7,6 +7,7 @@ import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
 import { ActionRow, Fact, SoonButton, StateChip } from "../sections/screenParts.tsx";
 import { amountText } from "../sections/screenText.ts";
+import { EntityRef } from "../ui/EntityRef.tsx";
 import { DEVELOPMENT_NAMES, POLICY_NAMES, UNREST_NAMES } from "./factionText.ts";
 import { UNREST_TONES, barWidth, formatPermille } from "./factionView.ts";
 
@@ -63,7 +64,7 @@ function CityCard({ city, byVote }: { city: CityRow; byVote: boolean }) {
       <article className="faction-item" aria-labelledby={titleId}>
         <div className="faction-item-head">
           <h3 id={titleId} className="faction-item-title">
-            {city.name}
+            <EntityRef kind="city" name={city.name} />
           </h3>
           <StateChip tone={UNREST_TONES[city.unrest]} label={UNREST_NAMES[city.unrest]()} />
           {city.occupied ? <StateChip tone="warn" label={m.faction_city_occupied()} /> : null}
@@ -83,7 +84,9 @@ function CityCard({ city, byVote }: { city: CityRow; byVote: boolean }) {
           </span>
         </div>
         <dl className="facts">
-          <Fact label={m.faction_city_mayor()}>{mayorText(city)}</Fact>
+          <Fact label={m.faction_city_mayor()}>
+            {city.mayor !== null ? <EntityRef kind="unit" role="mayor" name={city.mayor} /> : mayorText(city)}
+          </Fact>
           <Fact label={m.faction_city_population()}>{formatCount(city.population)}</Fact>
           <Fact label={m.faction_city_development()}>
             <Development city={city} />

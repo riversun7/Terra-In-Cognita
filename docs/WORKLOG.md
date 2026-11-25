@@ -5,6 +5,8 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-25 18:30 | 크리쳐 편집기: 도감 탭·변종 그룹·스탯 조우 오차·3D 미리 보기·전리품 간소화 | Claude Code | [25-1830-creature-codex-groups](worklog/2026/11/25-1830-creature-codex-groups.md) |
+| 2026-11-25 18:04 | 건물 정보 패널·정부 패널 UI 개편 및 전역 고유명사 표기(EntityRef) 통일 | Antigravity | [25-1804-entity-ref-building-gov-ui-redesign](worklog/2026/11/25-1804-entity-ref-building-gov-ui-redesign.md) |
 | 2026-11-25 16:50 KST | 작업 기록 — 행정 건물 개요 탭 도시·국가 가입 추가 및 세력 탭 원격 가입 제거 | Antigravity | [25-1650-gov-overview-join-remove-remote-home](worklog/2026/11/25-1650-gov-overview-join-remove-remote-home.md) |
 |  | 개발자 시안 모음(/dev/mockups) 캐릭터 탭 — 게임형 3D 캐릭터 스튜디오(V2) 구현 |  | [25-1638-dev-mockups-character-studio-v2](worklog/2026/11/25-1638-dev-mockups-character-studio-v2.md) |
 |  | 2차맵 세로 사이드바 선택 표시 수정 및 인벤토리·착용 장비·인공장기 분리 개편 |  | [25-1430-second-map-rail-and-inventory-gear-layout](worklog/2026/11/25-1430-second-map-rail-and-inventory-gear-layout.md) |

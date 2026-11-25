@@ -22,6 +22,7 @@ import { api } from "../../net/api.ts";
 import { serverLink } from "../../net/serverLink.ts";
 import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
+import { EntityRef } from "../../ui/EntityRef.tsx";
 import { timeText } from "../business/booksData.ts";
 import { moneyName } from "../business/businessText.ts";
 
@@ -280,7 +281,24 @@ export function BuildingLabor({
                   <span className="bp-tag" data-kind={c.kind}>
                     {c.kind === "wage" ? m.blabor_kind_wage() : m.blabor_kind_lease()}
                   </span>
-                  <span className="bp-grow">{unitLabel(c.unitId)}</span>
+                  <span className="bp-grow">
+                    <EntityRef
+                      kind="unit"
+                      role={worker ? "cyborg" : "human"}
+                      name={unitLabel(c.unitId)}
+                      mine={worker}
+                      popup={{
+                        kind: "unit",
+                        role: worker ? "cyborg" : "human",
+                        title: unitLabel(c.unitId),
+                        kindLabel: worker ? m.entity_kind_cyborg() : m.entity_kind_unit(),
+                        facts: [
+                          { label: m.entity_unit_field_state(), value: STATE_TEXT[c.state]() },
+                          { label: m.entity_unit_field_id(), value: `#${c.unitId}` },
+                        ],
+                      }}
+                    />
+                  </span>
                   <span className="bp-tag" data-state={c.state}>
                     {STATE_TEXT[c.state]()}
                   </span>

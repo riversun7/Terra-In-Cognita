@@ -10,6 +10,7 @@ import { formatAmount, parseAmountInput } from "../../economy/amount.ts";
 import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
 import { OrderBook } from "../../shares/OrderBook.tsx";
+import { EntityRef } from "../../ui/EntityRef.tsx";
 import { timeText } from "./booksData.ts";
 import { type BusinessCommand, sendBusinessCommand } from "./businessCommands.ts";
 import { RESULT_TEXT, moneyName, ownerText, pmText } from "./businessText.ts";
@@ -38,7 +39,12 @@ export function HolderBars({ holders }: { readonly holders: readonly BookHolder[
           // 같은 이름이 둘일 수 있어 차례를 열쇠에 섞는다(주주 ID는 보내지 않는다)
           <li key={`${index}-${holder.shares}`} className="bp-holder" data-kind={holder.kind}>
             <span className="bp-holder-name">
-              {ownerText(holder.name, holder.kind)}
+              <EntityRef
+                kind={holder.kind === "npc" ? "nation" : "unit"}
+                role={holder.kind === "npc" ? undefined : "cyborg"}
+                name={ownerText(holder.name, holder.kind)}
+                mine={holder.kind === "me"}
+              />
               {holder.kind === "me" ? <span className="bp-mine-dot">{m.building_mine_short()}</span> : null}
             </span>
             <span className="bp-holder-num">

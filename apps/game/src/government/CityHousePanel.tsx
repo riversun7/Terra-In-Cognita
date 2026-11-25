@@ -12,6 +12,7 @@ import { sendHouseMember } from "../faction/identity/houseCommands.ts";
 import { HOUSE_ACTION_TEXT, HOUSE_MEMBER_ERROR_TEXT } from "../faction/identity/houseText.ts";
 import { m } from "../paraglide/messages.js";
 import { formatAmount } from "../roster/rosterText.ts";
+import { EntityRef } from "../ui/EntityRef.tsx";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import { applyBlockText, approverLabel } from "./cityJoinText.ts";
 
@@ -326,7 +327,7 @@ export function CityHousePanel({
               {shown.applications.map((app) => (
                 <div key={app.id} className="gov-fact">
                   <dt>
-                    <span translate="no">{app.houseName}</span>
+                    <EntityRef kind="house" name={app.houseName} />
                     <span className="gov-person-note">
                       {m.gov_city_join_app_meta({
                         leader: app.leaderName ?? "—",
@@ -392,7 +393,7 @@ export function CityHousePanel({
               {shown.houses.map((house) => (
                 <div key={house.houseId} className="gov-fact">
                   <dt>
-                    <span translate="no">{house.houseName}</span>
+                    <EntityRef kind="house" name={house.houseName} mine={house.own} />
                     <span className="gov-person-note">
                       {m.gov_city_join_app_meta({
                         leader: house.leaderName ?? "—",
@@ -470,7 +471,7 @@ export function CityHousePanel({
             {shown.blacklist.map((entry) => (
               <div key={entry.id} className="gov-fact">
                 <dt>
-                  <span translate="no">{entry.cyborgName ?? entry.userId.slice(0, 8)}</span>
+                  <EntityRef kind="unit" role="cyborg" name={entry.cyborgName ?? entry.userId.slice(0, 8)} />
                   <span className="gov-person-note">
                     {m.gov_blacklist_meta({
                       bounty: formatAmount(entry.bounty),

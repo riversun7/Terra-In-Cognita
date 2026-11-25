@@ -23,7 +23,15 @@ import {
 } from "../roster/rosterText.ts";
 import { type VitalsNow, type VitalsShown, worldUnitId } from "../roster/useVitals.ts";
 import { InjuryBadge } from "../roster/InjuryBadge.tsx";
+import { EntityRef, type UnitSymbolRole } from "../ui/EntityRef.tsx";
 import { UnitAvatar, UnitDetail } from "./UnitDetail.tsx";
+
+function unitRoleOf(unit: Pick<RosterUnit, "type" | "self">): UnitSymbolRole {
+  if (unit.self === true || unit.type === "cyborg") return "cyborg";
+  if (unit.type === "android") return "android";
+  if (unit.type === "creature") return "creature";
+  return "human";
+}
 
 // 사이보그 = 내 사이보그 본체(맨 위 줄, "본체" 표 — 사용자 결정 2026-11-24)와 융합한 사이보그 유닛(D-470 "유닛 탭 종류에 사이보그도")
 const TYPE_FILTERS = [
@@ -293,7 +301,13 @@ function UnitRow({
         <UnitAvatar unit={unit} />
         <span className="units-row-text">
           <span className="units-row-title">
-            <span className="units-row-name">{label}</span>
+            <EntityRef
+              kind="unit"
+              role={unitRoleOf(unit)}
+              name={label}
+              mine={unit.self === true}
+              className="units-row-name"
+            />
             {unit.self ? <span className="roster-tag units-self-tag">{m.units_self_tag()}</span> : null}
             {unit.preview ? <PreviewTag /> : null}
           </span>

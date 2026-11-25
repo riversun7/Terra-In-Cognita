@@ -79,10 +79,12 @@ export function BuildingAccessControl({
 
   return (
     <section className="bp-card" aria-label={m.building_access_title()} data-part="building-access">
-      <h3 className="bp-card-title">{m.building_access_title()}</h3>
-      <p className="bp-muted" data-part="building-access-scope">
-        {currentLabel}
-      </p>
+      <div className="bp-card-head">
+        <h3 className="bp-card-title">{m.building_access_title()}</h3>
+        <span className="bp-scope-pill" data-part="building-access-scope">
+          {currentLabel}
+        </span>
+      </div>
       {!allowed ? (
         <p className="bp-warn" role="alert" data-part="building-access-blocked">
           {blockReasonText(reason)}

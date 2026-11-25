@@ -161,7 +161,7 @@ function WageRow({ wage, index }: { wage: WageLine; index: CatalogIndex }) {
             amount: fmt(dailyWage(wage.baseWage, wage.adjustBp, wage.efficiency, wage.workers)),
           })}
         </span>
-        <span className="eco-row-meta">{currencyName(index, wage.currency)}</span>
+        <span className="eco-row-meta eco-currency-unit">{currencyName(index, wage.currency)}</span>
       </span>
     </li>
   );

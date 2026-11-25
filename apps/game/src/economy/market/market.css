@@ -180,8 +180,11 @@
   overflow-wrap: anywhere;
 }
 .eco-quote-currency {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
+  font-family: var(--font-currency);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: 0.02em;
+  color: var(--color-text);
 }
 .eco-quote-stats {
   display: flex;

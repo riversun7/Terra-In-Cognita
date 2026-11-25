@@ -42,6 +42,14 @@ import {
 import { HospitalCare } from "./HospitalCare.tsx";
 import { TacticsPanel } from "./TacticsPanel.tsx";
 import { UnitGift } from "../map/business/UnitGift.tsx";
+import { EntityRef, type UnitSymbolRole } from "../ui/EntityRef.tsx";
+
+function detailUnitRole(unit: Pick<RosterUnit, "type" | "self">): UnitSymbolRole {
+  if (unit.self === true || unit.type === "cyborg") return "cyborg";
+  if (unit.type === "android") return "android";
+  if (unit.type === "creature") return "creature";
+  return "human";
+}
 
 /** [임시] 피로 경고 몫(한도 120의 80%), 배터리 경고 몫(20%). 기획 피로 구간(D-430)이 정해지면 그 값 */
 const FATIGUE_WARN = 0.8;
@@ -252,7 +260,7 @@ export function UnitDetail({
               tabIndex={-1}
               className={self ? "units-detail-name cyborg-name" : "units-detail-name"}
             >
-              {unitLabel(unit)}
+              <EntityRef kind="unit" role={detailUnitRole(unit)} name={unitLabel(unit)} mine={self} />
             </h2>
             <p className="roster-meta">
               {[

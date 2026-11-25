@@ -3,6 +3,7 @@
 import type { GovernmentResponse } from "@terra/shared/government";
 import type { Ref } from "react";
 import { m } from "../paraglide/messages.js";
+import { EntityRef, EntitySymbol } from "../ui/EntityRef.tsx";
 import { cityTitle, leaderTitle, nationTitle } from "./governmentData.ts";
 
 export interface LeaderHeadProps {
@@ -30,12 +31,15 @@ export function LeaderHead({ government, titleId, headingRef }: LeaderHeadProps)
         <LeaderMark className="gov-leader-mark" />
         {m.government_leader_kicker()}
       </p>
-      <h2 id={titleId} ref={headingRef} className="gov-title" tabIndex={-1}>
-        {leaderTitle(leader)}
+      <h2 id={titleId} ref={headingRef} className="gov-title gov-title-city" tabIndex={-1}>
+        <EntitySymbol kind="unit" role="leader" size={20} />
+        <span translate="no">{leaderTitle(leader)}</span>
       </h2>
       {city && nation ? (
-        <p className="gov-muted">
-          {m.government_leader_sheet_line({ nation: nationTitle(nation), city: cityTitle(city) })}
+        <p className="gov-sheet-line">
+          <EntityRef kind="nation" emblem={nation.emblem} name={nationTitle(nation)} />
+          <span aria-hidden="true">·</span>
+          <EntityRef kind="city" name={cityTitle(city)} />
         </p>
       ) : null}
     </div>

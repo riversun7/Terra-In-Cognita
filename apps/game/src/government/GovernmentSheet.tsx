@@ -11,11 +11,20 @@ import { BuildingReloadContext } from "../map/building/buildingReloadContext.ts"
 import type { GatherState } from "../map/gather/gatherState.ts";
 import { m } from "../paraglide/messages.js";
 import { AppLink } from "../shell/AppLink.tsx";
+import { navigate } from "../shell/routerStore.ts";
+import { EntityRef, EntitySymbol } from "../ui/EntityRef.tsx";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
-import { NationEmblem } from "../ui/NationEmblem.tsx";
 import { ChunkErrorBoundary } from "../ui/ChunkErrorBoundary.tsx";
 import { applyBlockText, approverLabel } from "./cityJoinText.ts";
-import { cityTitle, leaderTitle, loadGovernment, nationTitle } from "./governmentData.ts";
+import {
+  cityTitle,
+  leaderRuleText,
+  leaderTitle,
+  loadGovernment,
+  nationTitle,
+  taxText,
+} from "./governmentData.ts";
+import { mayorTitle } from "./mayorText.ts";
 import "./government.css";
 
 const GovernmentDialog = lazy(() => import("./GovernmentDialog.tsx"));
@@ -61,7 +70,11 @@ export function GovernmentSheet({ state, embedded = false }: GovernmentSheetProp
 
   if (buildingId === null || answer === null || answer.buildingId !== buildingId) return null;
   if (answer.status !== "ready" || !answer.city || !answer.nation) return null;
-  const { city, nation, leader, cityMembership } = answer;
+  const { city, nation, leader, mayor, cityMembership } = answer;
+  const cityName = cityTitle(city);
+  const nationName = nationTitle(nation);
+  const leaderName = leaderTitle(leader);
+  const ruleText = leaderRuleText(leader);
   // 건물 판 안이면 그 판 제목(h2) 아래 몫이라 h3
   const Heading = embedded ? "h3" : "h2";
 
@@ -93,22 +106,86 @@ export function GovernmentSheet({ state, embedded = false }: GovernmentSheetProp
       data-city={city.id}
     >
       <Heading id={titleId} className="gov-sheet-title">
-        {m.government_sheet_title({ city: cityTitle(city) })}
+        <EntitySymbol kind="city" />
+        <span>{m.government_sheet_title({ city: cityName })}</span>
       </Heading>
-      <p className="gov-muted">
-        {nation.emblem ? (
-          <>
-            <NationEmblem
-              spec={nation.emblem.spec}
-              color={nation.emblem.color}
-              uploaded={nation.emblem.uploaded}
-              size={20}
-              className="gov-emblem"
-            />{" "}
-          </>
+      <div className="gov-sheet-lines">
+        {mayor ? (
+          <div className="gov-sheet-line">
+            <span className="gov-sheet-role" data-role="mayor">
+              {m.government_field_mayor()}
+            </span>
+            <EntityRef
+              kind="unit"
+              role="mayor"
+              name={mayorTitle(mayor)}
+              popup={{
+                kind: "unit",
+                role: "mayor",
+                title: mayorTitle(mayor),
+                kindLabel: m.entity_kind_mayor(),
+                subtitle: cityName,
+                facts: [
+                  {
+                    label: m.government_field_mayor(),
+                    value: m.government_mayor_satisfaction({ value: mayor.satisfaction }),
+                  },
+                  { label: m.entity_unit_field_id(), value: `#${mayor.unitId}` },
+                ],
+              }}
+            />
+          </div>
         ) : null}
-        {m.government_sheet_line({ nation: nationTitle(nation), leader: leaderTitle(leader) })}
-      </p>
+        <div className="gov-sheet-line">
+          <EntityRef
+            kind="nation"
+            emblem={nation.emblem}
+            name={nationName}
+            popup={{
+              kind: "nation",
+              title: nationName,
+              kindLabel: m.entity_kind_nation(),
+              emblem: nation.emblem,
+              subtitle: cityName,
+              facts: [
+                { label: m.government_field_leader(), value: leaderName },
+                ...(leader?.house
+                  ? [{ label: m.government_ruling_house_label(), value: leader.house.name }]
+                  : []),
+                ...(ruleText ? [{ label: m.government_regime_label(), value: ruleText }] : []),
+                { label: m.government_field_tax(), value: taxText(nation.taxBp) },
+              ],
+              action: { label: m.entity_open_faction(), onClick: () => navigate({ route: "faction" }) },
+            }}
+          />
+          <span aria-hidden="true">·</span>
+          <span className="gov-sheet-role">{m.government_field_leader()}</span>
+          {leader ? (
+            <EntityRef
+              kind="unit"
+              role="leader"
+              name={leaderName}
+              popup={{
+                kind: "unit",
+                role: "leader",
+                title: leaderName,
+                kindLabel: m.entity_kind_leader(),
+                subtitle: nationName,
+                facts: [
+                  { label: m.government_field_nation(), value: nationName },
+                  ...(leader.house
+                    ? [{ label: m.government_ruling_house_label(), value: leader.house.name }]
+                    : []),
+                  ...(ruleText ? [{ label: m.government_regime_label(), value: ruleText }] : []),
+                ],
+                action: { label: m.entity_open_faction(), onClick: () => navigate({ route: "faction" }) },
+              }}
+            />
+          ) : (
+            <span>{leaderName}</span>
+          )}
+        </div>
+      </div>
       {cityMembership ? (
         <p className="gov-muted" data-part="gov-sheet-join-policy">
           {m.gov_sheet_join_policy({ approver: approverLabel(cityMembership.approver) })}

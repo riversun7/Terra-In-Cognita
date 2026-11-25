@@ -31,6 +31,7 @@ import { ResidenceCard } from "./ResidenceCard.tsx";
 import type { BuildingOwnerResponse } from "@terra/shared/businessBooks";
 import { STOCK_EXCHANGE_FACILITY } from "@terra/shared/cityShares";
 import { ShareHub } from "../../shares/ShareHub.tsx";
+import { EntityRef, EntitySymbol } from "../../ui/EntityRef.tsx";
 import "./building.css";
 
 export type BuildingTab = "overview" | "work" | "storage" | "books" | "shares" | "manage";
@@ -43,6 +44,82 @@ const TAB_TEXT: Readonly<Record<BuildingTab, () => string>> = {
   shares: m.building_tab_shares,
   manage: m.building_tab_manage,
 };
+
+/** 탭별 14px 미니 아이콘(안 C — 아이콘 + 짧은 글자 언더라인 탭바) */
+function TabIcon({ tab }: { readonly tab: BuildingTab }) {
+  let path: ReactNode;
+  switch (tab) {
+    case "overview":
+      path = (
+        <>
+          <rect x="4" y="4" width="7" height="7" rx="1.5" />
+          <rect x="13" y="4" width="7" height="7" rx="1.5" />
+          <rect x="4" y="13" width="7" height="7" rx="1.5" />
+          <rect x="13" y="13" width="7" height="7" rx="1.5" />
+        </>
+      );
+      break;
+    case "work":
+      path = (
+        <>
+          <circle cx="9.5" cy="8.5" r="3" />
+          <path d="M4 19c.6-3.2 2.7-5 5.5-5s4.9 1.8 5.5 5" />
+          <circle cx="17" cy="9.5" r="2.2" />
+          <path d="M16.2 14.2c2.1-.2 3.8 1.2 4.3 4.3" />
+        </>
+      );
+      break;
+    case "storage":
+      path = (
+        <>
+          <path d="M4 8.5 12 4.5l8 4v7L12 19.5l-8-4z" />
+          <path d="M4 8.5 12 12.5l8-4M12 12.5v7" />
+        </>
+      );
+      break;
+    case "books":
+      path = (
+        <>
+          <path d="M4 19h16" />
+          <path d="M7 15v-4M12 15V7M17 15v-6" />
+        </>
+      );
+      break;
+    case "shares":
+      path = (
+        <>
+          <path d="M12 3.5A8.5 8.5 0 1 0 20.5 12H12z" />
+          <path d="M14.5 3.8A8.5 8.5 0 0 1 20.2 9.5H14.5z" />
+        </>
+      );
+      break;
+    default:
+      path = (
+        <>
+          <path d="M4 7h10M18 7h2M4 12h4M12 12h8M4 17h12M20 17h0" />
+          <circle cx="16" cy="7" r="2" />
+          <circle cx="10" cy="12" r="2" />
+          <circle cx="18" cy="17" r="2" />
+        </>
+      );
+      break;
+  }
+  return (
+    <svg
+      className="bp-tab-icon"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {path}
+    </svg>
+  );
+}
 
 interface BuildingPanelProps {
   readonly state: GatherState;
@@ -170,13 +247,20 @@ export function BuildingPanel({
     />
   );
 
-  const ownerLabel = ownerOk
+  const ownerEntity = ownerOk
     ? ownerOk.top
-      ? m.building_owner_top({
+      ? {
+          isMajor: true,
+          kind: ownerOk.top.kind,
           name: ownerText(ownerOk.top.name, ownerOk.top.kind),
           pct: pmText(ownerOk.top.pm),
-        })
-      : ownerText(ownerOk.ownerName, ownerOk.ownerKind)
+        }
+      : {
+          isMajor: false,
+          kind: ownerOk.ownerKind,
+          name: ownerText(ownerOk.ownerName, ownerOk.ownerKind),
+          pct: undefined,
+        }
     : null;
 
   return (
@@ -188,6 +272,7 @@ export function BuildingPanel({
     >
       <header className="bp-head">
         <div className="bp-title-row">
+          <EntitySymbol kind="building" />
           <h2 className="gather-title bp-title">{nameText(ok?.name ?? null, m.gather_building_unknown())}</h2>
           {ok && ok.level > 0 ? (
             <span className="bp-level" data-part="building-level">
@@ -201,15 +286,48 @@ export function BuildingPanel({
               {FACILITY_CATEGORY_TEXT[ok.category]()}
             </span>
           ) : null}
-          {ownerLabel !== null ? (
-            <span
-              className="bp-chip bp-owner"
-              data-part="building-owner"
-              data-kind={ownerOk?.ownerKind ?? "none"}
-            >
-              <span className="bp-chip-label">{m.building_owner_label()}</span>
-              <span className="bp-owner-name">{ownerLabel}</span>
-            </span>
+          {ownerEntity !== null ? (
+            business ? (
+              <button
+                type="button"
+                className="bp-chip bp-chip-btn bp-owner"
+                data-part="building-owner"
+                data-kind={ownerEntity.kind ?? "none"}
+                title={m.building_owner_open_shares()}
+                onClick={() => setTab("shares")}
+              >
+                <span className="bp-chip-label">
+                  {ownerEntity.isMajor ? m.building_major_holder_label() : m.building_owner_label()}
+                </span>
+                <EntityRef
+                  kind={ownerEntity.kind === "npc" ? "nation" : "unit"}
+                  role={ownerEntity.kind === "npc" ? undefined : "cyborg"}
+                  name={ownerEntity.name}
+                  suffix={ownerEntity.pct}
+                  mine={ownerEntity.kind === "me"}
+                />
+                <span className="bp-chip-arrow" aria-hidden="true">
+                  ›
+                </span>
+              </button>
+            ) : (
+              <span
+                className="bp-chip bp-owner"
+                data-part="building-owner"
+                data-kind={ownerEntity.kind ?? "none"}
+              >
+                <span className="bp-chip-label">
+                  {ownerEntity.isMajor ? m.building_major_holder_label() : m.building_owner_label()}
+                </span>
+                <EntityRef
+                  kind={ownerEntity.kind === "npc" ? "nation" : "unit"}
+                  role={ownerEntity.kind === "npc" ? undefined : "cyborg"}
+                  name={ownerEntity.name}
+                  suffix={ownerEntity.pct}
+                  mine={ownerEntity.kind === "me"}
+                />
+              </span>
+            )
           ) : null}
           {ownerOk?.mine ? (
             <span className="bp-chip bp-mine" data-part="building-mine">
@@ -217,7 +335,14 @@ export function BuildingPanel({
             </span>
           ) : null}
           {ownerOk && !ownerOk.mine && ownerOk.myPm > 0 ? (
-            <span className="bp-chip bp-mine">{m.building_my_share({ pct: pmText(ownerOk.myPm) })}</span>
+            <button
+              type="button"
+              className="bp-chip bp-chip-btn bp-mine"
+              title={m.building_owner_open_shares()}
+              onClick={() => setTab("shares")}
+            >
+              {m.building_my_share({ pct: pmText(ownerOk.myPm) })}
+            </button>
           ) : null}
           {operator && ownerOk && !ownerOk.canManage ? (
             <span className="bp-chip bp-operator">{m.building_operator_chip()}</span>
@@ -241,7 +366,8 @@ export function BuildingPanel({
               onClick={() => setTab(id)}
               onKeyDown={(event) => onTabKey(event, index)}
             >
-              {TAB_TEXT[id]()}
+              <TabIcon tab={id} />
+              <span>{TAB_TEXT[id]()}</span>
             </button>
           ))}
         </div>
@@ -287,25 +413,52 @@ export function BuildingPanel({
                   <p className="bp-muted">{m.gather_building_inside_none()}</p>
                 ) : (
                   <ul className="bp-list gather-inside">
-                    {ok.inside.map((unit) => (
-                      <li key={unit.unitId} className="bp-row" data-unit={unit.unitId} data-via={unit.via}>
-                        <span className="bp-tag" data-via={unit.via}>
-                          {unit.via === "work" ? m.building_inside_work() : m.building_inside_stay()}
-                        </span>
-                        <span className="bp-grow">{unitLabel(unit.unitId)}</span>
-                        {unit.own ? <span className="bp-mine-dot">{m.building_mine_short()}</span> : null}
-                        {unit.own && unit.via === "inside" ? (
-                          <button
-                            type="button"
-                            className="button-small gather-leave"
-                            disabled={sending}
-                            onClick={() => onLeave(unit.unitId)}
-                          >
-                            {m.gather_building_leave()}
-                          </button>
-                        ) : null}
-                      </li>
-                    ))}
+                    {ok.inside.map((unit) => {
+                      const label = unitLabel(unit.unitId);
+                      const role = unit.own ? "cyborg" : "human";
+                      return (
+                        <li key={unit.unitId} className="bp-row" data-unit={unit.unitId} data-via={unit.via}>
+                          <span className="bp-tag" data-via={unit.via}>
+                            {unit.via === "work" ? m.building_inside_work() : m.building_inside_stay()}
+                          </span>
+                          <span className="bp-grow">
+                            <EntityRef
+                              kind="unit"
+                              role={role}
+                              name={label}
+                              mine={unit.own}
+                              popup={{
+                                kind: "unit",
+                                role,
+                                title: label,
+                                kindLabel: unit.own ? m.entity_kind_cyborg() : m.entity_kind_unit(),
+                                facts: [
+                                  {
+                                    label: m.entity_unit_field_state(),
+                                    value:
+                                      unit.via === "work"
+                                        ? m.entity_unit_state_work()
+                                        : m.entity_unit_state_stay(),
+                                  },
+                                  { label: m.entity_unit_field_id(), value: `#${unit.unitId}` },
+                                ],
+                              }}
+                            />
+                          </span>
+                          {unit.own ? <span className="bp-mine-dot">{m.building_mine_short()}</span> : null}
+                          {unit.own && unit.via === "inside" ? (
+                            <button
+                              type="button"
+                              className="button-small gather-leave"
+                              disabled={sending}
+                              onClick={() => onLeave(unit.unitId)}
+                            >
+                              {m.gather_building_leave()}
+                            </button>
+                          ) : null}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </section>

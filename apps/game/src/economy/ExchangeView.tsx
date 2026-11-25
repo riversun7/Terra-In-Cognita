@@ -76,7 +76,7 @@ function PairCard({ pair, index, preview }: { pair: FxPairView; index: CatalogIn
   return (
     <section className="panel eco-fx" aria-labelledby={titleId}>
       <div className="eco-place-head">
-        <h3 id={titleId} className="eco-place-title">
+        <h3 id={titleId} className="eco-place-title eco-currency-unit">
           {currencyName(index, pair.currency)}
         </h3>
         {preview ? <PreviewTag /> : null}

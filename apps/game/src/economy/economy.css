@@ -662,6 +662,14 @@
 .eco-fx-form {
   gap: var(--space-3);
 }
+/* 화폐 단위 전용 명조/세리프 각인체(거래소·외환·주문·임금) */
+.eco-currency-unit {
+  font-family: var(--font-currency);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: 0.02em;
+  color: var(--color-text);
+}
+
 .eco-fx-form-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

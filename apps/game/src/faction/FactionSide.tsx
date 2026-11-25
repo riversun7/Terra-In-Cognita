@@ -18,6 +18,7 @@ import { Fact, PreviewTag, StateChip } from "../sections/screenParts.tsx";
 import { AppLink } from "../shell/AppLink.tsx";
 import { amountText, dateText, durationText } from "../sections/screenText.ts";
 import { localName } from "../roster/rosterText.ts";
+import { EntityRef, EntitySymbol } from "../ui/EntityRef.tsx";
 import { NationEmblem } from "../ui/NationEmblem.tsx";
 import { AssetGroups } from "../ui/AssetGroups.tsx";
 import { currencyName, indexCatalog } from "../economy/economyText.ts";
@@ -103,9 +104,19 @@ function FactionCard({ faction, rules }: { faction: FactionSummary; rules: Facti
           {faction.regime === null ? m.faction_regime_unset() : REGIME_NAMES[faction.regime]()}
         </Fact>
         <Fact label={m.faction_field_leader()}>
-          {faction.leaderName
-            ? localName(faction.leaderName, faction.leader ?? "")
-            : (faction.leader ?? m.faction_unknown())}
+          {faction.leaderName || faction.leader ? (
+            <EntityRef
+              kind="unit"
+              role="leader"
+              name={
+                faction.leaderName
+                  ? localName(faction.leaderName, faction.leader ?? "")
+                  : (faction.leader ?? "")
+              }
+            />
+          ) : (
+            m.faction_unknown()
+          )}
         </Fact>
         <Fact label={m.faction_field_members()}>{formatCount(faction.memberCount)}</Fact>
         <Fact label={m.faction_field_cities()}>{formatCount(faction.cityCount)}</Fact>
@@ -115,10 +126,14 @@ function FactionCard({ faction, rules }: { faction: FactionSummary; rules: Facti
         {faction.family === null ? null : (
           <Fact label={m.faction_field_family()}>
             <span className="faction-inline">
-              {m.faction_family_value({
-                name: faction.family.name,
-                count: formatCount(faction.family.memberCount),
-              })}
+              <EntityRef
+                kind="house"
+                name={m.faction_family_value({
+                  name: faction.family.name,
+                  count: formatCount(faction.family.memberCount),
+                })}
+                noTranslate={false}
+              />
               {faction.family.head ? <StateChip tone="plain" label={m.faction_family_head()} /> : null}
             </span>
           </Fact>
@@ -128,7 +143,7 @@ function FactionCard({ faction, rules }: { faction: FactionSummary; rules: Facti
             m.faction_none_value()
           ) : (
             <span className="faction-stack">
-              <span>{faction.overlord.faction.name}</span>
+              <EntityRef kind="nation" name={faction.overlord.faction.name} />
               <span className="faction-muted">
                 {faction.overlord.tributePm === null
                   ? m.faction_tribute_unset()
@@ -144,7 +159,7 @@ function FactionCard({ faction, rules }: { faction: FactionSummary; rules: Facti
             <ul className="faction-plain-list">
               {faction.vassals.map((vassal) => (
                 <li key={vassal.faction.id}>
-                  {vassal.faction.name}{" "}
+                  <EntityRef kind="nation" name={vassal.faction.name} />{" "}
                   <span className="faction-muted">{tributeText(vassal.tributePm, rules)}</span>
                 </li>
               ))}
@@ -184,12 +199,10 @@ function HouseOnlyCard({ house }: { house: FactionHouseSummary }) {
     >
       <div className="screen-section-head">
         <span className="faction-mark" aria-hidden="true">
-          <Icon name="faction" />
+          <EntitySymbol kind="house" />
         </span>
         <h2 id="faction-house-only-title" className="faction-name">
-          <span className="faction-name-text" translate="no">
-            {house.name}
-          </span>
+          <EntityRef kind="house" name={house.name} className="faction-name-text" />
           {house.shortName ? (
             <span className="faction-tag" translate="no">
               {house.shortName}

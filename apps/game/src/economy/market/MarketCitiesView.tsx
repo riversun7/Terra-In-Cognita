@@ -52,7 +52,7 @@ function CityRow({
             <Amount value={row.last} className="eco-city-last" />
           )}
           <Change bp={row.changeBp} />
-          <span className="eco-row-meta">{currencyName(index, row.currency)}</span>
+          <span className="eco-row-meta eco-currency-unit">{currencyName(index, row.currency)}</span>
         </span>
         <span className="eco-city-quotes">
           <span>

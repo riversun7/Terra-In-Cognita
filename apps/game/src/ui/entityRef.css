@@ -1,0 +1,226 @@
+/*
+ * 전역 고유명사(엔티티) 인라인 표시 및 세부 팝업 양식(EntityRef.tsx).
+ * 국가·도시·가문·캐릭터/유닛·건물을 전용 심볼 아이콘 + 고유 색 + 굵은 글자로 통일한다.
+ * 색·치수는 모두 styles/tokens.css 토큰만 사용한다(pnpm check:contrast).
+ */
+
+.entity-ref {
+  --entity-fg: var(--color-text);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  color: var(--entity-fg);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  vertical-align: middle;
+}
+
+.entity-ref[data-kind="nation"] {
+  --entity-fg: var(--color-entity-nation);
+}
+.entity-ref[data-kind="city"] {
+  --entity-fg: var(--color-entity-city);
+}
+.entity-ref[data-kind="house"] {
+  --entity-fg: var(--color-entity-house);
+}
+.entity-ref[data-kind="unit"] {
+  --entity-fg: var(--color-entity-unit);
+}
+.entity-ref[data-kind="unit"][data-role="mayor"] {
+  --entity-fg: var(--color-entity-mayor);
+}
+.entity-ref[data-kind="unit"][data-role="leader"] {
+  --entity-fg: var(--color-entity-leader);
+}
+.entity-ref[data-kind="unit"][data-mine="true"] {
+  --entity-fg: var(--color-success);
+}
+.entity-ref[data-kind="building"] {
+  --entity-fg: var(--color-text);
+}
+
+.entity-ref-name {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.entity-ref-icon {
+  flex: none;
+  inline-size: var(--icon-sm);
+  block-size: var(--icon-sm);
+  color: var(--entity-fg);
+}
+
+.entity-ref-emblem {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.entity-ref-suffix {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 클릭 가능한 고유명사(팝업/이동) */
+.entity-ref-btn {
+  --button-lip: transparent;
+  appearance: none;
+  justify-content: flex-start;
+  min-inline-size: var(--tap-min);
+  min-block-size: var(--tap-min);
+  padding: 0 var(--space-1);
+  margin: 0 calc(var(--space-1) * -1);
+  border: var(--hairline) solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font: inherit;
+  font-weight: var(--font-weight-strong);
+  color: var(--entity-fg);
+  text-align: start;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--easing-out),
+    border-color var(--duration-fast) var(--easing-out);
+}
+
+.entity-ref-btn .entity-ref-name {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 0.18em;
+}
+
+.entity-ref-btn:hover {
+  background-color: var(--color-entity-hover);
+  border-color: var(--color-border-strong);
+}
+
+.entity-ref-btn:hover .entity-ref-name {
+  text-decoration-style: solid;
+}
+
+.entity-ref-btn:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+
+/* ── 고유명사 세부 팝업 다이얼로그 ──────────────────────────────────── */
+.entity-dialog {
+  box-sizing: border-box;
+  width: min(calc(100% - var(--space-6)), 24rem);
+  max-width: 100%;
+  margin: auto;
+  padding: 0;
+  border: var(--border-w) solid var(--color-border-strong);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-panel);
+  overflow: hidden;
+}
+
+.entity-dialog::backdrop {
+  background-color: var(--color-overlay);
+}
+
+.entity-dialog-body {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.entity-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.entity-dialog-title-wrap {
+  display: grid;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+
+.entity-dialog-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+
+.entity-dialog-title {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-display);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-display);
+  line-height: var(--line-height-snug);
+  overflow-wrap: anywhere;
+}
+
+.entity-dialog-title:focus {
+  outline: none;
+}
+
+.entity-dialog-sub {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+
+.entity-dialog-facts {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.entity-dialog-fact {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+  font-size: var(--font-size-sm);
+}
+
+.entity-dialog-fact dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+
+.entity-dialog-fact dd {
+  margin: 0;
+  font-weight: var(--font-weight-strong);
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.entity-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entity-ref-btn {
+    transition: none;
+  }
+}

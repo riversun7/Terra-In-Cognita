@@ -25,10 +25,41 @@
   border-top: var(--hairline) solid var(--color-border);
 }
 .gov-sheet-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
   margin: 0;
+  color: var(--color-entity-city);
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-strong);
   line-height: var(--line-height-snug);
+}
+.gov-sheet-lines {
+  display: grid;
+  gap: var(--space-1);
+}
+.gov-sheet-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.gov-sheet-role {
+  flex: none;
+  padding: 0 var(--space-1);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+.gov-sheet-role[data-role="mayor"] {
+  border-color: var(--color-entity-mayor);
+  color: var(--color-entity-mayor);
 }
 .gov-muted {
   margin: 0;
@@ -95,6 +126,16 @@
   letter-spacing: var(--letter-spacing-display);
   overflow-wrap: anywhere;
   text-wrap: balance;
+}
+.gov-title-city {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.gov-title-city > .entity-ref-icon {
+  inline-size: var(--icon-md);
+  block-size: var(--icon-md);
+  color: var(--color-entity-city);
 }
 /* 제목은 열 때 읽기 프로그램이 처음부터 읽게 초점만 받는다(누르는 곳이 아니라 테두리를 그리지 않는다) */
 .gov-title:focus {
@@ -278,10 +319,72 @@
   background-color: var(--color-surface-2);
 }
 .gov-person[data-role="leader"] {
-  --gov-role-color: var(--color-warning);
+  --gov-role-color: var(--color-entity-leader);
 }
 .gov-person[data-role="mayor"] {
-  --gov-role-color: var(--color-market-blue);
+  --gov-role-color: var(--color-entity-mayor);
+}
+/* 시장 최우선 히어로 카드(사용자 요청 2026-11-25): 시장을 가장 눈에 띄게 배치하고 이름 크기를 키운다 */
+.gov-mayor-hero {
+  border-color: var(--color-border-strong);
+  border-inline-start: var(--space-2) solid var(--color-entity-mayor);
+  background-color: var(--color-surface);
+  padding: var(--space-3);
+}
+.gov-mayor-ref {
+  font-family: var(--font-display);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-display);
+  letter-spacing: var(--letter-spacing-display);
+}
+/* 국가 + 국가 지도자 + 지배 가문 통합 카드(시장 다음 순위) */
+.gov-nation-card {
+  display: grid;
+  border: var(--hairline) solid var(--color-border);
+  border-inline-start: var(--space-1) solid var(--color-entity-nation);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+  overflow: hidden;
+}
+.gov-nation-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-2) var(--space-3);
+}
+.gov-nation-row + .gov-nation-row {
+  border-top: var(--hairline) solid var(--color-border);
+}
+.gov-role-inline {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-body);
+}
+.gov-nation-row[data-role="nation"] .gov-role-inline {
+  border-color: var(--color-entity-nation);
+  color: var(--color-entity-nation);
+}
+.gov-nation-row[data-role="leader"] .gov-role-inline {
+  border-color: var(--color-entity-leader);
+  color: var(--color-entity-leader);
+}
+.gov-nation-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  min-inline-size: 0;
 }
 .gov-role {
   display: inline-flex;
@@ -422,11 +525,14 @@
   gap: var(--space-1);
   min-width: 0;
 }
-/* 도시 화폐 칸(CityMoneyPolicy.tsx): 화폐 이름 뒤 국기 */
+/* 도시 화폐 칸(CityMoneyPolicy.tsx): 화폐 이름(화폐 전용 각인체) 뒤 국기 */
 .gov-money-name {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  font-family: var(--font-currency);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: 0.02em;
 }
 .gov-tax-actions {
   display: flex;

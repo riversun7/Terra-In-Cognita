@@ -1,18 +1,19 @@
 // 크리처 편집기 목록 판(CreatureList) — 검색·주분류·등급·세트 태그 필터, [+ 새 크리처 등록] 연속 워크플로, 원형 초상화 배지 표.
 import {
-  CREATURE_CATEGORIES,
   CREATURE_GRADES,
   CREATURE_PRESET_TAGS,
   CREATURE_PRIMARY_CODES,
   type CreatureEditorListResponse,
+  creatureClassPath,
+  creatureClassSubtree,
 } from "@terra/shared/creatureEditor";
 import { useState } from "react";
 import { CreatureTokenBadge } from "./CreaturePortraitCropper.tsx";
 import {
-  CATEGORY_LABELS,
   type CreatureStage,
   GRADE_LABELS,
   PRESET_TAG_LABELS,
+  combinedClasses,
   combinedCreatures,
 } from "./creatureModel.ts";
 
@@ -46,10 +47,18 @@ export function CreatureList({
   // 실효 목록 + 아직 저장하지 않은 새로 담은 크리처
   const existingIds = new Set(list.creatures.map((r) => r.entry.id));
   const combined = combinedCreatures(list, stage);
+  const classes = combinedClasses(list, stage).map((row) => row.entry);
+  const largeClasses = classes.filter((entry) => entry.parent === undefined);
+  // 대분류로 거른다(그 아래 중·소분류의 크리쳐도 든다)
+  const classIds = categoryFilter === "all" ? null : creatureClassSubtree(classes, categoryFilter);
+  const largeNameOf = (id: string): string => {
+    const large = creatureClassPath(classes, id)[0];
+    return large ? (ko ? large.name.ko : large.name.en) : id;
+  };
 
   const q = search.trim().toLowerCase();
   const filtered = combined.filter(({ entry }) => {
-    if (categoryFilter !== "all" && entry.category !== categoryFilter) return false;
+    if (classIds !== null && !classIds.has(entry.category)) return false;
     if (gradeFilter !== "all" && entry.grade !== gradeFilter) return false;
     if (tagFilter !== "all" && !entry.tags?.includes(tagFilter)) return false;
     if (q !== "") {
@@ -115,14 +124,14 @@ export function CreatureList({
 
         <div className="ce-filter-selects">
           <select
-            aria-label={ko ? "종족 주분류 필터" : "Filter by category"}
+            aria-label={ko ? "대분류 필터" : "Filter by large class"}
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
           >
-            <option value="all">{ko ? "모든 종족 분류 (14)" : "All Categories (14)"}</option>
-            {CREATURE_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {ko ? CATEGORY_LABELS[c].ko : CATEGORY_LABELS[c].en}
+            <option value="all">{ko ? "모든 대분류" : "All large classes"}</option>
+            {largeClasses.map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {ko ? entry.name.ko : entry.name.en}
               </option>
             ))}
           </select>
@@ -282,11 +291,7 @@ export function CreatureList({
                     <code className="dev-code">{entry.id}</code>
                   </td>
                   <td>
-                    <div>
-                      {ko
-                        ? CATEGORY_LABELS[entry.category].ko.split(" ")[0]
-                        : CATEGORY_LABELS[entry.category].en}
-                    </div>
+                    <div>{largeNameOf(entry.category)}</div>
                     <span className="ce-grade-pill" data-grade={entry.grade}>
                       {entry.grade.toUpperCase()}
                     </span>

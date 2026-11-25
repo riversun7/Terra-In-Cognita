@@ -1,5 +1,6 @@
 // 크리처 도감(creatures.json) 스키마 — 구형 AntiGravt01(91종 도감·이미지) + 신규 기획서(41_Time_Units §4~§5, 50_Content_Rules §3~§4, 48_Stats_Formulas §4.3·§5) 통합.
-// - 기원(origin)은 두지 않고 주분류(category 14종) + 다중 태그(tags: 성향·세트·특성)로 분류한다.
+// - 기원(origin)은 두지 않고 분류(category → creature_classes 트리: 대·중·소, 편집기에서 더하고 옮긴다) + 다중 태그(tags: 성향·세트·특성)로 분류한다.
+// - 속성 12칸의 차례는 판정 코드와 같다(@terra/shared ELEMENT_CODES: 물·빙결·불·폭렬·바람·번개·땅·크리스탈·빛·성·어둠·사령 — 짝수 칸 기본, 홀수 칸 강화).
 // - 등급(grade): 6단계(common·rare·epic·boss·legendary·mythic, D-5025).
 // - 크기(size): 4단계(S·M·L·XL) + XL 전용 거대 3타일(giant3Tile, D-5023).
 // - 원형 초상화(portraitCrop): 원본 이미지를 복제하지 않고 정규화 원 중심·반지름(cxPm, cyPm, radiusPm, 0~1000‰)만 저장한다.
@@ -12,24 +13,6 @@
 import { ELEMENT_IDS, ELEMENT_MAX } from "@terra/shared/cyborg";
 import { z } from "zod";
 import { ContentRef, contentId, localizedText, ref } from "./common.ts";
-
-export const CREATURE_CATEGORIES = [
-  "beast",
-  "dragon",
-  "aquatic",
-  "bird",
-  "insect",
-  "undead",
-  "humanoid",
-  "mythical",
-  "construct",
-  "dinosaur",
-  "elemental",
-  "demon",
-  "plant",
-  "aberration",
-] as const;
-export type CreatureCategory = (typeof CREATURE_CATEGORIES)[number];
 
 export const CREATURE_GRADES = ["common", "rare", "epic", "boss", "legendary", "mythic"] as const;
 export type CreatureGrade = (typeof CREATURE_GRADES)[number];
@@ -193,7 +176,8 @@ export const creatureEntrySchema = z
     id: contentId,
     name: localizedText,
     description: localizedText.optional(),
-    category: z.enum(CREATURE_CATEGORIES),
+    /** 분류(creature_classes 트리의 대·중·소 어느 단계든 하나) */
+    category: ref("creature_classes"),
     grade: z.enum(CREATURE_GRADES),
     size: z.enum(CREATURE_SIZES),
     /** XL(초대형) 가운데 3타일 점유 거대 판정 여부(D-5023) */

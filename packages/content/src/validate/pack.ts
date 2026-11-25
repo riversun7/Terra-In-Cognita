@@ -4,6 +4,7 @@ import { type ContentIssue, hasErrors } from "../issue.ts";
 import type { ContentPack, PackSource } from "../pack.ts";
 import { CATEGORIES, type CategoryRegistry } from "../schema/categories.ts";
 import { checkCombatClasses } from "./combatClasses.ts";
+import { checkCreatureClasses } from "./creatureClasses.ts";
 import { checkDisplaceEffects } from "./displace.ts";
 import { checkExpTable } from "./expTable.ts";
 import { checkFormulas } from "./formulas.ts";
@@ -40,6 +41,7 @@ export function validatePack(source: PackSource, registry: CategoryRegistry = CA
     ...checkFacilities(schema.pack),
     ...checkNations(schema.pack),
     ...checkStatSums(schema.pack),
+    ...checkCreatureClasses(schema.pack),
     ...checkIdChanges(schema.pack, registry),
   ];
   return { issues, pack: hasErrors(issues) ? undefined : schema.pack };

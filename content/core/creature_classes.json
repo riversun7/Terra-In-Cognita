@@ -1,0 +1,116 @@
+{
+  "entries": [
+    {
+      "id": "beast",
+      "name": {
+        "ko": "야수",
+        "en": "Beast"
+      },
+      "icon": "🐺"
+    },
+    {
+      "id": "dragon",
+      "name": {
+        "ko": "용족",
+        "en": "Dragon"
+      },
+      "icon": "🐉"
+    },
+    {
+      "id": "aquatic",
+      "name": {
+        "ko": "수생",
+        "en": "Aquatic"
+      },
+      "icon": "🦈"
+    },
+    {
+      "id": "bird",
+      "name": {
+        "ko": "조류",
+        "en": "Bird"
+      },
+      "icon": "🦅"
+    },
+    {
+      "id": "insect",
+      "name": {
+        "ko": "곤충",
+        "en": "Insect"
+      },
+      "icon": "🦂"
+    },
+    {
+      "id": "undead",
+      "name": {
+        "ko": "언데드",
+        "en": "Undead"
+      },
+      "icon": "💀"
+    },
+    {
+      "id": "humanoid",
+      "name": {
+        "ko": "인간형",
+        "en": "Humanoid"
+      },
+      "icon": "👹"
+    },
+    {
+      "id": "mythical",
+      "name": {
+        "ko": "신화",
+        "en": "Mythical"
+      },
+      "icon": "✨"
+    },
+    {
+      "id": "construct",
+      "name": {
+        "ko": "구조물",
+        "en": "Construct"
+      },
+      "icon": "⚙️"
+    },
+    {
+      "id": "dinosaur",
+      "name": {
+        "ko": "공룡",
+        "en": "Dinosaur"
+      },
+      "icon": "🦕"
+    },
+    {
+      "id": "elemental",
+      "name": {
+        "ko": "정령",
+        "en": "Elemental"
+      },
+      "icon": "🌀"
+    },
+    {
+      "id": "demon",
+      "name": {
+        "ko": "악마",
+        "en": "Demon"
+      },
+      "icon": "😈"
+    },
+    {
+      "id": "plant",
+      "name": {
+        "ko": "식물",
+        "en": "Plant"
+      },
+      "icon": "🌿"
+    },
+    {
+      "id": "aberration",
+      "name": {
+        "ko": "이형",
+        "en": "Aberration"
+      },
+      "icon": "👾"
+    }
+  ]
+}

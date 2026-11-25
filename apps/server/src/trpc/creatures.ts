@@ -1,7 +1,7 @@
 // creatures 라우터 — 크리처 편집기(/dev/creatures). dev·admin만.
 // 권한·속도 제한은 설정 칸 패널(D1)·스킬·아이템·건물 편집기와 같다: 우리 권한 표(tuning:read·write) → Better Auth 확인 → 사용자별 속도 제한.
 // 쓰기는 게임 상태가 아니라 그 세계의 팩 크리처 실효 값(덮어쓰기)을 바꾼다: 서버가 팩 검사기로 본 뒤에만 받고 감사 기록을 남긴다.
-import { CREATURE_LIMITS, type CreatureJson } from "@terra/shared/creatureEditor";
+import { CREATURE_LIMITS, type CreatureClassJson, type CreatureJson } from "@terra/shared/creatureEditor";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type { TuningAction } from "./context.ts";
@@ -24,7 +24,22 @@ const entry = z.custom<CreatureJson>(
     contentId.safeParse(Reflect.get(value, "id")).success,
 );
 
+/** 분류 항목도 모양만 본다(칸 규칙·트리 깊이는 팩 검사기) */
+const classEntry = z.custom<CreatureClassJson>(
+  (value) =>
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    contentId.safeParse(Reflect.get(value, "id")).success,
+);
+
 const change = z.discriminatedUnion("op", [
+  z.strictObject({ op: z.literal("put_class"), entry: classEntry, baseHash }),
+  z.strictObject({
+    op: z.literal("revert_class"),
+    id: contentId,
+    baseHash: z.string().regex(/^[0-9a-f]{64}$/),
+  }),
   z.strictObject({ op: z.literal("put"), entry, baseHash }),
   z.strictObject({
     op: z.literal("revert"),

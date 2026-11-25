@@ -29,6 +29,9 @@ export const CONTENT_EDIT_CATEGORIES = [
   "nation_tiers",
   // 유닛 공통 경험치 테이블(/dev/exp-table, docs/adr/2026-11-20-building-tier-and-exp-table.md). DB 검사는 마이그레이션 content_overrides_exp_table이 넓힌다
   "exp_table",
+  // 크리쳐 분류 트리(크리쳐 편집기 /dev/creatures 도감의 분류 편집, docs/adr/2026-11-25-creature-codex-groups.md 6절). DB 검사는
+  // 마이그레이션 content_overrides_creature_classes가 넓힌다
+  "creature_classes",
 ] as const;
 export type ContentEditCategory = (typeof CONTENT_EDIT_CATEGORIES)[number];
 

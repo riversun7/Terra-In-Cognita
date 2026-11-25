@@ -3,20 +3,19 @@
 // 값은 다른 탭(기본·스탯·무기·전리품)에서 고친다. 레벨·출현 확률은 인카운터 쪽, K값은 기존 규칙(0.8~1.2)이라 여기서 다루지 않는다.
 import {
   CREATURE_PRIMARY_CODES,
+  type CreatureClassJson,
   type CreatureEditorListResponse,
   type CreatureJson,
-  creatureStatProfile,
   creatureStatRange,
   creatureStatSumRange,
   resolveCreatureImageUrl,
 } from "@terra/shared/creatureEditor";
 import { CreatureGroupCard } from "./CreatureGroupCard.tsx";
+import { ElementChip, StatShareBar, SumBadge, classPathText } from "./creatureBits.tsx";
 import { CreatureModelViewer } from "./CreatureModelViewer.tsx";
 import {
-  CATEGORY_LABELS,
   ELEMENT_LABELS,
   GRADE_LABELS,
-  LEAN_LABELS,
   PRESET_TAG_LABELS,
   SIZE_LABELS,
   SIZE_PREVIEW_SCALE,
@@ -28,6 +27,7 @@ export function CreatureOverviewTab({
   list,
   draft,
   allCreatures,
+  classes,
   usedIds,
   locale,
   onOpen,
@@ -37,6 +37,7 @@ export function CreatureOverviewTab({
   readonly list: CreatureEditorListResponse;
   readonly draft: CreatureJson;
   readonly allCreatures: readonly CreatureJson[];
+  readonly classes: readonly CreatureClassJson[];
   readonly usedIds: ReadonlySet<string>;
   readonly locale: "ko" | "en";
   readonly onOpen: (id: string) => void;
@@ -46,14 +47,13 @@ export function CreatureOverviewTab({
   const ko = locale !== "en";
   const name = ko ? draft.name.ko : draft.name.en;
   const imageUrl = resolveCreatureImageUrl(draft.image);
-  const profile = creatureStatProfile(draft.primaries);
   const sum = creatureStatSumRange(draft);
   const ranges = CREATURE_PRIMARY_CODES.map((code) => ({ code, ...creatureStatRange(draft, code) }));
   const barMax = Math.max(20, ...ranges.map((range) => range.max));
   const elements = draft.elements
     .map((points, index) => ({ points, index }))
     .filter((item) => item.points > 0)
-    .toSorted((a, b) => b.points - a.points || a.index - b.index);
+    .toSorted((a, b) => b.points * ((b.index % 2) + 1) - a.points * ((a.index % 2) + 1) || a.index - b.index);
   const itemById = new Map(list.items.map((item) => [item.id, item]));
   const tagLabel = (tag: string): string => {
     const preset = Object.entries(PRESET_TAG_LABELS).find(([key]) => key === tag)?.[1];
@@ -91,11 +91,14 @@ export function CreatureOverviewTab({
             (ko ? "설명이 없습니다." : "No description.")}
         </p>
         <div className="ce-chip-list">
-          <span className="dev-badge">
-            {ko ? CATEGORY_LABELS[draft.category].ko : CATEGORY_LABELS[draft.category].en}
-          </span>
+          <span className="dev-badge">{classPathText(classes, draft.category, locale)}</span>
           <span className="ce-grade-pill" data-grade={draft.grade}>
             {ko ? GRADE_LABELS[draft.grade].ko : GRADE_LABELS[draft.grade].en}
+          </span>
+          <span className="dev-badge">
+            {ko
+              ? `기술 슬롯 ${draft.skillSlots.base} (최대 ${draft.skillSlots.max})`
+              : `Skill slots ${draft.skillSlots.base} (max ${draft.skillSlots.max})`}
           </span>
           <span className="dev-badge">
             {ko ? SIZE_LABELS[draft.size].ko : SIZE_LABELS[draft.size].en}
@@ -109,7 +112,9 @@ export function CreatureOverviewTab({
           {draft.enabled ? null : <span className="dev-badge ce-badge-warn">OFF</span>}
         </div>
         <div className="ce-overview-elements">
-          <span className="field-label">{ko ? "속성 (12칸 0~10)" : "Elements (0–10)"}</span>
+          <span className="field-label">
+            {ko ? "속성 (12칸 0~10 · 겹 테두리 = 강화형)" : "Elements (0–10 · double ring = enhanced)"}
+          </span>
           {elements.length === 0 ? (
             <span className="dev-muted">{ko ? "속성 점수 없음" : "No element points"}</span>
           ) : (
@@ -122,7 +127,7 @@ export function CreatureOverviewTab({
                   className="ce-overview-element"
                   data-main={order === 0 ? "true" : undefined}
                 >
-                  <span className="ce-element-dot" style={{ backgroundColor: info.color }} />
+                  <ElementChip index={index} locale={locale} />
                   {ko ? info.ko : info.en} <strong>{points}</strong>
                   <span className="ce-overview-element-bar">
                     <span style={{ width: `${points * 10}%`, backgroundColor: info.color }} />
@@ -134,12 +139,12 @@ export function CreatureOverviewTab({
         </div>
       </section>
 
-      {/* 스탯 성향 · 1레벨 조우 범위 */}
+      {/* 6스탯 분포 · 1레벨 조우 범위 */}
       <section className="be-card">
         <div className="ce-card-head">
           <div>
             <h3 className="ce-section-title">
-              {ko ? "스탯 성향 · 1레벨 조우 범위" : "Stat Lean & Level-1 Encounter Range"}
+              {ko ? "6스탯 분포 · 1레벨 조우 범위" : "6-Stat Split & Level-1 Encounter Range"}
             </h3>
             <p className="field-hint">
               {ko
@@ -147,33 +152,9 @@ export function CreatureOverviewTab({
                 : "Codex values are for level 1. Each encountered individual rolls every stat inside the range below; level and spawn come from encounters, growth from K (random 0.8–1.2)."}
             </p>
           </div>
-          <div className="ce-inline-controls">
-            <span className="dev-badge" data-lean={profile.lean}>
-              {ko ? LEAN_LABELS[profile.lean].ko : LEAN_LABELS[profile.lean].en}
-            </span>
-            <span className="dev-badge">
-              {ko ? `합 ${sum.base} (${sum.min}~${sum.max})` : `Sum ${sum.base} (${sum.min}–${sum.max})`}
-            </span>
-          </div>
+          <SumBadge sum={sum.base} range={`${sum.min}~${sum.max}`} />
         </div>
-        <div className="ce-lean-row">
-          <span className="ce-lean-bar ce-lean-bar-lg">
-            <span data-part="physical" style={{ width: `${profile.sharePm.physical / 10}%` }} />
-            <span data-part="finesse" style={{ width: `${profile.sharePm.finesse / 10}%` }} />
-            <span data-part="magic" style={{ width: `${profile.sharePm.magic / 10}%` }} />
-          </span>
-          <span className="ce-lean-legend">
-            <span data-part="physical">
-              {ko ? "물리 STR·VIT" : "Physical STR·VIT"} {(profile.sharePm.physical / 10).toFixed(0)}%
-            </span>
-            <span data-part="finesse">
-              {ko ? "기교 DEX·AGI" : "Finesse DEX·AGI"} {(profile.sharePm.finesse / 10).toFixed(0)}%
-            </span>
-            <span data-part="magic">
-              {ko ? "마법 INT·WIS" : "Magic INT·WIS"} {(profile.sharePm.magic / 10).toFixed(0)}%
-            </span>
-          </span>
-        </div>
+        <StatShareBar primaries={draft.primaries} locale={locale} large />
         <div className="ce-range-rows">
           {ranges.map((range) => (
             <div key={range.code} className="ce-range-row" data-stat={range.code}>

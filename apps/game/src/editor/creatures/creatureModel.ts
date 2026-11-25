@@ -1,7 +1,8 @@
 // 크리처 편집기 화면 모델 — 담기(stage)·정리(clean)·3방향 다시 얹기(merge)·분류 이름표.
+import type { ElementCode } from "@terra/shared/roster";
 import {
   CREATURE_PRIMARY_CODES,
-  type CreatureCategory,
+  type CreatureClassJson,
   type CreatureEditorChange,
   type CreatureEditorListResponse,
   type CreatureStatTendency,
@@ -12,8 +13,8 @@ import {
   type CreaturePresetTag,
   type CreaturePrimaryCode,
   type CreatureSize,
-  type CreatureStatLean,
   creatureDefaultSpread,
+  creatureMainElement,
 } from "@terra/shared/creatureEditor";
 import { sameJson } from "../content/contentEditorModel.ts";
 
@@ -30,15 +31,78 @@ export type StagedCreature =
       readonly baseHash: string;
     };
 
+/** 담은 분류 바꿈: 넣기·고치기(put) 또는 지우기·팩 원본으로(revert) */
+export type StagedClass =
+  | {
+      readonly op: "put";
+      readonly entry: CreatureClassJson;
+      readonly base: CreatureClassJson | null;
+      readonly baseHash: string | null;
+    }
+  | { readonly op: "revert"; readonly base: CreatureClassJson; readonly baseHash: string };
+
 export interface CreatureStage {
   readonly creatures: ReadonlyMap<string, StagedCreature>;
   readonly discard: ReadonlySet<string>;
+  /** 분류 트리 바꿈(크리쳐와 한 묶음으로 적용한다) */
+  readonly classes: ReadonlyMap<string, StagedClass>;
 }
 
 export const EMPTY_CREATURE_STAGE: CreatureStage = {
   creatures: new Map(),
   discard: new Set(),
+  classes: new Map(),
 };
+
+/** 분류 한 줄을 팩 모양으로 정리한다(빈 그림 글자·자기 자신을 가리키는 위 분류는 뺀다) */
+export function cleanClass(entry: CreatureClassJson): CreatureClassJson {
+  const icon = entry.icon?.trim() ?? "";
+  return {
+    id: entry.id,
+    name: { ko: entry.name.ko, en: entry.name.en },
+    ...(entry.parent !== undefined && entry.parent !== entry.id ? { parent: entry.parent } : {}),
+    ...(icon === "" ? {} : { icon }),
+  };
+}
+
+export function stageClass(stage: CreatureStage, id: string, next: StagedClass | null): CreatureStage {
+  const classes = new Map(stage.classes);
+  if (next === null) classes.delete(id);
+  else classes.set(id, next);
+  return { ...stage, classes };
+}
+
+/** 분류 한 줄: 실효 값(담은 바꿈을 얹은 것)과 표시 */
+export interface CombinedClass {
+  readonly entry: CreatureClassJson;
+  /** 그 세계에서 만든 분류(지울 수 있다)·아직 적용하지 않은 새 분류 */
+  readonly created: boolean;
+  readonly isNew: boolean;
+  readonly isStaged: boolean;
+}
+
+/** 실효 분류 트리 + 담은 바꿈(지우기로 담은 것은 뺀다, 새 분류는 뒤) */
+export function combinedClasses(list: CreatureEditorListResponse, stage: CreatureStage): CombinedClass[] {
+  const out: CombinedClass[] = [];
+  const existing = new Set<string>();
+  for (const row of list.classes) {
+    existing.add(row.entry.id);
+    const staged = stage.classes.get(row.entry.id);
+    if (staged?.op === "revert" && row.origin === "created") continue;
+    out.push({
+      entry:
+        staged?.op === "put" ? staged.entry : staged?.op === "revert" ? (row.pack ?? row.entry) : row.entry,
+      created: row.origin === "created",
+      isNew: false,
+      isStaged: staged !== undefined,
+    });
+  }
+  for (const [id, staged] of stage.classes) {
+    if (!existing.has(id) && staged.op === "put")
+      out.push({ entry: staged.entry, created: true, isNew: true, isStaged: true });
+  }
+  return out;
+}
 
 /** 빈 선택 칸·빈 배열을 정리해 팩 스키마와 같은 모양으로 맞춘다 */
 export function cleanCreature(entry: CreatureJson): CreatureJson {
@@ -140,6 +204,7 @@ export function stageCreatureDiscard(stage: CreatureStage, id: string, on: boole
 
 export function creatureStageKeys(stage: CreatureStage): string[] {
   return [
+    ...[...stage.classes.keys()].toSorted().map((id) => `class/${id}`),
     ...[...stage.creatures.keys()].toSorted(),
     ...[...stage.discard].toSorted().map((id) => `sleeping/${id}`),
   ];
@@ -157,7 +222,16 @@ export function creatureChangesOf(stage: CreatureStage): CreatureEditorChange[] 
   const discards: CreatureEditorChange[] = [...stage.discard]
     .toSorted()
     .map((id) => ({ op: "discard_sleeping", id }));
-  return [...puts, ...discards];
+  // 분류가 먼저다(크리쳐가 새 분류를 가리킬 수 있다 — 서버는 묶음 전체를 한 번에 본다)
+  const classes: CreatureEditorChange[] = [...stage.classes.entries()]
+    .toSorted(([a], [b]) => a.localeCompare(b))
+    .map(
+      ([id, item]): CreatureEditorChange =>
+        item.op === "revert"
+          ? { op: "revert_class", id, baseHash: item.baseHash }
+          : { op: "put_class", entry: item.entry, baseHash: item.baseHash },
+    );
+  return [...classes, ...puts, ...discards];
 }
 
 /** 목록 한 줄: 실효 항목(담은 바꿈을 얹은 것)과 담김 표시 */
@@ -291,19 +365,19 @@ export function seedOfId(id: string): number {
 export const SIZE_PREVIEW_SCALE: Readonly<Record<CreatureSize, number>> = { S: 0.5, M: 0.8, L: 1.2, XL: 2 };
 
 /** 새 크리처 기본 템플릿 */
-export function createDefaultCreature(id: string, image?: string): CreatureJson {
+export function createDefaultCreature(id: string, image?: string, category = "beast"): CreatureJson {
   return {
     id,
     name: { ko: id, en: id },
     description: { ko: "새 크리처 설명", en: "New creature description" },
-    category: "beast",
+    category,
     grade: "common",
     size: "M",
     tags: ["tendency_attack"],
     ...(image ? { image } : {}),
     portraitCrop: { cxPm: 500, cyPm: 360, radiusPm: 320 },
     primaries: { str: 12, dex: 10, agi: 11, vit: 11, int: 6, wis: 7 },
-    elements: [0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0],
+    elements: [0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0],
     skillSlots: { base: 2, perRebirth: 1, max: 5 },
     naturalWeapon: {
       name: { ko: `${id} 고유 무기`, en: `${id} Natural Weapon` },
@@ -319,25 +393,6 @@ export function createDefaultCreature(id: string, image?: string): CreatureJson 
     enabled: true,
   };
 }
-
-export const CATEGORY_LABELS: Readonly<
-  Record<CreatureCategory, { readonly ko: string; readonly en: string }>
-> = {
-  beast: { ko: "야수 (Beast)", en: "Beast" },
-  dragon: { ko: "드래곤 (Dragon)", en: "Dragon" },
-  aquatic: { ko: "수생 (Aquatic)", en: "Aquatic" },
-  bird: { ko: "조류 (Bird)", en: "Bird" },
-  insect: { ko: "곤충·절지 (Insect)", en: "Insect" },
-  undead: { ko: "언데드 (Undead)", en: "Undead" },
-  humanoid: { ko: "인간형 (Humanoid)", en: "Humanoid" },
-  mythical: { ko: "환수·신화 (Mythical)", en: "Mythical" },
-  construct: { ko: "골렘·기계 (Construct)", en: "Construct" },
-  dinosaur: { ko: "공룡·고대종 (Dinosaur)", en: "Dinosaur" },
-  elemental: { ko: "정령 (Elemental)", en: "Elemental" },
-  demon: { ko: "악마·마족 (Demon)", en: "Demon" },
-  plant: { ko: "식물 (Plant)", en: "Plant" },
-  aberration: { ko: "이형·괴수 (Aberration)", en: "Aberration" },
-};
 
 export const GRADE_LABELS: Readonly<Record<CreatureGrade, { readonly ko: string; readonly en: string }>> = {
   common: { ko: "일반 (Common)", en: "Common" },
@@ -384,42 +439,31 @@ export const STAT_LABELS: Readonly<
   wis: { ko: "지혜 (WIS)", en: "WIS" },
 };
 
-export const LEAN_LABELS: Readonly<Record<CreatureStatLean, { readonly ko: string; readonly en: string }>> = {
-  physical: { ko: "물리 위주", en: "Physical" },
-  finesse: { ko: "기교 위주", en: "Finesse" },
-  magic: { ko: "마법 위주", en: "Magic" },
-  balanced: { ko: "균형", en: "Balanced" },
-};
+/** 주속성 칸(강화형은 2배로 센다, D-5015) — @terra/shared creatureMainElement */
+export const mainElementIndex = creatureMainElement;
 
-/** 가장 큰 속성 칸(같으면 앞 차례). 모두 0이면 null */
-export function mainElementIndex(elements: readonly number[]): number | null {
-  let best = -1;
-  let bestValue = 0;
-  elements.forEach((value, index) => {
-    if (value > bestValue) {
-      best = index;
-      bestValue = value;
-    }
-  });
-  return best < 0 ? null : best;
-}
-
+/**
+ * 12속성 이름표 — 차례는 판정 코드의 속성 칸과 같다(@terra/shared ELEMENT_CODES: 짝수 칸 = 기본, 홀수 칸 = 그 계열의 강화형).
+ * 색은 기획 시그니처 색(50_Content_Rules §3.2)을 어두운·밝은 개발 화면 둘에서 읽히게 고른 값이다(세계 색, 테마와 상관없다).
+ * 아이콘은 ui/elementIcons.tsx(code)
+ */
 export const ELEMENT_LABELS: readonly {
-  readonly id: string;
+  readonly id: ElementCode;
   readonly ko: string;
   readonly en: string;
   readonly color: string;
+  readonly enhanced: boolean;
 }[] = [
-  { id: "water", ko: "물 (Water)", en: "Water", color: "#38bdf8" },
-  { id: "fire", ko: "불 (Fire)", en: "Fire", color: "#f97316" },
-  { id: "wind", ko: "바람 (Wind)", en: "Wind", color: "#34d399" },
-  { id: "earth", ko: "땅 (Earth)", en: "Earth", color: "#d97706" },
-  { id: "light", ko: "빛 (Light)", en: "Light", color: "#facc15" },
-  { id: "dark", ko: "어둠 (Dark)", en: "Dark", color: "#a855f7" },
-  { id: "wood", ko: "나무 (Wood)", en: "Wood", color: "#22c55e" },
-  { id: "metal", ko: "금속 (Metal)", en: "Metal", color: "#94a3b8" },
-  { id: "ice", ko: "얼음 (Ice)", en: "Ice", color: "#67e8f9" },
-  { id: "lightning", ko: "번개 (Lightning)", en: "Lightning", color: "#eab308" },
-  { id: "poison", ko: "독 (Poison)", en: "Poison", color: "#c084fc" },
-  { id: "acid", ko: "산 (Acid)", en: "Acid", color: "#a3e635" },
+  { id: "water", ko: "물", en: "Water", color: "#38a8f0", enhanced: false },
+  { id: "frost", ko: "빙결", en: "Frost", color: "#4fd1c5", enhanced: true },
+  { id: "fire", ko: "불", en: "Fire", color: "#f2603c", enhanced: false },
+  { id: "blaze", ko: "폭렬", en: "Blaze", color: "#e11d48", enhanced: true },
+  { id: "wind", ko: "바람", en: "Wind", color: "#34b56a", enhanced: false },
+  { id: "lightning", ko: "번개", en: "Lightning", color: "#d4a80a", enhanced: true },
+  { id: "earth", ko: "땅", en: "Earth", color: "#a8742c", enhanced: false },
+  { id: "crystal", ko: "크리스탈", en: "Crystal", color: "#a855f7", enhanced: true },
+  { id: "light", ko: "빛", en: "Light", color: "#e0a81c", enhanced: false },
+  { id: "holy", ko: "성", en: "Holy", color: "#8b9bb8", enhanced: true },
+  { id: "dark", ko: "어둠", en: "Dark", color: "#8b7fd6", enhanced: false },
+  { id: "necro", ko: "사령", en: "Necro", color: "#14a39a", enhanced: true },
 ];

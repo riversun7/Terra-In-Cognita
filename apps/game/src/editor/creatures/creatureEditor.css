@@ -1030,3 +1030,352 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+/* ── 도감 다시 짜기(2026-11-25): 속성 아이콘 · 6스탯 분포 · 합 단계 색 · 기술 슬롯 · 분류 띠 ── */
+/* 속성 아이콘: 유닛창(cyborg/cyborg.css)과 같은 12속성 토큰(--element-color)과 깔끔한 아이콘 모양을 그대로 쓴다 */
+.ce-el-chip[data-element="water"],
+.ce-el-button[data-element="water"] {
+  --element-color: var(--color-market-blue);
+}
+.ce-el-chip[data-element="frost"],
+.ce-el-button[data-element="frost"] {
+  --element-color: var(--color-sec-shield-hp);
+}
+.ce-el-chip[data-element="fire"],
+.ce-el-button[data-element="fire"] {
+  --element-color: var(--color-danger);
+}
+.ce-el-chip[data-element="blaze"],
+.ce-el-button[data-element="blaze"] {
+  --element-color: var(--color-stat-vit);
+}
+.ce-el-chip[data-element="wind"],
+.ce-el-button[data-element="wind"] {
+  --element-color: var(--color-success);
+}
+.ce-el-chip[data-element="lightning"],
+.ce-el-button[data-element="lightning"] {
+  --element-color: var(--color-stat-dex);
+}
+.ce-el-chip[data-element="earth"],
+.ce-el-button[data-element="earth"] {
+  --element-color: var(--color-warning);
+}
+.ce-el-chip[data-element="crystal"],
+.ce-el-button[data-element="crystal"] {
+  --element-color: var(--color-sec-hp);
+}
+.ce-el-chip[data-element="light"],
+.ce-el-button[data-element="light"] {
+  --element-color: var(--color-highlight);
+}
+.ce-el-chip[data-element="holy"],
+.ce-el-button[data-element="holy"] {
+  --element-color: var(--color-sec-mp-regen);
+}
+.ce-el-chip[data-element="dark"],
+.ce-el-button[data-element="dark"] {
+  --element-color: var(--color-stat-wis);
+}
+.ce-el-chip[data-element="necro"],
+.ce-el-button[data-element="necro"] {
+  --element-color: var(--color-sec-elemental-attack);
+}
+.ce-el-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+}
+.ce-el-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--element-color, var(--color-text-muted));
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+}
+.ce-el-chip[data-dim="true"] .ce-el-svg {
+  color: var(--color-text-muted);
+  opacity: 0.6;
+}
+.ce-el-svg {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+  color: var(--element-color, var(--color-text-muted));
+  flex-shrink: 0;
+}
+.ce-el-points {
+  color: var(--color-text);
+  font-family: var(--font-mono);
+}
+.ce-el-filter,
+.ce-dex-filters,
+.ce-dex-range,
+.ce-dex-move,
+.ce-class-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.ce-el-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+.ce-el-button[data-active="true"] {
+  border-color: var(--element-color, var(--color-primary));
+  background-color: var(--dev-row-selected);
+  color: var(--color-text);
+  font-weight: var(--font-weight-strong);
+}
+.ce-dex-range > .input {
+  width: 4.5rem;
+  min-width: 0;
+}
+
+/* 6스탯 분포 막대 */
+.ce-share-bar {
+  display: flex;
+  width: 100%;
+  min-width: 6rem;
+  height: var(--stat-bar);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  overflow: hidden;
+}
+.ce-share-bar[data-large="true"] {
+  height: var(--stat-bar-lg);
+}
+.ce-share-bar > [data-stat] {
+  background-color: var(--ce-stat-color);
+}
+
+/* 스탯 합: 사실상 등급 — 단계(0~5)마다 색 */
+.ce-sum {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+.ce-sum > strong {
+  min-width: 2.25rem;
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid currentColor;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-md);
+  text-align: center;
+}
+.ce-sum-range {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+.ce-sum[data-tier="0"] > strong {
+  color: var(--color-text-muted);
+}
+.ce-sum[data-tier="1"] > strong {
+  color: var(--color-stat-agi);
+}
+.ce-sum[data-tier="2"] > strong {
+  color: var(--color-stat-int);
+}
+.ce-sum[data-tier="3"] > strong {
+  color: var(--color-stat-wis);
+}
+.ce-sum[data-tier="4"] > strong {
+  color: var(--color-stat-dex);
+}
+.ce-sum[data-tier="5"] > strong {
+  color: var(--color-danger);
+  background-color: var(--color-danger-surface);
+}
+
+/* 표: 칸 머리(차례 바꾸기) · 스탯 칸 · 기술 슬롯 */
+.ce-sort {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ce-sort:hover,
+.ce-sort[data-active="true"] {
+  color: var(--color-primary);
+}
+th[data-stat] > .ce-sort {
+  color: var(--ce-stat-color);
+}
+.ce-dex-num {
+  text-align: end;
+}
+.ce-dex-wide.ce-dex-stat {
+  position: relative;
+  min-width: 2.75rem;
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-strong);
+  color: var(--ce-stat-color);
+}
+.ce-dex-stat-bar {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline-start: 0;
+  height: var(--border-strong-w);
+  background-color: var(--ce-stat-color);
+  opacity: 0.6;
+}
+.ce-dex-row > [data-sorted="true"] {
+  background-color: var(--dev-row-alt);
+}
+.ce-slots {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+.ce-slots > strong {
+  font-size: var(--font-size-md);
+}
+.ce-slot-pips {
+  display: inline-flex;
+  gap: var(--hairline);
+  margin-inline-start: var(--space-1);
+}
+.ce-slot-pips > span {
+  width: var(--space-1);
+  height: var(--space-3);
+  border-radius: var(--hairline);
+  background-color: var(--color-surface-2);
+}
+.ce-slot-pips > [data-state="max"] {
+  background-color: var(--color-border-strong);
+}
+.ce-slot-pips > [data-state="base"] {
+  background-color: var(--color-primary);
+}
+.ce-dex-class {
+  font-size: var(--font-size-xs);
+  word-break: keep-all;
+}
+
+/* 분류 띠: 대분류 카드 → 중·소분류 칩 */
+.ce-class-bar {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.ce-class-cards {
+  display: flex;
+  gap: var(--space-2);
+  padding-bottom: var(--space-1);
+  overflow-x: auto;
+}
+.ce-class-card {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1);
+  flex: 0 0 auto;
+  min-width: 5.5rem;
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  color: var(--color-text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.ce-class-card[data-active="true"] {
+  border-color: var(--color-primary);
+  background-color: var(--dev-row-selected);
+  color: var(--color-text);
+}
+.ce-class-icon {
+  font-size: var(--font-size-2xl);
+  line-height: 1;
+}
+.ce-class-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+}
+.ce-class-count {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+
+/* 분류 편집기: 트리를 한 줄씩 */
+.ce-class-tree {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ce-class-row {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.ce-class-row[data-depth="2"] {
+  margin-inline-start: var(--space-5);
+}
+.ce-class-row[data-depth="3"] {
+  margin-inline-start: var(--space-10);
+}
+.ce-class-row-main {
+  display: grid;
+  grid-template-columns: auto 4rem repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.ce-class-row-main > .input,
+.ce-class-row-main > select {
+  min-width: 0;
+  width: 100%;
+}
+.ce-class-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+}
+.ce-class-level {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  border: var(--hairline) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+.ce-class-level[data-depth="1"] {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.ce-class-add {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: var(--hairline) dashed var(--color-focus);
+  border-radius: var(--radius-sm);
+}

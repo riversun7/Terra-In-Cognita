@@ -1,7 +1,9 @@
 // 크리처 편집기 화면 자료(/dev/creatures) — 스냅숏 하나로 만든다.
 // 파싱한 팩 항목(참조 = ContentRef)을 화면 JSON(참조 = ID 글자)으로 칸마다 옮긴다.
-import type { CreatureEntry, ItemEntry, SkillEntry, UnitKindEntry } from "@terra/content";
+import type { CreatureClassEntry, CreatureEntry, ItemEntry, SkillEntry, UnitKindEntry } from "@terra/content";
 import type {
+  CreatureClassJson,
+  CreatureClassRow,
   CreatureEditorItemOption,
   CreatureEditorRow,
   CreatureEditorSkillOption,
@@ -64,7 +66,7 @@ export function creatureJsonOf(entry: CreatureEntry): CreatureJson {
     id: entry.id,
     name: nameOf(entry),
     ...(entry.description ? { description: { ko: entry.description.ko, en: entry.description.en } } : {}),
-    category: entry.category,
+    category: entry.category.id,
     grade: entry.grade,
     size: entry.size,
     ...(entry.giant3Tile === undefined ? {} : { giant3Tile: entry.giant3Tile }),
@@ -145,6 +147,31 @@ export function creatureViews(state: ContentEditState, snapshot: ContentSnapshot
       pack: pack ? creatureJsonOf(pack) : null,
       override: overrideViewOf(snapshot.overrides.get(contentKey("creatures", entry.id))),
       hash: state.hashOf("creatures", entry.id) ?? "",
+    };
+  });
+}
+
+/** 파싱한 분류 → 화면 JSON(팩 파일 한 줄 모양) */
+export function creatureClassJsonOf(entry: CreatureClassEntry): CreatureClassJson {
+  return {
+    id: entry.id,
+    name: nameOf(entry),
+    ...(entry.parent ? { parent: entry.parent.id } : {}),
+    ...(entry.icon === undefined ? {} : { icon: entry.icon }),
+  };
+}
+
+/** 분류 트리(실효 항목·팩 항목·덮어쓰기·해시, 파일 차례) */
+export function creatureClassViews(state: ContentEditState, snapshot: ContentSnapshot): CreatureClassRow[] {
+  const packById = new Map(state.pack.creatureClasses.map((entry) => [entry.id, entry]));
+  return snapshot.effective.creatureClasses.map((entry) => {
+    const pack = packById.get(entry.id);
+    return {
+      entry: creatureClassJsonOf(entry),
+      origin: originOf(state, snapshot, "creature_classes", entry.id),
+      pack: pack ? creatureClassJsonOf(pack) : null,
+      override: overrideViewOf(snapshot.overrides.get(contentKey("creature_classes", entry.id))),
+      hash: state.hashOf("creature_classes", entry.id) ?? "",
     };
   });
 }

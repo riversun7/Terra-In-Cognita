@@ -9,6 +9,7 @@
 // - 잠든 줄(지금 판이 읽지 못하는 새 판 줄·팩 ID와 겹친 만든 항목·모르는 분류)은 적용하지 않고 DB에 둔다(편집기 띠).
 // 서버에서 팩 항목을 읽는 곳(전투 자료·유닛 화면·NPC 정원사 웨이브·전투 서비스·경제 목록)은 effective()를 쓸 때마다 부른다.
 import {
+  type CreatureClassEntry,
   type CreatureEntry,
   type EffectEntry,
   type ExpTableEntry,
@@ -25,6 +26,7 @@ import {
   type WeaponTypeEntry,
   type CombatClassEntry,
   combatClassEntrySchema,
+  creatureClassEntrySchema,
   creatureEntrySchema,
   effectEntrySchema,
   expTableEntrySchema,
@@ -99,6 +101,8 @@ export interface ContentEffective {
   readonly nationTiers: readonly NationTierEntry[];
   /** 유닛 공통 경험치 테이블(/dev/exp-table, 48 §2.4 · 49 N8). 사이보그·휴먼·크리쳐 레벨업 구간 경험치 표 */
   readonly expTable: readonly ExpTableEntry[];
+  /** 크리쳐 분류 트리(크리쳐 편집기 도감의 분류 편집, docs/adr/2026-11-25-creature-codex-groups.md 6절). 크리쳐의 category가 가리킨다 */
+  readonly creatureClasses: readonly CreatureClassEntry[];
 }
 
 export interface ContentSnapshot {
@@ -185,6 +189,7 @@ function parseEffective(raw: RawEntries): ContentEffective {
     combatClasses: raw.combat_classes.map((entry) => combatClassEntrySchema.parse(entry)),
     nationTiers: raw.nation_tiers.map((entry) => nationTierEntrySchema.parse(entry)),
     expTable: raw.exp_table.map((entry) => expTableEntrySchema.parse(entry)),
+    creatureClasses: raw.creature_classes.map((entry) => creatureClassEntrySchema.parse(entry)),
   };
 }
 

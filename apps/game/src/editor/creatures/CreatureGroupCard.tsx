@@ -8,13 +8,13 @@ import {
   type CreatureJson,
   type CreatureStatTendency,
   creatureGroupRootId,
-  creatureStatProfile,
+  creatureStatShares,
 } from "@terra/shared/creatureEditor";
 import { useState } from "react";
 import { CreatureTokenBadge } from "./CreaturePortraitCropper.tsx";
 import {
   ELEMENT_LABELS,
-  LEAN_LABELS,
+  STAT_LABELS,
   PRESET_TAG_LABELS,
   type VariantChange,
   mainElementIndex,
@@ -85,10 +85,10 @@ export function CreatureGroupCard({
   const describe = (entry: CreatureJson): string => {
     const main = mainElementIndex(entry.elements);
     const info = main === null ? undefined : ELEMENT_LABELS[main];
-    const lean = creatureStatProfile(entry.primaries).lean;
+    const top = creatureStatShares(entry.primaries).top;
     const sum = CREATURE_PRIMARY_CODES.reduce((acc, code) => acc + entry.primaries[code], 0);
-    const elementText = info ? (ko ? info.ko : info.en).split(" ")[0] : ko ? "무속성" : "No element";
-    return `${elementText} · ${ko ? LEAN_LABELS[lean].ko : LEAN_LABELS[lean].en} · Σ${sum}`;
+    const elementText = info ? (ko ? info.ko : info.en) : ko ? "무속성" : "No element";
+    return `${elementText} · ${ko ? `주력 ${STAT_LABELS[top].ko}` : `Top ${STAT_LABELS[top].en}`} · Σ${sum}`;
   };
 
   const submit = (): void => {

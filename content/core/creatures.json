@@ -27,7 +27,7 @@
         "int": 3,
         "wis": 3
       },
-      "elements": [2, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [2, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 4,
@@ -51,7 +51,7 @@
           "min": 14,
           "max": 22
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 870,
         "critPm": 88,
         "intervalMs": 1200,
@@ -109,7 +109,7 @@
         "int": 4,
         "wis": 4
       },
-      "elements": [0, 3, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 3, 0, 0, 0, 7, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 3,
@@ -137,7 +137,7 @@
           "min": 25,
           "max": 38
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 875,
         "critPm": 96,
         "intervalMs": 1225,
@@ -201,7 +201,7 @@
         "int": 3,
         "wis": 4
       },
-      "elements": [2, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [2, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 3,
@@ -233,7 +233,7 @@
           "min": 25,
           "max": 40
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 855,
         "critPm": 64,
         "intervalMs": 1300,
@@ -297,7 +297,7 @@
         "int": 5,
         "wis": 5
       },
-      "elements": [0, 3, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 3, 0, 0, 0, 7, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 3,
@@ -321,7 +321,7 @@
           "min": 14,
           "max": 22
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 890,
         "critPm": 120,
         "intervalMs": 1100,
@@ -385,7 +385,7 @@
         "int": 2,
         "wis": 2
       },
-      "elements": [0, 0, 4, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 0, 0, 4, 0, 6, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 3,
@@ -421,7 +421,7 @@
           "min": 34,
           "max": 52
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 850,
         "critPm": 56,
         "intervalMs": 1325,
@@ -484,7 +484,7 @@
         "int": 2,
         "wis": 3
       },
-      "elements": [0, 4, 6, 0, 0, 0, 0, 0, 0, 3, 0, 0],
+      "elements": [0, 0, 4, 0, 6, 3, 0, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire", "sub_light"],
       "skillSlots": {
         "base": 3,
@@ -512,7 +512,7 @@
           "min": 23,
           "max": 36
         },
-        "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0],
         "hitPm": 865,
         "critPm": 80,
         "intervalMs": 1250,
@@ -576,7 +576,7 @@
         "int": 4,
         "wis": 4
       },
-      "elements": [0, 3, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 3, 0, 0, 0, 7, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 3,
@@ -604,7 +604,7 @@
           "min": 29,
           "max": 45
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 885,
         "critPm": 112,
         "intervalMs": 1150,
@@ -669,7 +669,7 @@
         "int": 5,
         "wis": 5
       },
-      "elements": [0, 0, 4, 6, 0, 0, 0, 0, 2, 0, 0, 0],
+      "elements": [0, 2, 0, 0, 4, 0, 6, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 3,
@@ -705,7 +705,7 @@
           "min": 35,
           "max": 55
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 850,
         "critPm": 56,
         "intervalMs": 1325,
@@ -768,7 +768,7 @@
         "int": 5,
         "wis": 5
       },
-      "elements": [0, 3, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 3, 0, 0, 0, 7, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 3,
@@ -792,7 +792,7 @@
           "min": 17,
           "max": 27
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 890,
         "critPm": 120,
         "intervalMs": 1125,
@@ -855,7 +855,7 @@
         "int": 6,
         "wis": 5
       },
-      "elements": [1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [1, 0, 2, 0, 3, 0, 4, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 3,
@@ -888,7 +888,7 @@
           "min": 19,
           "max": 29
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 865,
         "critPm": 80,
         "intervalMs": 1250,
@@ -953,7 +953,7 @@
         "int": 7,
         "wis": 6
       },
-      "elements": [1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [1, 0, 2, 0, 3, 0, 4, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -994,7 +994,7 @@
           "min": 21,
           "max": 32
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 875,
         "critPm": 96,
         "intervalMs": 1150,
@@ -1060,7 +1060,7 @@
         "int": 14,
         "wis": 12
       },
-      "elements": [2, 2, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [2, 0, 2, 0, 0, 0, 6, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -1093,7 +1093,7 @@
           "min": 37,
           "max": 58
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 890,
         "critPm": 120,
         "intervalMs": 1100,
@@ -1158,7 +1158,7 @@
         "int": 10,
         "wis": 9
       },
-      "elements": [5, 3, 2, 0, 0, 0, 0, 0, 3, 0, 0, 0],
+      "elements": [5, 3, 3, 0, 2, 0, 0, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_light"],
       "skillSlots": {
         "base": 2,
@@ -1264,7 +1264,7 @@
         "int": 8,
         "wis": 7
       },
-      "elements": [0, 5, 3, 2, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 5, 0, 3, 0, 2, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -1301,7 +1301,7 @@
           "min": 23,
           "max": 36
         },
-        "skillElementsPm": [0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         "hitPm": 895,
         "critPm": 128,
         "intervalMs": 1075,
@@ -1366,7 +1366,7 @@
         "int": 9,
         "wis": 8
       },
-      "elements": [0, 0, 0, 10, 0, 0, 0, 0, 0, 2, 0, 0],
+      "elements": [0, 0, 0, 0, 0, 2, 10, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -1403,7 +1403,7 @@
           "min": 25,
           "max": 38
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 885,
         "critPm": 112,
         "intervalMs": 1125,
@@ -1468,7 +1468,7 @@
         "int": 6,
         "wis": 7
       },
-      "elements": [7, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [7, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -1562,7 +1562,7 @@
         "int": 12,
         "wis": 10
       },
-      "elements": [6, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [6, 0, 2, 0, 2, 0, 0, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water"],
       "skillSlots": {
         "base": 2,
@@ -1658,7 +1658,7 @@
         "int": 14,
         "wis": 14
       },
-      "elements": [5, 0, 3, 2, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [5, 0, 0, 0, 3, 0, 2, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -1747,7 +1747,7 @@
         "int": 13,
         "wis": 11
       },
-      "elements": [4, 2, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [4, 0, 2, 0, 3, 0, 1, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -1838,7 +1838,7 @@
         "int": 4,
         "wis": 4
       },
-      "elements": [8, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [8, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water"],
       "skillSlots": {
         "base": 3,
@@ -1923,7 +1923,7 @@
         "int": 9,
         "wis": 7
       },
-      "elements": [8, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [8, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water"],
       "skillSlots": {
         "base": 2,
@@ -2019,7 +2019,7 @@
         "int": 5,
         "wis": 6
       },
-      "elements": [7, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [7, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 3,
@@ -2113,7 +2113,7 @@
         "int": 14,
         "wis": 15
       },
-      "elements": [0, 5, 3, 2, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 5, 0, 3, 0, 2, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -2142,7 +2142,7 @@
           "min": 43,
           "max": 68
         },
-        "skillElementsPm": [0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         "hitPm": 910,
         "critPm": 152,
         "intervalMs": 1025,
@@ -2207,7 +2207,7 @@
         "int": 9,
         "wis": 8
       },
-      "elements": [0, 2, 6, 2, 0, 0, 0, 0, 0, 3, 0, 0],
+      "elements": [0, 0, 2, 0, 6, 3, 2, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire", "sub_light"],
       "skillSlots": {
         "base": 2,
@@ -2244,7 +2244,7 @@
           "min": 25,
           "max": 38
         },
-        "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0],
         "hitPm": 900,
         "critPm": 136,
         "intervalMs": 1050,
@@ -2309,7 +2309,7 @@
         "int": 8,
         "wis": 7
       },
-      "elements": [0, 0, 7, 3, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 0, 0, 7, 0, 3, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -2342,7 +2342,7 @@
           "min": 23,
           "max": 36
         },
-        "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0],
         "hitPm": 900,
         "critPm": 136,
         "intervalMs": 1050,
@@ -2407,7 +2407,7 @@
         "int": 5,
         "wis": 5
       },
-      "elements": [2, 0, 5, 3, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [2, 0, 0, 0, 5, 0, 3, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -2443,7 +2443,7 @@
           "min": 43,
           "max": 67
         },
-        "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0],
         "hitPm": 885,
         "critPm": 112,
         "intervalMs": 1100,
@@ -2506,7 +2506,7 @@
         "int": 5,
         "wis": 5
       },
-      "elements": [0, 0, 8, 2, 0, 0, 0, 0, 2, 0, 0, 0],
+      "elements": [0, 2, 0, 0, 8, 0, 2, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 3,
@@ -2530,7 +2530,7 @@
           "min": 21,
           "max": 33
         },
-        "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0],
         "hitPm": 890,
         "critPm": 120,
         "intervalMs": 1125,
@@ -2593,7 +2593,7 @@
         "int": 3,
         "wis": 3
       },
-      "elements": [0, 0, 4, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 0, 0, 4, 0, 6, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 3,
@@ -2617,7 +2617,7 @@
           "min": 20,
           "max": 31
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 900,
         "critPm": 136,
         "intervalMs": 1125,
@@ -2675,7 +2675,7 @@
         "int": 10,
         "wis": 10
       },
-      "elements": [3, 0, 2, 5, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [3, 0, 0, 0, 2, 0, 5, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -2704,7 +2704,7 @@
           "min": 26,
           "max": 41
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 905,
         "critPm": 144,
         "intervalMs": 1050,
@@ -2763,7 +2763,7 @@
         "int": 2,
         "wis": 2
       },
-      "elements": [0, 0, 4, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 0, 0, 4, 0, 6, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 3,
@@ -2799,7 +2799,7 @@
           "min": 25,
           "max": 40
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 860,
         "critPm": 72,
         "intervalMs": 1300,
@@ -2856,7 +2856,7 @@
         "int": 7,
         "wis": 6
       },
-      "elements": [2, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [2, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 3,
@@ -2880,7 +2880,7 @@
           "min": 16,
           "max": 24
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 895,
         "critPm": 128,
         "intervalMs": 1150,
@@ -2937,7 +2937,7 @@
         "int": 4,
         "wis": 4
       },
-      "elements": [0, 3, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 3, 0, 0, 0, 7, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 3,
@@ -2965,7 +2965,7 @@
           "min": 26,
           "max": 41
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 880,
         "critPm": 104,
         "intervalMs": 1225,
@@ -3023,7 +3023,7 @@
         "int": 11,
         "wis": 13
       },
-      "elements": [0, 0, 0, 3, 7, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 0, 0, 0, 0, 3, 0, 7, 0, 0, 0],
       "allowedSubspecies": ["sub_fire", "sub_wind"],
       "skillSlots": {
         "base": 2,
@@ -3056,7 +3056,7 @@
           "min": 28,
           "max": 44
         },
-        "skillElementsPm": [0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 0, 0, 50, 0, 0, 0],
         "hitPm": 900,
         "critPm": 136,
         "intervalMs": 1025,
@@ -3114,7 +3114,7 @@
         "int": 2,
         "wis": 2
       },
-      "elements": [0, 3, 0, 7, 0, 0, 0, 0, 0, 0, 2, 0],
+      "elements": [0, 0, 3, 0, 0, 0, 7, 0, 0, 0, 0, 2],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 4,
@@ -3147,7 +3147,7 @@
           "min": 11,
           "max": 18
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 865,
         "critPm": 80,
         "intervalMs": 1275,
@@ -3205,7 +3205,7 @@
         "int": 1,
         "wis": 1
       },
-      "elements": [2, 0, 0, 8, 0, 0, 0, 0, 0, 0, 2, 0],
+      "elements": [2, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 2],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 4,
@@ -3238,7 +3238,7 @@
           "min": 10,
           "max": 15
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 855,
         "critPm": 64,
         "intervalMs": 1350,
@@ -3297,7 +3297,7 @@
         "int": 22,
         "wis": 20
       },
-      "elements": [3, 2, 0, 5, 0, 0, 0, 0, 0, 0, 2, 0],
+      "elements": [3, 0, 2, 0, 0, 0, 5, 0, 0, 0, 0, 2],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -3326,7 +3326,7 @@
           "min": 48,
           "max": 74
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 890,
         "critPm": 120,
         "intervalMs": 1200,
@@ -3385,7 +3385,7 @@
         "int": 11,
         "wis": 10
       },
-      "elements": [3, 0, 2, 5, 0, 0, 0, 0, 0, 0, 2, 0],
+      "elements": [3, 0, 0, 0, 2, 0, 5, 0, 0, 0, 0, 2],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -3418,7 +3418,7 @@
           "min": 28,
           "max": 44
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 885,
         "critPm": 112,
         "intervalMs": 1200,
@@ -3477,7 +3477,7 @@
         "int": 13,
         "wis": 12
       },
-      "elements": [2, 1, 3, 4, 0, 0, 0, 0, 0, 0, 2, 0],
+      "elements": [2, 0, 1, 0, 3, 0, 4, 0, 0, 0, 0, 2],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -3506,7 +3506,7 @@
           "min": 32,
           "max": 50
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 900,
         "critPm": 136,
         "intervalMs": 1050,
@@ -3564,7 +3564,7 @@
         "int": 5,
         "wis": 3
       },
-      "elements": [0, 0, 4, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 0, 0, 4, 0, 6, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 4,
@@ -3588,7 +3588,7 @@
           "min": 9,
           "max": 14
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 880,
         "critPm": 104,
         "intervalMs": 1175,
@@ -3646,7 +3646,7 @@
         "int": 4,
         "wis": 3
       },
-      "elements": [0, 3, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 3, 0, 0, 0, 7, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 3,
@@ -3678,7 +3678,7 @@
           "min": 30,
           "max": 47
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 865,
         "critPm": 80,
         "intervalMs": 1275,
@@ -3736,7 +3736,7 @@
         "int": 3,
         "wis": 2
       },
-      "elements": [0, 3, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 3, 0, 0, 0, 7, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 3,
@@ -3772,7 +3772,7 @@
           "min": 38,
           "max": 59
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 860,
         "critPm": 72,
         "intervalMs": 1300,
@@ -3830,7 +3830,7 @@
         "int": 20,
         "wis": 18
       },
-      "elements": [0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -3859,7 +3859,7 @@
           "min": 44,
           "max": 69
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 900,
         "critPm": 136,
         "intervalMs": 1150,
@@ -3918,7 +3918,7 @@
         "int": 5,
         "wis": 4
       },
-      "elements": [2, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [2, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -3954,7 +3954,7 @@
           "min": 39,
           "max": 61
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 865,
         "critPm": 80,
         "intervalMs": 1275,
@@ -4012,7 +4012,7 @@
         "int": 10,
         "wis": 9
       },
-      "elements": [3, 2, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [3, 0, 2, 0, 0, 0, 5, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -4049,7 +4049,7 @@
           "min": 26,
           "max": 41
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 905,
         "critPm": 144,
         "intervalMs": 1050,
@@ -4108,7 +4108,7 @@
         "int": 13,
         "wis": 15
       },
-      "elements": [1, 0, 3, 2, 4, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [1, 0, 0, 0, 3, 0, 2, 0, 4, 0, 0, 0],
       "allowedSubspecies": ["sub_fire", "sub_wind"],
       "skillSlots": {
         "base": 2,
@@ -4141,7 +4141,7 @@
           "min": 32,
           "max": 50
         },
-        "skillElementsPm": [0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 0, 0, 50, 0, 0, 0],
         "hitPm": 905,
         "critPm": 144,
         "intervalMs": 1050,
@@ -4207,7 +4207,7 @@
         "int": 11,
         "wis": 10
       },
-      "elements": [0, 2, 3, 5, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 2, 0, 3, 0, 5, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -4244,7 +4244,7 @@
           "min": 28,
           "max": 44
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 895,
         "critPm": 128,
         "intervalMs": 1100,
@@ -4303,7 +4303,7 @@
         "int": 9,
         "wis": 9
       },
-      "elements": [0, 2, 6, 2, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 2, 0, 6, 0, 2, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -4340,7 +4340,7 @@
           "min": 25,
           "max": 38
         },
-        "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0],
         "hitPm": 900,
         "critPm": 136,
         "intervalMs": 1075,
@@ -4399,7 +4399,7 @@
         "int": 10,
         "wis": 8
       },
-      "elements": [2, 1, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [2, 0, 1, 0, 3, 0, 4, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -4436,7 +4436,7 @@
           "min": 26,
           "max": 41
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 890,
         "critPm": 120,
         "intervalMs": 1125,
@@ -4502,7 +4502,7 @@
         "int": 11,
         "wis": 12
       },
-      "elements": [2, 0, 3, 0, 5, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [2, 0, 0, 0, 3, 0, 0, 0, 5, 0, 0, 0],
       "allowedSubspecies": ["sub_fire", "sub_wind"],
       "skillSlots": {
         "base": 2,
@@ -4539,7 +4539,7 @@
           "min": 36,
           "max": 56
         },
-        "skillElementsPm": [0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 0, 0, 50, 0, 0, 0],
         "hitPm": 910,
         "critPm": 152,
         "intervalMs": 1000,
@@ -4598,7 +4598,7 @@
         "int": 18,
         "wis": 19
       },
-      "elements": [2, 0, 2, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [2, 0, 0, 0, 2, 0, 6, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -4627,7 +4627,7 @@
           "min": 52,
           "max": 82
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 885,
         "critPm": 112,
         "intervalMs": 1150,
@@ -4686,7 +4686,7 @@
         "int": 18,
         "wis": 16
       },
-      "elements": [0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -4715,7 +4715,7 @@
           "min": 52,
           "max": 82
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 910,
         "critPm": 152,
         "intervalMs": 1100,
@@ -4782,7 +4782,7 @@
         "int": 17,
         "wis": 17
       },
-      "elements": [0, 0, 10, 0, 0, 0, 0, 0, 0, 6, 0, 0],
+      "elements": [0, 0, 0, 0, 10, 6, 0, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire", "sub_light"],
       "skillSlots": {
         "base": 2,
@@ -4811,7 +4811,7 @@
           "min": 59,
           "max": 92
         },
-        "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0],
         "hitPm": 890,
         "critPm": 120,
         "intervalMs": 1100,
@@ -4962,7 +4962,7 @@
         "int": 19,
         "wis": 15
       },
-      "elements": [0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water"],
       "skillSlots": {
         "base": 2,
@@ -4991,7 +4991,7 @@
           "min": 62,
           "max": 97
         },
-        "skillElementsPm": [0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         "hitPm": 915,
         "critPm": 160,
         "intervalMs": 950,
@@ -5051,7 +5051,7 @@
         "int": 13,
         "wis": 17
       },
-      "elements": [0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -5084,7 +5084,7 @@
           "min": 50,
           "max": 78
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 865,
         "critPm": 80,
         "intervalMs": 1275,
@@ -5143,7 +5143,7 @@
         "int": 2,
         "wis": 2
       },
-      "elements": [0, 0, 0, 10, 0, 0, 6, 2, 0, 0, 0, 0],
+      "elements": [0, 0, 0, 0, 0, 0, 10, 8, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire", "sub_earth"],
       "skillSlots": {
         "base": 3,
@@ -5179,7 +5179,7 @@
           "min": 41,
           "max": 64
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 850,
         "critPm": 56,
         "intervalMs": 1350,
@@ -5243,7 +5243,7 @@
         "int": 1,
         "wis": 1
       },
-      "elements": [0, 0, 0, 10, 0, 0, 6, 2, 0, 0, 0, 0],
+      "elements": [0, 0, 0, 0, 0, 0, 10, 8, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire", "sub_earth"],
       "skillSlots": {
         "base": 3,
@@ -5279,7 +5279,7 @@
           "min": 34,
           "max": 52
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 850,
         "critPm": 56,
         "intervalMs": 1350,
@@ -5343,7 +5343,7 @@
         "int": 12,
         "wis": 10
       },
-      "elements": [2, 2, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [2, 0, 2, 0, 0, 0, 6, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -5380,7 +5380,7 @@
           "min": 30,
           "max": 46
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 880,
         "critPm": 104,
         "intervalMs": 1225,
@@ -5445,7 +5445,7 @@
         "int": 7,
         "wis": 6
       },
-      "elements": [0, 3, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 3, 0, 0, 0, 7, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -5469,7 +5469,7 @@
           "min": 25,
           "max": 38
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 885,
         "critPm": 112,
         "intervalMs": 1200,
@@ -5534,7 +5534,7 @@
         "int": 3,
         "wis": 3
       },
-      "elements": [3, 2, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [3, 0, 2, 0, 0, 0, 5, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -5570,7 +5570,7 @@
           "min": 49,
           "max": 77
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 855,
         "critPm": 64,
         "intervalMs": 1275,
@@ -5634,7 +5634,7 @@
         "int": 3,
         "wis": 3
       },
-      "elements": [6, 0, 0, 4, 0, 0, 0, 0, 3, 0, 0, 0],
+      "elements": [6, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire", "sub_light"],
       "skillSlots": {
         "base": 3,
@@ -5734,7 +5734,7 @@
         "int": 7,
         "wis": 6
       },
-      "elements": [2, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [2, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -5758,7 +5758,7 @@
           "min": 21,
           "max": 33
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 905,
         "critPm": 144,
         "intervalMs": 1050,
@@ -5822,7 +5822,7 @@
         "int": 4,
         "wis": 4
       },
-      "elements": [0, 0, 2, 8, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 0, 0, 2, 0, 8, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 3,
@@ -5850,7 +5850,7 @@
           "min": 23,
           "max": 36
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 885,
         "critPm": 112,
         "intervalMs": 1100,
@@ -5914,7 +5914,7 @@
         "int": 3,
         "wis": 3
       },
-      "elements": [2, 2, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [2, 0, 2, 0, 0, 0, 6, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -5950,7 +5950,7 @@
           "min": 39,
           "max": 61
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 865,
         "critPm": 80,
         "intervalMs": 1225,
@@ -6014,7 +6014,7 @@
         "int": 12,
         "wis": 10
       },
-      "elements": [0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water"],
       "skillSlots": {
         "base": 2,
@@ -6047,7 +6047,7 @@
           "min": 30,
           "max": 46
         },
-        "skillElementsPm": [0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         "hitPm": 880,
         "critPm": 104,
         "intervalMs": 1150,
@@ -6194,7 +6194,7 @@
         "int": 11,
         "wis": 12
       },
-      "elements": [0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -6223,7 +6223,7 @@
           "min": 28,
           "max": 44
         },
-        "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0],
         "hitPm": 910,
         "critPm": 152,
         "intervalMs": 1000,
@@ -6282,7 +6282,7 @@
         "int": 10,
         "wis": 11
       },
-      "elements": [0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 3,
@@ -6311,7 +6311,7 @@
           "min": 26,
           "max": 41
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 870,
         "critPm": 88,
         "intervalMs": 1250,
@@ -6370,7 +6370,7 @@
         "int": 14,
         "wis": 16
       },
-      "elements": [0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0],
       "allowedSubspecies": ["sub_wind"],
       "skillSlots": {
         "base": 2,
@@ -6403,7 +6403,7 @@
           "min": 34,
           "max": 52
         },
-        "skillElementsPm": [0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 0, 0, 50, 0, 0, 0],
         "hitPm": 905,
         "critPm": 144,
         "intervalMs": 1050,
@@ -6462,7 +6462,7 @@
         "int": 13,
         "wis": 11
       },
-      "elements": [0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0],
       "allowedSubspecies": ["sub_wind"],
       "skillSlots": {
         "base": 2,
@@ -6491,7 +6491,7 @@
           "min": 32,
           "max": 50
         },
-        "skillElementsPm": [0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 50, 0],
         "hitPm": 910,
         "critPm": 152,
         "intervalMs": 1025,
@@ -6549,7 +6549,7 @@
         "int": 7,
         "wis": 5
       },
-      "elements": [0, 4, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 4, 0, 0, 0, 6, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 3,
@@ -6578,7 +6578,7 @@
           "min": 21,
           "max": 32
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 885,
         "critPm": 112,
         "intervalMs": 1125,
@@ -6637,7 +6637,7 @@
         "int": 17,
         "wis": 15
       },
-      "elements": [0, 2, 2, 0, 0, 6, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 2, 0, 2, 0, 0, 0, 0, 0, 6, 0],
       "allowedSubspecies": ["sub_wind"],
       "skillSlots": {
         "base": 2,
@@ -6666,7 +6666,7 @@
           "min": 49,
           "max": 77
         },
-        "skillElementsPm": [0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 50, 0],
         "hitPm": 915,
         "critPm": 160,
         "intervalMs": 1000,
@@ -6725,7 +6725,7 @@
         "int": 13,
         "wis": 11
       },
-      "elements": [2, 4, 1, 3, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [2, 0, 4, 0, 1, 0, 3, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -6758,7 +6758,7 @@
           "min": 34,
           "max": 52
         },
-        "skillElementsPm": [0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         "hitPm": 885,
         "critPm": 112,
         "intervalMs": 1150,
@@ -6818,7 +6818,7 @@
         "int": 7,
         "wis": 6
       },
-      "elements": [0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0],
       "allowedSubspecies": ["sub_wind"],
       "skillSlots": {
         "base": 2,
@@ -6859,7 +6859,7 @@
           "min": 21,
           "max": 32
         },
-        "skillElementsPm": [0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 50, 0],
         "hitPm": 870,
         "critPm": 88,
         "intervalMs": 1225,
@@ -6918,7 +6918,7 @@
         "int": 14,
         "wis": 14
       },
-      "elements": [2, 6, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [2, 0, 6, 0, 2, 0, 0, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water"],
       "skillSlots": {
         "base": 2,
@@ -6951,7 +6951,7 @@
           "min": 47,
           "max": 73
         },
-        "skillElementsPm": [0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         "hitPm": 895,
         "critPm": 128,
         "intervalMs": 1125,
@@ -7010,7 +7010,7 @@
         "int": 13,
         "wis": 14
       },
-      "elements": [3, 2, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [3, 0, 2, 0, 0, 0, 5, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -7039,7 +7039,7 @@
           "min": 32,
           "max": 50
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 890,
         "critPm": 120,
         "intervalMs": 1200,
@@ -7098,7 +7098,7 @@
         "int": 8,
         "wis": 7
       },
-      "elements": [0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 3,
@@ -7139,7 +7139,7 @@
           "min": 23,
           "max": 36
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 870,
         "critPm": 88,
         "intervalMs": 1275,
@@ -7198,7 +7198,7 @@
         "int": 9,
         "wis": 11
       },
-      "elements": [2, 2, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [2, 0, 2, 0, 0, 0, 6, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -7243,7 +7243,7 @@
           "min": 25,
           "max": 38
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 850,
         "critPm": 56,
         "intervalMs": 1350,
@@ -7302,7 +7302,7 @@
         "int": 4,
         "wis": 4
       },
-      "elements": [4, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [4, 0, 0, 0, 0, 0, 6, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 3,
@@ -7338,7 +7338,7 @@
           "min": 26,
           "max": 41
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 860,
         "critPm": 72,
         "intervalMs": 1325,
@@ -7395,7 +7395,7 @@
         "int": 3,
         "wis": 3
       },
-      "elements": [6, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [6, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 4,
@@ -7476,7 +7476,7 @@
         "int": 5,
         "wis": 4
       },
-      "elements": [7, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [7, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 3,
@@ -7562,7 +7562,7 @@
         "int": 10,
         "wis": 8
       },
-      "elements": [0, 2, 2, 0, 0, 6, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 2, 0, 2, 0, 0, 0, 0, 0, 6, 0],
       "allowedSubspecies": ["sub_wind"],
       "skillSlots": {
         "base": 2,
@@ -7599,7 +7599,7 @@
           "min": 26,
           "max": 41
         },
-        "skillElementsPm": [0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 50, 0],
         "hitPm": 880,
         "critPm": 104,
         "intervalMs": 1200,
@@ -7658,7 +7658,7 @@
         "int": 19,
         "wis": 16
       },
-      "elements": [0, 2, 2, 0, 0, 6, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 2, 0, 2, 0, 0, 0, 0, 0, 6, 0],
       "allowedSubspecies": ["sub_wind"],
       "skillSlots": {
         "base": 2,
@@ -7687,7 +7687,7 @@
           "min": 54,
           "max": 84
         },
-        "skillElementsPm": [0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 50, 0],
         "hitPm": 880,
         "critPm": 104,
         "intervalMs": 1175,
@@ -7746,7 +7746,7 @@
         "int": 6,
         "wis": 7
       },
-      "elements": [0, 2, 2, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 2, 0, 2, 0, 6, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -7770,7 +7770,7 @@
           "min": 30,
           "max": 46
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 910,
         "critPm": 152,
         "intervalMs": 1050,
@@ -7828,7 +7828,7 @@
         "int": 8,
         "wis": 7
       },
-      "elements": [0, 0, 10, 0, 0, 0, 0, 0, 0, 6, 0, 0],
+      "elements": [0, 0, 0, 0, 10, 6, 0, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire", "sub_light"],
       "skillSlots": {
         "base": 2,
@@ -7865,7 +7865,7 @@
           "min": 23,
           "max": 36
         },
-        "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0],
         "hitPm": 900,
         "critPm": 136,
         "intervalMs": 1050,
@@ -7930,7 +7930,7 @@
         "int": 7,
         "wis": 6
       },
-      "elements": [0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -7962,7 +7962,7 @@
           "min": 37,
           "max": 58
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 925,
         "critPm": 176,
         "intervalMs": 950,
@@ -8026,7 +8026,7 @@
         "int": 3,
         "wis": 3
       },
-      "elements": [8, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [8, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water"],
       "skillSlots": {
         "base": 4,
@@ -8108,7 +8108,7 @@
         "int": 8,
         "wis": 8
       },
-      "elements": [7, 0, 3, 0, 0, 0, 2, 2, 0, 0, 0, 0],
+      "elements": [7, 0, 0, 0, 3, 0, 0, 4, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -8196,7 +8196,7 @@
         "int": 8,
         "wis": 8
       },
-      "elements": [8, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [8, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water"],
       "skillSlots": {
         "base": 2,
@@ -8300,7 +8300,7 @@
         "int": 15,
         "wis": 15
       },
-      "elements": [0, 2, 2, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 2, 0, 2, 0, 6, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_fire"],
       "skillSlots": {
         "base": 2,
@@ -8329,7 +8329,7 @@
           "min": 35,
           "max": 55
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 890,
         "critPm": 120,
         "intervalMs": 1300,
@@ -8388,7 +8388,7 @@
         "int": 5,
         "wis": 4
       },
-      "elements": [0, 3, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0],
+      "elements": [0, 0, 3, 0, 0, 0, 7, 0, 0, 0, 0, 0],
       "allowedSubspecies": ["sub_water", "sub_fire"],
       "skillSlots": {
         "base": 3,
@@ -8424,7 +8424,7 @@
           "min": 32,
           "max": 50
         },
-        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0],
         "hitPm": 860,
         "critPm": 72,
         "intervalMs": 1325,

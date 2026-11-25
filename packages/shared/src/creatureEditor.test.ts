@@ -4,7 +4,13 @@ import {
   CREATURE_PRIMARY_CODES,
   allocateCreatureStats,
   creatureDefaultSpread,
-  creatureStatProfile,
+  canMoveCreatureClass,
+  creatureClassPath,
+  creatureClassSubtree,
+  creatureMainElement,
+  creatureStatShares,
+  creatureSumTier,
+  flattenCreatureClasses,
   creatureStatRange,
   creatureStatSumRange,
   groupCreatures,
@@ -95,17 +101,59 @@ describe("creatureEditor helpers", () => {
     expect(creatureStatSumRange({ primaries })).toEqual({ min: 90, base: 101, max: 113 });
   });
 
-  it("스탯 성향: 묶음 몫이 40% 이상이면 그 성향, 아니면 균형", () => {
-    expect(creatureStatProfile({ str: 20, vit: 18, dex: 6, agi: 6, int: 4, wis: 4 }).lean).toBe("physical");
-    expect(creatureStatProfile({ str: 4, vit: 6, dex: 6, agi: 6, int: 20, wis: 16 }).lean).toBe("magic");
-    expect(creatureStatProfile({ str: 6, vit: 5, dex: 14, agi: 18, int: 4, wis: 4 }).lean).toBe("finesse");
-    const even = creatureStatProfile({ str: 10, vit: 10, dex: 10, agi: 10, int: 10, wis: 10 });
-    expect(even.lean).toBe("balanced");
-    expect(even.sharePm.physical + even.sharePm.finesse + even.sharePm.magic).toBe(1000);
-    expect(creatureStatProfile({ str: 9, vit: 3, dex: 3, agi: 8, int: 3, wis: 3 }).top).toEqual([
-      "str",
-      "agi",
+  it("6스탯 분포 몫은 합 1000‰, 가장 큰 스탯을 알려 준다(공식 화면 차례 STR·VIT·INT·WIS·DEX·AGI)", () => {
+    expect(CREATURE_PRIMARY_CODES).toEqual(["str", "vit", "int", "wis", "dex", "agi"]);
+    const shares = creatureStatShares({ str: 9, vit: 3, dex: 3, agi: 8, int: 3, wis: 3 });
+    expect(Object.values(shares.sharePm).reduce((a, b) => a + b, 0)).toBe(1000);
+    expect(shares.sharePm.str).toBe(310);
+    expect(shares.top).toBe("str");
+    expect(creatureStatShares({ str: 5, vit: 5, dex: 5, agi: 9, int: 9, wis: 5 }).top).toBe("int");
+  });
+
+  it("스탯 합 단계: 등급 기준 예산으로 나눈다(36·48·62·72·78)", () => {
+    expect([10, 36, 37, 48, 62, 63, 72, 78, 79, 100].map(creatureSumTier)).toEqual([
+      0, 0, 1, 1, 2, 3, 3, 4, 5, 5,
     ]);
+  });
+
+  it("주속성: 가장 큰 칸, 강화형(홀수 칸)은 2배로 센다(D-5015)", () => {
+    expect(creatureMainElement([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])).toBeNull();
+    // 불 6 · 폭렬 1 · 바람 3 → 불
+    expect(creatureMainElement([0, 0, 6, 1, 3, 0, 0, 0, 0, 0, 0, 0])).toBe(2);
+    // 물 3 · 빙결 2 → 빙결 4 → 빙결
+    expect(creatureMainElement([3, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])).toBe(1);
+  });
+
+  it("분류 트리: 길·아래 분류·옮길 수 있는지(대·중·소 셋까지)·트리 차례", () => {
+    const classes = [
+      { id: "beast" },
+      { id: "humanoid" },
+      { id: "fox", parent: "beast" },
+      { id: "arctic_fox", parent: "fox" },
+      { id: "wolf_kin", parent: "beast" },
+    ];
+    expect(creatureClassPath(classes, "arctic_fox").map((c) => c.id)).toEqual(["beast", "fox", "arctic_fox"]);
+    expect(creatureClassPath(classes, "nope")).toEqual([]);
+    expect([...creatureClassSubtree(classes, "beast")].toSorted()).toEqual([
+      "arctic_fox",
+      "beast",
+      "fox",
+      "wolf_kin",
+    ]);
+    expect(flattenCreatureClasses(classes).map((row) => `${row.depth}:${row.entry.id}`)).toEqual([
+      "1:beast",
+      "2:fox",
+      "3:arctic_fox",
+      "2:wolf_kin",
+      "1:humanoid",
+    ]);
+    // 여우류(아래 한 단계)를 다른 대분류 아래로: 됨. 중분류 아래로: 깊이 넷이라 안 됨. 자기 아래로: 안 됨
+    expect(canMoveCreatureClass(classes, "fox", "humanoid")).toBe(true);
+    expect(canMoveCreatureClass(classes, "fox", "wolf_kin")).toBe(false);
+    expect(canMoveCreatureClass(classes, "fox", "arctic_fox")).toBe(false);
+    expect(canMoveCreatureClass(classes, "fox", undefined)).toBe(true);
+    expect(canMoveCreatureClass(classes, "arctic_fox", "wolf_kin")).toBe(true);
+    expect(canMoveCreatureClass(classes, "beast", "humanoid")).toBe(false);
   });
 
   it("랜덤 분포 뽑기: 합 = 총합, 고정한 스탯은 그대로, 같은 시드면 같은 분포", () => {

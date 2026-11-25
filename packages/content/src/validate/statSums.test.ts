@@ -1,4 +1,5 @@
-// 크리쳐 검사 시험 — 초기 스탯 합 상한(D-534), 변종 그룹(variantOf: 자기 자신·없는 대표·변종을 대표로 삼기), 스탯 오차·모델 칸 형식.
+// 크리쳐 검사 시험 — 초기 스탯 합 상한(D-534), 변종 그룹(variantOf: 자기 자신·없는 대표·변종을 대표로 삼기), 스탯 오차·모델 칸 형식,
+// 분류 트리(creature_classes: 대·중·소 셋까지, 고리·자기 자신·없는 분류).
 // docs/adr/2026-11-25-creature-codex-groups.md
 import { describe, expect, it } from "vitest";
 import { validatePack } from "./pack.ts";
@@ -10,18 +11,24 @@ const creature = (id: string, extra: Record<string, unknown> = {}) => ({
   grade: "common",
   size: "M",
   primaries: { str: 7, dex: 6, agi: 8, vit: 5, int: 3, wis: 3 },
-  elements: [0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0],
+  elements: [0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0],
   skillSlots: { base: 2, perRebirth: 1, max: 5 },
   enabled: true,
   ...extra,
 });
 
-function packWith(entries: readonly Record<string, unknown>[]) {
+const BEAST = { id: "beast", name: { ko: "야수", en: "Beast" }, icon: "🐺" };
+
+function packWith(
+  entries: readonly Record<string, unknown>[],
+  classes: readonly Record<string, unknown>[] = [BEAST],
+) {
   return validatePack({
     packId: "test",
     files: new Map([
       ["manifest.json", JSON.stringify({ formatVersion: 1, packId: "test", version: 1 })],
       ["id-changes.json", JSON.stringify({ renamed: [], removed: [] })],
+      ["creature_classes.json", JSON.stringify({ entries: classes })],
       ["creatures.json", JSON.stringify({ entries })],
     ]),
   });
@@ -79,5 +86,45 @@ describe("크리쳐 초기 스탯 합(D-534)", () => {
       creature("titan", { primaries: { str: 30, dex: 20, agi: 20, vit: 20, int: 6, wis: 5 } }),
     ]);
     expect(codes(result)).toContain("creature_stat_sum");
+  });
+});
+
+const cls = (id: string, parent?: string) => ({
+  id,
+  name: { ko: id, en: id },
+  ...(parent ? { parent } : {}),
+});
+
+describe("크리쳐 분류 트리(creature_classes)", () => {
+  it("대 › 중 › 소 세 단계와, 어느 단계든 가리키는 크리쳐는 통과한다", () => {
+    const result = packWith(
+      [creature("wolf"), creature("arctic_fox", { category: "arctic_foxes" })],
+      [BEAST, cls("foxes", "beast"), cls("arctic_foxes", "foxes")],
+    );
+    expect(result.issues).toEqual([]);
+  });
+
+  it("넷째 단계는 오류다", () => {
+    const result = packWith(
+      [creature("wolf")],
+      [BEAST, cls("foxes", "beast"), cls("arctic_foxes", "foxes"), cls("snow_foxes", "arctic_foxes")],
+    );
+    expect(result.issues.filter((issue) => issue.code === "creature_class_depth")).toMatchObject([
+      { id: "snow_foxes", path: "parent" },
+    ]);
+  });
+
+  it("고리와 자기 자신을 가리키는 위 분류는 오류다", () => {
+    const loop = packWith([creature("wolf")], [BEAST, cls("a_kind", "b_kind"), cls("b_kind", "a_kind")]);
+    expect(codes(loop).filter((code) => code === "creature_class_cycle")).toHaveLength(2);
+    expect(codes(packWith([creature("wolf")], [BEAST, cls("foxes", "foxes")]))).toContain(
+      "creature_class_self",
+    );
+  });
+
+  it("없는 분류를 가리키는 크리쳐는 참조 오류다", () => {
+    const result = packWith([creature("wolf", { category: "nope" })]);
+    expect(result.pack).toBeUndefined();
+    expect(result.issues.some((issue) => issue.id === "wolf" && issue.path === "category")).toBe(true);
   });
 });

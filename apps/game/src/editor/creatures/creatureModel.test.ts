@@ -1,12 +1,23 @@
 // 크리쳐 편집기 화면 모델 — 변종 만들기·대표 바꾸기·오차 정리(docs/adr/2026-11-25-creature-codex-groups.md).
-import type { CreatureJson } from "@terra/shared/creatureEditor";
+import type { CreatureEditorListResponse, CreatureJson } from "@terra/shared/creatureEditor";
 import { describe, expect, it } from "vitest";
-import { cleanCreature, createDefaultCreature, promoteToRoot, variantFrom } from "./creatureModel.ts";
+import {
+  EMPTY_CREATURE_STAGE,
+  cleanClass,
+  cleanCreature,
+  combinedClasses,
+  createDefaultCreature,
+  creatureChangesOf,
+  promoteToRoot,
+  stageClass,
+  variantFrom,
+} from "./creatureModel.ts";
 
 const base: CreatureJson = {
   ...createDefaultCreature("wolf"),
   primaries: { str: 7, dex: 6, agi: 8, vit: 5, int: 3, wis: 3 },
-  elements: [2, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0],
+  // 물 2 · 땅 8(칸 차례 = ELEMENT_CODES)
+  elements: [2, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0],
 };
 
 describe("cleanCreature — 스탯 오차", () => {
@@ -36,11 +47,11 @@ describe("variantFrom", () => {
       "wolf",
       "fire_wolf",
       { ko: "불 늑대", en: "Fire Wolf" },
-      { kind: "element", element: 1 },
+      { kind: "element", element: 2 },
     );
     expect(fire.id).toBe("fire_wolf");
     expect(fire.variantOf).toBe("wolf");
-    expect(fire.elements).toEqual([2, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(fire.elements).toEqual([2, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     expect(fire.primaries).toEqual(base.primaries);
   });
 
@@ -75,5 +86,64 @@ describe("promoteToRoot", () => {
       ["ice_wolf", "fire_wolf"],
     ]);
     expect(promoteToRoot(all, "wolf")).toEqual([]);
+  });
+});
+
+const classRow = (id: string, origin: "pack" | "created", parent?: string) => ({
+  entry: { id, name: { ko: id, en: id }, ...(parent ? { parent } : {}) },
+  origin,
+  pack: origin === "pack" ? { id, name: { ko: id, en: id } } : null,
+  override: null,
+  hash: "0".repeat(64),
+});
+
+describe("분류 담기", () => {
+  const list: CreatureEditorListResponse = {
+    contentVersion: "core@1",
+    revision: 1,
+    creatures: [],
+    classes: [classRow("beast", "pack"), classRow("foxes", "created", "beast")],
+    retiredClasses: [],
+    items: [],
+    skills: [],
+    unitKinds: [],
+    availableImages: [],
+    availableModels: [],
+    retired: [],
+    sleeping: [],
+  };
+
+  it("빈 그림 글자·자기 자신을 가리키는 위 분류는 정리한다", () => {
+    expect(
+      cleanClass({ id: "foxes", name: { ko: "여우류", en: "Foxes" }, parent: "foxes", icon: " " }),
+    ).toEqual({
+      id: "foxes",
+      name: { ko: "여우류", en: "Foxes" },
+    });
+  });
+
+  it("새 분류는 뒤에 붙고, 만든 분류를 지우기로 담으면 목록에서 빠진다. 바꿈은 분류가 크리쳐보다 먼저 나간다", () => {
+    let stage = stageClass(EMPTY_CREATURE_STAGE, "wolves", {
+      op: "put",
+      entry: { id: "wolves", name: { ko: "늑대류", en: "Wolves" }, parent: "beast" },
+      base: null,
+      baseHash: null,
+    });
+    stage = stageClass(stage, "foxes", {
+      op: "revert",
+      base: { id: "foxes", name: { ko: "foxes", en: "foxes" }, parent: "beast" },
+      baseHash: "0".repeat(64),
+    });
+    expect(combinedClasses(list, stage).map((row) => [row.entry.id, row.isNew])).toEqual([
+      ["beast", false],
+      ["wolves", true],
+    ]);
+    stage = {
+      ...stage,
+      creatures: new Map([
+        ["wolf", { op: "put", entry: { ...base, category: "wolves" }, base: null, baseHash: null }],
+      ]),
+    };
+    expect(creatureChangesOf(stage).map((change) => change.op)).toEqual(["revert_class", "put_class", "put"]);
   });
 });

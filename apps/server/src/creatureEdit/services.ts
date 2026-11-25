@@ -1,6 +1,7 @@
 // 크리처 편집기 요청 처리(tRPC creatures.*) — 권한(tuning:read·write 두 겹)과 속도 제한은 라우터가 먼저 본다.
 // 스킬·아이템·건물 편집기와 같은 덮어쓰기 층(ContentEditShared: 판·차례·감사·켤 때 고르기)을 쓴다.
-// - list: 크리처(실효·팩·덮어쓰기·해시), 고르기 창(아이템·스킬·유닛 종류·이미지·3D 모델 파일 목록), 은퇴 ID, 잠든 줄, 판.
+// - 분류 트리(creature_classes)도 같은 묶음으로 고친다(put_class·revert_class): 분류를 만들고 크리쳐를 그리로 옮기는 일이 한 번에 든다.
+// - list: 크리처(실효·팩·덮어쓰기·해시), 분류 트리, 고르기 창(아이템·스킬·유닛 종류·이미지·3D 모델 파일 목록), 은퇴 ID, 잠든 줄, 판.
 // - check: 묶음을 얹은 실효 팩 전체를 팩 검사기로 본다(저장하지 않음).
 // - save: baseHash 묶음(새 항목 만들기·고치기·끄기·되돌리기·잠든 줄 버리기).
 // - history: 감사 기록 요약 가운데 크리처 줄이 든 것.
@@ -23,6 +24,7 @@ import type { Database } from "../db/client.ts";
 import type { Viewer } from "../trpc/context.ts";
 import { reasonedError } from "../trpc/init.ts";
 import {
+  creatureClassViews,
   creatureItemOptions,
   creatureSkillOptions,
   creatureUnitKindOptions,
@@ -75,8 +77,9 @@ function listCreatureFiles(sub: string, pattern: RegExp, referenced: Iterable<st
   return [...names].toSorted();
 }
 
+/** 크리쳐·분류 트리 파일(creatures.json·creature_classes.json)의 문제만 */
 const creatureIssue = (issue: ContentIssueView): boolean =>
-  issue.file === null || issue.file.startsWith("creatures");
+  issue.file === null || issue.file.startsWith("creature");
 
 function putsOf(changes: readonly CreatureEditorChange[]): {
   puts: ContentPut[];
@@ -87,6 +90,19 @@ function putsOf(changes: readonly CreatureEditorChange[]): {
   for (const change of changes) {
     if (change.op === "discard_sleeping") {
       discard.push({ category: "creatures", id: change.id });
+      continue;
+    }
+    if (change.op === "put_class") {
+      puts.push({
+        category: "creature_classes",
+        id: change.entry.id,
+        entry: Object.fromEntries(Object.entries(change.entry)),
+        baseHash: change.baseHash,
+      });
+      continue;
+    }
+    if (change.op === "revert_class") {
+      puts.push({ category: "creature_classes", id: change.id, entry: null, baseHash: change.baseHash });
       continue;
     }
     if (change.op === "revert") {
@@ -129,6 +145,8 @@ export function createCreatureEditorServices(deps: {
       contentVersion: shared.pack.contentVersion,
       revision: snapshot.revision,
       creatures: creatureViews(state, snapshot),
+      classes: creatureClassViews(state, snapshot),
+      retiredClasses: state.retiredIds("creature_classes"),
       items: creatureItemOptions(effective.items),
       skills: creatureSkillOptions(effective.skills),
       unitKinds: creatureUnitKindOptions(effective.unitKinds),

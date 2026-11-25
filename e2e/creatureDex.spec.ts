@@ -5,6 +5,8 @@
 // - 변종 그룹: [+ 변종 추가]로 만든 변종이 적용 뒤 도감에서 대표 아래에 들여 보인다.
 // - 스탯: 오차(±)를 바꾸면 조우 범위가 따라가고, 랜덤 분포 뽑기는 합을 지키고 고정한 스탯을 그대로 둔다.
 // - 전리품: 아이템 고르기 + 획득 확률만(수량 칸 없음).
+// - 도감 표: 스탯 합이 앞, 6스탯 분포·스탯 여섯·기술 슬롯·속성 아이콘(강화형 구분). 칸 머리로 줄을 세우고 합 범위·주속성으로 거른다.
+// - 분류(대·중·소): 분류 편집에서 중분류를 더하고 크리쳐를 골라 옮겨 적용하면 분류 띠에서 그 분류로 거른다.
 // - 사진: 1440 × 개발 화면 테마 네온·라이트(도감·도감 정보) + 390 네온(E2E_SHOTS_DIR).
 // 시험끼리 서버·DB를 같이 쓴다: 적용하는 시험은 끝에 크리쳐 덮어쓰기를 되돌린다(만든 변종은 지운다 — 그 ID는 이 실행에서 다시 쓰지 못한다).
 import type { Locator, Page } from "@playwright/test";
@@ -45,18 +47,25 @@ async function trpc(
   );
 }
 
-/** 크리쳐 덮어쓰기를 모두 되돌린다(변종을 먼저 — 대표를 먼저 되돌리면 참조가 끊긴다) */
+/** 크리쳐·분류 덮어쓰기를 모두 되돌린다(가리키는 쪽 먼저: 변종 → 나머지 크리쳐 → 아래 분류 → 위 분류) */
 async function resetCreatures(page: Page): Promise<void> {
-  for (const variantsFirst of [true, false]) {
+  const passes = [
+    { key: "creatures", op: "revert", ref: "variantOf", refFirst: true },
+    { key: "creatures", op: "revert", ref: "variantOf", refFirst: false },
+    { key: "classes", op: "revert_class", ref: "parent", refFirst: true },
+    { key: "classes", op: "revert_class", ref: "parent", refFirst: false },
+  ] as const;
+  for (const pass of passes) {
     const current = await trpc(page, "creatures.list");
     const revision = field(current.data, "revision");
     if (typeof revision !== "number") throw new Error(`creatures.list ${current.status}`);
-    const changes = list(field(current.data, "creatures")).flatMap((row) => {
+    const changes = list(field(current.data, pass.key)).flatMap((row) => {
       const origin = field(row, "origin");
       if (origin !== "edited" && origin !== "created") return [];
-      const isVariant = typeof field(field(row, "entry"), "variantOf") === "string";
-      if (isVariant !== variantsFirst) return [];
-      return [{ op: "revert", id: field(field(row, "entry"), "id"), baseHash: field(row, "hash") }];
+      const pointsUp = typeof field(field(row, "entry"), pass.ref) === "string";
+      // 고친 팩 항목은 가리키는 칸과 상관없이 둘째 차례에 되돌린다
+      if ((origin === "created" && pointsUp) !== pass.refFirst) return [];
+      return [{ op: pass.op, id: field(field(row, "entry"), "id"), baseHash: field(row, "hash") }];
     });
     if (changes.length === 0) continue;
     const reverted = await trpc(page, "creatures.save", { expectedRevision: revision, changes }, true);
@@ -260,6 +269,128 @@ test.describe("변종 그룹", () => {
         .getByRole("button", { name: /^변종 1/ })
         .click();
       await expect(page.locator('.ce-dex-row[data-id="slime_e2e_fire"]')).toHaveCount(0);
+    } finally {
+      await resetCreatures(page);
+    }
+  });
+});
+
+const column = (page: Page, stat: string) =>
+  page
+    .locator(`.ce-dex-row .ce-dex-stat[data-stat="${stat}"] .ce-dex-stat-value`)
+    .evaluateAll((nodes) => nodes.map((node) => Number(node.textContent)));
+const sums = (page: Page) =>
+  page
+    .locator(".ce-dex-row .ce-sum strong")
+    .evaluateAll((nodes) => nodes.map((node) => Number(node.textContent)));
+
+test.describe("도감 표 — 정렬·필터·속성·기술 슬롯", () => {
+  test.use({ ...VIEWPORTS.desktop, account: "dev", devTheme: "neon" });
+
+  test("칸 머리로 줄을 세우고(스탯·합·기술 슬롯), 합 범위와 주속성으로 거른다", async ({ page }) => {
+    await openDex(page);
+    const total = await page.locator(".ce-dex-row").count();
+
+    // STR 큰 것부터 → 작은 것부터 → 도감 차례
+    await page.locator('.ce-sort[data-sort="str"]').click();
+    const desc = await column(page, "str");
+    expect(desc).toEqual(desc.toSorted((a, b) => b - a));
+    await page.locator('.ce-sort[data-sort="str"]').click();
+    const asc = await column(page, "str");
+    expect(asc).toEqual(asc.toSorted((a, b) => a - b));
+    await page.locator('.ce-sort[data-sort="str"]').click();
+    await expect(page.locator(".ce-dex-row").first()).toHaveAttribute("data-id", "wolf");
+
+    // DEX(스탯)도 줄을 세운다 — 도감 차례와 이름이 겹치지 않는다
+    await page.locator('.ce-sort[data-sort="dex"]').click();
+    const byDex = await column(page, "dex");
+    expect(byDex).toEqual(byDex.toSorted((a, b) => b - a));
+    expect(new Set(byDex).size).toBeGreaterThan(1);
+    await page.locator('.ce-sort[data-sort="dex"]').click();
+    await page.locator('.ce-sort[data-sort="dex"]').click();
+    await expect(page.locator('.ce-sort[data-active="true"]')).toHaveCount(0);
+
+    await page.locator('.ce-sort[data-sort="sum"]').click();
+    const bySum = await sums(page);
+    expect(bySum).toEqual(bySum.toSorted((a, b) => b - a));
+    await page.locator('.ce-sort[data-sort="sum"]').click();
+    await page.locator('.ce-sort[data-sort="sum"]').click();
+
+    // 합 범위
+    await page.getByLabel("스탯 합 최소").fill("70");
+    const high = await sums(page);
+    expect(high.length).toBeGreaterThan(0);
+    expect(high.length).toBeLessThan(total);
+    expect(Math.min(...high)).toBeGreaterThanOrEqual(70);
+    await page.getByRole("button", { name: "필터 초기화" }).click();
+    await expect(page.locator(".ce-dex-row")).toHaveCount(total);
+
+    // 주속성(아이콘 단추): 불
+    await page.locator('.ce-el-button[data-element="fire"]').click();
+    const fire = await page.locator(".ce-dex-row").count();
+    expect(fire).toBeGreaterThan(0);
+    expect(fire).toBeLessThan(total);
+    await page.getByRole("button", { name: "필터 초기화" }).click();
+
+    // 속성 아이콘: 회색늑대 = 땅(기본형), 강철 골렘 = 크리스탈(강화형 표시), 기술 슬롯
+    const wolf = page.locator('.ce-dex-row[data-id="wolf"]');
+    await expect(wolf.locator('.ce-el-chip[data-element="earth"]')).toHaveCount(1);
+    await expect(wolf.locator('.ce-el-chip[data-element="earth"]')).not.toHaveAttribute(
+      "data-enhanced",
+      "true",
+    );
+    await expect(wolf.locator(".ce-slots")).toHaveAttribute("data-slots", "4");
+    await expect(
+      page.locator('.ce-dex-row[data-id="iron_golem"] .ce-el-chip[data-element="crystal"]'),
+    ).toHaveAttribute("data-enhanced", "true");
+  });
+});
+
+test.describe("분류 편집(대·중·소)", () => {
+  test.use({ ...VIEWPORTS.desktop, account: "dev", devTheme: "neon" });
+
+  test("중분류를 더하고 크리쳐를 골라 옮겨 적용하면 분류 띠에서 그 분류로 거른다", async ({ page }) => {
+    await openDex(page);
+    await resetCreatures(page);
+    try {
+      await page.getByRole("button", { name: "분류 편집" }).click();
+      const beast = page.locator('.ce-class-row[data-class="beast"]');
+      await beast.getByRole("button", { name: "+ 하위 분류" }).click();
+      await page.locator("#ce-class-new-id-beast").fill("e2e_wolves");
+      await page.locator("#ce-class-new-ko-beast").fill("늑대류");
+      await page.locator("#ce-class-new-en-beast").fill("Wolves");
+      await page.getByRole("button", { name: "야수 아래에 넣기" }).click();
+      await expect(page.locator('.ce-class-row[data-class="e2e_wolves"]')).toHaveAttribute("data-depth", "2");
+
+      // 소분류까지: 늑대류 아래
+      await page
+        .locator('.ce-class-row[data-class="e2e_wolves"]')
+        .getByRole("button", { name: "+ 하위 분류" })
+        .click();
+      await page.locator("#ce-class-new-id-e2e_wolves").fill("e2e_dire_wolves");
+      await page.locator("#ce-class-new-ko-e2e_wolves").fill("방랑늑대류");
+      await page.getByRole("button", { name: "늑대류 아래에 넣기" }).click();
+      const small = page.locator('.ce-class-row[data-class="e2e_dire_wolves"]');
+      await expect(small).toHaveAttribute("data-depth", "3");
+      // 셋째 단계에는 하위 분류를 더 넣지 못한다
+      await expect(small.getByRole("button", { name: "+ 하위 분류" })).toHaveCount(0);
+
+      // 크리쳐 둘을 골라 늑대류로 옮긴다
+      await page.getByLabel("회색늑대 고르기").check();
+      await page.getByLabel("방랑대늑대 고르기").check();
+      await page.getByLabel("옮길 분류").selectOption("e2e_wolves");
+      await page.getByRole("button", { name: "이 분류로 옮기기" }).click();
+
+      const apply = page.getByRole("button", { name: /즉시 반영/ });
+      await expect(apply).toBeEnabled({ timeout: 15_000 });
+      await apply.click();
+      await expect(page.getByText(/크리처 변경 4건을 반영했습니다/)).toBeVisible({ timeout: 15_000 });
+
+      // 분류 띠: 야수 → 늑대류 2종
+      await page.locator('.ce-class-card[data-class="beast"]').click();
+      await page.locator('.ce-class-chips .ce-tag-chip[data-class="e2e_wolves"]').click();
+      await expect(page.locator(".ce-dex-row")).toHaveCount(2);
+      await expect(page.locator('.ce-dex-row[data-id="wolf"] .ce-dex-class')).toHaveText("야수 › 늑대류");
     } finally {
       await resetCreatures(page);
     }

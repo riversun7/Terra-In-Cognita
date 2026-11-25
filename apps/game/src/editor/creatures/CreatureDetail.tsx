@@ -2,17 +2,17 @@
 // 탭 고르기는 화면(CreatureEditorScreen)이 든다: 도감에서 넘어오면 도감 정보, 크리쳐를 바꿔도 보던 탭을 그대로 둔다.
 import type { ContentIssueView } from "@terra/shared/contentEdit";
 import {
-  CREATURE_CATEGORIES,
   CREATURE_GRADES,
   CREATURE_PRESET_TAGS,
   CREATURE_SIZES,
-  type CreatureCategory,
+  type CreatureClassJson,
   type CreatureEditorListResponse,
   type CreatureEditorRow,
   type CreatureGrade,
   type CreatureJson,
   type CreatureSize,
   creatureGroupRootId,
+  flattenCreatureClasses,
 } from "@terra/shared/creatureEditor";
 import { useState } from "react";
 import { CheckField, SelectField, TextField } from "../content/contentEditorFields.tsx";
@@ -21,7 +21,8 @@ import { CreatureLootTab } from "./CreatureLootTab.tsx";
 import { CreatureOverviewTab } from "./CreatureOverviewTab.tsx";
 import { CreaturePortraitCropper, CreatureTokenBadge } from "./CreaturePortraitCropper.tsx";
 import { CreatureStatsTab } from "./CreatureStatsTab.tsx";
-import { CATEGORY_LABELS, GRADE_LABELS, PRESET_TAG_LABELS, SIZE_LABELS } from "./creatureModel.ts";
+import { classPathText } from "./creatureBits.tsx";
+import { GRADE_LABELS, PRESET_TAG_LABELS, SIZE_LABELS } from "./creatureModel.ts";
 
 export type CreatureDetailTab = "overview" | "basic" | "stats" | "combat" | "loot";
 
@@ -30,6 +31,7 @@ export function CreatureDetail({
   row,
   draft,
   allCreatures,
+  classes,
   usedIds,
   subTab,
   locale,
@@ -52,6 +54,8 @@ export function CreatureDetail({
   readonly row: CreatureEditorRow | undefined;
   readonly draft: CreatureJson;
   readonly allCreatures: readonly CreatureJson[];
+  /** 실효 분류 트리(담은 바꿈 포함) */
+  readonly classes: readonly CreatureClassJson[];
   readonly usedIds: ReadonlySet<string>;
   readonly subTab: CreatureDetailTab;
   readonly locale: "ko" | "en";
@@ -78,10 +82,16 @@ export function CreatureDetail({
   const groupSize = allCreatures.filter((entry) => creatureGroupRootId(entry) === rootId).length;
   const [customTagInput, setCustomTagInput] = useState("");
 
-  const categoryOptions = CREATURE_CATEGORIES.map((c) => ({
-    value: c,
-    label: ko ? CATEGORY_LABELS[c].ko : CATEGORY_LABELS[c].en,
-  }));
+  // 분류 고르기: 트리 차례로, 길 글("야수 › 여우류 › 북극여우")로 보인다. 모르는 분류(지워진 것)를 가리키면 그 ID도 목록에 둔다
+  const categoryOptions = [
+    ...(classes.some((entry) => entry.id === draft.category)
+      ? []
+      : [{ value: draft.category, label: draft.category }]),
+    ...flattenCreatureClasses(classes).map(({ entry }) => ({
+      value: entry.id,
+      label: classPathText(classes, entry.id, locale),
+    })),
+  ];
   const gradeOptions = CREATURE_GRADES.map((g) => ({
     value: g,
     label: ko ? GRADE_LABELS[g].ko : GRADE_LABELS[g].en,
@@ -143,7 +153,7 @@ export function CreatureDetail({
               {checking ? <span className="dev-muted">{ko ? "검사 중…" : "Checking…"}</span> : null}
             </div>
             <p className="field-hint">
-              {ko ? CATEGORY_LABELS[draft.category].ko : CATEGORY_LABELS[draft.category].en} ·{" "}
+              {classPathText(classes, draft.category, locale)} ·{" "}
               {ko ? GRADE_LABELS[draft.grade].ko : GRADE_LABELS[draft.grade].en} ·{" "}
               {ko ? SIZE_LABELS[draft.size].ko : SIZE_LABELS[draft.size].en}
             </p>
@@ -246,6 +256,7 @@ export function CreatureDetail({
           list={list}
           draft={draft}
           allCreatures={allCreatures}
+          classes={classes}
           usedIds={usedIds}
           locale={locale}
           onOpen={onOpen}
@@ -285,8 +296,8 @@ export function CreatureDetail({
                 value={draft.name.en}
                 onChange={(enName) => onEdit({ ...draft, name: { ...draft.name, en: enName } })}
               />
-              <SelectField<CreatureCategory>
-                label={ko ? "종족 주분류 (14종)" : "Category (14)"}
+              <SelectField<string>
+                label={ko ? "분류 (대 › 중 › 소)" : "Class (Large › Mid › Small)"}
                 value={draft.category}
                 options={categoryOptions}
                 onChange={(category) => onEdit({ ...draft, category })}
@@ -470,7 +481,13 @@ export function CreatureDetail({
       ) : null}
 
       {subTab === "stats" ? (
-        <CreatureStatsTab draft={draft} allCreatures={allCreatures} locale={locale} onEdit={onEdit} />
+        <CreatureStatsTab
+          draft={draft}
+          allCreatures={allCreatures}
+          classes={classes}
+          locale={locale}
+          onEdit={onEdit}
+        />
       ) : null}
 
       {subTab === "combat" ? (

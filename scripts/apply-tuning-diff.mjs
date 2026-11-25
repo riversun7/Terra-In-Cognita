@@ -20,6 +20,7 @@ import {
   applyStatRowsDiff,
   applyTuningDiff,
   combatClassEntrySchema,
+  creatureClassEntrySchema,
   creatureEntrySchema,
   effectEntrySchema,
   expTableEntrySchema,
@@ -52,7 +53,8 @@ export const ENTRY_FILES = {
   // 시설·1차 생산 티어 확률 분포(건물 편집기 /dev/buildings, docs/adr/2026-11-02-building-editor.md, D-513)
   facilities: { file: "facilities.json", schema: facilityEntrySchema },
   gather_tiers: { file: "gather_tiers.json", schema: gatherTierEntrySchema },
-  // 크리쳐 도감(크리쳐 편집기 /dev/creatures)
+  // 크리쳐 분류 트리·도감(크리쳐 편집기 /dev/creatures). 분류가 먼저다(크리쳐의 category가 가리킨다)
+  creature_classes: { file: "creature_classes.json", schema: creatureClassEntrySchema },
   creatures: { file: "creatures.json", schema: creatureEntrySchema },
   // 국가 프리셋(시작 국가 설정 편집기 /dev/nations, docs/adr/2026-11-10-nation-editor.md)
   nation_presets: { file: "nation_presets.json", schema: nationPresetEntrySchema },

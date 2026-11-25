@@ -29,6 +29,7 @@ import {
 import { mapPropEntrySchema } from "./mapProps.ts";
 import { gatherObjectEntrySchema } from "./gatherObjects.ts";
 import { combatClassEntrySchema } from "./combatClasses.ts";
+import { creatureClassEntrySchema } from "./creatureClasses.ts";
 import { creatureEntrySchema } from "./creatures.ts";
 import { expTableEntrySchema } from "./expTable.ts";
 import { effectEntrySchema, skillEntrySchema, unitKindEntrySchema } from "./combat.ts";
@@ -76,6 +77,8 @@ export const CATEGORIES: CategoryRegistry = {
   effects: { entry: effectEntrySchema },
   skills: { entry: skillEntrySchema },
   unit_kinds: { entry: unitKindEntrySchema },
+  // 크리쳐 분류 트리(대·중·소, docs/adr/2026-11-25-creature-codex-groups.md 6절). 크리쳐의 category가 가리킨다
+  creature_classes: { entry: creatureClassEntrySchema },
   creatures: { entry: creatureEntrySchema },
   tuning: { entry: tuningEntrySchema },
   biomes: { entry: biomeEntrySchema },

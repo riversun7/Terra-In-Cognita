@@ -57,8 +57,13 @@
 - 기획 미러에 없는 규칙(스탯 오차, 변종 그룹)이다. 기획 세션 전달 필요.
 
 ## 검증
-- (아래 줄은 끝난 뒤 채운다)
+- **Verified** 화면 시험(설치된 Chrome, `E2E_BROWSER_CHANNEL=chrome TEST_DATABASE_URL=… pnpm e2e e2e/creatureDex.spec.ts`): 9/9 통과 — 도감 → 상세 이동, 주소로 열기, GLB 모델(삼각형 2개)·못 읽은 모델·임시 몸, 오차·랜덤 분포, 전리품, 변종 만들기 → 적용 → 도감 들여쓰기·접기, 390 가로 넘침 없음. 사진(1440 네온·라이트, 390 네온)으로 도감·도감 정보·스탯·전리품 탭을 눈으로 확인했다.
+- **Verified** 옛 초상화 시험 `e2e/creatures.spec.ts`: 첫 실행에서 `creatureDex.spec.ts`와 함께 돌려 모두 통과(그 실행의 실패 3건은 새 시험의 요소 고르기 문제였고 고쳤다). 그 뒤 스탯 줄 배치·도감 좁은 화면 CSS를 고친 다음에는 다시 돌리지 않았다 — **미실행**(초상화 선택기 코드는 바꾸지 않았다).
+- **Verified** `pnpm check`의 포맷·타입·린트·모듈 경계·파일 크기·다국어(9,523키)·디자인 값(746쌍)·콘텐츠(core@153): 통과. 린트는 첫 실행에서 다른 작업의 새 파일(`apps/game/src/ui/EntityRef.tsx`, 메시지 키가 아직 없던 순간)에 걸렸고 다시 돌려 통과했다.
+- **Verified** `pnpm build` → `node scripts/check-pwa.mjs` 통과, `pnpm check:bundle` 통과(첫 화면 JS 113,732 B / 상한 131,416 B). 3D 미리 보기 조각은 `creatureEditorViewer-*.js`(52 kB, 미리 캐시 밖).
+- 단위·DB 시험(`TEST_DATABASE_URL=… pnpm test`): 파일 916/929·시험 6,584/6,611 통과, **27개 실패**. 실패는 모두 나라 의결·외교·가문 도시·폐허·명성 DB 시험(`governance*.db.test.ts`·`diplomacy.db.test.ts`·`factionIdentity/house*.db.test.ts`·`cityShares`·`ruins`·`landClaim`·`layoutTravel`·`worldMap/reads`·`world/renown`)이고 오류는 `no_nation`·`forbidden`·`foreignBuild` 칸 등이다. 크리쳐 쪽 코드를 쓰지 않는 시험이고 작업 트리에 다른 작업의 미커밋 변경(`apps/server/src/factionIdentity/` 등)이 있다 — 이 작업 탓이 아니라고 본다(**Assumed**: 따로 떼어 돌려 확인하지는 않았다). 크리쳐·콘텐츠·공용·편집기 시험은 모두 통과했다.
+- 커밋하지 않았다(작업 트리에 다른 작업의 미커밋 변경이 섞여 있다).
 
 ## 사용자 결정 대기
 - ADR `2026-11-25-creature-codex-groups.md` 확정 여부(지금 "제안").
-- 스탯 오차 기본 규칙에서 "스탯3이하는 3"을 30으로 읽었고 30을 넘는 스탯도 ±3으로 뒀다 — 맞는지.
+- (끝남) 스탯 오차 기본 규칙에서 "스탯3이하는 3"을 30으로 읽고 30을 넘는 스탯도 ±3으로 둔 것 — 사용자 확인 2026-11-25 "맞다".

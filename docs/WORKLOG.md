@@ -5,6 +5,9 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-25 19:40 | 크리쳐 도감 다시 짜기: 스탯 합 앞·6스탯 분포·정렬·필터·기술 슬롯·속성 아이콘·분류 대·중·소 | Claude Code | [25-1940-creature-dex-rework](worklog/2026/11/25-1940-creature-dex-rework.md) |
+|  | 크리쳐 편집기 6스탯 순서를 공식 화면 순서(STR·VIT·INT·WIS·DEX·AGI)로 수정 |  | [25-1938-creature-6stat-order](worklog/2026/11/25-1938-creature-6stat-order.md) |
+|  | 크리쳐 편집기 속성 아이콘을 유닛창과 동일한 스타일로 통일 |  | [25-1931-creature-editor-element-icons](worklog/2026/11/25-1931-creature-editor-element-icons.md) |
 | 2026-11-25 19:25 | 블랙리스트 현상금 제한, 미소속 사이보그 가문 초대 고침, 1단계 뒤로 깨진 DB 시험 27건·화면 시험, 섞인 커밋 나누기 | Claude Code | [25-1925-blacklist-bounty-limits-and-db-tests](worklog/2026/11/25-1925-blacklist-bounty-limits-and-db-tests.md) |
 | 2026-11-25 18:30 | 크리쳐 편집기: 도감 탭·변종 그룹·스탯 조우 오차·3D 미리 보기·전리품 간소화 | Claude Code | [25-1830-creature-codex-groups](worklog/2026/11/25-1830-creature-codex-groups.md) |
 | 2026-11-25 18:04 | 건물 정보 패널·정부 패널 UI 개편 및 전역 고유명사 표기(EntityRef) 통일 | Antigravity | [25-1804-entity-ref-building-gov-ui-redesign](worklog/2026/11/25-1804-entity-ref-building-gov-ui-redesign.md) |

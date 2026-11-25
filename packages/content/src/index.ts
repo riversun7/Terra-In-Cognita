@@ -128,7 +128,6 @@ export {
   type FormulasApplyResult,
 } from "./formulaDiff.ts";
 export {
-  CREATURE_CATEGORIES,
   CREATURE_GRADES,
   CREATURE_PRESET_TAGS,
   CREATURE_SIZES,
@@ -137,7 +136,6 @@ export {
   creatureNaturalWeaponSchema,
   creaturePortraitCropSchema,
   creatureSkillLinkSchema,
-  type CreatureCategory,
   type CreatureDrop,
   type CreatureEntry,
   type CreatureGrade,
@@ -146,6 +144,11 @@ export {
   type CreatureSize,
   type CreatureSkillLink,
 } from "./schema/creatures.ts";
+export {
+  CREATURE_CLASS_MAX_DEPTH,
+  creatureClassEntrySchema,
+  type CreatureClassEntry,
+} from "./schema/creatureClasses.ts";
 export {
   EFFECT_COMBAT_STATS,
   EQUIP_SLOT_KINDS,

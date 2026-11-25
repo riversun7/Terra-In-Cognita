@@ -6,6 +6,7 @@
 import {
   CREATURE_EDITOR_REASONS,
   type CreatureEditorChange,
+  type CreatureClassJson,
   type CreatureEditorCheckResponse,
   type CreatureEditorHistoryRow,
   type CreatureEditorListResponse,
@@ -36,12 +37,15 @@ import {
   type CreatureStage,
   EMPTY_CREATURE_STAGE,
   type StagedCreature,
+  cleanClass,
   cleanCreature,
+  combinedClasses,
   combinedCreatures,
   createDefaultCreature,
   creatureChangesOf,
   creatureStageKeys,
   mergeCreature,
+  stageClass,
   stageCreature,
   stageCreatureDiscard,
 } from "./creatureModel.ts";
@@ -208,6 +212,8 @@ export default function CreatureEditorScreen({ initialId }: { initialId?: string
   // 실효 크리쳐 전체(담은 바꿈과 아직 적용하지 않은 새 크리쳐 포함) — 분포 비교·그룹 묶기가 같이 쓴다
   const allCreatures: CreatureJson[] = list ? combinedCreatures(list, stage).map((item) => item.entry) : [];
   const usedIds = new Set(allCreatures.map((entry) => entry.id));
+  // 실효 분류 트리(담은 바꿈 포함)
+  const classes: CreatureClassJson[] = list ? combinedClasses(list, stage).map((item) => item.entry) : [];
 
   const keys = creatureStageKeys(stage);
   const changes = creatureChangesOf(stage);
@@ -252,6 +258,38 @@ export default function CreatureEditorScreen({ initialId }: { initialId?: string
     pushStage(next);
   };
 
+  /** 분류를 넣거나 고친다(실효 값과 같아지면 담기에서 뺀다). 같은 분류를 잇달아 고치면 되돌리기 한 칸으로 묶는다 */
+  const putClass = (entry: CreatureClassJson): void => {
+    const current = stageRef.current;
+    const mine = current.classes.get(entry.id);
+    const target = list?.classes.find((item) => item.entry.id === entry.id);
+    const base = mine ? mine.base : (target?.entry ?? null);
+    const baseHash = mine ? mine.baseHash : (target?.hash ?? null);
+    const clean = cleanClass(entry);
+    pushStage(
+      stageClass(
+        current,
+        entry.id,
+        base !== null && sameJson(clean, base) ? null : { op: "put", entry: clean, base, baseHash },
+      ),
+      `class/${entry.id}`,
+    );
+  };
+
+  /** 분류를 지우거나(그 세계에서 만든 것) 팩 원본으로 되돌린다. 아직 적용하지 않은 새 분류면 담기에서 뺀다 */
+  const removeClass = (id: string): void => {
+    const target = list?.classes.find((item) => item.entry.id === id);
+    pushStage(
+      stageClass(
+        stageRef.current,
+        id,
+        target && target.origin !== "pack"
+          ? { op: "revert", base: target.entry, baseHash: target.hash }
+          : null,
+      ),
+    );
+  };
+
   /** 변종 만들기: 새 크리쳐로 담고 그 변종의 도감 정보로 넘어간다 */
   const createVariant = (entry: CreatureJson): void => {
     pushStage(stagedWith(stageRef.current, entry));
@@ -262,7 +300,7 @@ export default function CreatureEditorScreen({ initialId }: { initialId?: string
 
   const createNew = (id: string, nameKo: string, nameEn: string, image?: string): void => {
     const initial = cleanCreature({
-      ...createDefaultCreature(id, image),
+      ...createDefaultCreature(id, image, classes[0]?.id),
       name: { ko: nameKo, en: nameEn },
     });
     pushStage(
@@ -320,6 +358,21 @@ export default function CreatureEditorScreen({ initialId }: { initialId?: string
     if (!fresh) return;
     let next = stageRef.current;
     for (const key of changedKeys) {
+      // 분류: 내 값을 그대로 두고 기준만 새 실효 값으로 바꾼다(지우기는 새 해시로)
+      if (key.startsWith("creature_classes/")) {
+        const classId = key.slice("creature_classes/".length);
+        const mineClass = next.classes.get(classId);
+        const latestClass = fresh.classes.find((item) => item.entry.id === classId);
+        if (!mineClass || !latestClass) continue;
+        next = stageClass(
+          next,
+          classId,
+          mineClass.op === "revert"
+            ? { op: "revert", base: latestClass.entry, baseHash: latestClass.hash }
+            : { op: "put", entry: mineClass.entry, base: latestClass.entry, baseHash: latestClass.hash },
+        );
+        continue;
+      }
       const id = key.startsWith("creatures/") ? key.slice("creatures/".length) : key;
       const mine = next.creatures.get(id);
       const latest = fresh.creatures.find((item) => item.entry.id === id);
@@ -525,6 +578,9 @@ export default function CreatureEditorScreen({ initialId }: { initialId?: string
                 selected={selected}
                 locale={locale}
                 onOpen={openFromDex}
+                onEditMany={editMany}
+                onPutClass={putClass}
+                onRemoveClass={removeClass}
               />
             </div>
           ) : null}
@@ -553,6 +609,7 @@ export default function CreatureEditorScreen({ initialId }: { initialId?: string
                     row={row}
                     draft={draft}
                     allCreatures={allCreatures}
+                    classes={classes}
                     usedIds={usedIds}
                     subTab={subTab}
                     onSubTab={setSubTab}
@@ -622,6 +679,11 @@ export default function CreatureEditorScreen({ initialId }: { initialId?: string
                         className="be-chip"
                         onClick={() => {
                           if (key.startsWith("sleeping/")) return;
+                          // 분류 바꿈은 도감 탭(분류 편집)에서 본다
+                          if (key.startsWith("class/")) {
+                            setTab("dex");
+                            return;
+                          }
                           select(key);
                           setTab("detail");
                         }}

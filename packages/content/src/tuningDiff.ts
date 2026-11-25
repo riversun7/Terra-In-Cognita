@@ -65,6 +65,7 @@ export const ENTRY_DIFF_CATEGORIES = [
   "effects",
   "facilities",
   "gather_tiers",
+  "creature_classes",
   "creatures",
   "nation_presets",
   "combat_classes",

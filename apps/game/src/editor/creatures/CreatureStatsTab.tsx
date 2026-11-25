@@ -5,13 +5,15 @@ import {
   CREATURE_GRADE_STAT_BUDGET,
   CREATURE_LIMITS,
   CREATURE_PRIMARY_CODES,
+  type CreatureClassJson,
   type CreatureJson,
   type CreaturePrimaryCode,
   type CreatureStatTendency,
   allocateCreatureStats,
   creatureDefaultSpread,
   creatureSpreadOf,
-  creatureStatProfile,
+  creatureClassPath,
+  creatureClassSubtree,
   creatureStatRange,
   creatureStatSumRange,
   rollCreatureStatDistribution,
@@ -19,14 +21,8 @@ import {
 } from "@terra/shared/creatureEditor";
 import { useState } from "react";
 import { NumberField } from "../content/contentEditorFields.tsx";
-import {
-  CATEGORY_LABELS,
-  ELEMENT_LABELS,
-  LEAN_LABELS,
-  PRESET_TAG_LABELS,
-  STAT_LABELS,
-  seedOfId,
-} from "./creatureModel.ts";
+import { ElementChip, StatShareBar } from "./creatureBits.tsx";
+import { ELEMENT_LABELS, PRESET_TAG_LABELS, STAT_LABELS, seedOfId } from "./creatureModel.ts";
 import { STAT_SUM_ABSOLUTE_MAX } from "@terra/shared/statGrowth";
 
 const TENDENCY_OPTIONS: readonly {
@@ -54,11 +50,13 @@ const SUBSPECIES_OPTIONS = [
 export function CreatureStatsTab({
   draft,
   allCreatures,
+  classes,
   locale,
   onEdit,
 }: {
   readonly draft: CreatureJson;
   readonly allCreatures: readonly CreatureJson[];
+  readonly classes: readonly CreatureClassJson[];
   readonly locale: "ko" | "en";
   readonly onEdit: (next: CreatureJson) => void;
 }) {
@@ -114,7 +112,6 @@ export function CreatureStatsTab({
   };
 
   const sumRange = creatureStatSumRange(draft);
-  const profile = creatureStatProfile(draft.primaries);
   const customSpread = draft.primarySpread !== undefined;
   const setSpread = (code: CreaturePrimaryCode, value: number): void => {
     const next = { str: 0, dex: 0, agi: 0, vit: 0, int: 0, wis: 0 };
@@ -123,25 +120,30 @@ export function CreatureStatsTab({
     onEdit({ ...draft, primarySpread: next });
   };
 
+  // 같은 대분류(그 아래 중·소분류 포함)
+  const large = creatureClassPath(classes, draft.category)[0];
+  const largeIds = large ? creatureClassSubtree(classes, large.id) : new Set([draft.category]);
+  const largeName = large ? (ko ? large.name.ko : large.name.en) : draft.category;
+
   // 세트·분류 6스탯 분포 비교 대상
   const compareTarget = allCreatures.filter((c) => {
     if (distScope === "all") return true;
-    if (distScope === "category") return c.category === draft.category;
+    if (distScope === "category") return largeIds.has(c.category);
     if (distScope === "grade") return c.grade === draft.grade;
     return Boolean(c.tags?.includes(distScope));
   });
   const distribution = summarizeCreatureStatDistribution(compareTarget.length > 0 ? compareTarget : [draft]);
 
-  // 6계열 방어력 요약 (물·얼음 / 불 / 바람·번개 / 땅·나무·금속 / 독·산 / 빛·어둠)
+  // 6계열 방어력 요약(계열 = ⌊칸 ÷ 2⌋: 기본형 + 강화형)
   const el = (idx: number): number => draft.elements[idx] ?? 0;
-  const families = [
-    { label: ko ? "물·얼음" : "Water/Ice", pts: el(0) + el(8) },
-    { label: ko ? "불" : "Fire", pts: el(1) },
-    { label: ko ? "바람·번개" : "Wind/Lightning", pts: el(2) + el(9) },
-    { label: ko ? "땅·나무·금속" : "Earth/Wood/Metal", pts: el(3) + el(6) + el(7) },
-    { label: ko ? "독·산" : "Poison/Acid", pts: el(10) + el(11) },
-    { label: ko ? "빛·어둠" : "Light/Dark", pts: el(4) + el(5) },
-  ];
+  const families = [0, 2, 4, 6, 8, 10].map((base) => {
+    const basic = ELEMENT_LABELS[base];
+    const enhanced = ELEMENT_LABELS[base + 1];
+    return {
+      label: `${basic ? (ko ? basic.ko : basic.en) : ""}·${enhanced ? (ko ? enhanced.ko : enhanced.en) : ""}`,
+      pts: el(base) + el(base + 1),
+    };
+  });
 
   return (
     <div className="ce-tab-stack">
@@ -288,9 +290,6 @@ export function CreatureStatsTab({
                 ? `합계 ${statSum} · 조우 범위 ${sumRange.min}~${sumRange.max}`
                 : `Sum ${statSum} · range ${sumRange.min}–${sumRange.max}`}
             </span>
-            <span className="dev-badge" data-lean={profile.lean}>
-              {ko ? LEAN_LABELS[profile.lean].ko : LEAN_LABELS[profile.lean].en}
-            </span>
             <button
               type="button"
               className="button-small"
@@ -305,9 +304,7 @@ export function CreatureStatsTab({
               onChange={(e) => setDistScope(e.target.value)}
             >
               <option value="category">
-                {ko
-                  ? `같은 종족 분류 (${CATEGORY_LABELS[draft.category].ko})`
-                  : `Same Category (${CATEGORY_LABELS[draft.category].en})`}
+                {ko ? `같은 대분류 (${largeName})` : `Same large class (${largeName})`}
               </option>
               <option value="grade">
                 {ko ? `같은 등급 (${draft.grade})` : `Same Grade (${draft.grade})`}
@@ -327,6 +324,7 @@ export function CreatureStatsTab({
             ? "조우하는 개체의 스탯은 기준 ± 오차 안에서 정해집니다. 오차를 따로 적지 않으면 기본 규칙(기준 10 이하 ±1, 20 이하 ±2, 그 위 ±3)을 따릅니다."
             : "Encountered individuals roll each stat within base ± spread. Without a custom spread the default rule applies (≤10 ±1, ≤20 ±2, above ±3)."}
         </p>
+        <StatShareBar primaries={draft.primaries} locale={locale} large />
         <div className="ce-stat-rows">
           {CREATURE_PRIMARY_CODES.map((code) => {
             const val = draft.primaries[code];
@@ -430,8 +428,11 @@ export function CreatureStatsTab({
             return (
               <div key={elInfo.id} className="ce-element-cell">
                 <div className="ce-element-head">
-                  <span className="ce-element-dot" style={{ backgroundColor: elInfo.color }} />
-                  <span className="ce-element-name">{ko ? elInfo.ko : elInfo.en}</span>
+                  <ElementChip index={idx} locale={locale} />
+                  <span className="ce-element-name">
+                    {ko ? elInfo.ko : elInfo.en}
+                    {elInfo.enhanced ? (ko ? " (강화)" : " (enh.)") : ""}
+                  </span>
                   <strong>{pts}</strong>
                 </div>
                 <input

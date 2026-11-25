@@ -10,23 +10,16 @@ import type {
 import { createRng } from "./rng.ts";
 import { STAT_SUM_ABSOLUTE_MAX } from "./statGrowth.ts";
 
-export const CREATURE_CATEGORIES = [
-  "beast",
-  "dragon",
-  "aquatic",
-  "bird",
-  "insect",
-  "undead",
-  "humanoid",
-  "mythical",
-  "construct",
-  "dinosaur",
-  "elemental",
-  "demon",
-  "plant",
-  "aberration",
-] as const;
-export type CreatureCategory = (typeof CREATURE_CATEGORIES)[number];
+/** 분류 깊이 상한(대·중·소). 팩 스키마(packages/content/src/schema/creatureClasses.ts)와 같아야 한다 */
+export const CREATURE_CLASS_MAX_DEPTH = 3;
+
+/** 크리쳐 분류 한 줄(팩 creature_classes.json 한 줄 모양). parent가 없으면 대분류 */
+export interface CreatureClassJson {
+  readonly id: string;
+  readonly name: LocalizedName;
+  readonly parent?: string | undefined;
+  readonly icon?: string | undefined;
+}
 
 export const CREATURE_GRADES = ["common", "rare", "epic", "boss", "legendary", "mythic"] as const;
 export type CreatureGrade = (typeof CREATURE_GRADES)[number];
@@ -34,7 +27,8 @@ export type CreatureGrade = (typeof CREATURE_GRADES)[number];
 export const CREATURE_SIZES = ["S", "M", "L", "XL"] as const;
 export type CreatureSize = (typeof CREATURE_SIZES)[number];
 
-export const CREATURE_PRIMARY_CODES = ["str", "dex", "agi", "vit", "int", "wis"] as const;
+/** 1차 6스탯 화면 차례(STR·VIT·INT·WIS·DEX·AGI — roster.ts PRIMARY_STATS와 같다) */
+export const CREATURE_PRIMARY_CODES = ["str", "vit", "int", "wis", "dex", "agi"] as const;
 export type CreaturePrimaryCode = (typeof CREATURE_PRIMARY_CODES)[number];
 
 export const CREATURE_PRESET_TAGS = [
@@ -129,7 +123,8 @@ export interface CreatureJson {
   readonly id: string;
   readonly name: LocalizedName;
   readonly description?: LocalizedName | undefined;
-  readonly category: CreatureCategory;
+  /** 분류 ID(creature_classes 트리의 어느 단계든) */
+  readonly category: string;
   readonly grade: CreatureGrade;
   readonly size: CreatureSize;
   readonly giant3Tile?: boolean | undefined;
@@ -213,10 +208,22 @@ export interface CreatureEditorUnitKindOption {
   readonly enabled: boolean;
 }
 
+export interface CreatureClassRow {
+  readonly entry: CreatureClassJson;
+  readonly origin: ContentEditOrigin;
+  readonly pack: CreatureClassJson | null;
+  readonly override: ContentOverrideView | null;
+  readonly hash: string;
+}
+
 export interface CreatureEditorListResponse {
   readonly contentVersion: string;
   readonly revision: number;
   readonly creatures: readonly CreatureEditorRow[];
+  /** 분류 트리(실효, 파일 차례 — 그 세계에서 만든 분류는 뒤) */
+  readonly classes: readonly CreatureClassRow[];
+  /** 다시 쓸 수 없는 분류 ID(지운 적이 있는 것) */
+  readonly retiredClasses: readonly string[];
   readonly items: readonly CreatureEditorItemOption[];
   readonly skills: readonly CreatureEditorSkillOption[];
   readonly unitKinds: readonly CreatureEditorUnitKindOption[];
@@ -231,7 +238,9 @@ export interface CreatureEditorListResponse {
 export type CreatureEditorChange =
   | { readonly op: "put"; readonly entry: CreatureJson; readonly baseHash: string | null }
   | { readonly op: "revert"; readonly id: string; readonly baseHash: string }
-  | { readonly op: "discard_sleeping"; readonly id: string };
+  | { readonly op: "discard_sleeping"; readonly id: string }
+  | { readonly op: "put_class"; readonly entry: CreatureClassJson; readonly baseHash: string | null }
+  | { readonly op: "revert_class"; readonly id: string; readonly baseHash: string };
 
 export const CREATURE_EDITOR_REASONS = [
   "invalid_entry",
@@ -266,6 +275,116 @@ export function resolveCreatureImageUrl(image: string | undefined): string | nul
     return trimmed;
   }
   return `/creatures/${trimmed}`;
+}
+
+/** 분류 ID → 그 분류까지의 길(대분류부터, 자기 포함). 모르는 ID면 빈 배열. 고리는 끊는다 */
+export function creatureClassPath<T extends Pick<CreatureClassJson, "id" | "parent">>(
+  classes: readonly T[],
+  id: string,
+): T[] {
+  const byId = new Map(classes.map((entry) => [entry.id, entry]));
+  const path: T[] = [];
+  const seen = new Set<string>();
+  let at = byId.get(id);
+  while (at && !seen.has(at.id)) {
+    seen.add(at.id);
+    path.unshift(at);
+    at = at.parent === undefined ? undefined : byId.get(at.parent);
+  }
+  return path;
+}
+
+/** 분류와 그 아래 모든 분류의 ID(자기 포함) */
+export function creatureClassSubtree(
+  classes: readonly Pick<CreatureClassJson, "id" | "parent">[],
+  id: string,
+): Set<string> {
+  const out = new Set<string>([id]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const entry of classes) {
+      if (entry.parent !== undefined && out.has(entry.parent) && !out.has(entry.id)) {
+        out.add(entry.id);
+        grew = true;
+      }
+    }
+  }
+  return out;
+}
+
+/** 분류 아래로 가장 깊은 단계 수(자기 = 1) */
+export function creatureClassHeight(
+  classes: readonly Pick<CreatureClassJson, "id" | "parent">[],
+  id: string,
+): number {
+  let height = 1;
+  for (const entry of classes) {
+    if (entry.parent === id) height = Math.max(height, 1 + creatureClassHeight(classes, entry.id));
+    if (height > CREATURE_CLASS_MAX_DEPTH + 1) break;
+  }
+  return height;
+}
+
+/**
+ * 분류 id를 parent(없으면 대분류 자리) 아래로 옮길 수 있는가: 자기·자기 아래로는 못 가고, 옮긴 뒤 깊이가 대·중·소(셋)를 넘지 않아야 한다
+ */
+export function canMoveCreatureClass(
+  classes: readonly Pick<CreatureClassJson, "id" | "parent">[],
+  id: string,
+  parent: string | undefined,
+): boolean {
+  if (parent === undefined) return creatureClassHeight(classes, id) <= CREATURE_CLASS_MAX_DEPTH;
+  if (creatureClassSubtree(classes, id).has(parent)) return false;
+  const parentDepth = creatureClassPath(classes, parent).length;
+  if (parentDepth === 0) return false;
+  return parentDepth + creatureClassHeight(classes, id) <= CREATURE_CLASS_MAX_DEPTH;
+}
+
+/** 트리 차례로 편 분류 목록(대분류 → 그 아래 → …, 형제는 목록 차례)과 깊이(1 = 대분류) */
+export function flattenCreatureClasses<T extends Pick<CreatureClassJson, "id" | "parent">>(
+  classes: readonly T[],
+): { readonly entry: T; readonly depth: number }[] {
+  const ids = new Set(classes.map((entry) => entry.id));
+  const out: { entry: T; depth: number }[] = [];
+  const seen = new Set<string>();
+  const walk = (parent: string | undefined, depth: number): void => {
+    for (const entry of classes) {
+      // 위 분류가 목록에 없으면(지워졌거나 걸러짐) 대분류 자리에 보인다
+      const at = entry.parent !== undefined && ids.has(entry.parent) ? entry.parent : undefined;
+      if (at !== parent || seen.has(entry.id)) continue;
+      seen.add(entry.id);
+      out.push({ entry, depth });
+      walk(entry.id, depth + 1);
+    }
+  };
+  walk(undefined, 1);
+  return out;
+}
+
+/**
+ * 스탯 합 단계(0~5) — 합이 사실상 등급이라 등급별 기준 예산(CREATURE_GRADE_STAT_BUDGET)으로 나눈다:
+ * 36 이하 0, 48 이하 1, 62 이하 2, 72 이하 3, 78 이하 4, 그 위 5. 도감이 합의 색을 이 단계로 고른다
+ */
+export function creatureSumTier(sum: number): number {
+  const index = CREATURE_GRADES.findIndex((grade) => sum <= CREATURE_GRADE_STAT_BUDGET[grade]);
+  return index < 0 ? CREATURE_GRADES.length - 1 : index;
+}
+
+/**
+ * 주속성 칸 — 12칸 가운데 가장 큰 칸, 강화형(홀수 칸)은 2배로 센다(50_Content_Rules §3.1, D-5015). 같으면 앞 칸. 모두 0이면 null
+ */
+export function creatureMainElement(elements: readonly number[]): number | null {
+  let best = -1;
+  let bestScore = 0;
+  elements.forEach((value, index) => {
+    const score = value * (index % 2 === 1 ? 2 : 1);
+    if (score > bestScore) {
+      best = index;
+      bestScore = score;
+    }
+  });
+  return best < 0 ? null : best;
 }
 
 /** 크리처 3D 모델 경로 해석기 — 파일 이름만 적혀 있으면 `/creatures/models/<파일명>`, `/`·`http`로 시작하면 그대로 */
@@ -325,42 +444,22 @@ export function creatureStatSumRange(entry: Pick<CreatureJson, "primaries" | "pr
   return { min, base, max };
 }
 
-/** 스탯 분포 성향 — 1차 스탯 묶음(STR·VIT 물리, DEX·AGI 기교, INT·WIS 마법) 가운데 어디에 쏠렸는가 */
-export const CREATURE_STAT_LEANS = ["physical", "finesse", "magic", "balanced"] as const;
-export type CreatureStatLean = (typeof CREATURE_STAT_LEANS)[number];
-
-export interface CreatureStatProfile {
-  readonly lean: CreatureStatLean;
-  /** 묶음 몫(‰, 합 1000) */
-  readonly sharePm: { readonly physical: number; readonly finesse: number; readonly magic: number };
-  /** 값이 큰 차례 두 스탯(같으면 코드 차례) */
-  readonly top: readonly [CreaturePrimaryCode, CreaturePrimaryCode];
-}
-
-/** 묶음 하나가 이 몫(‰) 이상이면 그 성향, 아니면 균형 */
-const LEAN_THRESHOLD_PM = 400;
-
-export function creatureStatProfile(primaries: CreaturePrimariesJson): CreatureStatProfile {
+/** 6스탯 분포 몫(‰, 합 1000 — 마지막 칸이 나머지를 받는다)과 값이 가장 큰 스탯(같으면 코드 차례) */
+export function creatureStatShares(primaries: CreaturePrimariesJson): {
+  readonly sharePm: CreaturePrimariesJson;
+  readonly top: CreaturePrimaryCode;
+} {
   const total = CREATURE_PRIMARY_CODES.reduce((acc, code) => acc + primaries[code], 0);
-  const share = (sum: number): number => (total > 0 ? Math.round((sum * 1000) / total) : 0);
-  const physical = share(primaries.str + primaries.vit);
-  const finesse = share(primaries.dex + primaries.agi);
-  const magic = total > 0 ? 1000 - physical - finesse : 0;
-  const ranked = [...CREATURE_PRIMARY_CODES].toSorted((a, b) => primaries[b] - primaries[a]);
-  const best = Math.max(physical, finesse, magic);
-  const lean: CreatureStatLean =
-    best < LEAN_THRESHOLD_PM
-      ? "balanced"
-      : best === physical
-        ? "physical"
-        : best === magic
-          ? "magic"
-          : "finesse";
-  return {
-    lean,
-    sharePm: { physical, finesse, magic },
-    top: [ranked[0] ?? "str", ranked[1] ?? "vit"],
-  };
+  const share: Record<CreaturePrimaryCode, number> = { str: 0, dex: 0, agi: 0, vit: 0, int: 0, wis: 0 };
+  let used = 0;
+  let top: CreaturePrimaryCode = "str";
+  CREATURE_PRIMARY_CODES.forEach((code, index) => {
+    const last = index === CREATURE_PRIMARY_CODES.length - 1;
+    share[code] = total <= 0 ? 0 : last ? 1000 - used : Math.round((primaries[code] * 1000) / total);
+    used += share[code];
+    if (primaries[code] > primaries[top]) top = code;
+  });
+  return { sharePm: share, top };
 }
 
 /** 그룹 대표 ID: 변종이면 대표, 아니면 자기 */
@@ -409,7 +508,7 @@ export const CREATURE_GRADE_STAT_BUDGET: Readonly<Record<CreatureGrade, number>>
   mythic: 80,
 };
 
-/** 성향별 6스탯 기본 가중치(STR, DEX, AGI, VIT, INT, WIS) */
+/** 성향별 6스탯 기본 가중치 */
 export type CreatureStatTendency =
   | "tendency_attack"
   | "tendency_defense"
@@ -419,24 +518,31 @@ export type CreatureStatTendency =
   | "tendency_production";
 
 const TENDENCY_WEIGHTS: Readonly<
-  Record<CreatureStatTendency, readonly [number, number, number, number, number, number]>
+  Record<CreatureStatTendency, Readonly<Record<CreaturePrimaryCode, number>>>
 > = {
-  tendency_attack: [30, 20, 18, 16, 8, 8],
-  tendency_defense: [20, 12, 10, 36, 10, 12],
-  tendency_agile: [16, 26, 32, 12, 7, 7],
-  tendency_mount: [20, 14, 28, 24, 7, 7],
-  tendency_magic: [8, 12, 12, 14, 30, 24],
-  tendency_production: [18, 26, 14, 22, 10, 10],
+  tendency_attack: { str: 30, vit: 16, int: 8, wis: 8, dex: 20, agi: 18 },
+  tendency_defense: { str: 20, vit: 36, int: 10, wis: 12, dex: 12, agi: 10 },
+  tendency_agile: { str: 16, vit: 12, int: 7, wis: 7, dex: 26, agi: 32 },
+  tendency_mount: { str: 20, vit: 24, int: 7, wis: 7, dex: 14, agi: 28 },
+  tendency_magic: { str: 8, vit: 14, int: 30, wis: 24, dex: 12, agi: 12 },
+  tendency_production: { str: 18, vit: 22, int: 10, wis: 10, dex: 26, agi: 14 },
 };
 
 /** 크기별 스탯 보정 가중치(S: 민첩·솜씨↑, L/XL: 힘·체력↑ 민첩↓) */
-const SIZE_MODIFIERS: Readonly<
-  Record<CreatureSize, readonly [number, number, number, number, number, number]>
-> = {
-  S: [0.85, 1.15, 1.25, 0.8, 1.0, 1.0],
-  M: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-  L: [1.18, 0.95, 0.85, 1.2, 0.95, 0.95],
-  XL: [1.35, 0.85, 0.72, 1.4, 0.95, 0.95],
+const SIZE_MODIFIERS: Readonly<Record<CreatureSize, Readonly<Record<CreaturePrimaryCode, number>>>> = {
+  S: { str: 0.85, vit: 0.8, int: 1.0, wis: 1.0, dex: 1.15, agi: 1.25 },
+  M: { str: 1.0, vit: 1.0, int: 1.0, wis: 1.0, dex: 1.0, agi: 1.0 },
+  L: { str: 1.18, vit: 1.2, int: 0.95, wis: 0.95, dex: 0.95, agi: 0.85 },
+  XL: { str: 1.35, vit: 1.4, int: 0.95, wis: 0.95, dex: 0.85, agi: 0.72 },
+};
+
+const FLAT_WEIGHTS: Readonly<Record<CreaturePrimaryCode, number>> = {
+  str: 16,
+  vit: 16,
+  int: 16,
+  wis: 16,
+  dex: 16,
+  agi: 16,
 };
 
 /**
@@ -457,8 +563,8 @@ export function allocateCreatureStats(opts: {
   );
   const baseW = TENDENCY_WEIGHTS[opts.tendency];
   const sizeW = SIZE_MODIFIERS[opts.size];
-  const raw = CREATURE_PRIMARY_CODES.map((code, idx) => {
-    let w = (baseW[idx] ?? 16) * (sizeW[idx] ?? 1);
+  const raw = CREATURE_PRIMARY_CODES.map((code) => {
+    let w = baseW[code] * sizeW[code];
     if (opts.primaryStat === code) w *= 1.28;
     else if (opts.secondaryStat === code) w *= 1.14;
     return w;
@@ -475,14 +581,11 @@ export function allocateCreatureStats(opts: {
     allocated[targetIdx] = (allocated[targetIdx] ?? 1) + (diff > 0 ? 1 : -1);
     diff += diff > 0 ? -1 : 1;
   }
-  return {
-    str: allocated[0] ?? 6,
-    dex: allocated[1] ?? 6,
-    agi: allocated[2] ?? 6,
-    vit: allocated[3] ?? 6,
-    int: allocated[4] ?? 6,
-    wis: allocated[5] ?? 6,
-  };
+  const out: Record<CreaturePrimaryCode, number> = { str: 6, vit: 6, int: 6, wis: 6, dex: 6, agi: 6 };
+  CREATURE_PRIMARY_CODES.forEach((code, idx) => {
+    out[code] = allocated[idx] ?? 6;
+  });
+  return out;
 }
 
 /**
@@ -504,13 +607,12 @@ export function rollCreatureStatDistribution(opts: {
   const budget = Math.max(6, Math.min(STAT_SUM_ABSOLUTE_MAX, Math.trunc(opts.budget)));
   // 고정하지 않은 칸에 돌아갈 몫(칸마다 최소 1)
   const pool = Math.max(free.length, budget - lockedSum);
-  const baseW = opts.tendency ? TENDENCY_WEIGHTS[opts.tendency] : [16, 16, 16, 16, 16, 16];
+  const baseW = opts.tendency ? TENDENCY_WEIGHTS[opts.tendency] : FLAT_WEIGHTS;
   const sizeW = SIZE_MODIFIERS[opts.size];
   const weights = free.map((code) => {
-    const idx = CREATURE_PRIMARY_CODES.indexOf(code);
     const jitterPm = 600 + rng.nextInt(801);
     const focus = opts.focus?.includes(code) === true ? 1.6 : 1;
-    return (baseW[idx] ?? 16) * (sizeW[idx] ?? 1) * focus * (jitterPm / 1000);
+    return baseW[code] * sizeW[code] * focus * (jitterPm / 1000);
   });
   const totalW = weights.reduce((a, b) => a + b, 0);
   const values = weights.map((w) => Math.max(1, Math.floor((w / totalW) * pool)));

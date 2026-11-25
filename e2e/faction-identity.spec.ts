@@ -167,14 +167,12 @@ test.describe("세력 정체성 — 정하기·올리기·검수", () => {
       const form = step(page);
       await expect(form).toHaveAttribute("data-mode", "create");
       await expect(page.locator("#fid-title")).toHaveText(message("ko", "fid_title_create"));
-      // 창설은 무료(D-565)이고 나라 시민으로 남는다는 안내, 소속 도시 고르기(기본 = 내 도시), 마지막 단추는 [가문 창설]
+      // 창설은 무료(D-565), 소속 도시는 창설 때 고르지 않는다(ADR 2026-11-24-house-membership-separation.md — 창설 뒤 정부 건물을
+      // 찾아가 가입), 마지막 단추는 [가문 창설]
       await expect(form.locator('[data-testid="fid-found-cost"]')).toContainText(
         message("ko", "fid_found_cost_free"),
       );
-      const homeSelect = form.locator('[data-testid="fid-found-home"]');
-      await expect(homeSelect).toBeVisible();
-      const myCity = Number(field(await trpcInPage(page, "factionIdentity.mine"), "homeCityId"));
-      expect(Number(await homeSelect.inputValue())).toBe(myCity);
+      await expect(form.locator('[data-testid="fid-found-home"]')).toHaveCount(0);
       await expect(form.locator(".fid-submit")).toHaveText(message("ko", "fid_submit_found"));
 
       // 빈 칸으로 누르면 이름 칸으로 가고 저장하지 않는다
@@ -240,10 +238,13 @@ test.describe("세력 정체성 — 정하기·올리기·검수", () => {
       expect(saves).toHaveLength(1);
       expect(field(field(saves[0]?.inputs[0], "upload"), "mode")).toBe("none");
       expect(field(field(saves[0]?.inputs[0], "emblem"), "shape")).toBe("hexagon");
-      // 소속 도시 칸(D-565): 가문장에게 지금 소속 도시와 [소속 도시 바꾸기]
+      // 소속 도시 칸: 갓 창설한 가문은 도시·국가 미소속이고, 가입은 원격으로 고르지 못한다(정부 건물 방문 안내만)
       const home = house(page).locator('[data-testid="house-home"]');
       await expect(home).toContainText(message("ko", "fid_home_title"));
-      await expect(home.locator("select")).toHaveValue(String(myCity));
+      await expect(home.locator("select")).toHaveCount(0);
+      await expect(home.locator('[data-part="house-home-visit-hint"]')).toHaveText(
+        message("ko", "fid_home_visit_to_join"),
+      );
       await tallShot(page, "fid-house-home-pastel-ko-390");
       expect(deviceErrors).toEqual([]);
     });
@@ -438,7 +439,7 @@ test.describe("가문 가입·이름 되돌리기", () => {
     test("가문원 목록(가문장 1명) → 사이보그 이름으로 초대 → 대기 줄", async ({ page, deviceErrors }) => {
       await openFaction(page);
       const members = house(page).locator('[data-testid="house-members"]');
-      await expect(members.locator('[data-role="leader"]')).toContainText("E2EPlayer");
+      await expect(members.locator('li[data-role="leader"]')).toContainText("E2EPlayer");
       await expect(members.locator(".fid-house-row")).toHaveCount(1);
       // 가문 금고(국고와 따로 — D-338·D-213): 새 가문은 0
       await expect(house(page).locator('[data-part="house-vault"]')).toHaveText(
@@ -536,7 +537,7 @@ test.describe("가문 가입·이름 되돌리기", () => {
       await expect(notices.locator('[data-notice="invite_accepted"]')).toContainText("E2EDev");
       await notices.locator('[data-notice="invite_accepted"] button').click();
       await expect(house(page).locator('[data-testid="house-notices"]')).toHaveCount(0);
-      const row = house(page).locator('[data-testid="house-members"] [data-role="member"]');
+      const row = house(page).locator('[data-testid="house-members"] li[data-role="member"]');
       await expect(row).toContainText("E2EDev");
       await row.getByRole("button", { name: message("ko", "fid_house_kick") }).click();
       await row.locator(".fid-house-confirm .button-primary").click();
@@ -606,7 +607,7 @@ test.describe("가문 가입·이름 되돌리기", () => {
   test.describe("11. player: 가문 도시 칸", () => {
     test.use({ account: "player" });
 
-    test("상태(아직)·처음 고르기·제안 자리·값이 보이고 [마을 세우기]가 서버까지 가서 답을 받는다(시험 계정 잔고는 값보다 적다)", async ({
+    test("상태(아직)·처음 고르기가 보이고, 미소속 가문에는 마을 자리 제안·[마을 세우기]가 없다", async ({
       page,
       deviceErrors,
     }) => {
@@ -620,12 +621,10 @@ test.describe("가문 가입·이름 되돌리기", () => {
       await city.locator('input[name="fid-city-mode"]').nth(1).check();
       await expect(city.locator("select")).toBeVisible();
       await city.locator('input[name="fid-city-mode"]').first().check();
-      const found = city.locator('[data-testid="house-village-found"]');
-      await expect(found).toBeVisible();
-      await found.click();
-      await expect(city.locator(".fid-house-status-error")).toHaveText(
-        message("ko", "fid_city_error_insufficient_funds"),
-      );
+      // 갓 창설한 가문은 도시·국가 미소속이라(ADR 2026-11-24-house-membership-separation.md) 마을 자리 제안이 없고 [마을 세우기]도
+      // 없다. 나라에 가입한 가문의 마을 세우기(값·자리·잔고 모자람)는 서버 시험 houseCity.db.test.ts가 본다
+      await expect(city).toContainText(message("ko", "fid_city_village_no_site"));
+      await expect(city.locator('[data-testid="house-village-found"]')).toHaveCount(0);
       await expect(city).toHaveAttribute("data-status", "none");
       expect(await horizontalOverflow(page)).toEqual([]);
       await city.scrollIntoViewIfNeeded();
@@ -693,11 +692,10 @@ test.describe("사진 390px", () => {
           "factionIdentity.house": (data) => {
             const home = field(data, "home");
             if (typeof home !== "object" || home === null) throw new Error("house.home 응답 모양이 다릅니다");
-            Reflect.set(home, "pending", {
-              city: field(home, "city"),
-              at: Date.now() + 86_400_000,
-              terms: "-500",
-            });
+            // 갓 창설한 가문은 도시·국가 미소속이라(ADR 2026-11-24) 지금 도시와 공고한 새 도시를 가짜로 얹는다
+            const city = { id: 1, name: null, nationId: 1, nation: null };
+            Reflect.set(home, "city", city);
+            Reflect.set(home, "pending", { city, at: Date.now() + 86_400_000, terms: "-500" });
             Reflect.set(home, "noticeMs", 86_400_000);
             // 가문 금고 잔고(큰 수 — 자리 나눔)
             const mine = field(data, "house");
@@ -712,8 +710,9 @@ test.describe("사진 390px", () => {
         await expect(house(page).locator('[data-part="house-vault"]')).toHaveText(
           message(language, "fid_house_vault", { amount: "1,234,567" }),
         );
-        await expect(house(page).locator('[data-testid="house-home"]')).toContainText(
-          message(language, "fid_home_announce"),
+        // 원격 가입·이동은 없다 — 정부 건물 방문 안내만(공고 거두기는 위 공고 칸에)
+        await expect(house(page).locator('[data-part="house-home-visit-hint"]')).toHaveText(
+          message(language, "fid_home_visit_to_join"),
         );
         expect(await horizontalOverflow(page)).toEqual([]);
         await pending.scrollIntoViewIfNeeded();

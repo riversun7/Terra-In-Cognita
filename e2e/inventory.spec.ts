@@ -4,7 +4,7 @@
 // - 옛 /economy/warehouse는 인벤토리 [창고별]로 바뀐다. 경제 한눈에 [자산] 카드·홈 [자산] 카드가 인벤토리로 간다.
 // - 2차맵 아래 탭 [가방]: 고른 유닛(내 사이보그)의 화물·장비 판, [인벤토리에서 보기]는 그 유닛을 펼친 [유닛별] 칸.
 // - 사진: 390 × 파스텔·다크(인벤토리 전체·유닛별, 2차맵 가방).
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { navButton } from "./helpers/mapHud.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type Theme, expect, test } from "./helpers/test.ts";
@@ -13,6 +13,14 @@ import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
 async function open(page: Page, path: string): Promise<void> {
   await rewriteTrpc(page, { "summary.get": hideSummary });
   await page.goto(path);
+}
+
+/** 착용 장비 칸을 편다: 좁은 화면(64em 미만)은 접힌 채 시작하고 넓은 화면은 펴진 채 시작한다(UnitHoldings.tsx) */
+async function openGear(scope: Locator): Promise<void> {
+  const toggle = scope.locator(".holding-gear-toggle");
+  await expect(toggle).toBeVisible({ timeout: 20_000 });
+  if ((await toggle.getAttribute("aria-expanded")) === "false") await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
 }
 
 async function openMap(page: Page): Promise<void> {
@@ -50,6 +58,7 @@ test.describe("인벤토리: 플레이어", () => {
     await expect(page).toHaveURL(/tab=units&unit=\d+/);
     await expect(first.locator(".holdings")).toBeVisible({ timeout: 20_000 });
     await expect(first.locator('.holding-slot-group[data-side="organ"]')).toHaveCount(0);
+    await openGear(first);
     await expect(first.locator('.holding-slot-group[data-side="gear"] .holding-slot-grid')).toBeVisible({
       timeout: 20_000,
     });
@@ -99,6 +108,7 @@ test.describe("인벤토리: 플레이어", () => {
     await expect(sheet).toHaveAttribute("data-unit", cyborg);
     await expect(sheet.locator(".holdings")).toBeVisible({ timeout: 20_000 });
     await expect(sheet.locator('.holding-slot-group[data-side="organ"]')).toHaveCount(0);
+    await openGear(sheet);
     await expect(sheet.locator('.holding-slot-group[data-side="gear"] .holding-slot-grid')).toBeVisible({
       timeout: 20_000,
     });

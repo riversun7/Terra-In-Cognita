@@ -23,10 +23,10 @@ import {
 import type { HoldingsListResponse } from "@terra/shared/holdings";
 import { type ReactNode, Suspense, lazy, useCallback, useEffect, useId, useRef, useState } from "react";
 import { DevGrant } from "../holdings/DevGrant.tsx";
-import { SlotTileButton, slotColumnsStyle } from "../holdings/HoldingParts.tsx";
+import { BrokenGearAlert, SlotTileButton, slotColumnsStyle } from "../holdings/HoldingParts.tsx";
 import { ReplaceDialog, SlotSheet } from "../holdings/HoldingsDialogs.tsx";
 import { HoldingsPanel } from "../holdings/HoldingsPanel.tsx";
-import { type UnitHoldings, slotGroups, unitHoldings } from "../holdings/holdingsModel.ts";
+import { type UnitHoldings, isBroken, slotGroups, unitHoldings } from "../holdings/holdingsModel.ts";
 import { holdingName, nameCompare } from "../holdings/holdingsText.ts";
 import { type HoldingsController, useHoldings } from "../holdings/useHoldings.ts";
 import "../holdings/holdings.css";
@@ -282,6 +282,8 @@ function Hero({
 }) {
   const id = useId();
   const body = data.body;
+  const brokenEquipped =
+    holdings?.view?.display.filter((cell) => cell.holding !== null && isBroken(cell.holding)).length ?? 0;
   return (
     <div className="panel cyborg-profile">
       <div className="cyborg-who">
@@ -297,6 +299,7 @@ function Hero({
         </p>
         {body?.preview ? <PreviewTag /> : null}
       </div>
+      <BrokenGearAlert count={brokenEquipped} />
       <div className="cyborg-bay">
         <div className="cyborg-stage">
           {data.look ? (

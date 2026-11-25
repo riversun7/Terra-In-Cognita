@@ -256,41 +256,74 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* 2열 병렬 전투 자원 포드(HP · MP) */
+/* 2열 전투 자원 포드(왼: HP·아머·쉴드 / 오른: MP·스태미나) + 클릭·호버 회복량 상세 */
 .dash-vital-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
+  align-items: start;
 }
-.dash-vital-pod {
+.dash-vital-col {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-3);
+  min-width: 0;
+}
+.dash-vital-wrap {
+  position: relative;
+  min-width: 0;
+}
+.dash-vital-pod {
+  --button-lip: transparent;
+  --button-press: 0px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
   border: var(--hairline) solid var(--color-border);
   border-radius: var(--radius-control);
   background-color: var(--dash-tile-bg);
+  box-shadow: none;
+  color: var(--color-text);
+  text-align: start;
+  cursor: pointer;
   min-width: 0;
+  transition:
+    border-color var(--duration-fast) var(--easing-out),
+    background-color var(--duration-fast) var(--easing-out);
+}
+.dash-vital-pod:hover,
+.dash-vital-wrap[data-open="true"] .dash-vital-pod {
+  border-color: var(--color-border-strong);
+  background-color: var(--dash-tile-hover);
+}
+.dash-vital-wrap[data-empty="true"] .dash-vital-pod {
+  opacity: 0.72;
 }
 .dash-vital-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-2);
+  width: 100%;
 }
 .dash-vital-code {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-strong);
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 .dash-vital-num {
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-md);
   font-weight: var(--font-weight-strong);
   font-variant-numeric: tabular-nums;
   line-height: var(--line-height-tight);
   color: var(--color-text);
+  white-space: nowrap;
 }
 .dash-vital-track {
+  position: relative;
   display: block;
   width: 100%;
   height: var(--dash-bar-vital);
@@ -310,25 +343,188 @@
 .dash-vital-pod[data-vital="hp"] .dash-vital-fill {
   background-color: var(--dash-crimson);
 }
+.dash-vital-pod[data-vital="armor"] .dash-vital-code {
+  color: var(--color-sec-armor-hp);
+}
+.dash-vital-pod[data-vital="armor"] .dash-vital-fill {
+  background-color: var(--color-sec-armor-hp);
+}
+.dash-vital-pod[data-vital="shield"] .dash-vital-code {
+  color: var(--color-sec-shield-hp);
+}
+.dash-vital-pod[data-vital="shield"] .dash-vital-fill {
+  background-color: var(--color-sec-shield-hp);
+}
 .dash-vital-pod[data-vital="mp"] .dash-vital-code {
   color: var(--dash-sky);
 }
 .dash-vital-pod[data-vital="mp"] .dash-vital-fill {
   background-color: var(--dash-sky);
 }
+.dash-vital-pod[data-vital="stamina"] .dash-vital-code {
+  color: var(--dash-emerald);
+}
+.dash-vital-pod[data-vital="stamina"] .dash-vital-fill {
+  background-color: var(--dash-emerald);
+}
+.dash-vital-pod[data-vital="fatigue"] .dash-vital-code {
+  color: var(--dash-amber-fg);
+}
+.dash-vital-pod[data-vital="fatigue"] .dash-vital-fill {
+  background-color: var(--dash-amber-fg);
+}
+.dash-vital-pod[data-vital="fatigue"][data-warn="true"] .dash-vital-code {
+  color: var(--dash-crimson);
+}
+.dash-vital-pod[data-vital="fatigue"][data-warn="true"] .dash-vital-fill {
+  background-color: var(--dash-crimson);
+}
+
+/* 바이탈·스탯 상세 팝오버(호버 시 떠서 표시, 클릭 고정 시 줄 아래 인라인 펼침) */
+.dash-detail-pop {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  inset-inline: 0;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 11.5rem;
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--dash-popover-border);
+  border-radius: var(--radius-control);
+  background-color: var(--dash-popover-bg);
+  box-shadow: var(--dash-popover-shadow);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+}
+.dash-detail-pop[hidden] {
+  display: none;
+}
+.dash-vital-wrap[data-open="true"] .dash-detail-pop,
+.dash-stat-wrap[data-open="true"] .dash-detail-pop {
+  position: static;
+  margin-top: var(--space-1);
+  box-shadow: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .dash-vital-wrap:hover .dash-detail-pop[hidden],
+  .dash-stat-wrap:hover .dash-detail-pop[hidden] {
+    display: flex;
+  }
+}
+.dash-detail-pop-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-bottom: var(--space-1);
+  border-bottom: var(--hairline) solid var(--color-border);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
+}
+.dash-detail-pop-val {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+.dash-detail-pop-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+}
+.dash-detail-pop-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.dash-detail-pop-row dt {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.dash-detail-pop-row dd {
+  margin: 0;
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+.dash-detail-pop-row dd[data-tone="gear"] {
+  color: var(--dash-cobalt-fg);
+}
+.dash-detail-pop-row dd[data-tone="organ"] {
+  color: var(--dash-violet-fg);
+}
+.dash-detail-pop-row dd[data-tone="buff"] {
+  color: var(--dash-emerald);
+}
+.dash-detail-pop-row dd[data-tone="debuff"] {
+  color: var(--color-danger);
+}
+.dash-detail-pop-note {
+  margin: var(--space-1) 0 0;
+  padding-top: var(--space-1);
+  border-top: var(--hairline) solid var(--color-border);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: var(--line-height-snug);
+}
+.dash-detail-pop-sub {
+  padding-inline-start: var(--space-4);
+  opacity: 0.88;
+}
+.dash-pop-sq[data-tone="base"] {
+  background-color: var(--color-text-muted);
+}
+.dash-pop-sq[data-tone="emerald"] {
+  background-color: var(--dash-emerald);
+}
+.dash-pop-sq[data-tone="danger"] {
+  background-color: var(--color-danger);
+}
+.dash-pop-sq[data-tone="amber"] {
+  background-color: var(--dash-amber-fg);
+}
 
 /* 1차 스탯 6종 정밀 텔레메트리 막대(STR 진홍·VIT 주황·INT 파랑·WIS 보라·DEX 순수 노랑·AGI 초록) */
 .dash-stat-bars {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1);
   padding-top: var(--space-1);
 }
+.dash-stat-wrap {
+  position: relative;
+}
 .dash-bar-row {
+  --button-lip: transparent;
+  --button-press: 0px;
   display: grid;
-  grid-template-columns: calc(var(--dash-code-w) + var(--space-3)) minmax(0, 1fr) var(--dash-val-w);
+  grid-template-columns: calc(var(--dash-code-w) + var(--space-3)) minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-1) var(--space-1);
+  border: var(--hairline) solid transparent;
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  box-shadow: none;
+  text-align: start;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--easing-out),
+    border-color var(--duration-fast) var(--easing-out);
+}
+.dash-bar-row:hover,
+.dash-stat-wrap[data-open="true"] .dash-bar-row {
+  border-color: var(--color-border);
+  background-color: var(--dash-tile-bg);
 }
 .dash-bar-label {
   display: inline-flex;
@@ -362,21 +558,44 @@
   height: 100%;
   transition: width var(--duration-slow) var(--easing-out);
 }
+.dash-bar-seg + .dash-bar-seg {
+  border-inline-start: var(--hairline) solid var(--color-surface);
+}
 .dash-bar-base {
   border-radius: var(--radius-pill) 0 0 var(--radius-pill);
 }
 .dash-bar-base:last-child {
   border-radius: var(--radius-pill);
 }
-.dash-bar-bonus {
+.dash-bar-gear:last-child,
+.dash-bar-buff:last-child {
   border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
 }
+.dash-bar-buff {
+  background-color: var(--dash-emerald);
+}
 .dash-bar-val {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  min-width: var(--dash-val-w);
   text-align: right;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-strong);
   font-variant-numeric: tabular-nums;
   line-height: var(--line-height-tight);
+  white-space: nowrap;
+}
+.dash-bar-buff-tag {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+.dash-bar-buff-tag[data-tone="buff"] {
+  color: var(--dash-emerald);
+}
+.dash-bar-buff-tag[data-tone="debuff"] {
+  color: var(--color-danger);
 }
 
 /* 1차 스탯 6종 고유 색상 매핑(VIT 주황 vs DEX 순수 노랑 명확 구분) */
@@ -387,7 +606,7 @@
 .dash-bar-row[data-stat="str"] .dash-bar-base {
   background-color: var(--dash-stat-str-base);
 }
-.dash-bar-row[data-stat="str"] .dash-bar-bonus {
+.dash-bar-row[data-stat="str"] .dash-bar-gear {
   background-color: var(--color-stat-str);
 }
 .dash-bar-row[data-stat="vit"] .dash-bar-val {
@@ -397,7 +616,7 @@
 .dash-bar-row[data-stat="vit"] .dash-bar-base {
   background-color: var(--dash-stat-vit-base);
 }
-.dash-bar-row[data-stat="vit"] .dash-bar-bonus {
+.dash-bar-row[data-stat="vit"] .dash-bar-gear {
   background-color: var(--color-stat-vit);
 }
 .dash-bar-row[data-stat="int"] .dash-bar-val {
@@ -407,7 +626,7 @@
 .dash-bar-row[data-stat="int"] .dash-bar-base {
   background-color: var(--dash-stat-int-base);
 }
-.dash-bar-row[data-stat="int"] .dash-bar-bonus {
+.dash-bar-row[data-stat="int"] .dash-bar-gear {
   background-color: var(--color-stat-int);
 }
 .dash-bar-row[data-stat="wis"] .dash-bar-val {
@@ -417,7 +636,7 @@
 .dash-bar-row[data-stat="wis"] .dash-bar-base {
   background-color: var(--dash-stat-wis-base);
 }
-.dash-bar-row[data-stat="wis"] .dash-bar-bonus {
+.dash-bar-row[data-stat="wis"] .dash-bar-gear {
   background-color: var(--color-stat-wis);
 }
 .dash-bar-row[data-stat="dex"] .dash-bar-val {
@@ -427,7 +646,7 @@
 .dash-bar-row[data-stat="dex"] .dash-bar-base {
   background-color: var(--dash-stat-dex-base);
 }
-.dash-bar-row[data-stat="dex"] .dash-bar-bonus {
+.dash-bar-row[data-stat="dex"] .dash-bar-gear {
   background-color: var(--color-stat-dex);
 }
 .dash-bar-row[data-stat="agi"] .dash-bar-val {
@@ -437,7 +656,7 @@
 .dash-bar-row[data-stat="agi"] .dash-bar-base {
   background-color: var(--dash-stat-agi-base);
 }
-.dash-bar-row[data-stat="agi"] .dash-bar-bonus {
+.dash-bar-row[data-stat="agi"] .dash-bar-gear {
   background-color: var(--color-stat-agi);
 }
 

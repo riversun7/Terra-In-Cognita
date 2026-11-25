@@ -12,6 +12,7 @@ import {
 import type { ReactNode } from "react";
 import { m } from "../paraglide/messages.js";
 import { LiveMessage } from "../ui/LiveMessage.tsx";
+import { VitalTicks } from "../ui/VitalTicks.tsx";
 import type { PlainMessageKey } from "../ui/messageRef.ts";
 import { text } from "../ui/text.ts";
 import { StatPairs, pairValuesOf, statScale } from "./StatPairs.tsx";
@@ -73,7 +74,8 @@ export function Meter({
         aria-valuetext={valueText}
         data-warn={warn ? "true" : undefined}
       >
-        <span className="roster-meter-fill" style={{ inlineSize: `${Math.round(ratio * 100)}%` }} />
+        <span className="roster-meter-fill" style={{ inlineSize: `${(ratio * 100).toFixed(1)}%` }} />
+        {kind !== undefined ? <VitalTicks max={max} /> : null}
       </div>
     </div>
   );

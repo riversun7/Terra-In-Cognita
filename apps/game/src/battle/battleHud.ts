@@ -4,6 +4,8 @@
 // 막대·숫자는 화면 읽기 프로그램에 읽히지 않는다(aria-hidden): 같은 내용은 사건 기록 판·유닛 판에 글자로 있다.
 import type { BattleReplay } from "@terra/protocol/battleReplay";
 import { m } from "../paraglide/messages.js";
+import { applyVitalTicks } from "../ui/vitalTicks.ts";
+import "../ui/vitalTicks.css";
 import { unitLabel } from "./battleText.ts";
 import type { FloatingNumber, UnitFrame } from "./replayTimeline.ts";
 
@@ -40,9 +42,12 @@ function span(className: string, parent: HTMLElement): HTMLElement {
   return element;
 }
 
-function bar(className: string, parent: HTMLElement): HTMLElement {
+function bar(className: string, parent: HTMLElement, max: number): HTMLElement {
   const track = span(`br-bar ${className}`, parent);
-  return span("br-fill", track);
+  const fill = span("br-fill", track);
+  const ticks = span("vital-ticks", track);
+  applyVitalTicks(ticks, max, true);
+  return fill;
 }
 
 export class BattleHud {
@@ -61,9 +66,9 @@ export class BattleHud {
       root.dataset.team = String(team(unit.side));
       span("br-tag-name", root).textContent = unitLabel(replay, index);
       const bars = span("br-tag-bars", root);
-      const hp = bar("br-bar-hp", bars);
-      const armor = unit.armorHp > 0 ? bar("br-bar-armor", bars) : null;
-      const shield = unit.shieldHp > 0 ? bar("br-bar-shield", bars) : null;
+      const hp = bar("br-bar-hp", bars, unit.maxHp);
+      const armor = unit.armorHp > 0 ? bar("br-bar-armor", bars, unit.armorHp) : null;
+      const shield = unit.shieldHp > 0 ? bar("br-bar-shield", bars, unit.shieldHp) : null;
       return {
         root,
         hp,

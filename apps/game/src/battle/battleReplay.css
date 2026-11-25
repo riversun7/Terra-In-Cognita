@@ -83,8 +83,8 @@
   flex-direction: column;
   align-items: center;
   gap: var(--hairline);
-  width: var(--space-10);
-  margin-left: calc(var(--space-10) / -2);
+  width: var(--preview-h);
+  margin-left: calc(var(--preview-h) / -2);
   translate: 0 -100%;
   will-change: transform;
 }
@@ -123,14 +123,15 @@
   box-shadow: var(--shadow-control);
 }
 .br-bar {
+  position: relative;
   display: block;
-  height: calc(var(--hairline) * 2);
+  height: var(--space-1);
   overflow: hidden;
   border-radius: var(--radius-pill);
   background-color: var(--color-surface-2);
 }
 .br-bar-hp {
-  height: var(--space-1);
+  height: var(--dash-bar-h);
 }
 .br-fill {
   display: block;
@@ -393,10 +394,83 @@
   min-height: var(--control-h-sm);
 }
 .br-unit-detail {
-  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-snug);
   font-variant-numeric: tabular-nums;
+}
+.br-unit-detail-head {
+  margin: 0;
+}
+.br-unit-vitals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 7.5rem), 1fr));
+  gap: var(--space-1) var(--space-3);
+}
+.br-unit-vital {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hairline);
+  min-width: 0;
+}
+.br-unit-vital-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-tight);
+}
+.br-unit-vital-label {
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
+}
+.br-unit-vital-val {
+  color: var(--color-text);
+  white-space: nowrap;
+}
+.br-unit-vital-track {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: var(--dash-bar-vital);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  overflow: hidden;
+}
+.br-unit-vital-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-sec-hp);
+}
+.br-unit-vital[data-vital="hp"] .br-unit-vital-label {
+  color: var(--color-sec-hp);
+}
+.br-unit-vital[data-vital="armor"] .br-unit-vital-label {
+  color: var(--color-sec-armor-hp);
+}
+.br-unit-vital[data-vital="armor"] .br-unit-vital-fill {
+  background-color: var(--color-sec-armor-hp);
+}
+.br-unit-vital[data-vital="shield"] .br-unit-vital-label {
+  color: var(--color-sec-shield-hp);
+}
+.br-unit-vital[data-vital="shield"] .br-unit-vital-fill {
+  background-color: var(--color-sec-shield-hp);
+}
+.br-unit-vital[data-vital="mp"] .br-unit-vital-label {
+  color: var(--color-sec-mp);
+}
+.br-unit-vital[data-vital="mp"] .br-unit-vital-fill {
+  background-color: var(--color-sec-mp);
+}
+.br-unit-vital[data-vital="stamina"] .br-unit-vital-label {
+  color: var(--color-sec-stamina);
+}
+.br-unit-vital[data-vital="stamina"] .br-unit-vital-fill {
+  background-color: var(--color-sec-stamina);
 }
 
 /* ── 기록 판 ── */

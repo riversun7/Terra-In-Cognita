@@ -128,8 +128,9 @@ export function StatChips({ holding, names }: { holding: HoldingView; names: Ros
   );
 }
 
-/** 물건 이름 + 수량·착용 표 */
+/** 물건 이름 + 수량·착용/비활성 표 */
 export function HoldingTitle({ holding }: { holding: HoldingView }) {
+  const broken = isBroken(holding);
   return (
     <span className="holding-title">
       <span className="holding-name">{holdingName(holding)}</span>
@@ -137,7 +138,9 @@ export function HoldingTitle({ holding }: { holding: HoldingView }) {
         <span className="holding-qty">{m.holdings_quantity({ count: formatNumber(holding.quantity) })}</span>
       ) : null}
       {holding.slot !== null ? (
-        <span className="roster-tag holding-worn">{m.holdings_equipped()}</span>
+        <span className={broken ? "roster-tag holding-inactive" : "roster-tag holding-worn"}>
+          {broken ? m.holdings_inactive_badge() : m.holdings_equipped()}
+        </span>
       ) : null}
       {holding.packed === true || holding.packed === false ? (
         <span className="roster-tag holding-pack" data-packed={holding.packed ? "true" : "false"}>
@@ -145,6 +148,19 @@ export function HoldingTitle({ holding }: { holding: HoldingView }) {
         </span>
       ) : null}
     </span>
+  );
+}
+
+/** 내구도 0 비활성 장착 장비 경고 알림 띠 */
+export function BrokenGearAlert({ count }: { readonly count: number }) {
+  if (count <= 0) return null;
+  return (
+    <p className="holding-broken-alert" role="status">
+      <span className="holding-broken-alert-badge" aria-hidden="true">
+        !
+      </span>
+      <span>{m.holdings_broken_warning({ count: formatNumber(count) })}</span>
+    </p>
   );
 }
 
@@ -333,6 +349,7 @@ export function SlotTileButton({
 }) {
   const kind = slotKindLabel(cell.kind, cell.ordinal);
   const holding = cell.holding;
+  const broken = holding !== null && isBroken(holding);
   const durability =
     holding && holding.durability !== null && holding.maxDurability !== null
       ? { value: holding.durability, max: holding.maxDurability }
@@ -343,10 +360,13 @@ export function SlotTileButton({
       data-slot={cell.kind}
       data-index={cell.index}
       data-empty={holding ? undefined : "true"}
-      data-broken={holding && isBroken(holding) ? "true" : undefined}
+      data-broken={broken ? "true" : undefined}
     >
       <button type="button" className="holding-slot-button" aria-haspopup="dialog" onClick={onOpen}>
-        <span className="holding-slot-kind">{kind}</span>
+        <span className="holding-slot-head">
+          <span className="holding-slot-kind">{kind}</span>
+          {broken ? <span className="holding-slot-badge">{m.holdings_inactive_badge()}</span> : null}
+        </span>
         {holding ? (
           <>
             <span className="holding-slot-name">{holdingName(holding)}</span>
@@ -367,6 +387,7 @@ export function SlotTileButton({
                 })}
               </span>
             ) : null}
+            {broken ? <span className="holding-slot-warn">{m.holdings_broken_slot_note()}</span> : null}
           </>
         ) : (
           <span className="holding-slot-name roster-muted">{m.roster_slot_empty()}</span>

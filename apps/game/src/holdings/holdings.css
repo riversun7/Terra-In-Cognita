@@ -151,6 +151,45 @@
   background-color: var(--color-primary);
   color: var(--color-on-primary);
 }
+.holding-inactive {
+  border-color: var(--color-danger);
+  background-color: var(--color-danger-surface);
+  color: var(--color-danger);
+}
+.holding-broken-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-w) solid var(--color-danger);
+  border-radius: var(--radius-control);
+  background-color: var(--color-danger-surface);
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.holding-broken-alert-badge {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  inline-size: var(--icon-sm);
+  block-size: var(--icon-sm);
+  border: var(--border-w) solid var(--color-danger);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  line-height: 1;
+}
+.holding-gear-warn-pill {
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-danger);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-danger-surface);
+  color: var(--color-danger);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
 .holding-stats {
   display: flex;
   flex-wrap: wrap;
@@ -329,6 +368,36 @@
 }
 .holding-slot[data-broken="true"] {
   border-color: var(--color-danger);
+  border-style: dashed;
+  background-color: var(--color-danger-surface);
+}
+.holding-slot-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+  width: 100%;
+}
+.holding-slot-badge {
+  flex: none;
+  padding: 0 var(--space-1);
+  border: var(--hairline) solid var(--color-danger);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  color: var(--color-danger);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.holding-slot[data-broken="true"] .holding-slot-name,
+.holding-slot[data-broken="true"] .holding-slot-values {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+}
+.holding-slot-warn {
+  color: var(--color-danger);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
 }
 .holding-slot-button {
   --button-lip: transparent;

@@ -1,0 +1,59 @@
+/*
+ * 생명·전투 자원 막대의 절대값 눈금 층(10 / 50 / 100 단위 3단계 구분) — 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 대눈금(100) = 전체 높이·굵은 선, 중눈금(50) = 72% 높이·중간 선, 소눈금(10) = 44% 높이·가는 선.
+ * 오른쪽 끝(100%)에 겹치는 마지막 눈금은 clip-path로 잘라 깔끔한 끝선을 유지한다.
+ */
+.vital-ticks {
+  --vt-minor: 200%;
+  --vt-mid: 200%;
+  --vt-major: 200%;
+  --vt-color-major: color-mix(in srgb, var(--color-bg) 94%, transparent);
+  --vt-color-mid: color-mix(in srgb, var(--color-bg) 76%, transparent);
+  --vt-color-minor: color-mix(in srgb, var(--color-bg) 48%, transparent);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  clip-path: inset(0 var(--border-strong-w) 0 0);
+  background-repeat: no-repeat;
+  background-position:
+    0 0,
+    0 0,
+    0 0;
+  background-size:
+    100% 100%,
+    100% 72%,
+    100% 44%;
+  background-image:
+    repeating-linear-gradient(
+      to right,
+      transparent 0,
+      transparent calc(var(--vt-major) - var(--border-strong-w)),
+      var(--vt-color-major) calc(var(--vt-major) - var(--border-strong-w)),
+      var(--vt-color-major) var(--vt-major)
+    ),
+    repeating-linear-gradient(
+      to right,
+      transparent 0,
+      transparent calc(var(--vt-mid) - var(--hairline)),
+      var(--vt-color-mid) calc(var(--vt-mid) - var(--hairline)),
+      var(--vt-color-mid) var(--vt-mid)
+    ),
+    repeating-linear-gradient(
+      to right,
+      transparent 0,
+      transparent calc(var(--vt-minor) - var(--hairline)),
+      var(--vt-color-minor) calc(var(--vt-minor) - var(--hairline)),
+      var(--vt-color-minor) var(--vt-minor)
+    );
+}
+
+/* 전투 3D 머리 위 등 좁은 막대: 선명한 대비를 위해 소눈금 높이를 조금 올리고 대눈금만 2px */
+.vital-ticks[data-compact="true"] {
+  --vt-color-minor: color-mix(in srgb, var(--color-bg) 56%, transparent);
+  --vt-color-mid: color-mix(in srgb, var(--color-bg) 82%, transparent);
+  background-size:
+    100% 100%,
+    100% 75%,
+    100% 50%;
+}

@@ -2,8 +2,22 @@
 // 좁은 화면은 줄 안에서만 가로로 민다(쪽 전체는 가로로 밀리지 않는다).
 import type { BattleReplay } from "@terra/protocol/battleReplay";
 import { m } from "../paraglide/messages.js";
+import { VitalTicks } from "../ui/VitalTicks.tsx";
 import { type Locale, effectName, roleName, sideName, skillName, unitLabel } from "./battleText.ts";
 import type { ReplayTimeline, UnitFrame } from "./replayTimeline.ts";
+
+interface BattleVitalRow {
+  readonly kind: "hp" | "armor" | "shield" | "mp" | "stamina";
+  readonly label: string;
+  readonly value: number;
+  readonly max: number;
+}
+
+function pctOf(value: number, max: number): string {
+  if (max <= 0) return "0.0%";
+  const clamped = Math.max(0, Math.min(100, (value / max) * 100));
+  return `${clamped.toFixed(1)}%`;
+}
 
 export function BattleUnits({
   replay,
@@ -84,25 +98,84 @@ export function BattleUnits({
         </label>
       </div>
       {unit && frame ? (
-        <p className="br-unit-detail" aria-live="off">
-          <strong>{unitLabel(replay, selected)}</strong> · {roleName(unit.kind)} ·{" "}
-          {frame.status === "down"
-            ? m.battle_status_down()
-            : frame.status === "retreated"
-              ? m.battle_status_retreated()
-              : m.battle_unit_stats({
-                  hp: frame.hp,
-                  maxHp: unit.maxHp,
-                  armor: frame.armor,
-                  shield: frame.shield,
-                  mp: frame.mp,
-                  stamina: frame.stamina,
-                })}
-          {frame.cast ? ` · ${m.battle_casting({ skill: skillName(replay, frame.cast.skill, locale) })}` : ""}
-          {frame.effects.length > 0
-            ? ` · ${frame.effects.map((effect) => effectName(replay, effect.effect, locale)).join(", ")}`
-            : ""}
-        </p>
+        <div className="br-unit-detail" aria-live="off">
+          <p className="br-unit-detail-head">
+            <strong>{unitLabel(replay, selected)}</strong> · {roleName(unit.kind)}
+            {frame.status === "down"
+              ? ` · ${m.battle_status_down()}`
+              : frame.status === "retreated"
+                ? ` · ${m.battle_status_retreated()}`
+                : ""}
+            {frame.cast
+              ? ` · ${m.battle_casting({ skill: skillName(replay, frame.cast.skill, locale) })}`
+              : ""}
+            {frame.effects.length > 0
+              ? ` · ${frame.effects.map((effect) => effectName(replay, effect.effect, locale)).join(", ")}`
+              : ""}
+          </p>
+          {frame.status === "alive" ? (
+            <div className="br-unit-vitals">
+              {(
+                [
+                  { kind: "hp", label: m.vitals_hp(), value: frame.hp, max: unit.maxHp },
+                  ...(unit.armorHp > 0
+                    ? [
+                        {
+                          kind: "armor",
+                          label: m.vitals_armor(),
+                          value: frame.armor,
+                          max: unit.armorHp,
+                        } as const,
+                      ]
+                    : []),
+                  ...(unit.shieldHp > 0
+                    ? [
+                        {
+                          kind: "shield",
+                          label: m.vitals_shield(),
+                          value: frame.shield,
+                          max: unit.shieldHp,
+                        } as const,
+                      ]
+                    : []),
+                  ...(unit.mpMax > 0
+                    ? [
+                        {
+                          kind: "mp",
+                          label: m.home_cyborg_vital_mp(),
+                          value: frame.mp,
+                          max: unit.mpMax,
+                        } as const,
+                      ]
+                    : []),
+                  ...(unit.staminaMax > 0
+                    ? [
+                        {
+                          kind: "stamina",
+                          label: m.home_cyborg_vital_stamina(),
+                          value: frame.stamina,
+                          max: unit.staminaMax,
+                        } as const,
+                      ]
+                    : []),
+                ] satisfies readonly BattleVitalRow[]
+              ).map((entry) => (
+                <div key={entry.kind} className="br-unit-vital" data-vital={entry.kind}>
+                  <span className="br-unit-vital-head">
+                    <span className="br-unit-vital-label">{entry.label}</span>
+                    <span className="br-unit-vital-val" translate="no">
+                      {entry.value}/{entry.max}
+                    </span>
+                  </span>
+                  <span className="br-unit-vital-track" aria-hidden="true">
+                    <span className="br-unit-vital-fill" style={{ width: pctOf(entry.value, entry.max) }} />
+                    <VitalTicks max={entry.max} />
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );

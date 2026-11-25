@@ -153,7 +153,7 @@
   /* 프로 대시보드 전용 치수(막대·스파크라인·팝오버·강조선) */
   --dash-grid-size: 28px;
   --dash-bar-h: 6px;
-  --dash-bar-vital: 5px;
+  --dash-bar-vital: 7px;
   --dash-bar-exp: 5px;
   --dash-kpi-bar: 2px;
   --dash-spark-w: 52px;

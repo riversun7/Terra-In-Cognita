@@ -10,10 +10,10 @@ import { m } from "../paraglide/messages.js";
 import { LoadState } from "../roster/parts.tsx";
 import { formatNumber } from "../roster/rosterText.ts";
 import { DevGrant } from "./DevGrant.tsx";
-import { SlotTileButton, slotColumnsStyle } from "./HoldingParts.tsx";
+import { BrokenGearAlert, SlotTileButton, slotColumnsStyle } from "./HoldingParts.tsx";
 import { ReplaceDialog, SlotSheet } from "./HoldingsDialogs.tsx";
 import { HoldingsPanel } from "./HoldingsPanel.tsx";
-import { type SlotCell, slotGroups, unitHoldings } from "./holdingsModel.ts";
+import { type SlotCell, isBroken, slotGroups, unitHoldings } from "./holdingsModel.ts";
 import { holdingName, nameCompare } from "./holdingsText.ts";
 import { useHoldings } from "./useHoldings.ts";
 import "./holdings.css";
@@ -88,8 +88,10 @@ export function UnitHoldings({
 
   if (mode === "inventory") {
     const equippedGear = groups.gear.filter((cell) => cell.holding !== null).length;
+    const brokenGear = groups.gear.filter((cell) => cell.holding !== null && isBroken(cell.holding)).length;
     return (
       <div className="holdings-inventory" data-mode="inventory" data-gear-open={gearOpen ? "true" : "false"}>
+        <BrokenGearAlert count={brokenGear} />
         {groups.gear.length > 0 ? (
           <div className="holding-gear-bar">
             <button
@@ -105,6 +107,11 @@ export function UnitHoldings({
                   total: formatNumber(groups.gear.length),
                 })}
               </span>
+              {brokenGear > 0 ? (
+                <span className="holding-gear-warn-pill">
+                  {m.home_cyborg_broken_gear({ count: formatNumber(brokenGear) })}
+                </span>
+              ) : null}
               <span className="holding-gear-caret" aria-hidden="true">
                 {gearOpen ? "▾" : "▸"}
               </span>
@@ -128,8 +135,10 @@ export function UnitHoldings({
     );
   }
 
+  const brokenAll = view.display.filter((cell) => cell.holding !== null && isBroken(cell.holding)).length;
   return (
     <>
+      <BrokenGearAlert count={brokenAll} />
       <div className="holding-slot-groups">
         {group(groups.organ, "organ", m.cyborg_organs_title(), m.cyborg_organs_note())}
         {group(groups.gear, "gear", m.roster_gear_title())}

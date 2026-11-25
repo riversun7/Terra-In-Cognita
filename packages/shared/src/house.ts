@@ -267,8 +267,13 @@ export interface HouseCityTaxView {
 
 /** factionIdentity.house 응답 */
 export interface HouseView {
-  /** 내 나라(사이보그 시민권). 사이보그가 없으면 null — 가입·초대를 할 수 없다 */
+  /** 내 나라(사이보그 시민권). 사이보그가 없거나 국가 미소속이면 null(ADR 2026-11-24-house-membership-separation.md) */
   readonly nationId: number | null;
+  /**
+   * 가문에 들 수 있나(사이보그가 있다 — 국가 미소속 사이보그도 초대를 받고 가문을 고른다). 가문이 없는 사람의 응답에만 있다.
+   * 옛 서버는 보내지 않는다(없으면 nationId !== null로 본다)
+   */
+  readonly canJoin?: boolean | undefined;
   /** 내가 든 가문(없으면 null) */
   readonly house:
     | (HouseBadge & {

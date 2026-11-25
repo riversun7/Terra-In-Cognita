@@ -398,7 +398,9 @@ function MyHouse({
 
 function NoHouse({ view, command }: { view: HouseView; command: ReturnType<typeof useHouseCommand> }) {
   const { busy, run } = command;
-  if (view.nationId === null) return <p className="faction-muted">{m.fid_house_no_cyborg()}</p>;
+  // 사이보그가 없을 때만 막는다 — 국가 미소속 사이보그(첫 접속의 기본 상태, ADR 2026-11-24)도 초대를 받고 가문을 고른다
+  if (!(view.canJoin ?? view.nationId !== null))
+    return <p className="faction-muted">{m.fid_house_no_cyborg()}</p>;
   const home = view.home;
   const applied = new Set(
     view.offers.filter((offer) => offer.kind === "apply").map((offer) => offer.house.factionId),

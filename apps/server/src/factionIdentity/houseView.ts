@@ -367,6 +367,7 @@ export async function readHouseView(
         );
   return {
     nationId: input.nationId,
+    canJoin,
     house: null,
     offers,
     joinable,

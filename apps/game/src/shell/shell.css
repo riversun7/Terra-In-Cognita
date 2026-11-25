@@ -97,6 +97,8 @@
   color: var(--color-primary);
   text-decoration: none;
   min-width: 0;
+  /* 홈으로 가는 링크라 누르는 곳 최소 높이를 지킨다(글자 높이만으로는 22px — 화면 시험 smallTapTargets) */
+  min-height: var(--tap-min);
 }
 .topbar-brand-mark {
   width: var(--mark-sm);

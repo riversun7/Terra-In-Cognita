@@ -1,13 +1,17 @@
 // 개발자 시안 모음(/dev/mockups) — 디자인 시안 보드와 교체 전 기존 에셋을 한곳에 보관·비교한다.
 // 조각 이름 MockupsGalleryScreen-* (vite.config.ts·scripts/pwa-build.mjs DEV_ONLY_CHUNK로 미리 캐시에서 제외).
-import { useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
 import { BackButton } from "../../shell/BackButton.tsx";
+import { navigate } from "../../shell/routerStore.ts";
 import type { SignatureIconName } from "../../ui/SignatureIcon.tsx";
 import "./mockupsGallery.css";
 
-type MockupTab = "icons";
+// 캐릭터 탭은 Three.js 스튜디오 엔진을 포함하므로 탭을 열 때만 지연 로딩한다(MockupsGallery* 앞머리로 PWA 미리 캐시 제외).
+const MockupsGalleryCharacterTab = lazy(() => import("./MockupsGalleryCharacterTab.tsx"));
+
+type MockupTab = "icons" | "character";
 
 interface IconCompareEntry {
   readonly id: SignatureIconName;
@@ -31,16 +35,16 @@ const ICON_ENTRIES: readonly IconCompareEntry[] = [
     id: "map",
     labelKo: "2차맵",
     labelEn: "Local Map",
-    sourceKo: "1차 시안 2 (홀로 전술 지도)",
-    sourceEn: "R1 #2 (Holo Sector Map)",
+    sourceKo: "2차 Part 2 · 1안 (보완 전술 지도)",
+    sourceEn: "R2 Part 2 #1 (Refined Tactical Map)",
     changed: true,
   },
   {
     id: "globe",
     labelKo: "1차맵",
     labelEn: "Planet Map",
-    sourceKo: "1차 시안 4 (궤도 행성)",
-    sourceEn: "R1 #4 (Orbital Exoplanet)",
+    sourceKo: "2차 Part 2 · 1안 (황금 궤도 행성)",
+    sourceEn: "R2 Part 2 #1 (Gold Orbit Exoplanet)",
     changed: true,
   },
   {
@@ -79,24 +83,24 @@ const ICON_ENTRIES: readonly IconCompareEntry[] = [
     id: "inbox",
     labelKo: "처리할 일",
     labelEn: "Tasks",
-    sourceKo: "1차 시안 1 (홀로 체크 패드)",
-    sourceEn: "R1 #1 (Holo Task Pad)",
+    sourceKo: "2차 Part 2 · 1안 (홀로 클립보드)",
+    sourceEn: "R2 Part 2 #1 (Holo Clipboard)",
     changed: true,
   },
   {
     id: "mail",
     labelKo: "우편",
     labelEn: "Mail",
-    sourceKo: "1차 시안 1 (글래스 디지털 우편)",
-    sourceEn: "R1 #1 (Glass Digital Mail)",
+    sourceKo: "2차 Part 2 · 2안 (안테나+주파수)",
+    sourceEn: "R2 Part 2 #2 (Antenna + Waves)",
     changed: true,
   },
   {
     id: "settings",
     labelKo: "설정",
     labelEn: "Settings",
-    sourceKo: "1차 시안 2 (육각 테크 기어)",
-    sourceEn: "R1 #2 (Hex Tech Gear)",
+    sourceKo: "2차 Part 2 · 3안 (이중 기어)",
+    sourceEn: "R2 Part 2 #3 (Dual Gears)",
     changed: true,
   },
   {
@@ -111,8 +115,8 @@ const ICON_ENTRIES: readonly IconCompareEntry[] = [
     id: "admin",
     labelKo: "관리자",
     labelEn: "Admin",
-    sourceKo: "2차 보드 1 (원테두리 제거 자물쇠)",
-    sourceEn: "R2 #1 (Clean Cyber Lock)",
+    sourceKo: "2차 Part 2 · 2안 (가로 보안카드)",
+    sourceEn: "R2 Part 2 #2 (Security Keycard)",
     changed: true,
   },
   {
@@ -135,8 +139,8 @@ const ICON_ENTRIES: readonly IconCompareEntry[] = [
     id: "edit",
     labelKo: "메뉴 편집",
     labelEn: "Edit Menu",
-    sourceKo: "1차 시안 4 (모듈 슬라이더)",
-    sourceEn: "R1 #4 (Modular Sliders)",
+    sourceKo: "2차 Part 2 · 3안 (순서 변경 바)",
+    sourceEn: "R2 Part 2 #3 (Reorder Bars)",
     changed: true,
   },
   {
@@ -201,9 +205,20 @@ interface BoardItem {
 
 const ICON_BOARDS: readonly BoardItem[] = [
   {
+    id: "r2-part2",
+    src: "/dev/mockups/icons/board-r2-part2.png",
+    titleKo: "2차 보완·신규 SF 아이콘 시안 보드 (2차 완료분 · 8종 × 5안)",
+    titleEn: "Round 2 Refined & New Sci-Fi Icon Board (Part 2 · 8 × 5)",
+    descKo:
+      "소형 가시성·디테일 강화본 — 2차맵·1차맵·처리할 일·우편(정면/주파수)·설정·관리자(보안카드/자물쇠)·운영자 콘솔·메뉴 편집",
+    descEn:
+      "High-visibility & detailed pass — Local Map, Planet Map, Tasks, Mail (front/waves), Settings, Admin (keycard/lock), Ops Console, Edit Menu",
+    badge: "R2 · PART 2",
+  },
+  {
     id: "r2-part1",
     src: "/dev/mockups/icons/board-r2-part1.png",
-    titleKo: "2차 보완·신규 SF 아이콘 시안 보드 (완료분)",
+    titleKo: "2차 보완·신규 SF 아이콘 시안 보드 (1차 완료분)",
     titleEn: "Round 2 Refined & New Sci-Fi Icon Board (Part 1)",
     descKo:
       "정면·고대비 가시성 강화본 — 홈·인벤토리·유닛·경제·세력(테두리)·개발자·로그아웃·관리자(원테두리 제거)",
@@ -236,9 +251,14 @@ const ICON_BOARDS: readonly BoardItem[] = [
 
 export default function MockupsGalleryScreen({ initialTab }: { readonly initialTab?: string | undefined }) {
   const ko = getLocale() !== "en";
-  const [tab, setTab] = useState<MockupTab>(initialTab === "icons" ? "icons" : "icons");
+  const [tab, setTab] = useState<MockupTab>(initialTab === "character" ? "character" : "icons");
   const [zoomBoard, setZoomBoard] = useState<BoardItem | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
+
+  const selectTab = (next: MockupTab): void => {
+    setTab(next);
+    navigate({ route: "dev_mockups", search: next === "icons" ? {} : { tab: next } }, { replace: true });
+  };
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -265,15 +285,30 @@ export default function MockupsGalleryScreen({ initialTab }: { readonly initialT
           role="tab"
           aria-selected={tab === "icons"}
           className="mockups-tab"
-          onClick={() => setTab("icons")}
+          onClick={() => selectTab("icons")}
         >
           {m.dev_mockups_tab_icons()}
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "character"}
+          className="mockups-tab"
+          onClick={() => selectTab("character")}
+        >
+          {m.dev_mockups_tab_character()}
+        </button>
       </div>
+
+      {tab === "character" ? (
+        <Suspense fallback={<p className="shell-loading">{m.shell_loading()}</p>}>
+          <MockupsGalleryCharacterTab />
+        </Suspense>
+      ) : null}
 
       {tab === "icons" ? (
         <div className="mockups-body">
-          {/* 1. 저장된 시안 보드 3장 */}
+          {/* 1. 저장된 시안 보드 4장 */}
           <section className="panel mockups-section" aria-labelledby="mockups-boards-title">
             <div className="mockups-section-head">
               <h2 id="mockups-boards-title" className="section-title">

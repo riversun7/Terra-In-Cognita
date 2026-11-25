@@ -11,6 +11,8 @@
     "./buildingPreview": "./src/buildings/previewEntry.ts",
     "./buildingArt": "./src/buildings/artEntry.ts",
     "./characterPreview": "./src/characters/previewEntry.ts",
+    "./characterStudio": "./src/characters/hero/studioEntry.ts",
+    "./creaturePreview": "./src/creatures/previewEntry.ts",
     "./propPreview": "./src/props/previewEntry.ts"
   },
   "scripts": {

@@ -160,7 +160,6 @@ async function house(
     db: test.db,
     rules: () => TEST_HOUSE_RULES,
     now: () => clock,
-    nationOf,
   }).set(leader, startCity);
   if (!joined.ok) throw new Error(`home ${joined.code}`);
   const members = createHouseMembers({

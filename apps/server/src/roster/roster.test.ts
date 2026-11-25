@@ -342,6 +342,8 @@ function fakeWorld(rows: readonly WorldRosterRow[]): WorldRosterSource {
     read: (userId) =>
       Promise.resolve(userId === player.id ? { units: rows, prisoners: [] } : { units: [], prisoners: [] }),
     count: (userId) => Promise.resolve(userId === player.id ? rows.length : 0),
+    // 그 유닛의 지금 피로(2차맵 직무 상태 — 유닛 목록 줄의 값과 같다)
+    fatigueOf: (unitId) => rows.find((row) => row.id === unitId)?.fatigue,
   };
 }
 
@@ -451,7 +453,8 @@ describe("유닛·사이보그 통합(docs/adr/2026-11-24-unit-cyborg-unify.md)"
   };
   const services = createRosterServices({
     catalog,
-    world: fakeWorld([rosterRow(7, { type: "cyborg", self: true }), rosterRow(8, {})]),
+    // 본체는 채집으로 피로 37이 쌓인 상태
+    world: fakeWorld([rosterRow(7, { type: "cyborg", self: true, fatigue: 37 }), rosterRow(8, {})]),
     cyborgs: () => ({
       record: (userId: string) => (userId === player.id ? record : undefined),
       livingUnpaid: () => false,
@@ -486,6 +489,15 @@ describe("유닛·사이보그 통합(docs/adr/2026-11-24-unit-cyborg-unify.md)"
     expect(none.units[0]).toMatchObject({ id: "p0", self: true, preview: true, type: "cyborg", level: 23 });
     expect(none.units.filter((unit) => unit.self === true)).toHaveLength(1);
     expect(none.units[0]?.slots).toHaveLength(20);
+  });
+
+  it("cyborg.get: 본체 피로는 본체 유닛의 지금 피로다(채집·직무로 쌓인 값 — 유닛 목록 줄과 같다, D-430)", async () => {
+    const body = (await services.cyborg(player, own)).body;
+    const listed = (await services.units(player, own)).units.find((unit) => unit.self === true);
+    if (!body || !listed) throw new Error("본체");
+    expect(listed.energy).toMatchObject({ kind: "fatigue" });
+    expect(body.fatigue).toEqual({ value: 37, max: listed.energy.max });
+    expect(listed.energy.value).toBe(37);
   });
 
   it("units.sheet: 본체의 사양은 사이보그 화면(cyborg.get)과 같은 값이다", async () => {

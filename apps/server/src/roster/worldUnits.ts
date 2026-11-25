@@ -49,11 +49,17 @@ export interface WorldRosterSource {
   read(userId: string, now: number): Promise<WorldRoster>;
   /** 유닛 수만(사이보그 화면) */
   count(userId: string, now: number): Promise<number>;
+  /**
+   * 그 유닛의 지금 피로(2차맵 직무 상태 job.fatigue — 채집·직무로 쌓이고 쉬면 준다, D-430). 띄운 2차맵에 없으면 undefined.
+   * 사이보그 판·홈 카드의 본체 피로가 쓴다
+   */
+  fatigueOf(unitId: number): number | undefined;
 }
 
 export const EMPTY_WORLD_ROSTER: WorldRosterSource = {
   read: () => Promise.resolve({ units: [], prisoners: [] }),
   count: () => Promise.resolve(0),
+  fatigueOf: () => undefined,
 };
 
 const DOMAINS: readonly RosterDomain[] = ["space", "sky", "land", "sea"];
@@ -187,6 +193,13 @@ export function createWorldRosterSource(world: World): WorldRosterSource {
         else prisoners.push(entry);
       }
       return { units, prisoners };
+    },
+    fatigueOf(unitId) {
+      for (const map of world.maps.values()) {
+        const info = map.unitInfo(unitId);
+        if (info) return info.job.fatigue;
+      }
+      return undefined;
     },
     async count(userId) {
       const persistence = world.persistence;

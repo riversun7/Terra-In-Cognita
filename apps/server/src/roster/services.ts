@@ -324,6 +324,11 @@ export function createRosterServices(
                 query.now,
               ),
               rankings: (await options.rankings?.(viewer.id)) ?? [],
+              // 본체 피로 = 본체 유닛의 지금 피로(채집·직무로 쌓인다 — D-430. 유닛 목록 줄과 같은 값)
+              fatigue: {
+                value: (record.unitId === null ? undefined : world.fatigueOf(record.unitId)) ?? 0,
+                max: FATIGUE_MAX,
+              },
               ...cyborgConditionOf(record.unitId),
             }
           : null;

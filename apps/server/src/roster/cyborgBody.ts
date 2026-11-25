@@ -50,7 +50,8 @@ export function realCyborgBody(
     faithPoints: record.faithPoints,
     living: { unpaid: livingUnpaid, efficiencyPm: livingEfficiencyPm(livingUnpaid, catalog.society) },
     growth: maxed ? { initial: record.initial, kPm: record.kPm } : null,
-    // 본체 피로는 아직 직무·생활 규칙이 없어 0이다(피로 회복은 주거에 따른다 D-430, D-445 178 — 그 규칙이 들어올 때 건다)
+    // 본체 피로는 본체 유닛의 직무 상태에 있다(채집·직무로 쌓인다 — D-430): 조회(services.ts cyborg)가 세계에서 읽어 덮어쓴다.
+    // 세계가 없으면(시험·유닛 없음) 0
     fatigue: { value: 0, max: FATIGUE_MAX },
     inventory: [],
     rankings: [],

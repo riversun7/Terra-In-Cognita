@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-25 19:25 | 블랙리스트 현상금 제한, 미소속 사이보그 가문 초대 고침, 1단계 뒤로 깨진 DB 시험 27건·화면 시험, 섞인 커밋 나누기 | Claude Code | [25-1925-blacklist-bounty-limits-and-db-tests](worklog/2026/11/25-1925-blacklist-bounty-limits-and-db-tests.md) |
 | 2026-11-25 18:30 | 크리쳐 편집기: 도감 탭·변종 그룹·스탯 조우 오차·3D 미리 보기·전리품 간소화 | Claude Code | [25-1830-creature-codex-groups](worklog/2026/11/25-1830-creature-codex-groups.md) |
 | 2026-11-25 18:04 | 건물 정보 패널·정부 패널 UI 개편 및 전역 고유명사 표기(EntityRef) 통일 | Antigravity | [25-1804-entity-ref-building-gov-ui-redesign](worklog/2026/11/25-1804-entity-ref-building-gov-ui-redesign.md) |
 | 2026-11-25 16:50 KST | 작업 기록 — 행정 건물 개요 탭 도시·국가 가입 추가 및 세력 탭 원격 가입 제거 | Antigravity | [25-1650-gov-overview-join-remove-remote-home](worklog/2026/11/25-1650-gov-overview-join-remove-remote-home.md) |

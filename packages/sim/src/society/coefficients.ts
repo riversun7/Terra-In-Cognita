@@ -451,6 +451,8 @@ export interface SocietyCoefficients {
     readonly wearAmount: number;
     readonly wearLossChancePm: number;
     readonly wearLossAmount: number;
+    /** 전투 종료 후 회복한 아머 HP 얼마당 방어구 내구도 1을 깎을지(반올림, 기본 10, 사용자 결정 2026-11-25) */
+    readonly armorRestorePerDurability?: number | undefined;
     /** 탄약 보충 한 번에 줄어드는 최대 내구도(‰, 올림, D-509 "최대내구도 점차 감소" — 값 [임시]) */
     readonly ammoRefillLossPm: number;
     /**
@@ -699,6 +701,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     wearAmount: 1,
     wearLossChancePm: 150,
     wearLossAmount: 4,
+    armorRestorePerDurability: 10,
     ammoRefillLossPm: 50,
     craftAppropriate: 50,
   },

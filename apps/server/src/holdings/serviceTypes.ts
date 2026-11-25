@@ -144,8 +144,26 @@ export interface BattleUnitWear {
 export interface BattleWearSummary {
   /** 닳은 물건 수 */
   readonly worn: number;
-  /** 0이 돼 벗은 물건 수 */
+  /** 내구도 0(비활성)이 된 물건 수 */
   readonly broken: number;
+}
+
+/** 전투 종료 후 아머 회복 + 방어구 내구도 차감 입력(승·패·퇴각 무관, 사용자 결정 2026-11-25) */
+export interface BattleArmorRecoveryInput {
+  readonly unit: number;
+  readonly maxArmor: number;
+  readonly endArmor: number;
+}
+
+export interface BattleArmorRecoverySummary {
+  /** 유닛 ID → 회복된 아머 HP */
+  readonly restoredByUnit: ReadonlyMap<number, number>;
+  /** 내구도가 깎인 방어구 수 */
+  readonly worn: number;
+  /** 내구도 0(비활성)이 된 방어구 수 */
+  readonly broken: number;
+  /** 전체 회복된 아머 HP 합 */
+  readonly totalRestored: number;
 }
 
 export interface RepairOutcome {
@@ -207,6 +225,14 @@ export interface HoldingService {
   packLegacy(ids: readonly number[], nowMs: number): number;
   /** 전투가 끝날 때(결과 적용과 같은 동기 처리): 참전 유닛이 입은 장비를 닳게 한다(탄약 종류는 빼고 — 탄 수는 spendAmmo) */
   applyBattle(battleSeed: number, units: readonly BattleUnitWear[]): BattleWearSummary;
+  /**
+   * 전투 종료 후 아머 자동 회복 + 착용 방어구 무작위 내구도 차감(승·패·퇴각 무관, 사용자 결정 2026-11-25):
+   * 착용 중이고 내구도 > 0인 방어구가 없으면 회복하지 않는다. 내구도 0이 된 방어구는 탈착하지 않고 비활성 상태로 남긴다
+   */
+  applyArmorRecovery(
+    battleSeed: number,
+    units: readonly BattleArmorRecoveryInput[],
+  ): BattleArmorRecoverySummary;
   /**
    * 원거리 타격 shots번(전투 판정이 알려 줄 고리): 입은 탄약(보조 칸, 무기 종류 ammo)의 내구도 = 남은 탄 수를 줄인다(D-497). 0이면 벗고
    * 같은 유닛이 든 같은 탄약 종류(같은 아이템 먼저, 그다음 많이 남은 것)를 입는다(옛 BattleResult 자동 교체, D-501 294). 보충은 하지 않는다

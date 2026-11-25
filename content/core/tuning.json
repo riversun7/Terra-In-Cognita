@@ -7332,19 +7332,37 @@
       "id": "n54_armor_regen",
       "code": "N54",
       "name": {
-        "ko": "아머 회복(분당 최대 아머 HP의 ‰, 전투 중에도)",
-        "en": "Armor regen (‰ of max armor HP per minute, also in battle)"
+        "ko": "기본 아머 회복(분당 최대 아머 HP의 ‰, 기본 0 — 옵션 방어구만 재생)",
+        "en": "Base armor regen (‰ of max armor HP per minute, default 0 — option armor only)"
       },
-      "value": 100,
+      "value": 0,
       "structural": false,
       "unit": "pm",
       "min": 0,
       "max": 100000,
       "desc": {
-        "ko": "분마다 아머가 최대 아머의 이 몫만큼 돌아온다(전투 중에도).",
-        "en": "Armour regained per minute as a share of max armour (also in battle)."
+        "ko": "분마다 기본으로 돌아오는 최대 아머의 몫(기본 0). 아머 재생 옵션이 붙은 방어구는 별도로 재생한다.",
+        "en": "Base share of max armour regained per minute (default 0). Armour with an armour regen option regenerates separately."
       },
-      "source": "ADR 2026-10-31-combat-core \"바뀜 (D-514)\" · D-514"
+      "source": "ADR 2026-10-31-combat-core \"바뀜 (2026-11-25)\""
+    },
+    {
+      "id": "n54_armor_restore_per_dur",
+      "code": "N54",
+      "name": {
+        "ko": "전투 후 아머 회복당 방어구 내구도 기준(아머 HP)",
+        "en": "Armor HP restored per 1 armor durability after battle"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 10000,
+      "desc": {
+        "ko": "전투가 끝날 때 회복한 아머 HP를 이 값으로 나눠 반올림한 만큼 착용 방어구 내구도를 무작위로 1씩 깎는다.",
+        "en": "After battle, restored armour HP divided by this value (rounded) deducts 1 durability at random from equipped armour."
+      },
+      "source": "ADR 2026-10-31-combat-core \"바뀜 (2026-11-25)\""
     },
     {
       "id": "c7_command_title_commoner",

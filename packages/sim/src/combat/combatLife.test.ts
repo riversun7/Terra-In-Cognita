@@ -46,7 +46,7 @@ const potions = (items: BattlePotions["items"], readyMs = 0): BattlePotions => (
 });
 
 describe("전투 중 HP·아머 회복(D-514)", () => {
-  it("사양에서: HP 회복 = 2차 스탯 hp_regen, 아머 회복 = 최대 아머 × n54 ‰", () => {
+  it("사양에서: HP 회복 = 2차 스탯 hp_regen, 아머 회복 = 기본 0 + 옵션 방어구 armorRegen + n54 ‰", () => {
     const stats = computeSecondary({ str: 10, dex: 10, agi: 10, vit: 10, int: 10, wis: 10 }, TEST_STAT_TABLE);
     const spec = specFromStats({
       id: 1,
@@ -59,8 +59,21 @@ describe("전투 중 HP·아머 회복(D-514)", () => {
       moveIntervalMs: 1000,
     });
     expect(spec.hpRegen).toBe(132);
-    expect(spec.armorRegen).toBe(armorRegenOf(stats.armor_hp ?? 0, TEST_COMBAT_COEFFICIENTS));
-    expect(armorRegenOf(150, TEST_COMBAT_COEFFICIENTS)).toBe(15);
+    expect(spec.armorRegen).toBe(0);
+    const withOption = specFromStats({
+      id: 1,
+      side: 1,
+      party: 1,
+      x: 0,
+      y: 0,
+      stats,
+      weapon: UNARMED,
+      moveIntervalMs: 1000,
+      armorRegen: 6,
+    });
+    expect(withOption.armorRegen).toBe(6);
+    expect(armorRegenOf(150, TEST_COMBAT_COEFFICIENTS)).toBe(0);
+    expect(armorRegenOf(150, { ...TEST_COMBAT_COEFFICIENTS, armorRegenPm: 100 })).toBe(15);
     expect(armorRegenOf(150, { ...TEST_COMBAT_COEFFICIENTS, armorRegenPm: undefined })).toBe(0);
   });
 

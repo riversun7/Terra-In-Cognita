@@ -63,6 +63,7 @@ function gearCombatOfPack(equip: PackEquip): GearCombat {
     ...(combat?.defenseFlat === undefined ? {} : { defenseFlat: combat.defenseFlat }),
     ...(combat?.penetrationPm === undefined ? {} : { penetrationPm: combat.penetrationPm }),
     ...(combat?.moveSpeedPm === undefined ? {} : { moveSpeedPm: combat.moveSpeedPm }),
+    ...(combat?.armorRegen === undefined ? {} : { armorRegen: combat.armorRegen }),
     ...(equip.weapon?.twoHanded === true ? { twoHanded: true } : {}),
     ...(equip.kinds === undefined ? {} : { kinds: equip.kinds.map((kind) => kind.id) }),
   };

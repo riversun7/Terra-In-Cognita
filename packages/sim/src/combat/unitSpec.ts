@@ -147,6 +147,8 @@ export interface UnitBody {
   readonly commandRebirths?: number | undefined;
   /** 장비 이동 속도‰(D-558 1548, loadoutOf moveSpeedPm). 없으면 0 */
   readonly moveSpeedPm?: number | undefined;
+  /** 장비 옵션 아머 재생(분당 고정치, 사용자 결정 2026-11-25, loadoutOf armorRegen). 없으면 0 */
+  readonly armorRegen?: number | undefined;
   readonly cyborg?: boolean | undefined;
   readonly buildingMulPm?: number | undefined;
   /** 1차 스탯(장비 포함, 상태이상 저항 D-429) */
@@ -319,9 +321,9 @@ export function specFromStats(
     mpCost: w.mpCost,
     mpRegen: Math.max(0, s("mp_regen")),
     shieldRegen: Math.max(0, s("shield_regen")),
-    // HP 회복(2차 스탯 hp_regen, D-514)·아머 회복(최대 × N54 설정 칸): 전투 중에도 쉴드처럼 찬다
+    // HP 회복(2차 스탯 hp_regen, D-514)·아머 회복(기본 0 + 옵션 방어구 armorRegen + 설정 칸 n54_armor_regen)
     hpRegen: Math.max(0, s("hp_regen")),
-    armorRegen: armorRegenOf(Math.max(0, s("armor_hp")), c),
+    armorRegen: armorRegenOf(Math.max(0, s("armor_hp")), c) + Math.max(0, Math.floor(body.armorRegen ?? 0)),
     sight: Math.max(0, s("sight")),
     eye: body.eye ?? 16 * 180,
     air: body.air ?? false,

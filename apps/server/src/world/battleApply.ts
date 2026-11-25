@@ -45,14 +45,31 @@ export function createBattleApply(parts: {
   return {
     apply: (battleId, init, outcome, atMs) => {
       const applied = applyBattleOutcome(parts.world, battleId, init, outcome, atMs);
+      const specs = new Map(init.units.map((spec) => [spec.id, spec]));
+      // 전투 종료 후 아머 자동 회복 + 방어구 내구도 차감(승·패·퇴각 무관, 기존 확률 닳기와 별개 — 사용자 결정 2026-11-25)
+      const armorRecovery = parts.holdings().service.applyArmorRecovery(
+        init.seed,
+        outcome.units.map((unit) => ({
+          unit: unit.unit,
+          maxArmor: specs.get(unit.unit)?.armorHp ?? 0,
+          endArmor: unit.armor,
+        })),
+      );
       const wear = parts.holdings().service.applyBattle(
         init.seed,
         outcome.units.map((unit) => ({ unit: unit.unit, outcome: wearOutcomeOf(unit) })),
       );
       // 물약 쿨은 전투 시작 실제 시각 + 판정의 쿨 끝
       const used = parts.items().apply(outcome.units, battleStartedAt(atMs, outcome.result.endTick));
-      // 끝 시각부터 전투 밖 회복을 센다
-      const vitalsWritten = parts.vitals().service.applyBattle(init, outcome.units, atMs);
+      // 끝 시각부터 전투 밖 회복을 센다(아머 회복분 반영, 내구도 0 비활성으로 줄어든 새 최대 아머 이하로 vitalsAt이 자른다)
+      const vitalsUnits =
+        armorRecovery.restoredByUnit.size > 0
+          ? outcome.units.map((unit) => {
+              const restored = armorRecovery.restoredByUnit.get(unit.unit) ?? 0;
+              return restored > 0 ? { ...unit, armor: unit.armor + restored } : unit;
+            })
+          : outcome.units;
+      const vitalsWritten = parts.vitals().service.applyBattle(init, vitalsUnits, atMs);
       const sink = parts.buildings();
       const buildings = sink ? applyBuildingDamage(sink, init, outcome, atMs) : undefined;
       let renowned = 0;

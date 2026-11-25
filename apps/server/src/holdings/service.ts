@@ -20,6 +20,7 @@
 import type { EffectEntry } from "@terra/content";
 import { createRng } from "@terra/shared";
 import {
+  ARMOR_EQUIP_SLOTS,
   type ItemBuff,
   type IncomingEffect,
   type PreserveTable,
@@ -28,6 +29,7 @@ import {
   battleWearAmount,
   craftScore,
   craftSkillPm,
+  planArmorRestoreWear,
   planEquipmentRepair,
   preservePmOf,
   repairRuleFor,
@@ -78,6 +80,8 @@ import type {
 
 export type {
   AcquireInput,
+  BattleArmorRecoveryInput,
+  BattleArmorRecoverySummary,
   BattleKit,
   BattleUse,
   BattleUnitWear,
@@ -99,6 +103,10 @@ export { heldDefOf } from "./defs.ts";
 /** 전투 시드 + 칸 ID → 닳기 시드(같은 전투·같은 칸 = 같은 굴림) */
 const wearSeed = (battleSeed: number, holdingId: number): number =>
   (Math.imul(battleSeed >>> 0, 0x01000193) ^ Math.imul(holdingId, 0x9e3779b1)) >>> 0;
+
+/** 전투 시드 + 유닛 ID → 아머 회복 방어구 차감 시드(기존 확률 닳기와 독립된 시드) */
+const armorWearSeed = (battleSeed: number, unitId: number): number =>
+  (Math.imul((battleSeed >>> 0) ^ 0x517cc1b7, 0x01000193) ^ Math.imul(unitId, 0x85ebca6b)) >>> 0;
 
 /** 효과가 전투 밖에서 시간 버프로 걸리는가(전투 중 회복·상태·도트는 287 전투 사용 줄기) */
 const timedOutside = (kind: string, durationMs: number): boolean =>
@@ -705,15 +713,65 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
           if (next.durability === record.durability) continue;
           record.durability = next.durability;
           worn += 1;
-          // 옛 BattleResult: 내구도 0이면 강제로 벗긴다(N49 286: 0이면 입지 못한다)
-          if (record.durability === 0) {
-            record.slot = null;
-            broken += 1;
-          }
+          // 사용자 결정 2026-11-25: 내구도 0 장비는 강제 탈착하지 않고 장착 칸에 남긴 채 비활성(탈착과 동일 효과) 처리
+          if (record.durability === 0) broken += 1;
           save(record);
         }
       }
       return { worn, broken };
+    },
+
+    applyArmorRecovery(battleSeed, units) {
+      const map = lookup();
+      const per = options.rules().durability.armorRestorePerDurability ?? 10;
+      const restoredByUnit = new Map<number, number>();
+      let worn = 0;
+      let broken = 0;
+      let totalRestored = 0;
+      for (const unit of [...units].toSorted((a, b) => a.unit - b.unit)) {
+        const missing = Math.max(0, Math.floor(unit.maxArmor) - Math.floor(unit.endArmor));
+        if (missing <= 0) continue;
+        const equipped = equippedOn(unit.unit);
+        const armorById = new Map<number, HoldingRecord>();
+        const armors: { id: number; durability: number }[] = [];
+        for (const record of equipped) {
+          if (record.durability === null || record.maxDurability === null || record.durability <= 0) continue;
+          const equip = map.items.get(record.itemId)?.equip;
+          if (!equip) continue;
+          if (equip.weaponType !== undefined && map.ammoTypes.has(equip.weaponType)) continue;
+          const isArmor =
+            ARMOR_EQUIP_SLOTS.has(equip.slot) ||
+            record.stats.some((entry) => entry.stat === "armor_hp" && entry.value > 0);
+          if (!isArmor) continue;
+          armorById.set(record.id, record);
+          armors.push({ id: record.id, durability: record.durability });
+        }
+        if (armors.length === 0) continue;
+        const plan = planArmorRestoreWear(
+          missing,
+          armors,
+          per,
+          createRng(armorWearSeed(battleSeed, unit.unit)),
+        );
+        if (plan.restored > 0) {
+          restoredByUnit.set(unit.unit, plan.restored);
+          totalRestored += plan.restored;
+        }
+        for (const loss of plan.losses) {
+          const record = armorById.get(loss.id);
+          if (!record || record.durability === null || record.maxDurability === null) continue;
+          const next = wearDurable(
+            { durability: record.durability, maxDurability: record.maxDurability },
+            loss.amount,
+          );
+          if (next.durability === record.durability) continue;
+          record.durability = next.durability;
+          worn += 1;
+          if (record.durability === 0) broken += 1;
+          save(record);
+        }
+      }
+      return { restoredByUnit, worn, broken, totalRestored };
     },
 
     spendAmmo,

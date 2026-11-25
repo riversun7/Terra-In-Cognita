@@ -50,6 +50,8 @@ export interface GearCombat {
   readonly penetrationPm?: number | undefined;
   /** 이동 속도‰(D-558 1548 장비 옵션 — 걷기 빠르기에 곱한다, 걸린 효과 move_speed와 같은 합) */
   readonly moveSpeedPm?: number | undefined;
+  /** 아머 재생(분당 고정치, 사용자 결정 2026-11-25 — 이 옵션이 붙은 방어구만 아머를 재생한다) */
+  readonly armorRegen?: number | undefined;
   /** 양손 무기(무기 칸, 48 §5.5): 든 동안 보조 칸 장비를 쓰지 않는다 */
   readonly twoHanded?: boolean | undefined;
   /** 입을 수 있는 유닛 종류(D-494 전용 장비 등). 없으면 그 칸을 가진 모든 종류 */
@@ -88,6 +90,7 @@ function gearCombatOf(def: GearCombat): GearCombat {
     ...(def.defenseFlat === undefined ? {} : { defenseFlat: def.defenseFlat }),
     ...(def.penetrationPm === undefined ? {} : { penetrationPm: def.penetrationPm }),
     ...(def.moveSpeedPm === undefined ? {} : { moveSpeedPm: def.moveSpeedPm }),
+    ...(def.armorRegen === undefined ? {} : { armorRegen: def.armorRegen }),
     ...(def.twoHanded === undefined ? {} : { twoHanded: def.twoHanded }),
     ...(def.kinds === undefined ? {} : { kinds: def.kinds }),
   };
@@ -173,6 +176,8 @@ export interface Loadout {
   readonly penetrationPm: number;
   /** 이동 속도‰: 장비 합(D-558 1548). 없으면 0 */
   readonly moveSpeedPm: number;
+  /** 아머 재생(분당 고정치): 옵션 방어구 합(사용자 결정 2026-11-25). 없으면 0 */
+  readonly armorRegen: number;
   /** 끼웠지만 쓰지 않은 장비(화면이 "양손 무기라 보조 칸 꺼짐"·"이 종류는 못 입음"을 보인다) */
   readonly ignored: readonly IgnoredItem[];
 }
@@ -230,6 +235,7 @@ export function loadoutOf(options: {
   let defenseFlat = options.defenseFlat ?? 0;
   let penetrationPm = options.penetrationPm ?? 0;
   let moveSpeedPm = 0;
+  let armorRegen = 0;
   for (let i = 0; i < equipped.length; i++) {
     const item = equipped[i];
     if (!item) continue;
@@ -265,6 +271,7 @@ export function loadoutOf(options: {
     defenseFlat += item.defenseFlat ?? 0;
     penetrationPm += item.penetrationPm ?? 0;
     moveSpeedPm += item.moveSpeedPm ?? 0;
+    armorRegen += Math.max(0, item.armorRegen ?? 0);
   }
   // 넘침에 던지지 않는다: 입력 범위(MAX_STAT_INPUT)에서 자른다(실제 값은 이보다 훨씬 작다, 기술 보호)
   for (const code of PRIMARY_CODES) primary[code] = clampStat(primary[code]);
@@ -282,6 +289,7 @@ export function loadoutOf(options: {
     defenseFlat,
     penetrationPm,
     moveSpeedPm,
+    armorRegen,
     ignored,
   };
 }

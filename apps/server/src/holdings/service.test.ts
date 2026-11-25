@@ -150,8 +150,42 @@ describe("입기·벗기(N49 286)", () => {
       world: { unitOwner: () => OWNER, unitKind: () => "cyborg", unitPrimaries: () => flat(10) },
     });
     expect(worn.applyBattle(5, [{ unit: UNIT, outcome: "won" }])).toEqual({ worn: 1, broken: 1 });
-    expect(worn.equippedOn(UNIT)).toEqual([]);
+    // 내구도 0 장비는 강제 탈착하지 않고 장착 칸에 비활성 상태로 남긴다(사용자 결정 2026-11-25)
+    expect(worn.equippedOn(UNIT)).toMatchObject([{ id: a, slot: 3, durability: 0 }]);
+    expect(worn.unequip(OWNER, a)).toEqual({ ok: true });
     expect(worn.equip(OWNER, a, 3)).toEqual({ ok: false, code: "broken" });
+  });
+
+  it("전투 후 아머 회복 + 방어구 내구도 차감: 활성 방어구 없으면 0, 있으면 반올림 차감(내구도 0은 칸에 비활성 유지)", () => {
+    const { service } = setup();
+    // 방어구 미착용: 아머를 잃었어도 회복 안 됨
+    const bare = service.applyArmorRecovery(1, [{ unit: UNIT, maxArmor: 16, endArmor: 0 }]);
+    expect(bare.restoredByUnit.get(UNIT)).toBeUndefined();
+    expect(bare.totalRestored).toBe(0);
+
+    // 방어구 착용 후 잃은 아머 4(반올림 0) → 아머 회복 4, 내구도 변화 없음
+    const [vest = 0] = ids(grant(service, "hold_vest"));
+    expect(service.equip(OWNER, vest, 3)).toEqual({ ok: true });
+    const tiny = service.applyArmorRecovery(2, [{ unit: UNIT, maxArmor: 40, endArmor: 36 }]);
+    expect(tiny.restoredByUnit.get(UNIT)).toBe(4);
+    expect(tiny.worn).toBe(0);
+    expect(service.equippedOn(UNIT)[0]?.durability).toBe(100);
+
+    // 잃은 아머 25(반올림 3) → 아머 회복 25, 내구도 3 감소
+    const mid = service.applyArmorRecovery(3, [{ unit: UNIT, maxArmor: 40, endArmor: 15 }]);
+    expect(mid.restoredByUnit.get(UNIT)).toBe(25);
+    expect(mid.worn).toBe(1);
+    expect(service.equippedOn(UNIT)[0]?.durability).toBe(97);
+
+    // 남은 내구도 97을 다 써도 모자라는 큰 손실(1000) → 97×10 = 970 회복, 내구도 0이지만 장착 칸 유지(비활성)
+    const drained = service.applyArmorRecovery(4, [{ unit: UNIT, maxArmor: 1000, endArmor: 0 }]);
+    expect(drained.restoredByUnit.get(UNIT)).toBe(970);
+    expect(drained.broken).toBe(1);
+    expect(service.equippedOn(UNIT)).toMatchObject([{ id: vest, slot: 3, durability: 0 }]);
+
+    // 모든 방어구가 내구도 0(비활성)이면 다음 전투 후 아머 회복 안 됨
+    const noneLeft = service.applyArmorRecovery(5, [{ unit: UNIT, maxArmor: 16, endArmor: 0 }]);
+    expect(noneLeft.totalRestored).toBe(0);
   });
 });
 

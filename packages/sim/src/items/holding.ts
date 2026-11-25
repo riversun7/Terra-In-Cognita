@@ -118,6 +118,67 @@ export function wearDurable<T extends Durable>(item: T, amount: number): T {
   return { ...item, durability: Math.max(0, item.durability - amount) };
 }
 
+/** 전투 종료 후 아머 회복 내구도 차감 대상 방어구 칸 */
+export const ARMOR_EQUIP_SLOTS: ReadonlySet<string> = new Set(["head", "body", "hands", "feet"]);
+
+/** 전투 후 아머 회복 시 내구도 차감 후보 방어구 하나 */
+export interface ArmorDurabilityPiece {
+  readonly id: number;
+  readonly durability: number;
+}
+
+/** 전투 종료 후 아머 자동 회복과 착용 방어구 무작위 내구도 차감 계산 결과 */
+export interface ArmorRestorePlan {
+  /** 실제로 회복된 아머 HP */
+  readonly restored: number;
+  /** 실제로 차감한 총 방어구 내구도 */
+  readonly spent: number;
+  /** 방어구 ID별 내구도 차감량(ID 오름차순, 0인 항목 제외) */
+  readonly losses: readonly { readonly id: number; readonly amount: number }[];
+}
+
+/**
+ * 전투 종료 후 아머 HP 자동 회복 + 방어구 내구도 차감(사용자 결정 2026-11-25, 승·패·퇴각 무관):
+ * - 내구도 > 0인 착용 방어구가 하나도 없으면 아머 HP를 회복하지 않는다(restored = 0).
+ * - 있으면 잃은 아머 HP를 기준값(armorPerDurability, 기본 10)으로 나눠 반올림(1~4 → 0, 5~14 → 1 …)한 만큼
+ *   내구도 > 0 방어구 가운데 시드 난수로 1씩 무작위 차감한다.
+ * - 총 남은 방어구 내구도가 모자라면 남은 내구도 × 기준값만큼만 회복하고 모든 방어구 내구도를 0으로 만든다.
+ */
+export function planArmorRestoreWear(
+  missingArmor: number,
+  armors: readonly ArmorDurabilityPiece[],
+  armorPerDurability: number,
+  rng: Rng,
+): ArmorRestorePlan {
+  const pool = armors
+    .filter((entry) => entry.durability > 0)
+    .toSorted((a, b) => a.id - b.id)
+    .map((entry) => ({ id: entry.id, left: Math.floor(entry.durability), lost: 0 }));
+  const missing = Math.max(0, Math.floor(missingArmor));
+  if (pool.length === 0 || missing <= 0) return { restored: 0, spent: 0, losses: [] };
+
+  const per = Math.max(1, Math.floor(armorPerDurability));
+  const needed = Math.floor((missing + Math.floor(per / 2)) / per);
+  const totalDur = pool.reduce((sum, entry) => sum + entry.left, 0);
+  const restored = needed <= totalDur ? missing : Math.min(missing, totalDur * per);
+  const spend = Math.min(needed, totalDur);
+
+  const live = [...pool];
+  for (let i = 0; i < spend && live.length > 0; i++) {
+    const pick = rng.nextInt(live.length);
+    const chosen = live[pick];
+    if (!chosen) break;
+    chosen.left -= 1;
+    chosen.lost += 1;
+    if (chosen.left <= 0) live.splice(pick, 1);
+  }
+
+  const losses = pool
+    .filter((entry) => entry.lost > 0)
+    .map((entry) => ({ id: entry.id, amount: entry.lost }));
+  return { restored, spent: spend, losses };
+}
+
 /** 입을 수 있나(내구도가 있는 물건은 0이면 못 입는다, N49 286 흐름) */
 export function wearable(item: { readonly durability: number | null }): boolean {
   return item.durability === null || item.durability > 0;

@@ -1,5 +1,6 @@
 // 보관함(holding.ts) 공개 이름 묶음 — 진입점(src/index.ts)이 파일 크기 상한(1,000줄)을 넘지 않게 따로 둔다
 export {
+  ARMOR_EQUIP_SLOTS,
   DEFAULT_STACK_MAX,
   agedAt,
   battleWearAmount,
@@ -7,6 +8,7 @@ export {
   freshnessPm,
   holdingKindOf,
   pickPotion,
+  planArmorRestoreWear,
   planEffects,
   preservePmOf,
   rangePositionPm,
@@ -23,6 +25,8 @@ export {
   wearable,
   type AgeState,
   type AmmoRefill,
+  type ArmorDurabilityPiece,
+  type ArmorRestorePlan,
   type EffectPlan,
   type HoldableDef,
   type HoldingKind,

@@ -123,8 +123,8 @@ export const TEST_COMBAT_COEFFICIENTS: CombatCoefficients = {
     scoreWeightsPm: [0, 0, 700, 300, 0, 0],
     minConsumePm: 500,
   },
-  // [임시] N54 아머 회복: 분당 최대의 10%(가득까지 10분, 쉴드 재생 새 사이보그 WIS 10 ÷ 쉴드 48 ≈ 21%보다 느림)
-  armorRegenPm: 100,
+  // 기본 아머 자동 회복은 0(사용자 결정 2026-11-25): 아머 재생 옵션이 붙은 방어구만 전투 중·전투 밖 재생한다
+  armorRegenPm: 0,
   // [임시] C7 지휘관 정원(D-558 "군단은 3~10개 분대", 계급처럼, D-571 작위로만): 작위 민간인·시민 3 → 공훈자 4 → 기사 5 → 영주 7 →
   // 대공 9, 환생했으면 +1, 3~10
   command: {

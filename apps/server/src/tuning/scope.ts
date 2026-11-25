@@ -228,6 +228,8 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "durability.wearAmount",
   "durability.wearLossChancePm",
   "durability.wearLossAmount",
+  // 전투 종료 후 아머 회복당 방어구 내구도 기준(holdings/service.ts applyArmorRecovery, 사용자 결정 2026-11-25)
+  "durability.armorRestorePerDurability",
   // 물약·요리 쿨(holdings/service.ts use, D-509·D-510): 쓸 때마다 읽는다. 자동 물약 HP 문턱(d510_potion_hp_threshold)은 세계 전투를 열
   // 때마다 읽는다(287 battleKit). 탄약 보충 감소(d509_ammo_refill_loss)는 아직 고리라 sim
   "consumables.potionCooldownMs",

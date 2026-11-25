@@ -697,3 +697,18 @@ D-549(질문 1461 가 파티·군단 명령 추가, 1462 나 유닛 명령 위�
   (아니면 `not_commander`), 판정 거절은 `rejected`. `battle_list` 파티 줄에 `squad`(내가 지휘관 + 정원 안 + 퇴각 아님)·`owned`(소유주 명령이 서 있음) — probe 상태에서 읽는다.
 - 화면(`units/LiveBattlesPanel.tsx`·`battle/BattleCommandBar.tsx`): 내가 지휘관이면 정원 안 남의 분대를 "휘하 n분대"(소유주 명령 중이면 "· 주인 명령 중") 탭으로 고르고 `legion`으로 보낸다, 2순위 안내 한 줄.
 - 판: 프로토콜 55(최소 54 — 묶음 1116r, 줄기 판 88·87, 새 결과 코드 없음, `BATTLE_SQUAD_PROTOCOL_VERSION`), `SIM_VERSION` 65(줄기 판 98). 질문 2317(관람·다시보기 명령 줄에는 아직 없음).
+
+## 바뀜 (2026-11-25 — 기본 아머 재생 0, 전투 후 아머 회복·방어구 내구도 차감, 내구도 0 비활성 유지)
+
+- **까닭**: 사용자 결정(2026-11-25). 아머는 기본 자동 회복이 아니라 물리 장갑 완충층으로 두고, 전투 종료 후 아머 HP를 회복시키며 그 회복량에 비례해 착용 방어구 내구도를 줄인다. 아머 재생 옵션이 붙은 특수 방어구만 별도로 재생한다.
+- **기본 아머 재생 0 + 옵션 방어구 재생**:
+  - `n54_armor_regen`(`CombatCoefficients.armorRegenPm`) 기본값을 `100‰ → 0`으로 변경(`content/core/tuning.json`, `packages/sim/src/combat/coefficients.ts`).
+  - 장비 전투 옵션(`packages/content/src/schema/combat.ts` `equip.combat.armorRegen`, `packages/sim/src/combat/equipment.ts` `GearCombat.armorRegen`, `Loadout.armorRegen`, `UnitBody.armorRegen`, `apps/server/src/vitals/config.ts`)을 추가해 아머 재생 옵션이 붙은 활성 방어구(내구도 > 0) 착용 시에만 전투 중·전투 밖 아머 재생을 합산한다.
+- **전투 종료 후 아머 회복 + 착용 방어구 내구도 차감 (`planArmorRestoreWear`, `applyArmorRecovery`)**:
+  - 승·패·퇴각 여부와 무관하게 적용한다.
+  - 착용 중이고 내구도 > 0인 방어구(`head`·`body`·`hands`·`feet` 또는 `armor_hp` 옵션 장비, 탄약 제외)가 하나도 없으면 아머 HP를 회복하지 않는다.
+  - 활성 방어구가 있으면 잃은 아머 HP를 기준값(`n54_armor_restore_per_dur`, 기본 `10`)으로 나눠 **반올림**(`1~4 → 0`, `5~14 → 1`, `15~24 → 2` …)한 만큼 활성 방어구들 가운데 시드 난수로 1씩 무작위 차감한다. 총 남은 내구도가 부족하면 `남은 내구도 × 기준값`만큼만 회복하고 모든 방어구 내구도를 0으로 만든다.
+  - 기존 전투 확률 닳기(`n49_wear_chance` 25% −1, 패배 `n49_wear_loss_chance` 15% −4)는 별도로 유지한다.
+- **내구도 0 장비 비활성 유지(강제 탈착 폐지) 및 UI 경고**:
+  - `apps/server/src/holdings/service.ts`에서 내구도가 0이 된 장비의 `slot`을 지우지 않고 장착 칸에 남긴다(`unitBody.ts` `usableGear`가 이미 내구도 0 장비를 스탯·전투·아머 계산에서 탈착과 동일하게 제외).
+  - UI(`HoldingParts.tsx`, `UnitHoldings.tsx`, `CyborgSheet.tsx`, `CyborgCard.tsx`)에 `비활성` 뱃지·파손 경고 띠·홈 카드 경고 칩을 추가했다.

@@ -382,6 +382,8 @@ function specOfParts(
       commandRebirths: spec.rebirths,
       // 장비 이동 속도(D-558 1548): 전투맵 걸음 간격에도 든다
       moveSpeedPm: loadout.moveSpeedPm,
+      // 장비 옵션 아머 재생(사용자 결정 2026-11-25)
+      armorRegen: loadout.armorRegen,
     },
     catalog.coefficients,
   );

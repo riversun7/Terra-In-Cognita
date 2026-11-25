@@ -5,16 +5,18 @@
 // 부를 때마다 지금 카탈로그(가중치 표·설정 칸 실효 값)로 셈한다.
 import type { RosterStats } from "@terra/shared/roster";
 import { TEST_SOCIETY_COEFFICIENTS, armorRegenOf, type CombatCoefficients } from "@terra/sim";
+import { bodyParts } from "../roster/body.ts";
 import type { RosterCatalog } from "../roster/catalog.ts";
 import type { TuningState } from "../tuning/state.ts";
-import { BASELINE_BASE, effectiveView } from "../roster/unitBody.ts";
+import { BASELINE_BASE, bodySpecOf } from "../roster/unitBody.ts";
 import type { VitalsBody } from "./state.ts";
 import type { VitalsConfig } from "./world.ts";
 
-/** 화면 2차 스탯 → 몸 자료(아머 회복 = 최대 아머 × 계수표 armorRegenPm, 전투 사양 specFromStats와 같다) */
+/** 화면 2차 스탯 → 몸 자료(아머 회복 = 기본 설정 칸 ‰ + 옵션 방어구 아머 재생, 전투 사양 specFromStats와 같다) */
 export function vitalsBodyOf(
   stats: RosterStats,
   coefficients?: Pick<CombatCoefficients, "armorRegenPm">,
+  gearArmorRegen = 0,
 ): VitalsBody {
   const value = (id: string): number => stats.secondary.find((row) => row.id === id)?.value ?? 0;
   const armor = Math.max(0, Math.floor(value("armor_hp")));
@@ -26,7 +28,7 @@ export function vitalsBodyOf(
     },
     regen: {
       hp: Math.max(0, Math.floor(value("hp_regen"))),
-      armor: coefficients ? armorRegenOf(armor, coefficients) : 0,
+      armor: (coefficients ? armorRegenOf(armor, coefficients) : 0) + Math.max(0, Math.floor(gearArmorRegen)),
       shield: Math.max(0, Math.floor(value("shield_regen"))),
     },
   };
@@ -38,10 +40,14 @@ export function vitalsConfigOf(
 ): VitalsConfig | undefined {
   if (!roster) return undefined;
   return {
-    cyborgBody: (record, gear) =>
-      vitalsBodyOf(effectiveView(roster, { kind: "cyborg", record }, gear).stats, roster.coefficients),
-    defaultBody: (gear) =>
-      vitalsBodyOf(effectiveView(roster, BASELINE_BASE, gear).stats, roster.coefficients),
+    cyborgBody: (record, gear) => {
+      const parts = bodyParts(roster, bodySpecOf({ kind: "cyborg", record }, gear));
+      return vitalsBodyOf(parts.view.stats, roster.coefficients, parts.loadout.armorRegen);
+    },
+    defaultBody: (gear) => {
+      const parts = bodyParts(roster, bodySpecOf(BASELINE_BASE, gear));
+      return vitalsBodyOf(parts.view.stats, roster.coefficients, parts.loadout.armorRegen);
+    },
     rules: () => (tuning ? tuning.society().vitals : TEST_SOCIETY_COEFFICIENTS.vitals),
   };
 }

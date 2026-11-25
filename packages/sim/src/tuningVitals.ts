@@ -27,8 +27,15 @@ export const VITALS_TUNING_KEYS: readonly TuningKey[] = [
     "n54_armor_regen",
     "combat",
     "armorRegenPm",
-    "아머 회복(분당 최대 아머 HP의 ‰, 전투 중에도)",
-    "Armor regen (‰ of max armor HP per minute, also in battle)",
+    "기본 아머 회복(분당 최대 아머 HP의 ‰, 기본 0 — 옵션 방어구만 재생)",
+    "Base armor regen (‰ of max armor HP per minute, default 0 — option armor only)",
+  ),
+  k(
+    "n54_armor_restore_per_dur",
+    "society",
+    "durability.armorRestorePerDurability",
+    "전투 후 아머 회복당 방어구 내구도 기준(아머 HP)",
+    "Armor HP restored per 1 armor durability after battle",
   ),
   ...STAGES.map(([stage, ko, en]) =>
     k(

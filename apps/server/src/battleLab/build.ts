@@ -320,6 +320,7 @@ export function buildLabUnit(unit: LabUnit, rules: LabRules): BuiltLabUnit {
       commandRank: unit.rank,
       commandRebirths: unit.rebirths,
       moveSpeedPm: loadout.moveSpeedPm,
+      armorRegen: loadout.armorRegen,
     },
     rules.coefficients,
   );

@@ -11,6 +11,7 @@ import {
   freshnessPm,
   holdingKindOf,
   pickPotion,
+  planArmorRestoreWear,
   planEffects,
   preservePmOf,
   rangePositionPm,
@@ -116,6 +117,56 @@ describe("닳기(D-496 289, 옛 BattleResult 25%)", () => {
     battleWearAmount("won", rules, a);
     battleWearAmount("lost", rules, b);
     expect(a.nextU32()).toBe(b.nextU32());
+  });
+
+  it("전투 후 아머 회복 + 방어구 내구도 차감: 반올림(1~4 → 0, 5~14 → 1), 활성 방어구 없으면 회복 0", () => {
+    // 방어구 없음 또는 모두 내구도 0이면 회복 안 됨
+    expect(planArmorRestoreWear(30, [], 10, createRng(1))).toEqual({ restored: 0, spent: 0, losses: [] });
+    expect(
+      planArmorRestoreWear(
+        30,
+        [
+          { id: 1, durability: 0 },
+          { id: 2, durability: 0 },
+        ],
+        10,
+        createRng(1),
+      ),
+    ).toEqual({ restored: 0, spent: 0, losses: [] });
+
+    // 반올림: 1~4는 내구도 0 감소(아머는 회복), 5~14는 1 감소, 15~24는 2 감소
+    expect(planArmorRestoreWear(4, [{ id: 1, durability: 10 }], 10, createRng(1))).toEqual({
+      restored: 4,
+      spent: 0,
+      losses: [],
+    });
+    expect(planArmorRestoreWear(5, [{ id: 1, durability: 10 }], 10, createRng(1))).toEqual({
+      restored: 5,
+      spent: 1,
+      losses: [{ id: 1, amount: 1 }],
+    });
+    expect(planArmorRestoreWear(15, [{ id: 1, durability: 10 }], 10, createRng(1))).toEqual({
+      restored: 15,
+      spent: 2,
+      losses: [{ id: 1, amount: 2 }],
+    });
+
+    // 여러 방어구에 시드 무작위 분배 + 내구도 부족 시 남은 내구도 × 기준치만큼만 회복
+    const multi = planArmorRestoreWear(
+      35,
+      [
+        { id: 10, durability: 2 },
+        { id: 20, durability: 1 },
+      ],
+      10,
+      createRng(7),
+    );
+    expect(multi.restored).toBe(30);
+    expect(multi.spent).toBe(3);
+    expect(multi.losses).toEqual([
+      { id: 10, amount: 2 },
+      { id: 20, amount: 1 },
+    ]);
   });
 
   it("0에서 멈추고, 0이면 입지 못한다(내구도 없는 물건은 늘 입는다)", () => {

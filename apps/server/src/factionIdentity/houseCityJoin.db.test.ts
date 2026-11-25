@@ -39,6 +39,7 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 도시 가입 승인·탈퇴·추방
       pool: test.db.$client,
       db: test.db,
       now: () => clock,
+      bountyMax: () => 5_000n,
     });
 
   const person = async (): Promise<{ id: string; name: string }> => {
@@ -283,6 +284,60 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 도시 가입 승인·탈퇴·추방
     });
     const list = await listNationBlacklist(test.db.$client, mayorHouse.id);
     expect(list.some((b) => b.userId === bad.leader.id && b.bounty === "1000")).toBe(true);
+    // 현상금 제한(ADR 2026-11-25-blacklist-bounty-limits.md): 상한을 넘으면 상한으로 줄여 적는다(int8을 넘는 값도)
+    expect(
+      await blacklistService().handle(mayorHouse.leader.id, {
+        action: "add",
+        cityId: PLAYER_CITY,
+        targetName: bad.leader.name,
+        bounty: "9999999999999999999999999999999",
+      }),
+    ).toMatchObject({ ok: true, action: "blacklist_added" });
+    expect(
+      (await listNationBlacklist(test.db.$client, mayorHouse.id)).find((b) => b.userId === bad.leader.id)
+        ?.bounty,
+    ).toBe("5000");
+    // 남의 도시에는 등록도 현상금도 못 한다(그 도시를 가진 가문의 가문장이 아니다)
+    expect(
+      await blacklistService().handle(bad.leader.id, {
+        action: "add",
+        cityId: PLAYER_CITY,
+        targetName: mayorHouse.leader.name,
+        bounty: "10",
+      }),
+    ).toEqual({ ok: false, code: "not_ruler" });
+    // 선출된 지배 가문장(나라 지도자)은 나라 도시에 블랙리스트는 올리지만, 자기 가문 도시가 아니라 현상금은 못 건다(나라
+    // 국고로 거는 현상금은 의결이 있어야 한다 — 아직 없다)
+    const ruling = await makeHouse();
+    await sql(
+      `insert into governance_state (nation_id, ruling_house_key, vacant_since_ms, updated_at_ms)
+         values ($1, $2, null, 0)
+         on conflict (nation_id) do update set ruling_house_key = excluded.ruling_house_key, vacant_since_ms = null`,
+      [npcNation, `p:${String(ruling.id)}`],
+    );
+    expect(
+      await blacklistService().handle(ruling.leader.id, {
+        action: "add",
+        cityId: NPC_CITY,
+        targetName: bad.leader.name,
+        bounty: "10",
+      }),
+    ).toEqual({ ok: false, code: "not_ruler" });
+    expect(
+      await blacklistService().handle(ruling.leader.id, {
+        action: "add",
+        cityId: NPC_CITY,
+        targetName: bad.leader.name,
+      }),
+    ).toMatchObject({ ok: true, action: "blacklist_added" });
+    expect(
+      await blacklistService().handle(ruling.leader.id, {
+        action: "remove",
+        cityId: NPC_CITY,
+        targetUserId: bad.leader.id,
+      }),
+    ).toMatchObject({ ok: true, action: "blacklist_removed" });
+    await sql("delete from governance_state where nation_id = $1", [npcNation]);
     // 블랙리스트 가문은 가입 차단
     expect(await joinService().applyAtHall(bad.leader.id, PLAYER_HALL)).toEqual({
       ok: false,

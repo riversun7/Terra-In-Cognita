@@ -1,6 +1,6 @@
 # 가문 도시 가입(정부 방문·승인), 탈퇴·추방, 블랙리스트(무패널티 PVP·현상금·기여도)
 
-- 상태: 확정
+- 상태: 확정 (일부 대체됨: 2026-11-25-blacklist-bounty-limits.md — 현상금은 등록한 도시의 국고에서 한 번만·상한·건 사람 제외, 무패널티 PVP 나라 ID 비교)
 - 날짜: 2026-11-25
 - 관련: ADR `2026-11-24-house-membership-separation.md`(1단계), `2026-11-11-faction-identity.md`(가문·이동 정책), `2026-11-21-credit.md`(신용 벌점), `2026-10-28-time-and-session-protocol.md`(프로토콜 70)
 

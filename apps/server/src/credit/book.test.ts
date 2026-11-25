@@ -12,7 +12,7 @@ import {
 import { describe, expect, it } from "vitest";
 import { createLedger } from "../economy/ledger.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
-import { setBlacklistCheck } from "../factionIdentity/blacklist.ts";
+import { attachBlacklist, setBlacklistCheck } from "../factionIdentity/blacklist.ts";
 import { type CreditMark, attachCreditBook, creditBookOf } from "./book.ts";
 import { setCoupTruce } from "./coupTruce.ts";
 import { creditAttackHook, creditUnitAttack, withCredit } from "./hooks.ts";
@@ -46,6 +46,20 @@ function fakeWriter() {
   };
   return { writer, rows, standingRows };
 }
+
+/** 블랙리스트 표 한 줄(DB에서 읽은 꼴 — 현상금 없음) */
+const blacklistRow = (id: number, nation: number, user: string) => ({
+  id: String(id),
+  nation_id: String(nation),
+  city_id: null,
+  city_faction_id: null,
+  user_id: user,
+  created_by: null,
+  reason: null,
+  bounty: "0",
+  renown_reward: 10,
+  created_at_ms: "1",
+});
 
 function world(
   o: {
@@ -314,6 +328,42 @@ describe("신용 점수 장부(D-581 · D-584 한 점수)", () => {
     expect(w.book.score(ownerSubject, NATION, T0)).toBe(500);
     // 일반 같은 나라 유저 공격: 벌점 적용
     expect(creditUnitAttack(w.ledger, [PLAYER], [CITIZEN], T0)).toBe(1);
+    expect(w.book.score(ownerSubject, NATION, T0)).toBe(450);
+  });
+
+  it("진짜 블랙리스트 고리: 신용 장부의 나라(국고 주인 ID)를 세력 행으로 바꿔 블랙리스트 표와 맞춘다", async () => {
+    const w = world({ rules: { creditStart: 500 } });
+    const OUTLAW = 41;
+    const OTHER = 43;
+    /** 나라 NATION(국고 주인 ID 2)의 세력 행 — 주인 ID와 다른 수 */
+    const NATION_ROW = 900;
+    w.book.sweep(
+      T0,
+      new Map([
+        [PLAYER, NATION],
+        [OUTLAW, NATION],
+        [OTHER, NATION],
+      ]),
+    );
+    const table = attachBlacklist({
+      ledger: w.ledger,
+      owners: new Map([
+        [NATION, { userId: null, factionId: NATION_ROW }],
+        [OUTLAW, { userId: "user-outlaw", factionId: null }],
+        [OTHER, { userId: "user-other", factionId: null }],
+      ]),
+      // user-outlaw는 내 나라(세력 행 900) 블랙리스트, user-other는 세력 행이 우연히 국고 주인 ID(2)와 같은 다른 나라 블랙리스트
+      pool: {
+        query: async () => ({
+          rows: [blacklistRow(1, NATION_ROW, "user-outlaw"), blacklistRow(2, NATION, "user-other")],
+        }),
+      },
+    });
+    await table.reload();
+    expect(creditUnitAttack(w.ledger, [PLAYER], [OUTLAW], T0)).toBe(0);
+    expect(w.book.score(ownerSubject, NATION, T0)).toBe(500);
+    // 다른 나라 블랙리스트는 명분이 아니다
+    expect(creditUnitAttack(w.ledger, [PLAYER], [OTHER], T0)).toBe(1);
     expect(w.book.score(ownerSubject, NATION, T0)).toBe(450);
   });
 

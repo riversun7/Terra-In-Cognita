@@ -40,6 +40,8 @@ export interface HouseRules {
   };
   /** 가문세율 상한(‰, 0~1000 — D-574 2150) */
   readonly taxMaxPm: number;
+  /** 블랙리스트 현상금 한 건 상한(최소 단위, 0 = 현상금 없음 — 설정 칸 house_blacklist_bounty_max, ADR 2026-11-25-blacklist-bounty-limits.md) */
+  readonly blacklistBountyMax: bigint;
   /** 가문 도시가 같은 나라 다른 가문 짓기를 정하지 않았을 때 허용하나(D-574 2124) */
   readonly cityBuildDefault: boolean;
   /** 독재 NPC 나라 지배 가문 금고 → 국고 몫(‰, 상업 성향 높음 = minPm·낮음 = maxPm — 2223 고침, @terra/sim npcRulingVaultReturnPm) */
@@ -84,6 +86,8 @@ export function houseRulesFrom(c: SocietyCoefficients): HouseRules {
       grantMax: whole(h.npcEntryGrantMax),
     },
     taxMaxPm: permille(h.taxMaxPm),
+    // 블랙리스트 현상금 상한 [임시]
+    blacklistBountyMax: BigInt(whole(h.blacklistBountyMax ?? 5000)),
     cityBuildDefault: h.cityBuildDefault !== 0,
     npcVaultReturn: { minPm: permille(h.npcVaultReturnMinPm), maxPm: permille(h.npcVaultReturnMaxPm) },
     // NPC 가문 연맹 판단 문턱(npc-invest-2 — npcLeague.ts) [임시]

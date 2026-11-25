@@ -11228,6 +11228,24 @@
       "source": "D-574 · ADR 2026-11-11-faction-identity \"바뀜 (house-8, D-574)\""
     },
     {
+      "id": "house_blacklist_bounty_max",
+      "code": "",
+      "name": {
+        "ko": "블랙리스트 현상금 상한(최소 단위)",
+        "en": "Blacklist bounty cap (minor units)"
+      },
+      "value": 5000,
+      "structural": false,
+      "unit": "minor",
+      "min": 0,
+      "max": 1000000000,
+      "desc": {
+        "ko": "시장이 블랙리스트에 걸 수 있는 현상금 한 건의 상한. 넘는 값은 이 값으로 줄여 적는다. 현상금은 등록한 도시의 국고에서 한 번만 나간다. 0이면 현상금을 걸 수 없다.",
+        "en": "Most a mayor may post as one blacklist bounty. Larger amounts are lowered to this value. The bounty is paid once from the treasury of the city that posted it. 0 disables bounties."
+      },
+      "source": "사용자 결정 2026-11-25 · ADR 2026-11-25-blacklist-bounty-limits [임시]"
+    },
+    {
       "id": "house_city_build_default",
       "code": "",
       "name": {

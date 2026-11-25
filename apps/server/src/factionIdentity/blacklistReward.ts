@@ -1,7 +1,9 @@
 // 블랙리스트 사냥 보상(ADR 2026-11-25-house-city-approval-and-blacklist.md):
 // - 세계 전투 결과 적용(battleApply.onApplied — 결과 기록과 같은 커밋, 동기) 안에서 승자가 블랙리스트에 오른 유저의 유닛을
 //   격파(귀환·포로)했을 때 보상을 지급한다.
-// - 현상금: 해당 나라 국고에 있는 만큼(새 화폐를 만들지 않는다) 승자 지갑으로 이체(ledger.post kind = "blacklist_bounty").
+// - 현상금(ADR 2026-11-25-blacklist-bounty-limits.md — 사용자 결정 2026-11-25): 등록한 도시를 가진 세력의 국고에 있는 만큼(새
+//   화폐를 만들지 않는다) 승자 지갑으로 이체(ledger.post kind = "blacklist_bounty"). 한 번 주면 그 항목의 현상금은 0이 된다
+//   (질 때마다 다시 주지 않는다). 현상금을 건 사람은 받지 못한다. 나라 국고에서는 나가지 않는다.
 // - 기여도: 승자의 해당 나라 명성(cyborgs.addRenown)을 더하고, 승자가 가문에 속해 있으면 가문 기여도(house_members.contribution)를 비동기 DB 갱신.
 import type { BattleInit } from "@terra/sim";
 import type { CyborgService } from "../cyborg/service.ts";
@@ -17,6 +19,8 @@ export interface BlacklistRewardParts {
   readonly owners: ReadonlyMap<number, Pick<OwnerRow, "id" | "userId" | "factionId">>;
   readonly cyborgs: Pick<CyborgService, "addRenown">;
   readonly ledger: Pick<Ledger, "balanceOf" | "ownerAccount" | "post">;
+  /** 현상금 한 건 상한(설정 칸 house_blacklist_bounty_max — 옛 규칙으로 적힌 큰 현상금도 줄 때 이 값으로 자른다). 없으면 자르지 않는다 */
+  readonly bountyMax?: (() => bigint) | undefined;
   readonly pool?: QueryPool | undefined;
   readonly log?: { error(obj: object, message: string): void } | undefined;
 }
@@ -33,9 +37,9 @@ function ownerOfUnit(maps: ReadonlyMap<number, UnitOwnerMap>, unitId: number): n
 /** 세력 행 ID → 국고 소유 주체 ID */
 function treasuryOwnerOf(
   owners: ReadonlyMap<number, Pick<OwnerRow, "id" | "factionId">>,
-  nationId: number,
+  factionId: number,
 ): number | undefined {
-  for (const owner of owners.values()) if (owner.factionId === nationId) return owner.id;
+  for (const owner of owners.values()) if (owner.factionId === factionId) return owner.id;
   return undefined;
 }
 
@@ -81,22 +85,25 @@ export function blacklistReward(parts: BlacklistRewardParts): (
 
       for (const entry of entries) {
         let paidAny = false;
-        // 1) 현상금 지급: 그 나라 국고에 있는 만큼 승자들에게 균등 분배
-        if (entry.bounty > 0n) {
-          const treasury = treasuryOwnerOf(parts.owners, entry.nationId);
+        // 1) 현상금 지급: 등록한 도시를 가진 세력의 국고에 있는 만큼, 건 사람을 뺀 승자들에게 균등 분배 — 한 번만
+        const hunters = winners.filter(([userId]) => userId !== entry.createdBy);
+        if (entry.bounty > 0n && entry.cityFactionId !== null && hunters.length > 0) {
+          const treasury = treasuryOwnerOf(parts.owners, entry.cityFactionId);
           if (treasury !== undefined) {
             const asset = moneyOf(parts.ledger, treasury);
             const available = parts.ledger.balanceOf(treasury, asset);
-            const totalPay = entry.bounty < available ? entry.bounty : available;
+            const max = parts.bountyMax?.();
+            const posted = max !== undefined && entry.bounty > max ? max : entry.bounty;
+            const totalPay = posted < available ? posted : available;
             if (totalPay > 0n) {
-              const count = BigInt(winners.length);
+              const count = BigInt(hunters.length);
               const share = totalPay / count;
               const rem = totalPay % count;
               const txEntries: { account: number; amount: bigint }[] = [
                 { account: parts.ledger.ownerAccount(treasury, asset), amount: -totalPay },
               ];
-              for (let i = 0; i < winners.length; i++) {
-                const winner = winners[i];
+              for (let i = 0; i < hunters.length; i++) {
+                const winner = hunters[i];
                 if (!winner) continue;
                 const amount = share + (i === 0 ? rem : 0n);
                 if (amount > 0n) {
@@ -107,9 +114,11 @@ export function blacklistReward(parts: BlacklistRewardParts): (
                 parts.ledger.post({
                   kind: "blacklist_bounty",
                   atMs,
-                  key: `blacklist_bounty:${entry.nationId}:${defeatedUserId}:${atMs}:${init.seed}`,
+                  key: `blacklist_bounty:${entry.id}:${entry.createdAtMs}`,
                   entries: txEntries,
                 });
+                // 국고가 모자라 덜 줬어도 끝이다(남은 몫을 뒤에 주지 않는다 — 질 때마다 국고가 새지 않게)
+                table.claimBounty(entry.id);
                 paidAny = true;
               }
             }

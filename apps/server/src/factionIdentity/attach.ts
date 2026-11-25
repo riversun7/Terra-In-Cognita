@@ -160,6 +160,7 @@ export function attachHouses(options: {
     pool,
     db: options.db,
     now: options.now,
+    bountyMax: () => options.rules().blacklistBountyMax,
     afterChange: async () => {
       const ledger = options.world?.persistence?.ledger;
       if (ledger) await blacklistTableOf(ledger)?.reload();
@@ -235,7 +236,7 @@ export function attachHouses(options: {
         .catch((error: unknown) => options.log.error({ err: error }, "nation tax rates load failed"));
     // 나라 블랙리스트 메모리 표(ADR 2026-11-25): PVP 벌점 면제·전투 사냥 현상금/기여도 지급이 원장으로 찾는다
     if (!blacklistTableOf(p.ledger))
-      attachBlacklist({ pool, ledger: p.ledger, owners: p.owners })
+      attachBlacklist({ pool, ledger: p.ledger, owners: p.owners, log: options.log })
         .reload()
         .catch((error: unknown) => options.log.error({ err: error }, "nation blacklist load failed"));
     if (houseTaxerOf(p.ledger)) return;

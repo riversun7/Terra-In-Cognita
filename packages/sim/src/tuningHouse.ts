@@ -126,6 +126,14 @@ export const HOUSE_TUNING_KEYS: readonly TuningKey[] = [
   ),
   // 가문세 상한·가문 도시 짓기 기본값·NPC 지배 가문 금고 국고 돌려보내기(D-574 2150·2124, 2223 고침) — 49에 칸이 없다
   k("house_tax_max_pm", "", "house.taxMaxPm", "가문세율 상한(‰)", "House tax rate cap (‰)"),
+  // 블랙리스트 현상금 한 건 상한(사용자 결정 2026-11-25, ADR 2026-11-25-blacklist-bounty-limits.md) — 49에 칸이 없다 [임시]
+  k(
+    "house_blacklist_bounty_max",
+    "",
+    "house.blacklistBountyMax",
+    "블랙리스트 현상금 상한(최소 단위)",
+    "Blacklist bounty cap (minor units)",
+  ),
   k(
     "house_city_build_default",
     "",

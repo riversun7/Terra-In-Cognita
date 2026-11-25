@@ -2,7 +2,11 @@
 // - 시장(도시 주인 가문장) 또는 국가 원수(지배 가문장)가 악의적 유저를 나라 블랙리스트에 올리고 내린다.
 // - 메모리 표(BlacklistTable)와 원장 WeakMap 고리(blacklistCheckOf / blacklistTableOf)를 통해:
 //   1) 같은 나라 공격 신용 벌점(credit/hooks.ts same_nation_attack)을 면제한다(무패널티 PVP 명분).
-//   2) 전투 승리 시 블랙리스트 유저를 격파하면 현상금(국고 → 승자 지갑)과 국가 명성·가문 기여도를 준다(blacklistReward.ts).
+//   2) 전투 승리 시 블랙리스트 유저를 격파하면 현상금(등록한 도시의 국고 → 승자 지갑, 한 번만)과 국가 명성·가문 기여도를
+//      준다(blacklistReward.ts).
+// - 현상금 제한(사용자 결정 2026-11-25, ADR 2026-11-25-blacklist-bounty-limits.md): 현상금은 그 도시를 가진 가문의 가문장(시장)만
+//   자기 도시 국고에서 걸고(남의 도시·나라 국고로는 걸지 못한다 — not_ruler), 한 건은 설정 칸 house_blacklist_bounty_max로 줄여
+//   적으며, 한 번 주면 0이 된다. 나라 국고를 쓰는 큰 현상금은 의결(투표)을 거쳐야 한다 — 아직 만들지 않았다.
 //   3) 가문 도시 가입 신청·승인 시 가문원 중 블랙리스트 유저가 있으면 차단한다(houseCityJoin.ts).
 import type { GovernmentBlacklistRow } from "@terra/shared/government";
 import { hasUnstorableText } from "@terra/shared";
@@ -23,8 +27,13 @@ export interface BlacklistEntry {
   readonly id: number;
   readonly nationId: number;
   readonly cityId: number | null;
+  /** 등록한 도시를 가진 세력(행 ID — 현상금이 나가는 국고). 도시가 없어졌으면 null(현상금 없음) */
+  readonly cityFactionId: number | null;
   readonly userId: string;
+  /** 등록한 사람(자기가 건 현상금은 받지 못한다) */
+  readonly createdBy: string | null;
   readonly reason: string | null;
+  /** 남은 현상금(한 번 주면 0 — claimBounty) */
   readonly bounty: bigint;
   readonly renownReward: number;
   readonly createdAtMs: number;
@@ -39,6 +48,8 @@ export interface BlacklistTable {
   isBlacklisted(nationId: number, userId: string): boolean;
   /** 그 유저가 올라 있는 모든 나라의 블랙리스트 항목(전투 보상 지급용) */
   entriesForUser(userId: string): readonly BlacklistEntry[];
+  /** 현상금을 줬다: 그 항목의 현상금을 0으로(메모리 바로, DB는 뒤에서 — 다시 주지 않는다) */
+  claimBounty(entryId: number): void;
   /** DB에서 다시 읽는다 */
   reload(): Promise<void>;
 }
@@ -62,10 +73,13 @@ export function attachBlacklist(parts: {
   readonly pool: QueryPool;
   readonly ledger: object;
   readonly owners: ReadonlyMap<number, Pick<OwnerRow, "userId" | "factionId">>;
+  readonly log?: { error(obj: object, message: string): void } | undefined;
 }): BlacklistTable {
   const existing = tables.get(parts.ledger);
   if (existing) return existing;
   let byUser = new Map<string, BlacklistEntry[]>();
+  // 이미 준 항목(다시 읽기가 DB 갱신보다 먼저 와도 다시 주지 않는다 — 등록을 새로 하면 created_at_ms가 달라져 풀린다)
+  const claimed = new Map<number, number>();
   const table: BlacklistTable = {
     isBlacklisted(nationId, userId) {
       const list = byUser.get(userId);
@@ -74,26 +88,62 @@ export function attachBlacklist(parts: {
     entriesForUser(userId) {
       return byUser.get(userId) ?? [];
     },
+    claimBounty(entryId) {
+      for (const [userId, list] of byUser) {
+        const at = list.findIndex((entry) => entry.id === entryId);
+        const entry = list[at];
+        if (!entry) continue;
+        claimed.set(entryId, entry.createdAtMs);
+        byUser.set(
+          userId,
+          list.map((each, index) => (index === at ? { ...each, bounty: 0n } : each)),
+        );
+        // 같은 등록(created_at_ms)일 때만 0으로 — 그 사이 새로 등록한 현상금은 건드리지 않는다
+        void parts.pool
+          .query("update nation_blacklist set bounty = 0 where id = $1 and created_at_ms = $2", [
+            entryId,
+            entry.createdAtMs,
+          ])
+          .catch((error: unknown) =>
+            parts.log?.error({ err: error }, "blacklist bounty claim update failed"),
+          );
+        return;
+      }
+    },
     async reload() {
       const { rows } = await parts.pool.query(
-        `select id, nation_id, city_id, user_id, reason, bounty::text as bounty, renown_reward, created_at_ms
-           from nation_blacklist order by nation_id, id`,
+        `select b.id, b.nation_id, b.city_id, c.faction_id as city_faction_id, b.user_id, b.created_by, b.reason,
+                b.bounty::text as bounty, b.renown_reward, b.created_at_ms
+           from nation_blacklist b left join world_cities c on c.id = b.city_id
+          order by b.nation_id, b.id`,
       );
       const next = new Map<string, BlacklistEntry[]>();
       for (const row of rows) {
         const userId = String(row.user_id);
+        const id = Number(row.id);
+        const createdAtMs = Number(row.created_at_ms);
+        const paid = claimed.get(id) === createdAtMs;
+        if (!paid) claimed.delete(id);
         const entry: BlacklistEntry = {
-          id: Number(row.id),
+          id,
           nationId: Number(row.nation_id),
           cityId: row.city_id === null || row.city_id === undefined ? null : Number(row.city_id),
+          cityFactionId:
+            row.city_faction_id === null || row.city_faction_id === undefined
+              ? null
+              : Number(row.city_faction_id),
           userId,
+          createdBy: typeof row.created_by === "string" ? row.created_by : null,
           reason: typeof row.reason === "string" ? row.reason : null,
           bounty:
-            typeof row.bounty === "string" || typeof row.bounty === "number" || typeof row.bounty === "bigint"
+            !paid &&
+            (typeof row.bounty === "string" ||
+              typeof row.bounty === "number" ||
+              typeof row.bounty === "bigint")
               ? BigInt(row.bounty)
               : 0n,
           renownReward: Number(row.renown_reward ?? DEFAULT_BLACKLIST_RENOWN_REWARD),
-          createdAtMs: Number(row.created_at_ms),
+          createdAtMs,
         };
         const list = next.get(userId);
         if (list) list.push(entry);
@@ -107,8 +157,11 @@ export function attachBlacklist(parts: {
   checks.set(parts.ledger, (attackerOwner, targetOwner) => {
     const targetUser = parts.owners.get(targetOwner)?.userId;
     if (!targetUser) return false;
-    const nation = creditBookOf(parts.ledger)?.standingOf(attackerOwner)?.nationId;
-    if (nation === undefined) return false;
+    // 신용 장부의 나라는 국고 주인 ID(credit/standing.ts creditBelongs)이고 블랙리스트 표의 나라는 세력 행 ID라, 국고 주인의
+    // 세력 행으로 바꿔서 본다
+    const nationOwner = creditBookOf(parts.ledger)?.standingOf(attackerOwner)?.nationId;
+    const nation = nationOwner === undefined ? undefined : parts.owners.get(nationOwner)?.factionId;
+    if (nation === undefined || nation === null) return false;
     return table.isBlacklisted(nation, targetUser);
   });
   return table;
@@ -205,6 +258,8 @@ export function createNationBlacklistService(o: {
   readonly pool: HouseTxPool;
   readonly db?: Database | undefined;
   readonly now: () => number;
+  /** 현상금 한 건 상한(최소 단위 — 설정 칸 house_blacklist_bounty_max, 부를 때마다 읽는다). 없으면 현상금을 걸 수 없다(0) */
+  readonly bountyMax?: (() => bigint) | undefined;
   readonly afterChange?: (() => Promise<void>) | undefined;
 }): NationBlacklistService {
   return {
@@ -212,7 +267,7 @@ export function createNationBlacklistService(o: {
       const reasonRaw = request.reason?.trim();
       if (reasonRaw && hasUnstorableText({ reason: reasonRaw })) return fail("not_found");
       const reason = reasonRaw && reasonRaw.length > 0 ? reasonRaw.slice(0, 200) : null;
-      const bounty = request.bounty !== undefined ? BigInt(request.bounty) : 0n;
+      const asked = request.bounty !== undefined ? BigInt(request.bounty) : 0n;
       let audit: Record<string, unknown> | null = null;
       const result = await inTransaction(o.pool, async (q): Promise<HouseMemberResult> => {
         const mine = await membershipOf(q, actorId);
@@ -225,6 +280,11 @@ export function createNationBlacklistService(o: {
         if (!targetId) return fail("not_found");
         if (request.action === "add") {
           if (targetId === actorId) return fail("self");
+          // 현상금은 그 도시를 가진 가문의 가문장만 자기 도시 국고에서 건다(나라 지도자가 남의 도시·나라 국고로 걸지 못한다),
+          // 한 건은 상한으로 줄여 적는다(사용자 결정 2026-11-25)
+          if (asked > 0n && !(await ruledBy(q, mine.factionId)).cities.has(city.id)) return fail("not_ruler");
+          const max = o.bountyMax?.() ?? 0n;
+          const bounty = asked > max ? max : asked;
           const now = o.now();
           await q.query(
             `insert into nation_blacklist

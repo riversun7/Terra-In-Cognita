@@ -409,6 +409,12 @@ export interface SocietyCoefficients {
     readonly npcVaultTakePm: number;
     readonly npcSpendDividendPm: number;
     readonly npcSpendInvestPm: number;
+    /**
+     * 블랙리스트 현상금 한 건의 상한(최소 단위 — 시장이 자기 도시 국고에서 거는 현상금, 서버 factionIdentity/blacklist.ts.
+     * 사용자 결정 2026-11-25 "한도를 제한", ADR 2026-11-25-blacklist-bounty-limits.md) [임시] 출발값. 없으면 5,000.
+     * 시뮬 판정에는 쓰지 않는다
+     */
+    readonly blacklistBountyMax?: number | undefined;
     /** NPC 가문 연맹 만들기·들기 문턱(0~1000 — 가문장 성향 점수, apps/server/src/factionIdentity/npcLeague.ts, npc-invest-2 [임시]). 없으면 750·550 */
     readonly npcLeagueFoundScore?: number | undefined;
     readonly npcLeagueJoinScore?: number | undefined;
@@ -675,6 +681,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     npcVaultTakePm: 500,
     npcSpendDividendPm: 300,
     npcSpendInvestPm: 300,
+    blacklistBountyMax: 5000,
     npcLeagueFoundScore: 750,
     npcLeagueJoinScore: 550,
     npcLeagueLeaveScore: 300,

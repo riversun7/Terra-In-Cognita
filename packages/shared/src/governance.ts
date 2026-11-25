@@ -43,6 +43,12 @@ export const AGENDA_KINDS = [
    * 받아들이는 투표. 서버(외교 서비스 diplomacy/)만 연다 — gov_propose로는 올리지 않는다. 휴전·강화만 든 조약은 짧은 투표 기간, 독재는 투표 없이 지도자가 바로
    */
   "treaty",
+  /**
+   * 블랙리스트 현상금 승인(사용자 결정 2026-11-25, docs/adr/2026-11-25-blacklist-bounty-vote.md): 도시 상한을 넘는 현상금을 건다. 그
+   * 도시에 블랙리스트를 올릴 수 있는 가문장이 올린다(cityId·대상·금액). 가결되면 그 금액으로 블랙리스트에 오르고, 현상금은 그 도시를
+   * 가진 세력의 국고에서 한 번 나간다. 투표 묶음·문턱은 지도자 묶음 [임시], 독재 = 지도자 직권
+   */
+  "blacklist_bounty",
 ] as const;
 export type AgendaKind = (typeof AGENDA_KINDS)[number];
 
@@ -251,6 +257,16 @@ export interface GovernanceAgendaView {
   /** 화폐 단계 전환의 목표 단계·하루 조절(만분율 — 화폐 단계 안건만) */
   readonly monetary: { readonly mode: MonetaryMode; readonly rateBp: number } | null;
   /** 직권 결정(독재 지도자·지분 과반 — 투표 없음) */
+  /** 블랙리스트 현상금 승인 안건: 도시·대상(사이보그 이름 — 모르면 null)·금액(최소 단위 글자). 다른 안건·옛 서버는 없음 */
+  readonly bounty?:
+    | {
+        readonly cityId: number;
+        readonly userId: string;
+        readonly name: string | null;
+        readonly amount: string;
+      }
+    | null
+    | undefined;
   readonly byAuthority: boolean;
   /** 올린 쪽(시스템 = 임기 끝 자동 선출) */
   readonly proposer: GovernanceHouse | null;

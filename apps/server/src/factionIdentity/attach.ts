@@ -11,7 +11,12 @@ import type { NationPreset } from "../npc/nations.ts";
 import type { World } from "../world/world.ts";
 import { GOVERNMENT_FACILITY } from "../government/reads.ts";
 import { unitCity } from "../temple/places.ts";
-import { attachBlacklist, blacklistTableOf, createNationBlacklistService } from "./blacklist.ts";
+import {
+  attachBlacklist,
+  blacklistTableOf,
+  createBountyAgenda,
+  createNationBlacklistService,
+} from "./blacklist.ts";
 import { adoptUnfoundedIdentities, createHouseFounder, nationFromDb } from "./found.ts";
 import { createHouseGateway } from "./gateway.ts";
 import { type HouseCityService, createHouseCity } from "./houseCity.ts";
@@ -299,6 +304,14 @@ export function attachHouses(options: {
       await applyNationTaxes(pool, taxTable(), nationRow, taxes, nowMs, null);
       return true;
     },
+    // 도시 상한을 넘는 블랙리스트 현상금(ADR 2026-11-25-blacklist-bounty-vote.md): 가결되면 블랙리스트에 올리고 메모리 표를 다시 읽는다
+    bounty: createBountyAgenda({
+      pool,
+      afterChange: async () => {
+        const ledger = options.world?.persistence?.ledger;
+        if (ledger) await blacklistTableOf(ledger)?.reload();
+      },
+    }),
     // 승인된 국고 지분 팔기(질문 2438 답 D-583) → 도시 지분 시장에 국고 팔 주문
     approvedShareSale: async (sale, nowMs) => {
       await sharesRef?.service.approvedSale(sale, nowMs);

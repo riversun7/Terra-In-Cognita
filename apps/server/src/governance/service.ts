@@ -32,6 +32,7 @@ import type { GovernanceAction, GovernanceResultCode } from "@terra/protocol";
 import { writeAudit } from "../auth/store.ts";
 import type { Database } from "../db/client.ts";
 import { type CoupCredit, createCoupService } from "./coup.ts";
+import type { BountyAgendaPort, BountyAgendaTerms } from "../factionIdentity/blacklist.ts";
 import type { CoupSide, CoupStore } from "./coupStore.ts";
 import { type TreatyHooks, createLeaderAgendas } from "./leaderAgendas.ts";
 import { barredUnitOf, createSuccession, npcSuccessionOf } from "./succession.ts";
@@ -72,6 +73,10 @@ export interface ProposeInput {
   readonly monetaryRateBp?: number | undefined;
   /** 손 조절 목표 물가 상한(천분율 — 줄기 gov-coup, D-588 2499) */
   readonly monetaryCapMilli?: number | undefined;
+  /** 블랙리스트 현상금 승인(ADR 2026-11-25-blacklist-bounty-vote.md): 대상 사이보그 이름·금액·사유(도시는 cityId) */
+  readonly bountyTarget?: string | undefined;
+  readonly bounty?: string | undefined;
+  readonly reason?: string | undefined;
 }
 
 export type { ApprovedShareBuy, ApprovedShareSale } from "./shareAgendas.ts";
@@ -130,6 +135,11 @@ export function createGovernanceService(o: {
   readonly credit?: CoupCredit | undefined;
   /** 가결된 조약 비준 안건 집행(diplomacy/ — D-588, 의결 사슬 안에서 불린다 — 그 안에서 run을 부르지 않는다). 없으면 취소 */
   readonly treaties?: () => TreatyHooks | undefined;
+  /**
+   * 블랙리스트 현상금 승인 안건 고리(factionIdentity/blacklist.ts createBountyAgenda — ADR 2026-11-25-blacklist-bounty-vote.md). 없으면 이
+   * 안건은 꺼져 있다(kind_disabled)
+   */
+  readonly bounty?: BountyAgendaPort | undefined;
 }) {
   const tools = createElectorate(o);
   let chain: Promise<unknown> = Promise.resolve();
@@ -346,6 +356,24 @@ export function createGovernanceService(o: {
     return typeof checked === "string" ? { ok: false, code: checked } : checked;
   };
 
+  /** 현상금 승인 안건 칸 검사(factionIdentity/blacklist.ts — 도시·올리는 사람 자격·대상·금액). 틀리면 실패 */
+  const bountyTerms = async (
+    nation: GovernanceNation,
+    userId: string,
+    input: ProposeInput,
+  ): Promise<BountyAgendaTerms | Extract<GovernanceResult, { ok: false }>> => {
+    if (!o.bounty) return { ok: false, code: "kind_disabled" };
+    const checked = await o.bounty.check({
+      nationId: nation.rowId,
+      proposerId: userId,
+      cityId: input.cityId,
+      targetName: input.bountyTarget,
+      bounty: input.bounty,
+      reason: input.reason,
+    });
+    return typeof checked === "string" ? { ok: false, code: checked } : checked;
+  };
+
   const propose = async (userId: string, input: ProposeInput): Promise<GovernanceResult> => {
     if (!o.port.ready()) return fail("busy");
     const s = await standing(userId);
@@ -391,6 +419,11 @@ export function createGovernanceService(o: {
         return typeof checked === "string"
           ? fail(checked)
           : decreeNow(s, userId, "currency_stage", checked.payload, nowMs);
+      }
+      // 상한을 넘는 현상금도 직권(투표가 없는 나라 — D-217)
+      if (input.kind === "blacklist_bounty") {
+        const terms = await bountyTerms(nation, userId, input);
+        return "ok" in terms ? terms : decreeNow(s, userId, "blacklist_bounty", terms, nowMs);
       }
       if (input.kind !== "regime_change") return fail("dictatorship");
       if (!input.regime) return fail("invalid_choice");
@@ -475,6 +508,22 @@ export function createGovernanceService(o: {
             : fail("not_eligible");
         if (open.some((agenda) => agenda.kind === "currency_stage")) return fail("already_open");
         Object.assign(payload, checked.payload);
+        break;
+      }
+      case "blacklist_bounty": {
+        // 도시 상한을 넘는 현상금(사용자 결정 2026-11-25): 같은 도시·대상의 열린 안건은 하나
+        const terms = await bountyTerms(nation, userId, input);
+        if ("ok" in terms) return terms;
+        if (
+          open.some(
+            (agenda) =>
+              agenda.kind === "blacklist_bounty" &&
+              agenda.payload.cityId === terms.cityId &&
+              agenda.payload.bountyUserId === terms.bountyUserId,
+          )
+        )
+          return fail("already_open");
+        Object.assign(payload, terms);
         break;
       }
     }
@@ -722,6 +771,35 @@ export function createGovernanceService(o: {
         await o.store.finish(agenda.id, { status: applied ? "enacted" : "cancelled", enactedAtMs: nowMs });
         if (applied)
           await audit(null, "governance.tax_enacted", { nationId: nation.rowId, agendaId: agenda.id, taxes });
+        return;
+      }
+      case "blacklist_bounty": {
+        // 가결된 현상금을 블랙리스트에(그 금액 그대로) — 도시·대상이 사라졌으면 취소
+        const { cityId, bountyUserId, bounty, bountyReason } = agenda.payload;
+        const applied =
+          o.bounty && cityId !== undefined && bountyUserId !== undefined && bounty !== undefined
+            ? await o.bounty.apply({
+                nationId: nation.rowId,
+                agendaId: agenda.id,
+                proposerId: agenda.proposerUser,
+                terms: {
+                  cityId,
+                  bountyUserId,
+                  bounty,
+                  ...(bountyReason === undefined ? {} : { bountyReason }),
+                },
+                nowMs,
+              })
+            : false;
+        await o.store.finish(agenda.id, { status: applied ? "enacted" : "cancelled", enactedAtMs: nowMs });
+        if (applied)
+          await audit(null, "governance.bounty_approved", {
+            nationId: nation.rowId,
+            agendaId: agenda.id,
+            cityId,
+            targetUserId: bountyUserId,
+            bounty,
+          });
         return;
       }
       default:

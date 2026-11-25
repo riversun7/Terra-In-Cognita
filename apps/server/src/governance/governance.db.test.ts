@@ -569,4 +569,100 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결(governance)", () => {
     expect(applied).toEqual([{ nation: head.nation, taxes }]);
     gov.stop();
   }, 120_000);
+
+  it("현상금 승인 안건(사용자 결정 2026-11-25): 고리가 받아 준 안건을 올리고 가결되면 그 금액으로 집행한다", async () => {
+    const world = await boot();
+    const { npc } = parts(world);
+    for (let i = 0; i < 4; i += 1) {
+      clock += 30 * 60_000;
+      await npc.tick(true);
+    }
+    // 올리는 사람마다 열린 안건 둘까지(같은 안건을 다시 올렸을 때 already_open을 보려고)
+    const rules: GovernanceRules = { ...BASE_RULES, npcKeepSatisfaction: 0, openPerProposer: 2 };
+    const TARGET = "00000000-0000-4000-8000-0000000000aa";
+    const checks: unknown[] = [];
+    const applied: unknown[] = [];
+    const gov = attachGovernance({
+      db: test.db,
+      world: () => world,
+      rules: () => rules,
+      now: () => clock,
+      log: silentLog,
+      manual: true,
+      bounty: {
+        check: async (input) => {
+          checks.push(input);
+          if (input.cityId === undefined || input.targetName === undefined || input.bounty === undefined)
+            return "invalid_choice";
+          if (input.cityId === 404) return "unknown_target";
+          // 진짜 고리는 이름으로 사용자를 찾는다(factionIdentity/blacklist.ts) — 이 시험은 정해 둔 사용자
+          return { cityId: input.cityId, bountyUserId: TARGET, bounty: input.bounty };
+        },
+        apply: async (input) => {
+          applied.push(input);
+          return true;
+        },
+      },
+    });
+    const head = await citizen(world, "Bountyone");
+    const faction = npc.world.factions.get(npc.houses.ownerOfRow(head.nation) ?? -1);
+    if (!faction) throw new Error("nation");
+    faction.regime = "democracy";
+    await house(world, head.userId, "현상가문", "BNT");
+    await gov.service.tick();
+    // 칸이 빠졌거나 고리가 거절하면 그 코드로 실패한다
+    expect(await gov.service.propose(head.userId, { kind: "blacklist_bounty" })).toEqual({
+      ok: false,
+      code: "invalid_choice",
+    });
+    expect(
+      await gov.service.propose(head.userId, {
+        kind: "blacklist_bounty",
+        cityId: 404,
+        bountyTarget: "Outlaw",
+        bounty: "20000",
+      }),
+    ).toEqual({ ok: false, code: "unknown_target" });
+    const input = { kind: "blacklist_bounty", cityId: 7, bountyTarget: "Outlaw", bounty: "20000" } as const;
+    const opened = await gov.service.propose(head.userId, input);
+    if (!opened.ok) throw new Error(opened.code);
+    expect(checks.at(-1)).toMatchObject({
+      nationId: head.nation,
+      proposerId: head.userId,
+      cityId: 7,
+      targetName: "Outlaw",
+    });
+    // 같은 도시·대상의 열린 안건은 하나
+    expect(await gov.service.propose(head.userId, input)).toEqual({ ok: false, code: "already_open" });
+    // 의결 칸 올리기 목록에는 없다(정부 판 블랙리스트 칸이 연다). 안건 줄에 도시·대상·금액
+    const view = await gov.view(head.userId);
+    expect(view.canPropose).not.toContain("blacklist_bounty");
+    expect(view.agendas.find((agenda) => agenda.id === opened.agendaId)?.bounty).toEqual({
+      cityId: 7,
+      userId: TARGET,
+      name: null,
+      amount: "20000",
+    });
+    await gov.service.vote(head.userId, opened.agendaId, "yes");
+    await gov.service.tick();
+    if (
+      (await gov.view(head.userId)).agendas.find((agenda) => agenda.id === opened.agendaId)?.status === "open"
+    ) {
+      clock += rules.periodOf("blacklist_bounty");
+      await gov.service.tick();
+    }
+    expect(
+      (await gov.view(head.userId)).agendas.find((agenda) => agenda.id === opened.agendaId)?.status,
+    ).toBe("enacted");
+    expect(applied).toEqual([
+      {
+        nationId: head.nation,
+        agendaId: opened.agendaId,
+        proposerId: head.userId,
+        terms: { cityId: 7, bountyUserId: TARGET, bounty: "20000" },
+        nowMs: clock,
+      },
+    ]);
+    gov.stop();
+  }, 120_000);
 });

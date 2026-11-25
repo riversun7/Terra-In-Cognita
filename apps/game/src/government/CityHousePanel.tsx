@@ -1,6 +1,8 @@
 // 정부 판의 [가문 도시 가입 · 추방 · 블랙리스트] 칸 — ADR 2026-11-25-house-city-approval-and-blacklist.md.
 // - 모두에게: 이 도시의 가입 승인 방식(시장/원수/자동 + 최소 우호도), 가문 가입 신청 버튼(또는 차단 사유 + 적대 거주 유닛 경고), 나라 블랙리스트(현상수배) 목록.
 // - 통치 권한자(canSetPolicy / canManage): 가입 승인 정책 저장, 대기 중인 가입 신청 승인/거절, 소속 가문 추방, 블랙리스트 등록/해제.
+// - 현상금(ADR 2026-11-25-blacklist-bounty-vote.md): 도시 정책이 투표 없이 걸 수 있는 한 건 상한을 정하고(정책 칸), 그 상한을 넘거나
+//   그 도시를 가진 가문의 가문장이 아닌 사람이 거는 현상금은 나라 의결 안건(gov_propose blacklist_bounty)으로 올린다.
 import type { CityJoinApprover, HouseCityTaxSetter } from "@terra/protocol";
 import {
   type GovernmentCityMembership,
@@ -8,6 +10,8 @@ import {
   type HouseCityTaxSetterKind,
 } from "@terra/shared/government";
 import { useId, useState } from "react";
+import { sendGovernance } from "../faction/governance/governanceCommands.ts";
+import { GOVERNANCE_ERROR_TEXT } from "../faction/governance/governanceText.ts";
 import { sendHouseMember } from "../faction/identity/houseCommands.ts";
 import { HOUSE_ACTION_TEXT, HOUSE_MEMBER_ERROR_TEXT } from "../faction/identity/houseText.ts";
 import { m } from "../paraglide/messages.js";
@@ -40,6 +44,7 @@ export function CityHousePanel({
   const [blName, setBlName] = useState("");
   const [blBounty, setBlBounty] = useState("0");
   const [blReason, setBlReason] = useState("");
+  const [bountyMaxDraft, setBountyMaxDraft] = useState<string>(membership.bounty?.ownMax ?? "");
   const [taxAmountDraft, setTaxAmountDraft] = useState<string>(membership.houseCityTax?.ownAmount ?? "");
   const [taxPeriodDraft, setTaxPeriodDraft] = useState<string>(
     String(membership.houseCityTax?.periodDays ?? 7),
@@ -70,6 +75,49 @@ export function CityHousePanel({
       setBusy(false);
     }
   };
+
+  /** 현상금을 나라 의결 안건으로 올린다(도시 상한을 넘거나 내가 이 도시를 가진 가문의 가문장이 아닐 때) */
+  const proposeBounty = async (
+    name: string,
+    bounty: string,
+    reason: string,
+    onSuccess: () => void,
+  ): Promise<void> => {
+    if (busy) return;
+    setBusy(true);
+    notice.clear();
+    problem.clear();
+    try {
+      const outcome = await sendGovernance({
+        t: "gov_propose",
+        kind: "blacklist_bounty",
+        cityId,
+        bountyTarget: name,
+        bounty,
+        ...(reason ? { reason } : {}),
+      });
+      if (outcome.ok) {
+        notice.show([outcome.action === "decided" ? m.gov_blacklist_decided() : m.gov_blacklist_proposed()]);
+        onSuccess();
+      } else problem.show([GOVERNANCE_ERROR_TEXT[outcome.code]()]);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const clearBlacklistForm = (): void => {
+    setBlName("");
+    setBlBounty("0");
+    setBlReason("");
+  };
+  const bountyInfo = shown.bounty;
+  /** 지금 적은 현상금이 의결 안건으로 가나(서버가 한도를 알려 줬을 때만 가른다) */
+  const bountyDraft = /^(0|[1-9][0-9]{0,30})$/.test(blBounty.trim() || "0")
+    ? BigInt(blBounty.trim() || "0")
+    : 0n;
+  const bountyByVote =
+    bountyInfo !== undefined &&
+    bountyDraft > 0n &&
+    (bountyDraft > BigInt(bountyInfo.max) || !bountyInfo.canPost);
 
   return (
     <section
@@ -160,6 +208,18 @@ export function CityHousePanel({
                 disabled={busy}
                 onChange={(e) => setMinStandingDraft(e.target.value)}
               />
+              {bountyInfo ? (
+                <input
+                  className="gov-entry-input"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder={m.gov_city_bounty_max_input()}
+                  aria-label={m.gov_city_bounty_max_input()}
+                  value={bountyMaxDraft}
+                  disabled={busy}
+                  onChange={(e) => setBountyMaxDraft(e.target.value)}
+                />
+              ) : null}
               <button
                 type="button"
                 className="button-small"
@@ -175,6 +235,13 @@ export function CityHousePanel({
                     problem.show([m.government_entry_invalid()]);
                     return;
                   }
+                  // 현상금 상한(서버가 한도를 알려 줬을 때만 보낸다): 비우면 기본값, 설정 칸 상한보다 큰 값은 서버가 줄여 적는다
+                  const capText = bountyMaxDraft.trim();
+                  if (bountyInfo && capText !== "" && !/^(0|[1-9][0-9]{0,30})$/.test(capText)) {
+                    problem.show([m.government_entry_invalid()]);
+                    return;
+                  }
+                  const ownMax = capText === "" ? null : capText;
                   void runAction(
                     () =>
                       sendHouseMember({
@@ -182,15 +249,24 @@ export function CityHousePanel({
                         cityId,
                         approver,
                         minStanding: parsed,
+                        ...(bountyInfo ? { bountyMax: ownMax } : {}),
                       }),
                     () => {
-                      setShown((prev) => ({
-                        ...prev,
-                        ownApprover: approver,
-                        approver: approver ?? prev.approver,
-                        ownMinStanding: parsed,
-                        minStanding: parsed ?? -20,
-                      }));
+                      setShown((prev) => {
+                        const cap = prev.bounty ? BigInt(prev.bounty.cap) : 0n;
+                        const asked = ownMax === null ? cap : BigInt(ownMax);
+                        const max = (asked > cap ? cap : asked).toString();
+                        return {
+                          ...prev,
+                          ownApprover: approver,
+                          approver: approver ?? prev.approver,
+                          ownMinStanding: parsed,
+                          minStanding: parsed ?? -20,
+                          ...(prev.bounty
+                            ? { bounty: { ...prev.bounty, max, ownMax: ownMax === null ? null : max } }
+                            : {}),
+                        };
+                      });
                     },
                   );
                 }}
@@ -464,6 +540,12 @@ export function CityHousePanel({
       <div data-part="gov-nation-blacklist">
         <h4 className="gov-section-title">{m.gov_blacklist_title()}</h4>
         <p className="gov-muted">{m.gov_blacklist_hint()}</p>
+        {bountyInfo ? (
+          <p className="gov-muted" data-part="gov-bounty-limit">
+            {m.gov_blacklist_bounty_limit({ max: formatAmount(bountyInfo.max) })}
+            {shown.canManage && !bountyInfo.canPost ? ` ${m.gov_blacklist_bounty_owner_only()}` : ""}
+          </p>
+        ) : null}
         {shown.blacklist.length === 0 ? (
           <p className="gov-muted">{m.gov_blacklist_empty()}</p>
         ) : (
@@ -477,6 +559,7 @@ export function CityHousePanel({
                       bounty: formatAmount(entry.bounty),
                       renown: entry.renownReward,
                     })}
+                    {entry.byVote ? ` · ${m.gov_blacklist_by_vote()}` : ""}
                     {entry.reason ? ` · ${entry.reason}` : ""}
                   </span>
                 </dt>
@@ -524,6 +607,15 @@ export function CityHousePanel({
                 return;
               }
               const reason = blReason.trim();
+              // 도시 상한을 넘거나 내가 이 도시를 가진 가문의 가문장이 아니면 나라 의결 안건으로
+              if (bountyByVote) {
+                if (!bountyInfo?.canPropose || !/^[1-9][0-9]{0,17}$/.test(bountyText)) {
+                  problem.show([m.government_entry_invalid()]);
+                  return;
+                }
+                void proposeBounty(name, bountyText, reason, clearBlacklistForm);
+                return;
+              }
               void runAction(
                 () =>
                   sendHouseMember({
@@ -534,11 +626,7 @@ export function CityHousePanel({
                     bounty: bountyText,
                     ...(reason ? { reason } : {}),
                   }),
-                () => {
-                  setBlName("");
-                  setBlBounty("0");
-                  setBlReason("");
-                },
+                clearBlacklistForm,
               );
             }}
           >
@@ -573,7 +661,7 @@ export function CityHousePanel({
               onChange={(e) => setBlReason(e.target.value)}
             />
             <button type="submit" className="button-small button-primary" disabled={busy || !blName.trim()}>
-              {m.gov_blacklist_add()}
+              {bountyByVote ? m.gov_blacklist_propose() : m.gov_blacklist_add()}
             </button>
           </form>
         ) : null}

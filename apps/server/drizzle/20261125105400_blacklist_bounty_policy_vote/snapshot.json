@@ -1,0 +1,81 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "8f7e08cf-8047-470b-8f7f-a4e060598a33",
+  "prevIds": [
+    "b6354967-0a5d-4f2a-9bbe-9359787cab7f"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "city_policies",
+        "bounty_max"
+      ],
+      "writes": [
+        "s|col|public.city_policies.bounty_max",
+        "n|col|public.city_policies.bounty_max",
+        "e|col|public.city_policies.bounty_max"
+      ],
+      "reads": [
+        "n|tbl|public.city_policies",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "nation_blacklist",
+        "bounty_agenda_id"
+      ],
+      "writes": [
+        "s|col|public.nation_blacklist.bounty_agenda_id",
+        "n|col|public.nation_blacklist.bounty_agenda_id",
+        "e|col|public.nation_blacklist.bounty_agenda_id"
+      ],
+      "reads": [
+        "n|tbl|public.nation_blacklist",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "city_policies",
+        "name": "bounty_max",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "nation_blacklist",
+        "name": "bounty_agenda_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

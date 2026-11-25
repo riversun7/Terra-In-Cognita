@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-25 20:15 | 현상금 도시 상한·의결 안건, 가문 없는 정부 건설은 지배 가문이 빈 상태 | Claude Code | [25-2015-bounty-vote-and-vacant-government](worklog/2026/11/25-2015-bounty-vote-and-vacant-government.md) |
 | 2026-11-25 19:40 | 크리쳐 도감 다시 짜기: 스탯 합 앞·6스탯 분포·정렬·필터·기술 슬롯·속성 아이콘·분류 대·중·소 | Claude Code | [25-1940-creature-dex-rework](worklog/2026/11/25-1940-creature-dex-rework.md) |
 |  | 크리쳐 편집기 6스탯 순서를 공식 화면 순서(STR·VIT·INT·WIS·DEX·AGI)로 수정 |  | [25-1938-creature-6stat-order](worklog/2026/11/25-1938-creature-6stat-order.md) |
 |  | 크리쳐 편집기 속성 아이콘을 유닛창과 동일한 스타일로 통일 |  | [25-1931-creature-editor-element-icons](worklog/2026/11/25-1931-creature-editor-element-icons.md) |

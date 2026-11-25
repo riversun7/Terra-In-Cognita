@@ -24,6 +24,10 @@ export type GovernanceRequest =
       readonly minPrice?: string;
       /** 국고 지분 사기(D-587 질문 2479 나 — shares/TreasuryShares.tsx): 1주 가장 높은 값 */
       readonly maxPrice?: string;
+      /** 블랙리스트 현상금 승인(정부 판 블랙리스트 칸 government/CityHousePanel.tsx): 대상 사이보그 이름·금액·사유(도시는 cityId) */
+      readonly bountyTarget?: string;
+      readonly bounty?: string;
+      readonly reason?: string;
     }
   | { readonly t: "gov_vote"; readonly agendaId: number; readonly choice: string }
   | { readonly t: "gov_candidate"; readonly agendaId: number }

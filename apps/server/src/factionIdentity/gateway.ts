@@ -222,7 +222,13 @@ function runMember(
         : Promise.resolve(memberFail("busy"));
     case "house_join_policy":
       return cityJoin
-        ? cityJoin.setJoinPolicy(userId, message.cityId, message.approver, message.minStanding)
+        ? cityJoin.setJoinPolicy(
+            userId,
+            message.cityId,
+            message.approver,
+            message.minStanding,
+            message.bountyMax,
+          )
         : Promise.resolve(memberFail("busy"));
     case "house_city_leave":
       return cityJoin ? cityJoin.leaveCity(userId) : Promise.resolve(memberFail("busy"));

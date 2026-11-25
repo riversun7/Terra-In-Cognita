@@ -73,6 +73,7 @@ async function setup(o: {
     bounty: "500",
     renown_reward: 15,
     created_at_ms: "100",
+    bounty_agenda_id: null,
     ...o.row,
   };
   const tableQuery = vi.fn().mockResolvedValue({ rows: [row] });
@@ -182,6 +183,16 @@ describe("블랙리스트 사냥 보상(blacklistReward)", () => {
     expect(capped.step({ seed: 1 }, outcomeOf([HUNTER_UNIT], "returned"), 2_000)).toBe(1);
     expect(capped.balance(HUNTER_OWNER)).toBe(700n);
     expect(capped.balance(CITY_TREASURY)).toBe(1_300n);
+
+    // 나라 의결로 승인된 현상금은 그 금액 그대로(상한은 투표 없이 건 현상금에만 — ADR 2026-11-25-blacklist-bounty-vote.md)
+    const voted = await setup({
+      cityFunds: 30_000n,
+      row: { bounty: "20000", bounty_agenda_id: "7" },
+      bountyMax: 700n,
+    });
+    expect(voted.step({ seed: 1 }, outcomeOf([HUNTER_UNIT], "returned"), 2_000)).toBe(1);
+    expect(voted.balance(HUNTER_OWNER)).toBe(20_000n);
+    expect(voted.balance(CITY_TREASURY)).toBe(10_000n);
 
     const noCity = await setup({ cityFunds: 2_000n, row: { city_id: null, city_faction_id: null } });
     expect(noCity.step({ seed: 1 }, outcomeOf([HUNTER_UNIT], "returned"), 2_000)).toBe(1);

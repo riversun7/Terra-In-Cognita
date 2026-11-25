@@ -3,7 +3,7 @@
 // TEST_DATABASE_URL이 있을 때만 돈다.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
-import { createNationBlacklistService, listNationBlacklist } from "./blacklist.ts";
+import { createBountyAgenda, createNationBlacklistService, listNationBlacklist } from "./blacklist.ts";
 import { createHouseCityJoin, readCityMembership } from "./houseCityJoin.ts";
 import { TEST_HOUSE_RULES } from "./rules.ts";
 
@@ -297,6 +297,105 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 도시 가입 승인·탈퇴·추방
       (await listNationBlacklist(test.db.$client, mayorHouse.id)).find((b) => b.userId === bad.leader.id)
         ?.bounty,
     ).toBe("5000");
+    // 도시 상한(ADR 2026-11-25-blacklist-bounty-vote.md): 도시 정책이 투표 없이 걸 수 있는 한 건 상한을 정한다. 설정 칸(5,000)보다 큰
+    // 값은 설정 칸으로 줄여 적고, 그 상한을 넘는 현상금은 상한으로 줄여 적힌다
+    const policyNow = await rows<{ join_approver: string | null; join_min_standing: number | null }>(
+      test.db,
+      "select join_approver, join_min_standing from city_policies where city_id = $1",
+      [PLAYER_CITY],
+    );
+    // 가입 정책 두 칸은 지금 값 그대로 보낸다(이 시험은 현상금 상한만 바꾼다)
+    const rawApprover = policyNow[0]?.join_approver;
+    const keepApprover =
+      rawApprover === "mayor" || rawApprover === "leader" || rawApprover === "auto" ? rawApprover : null;
+    const keepStanding = policyNow[0]?.join_min_standing ?? null;
+    expect(
+      await joinService().setJoinPolicy(
+        mayorHouse.leader.id,
+        PLAYER_CITY,
+        keepApprover,
+        keepStanding,
+        "999999",
+      ),
+    ).toMatchObject({ ok: true, action: "join_policy_set" });
+    expect(
+      await rows(test.db, "select bounty_max from city_policies where city_id = $1", [PLAYER_CITY]),
+    ).toEqual([{ bounty_max: "5000" }]);
+    await joinService().setJoinPolicy(mayorHouse.leader.id, PLAYER_CITY, keepApprover, keepStanding, "3000");
+    await blacklistService().handle(mayorHouse.leader.id, {
+      action: "add",
+      cityId: PLAYER_CITY,
+      targetName: bad.leader.name,
+      bounty: "4000",
+    });
+    expect(
+      (await listNationBlacklist(test.db.$client, mayorHouse.id)).find((b) => b.userId === bad.leader.id),
+    ).toMatchObject({ bounty: "3000" });
+    // 정부 판: 상한·내가 걸 수 있나·안건으로 올릴 수 있나
+    const membership = await readCityMembership(test.db.$client, {
+      cityId: PLAYER_CITY,
+      viewerId: mayorHouse.leader.id,
+      nowMs: clock,
+      rules: TEST_HOUSE_RULES,
+      viewerInCity: true,
+    });
+    expect(membership?.bounty).toEqual({
+      max: "3000",
+      ownMax: "3000",
+      cap: "5000",
+      canPost: true,
+      canPropose: true,
+    });
+    // 칸을 보내지 않으면 상한은 그대로, null이면 기본값(설정 칸)
+    await joinService().setJoinPolicy(mayorHouse.leader.id, PLAYER_CITY, keepApprover, keepStanding);
+    expect(
+      await rows(test.db, "select bounty_max from city_policies where city_id = $1", [PLAYER_CITY]),
+    ).toEqual([{ bounty_max: "3000" }]);
+    await joinService().setJoinPolicy(mayorHouse.leader.id, PLAYER_CITY, keepApprover, keepStanding, null);
+    expect(
+      await rows(test.db, "select bounty_max from city_policies where city_id = $1", [PLAYER_CITY]),
+    ).toEqual([{ bounty_max: null }]);
+    // 상한을 넘는 현상금은 나라 의결 안건으로(고리 — createBountyAgenda): 올릴 자격·도시·대상을 보고, 가결되면 그 금액 그대로 올린다
+    const agenda = createBountyAgenda({ pool: test.db.$client });
+    const proposal = {
+      nationId: mayorHouse.id,
+      proposerId: mayorHouse.leader.id,
+      cityId: PLAYER_CITY,
+      targetName: bad.leader.name,
+      bounty: "20000",
+    };
+    expect(await agenda.check({ ...proposal, nationId: npcNation })).toBe("unknown_target");
+    expect(await agenda.check({ ...proposal, proposerId: bad.leader.id })).toBe("not_eligible");
+    expect(await agenda.check({ ...proposal, targetName: mayorHouse.leader.name })).toBe("unknown_target");
+    expect(await agenda.check({ ...proposal, targetName: "Nobody_such_name" })).toBe("unknown_target");
+    expect(await agenda.check({ ...proposal, bounty: "0" })).toBe("invalid_choice");
+    const terms = await agenda.check(proposal);
+    if (typeof terms === "string") throw new Error(terms);
+    expect(terms).toEqual({ cityId: PLAYER_CITY, bountyUserId: bad.leader.id, bounty: "20000" });
+    expect(
+      await agenda.apply({
+        nationId: mayorHouse.id,
+        agendaId: 77,
+        proposerId: mayorHouse.leader.id,
+        terms,
+        nowMs: clock,
+      }),
+    ).toBe(true);
+    expect(
+      (await listNationBlacklist(test.db.$client, mayorHouse.id)).find((b) => b.userId === bad.leader.id),
+    ).toMatchObject({ bounty: "20000", byVote: true });
+    // 바로 다시 걸면(쉬는 시간 없음) 상한 안의 보통 현상금으로 바뀐다
+    await blacklistService().handle(mayorHouse.leader.id, {
+      action: "add",
+      cityId: PLAYER_CITY,
+      targetName: bad.leader.name,
+      bounty: "9999",
+    });
+    const replaced = (await listNationBlacklist(test.db.$client, mayorHouse.id)).find(
+      (b) => b.userId === bad.leader.id,
+    );
+    expect(replaced?.bounty).toBe("5000");
+    expect(replaced?.byVote).toBeUndefined();
     // 남의 도시에는 등록도 현상금도 못 한다(그 도시를 가진 가문의 가문장이 아니다)
     expect(
       await blacklistService().handle(bad.leader.id, {

@@ -252,6 +252,11 @@ export const cityPolicies = pgTable("city_policies", {
   joinApprover: text("join_approver"),
   /** 자동 승인 최소 우호도 문턱(−100~100, null = 기본 −20). 이 값 미만이면 자동 차단 */
   joinMinStanding: integer("join_min_standing"),
+  /**
+   * 블랙리스트 현상금 한 건의 도시 상한(최소 단위 정수 — ADR 2026-11-25-blacklist-bounty-vote.md). 도시 정책을 정하는 사람이 투표 없이
+   * 정한다. null = 설정 칸 house_blacklist_bounty_max(읽을 때 그 값으로 자른다). 이 값을 넘는 현상금은 나라 의결 안건으로 올린다
+   */
+  bountyMax: bigint("bounty_max", { mode: "bigint" }),
   /** 가문 도시세 1주기당 일정액(최소 단위 정수, null 또는 0 = 비과세 — ADR 2026-11-25-house-city-tax.md) */
   houseCityTaxAmount: bigint("house_city_tax_amount", { mode: "bigint" }),
   /** 가문 도시세 납부 주기(일: 1 | 3 | 7 | 14, null = 기본 7일) */
@@ -334,6 +339,11 @@ export const nationBlacklist = pgTable(
     renownReward: integer("renown_reward").notNull().default(10),
     createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
     createdAtMs: bigint("created_at_ms", { mode: "number" }).notNull(),
+    /**
+     * 이 현상금을 승인한 나라 의결 안건(governance_agendas.id — ADR 2026-11-25-blacklist-bounty-vote.md). null = 시장이 도시 상한 안에서
+     * 바로 건 현상금(줄 때 상한으로 자른다), 값이 있으면 의결로 승인된 금액이라 자르지 않는다
+     */
+    bountyAgendaId: bigint("bounty_agenda_id", { mode: "number" }),
   },
   (table) => [
     uniqueIndex("nation_blacklist_nation_user_idx").on(table.nationId, table.userId),

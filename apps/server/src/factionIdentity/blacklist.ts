@@ -6,7 +6,11 @@
 //      준다(blacklistReward.ts).
 // - 현상금 제한(사용자 결정 2026-11-25, ADR 2026-11-25-blacklist-bounty-limits.md): 현상금은 그 도시를 가진 가문의 가문장(시장)만
 //   자기 도시 국고에서 걸고(남의 도시·나라 국고로는 걸지 못한다 — not_ruler), 한 건은 설정 칸 house_blacklist_bounty_max로 줄여
-//   적으며, 한 번 주면 0이 된다. 나라 국고를 쓰는 큰 현상금은 의결(투표)을 거쳐야 한다 — 아직 만들지 않았다.
+//   적으며, 한 번 주면 0이 된다.
+// - 도시 상한·의결(사용자 결정 2026-11-25 "정책에서 투표없이 상한 정하고 그 이상은 투표안건", ADR 2026-11-25-blacklist-bounty-vote.md):
+//   도시 정책(city_policies.bounty_max)이 그 도시에서 투표 없이 걸 수 있는 한 건 상한을 정한다(설정 칸보다 클 수 없다). 그보다 큰
+//   현상금은 나라 의결 안건(blacklist_bounty — governance/service.ts)으로 올리고, 가결되면 createBountyAgenda.apply가 그 금액으로
+//   올린다(bounty_agenda_id가 있어 상한으로 자르지 않는다). 다시 등록에 쉬는 시간은 없다.
 //   3) 가문 도시 가입 신청·승인 시 가문원 중 블랙리스트 유저가 있으면 차단한다(houseCityJoin.ts).
 import type { GovernmentBlacklistRow } from "@terra/shared/government";
 import { hasUnstorableText } from "@terra/shared";
@@ -35,6 +39,8 @@ export interface BlacklistEntry {
   readonly reason: string | null;
   /** 남은 현상금(한 번 주면 0 — claimBounty) */
   readonly bounty: bigint;
+  /** 나라 의결로 승인된 현상금인가(줄 때 상한으로 자르지 않는다) */
+  readonly byVote: boolean;
   readonly renownReward: number;
   readonly createdAtMs: number;
 }
@@ -113,7 +119,7 @@ export function attachBlacklist(parts: {
     async reload() {
       const { rows } = await parts.pool.query(
         `select b.id, b.nation_id, b.city_id, c.faction_id as city_faction_id, b.user_id, b.created_by, b.reason,
-                b.bounty::text as bounty, b.renown_reward, b.created_at_ms
+                b.bounty::text as bounty, b.renown_reward, b.created_at_ms, b.bounty_agenda_id
            from nation_blacklist b left join world_cities c on c.id = b.city_id
           order by b.nation_id, b.id`,
       );
@@ -142,6 +148,7 @@ export function attachBlacklist(parts: {
               typeof row.bounty === "bigint")
               ? BigInt(row.bounty)
               : 0n,
+          byVote: row.bounty_agenda_id !== null && row.bounty_agenda_id !== undefined,
           renownReward: Number(row.renown_reward ?? DEFAULT_BLACKLIST_RENOWN_REWARD),
           createdAtMs,
         };
@@ -180,9 +187,10 @@ export async function listNationBlacklist(
     bounty: string;
     renown_reward: number;
     created_at_ms: string;
+    bounty_agenda_id: string | null;
   }>(
     `select b.id, b.user_id, c.name as cyborg_name, b.reason, b.bounty::text as bounty,
-            b.renown_reward, b.created_at_ms
+            b.renown_reward, b.created_at_ms, b.bounty_agenda_id
        from nation_blacklist b
        left join cyborgs c on c.user_id = b.user_id
       where b.nation_id = $1
@@ -198,7 +206,25 @@ export async function listNationBlacklist(
     bounty: row.bounty,
     renownReward: row.renown_reward,
     createdAtMs: Number(row.created_at_ms),
+    ...(row.bounty_agenda_id === null ? {} : { byVote: true }),
   }));
+}
+
+/** 그 도시에서 투표 없이 걸 수 있는 현상금 한 건 상한: 도시 정책 값(없으면 설정 칸), 설정 칸보다 클 수 없다 */
+export function effectiveBountyMax(cap: bigint, own: bigint | null): bigint {
+  const max = cap > 0n ? cap : 0n;
+  if (own === null) return max;
+  return own < 0n ? 0n : own < max ? own : max;
+}
+
+/** 도시 정책에 저장한 현상금 상한(없으면 null) */
+export async function readCityBountyMax(q: IdentityQueryable, cityId: number): Promise<bigint | null> {
+  const { rows } = await q.query<{ bounty_max: string | null }>(
+    "select bounty_max::text as bounty_max from city_policies where city_id = $1",
+    [cityId],
+  );
+  const raw = rows[0]?.bounty_max;
+  return raw === null || raw === undefined ? null : BigInt(raw);
 }
 
 export interface NationBlacklistRequest {
@@ -220,7 +246,7 @@ const fail = (code: Extract<HouseMemberResult, { ok: false }>["code"]): HouseMem
 });
 
 /** 도시 주인 가문장(시장) 또는 그 도시 나라의 지도자(독립 나라·선출 지배 가문장)인가 */
-async function isCityOrNationRuler(
+export async function isCityOrNationRuler(
   q: IdentityQueryable,
   houseId: number,
   cityId: number,
@@ -283,7 +309,8 @@ export function createNationBlacklistService(o: {
           // 현상금은 그 도시를 가진 가문의 가문장만 자기 도시 국고에서 건다(나라 지도자가 남의 도시·나라 국고로 걸지 못한다),
           // 한 건은 상한으로 줄여 적는다(사용자 결정 2026-11-25)
           if (asked > 0n && !(await ruledBy(q, mine.factionId)).cities.has(city.id)) return fail("not_ruler");
-          const max = o.bountyMax?.() ?? 0n;
+          // 도시 상한(도시 정책, 없으면 설정 칸)을 넘는 값은 줄여 적는다 — 더 큰 현상금은 나라 의결 안건으로 올린다
+          const max = effectiveBountyMax(o.bountyMax?.() ?? 0n, await readCityBountyMax(q, city.id));
           const bounty = asked > max ? max : asked;
           const now = o.now();
           await q.query(
@@ -296,7 +323,8 @@ export function createNationBlacklistService(o: {
                    bounty = excluded.bounty,
                    renown_reward = excluded.renown_reward,
                    created_by = excluded.created_by,
-                   created_at_ms = excluded.created_at_ms`,
+                   created_at_ms = excluded.created_at_ms,
+                   bounty_agenda_id = null`,
             [
               city.nationId,
               city.id,
@@ -342,6 +370,106 @@ export function createNationBlacklistService(o: {
         });
       }
       return result;
+    },
+  };
+}
+
+/** 현상금 승인 안건의 내용(나라 의결 안건 payload에 들어간다) */
+export interface BountyAgendaTerms {
+  readonly cityId: number;
+  readonly bountyUserId: string;
+  /** 현상금(최소 단위 10진 글자, 1 이상) */
+  readonly bounty: string;
+  readonly bountyReason?: string;
+}
+
+/** 나라 의결의 현상금 안건 고리(governance/service.ts가 부른다 — ADR 2026-11-25-blacklist-bounty-vote.md) */
+export interface BountyAgendaPort {
+  /**
+   * 안건을 올릴 수 있나: 그 도시가 그 나라 도시이고, 올리는 사람이 그 도시에 블랙리스트를 올릴 수 있는 가문장(시장·나라 지도자)이며,
+   * 대상이 있는 사용자(자기 자신 아님)이고 금액이 1 이상이어야 한다. 틀리면 결과 코드
+   */
+  check(input: {
+    readonly nationId: number;
+    readonly proposerId: string;
+    readonly cityId?: number | undefined;
+    /** 대상 사이보그 이름(블랙리스트 등록과 같은 찾기) */
+    readonly targetName?: string | undefined;
+    readonly bounty?: string | undefined;
+    readonly reason?: string | undefined;
+  }): Promise<BountyAgendaTerms | "unknown_target" | "invalid_choice" | "not_eligible">;
+  /** 가결된 현상금을 블랙리스트에 올린다(그 금액 그대로 — 상한으로 자르지 않는다). 도시·대상이 사라졌으면 false */
+  apply(input: {
+    readonly nationId: number;
+    readonly agendaId: number;
+    readonly proposerId: string | null;
+    readonly terms: BountyAgendaTerms;
+    readonly nowMs: number;
+  }): Promise<boolean>;
+}
+
+export function createBountyAgenda(o: {
+  readonly pool: HouseTxPool;
+  readonly afterChange?: (() => Promise<void>) | undefined;
+}): BountyAgendaPort {
+  return {
+    async check(input) {
+      if (input.cityId === undefined || input.targetName === undefined || input.bounty === undefined)
+        return "invalid_choice";
+      if (!/^[1-9][0-9]{0,17}$/.test(input.bounty)) return "invalid_choice";
+      const reason = input.reason?.trim() ?? "";
+      if (reason.length > 0 && hasUnstorableText({ reason })) return "invalid_choice";
+      const cityId = input.cityId;
+      const targetName = input.targetName;
+      return inTransaction(o.pool, async (q) => {
+        const city = await cityHome(q, cityId);
+        if (!city || city.nationId !== input.nationId) return "unknown_target";
+        const mine = await membershipOf(q, input.proposerId);
+        if (!mine || mine.role !== "leader") return "not_eligible";
+        if (!(await isCityOrNationRuler(q, mine.factionId, city.id, city.nationId))) return "not_eligible";
+        const target = await resolveTargetUser(q, { targetName });
+        if (!target || target === input.proposerId) return "unknown_target";
+        return {
+          cityId: city.id,
+          bountyUserId: target,
+          bounty: input.bounty ?? "0",
+          ...(reason.length > 0 ? { bountyReason: reason.slice(0, 200) } : {}),
+        };
+      });
+    },
+    async apply(input) {
+      const done = await inTransaction(o.pool, async (q) => {
+        const city = await cityHome(q, input.terms.cityId);
+        if (!city || city.nationId !== input.nationId) return false;
+        const target = await resolveTargetUser(q, { targetUserId: input.terms.bountyUserId });
+        if (!target) return false;
+        await q.query(
+          `insert into nation_blacklist
+             (nation_id, city_id, user_id, reason, bounty, renown_reward, created_by, created_at_ms, bounty_agenda_id)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           on conflict (nation_id, user_id) do update
+             set city_id = excluded.city_id,
+                 reason = coalesce(excluded.reason, nation_blacklist.reason),
+                 bounty = excluded.bounty,
+                 created_by = excluded.created_by,
+                 created_at_ms = excluded.created_at_ms,
+                 bounty_agenda_id = excluded.bounty_agenda_id`,
+          [
+            city.nationId,
+            city.id,
+            target,
+            input.terms.bountyReason ?? null,
+            input.terms.bounty,
+            DEFAULT_BLACKLIST_RENOWN_REWARD,
+            input.proposerId,
+            input.nowMs,
+            input.agendaId,
+          ],
+        );
+        return true;
+      });
+      if (done) await o.afterChange?.();
+      return done;
     },
   };
 }

@@ -18,6 +18,7 @@ export const AGENDA_KIND_TEXT = {
   house_independence: m.gov_kind_house_independence,
   treasury_share_buy: m.gov_kind_treasury_share_buy,
   treaty: m.gov_kind_treaty,
+  blacklist_bounty: m.gov_kind_blacklist_bounty,
 } satisfies Record<AgendaKind, Text>;
 
 export const AGENDA_STATUS_TEXT = {

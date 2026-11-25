@@ -19,7 +19,10 @@ export interface BlacklistRewardParts {
   readonly owners: ReadonlyMap<number, Pick<OwnerRow, "id" | "userId" | "factionId">>;
   readonly cyborgs: Pick<CyborgService, "addRenown">;
   readonly ledger: Pick<Ledger, "balanceOf" | "ownerAccount" | "post">;
-  /** 현상금 한 건 상한(설정 칸 house_blacklist_bounty_max — 옛 규칙으로 적힌 큰 현상금도 줄 때 이 값으로 자른다). 없으면 자르지 않는다 */
+  /**
+   * 현상금 한 건 상한(설정 칸 house_blacklist_bounty_max — 옛 규칙으로 적힌 큰 현상금도 줄 때 이 값으로 자른다). 없으면 자르지 않는다.
+   * 나라 의결로 승인된 현상금(byVote)은 자르지 않는다
+   */
   readonly bountyMax?: (() => bigint) | undefined;
   readonly pool?: QueryPool | undefined;
   readonly log?: { error(obj: object, message: string): void } | undefined;
@@ -93,7 +96,8 @@ export function blacklistReward(parts: BlacklistRewardParts): (
             const asset = moneyOf(parts.ledger, treasury);
             const available = parts.ledger.balanceOf(treasury, asset);
             const max = parts.bountyMax?.();
-            const posted = max !== undefined && entry.bounty > max ? max : entry.bounty;
+            // 의결로 승인된 현상금은 그 금액 그대로(상한은 투표 없이 건 현상금에만)
+            const posted = !entry.byVote && max !== undefined && entry.bounty > max ? max : entry.bounty;
             const totalPay = posted < available ? posted : available;
             if (totalPay > 0n) {
               const count = BigInt(hunters.length);

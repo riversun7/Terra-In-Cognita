@@ -17,7 +17,12 @@ import { writeAudit } from "../auth/store.ts";
 import type { CyborgService } from "../cyborg/service.ts";
 import type { Database } from "../db/client.ts";
 import type { NationPreset } from "../npc/nations.ts";
-import { listNationBlacklist } from "./blacklist.ts";
+import {
+  effectiveBountyMax,
+  isCityOrNationRuler,
+  listNationBlacklist,
+  readCityBountyMax,
+} from "./blacklist.ts";
 import {
   type HouseEntryCharge,
   type HouseMovePersistence,
@@ -178,6 +183,11 @@ export interface HouseCityJoinService {
     cityId: number,
     approver: CityJoinApprover | null,
     minStanding: number | null,
+    /**
+     * 블랙리스트 현상금 한 건의 도시 상한(최소 단위 10진 글자, null = 기본값 = 설정 칸, 없으면 바꾸지 않는다 — 설정 칸보다 큰 값은 설정
+     * 칸으로 줄여 적는다, ADR 2026-11-25-blacklist-bounty-vote.md)
+     */
+    bountyMax?: string | null,
   ): Promise<HouseMemberResult>;
   leaveCity(leaderId: string): Promise<HouseMemberResult>;
   expelHouse(actorId: string, cityId: number, targetHouseId: number): Promise<HouseMemberResult>;
@@ -470,7 +480,7 @@ export function createHouseCityJoin(o: HouseCityJoinOptions): HouseCityJoinServi
       return result;
     },
 
-    async setJoinPolicy(actorId, cityId, approver, minStanding) {
+    async setJoinPolicy(actorId, cityId, approver, minStanding, bountyMax) {
       let audit = null as Record<string, unknown> | null;
       const result = await inTransaction(o.pool, async (q): Promise<HouseMemberResult> => {
         const mine = await membershipOf(q, actorId);
@@ -491,7 +501,21 @@ export function createHouseCityJoin(o: HouseCityJoinOptions): HouseCityJoinServi
                  set_by = excluded.set_by`,
           [city.id, approver, minStanding, now, actorId],
         );
-        audit = { factionId: mine.factionId, cityId: city.id, approver, minStanding };
+        // 현상금 도시 상한(칸을 보냈을 때만): 설정 칸 상한보다 클 수 없다
+        let bounty: string | null | undefined;
+        if (bountyMax !== undefined) {
+          const cap = o.rules().blacklistBountyMax;
+          const asked = bountyMax === null ? null : BigInt(bountyMax);
+          bounty = asked === null ? null : (asked > cap ? cap : asked).toString();
+          await q.query("update city_policies set bounty_max = $2 where city_id = $1", [city.id, bounty]);
+        }
+        audit = {
+          factionId: mine.factionId,
+          cityId: city.id,
+          approver,
+          minStanding,
+          ...(bounty === undefined ? {} : { bountyMax: bounty }),
+        };
         return { ok: true, action: "join_policy_set", factionId: mine.factionId };
       });
       if (audit && o.db) {
@@ -671,10 +695,11 @@ export async function readCityMembership(
 ): Promise<GovernmentCityMembership | null> {
   const city = await cityHome(q, input.cityId);
   if (!city) return null;
-  const [policy, mine, blacklist] = await Promise.all([
+  const [policy, mine, blacklist, ownBountyMax] = await Promise.all([
     readCityPolicyRow(q, city.id),
     membershipOf(q, input.viewerId),
     listNationBlacklist(q, city.nationId),
+    readCityBountyMax(q, city.id),
   ]);
   const approver = effectiveJoinApprover(policy.ownApprover, policy.isNpcCity);
   const minStanding = effectiveMinStanding(policy.ownMinStanding);
@@ -808,6 +833,14 @@ export async function readCityMembership(
     ownMinStanding: policy.ownMinStanding,
     canManage,
     canSetPolicy,
+    bounty: {
+      max: effectiveBountyMax(input.rules.blacklistBountyMax, ownBountyMax).toString(),
+      ownMax: ownBountyMax === null ? null : ownBountyMax.toString(),
+      cap: input.rules.blacklistBountyMax.toString(),
+      canPost: mine?.role === "leader" && (await ruledBy(q, mine.factionId)).cities.has(city.id),
+      canPropose:
+        mine?.role === "leader" && (await isCityOrNationRuler(q, mine.factionId, city.id, city.nationId)),
+    },
     canApply: applyBlock === null,
     applyBlock,
     hostileResidentUnits,

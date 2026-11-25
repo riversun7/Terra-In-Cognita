@@ -289,6 +289,8 @@ export interface GovernmentBlacklistRow {
   /** 사냥 명성·기여도 보상 */
   readonly renownReward: number;
   readonly createdAtMs: number;
+  /** 나라 의결로 승인된 현상금인가(도시 상한을 넘을 수 있다 — ADR 2026-11-25-blacklist-bounty-vote.md). 옛 서버는 없음 */
+  readonly byVote?: boolean | undefined;
 }
 
 /**
@@ -320,6 +322,21 @@ export interface GovernmentCityMembership {
   readonly houses: readonly GovernmentCityHouseRow[];
   /** 이 나라의 블랙리스트(모두에게 공개 — PVP 명분·현상금 확인) */
   readonly blacklist: readonly GovernmentBlacklistRow[];
+  /**
+   * 블랙리스트 현상금 한도(ADR 2026-11-25-blacklist-bounty-vote.md, 옛 서버는 없음): max = 지금 이 도시에서 투표 없이 걸 수 있는 한 건 상한
+   * (도시 정책 값, 없으면 설정 칸 — 설정 칸보다 클 수 없다), ownMax = 도시 정책에 저장한 값(null = 기본), cap = 설정 칸 상한(정책이 넘지
+   * 못한다), canPost = 보는 사람이 바로 걸 수 있나(그 도시를 가진 가문의 가문장), canPropose = 상한을 넘는 현상금을 나라 의결 안건으로 올릴
+   * 수 있나(이 도시에 블랙리스트를 올릴 수 있는 가문장). 모두 최소 단위 10진 글자
+   */
+  readonly bounty?:
+    | {
+        readonly max: string;
+        readonly ownMax: string | null;
+        readonly cap: string;
+        readonly canPost: boolean;
+        readonly canPropose: boolean;
+      }
+    | undefined;
   /** 가문 도시세 정책(ADR 2026-11-25-house-city-tax.md, 옛 서버는 없음) */
   readonly houseCityTax?: GovernmentHouseCityTax | null | undefined;
 }

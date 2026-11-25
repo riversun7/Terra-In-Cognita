@@ -548,6 +548,11 @@ export const houseJoinPolicyMessage = z.object({
   cityId: rowId,
   approver: z.enum(CITY_JOIN_APPROVERS).nullable(),
   minStanding: z.number().int().min(-100).max(100).nullable(),
+  /**
+   * 블랙리스트 현상금 한 건의 도시 상한(최소 단위 10진 글자, null = 기본값 = 설정 칸 house_blacklist_bounty_max). 칸이 없으면 바꾸지
+   * 않는다. 설정 칸보다 큰 값은 설정 칸으로 줄여 적는다(프로토콜 73부터 — docs/adr/2026-11-25-blacklist-bounty-vote.md)
+   */
+  bountyMax: amount.nullable().optional(),
 });
 
 /** 가문장이 현재 소속 도시·국가에서 탈퇴한다(재가입 대기 + 우호도 하락) */

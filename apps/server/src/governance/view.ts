@@ -41,6 +41,8 @@ const NOT_LISTED: ReadonlySet<AgendaKind> = new Set([
   "treasury_share_buy",
   // 조약 비준(D-588)은 외교 화면이 연다(diplomacy/)
   "treaty",
+  // 현상금 승인은 정부 판 블랙리스트 칸이 연다(ADR 2026-11-25-blacklist-bounty-vote.md)
+  "blacklist_bounty",
 ]);
 /** 끝난 쿠데타를 몇 개까지 보이나 */
 const RECENT_COUPS = 3;
@@ -92,9 +94,11 @@ export function createGovernanceView(o: {
       ),
     ];
     const ownerInfo = new Map(ownerIds.map((id) => [id, o.port.ownerInfo(id)]));
-    const userNames = await o.store.userNames(
-      [...ownerInfo.values()].flatMap((info) => (info?.userId ? [info.userId] : [])),
-    );
+    const userNames = await o.store.userNames([
+      ...[...ownerInfo.values()].flatMap((info) => (info?.userId ? [info.userId] : [])),
+      // 현상금 승인 안건의 대상(사이보그 이름)
+      ...agendas.flatMap((agenda) => (agenda.payload.bountyUserId ? [agenda.payload.bountyUserId] : [])),
+    ]);
     const others = o.port.nations().filter((row) => row.rowId !== nation.rowId);
     const factionRows = [
       nation.rowId,
@@ -161,6 +165,17 @@ export function createGovernanceView(o: {
         monetary: agenda.payload.monetaryMode
           ? { mode: agenda.payload.monetaryMode, rateBp: agenda.payload.monetaryRateBp ?? 0 }
           : null,
+        bounty:
+          agenda.payload.cityId !== undefined &&
+          agenda.payload.bountyUserId !== undefined &&
+          agenda.payload.bounty !== undefined
+            ? {
+                cityId: agenda.payload.cityId,
+                userId: agenda.payload.bountyUserId,
+                name: userNames.get(agenda.payload.bountyUserId) ?? null,
+                amount: agenda.payload.bounty,
+              }
+            : null,
         byAuthority: agenda.payload.byAuthority === true,
         proposer: agenda.proposerKey && isHouseKey(agenda.proposerKey) ? house(agenda.proposerKey) : null,
         openedAtMs: agenda.openedAtMs,

@@ -30,7 +30,7 @@ import type { WorldWriter } from "../world/persist/writer.ts";
 import { moneyBalance, moneyOf } from "../world/money.ts";
 import type { Settlement } from "../world/settlement.ts";
 import type { HouseTies } from "../world/houseTies.ts";
-import { type ClaimNotice, foundPersonalHouse, nameUnnamedHouses, writeClaimNotices } from "./claimHouse.ts";
+import { type ClaimNotice, nameUnnamedHouses, writeClaimNotices } from "./claimHouse.ts";
 import { type LandClaimKind, createLandClaims } from "./landClaim.ts";
 
 /** 정부 짓기 자리를 찾는 반지름(칸, 폐허 칸 둘레) */
@@ -181,23 +181,6 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
   };
   /** 이름 없는 가문에 자리표시 정체성을 붙였나(한 번만 — 실패하면 다음 틱에 다시) */
   let unnamed = false;
-  // 1인 가문 만들기(가문 없는 플레이어의 알박기 — claimHouse.ts): 사용자마다 한 번에 하나, 끝나면 가문 표를 다시 읽는다(실패하면 다음 틱에 다시)
-  const making = new Set<string>();
-  const foundPersonal = (userId: string): void => {
-    const ties = d.ties?.();
-    const record = d.cyborgs.record(userId);
-    if (!ties || !record || making.has(userId)) return;
-    making.add(userId);
-    void foundPersonalHouse(ties.pool, {
-      userId,
-      nationId: record.factionId,
-      homeCityId: record.startCityId,
-      nowMs: d.now(),
-    })
-      .then(() => ties.reload())
-      .catch(() => undefined)
-      .finally(() => making.delete(userId));
-  };
   const notify = (notices: readonly ClaimNotice[]): void => {
     const ties = d.ties?.();
     if (!ties) return;
@@ -217,7 +200,6 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
     houseNationOf: (userId) => d.ties?.()?.memberNationOf(userId),
     rules: d.rules,
     saveClaimCity: (row) => d.writer.upsert("claimCities", row),
-    foundPersonal,
     notify,
   });
   const governmentDef = () => places.catalog().facilities.find((def) => def.stage === "government");

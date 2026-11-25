@@ -12,6 +12,7 @@ import { useId, useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
 import { ActionRow, Fact, QueryFailure, StateChip } from "../../sections/screenParts.tsx";
+import { formatAmount } from "../../roster/rosterText.ts";
 import { dateText, relativeText } from "../../sections/screenText.ts";
 import { useScreenQuery } from "../../sections/useScreenQuery.ts";
 import { REGIME_NAMES } from "../factionText.ts";
@@ -109,6 +110,14 @@ function AgendaCard({
         ) : null}
         {agenda.cityId !== null ? (
           <p className="faction-vote-detail">{m.gov_city_target({ city: String(agenda.cityId) })}</p>
+        ) : null}
+        {agenda.bounty ? (
+          <p className="faction-vote-detail" data-part="gov-agenda-bounty">
+            {m.gov_bounty_target({
+              name: agenda.bounty.name ?? agenda.bounty.userId.slice(0, 8),
+              amount: formatAmount(agenda.bounty.amount),
+            })}
+          </p>
         ) : null}
         {agenda.shareSale ? (
           <p className="faction-vote-detail">

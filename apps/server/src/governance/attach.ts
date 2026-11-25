@@ -12,6 +12,7 @@ import type { CoupCredit } from "./coup.ts";
 import type { TreatyHooks } from "./leaderAgendas.ts";
 import { createCoupStore } from "./coupStore.ts";
 import { refreshCoupTruce } from "./coupTruce.ts";
+import type { BountyAgendaPort } from "../factionIdentity/blacklist.ts";
 import { createLeaderStore } from "./leaderStore.ts";
 import { type GovernanceGateway, createGovernanceGateway } from "./gateway.ts";
 import { type GovernancePort, worldGovernancePort } from "./port.ts";
@@ -49,6 +50,8 @@ export function attachGovernance(o: {
   readonly applyTaxes?:
     | ((nationRowId: number, taxes: GovernanceTaxes, nowMs: number) => Promise<boolean>)
     | undefined;
+  /** 블랙리스트 현상금 승인 안건 고리(factionIdentity/blacklist.ts createBountyAgenda). 없으면 그 안건은 꺼져 있다 */
+  readonly bounty?: BountyAgendaPort | undefined;
   /** 쿠데타 전투 자료(없으면 시험 자료 — 줄기 governance-3 [임시]: 앱이 아직 넘기지 않는다) */
   readonly combat?:
     | (() => { readonly catalog: CombatCatalog; readonly rules: CombatCoefficients })
@@ -95,6 +98,7 @@ export function attachGovernance(o: {
     db: o.db,
     log: o.log,
     applyTaxes: o.applyTaxes,
+    bounty: o.bounty,
     coups,
     shares: {
       approvedShareSale: o.approvedShareSale,

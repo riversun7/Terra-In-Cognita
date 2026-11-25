@@ -72,6 +72,7 @@ function motionScore(input: NpcVoteInput, rules: NpcVoteRules, keep: number): nu
     case "treasury_share_sale":
     case "treasury_share_buy":
     case "treaty":
+    case "blacklist_bounty":
       // 세율 안건(질문 2407 가 — 줄기 governance-2) [임시 질문 2436]·국고 지분 팔기(2438 답 D-583, 줄기 governance-3) [임시]: 만족하면 지도자 편(찬성), 아니면 반대
       return keep;
     case "city_independence":

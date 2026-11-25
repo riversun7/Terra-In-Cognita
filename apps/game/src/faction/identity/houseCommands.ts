@@ -64,6 +64,8 @@ export type HouseMemberRequest =
       readonly cityId: number;
       readonly approver: CityJoinApprover | null;
       readonly minStanding: number | null;
+      /** 블랙리스트 현상금 한 건의 도시 상한(최소 단위 글자, null = 기본값, 없으면 바꾸지 않는다) */
+      readonly bountyMax?: string | null;
     }
   | { readonly t: "house_city_leave" }
   | { readonly t: "house_city_expel"; readonly cityId: number; readonly houseId: number }

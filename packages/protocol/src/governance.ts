@@ -40,6 +40,11 @@ export const COUP_DISPATCH_PROTOCOL_VERSION = 67;
  * 끝난 뒤에도 쿠데타 전투가 끝날 때까지 받는다(그 도시에 닿은 병력은 진행 중인 세계 전투에 참전). 메시지 모양은 그대로
  */
 export const COUP_BATTLE_JOIN_PROTOCOL_VERSION = 68;
+/**
+ * 블랙리스트 현상금 승인 안건(blacklist_bounty — cityId·bountyTarget·bounty·reason 칸)에 필요한 가장 낮은 프로토콜 버전(73 — 사용자 결정
+ * 2026-11-25 "상한 이상은 투표 안건", docs/adr/2026-11-25-blacklist-bounty-vote.md). 더하기만 — 낮은 판 기기는 이 안건을 올리지 않는다
+ */
+export const BLACKLIST_BOUNTY_PROTOCOL_VERSION = 73;
 
 const requestId = z.number().int().nonnegative().max(0xffff_ffff);
 const rowId = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
@@ -65,6 +70,8 @@ export const GOVERNANCE_AGENDA_KINDS = [
   "house_independence",
   /** 국고 지분 사기(D-587 질문 2479 나 — cityId·shares·maxPrice 칸, 제 나라·남의 나라 도시, SHARE_BUY_PROTOCOL_VERSION부터) */
   "treasury_share_buy",
+  /** 블랙리스트 현상금 승인(cityId·bountyTarget·bounty·reason 칸, BLACKLIST_BOUNTY_PROTOCOL_VERSION부터) */
+  "blacklist_bounty",
 ] as const;
 /** 화폐 단계(formula = 중앙은행 공식, manual = 지도자 하루 조절) */
 export const GOVERNANCE_MONETARY_MODES = ["formula", "manual"] as const;
@@ -117,6 +124,15 @@ export const govProposeMessage = z.object({
     .string()
     .regex(/^[1-9][0-9]{0,17}$/)
     .optional(),
+  /** 블랙리스트 현상금 승인: 대상 사이보그 이름(blacklist_bounty만 — 도시는 cityId, 블랙리스트 등록 nation_blacklist의 targetName과 같다) */
+  bountyTarget: z.string().min(1).max(32).optional(),
+  /** 블랙리스트 현상금 승인: 현상금(최소 단위 10진 정수 글자, 1 이상 — int8 안) */
+  bounty: z
+    .string()
+    .regex(/^[1-9][0-9]{0,17}$/)
+    .optional(),
+  /** 블랙리스트 현상금 승인: 사유(선택, 최대 200자) */
+  reason: z.string().max(200).optional(),
 });
 
 export const govVoteMessage = z.object({

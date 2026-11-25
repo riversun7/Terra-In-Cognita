@@ -22,6 +22,12 @@
 //   기본값, 질문 2241 — 공격·점령 규칙을 따른다). 이미 다 지은 늦은 쪽 건물(같은 틱)은 그대로 남는다.
 // - 소식: 도시가 서면 그 가문 가문원 모두에게 city_gained(2197 나), 멈춘 건물을 지은 사람에게 claim_halted.
 // - 저장할 새 값: 시설 줄 claim_choice(고른 것), 알박기 도시 표 claim_cities. "알박기 중" = 시설 줄 도시가 비어 있는(null) 행정 건물이다.
+// - 바뀜(사용자 결정 2026-11-25 "가문이 있어야 도시국가 지배 가능. 그냥도 정부 건설가능하나 무소속이면 지배가문이 없는 빈상태. 가문을
+//   만들고 소속되어야 지배 가문", ADR 2026-11-25-blacklist-bounty-vote.md 3절 — 위 D-574 "무소속이면 유닛 독재 도시"를 바꾼다): 가문 없는
+//   플레이어도 정부를 짓지만, 다 지어도 1인 가문을 저절로 만들지 않는다. 그 정부는 지배 가문이 없는 빈 상태(도시가 서지 않은 알박기 중)로
+//   남고, 지은 사람이 가문을 창설하거나 가문에 들면 다음 틱에 그 가문이 이 정부로 도시를 세워 지배 가문이 된다. 그 사이 다른 편이 먼저 도시를
+//   세우면 그 편의 도시다(먼저 다 지은 쪽 규칙 그대로 — 가문 없는 사람의 다 지은 정부는 "먼저"로 치지 않는다). 나라에 들지 않은 가문은 귀속할
+//   나라가 없어 늘 독립 도시국가로 선다.
 import type { SocietyCoefficients } from "@terra/sim";
 import { isCellKey } from "@terra/planet";
 import { DEFAULT_LAND_CLAIM_MODE, type LandClaimChoice } from "@terra/shared/facilities";
@@ -34,7 +40,7 @@ import type { NpcRuntime } from "../npc/runtime.ts";
 import type { OwnerRow } from "../world/persist/load.ts";
 import type { ClaimNotice } from "./claimHouse.ts";
 
-/** 빈 2차맵에 정부를 다 지으면 새 도시의 주인: 내 가문 | 1인 독재 도시(가문 없음) | 내 세력 */
+/** 빈 2차맵에 정부를 다 지으면 새 도시의 주인: 내 가문 | 가문 없음(지배 가문이 빈 상태 — 가문을 창설하면 그 가문) | 내 세력 */
 export type LandClaimKind = "house" | "personal" | "faction";
 
 export interface LandClaimDeps {
@@ -55,8 +61,6 @@ export interface LandClaimDeps {
   readonly rules?: (() => SocietyCoefficients) | undefined;
   /** 알박기 도시 줄(claim_cities)을 쓰기 대기열에 — 새 도시 행과 같은 동기 처리 */
   readonly saveClaimCity?: ((row: Record<string, unknown>) => void) | undefined;
-  /** 가문 없는 플레이어의 1인 가문을 만든다(비동기 — 다음 틱에 그 가문으로 세운다). 없으면 그런 건물은 기다린다 */
-  readonly foundPersonal?: ((userId: string) => void) | undefined;
   /** 소식(비동기로 쓴다) */
   readonly notify?: ((notices: readonly ClaimNotice[]) => void) | undefined;
 }
@@ -101,8 +105,8 @@ export function createLandClaims(d: LandClaimDeps): LandClaims {
     places.catalog().facility(record.facilityId)?.stage === "government";
 
   /**
-   * 새 도시 주인 세력(소유 주체). 가문이 아직 거울 세계에 없으면 고른 것으로 들인다. 1인 가문을 만드는 중이거나 들일 수 없으면 undefined(다음
-   * 틱에 다시)
+   * 새 도시 주인 세력(소유 주체). 가문이 아직 거울 세계에 없으면 고른 것으로 들인다. 가문 없는 사람의 정부(지배 가문이 빈 상태)이거나 들일
+   * 수 없으면 undefined(다음 틱에 다시)
    */
   const ownerFor = (
     runtime: NpcRuntime,
@@ -116,24 +120,20 @@ export function createLandClaims(d: LandClaimDeps): LandClaims {
       return join === undefined ? undefined : { owner: join, house: null, mode: "independent" };
     }
     const house = d.houseOfUser?.(userId);
-    if (house === undefined) {
-      // 가문 없는 플레이어: 1인 가문(유닛 독재 도시)을 만든다. 독립이면 체제는 늘 독재(D-574 "유닛 독재 도시")
-      const choice = record.claim ?? DEFAULT_CHOICE;
-      if (choice.mode === "independent" && choice.regime !== "dictatorship")
-        d.facilities.seedBuilt({ ...record, claim: { mode: "independent", regime: "dictatorship" } });
-      d.foundPersonal?.(userId);
-      return undefined;
-    }
+    // 가문 없는 플레이어(사용자 결정 2026-11-25): 지배 가문이 없는 빈 상태로 둔다 — 가문을 창설하거나 가문에 들면 그 가문이 세운다
+    if (house === undefined) return undefined;
     const mirror = runtime.houses.mirrorOf(house);
     if (mirror)
       return runtime.world.factions.get(mirror.ownerId)?.alive
         ? { owner: mirror.ownerId, house, mode: mirror.vassal ? "vassal" : "independent" }
         : undefined;
     const choice = record.claim ?? DEFAULT_CHOICE;
-    const vassal = choice.mode === "nation";
+    // 나라에 들지 않은 가문(국가 미소속 창설 — ADR 2026-11-24)은 귀속할 나라가 없다: 늘 독립 도시국가
+    const nationRowId = d.houseNationOf?.(userId) ?? null;
+    const vassal = choice.mode === "nation" && nationRowId !== null;
     const owner = runtime.houses.adopt({
       rowId: house,
-      nationRowId: d.houseNationOf?.(userId) ?? null,
+      nationRowId,
       vassal,
       regime: choice.regime ?? "democracy",
       nowMs,

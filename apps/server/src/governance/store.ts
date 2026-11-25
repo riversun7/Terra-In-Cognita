@@ -55,6 +55,13 @@ export interface AgendaPayload {
   /** 조약 비준(diplomacy/ — 사용자 결정 D-588): 조약 ID·그 조항 판(맞제안마다 오른다 — 판이 바뀌면 집행하지 않는다) */
   readonly treatyId?: number;
   readonly treatyRevision?: number;
+  /**
+   * 블랙리스트 현상금 승인(blacklist_bounty — ADR 2026-11-25-blacklist-bounty-vote.md): 대상 사용자·금액(최소 단위 10진 글자)·사유. 도시는
+   * cityId
+   */
+  readonly bountyUserId?: string;
+  readonly bounty?: string;
+  readonly bountyReason?: string;
 }
 
 /** jsonb → 세율 안건 값(칸마다 정수 또는 null). 꼴이 틀리면 undefined */
@@ -208,6 +215,10 @@ function payloadOf(value: unknown): AgendaPayload {
   const treatyId = typeof value.treatyId === "number" ? value.treatyId : undefined;
   const treatyRevision = typeof value.treatyRevision === "number" ? value.treatyRevision : undefined;
   const renewOf = typeof value.renewOf === "number" ? value.renewOf : undefined;
+  const bountyUserId = typeof value.bountyUserId === "string" ? value.bountyUserId : undefined;
+  const bounty =
+    typeof value.bounty === "string" && /^[1-9][0-9]{0,17}$/.test(value.bounty) ? value.bounty : undefined;
+  const bountyReason = typeof value.bountyReason === "string" ? value.bountyReason : undefined;
   return {
     ...(regime ? { regime } : {}),
     ...(target !== undefined ? { targetNationId: target } : {}),
@@ -226,6 +237,9 @@ function payloadOf(value: unknown): AgendaPayload {
     ...(treatyId !== undefined ? { treatyId } : {}),
     ...(treatyRevision !== undefined ? { treatyRevision } : {}),
     ...(renewOf !== undefined ? { renewOf } : {}),
+    ...(bountyUserId !== undefined ? { bountyUserId } : {}),
+    ...(bounty !== undefined ? { bounty } : {}),
+    ...(bountyReason !== undefined ? { bountyReason } : {}),
   };
 }
 

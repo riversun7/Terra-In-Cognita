@@ -1,5 +1,7 @@
 // 크리처 편집기(/dev/creatures) — 크리처 카탈로그·원형 초상화 영역 선택기(얼굴 자동 인식)·특성 기반 6스탯 자동 배분·세트 스탯 분포 분석·
-// 아이템식 고유 무기 성능 범위(min~max)·전리품 몬테카를로 시뮬레이터.
+// 아이템식 고유 무기 성능 범위(min~max)·전리품(아이템 + 획득 확률).
+// 화면 탭 둘(docs/adr/2026-11-25-creature-codex-groups.md 1절): [도감] = 전체를 빠르게 훑는 목록(첫 탭, 변종 그룹으로 묶음) → 줄을 고르면
+// [상세·편집] = 옛 화면(왼쪽 목록 + 오른쪽 상세)의 "도감 정보" 탭으로 넘어간다. ?creature=<ID>로 열면 상세의 기본 탭이 바로 뜬다.
 // 조각 이름 CreatureEditorScreen-*([Cc]reatureEditor). 입력 칸·최근 바꿈은 editor/content/ 공용 부품만 가져온다.
 import {
   CREATURE_EDITOR_REASONS,
@@ -27,13 +29,15 @@ import {
   sameJson,
   stableJson,
 } from "../content/contentEditorModel.ts";
-import { CreatureDetail } from "./CreatureDetail.tsx";
+import { CreatureDetail, type CreatureDetailTab } from "./CreatureDetail.tsx";
+import { CreatureDex } from "./CreatureDex.tsx";
 import { CreatureList } from "./CreatureList.tsx";
 import {
   type CreatureStage,
   EMPTY_CREATURE_STAGE,
   type StagedCreature,
   cleanCreature,
+  combinedCreatures,
   createDefaultCreature,
   creatureChangesOf,
   creatureStageKeys,
@@ -116,6 +120,9 @@ export default function CreatureEditorScreen({ initialId }: { initialId?: string
   const [load, setLoad] = useState<Load>({ status: "loading" });
   const [selected, setSelected] = useState<string | null>(initialId ?? null);
   const [view, setView] = useState<"list" | "detail">(initialId ? "detail" : "list");
+  // 화면 탭(도감·상세)과 상세 안 탭. 주소로 크리쳐를 바로 열면 상세의 기본 탭(초상화)부터 보인다
+  const [tab, setTab] = useState<"dex" | "detail">(initialId ? "detail" : "dex");
+  const [subTab, setSubTab] = useState<CreatureDetailTab>(initialId ? "basic" : "overview");
   const [autoDetectId, setAutoDetectId] = useState<string | null>(null);
   const [stage, setStage] = useState<CreatureStage>(EMPTY_CREATURE_STAGE);
   const stageRef = useRef<CreatureStage>(EMPTY_CREATURE_STAGE);
@@ -198,10 +205,9 @@ export default function CreatureEditorScreen({ initialId }: { initialId?: string
         ? (row?.pack ?? row?.entry ?? null)
         : (row?.entry ?? null);
 
-  const allCreatures: CreatureJson[] = rows.map((r) => {
-    const st = stage.creatures.get(r.entry.id);
-    return st?.op === "put" ? st.entry : r.entry;
-  });
+  // 실효 크리쳐 전체(담은 바꿈과 아직 적용하지 않은 새 크리쳐 포함) — 분포 비교·그룹 묶기가 같이 쓴다
+  const allCreatures: CreatureJson[] = list ? combinedCreatures(list, stage).map((item) => item.entry) : [];
+  const usedIds = new Set(allCreatures.map((entry) => entry.id));
 
   const keys = creatureStageKeys(stage);
   const changes = creatureChangesOf(stage);
@@ -213,6 +219,43 @@ export default function CreatureEditorScreen({ initialId }: { initialId?: string
 
   const select = (id: string): void => {
     setSelected(id);
+    setView("detail");
+    setAutoDetectId(null);
+  };
+
+  /** 도감에서 고르기: 상세 탭의 도감 정보로 넘어간다 */
+  const openFromDex = (id: string): void => {
+    select(id);
+    setSubTab("overview");
+    setTab("detail");
+  };
+
+  /** 크리쳐 하나의 바꿈을 담은 묶음에 얹는다(실효 값과 같아지면 뺀다) */
+  const stagedWith = (current: CreatureStage, next: CreatureJson): CreatureStage => {
+    const mine = current.creatures.get(next.id);
+    const target = rows.find((item) => item.entry.id === next.id);
+    const base = mine ? mine.base : (target?.entry ?? null);
+    const baseHash = mine ? mine.baseHash : (target?.hash ?? null);
+    const clean = cleanCreature(next);
+    return stageCreature(
+      current,
+      next.id,
+      base !== null && sameJson(clean, base) ? null : { op: "put", entry: clean, base, baseHash },
+    );
+  };
+
+  /** 여러 크리쳐를 한 번에 담는다(그룹 넣기·대표 바꾸기 — 되돌리기 한 칸) */
+  const editMany = (entries: readonly CreatureJson[]): void => {
+    if (entries.length === 0) return;
+    let next = stageRef.current;
+    for (const entry of entries) next = stagedWith(next, entry);
+    pushStage(next);
+  };
+
+  /** 변종 만들기: 새 크리쳐로 담고 그 변종의 도감 정보로 넘어간다 */
+  const createVariant = (entry: CreatureJson): void => {
+    pushStage(stagedWith(stageRef.current, entry));
+    setSelected(entry.id);
     setView("detail");
     setAutoDetectId(null);
   };
@@ -232,22 +275,16 @@ export default function CreatureEditorScreen({ initialId }: { initialId?: string
     );
     setSelected(id);
     setView("detail");
+    setSubTab("basic");
     setAutoDetectId(image ? id : null);
   };
 
   const edit = (next: CreatureJson): void => {
-    if (!selected) return;
+    if (!selected || next.id !== selected) return;
     const current = stageRef.current.creatures.get(selected);
-    const base = current ? current.base : (row?.entry ?? null);
-    const baseHash = current ? current.baseHash : (row?.hash ?? null);
-    const clean = cleanCreature(next);
     pushStage(
-      stageCreature(
-        stageRef.current,
-        selected,
-        base !== null && sameJson(clean, base) ? null : { op: "put", entry: clean, base, baseHash },
-      ),
-      editKeyOf(selected, current?.op === "put" ? current.entry : (row?.entry ?? null), clean),
+      stagedWith(stageRef.current, next),
+      editKeyOf(selected, current?.op === "put" ? current.entry : (row?.entry ?? null), cleanCreature(next)),
     );
   };
 
@@ -447,42 +484,101 @@ export default function CreatureEditorScreen({ initialId }: { initialId?: string
           <LiveMessage tone="success" lines={notice.lines} version={notice.version} />
           <LiveMessage tone="error" lines={problem.lines} version={problem.version} />
 
-          <div className="be-split ce-split" data-view={view}>
-            <CreatureList
-              list={list}
-              stage={stage}
-              selected={selected}
-              locale={locale}
-              onSelect={select}
-              onCreateNew={createNew}
-            />
-            <div className="be-detail-pane ce-detail-pane">
-              {selected && draft ? (
-                <CreatureDetail
-                  key={selected}
-                  list={list}
-                  row={row}
-                  draft={draft}
-                  allCreatures={allCreatures}
-                  locale={locale}
-                  staged={staged !== undefined}
-                  reverting={reverting}
-                  isNewCreated={row === undefined}
-                  autoDetectPortrait={autoDetectId === selected}
-                  issues={issues.filter((issue) => issue.id === null || issue.id === selected)}
-                  checking={staged !== undefined && checked === null}
-                  onEdit={edit}
-                  onRevert={revert}
-                  onUnstage={unstage}
-                  onBack={() => setView("list")}
-                />
-              ) : (
-                <p className="field-hint be-pick">
-                  {ko ? "왼쪽 목록에서 크리처를 고르거나 새로 등록하세요." : "Select or create a creature."}
-                </p>
-              )}
-            </div>
+          {/* 화면 탭: 도감(빠른 목록) · 상세·편집(옛 화면) */}
+          <div
+            className="be-tabs ce-maintabs"
+            role="tablist"
+            aria-label={ko ? "크리쳐 편집기 탭" : "Creature editor tabs"}
+          >
+            <button
+              type="button"
+              role="tab"
+              id="ce-tab-dex"
+              aria-selected={tab === "dex"}
+              aria-controls="ce-panel-dex"
+              className="be-tab"
+              data-active={tab === "dex" ? "true" : undefined}
+              onClick={() => setTab("dex")}
+            >
+              {ko ? `도감 (${allCreatures.length})` : `Codex (${allCreatures.length})`}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              id="ce-tab-detail"
+              aria-selected={tab === "detail"}
+              aria-controls="ce-panel-detail"
+              className="be-tab"
+              data-active={tab === "detail" ? "true" : undefined}
+              onClick={() => setTab("detail")}
+            >
+              {ko ? "상세 · 편집" : "Detail & Edit"}
+              {draft ? <span className="dev-muted">{ko ? draft.name.ko : draft.name.en}</span> : null}
+            </button>
           </div>
+
+          {tab === "dex" ? (
+            <div role="tabpanel" id="ce-panel-dex" aria-labelledby="ce-tab-dex">
+              <CreatureDex
+                list={list}
+                stage={stage}
+                selected={selected}
+                locale={locale}
+                onOpen={openFromDex}
+              />
+            </div>
+          ) : null}
+
+          {tab === "detail" ? (
+            <div
+              className="be-split ce-split"
+              data-view={view}
+              role="tabpanel"
+              id="ce-panel-detail"
+              aria-labelledby="ce-tab-detail"
+            >
+              <CreatureList
+                list={list}
+                stage={stage}
+                selected={selected}
+                locale={locale}
+                onSelect={select}
+                onCreateNew={createNew}
+              />
+              <div className="be-detail-pane ce-detail-pane">
+                {selected && draft ? (
+                  <CreatureDetail
+                    key={selected}
+                    list={list}
+                    row={row}
+                    draft={draft}
+                    allCreatures={allCreatures}
+                    usedIds={usedIds}
+                    subTab={subTab}
+                    onSubTab={setSubTab}
+                    onOpen={select}
+                    onEditMany={editMany}
+                    onCreateVariant={createVariant}
+                    locale={locale}
+                    staged={staged !== undefined}
+                    reverting={reverting}
+                    isNewCreated={row === undefined}
+                    autoDetectPortrait={autoDetectId === selected}
+                    issues={issues.filter((issue) => issue.id === null || issue.id === selected)}
+                    checking={staged !== undefined && checked === null}
+                    onEdit={edit}
+                    onRevert={revert}
+                    onUnstage={unstage}
+                    onBack={() => setView("list")}
+                  />
+                ) : (
+                  <p className="field-hint be-pick">
+                    {ko ? "왼쪽 목록에서 크리처를 고르거나 새로 등록하세요." : "Select or create a creature."}
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : null}
 
           {/* 하단 담은 변경 막대 */}
           <div
@@ -525,7 +621,9 @@ export default function CreatureEditorScreen({ initialId }: { initialId?: string
                         type="button"
                         className="be-chip"
                         onClick={() => {
-                          if (!key.startsWith("sleeping/")) select(key);
+                          if (key.startsWith("sleeping/")) return;
+                          select(key);
+                          setTab("detail");
                         }}
                       >
                         {key}

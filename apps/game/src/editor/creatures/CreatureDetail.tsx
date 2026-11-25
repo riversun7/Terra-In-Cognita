@@ -1,4 +1,5 @@
-// 크리처 편집기 상세 판(CreatureDetail) — 원형 초상화 배지 헤더 + 4개 탭(기본·초상화, 스탯·속성·분포, 고유 무기·스킬, 전리품·드롭 시뮬).
+// 크리처 편집기 상세 판(CreatureDetail) — 원형 초상화 배지 헤더 + 탭 다섯(도감 정보, 기본·초상화, 스탯·속성·분포, 고유 무기·스킬, 전리품).
+// 탭 고르기는 화면(CreatureEditorScreen)이 든다: 도감에서 넘어오면 도감 정보, 크리쳐를 바꿔도 보던 탭을 그대로 둔다.
 import type { ContentIssueView } from "@terra/shared/contentEdit";
 import {
   CREATURE_CATEGORIES,
@@ -11,22 +12,26 @@ import {
   type CreatureGrade,
   type CreatureJson,
   type CreatureSize,
+  creatureGroupRootId,
 } from "@terra/shared/creatureEditor";
 import { useState } from "react";
 import { CheckField, SelectField, TextField } from "../content/contentEditorFields.tsx";
 import { CreatureCombatTab } from "./CreatureCombatTab.tsx";
 import { CreatureLootTab } from "./CreatureLootTab.tsx";
+import { CreatureOverviewTab } from "./CreatureOverviewTab.tsx";
 import { CreaturePortraitCropper, CreatureTokenBadge } from "./CreaturePortraitCropper.tsx";
 import { CreatureStatsTab } from "./CreatureStatsTab.tsx";
 import { CATEGORY_LABELS, GRADE_LABELS, PRESET_TAG_LABELS, SIZE_LABELS } from "./creatureModel.ts";
 
-export type CreatureDetailTab = "basic" | "stats" | "combat" | "loot";
+export type CreatureDetailTab = "overview" | "basic" | "stats" | "combat" | "loot";
 
 export function CreatureDetail({
   list,
   row,
   draft,
   allCreatures,
+  usedIds,
+  subTab,
   locale,
   staged,
   reverting,
@@ -38,11 +43,17 @@ export function CreatureDetail({
   onRevert,
   onUnstage,
   onBack,
+  onSubTab,
+  onOpen,
+  onEditMany,
+  onCreateVariant,
 }: {
   readonly list: CreatureEditorListResponse;
   readonly row: CreatureEditorRow | undefined;
   readonly draft: CreatureJson;
   readonly allCreatures: readonly CreatureJson[];
+  readonly usedIds: ReadonlySet<string>;
+  readonly subTab: CreatureDetailTab;
   readonly locale: "ko" | "en";
   readonly staged: boolean;
   readonly reverting: boolean;
@@ -54,9 +65,17 @@ export function CreatureDetail({
   readonly onRevert: () => void;
   readonly onUnstage: () => void;
   readonly onBack: () => void;
+  readonly onSubTab: (tab: CreatureDetailTab) => void;
+  /** 다른 크리쳐로 넘어간다(그룹 카드) */
+  readonly onOpen: (id: string) => void;
+  /** 여러 크리쳐를 한 번에 담는다(그룹 넣기·대표 바꾸기) */
+  readonly onEditMany: (entries: readonly CreatureJson[]) => void;
+  readonly onCreateVariant: (entry: CreatureJson) => void;
 }) {
   const ko = locale !== "en";
-  const [subTab, setSubTab] = useState<CreatureDetailTab>("basic");
+  const setSubTab = onSubTab;
+  const rootId = creatureGroupRootId(draft);
+  const groupSize = allCreatures.filter((entry) => creatureGroupRootId(entry) === rootId).length;
   const [customTagInput, setCustomTagInput] = useState("");
 
   const categoryOptions = CREATURE_CATEGORIES.map((c) => ({
@@ -108,6 +127,17 @@ export function CreatureDetail({
               {staged ? (
                 <span className="dev-badge be-badge-staged">
                   {reverting ? (ko ? "되돌리기 예정" : "Reverting") : ko ? "담김" : "Staged"}
+                </span>
+              ) : null}
+              {groupSize > 1 ? (
+                <span className="dev-badge" data-group={rootId}>
+                  {draft.variantOf
+                    ? ko
+                      ? `변종 (대표 ${rootId})`
+                      : `Variant of ${rootId}`
+                    : ko
+                      ? `그룹 대표 · 변종 ${groupSize - 1}`
+                      : `Group lead · ${groupSize - 1} variants`}
                 </span>
               ) : null}
               {checking ? <span className="dev-muted">{ko ? "검사 중…" : "Checking…"}</span> : null}
@@ -162,6 +192,16 @@ export function CreatureDetail({
         <button
           type="button"
           role="tab"
+          aria-selected={subTab === "overview"}
+          className="be-tab"
+          data-active={subTab === "overview" ? "true" : undefined}
+          onClick={() => setSubTab("overview")}
+        >
+          {ko ? "도감 정보" : "Codex Info"}
+        </button>
+        <button
+          type="button"
+          role="tab"
           aria-selected={subTab === "basic"}
           className="be-tab"
           data-active={subTab === "basic" ? "true" : undefined}
@@ -197,11 +237,22 @@ export function CreatureDetail({
           data-active={subTab === "loot" ? "true" : undefined}
           onClick={() => setSubTab("loot")}
         >
-          {ko
-            ? `4. 전리품 · 드롭 시뮬 (${draft.drops?.length ?? 0})`
-            : `4. Loot & Sim (${draft.drops?.length ?? 0})`}
+          {ko ? `4. 전리품 (${draft.drops?.length ?? 0})` : `4. Loot (${draft.drops?.length ?? 0})`}
         </button>
       </div>
+
+      {subTab === "overview" ? (
+        <CreatureOverviewTab
+          list={list}
+          draft={draft}
+          allCreatures={allCreatures}
+          usedIds={usedIds}
+          locale={locale}
+          onOpen={onOpen}
+          onEditMany={onEditMany}
+          onCreateVariant={onCreateVariant}
+        />
+      ) : null}
 
       {subTab === "basic" ? (
         <div className="ce-tab-stack">
@@ -300,6 +351,47 @@ export function CreatureDetail({
                   })
                 }
               />
+            </div>
+          </section>
+
+          {/* 3D 모델 파일(GLB) 연결 */}
+          <section className="be-card">
+            <h3 className="ce-section-title">{ko ? "3D 모델 (GLB)" : "3D Model (GLB)"}</h3>
+            <p className="field-hint">
+              {ko
+                ? "apps/game/public/creatures/models/ 에 넣은 GLB 파일 이름을 적습니다. 비워 두면 [도감 정보]에 일러스트와 임시 몸만 보입니다."
+                : "File name of a GLB placed under apps/game/public/creatures/models/. Leave empty to show the illustration and a placeholder body."}
+            </p>
+            <div className="ce-grid-2">
+              <TextField
+                label={ko ? "모델 파일 이름 또는 경로" : "Model file name or path"}
+                value={draft.model ?? ""}
+                maxLength={200}
+                onChange={(model) => onEdit({ ...draft, model: model.trim() === "" ? undefined : model })}
+              />
+              {list.availableModels.length > 0 ? (
+                <div className="field ce-field">
+                  <label className="field-label" htmlFor="ce-model-pick">
+                    {ko
+                      ? `폴더에서 고르기 (${list.availableModels.length})`
+                      : `Pick from folder (${list.availableModels.length})`}
+                  </label>
+                  <select
+                    id="ce-model-pick"
+                    value={list.availableModels.includes(draft.model ?? "") ? draft.model : ""}
+                    onChange={(e) =>
+                      onEdit({ ...draft, model: e.target.value === "" ? undefined : e.target.value })
+                    }
+                  >
+                    <option value="">{ko ? "— 모델 없음 —" : "— No model —"}</option>
+                    {list.availableModels.map((file) => (
+                      <option key={file} value={file}>
+                        {file}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
             </div>
           </section>
 

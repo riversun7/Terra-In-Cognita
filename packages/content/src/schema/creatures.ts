@@ -5,9 +5,13 @@
 // - 원형 초상화(portraitCrop): 원본 이미지를 복제하지 않고 정규화 원 중심·반지름(cxPm, cyPm, radiusPm, 0~1000‰)만 저장한다.
 // - 고유 무기(naturalWeapon): 아이템 무기와 동일하게 기준 공격력(attack) + 랜덤 지급 범위(min~max)와 추가 스탯 범위(stats: {stat, min, max})를 갖는다.
 // - 목장 부산물(byproducts)은 제외한다(전투 전리품 drops만 유지).
+// - 도감 값(primaries)은 1레벨 기준이다. 조우 개체는 스탯마다 기준 ± 오차(primarySpread, 없으면 기본 규칙) 안에서 굴린다(사용자 결정 2026-11-25,
+//   docs/adr/2026-11-25-creature-codex-groups.md). 레벨·출현 확률은 조우(인카운터) 쪽이 정하고 K값은 기존 규칙(0.8~1.2)이다.
+// - 변종(variantOf): 비슷한 종(속성·스탯 변종)은 따로 항목으로 두고 그룹 대표를 가리킨다. 대표는 변종이 아니어야 한다(한 단계, creature_variant_chain).
+// - 3D 모델(model): GLB 파일 이름(→ /creatures/models/<이름>) 또는 경로. 없으면 일러스트와 임시 몸만 보인다.
 import { ELEMENT_IDS, ELEMENT_MAX } from "@terra/shared/cyborg";
 import { z } from "zod";
-import { contentId, localizedText, ref } from "./common.ts";
+import { ContentRef, contentId, localizedText, ref } from "./common.ts";
 
 export const CREATURE_CATEGORIES = [
   "beast",
@@ -174,6 +178,16 @@ const primaryStatsSchema = z.strictObject({
   wis: z.int().min(1).max(999),
 });
 
+/** 스탯별 조우 오차(±). 범위는 packages/shared/src/creatureEditor.ts(CREATURE_LIMITS.spread)와 같아야 한다 */
+const primarySpreadSchema = z.strictObject({
+  str: z.int().min(0).max(10),
+  dex: z.int().min(0).max(10),
+  agi: z.int().min(0).max(10),
+  vit: z.int().min(0).max(10),
+  int: z.int().min(0).max(10),
+  wis: z.int().min(0).max(10),
+});
+
 export const creatureEntrySchema = z
   .strictObject({
     id: contentId,
@@ -190,8 +204,14 @@ export const creatureEntrySchema = z
     image: z.string().min(1).max(200).optional(),
     /** 원본 이미지 위 원형 초상화 좌표(‰) */
     portraitCrop: creaturePortraitCropSchema.optional(),
-    /** 6대 1차 스탯(STR·DEX·AGI·VIT·INT·WIS) */
+    /** 3D 모델 파일 이름 또는 경로(예: "wolf.glb" → /creatures/models/wolf.glb) */
+    model: z.string().min(1).max(200).optional(),
+    /** 변종이면 그룹 대표 크리쳐(대표 자신은 적지 않는다) */
+    variantOf: ref("creatures").optional(),
+    /** 6대 1차 스탯(STR·DEX·AGI·VIT·INT·WIS) — 1레벨 기준값 */
     primaries: primaryStatsSchema,
+    /** 스탯별 조우 오차(±, 0~10). 없으면 기본 규칙(기준 ≤10 → 1, ≤20 → 2, 그 위 → 3) */
+    primarySpread: primarySpreadSchema.optional(),
     /** 12속성 점수(0~10, 합계 ≤ 20 권장, 41_Time_Units §4.3) */
     elements: z.array(z.int().min(0).max(ELEMENT_MAX)).length(ELEMENT_IDS.length),
     /** 12속성 추가 저항(‰, -1000 ~ +1000) */
@@ -216,6 +236,15 @@ export const creatureEntrySchema = z
   })
   .superRefine((entry, ctx) => {
     if (typeof entry !== "object" || entry === null) return;
+    if (entry.variantOf instanceof ContentRef && entry.variantOf.id === entry.id) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["variantOf"],
+        message:
+          "그룹 대표(variantOf)로 자기 자신을 가리킬 수 없습니다. 칸을 비우면 단독(또는 대표) 크리쳐가 됩니다.",
+        params: { rule: "creature_variant_self" },
+      });
+    }
     if (entry.giant3Tile === true && entry.size !== "XL") {
       ctx.addIssue({
         code: "custom",

@@ -131,7 +131,7 @@ export const DEV_ONLY_CHUNK =
  * 미리 캐시되지 않은 조각을 받게 됐다(2026-10-31 빌드로 확인).
  */
 export const DEV_ONLY_SOURCE =
-  /(^|\/)src\/editor\/(planet|starSystem|gpuBench|secondMapLab|tuning|npcAi|balance|secondaryStats|expTable|skills|items|buildings|gatherTiers|production|creatures|nations|territory|content|recruit|worldLayout|effects|terrainObjects|gatherObjects|mockups)\/|(^|\/)packages\/planet\/src\/generator\/|(^|\/)packages\/engine\/src\/buildings\/(buildingPreview|previewEntry)\.ts$|(^|\/)packages\/engine\/src\/props\/(propPreview|previewEntry)\.ts$/;
+  /(^|\/)src\/editor\/(planet|starSystem|gpuBench|secondMapLab|tuning|npcAi|balance|secondaryStats|expTable|skills|items|buildings|gatherTiers|production|creatures|nations|territory|content|recruit|worldLayout|effects|terrainObjects|gatherObjects|mockups)\/|(^|\/)packages\/planet\/src\/generator\/|(^|\/)packages\/engine\/src\/buildings\/(buildingPreview|previewEntry)\.ts$|(^|\/)packages\/engine\/src\/props\/(propPreview|previewEntry)\.ts$|(^|\/)packages\/engine\/src\/creatures\/(creaturePreview|previewEntry)\.ts$/;
 
 /** 소스 맵(JSON 바이트)의 sources 중 개발자 도구 소스. 맵이 없거나 읽지 못하면 빈 목록 */
 function devSourcesOf(mapBytes) {

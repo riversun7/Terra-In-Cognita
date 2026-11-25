@@ -648,3 +648,385 @@
   width: auto;
   min-width: 0;
 }
+
+/* ── 화면 탭(도감 · 상세) · 칩 줄 ── */
+.ce-maintabs .be-tab {
+  font-size: var(--font-size-md);
+}
+.ce-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* ── 도감 탭(CreatureDex): 한 줄씩 빠르게 훑는 표 ── */
+.ce-dex {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  min-width: 0;
+}
+.ce-dex-wrap {
+  max-height: 60rem;
+  overflow: auto;
+}
+.ce-dex-row {
+  cursor: pointer;
+}
+.ce-dex-row[data-selected="true"] > * {
+  background-color: var(--dev-row-hover);
+}
+.ce-dex-row[data-selected="true"] > :first-child {
+  box-shadow: inset var(--border-w) 0 0 var(--color-focus);
+}
+.ce-dex-row[data-depth="1"] > :first-child {
+  padding-inline-start: var(--space-5);
+}
+.ce-dex-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.ce-dex-branch {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+}
+.ce-dex-title {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 6rem;
+  word-break: keep-all;
+}
+.ce-dex-title .dev-code {
+  white-space: nowrap;
+}
+.ce-dex-open {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  font-weight: var(--font-weight-strong);
+  text-align: start;
+  cursor: pointer;
+}
+.ce-dex-open:hover {
+  color: var(--color-primary);
+}
+.ce-dex-elements {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+}
+.ce-dex-element,
+.ce-overview-element {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+.ce-dex-lean {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 5rem;
+  font-size: var(--font-size-xs);
+}
+.ce-dex-stats {
+  display: inline-grid;
+  grid-template-columns: repeat(6, minmax(1.75rem, auto));
+  gap: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  text-align: end;
+}
+.ce-dex-wide {
+  display: none;
+}
+@media (min-width: 48em) {
+  .ce-dex-wide {
+    display: table-cell;
+  }
+}
+
+/* 스탯 색(1차 스탯 묶음: STR·VIT 물리, DEX·AGI 기교, INT·WIS 마법) */
+[data-stat="str"] {
+  --ce-stat-color: var(--color-stat-str);
+}
+[data-stat="vit"] {
+  --ce-stat-color: var(--color-stat-vit);
+}
+[data-stat="dex"] {
+  --ce-stat-color: var(--color-stat-dex);
+}
+[data-stat="agi"] {
+  --ce-stat-color: var(--color-stat-agi);
+}
+[data-stat="int"] {
+  --ce-stat-color: var(--color-stat-int);
+}
+[data-stat="wis"] {
+  --ce-stat-color: var(--color-stat-wis);
+}
+.ce-dex-stats > [data-stat],
+.ce-range-row .ce-range-label {
+  color: var(--ce-stat-color, var(--color-text));
+}
+
+/* 성향 막대: 물리 · 기교 · 마법 몫 */
+.ce-lean-bar {
+  display: flex;
+  height: var(--stat-bar);
+  min-width: 4rem;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  overflow: hidden;
+}
+.ce-lean-bar-lg {
+  flex: 1 1 12rem;
+  height: var(--stat-bar-lg);
+}
+.ce-lean-bar > [data-part="physical"] {
+  background-color: var(--color-stat-str);
+}
+.ce-lean-bar > [data-part="finesse"] {
+  background-color: var(--color-stat-agi);
+}
+.ce-lean-bar > [data-part="magic"] {
+  background-color: var(--color-stat-int);
+}
+.ce-lean-row {
+  display: grid;
+  gap: var(--space-1);
+}
+.ce-lean-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--font-size-xs);
+}
+.ce-lean-legend > [data-part="physical"] {
+  color: var(--color-stat-str);
+}
+.ce-lean-legend > [data-part="finesse"] {
+  color: var(--color-stat-agi);
+}
+.ce-lean-legend > [data-part="magic"] {
+  color: var(--color-stat-int);
+}
+
+/* ── 도감 정보 탭(CreatureOverviewTab) ── */
+.ce-overview-media {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: var(--space-3);
+  align-items: start;
+  min-width: 0;
+}
+.ce-overview-art {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  min-width: 0;
+}
+.ce-overview-art > img,
+.ce-viewer-stage {
+  width: 100%;
+  aspect-ratio: 1;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+}
+.ce-overview-art > img {
+  object-fit: contain;
+}
+.ce-viewer {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.ce-viewer-stage {
+  overflow: hidden;
+}
+.ce-viewer-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+}
+.ce-viewer > .field-hint,
+.ce-viewer > .field-error,
+.ce-overview-desc {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.ce-overview-elements {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding-top: var(--space-2);
+  border-top: var(--hairline) solid var(--color-border);
+}
+.ce-overview-element[data-main="true"] {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+}
+.ce-overview-element-bar {
+  display: inline-block;
+  width: 4rem;
+  height: var(--space-1);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  overflow: hidden;
+}
+.ce-overview-element-bar > span {
+  display: block;
+  height: 100%;
+}
+.ce-range-rows {
+  display: grid;
+  gap: var(--space-1);
+}
+.ce-range-row {
+  display: grid;
+  grid-template-columns: minmax(5rem, 7rem) 2.5rem minmax(0, 1fr) minmax(6rem, auto);
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+.ce-range-base {
+  font-family: var(--font-mono);
+  text-align: end;
+}
+.ce-range-text {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  text-align: end;
+}
+.ce-range-track {
+  position: relative;
+  height: var(--stat-bar-lg);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  overflow: hidden;
+}
+.ce-range-fill {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  background-color: var(--ce-stat-color, var(--color-primary));
+  opacity: 0.35;
+}
+.ce-range-band,
+.ce-stat-meter-range {
+  position: absolute;
+  inset-block: 0;
+  min-width: var(--border-w);
+  background-color: var(--ce-stat-color, var(--color-primary));
+}
+.ce-stat-meter-range {
+  opacity: 0.45;
+}
+
+/* ── 스탯 탭: 기준값 · 오차 · 조우 범위(첫 줄) + 막대(둘째 줄) ── */
+.ce-stat-row-spread {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+  align-items: start;
+}
+.ce-stat-row-spread > .ce-stat-meter-col {
+  grid-column: 1 / -1;
+}
+.ce-stat-range {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+}
+.ce-stat-range-text {
+  color: var(--ce-stat-color, var(--color-text));
+  font-family: var(--font-mono);
+  font-size: var(--font-size-lg);
+}
+.ce-stat-meter-meta {
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+}
+
+/* ── 변종 그룹 카드 ── */
+.ce-group-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ce-group-member {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--tap-size);
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.ce-group-member[data-current="true"] {
+  border-color: var(--color-primary);
+  background-color: var(--dev-row-selected);
+}
+.ce-group-member-text {
+  display: grid;
+  min-width: 0;
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+.ce-group-member-text > strong {
+  font-size: var(--font-size-sm);
+}
+
+/* ── 전리품: 고르기 줄 · 전리품 줄 ── */
+.ce-loot-add {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  align-items: end;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+}
+.ce-loot-add-button {
+  min-height: var(--tap-size);
+}
+.ce-loot-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+@media (min-width: 48em) {
+  .ce-loot-row {
+    grid-template-columns: minmax(0, 2fr) minmax(12rem, 3fr) auto;
+  }
+}
+.ce-loot-item {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

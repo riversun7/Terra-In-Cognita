@@ -5,11 +5,16 @@ import {
   CREATURE_PRESET_TAGS,
   CREATURE_PRIMARY_CODES,
   type CreatureEditorListResponse,
-  type CreatureJson,
 } from "@terra/shared/creatureEditor";
 import { useState } from "react";
 import { CreatureTokenBadge } from "./CreaturePortraitCropper.tsx";
-import { CATEGORY_LABELS, type CreatureStage, GRADE_LABELS, PRESET_TAG_LABELS } from "./creatureModel.ts";
+import {
+  CATEGORY_LABELS,
+  type CreatureStage,
+  GRADE_LABELS,
+  PRESET_TAG_LABELS,
+  combinedCreatures,
+} from "./creatureModel.ts";
 
 export function CreatureList({
   list,
@@ -38,35 +43,9 @@ export function CreatureList({
   const [newImage, setNewImage] = useState("");
   const [createErr, setCreateErr] = useState<string | null>(null);
 
-  // 실효 목록 + 아직 저장하지 않은 새로 담은 크리처 합치기
+  // 실효 목록 + 아직 저장하지 않은 새로 담은 크리처
   const existingIds = new Set(list.creatures.map((r) => r.entry.id));
-  const stagedNewEntries: CreatureJson[] = [];
-  for (const [id, st] of stage.creatures) {
-    if (!existingIds.has(id) && st.op === "put") stagedNewEntries.push(st.entry);
-  }
-
-  const combined: {
-    readonly entry: CreatureJson;
-    readonly isStaged: boolean;
-    readonly isNew: boolean;
-    readonly isReverting: boolean;
-  }[] = [
-    ...stagedNewEntries.map((entry) => ({
-      entry,
-      isStaged: true,
-      isNew: true,
-      isReverting: false,
-    })),
-    ...list.creatures.map((row) => {
-      const st = stage.creatures.get(row.entry.id);
-      return {
-        entry: st?.op === "put" ? st.entry : row.entry,
-        isStaged: st !== undefined,
-        isNew: false,
-        isReverting: st?.op === "revert",
-      };
-    }),
-  ];
+  const combined = combinedCreatures(list, stage);
 
   const q = search.trim().toLowerCase();
   const filtered = combined.filter(({ entry }) => {
@@ -288,6 +267,11 @@ export function CreatureList({
                     <div className="ce-row-name">
                       <strong>{ko ? entry.name.ko : entry.name.en}</strong>
                       {!entry.enabled ? <span className="dev-badge">OFF</span> : null}
+                      {entry.variantOf ? (
+                        <span className="dev-badge" title={entry.variantOf}>
+                          {ko ? "변종" : "Variant"}
+                        </span>
+                      ) : null}
                       {isNew ? <span className="dev-badge be-badge-staged">NEW</span> : null}
                       {!isNew && isStaged ? (
                         <span className="dev-badge be-badge-staged">

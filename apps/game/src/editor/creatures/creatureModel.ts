@@ -1,12 +1,19 @@
 // 크리처 편집기 화면 모델 — 담기(stage)·정리(clean)·3방향 다시 얹기(merge)·분류 이름표.
-import type {
-  CreatureCategory,
-  CreatureEditorChange,
-  CreatureGrade,
-  CreatureJson,
-  CreaturePresetTag,
-  CreaturePrimaryCode,
-  CreatureSize,
+import {
+  CREATURE_PRIMARY_CODES,
+  type CreatureCategory,
+  type CreatureEditorChange,
+  type CreatureEditorListResponse,
+  type CreatureStatTendency,
+  allocateCreatureStats,
+  creatureGroupRootId,
+  type CreatureGrade,
+  type CreatureJson,
+  type CreaturePresetTag,
+  type CreaturePrimaryCode,
+  type CreatureSize,
+  type CreatureStatLean,
+  creatureDefaultSpread,
 } from "@terra/shared/creatureEditor";
 import { sameJson } from "../content/contentEditorModel.ts";
 
@@ -42,6 +49,14 @@ export function cleanCreature(entry: CreatureJson): CreatureJson {
   const skills = entry.skills ? entry.skills.filter((s) => s.skill.trim() !== "") : [];
   const drops = entry.drops ? entry.drops.filter((d) => d.item.trim() !== "") : [];
   const allowedSubspecies = entry.allowedSubspecies ? [...new Set(entry.allowedSubspecies)] : [];
+  // 오차가 여섯 칸 모두 기본 규칙과 같으면 적지 않는다(기준값을 바꾸면 오차도 기본 규칙을 따라간다)
+  const spread =
+    entry.primarySpread &&
+    CREATURE_PRIMARY_CODES.some(
+      (code) => entry.primarySpread?.[code] !== creatureDefaultSpread(entry.primaries[code]),
+    )
+      ? { ...entry.primarySpread }
+      : null;
   return {
     id: entry.id,
     name: { ko: entry.name.ko, en: entry.name.en },
@@ -53,7 +68,10 @@ export function cleanCreature(entry: CreatureJson): CreatureJson {
     ...(tags.length > 0 ? { tags } : {}),
     ...(entry.image && entry.image.trim() !== "" ? { image: entry.image.trim() } : {}),
     ...(entry.portraitCrop ? { portraitCrop: { ...entry.portraitCrop } } : {}),
+    ...(entry.model && entry.model.trim() !== "" ? { model: entry.model.trim() } : {}),
+    ...(entry.variantOf && entry.variantOf !== entry.id ? { variantOf: entry.variantOf } : {}),
     primaries: { ...entry.primaries },
+    ...(spread ? { primarySpread: spread } : {}),
     elements: [...entry.elements],
     ...(entry.resistPm ? { resistPm: [...entry.resistPm] } : {}),
     ...(allowedSubspecies.length > 0 ? { allowedSubspecies } : {}),
@@ -89,7 +107,10 @@ export function mergeCreature(
     tags: pick("tags"),
     image: pick("image"),
     portraitCrop: pick("portraitCrop"),
+    model: pick("model"),
+    variantOf: pick("variantOf"),
     primaries: pick("primaries"),
+    primarySpread: pick("primarySpread"),
     elements: pick("elements"),
     resistPm: pick("resistPm"),
     allowedSubspecies: pick("allowedSubspecies"),
@@ -138,6 +159,136 @@ export function creatureChangesOf(stage: CreatureStage): CreatureEditorChange[] 
     .map((id) => ({ op: "discard_sleeping", id }));
   return [...puts, ...discards];
 }
+
+/** 목록 한 줄: 실효 항목(담은 바꿈을 얹은 것)과 담김 표시 */
+export interface CombinedCreature {
+  readonly entry: CreatureJson;
+  readonly isStaged: boolean;
+  readonly isNew: boolean;
+  readonly isReverting: boolean;
+}
+
+/** 실효 목록 + 아직 적용하지 않은 새 크리쳐(앞쪽) — 도감 탭과 상세 탭 목록이 같이 쓴다 */
+export function combinedCreatures(
+  list: CreatureEditorListResponse,
+  stage: CreatureStage,
+): CombinedCreature[] {
+  const existing = new Set(list.creatures.map((row) => row.entry.id));
+  const created: CombinedCreature[] = [];
+  for (const [id, staged] of stage.creatures) {
+    if (!existing.has(id) && staged.op === "put")
+      created.push({ entry: staged.entry, isStaged: true, isNew: true, isReverting: false });
+  }
+  return [
+    ...created,
+    ...list.creatures.map((row): CombinedCreature => {
+      const staged = stage.creatures.get(row.entry.id);
+      return {
+        entry: staged?.op === "put" ? staged.entry : row.entry,
+        isStaged: staged !== undefined,
+        isNew: false,
+        isReverting: staged?.op === "revert",
+      };
+    }),
+  ];
+}
+
+/** 변종을 만들 때 원본에서 무엇을 바꿀까: 그대로 복제·주속성 바꿈·스탯 성향 바꿈 */
+export type VariantChange =
+  | { readonly kind: "copy" }
+  | { readonly kind: "element"; readonly element: number }
+  | { readonly kind: "stats"; readonly tendency: CreatureStatTendency };
+
+function swapAt(list: readonly number[] | undefined, a: number, b: number): number[] | undefined {
+  if (!list) return undefined;
+  const next = [...list];
+  const left = next[a] ?? 0;
+  next[a] = next[b] ?? 0;
+  next[b] = left;
+  return next;
+}
+
+/**
+ * 원본을 복제해 그룹(rootId)의 변종을 만든다(docs/adr/2026-11-25-creature-codex-groups.md 2절).
+ * - 속성 변종: 주속성 칸과 고른 속성 칸을 맞바꾼다(속성 점수·저항·고유 무기 속성 계수 모두). 주속성이 없으면 고른 칸에 5점.
+ * - 스탯 변종: 같은 합을 고른 성향으로 다시 나눈다(성향 태그도 바꾸고, 오차는 기본 규칙으로 돌린다).
+ */
+export function variantFrom(
+  source: CreatureJson,
+  rootId: string,
+  id: string,
+  name: { readonly ko: string; readonly en: string },
+  change: VariantChange,
+): CreatureJson {
+  let next: CreatureJson = { ...source, id, name, variantOf: rootId };
+  if (change.kind === "element") {
+    const main = mainElementIndex(source.elements);
+    if (main === null) {
+      const elements = [...source.elements];
+      elements[change.element] = 5;
+      next = { ...next, elements };
+    } else if (main !== change.element) {
+      const swap = (list: readonly number[] | undefined) => swapAt(list, main, change.element);
+      const weapon = source.naturalWeapon;
+      next = {
+        ...next,
+        elements: swap(source.elements) ?? [...source.elements],
+        resistPm: swap(source.resistPm),
+        naturalWeapon: weapon
+          ? {
+              ...weapon,
+              skillElementsPm: swap(weapon.skillElementsPm),
+              physical: weapon.physical
+                ? { ...weapon.physical, elementsPm: swap(weapon.physical.elementsPm) }
+                : undefined,
+              elemental: weapon.elemental
+                ? { ...weapon.elemental, elementsPm: swap(weapon.elemental.elementsPm) }
+                : undefined,
+            }
+          : undefined,
+      };
+    }
+  }
+  if (change.kind === "stats") {
+    const sum = CREATURE_PRIMARY_CODES.reduce((acc, code) => acc + source.primaries[code], 0);
+    next = {
+      ...next,
+      primaries: allocateCreatureStats({
+        grade: source.grade,
+        size: source.size,
+        tendency: change.tendency,
+        customBudget: sum,
+      }),
+      primarySpread: undefined,
+      tags: [change.tendency, ...(source.tags ?? []).filter((tag) => !tag.startsWith("tendency_"))],
+    };
+  }
+  return cleanCreature(next);
+}
+
+/** 그룹의 대표를 id로 바꾼다: 바뀌는 항목만 돌려준다(새 대표는 variantOf를 지우고, 옛 대표·다른 변종은 새 대표를 가리킨다) */
+export function promoteToRoot(all: readonly CreatureJson[], id: string): CreatureJson[] {
+  const target = all.find((entry) => entry.id === id);
+  if (!target?.variantOf) return [];
+  const oldRoot = target.variantOf;
+  return all
+    .filter((entry) => creatureGroupRootId(entry) === oldRoot)
+    .map((entry) =>
+      entry.id === id
+        ? cleanCreature({ ...entry, variantOf: undefined })
+        : cleanCreature({ ...entry, variantOf: id }),
+    );
+}
+
+/** ID 글자 → 색 고르기 씨앗(임시 3D 몸) */
+export function seedOfId(id: string): number {
+  let hash = 2_166_136_261;
+  for (let i = 0; i < id.length; i++) hash = Math.imul(hash ^ id.charCodeAt(i), 16_777_619);
+  return hash >>> 0;
+}
+
+/** 임시 3D 몸의 크기 배율(크기 등급) */
+export const SIZE_PREVIEW_SCALE: Readonly<Record<CreatureSize, number>> = { S: 0.5, M: 0.8, L: 1.2, XL: 2 };
 
 /** 새 크리처 기본 템플릿 */
 export function createDefaultCreature(id: string, image?: string): CreatureJson {
@@ -232,6 +383,26 @@ export const STAT_LABELS: Readonly<
   int: { ko: "지능 (INT)", en: "INT" },
   wis: { ko: "지혜 (WIS)", en: "WIS" },
 };
+
+export const LEAN_LABELS: Readonly<Record<CreatureStatLean, { readonly ko: string; readonly en: string }>> = {
+  physical: { ko: "물리 위주", en: "Physical" },
+  finesse: { ko: "기교 위주", en: "Finesse" },
+  magic: { ko: "마법 위주", en: "Magic" },
+  balanced: { ko: "균형", en: "Balanced" },
+};
+
+/** 가장 큰 속성 칸(같으면 앞 차례). 모두 0이면 null */
+export function mainElementIndex(elements: readonly number[]): number | null {
+  let best = -1;
+  let bestValue = 0;
+  elements.forEach((value, index) => {
+    if (value > bestValue) {
+      best = index;
+      bestValue = value;
+    }
+  });
+  return best < 0 ? null : best;
+}
 
 export const ELEMENT_LABELS: readonly {
   readonly id: string;

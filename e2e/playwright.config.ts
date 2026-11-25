@@ -1,6 +1,6 @@
 // 화면 시험(Playwright) 설정 — ADR 2026-10-29-app-shell 13절. CI에서는 돌리지 않는다([결정 3]).
 // 실행: TEST_DATABASE_URL=postgres://… pnpm e2e [시험 파일·--grep 등]. 준비·정리는 global-setup.ts.
-// - Chromium 하나. 기본 화면은 휴대폰 세로(helpers/viewports.ts의 phone). 다른 크기는 시험 파일에서 test.use로.
+// - Chromium 하나(E2E_BROWSER_CHANNEL=chrome이면 기기에 설치된 Chrome — 브라우저 폴더가 없는 작업 PC용, 내려받지 않는다). 기본 화면은 휴대폰 세로(helpers/viewports.ts의 phone). 다른 크기는 시험 파일에서 test.use로.
 // - 작업자 하나: 서버·DB·가짜 계정을 함께 쓰고, 시험이 계정 설정(테마·언어·메뉴)을 바꾼다.
 // - 다시 시도하지 않는다(retries 0): 흔들리는 시험은 고친다. 실패한 시험만 trace·사진을 e2e/test-results에 남긴다.
 // - 같은 작업 트리에서는 한 번에 하나만 돈다. 실행기가 이 파일을 읽을 때 잠금을 잡는다(helpers/runLock.ts):
@@ -30,5 +30,13 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
-  projects: [{ name: "chromium", use: { browserName: "chromium" } }],
+  projects: [
+    {
+      name: "chromium",
+      use: {
+        browserName: "chromium",
+        ...(process.env.E2E_BROWSER_CHANNEL ? { channel: process.env.E2E_BROWSER_CHANNEL } : {}),
+      },
+    },
+  ],
 });

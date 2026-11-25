@@ -79,6 +79,8 @@ export function creatureJsonOf(entry: CreatureEntry): CreatureJson {
           },
         }
       : {}),
+    ...(entry.model === undefined ? {} : { model: entry.model }),
+    ...(entry.variantOf ? { variantOf: entry.variantOf.id } : {}),
     primaries: {
       str: entry.primaries.str,
       dex: entry.primaries.dex,
@@ -87,6 +89,18 @@ export function creatureJsonOf(entry: CreatureEntry): CreatureJson {
       int: entry.primaries.int,
       wis: entry.primaries.wis,
     },
+    ...(entry.primarySpread
+      ? {
+          primarySpread: {
+            str: entry.primarySpread.str,
+            dex: entry.primarySpread.dex,
+            agi: entry.primarySpread.agi,
+            vit: entry.primarySpread.vit,
+            int: entry.primarySpread.int,
+            wis: entry.primarySpread.wis,
+          },
+        }
+      : {}),
     elements: [...entry.elements],
     ...(entry.resistPm ? { resistPm: [...entry.resistPm] } : {}),
     ...(entry.allowedSubspecies ? { allowedSubspecies: [...entry.allowedSubspecies] } : {}),

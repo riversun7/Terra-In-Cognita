@@ -1,4 +1,6 @@
 // 크리처 스탯 · 12속성 · 아종 · 세트 6스탯 분포 분석 탭(CreatureStatsTab) — 기획 D-094·D-5024·41_Time_Units §4.3.
+// 스탯 값은 1레벨 기준이고 스탯마다 조우 오차(±)를 둔다(기본 규칙: 10 이하 ±1, 20 이하 ±2, 그 위 ±3). 랜덤 분포 뽑기 = 총합·고정할 스탯을
+// 정하고 나머지를 흔들어 나눈다(사용자 결정 2026-11-25, docs/adr/2026-11-25-creature-codex-groups.md 4절).
 import {
   CREATURE_GRADE_STAT_BUDGET,
   CREATURE_LIMITS,
@@ -7,11 +9,24 @@ import {
   type CreaturePrimaryCode,
   type CreatureStatTendency,
   allocateCreatureStats,
+  creatureDefaultSpread,
+  creatureSpreadOf,
+  creatureStatProfile,
+  creatureStatRange,
+  creatureStatSumRange,
+  rollCreatureStatDistribution,
   summarizeCreatureStatDistribution,
 } from "@terra/shared/creatureEditor";
 import { useState } from "react";
 import { NumberField } from "../content/contentEditorFields.tsx";
-import { CATEGORY_LABELS, ELEMENT_LABELS, PRESET_TAG_LABELS, STAT_LABELS } from "./creatureModel.ts";
+import {
+  CATEGORY_LABELS,
+  ELEMENT_LABELS,
+  LEAN_LABELS,
+  PRESET_TAG_LABELS,
+  STAT_LABELS,
+  seedOfId,
+} from "./creatureModel.ts";
 import { STAT_SUM_ABSOLUTE_MAX } from "@terra/shared/statGrowth";
 
 const TENDENCY_OPTIONS: readonly {
@@ -55,6 +70,8 @@ export function CreatureStatsTab({
   const [secondaryStat, setSecondaryStat] = useState<CreaturePrimaryCode>("vit");
   const [customBudget, setCustomBudget] = useState<number | undefined>(undefined);
   const [distScope, setDistScope] = useState<string>("category");
+  const [locked, setLocked] = useState<ReadonlySet<CreaturePrimaryCode>>(new Set());
+  const [rollSeed, setRollSeed] = useState(() => seedOfId(draft.id));
 
   const statSum = CREATURE_PRIMARY_CODES.reduce((acc, code) => acc + draft.primaries[code], 0);
   const elementSum = draft.elements.reduce((acc, v) => acc + v, 0);
@@ -75,6 +92,35 @@ export function CreatureStatsTab({
       primaries: nextPrimaries,
       tags: [tendency, ...otherTags],
     });
+  };
+
+  // 랜덤 분포 뽑기: 고정한 스탯은 지금 값 그대로, 나머지를 총합에 맞춰 흔들어 나눈다(누를 때마다 다른 분포)
+  const rollRandomStats = (): void => {
+    const seed = (rollSeed + 1) >>> 0;
+    setRollSeed(seed);
+    const lockedValues: Partial<Record<CreaturePrimaryCode, number>> = {};
+    for (const code of locked) lockedValues[code] = draft.primaries[code];
+    onEdit({
+      ...draft,
+      primaries: rollCreatureStatDistribution({
+        budget: customBudget ?? defaultBudget,
+        size: draft.size,
+        tendency,
+        focus: [primaryStat, secondaryStat],
+        locked: lockedValues,
+        seed,
+      }),
+    });
+  };
+
+  const sumRange = creatureStatSumRange(draft);
+  const profile = creatureStatProfile(draft.primaries);
+  const customSpread = draft.primarySpread !== undefined;
+  const setSpread = (code: CreaturePrimaryCode, value: number): void => {
+    const next = { str: 0, dex: 0, agi: 0, vit: 0, int: 0, wis: 0 };
+    for (const key of CREATURE_PRIMARY_CODES) next[key] = creatureSpreadOf(draft, key);
+    next[code] = value;
+    onEdit({ ...draft, primarySpread: next });
   };
 
   // 세트·분류 6스탯 분포 비교 대상
@@ -114,9 +160,14 @@ export function CreatureStatsTab({
                 : `Automatically distributes 6 primary stats by grade (${draft.grade}, base budget ${defaultBudget}), size (${draft.size}), tendency, and primary/secondary focus.`}
             </p>
           </div>
-          <button type="button" className="button-small ce-btn-accent" onClick={applyAutoStats}>
-            {ko ? "특성 기반 스탯 자동 배분" : "Auto-Allocate 6 Stats"}
-          </button>
+          <div className="be-actions">
+            <button type="button" className="button-small ce-btn-accent" onClick={applyAutoStats}>
+              {ko ? "특성 기반 스탯 자동 배분" : "Auto-Allocate 6 Stats"}
+            </button>
+            <button type="button" className="button-small ce-btn-accent" onClick={rollRandomStats}>
+              {ko ? "랜덤 분포 뽑기" : "Roll Random Distribution"}
+            </button>
+          </div>
         </div>
 
         <div className="ce-grid-4">
@@ -186,18 +237,68 @@ export function CreatureStatsTab({
             onChange={setCustomBudget}
           />
         </div>
+
+        <div className="ce-subspecies-block">
+          <span className="field-label">
+            {ko
+              ? "랜덤 분포에서 고정할 스탯 (지금 값 그대로 두고 나머지만 뽑는다)"
+              : "Stats to keep when rolling (others are re-rolled)"}
+          </span>
+          <div className="ce-chip-list">
+            {CREATURE_PRIMARY_CODES.map((code) => {
+              const active = locked.has(code);
+              return (
+                <button
+                  key={code}
+                  type="button"
+                  className="ce-tag-chip"
+                  aria-pressed={active}
+                  data-active={active ? "true" : undefined}
+                  onClick={() => {
+                    const next = new Set(locked);
+                    if (active) next.delete(code);
+                    else next.add(code);
+                    setLocked(next);
+                  }}
+                >
+                  {ko ? STAT_LABELS[code].ko : STAT_LABELS[code].en} {draft.primaries[code]}
+                </button>
+              );
+            })}
+          </div>
+          <span className="field-hint">
+            {ko
+              ? `총합 ${customBudget ?? defaultBudget} 안에서 성향·주력·부주력 비중에 흔들림을 얹어 나눕니다. 누를 때마다 다른 분포가 나오고 Ctrl+Z로 되돌립니다.`
+              : `Splits the total (${customBudget ?? defaultBudget}) by tendency and focus weights with random jitter. Each click rolls again; Ctrl+Z undoes.`}
+          </span>
+        </div>
       </section>
 
       {/* 2. 6대 1차 스탯 수동 편집 & 세트 내 스탯 분포 비교 */}
       <section className="be-card">
         <div className="ce-card-head">
           <h3 className="ce-section-title">
-            {ko ? "1차 스탯 (6종) & 세트 분포 비교" : "Primary Stats (6) & Set Distribution Analyzer"}
+            {ko
+              ? "1차 스탯 (1레벨 기준 · 조우 오차 ±) & 세트 분포 비교"
+              : "Primary Stats (Level 1 · Encounter Spread ±) & Set Distribution"}
           </h3>
           <div className="ce-inline-controls">
             <span className="dev-badge">
-              {ko ? `현재 6스탯 합계: ${statSum}` : `Total 6-Stat Sum: ${statSum}`}
+              {ko
+                ? `합계 ${statSum} · 조우 범위 ${sumRange.min}~${sumRange.max}`
+                : `Sum ${statSum} · range ${sumRange.min}–${sumRange.max}`}
             </span>
+            <span className="dev-badge" data-lean={profile.lean}>
+              {ko ? LEAN_LABELS[profile.lean].ko : LEAN_LABELS[profile.lean].en}
+            </span>
+            <button
+              type="button"
+              className="button-small"
+              disabled={!customSpread}
+              onClick={() => onEdit({ ...draft, primarySpread: undefined })}
+            >
+              {ko ? "오차 기본값으로" : "Reset Spread"}
+            </button>
             <select
               aria-label={ko ? "스탯 분포 비교 기준" : "Distribution comparison scope"}
               value={distScope}
@@ -221,20 +322,29 @@ export function CreatureStatsTab({
           </div>
         </div>
 
+        <p className="field-hint">
+          {ko
+            ? "조우하는 개체의 스탯은 기준 ± 오차 안에서 정해집니다. 오차를 따로 적지 않으면 기본 규칙(기준 10 이하 ±1, 20 이하 ±2, 그 위 ±3)을 따릅니다."
+            : "Encountered individuals roll each stat within base ± spread. Without a custom spread the default rule applies (≤10 ±1, ≤20 ±2, above ±3)."}
+        </p>
         <div className="ce-stat-rows">
           {CREATURE_PRIMARY_CODES.map((code) => {
             const val = draft.primaries[code];
             const dist = distribution.stats[code];
-            const maxBar = Math.max(40, dist.max, val);
+            const range = creatureStatRange(draft, code);
+            const maxBar = Math.max(40, dist.max, range.max);
             const valPct = Math.min(100, (val / maxBar) * 100);
             const avgPct = Math.min(100, (dist.avg / maxBar) * 100);
+            const minPct = Math.min(100, (range.min / maxBar) * 100);
+            const maxPct = Math.min(100, (range.max / maxBar) * 100);
             return (
-              <div key={code} className="ce-stat-row">
+              <div key={code} className="ce-stat-row ce-stat-row-spread" data-stat={code}>
                 <NumberField
                   label={ko ? STAT_LABELS[code].ko : STAT_LABELS[code].en}
                   value={val}
                   min={CREATURE_LIMITS.stat.min}
                   max={CREATURE_LIMITS.stat.max}
+                  slider={false}
                   onChange={(next) => {
                     if (next === undefined) return;
                     onEdit({
@@ -243,9 +353,33 @@ export function CreatureStatsTab({
                     });
                   }}
                 />
+                <NumberField
+                  label={
+                    ko
+                      ? `오차 ± (기본 ${creatureDefaultSpread(val)})`
+                      : `Spread ± (default ${creatureDefaultSpread(val)})`
+                  }
+                  value={range.spread}
+                  min={CREATURE_LIMITS.spread.min}
+                  max={CREATURE_LIMITS.spread.max}
+                  slider={false}
+                  onChange={(next) => {
+                    if (next !== undefined) setSpread(code, next);
+                  }}
+                />
+                <p className="ce-stat-range">
+                  <span className="field-label">{ko ? "1레벨 조우 범위" : "Level-1 roll range"}</span>
+                  <strong className="ce-stat-range-text">
+                    {range.min}~{range.max}
+                  </strong>
+                </p>
                 <div className="ce-stat-meter-col">
                   <div className="ce-stat-meter-track">
                     <div className="ce-stat-meter-fill" style={{ width: `${valPct.toFixed(1)}%` }} />
+                    <div
+                      className="ce-stat-meter-range"
+                      style={{ left: `${minPct.toFixed(1)}%`, width: `${(maxPct - minPct).toFixed(1)}%` }}
+                    />
                     <div
                       className="ce-stat-meter-avg"
                       style={{ left: `${avgPct.toFixed(1)}%` }}

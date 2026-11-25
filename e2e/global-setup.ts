@@ -101,16 +101,23 @@ interface RunState {
 const log = (line: string): void => console.log(`[e2e] ${line}`);
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * E2E_BROWSER_CHANNEL(예: chrome)이 있으면 그 기기에 설치된 브라우저로 띄운다(playwright.config.ts와 같은 값). Playwright 브라우저 폴더가
+ * 없는 작업 PC에서 내려받지 않고 돌리는 길이다. 없으면 미리 설치한 Chromium(기본)
+ */
+const BROWSER_LAUNCH = process.env.E2E_BROWSER_CHANNEL ? { channel: process.env.E2E_BROWSER_CHANNEL } : {};
+
 /** 브라우저가 있는지(실제로 띄워 본다). 없으면 내려받지 말고 개발 환경 설정을 보라고 알린다 */
 async function checkBrowser(): Promise<void> {
   try {
-    const browser = await chromium.launch();
+    const browser = await chromium.launch(BROWSER_LAUNCH);
     await browser.close();
   } catch (error) {
     throw new Error(
       `Chromium을 띄우지 못했습니다. 개발 환경에 미리 설치한 브라우저를 씁니다(내려받지 않는다): ` +
         `PLAYWRIGHT_BROWSERS_PATH(지금 ${process.env.PLAYWRIGHT_BROWSERS_PATH ?? "없음"})가 chromium-1243이 있는 폴더(/opt/pw-browsers)인지 보세요. ` +
-        `@playwright/test 판을 바꿨다면 그 판의 브라우저가 있어야 합니다.`,
+        `@playwright/test 판을 바꿨다면 그 판의 브라우저가 있어야 합니다. ` +
+        `기기에 설치된 Chrome으로 돌리려면 E2E_BROWSER_CHANNEL=chrome을 줍니다.`,
       { cause: error },
     );
   }
@@ -318,7 +325,7 @@ const SETUP_CYBORGS = {
  * 브라우저 안에서 열면 같은 출처라 쿠키·Origin이 저절로 실린다(Node WebSocket 머리글 타입을 쓰지 않으려고).
  */
 async function createSetupCyborg(baseURL: string, account: HarnessAccount, name: string): Promise<void> {
-  const browser = await chromium.launch();
+  const browser = await chromium.launch(BROWSER_LAUNCH);
   try {
     const context = await browser.newContext({ baseURL, storageState: account.storageState });
     const page = await context.newPage();

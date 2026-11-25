@@ -5,6 +5,11 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-25 16:50 KST | 작업 기록 — 행정 건물 개요 탭 도시·국가 가입 추가 및 세력 탭 원격 가입 제거 | Antigravity | [25-1650-gov-overview-join-remove-remote-home](worklog/2026/11/25-1650-gov-overview-join-remove-remote-home.md) |
+|  | 개발자 시안 모음(/dev/mockups) 캐릭터 탭 — 게임형 3D 캐릭터 스튜디오(V2) 구현 |  | [25-1638-dev-mockups-character-studio-v2](worklog/2026/11/25-1638-dev-mockups-character-studio-v2.md) |
+|  | 2차맵 세로 사이드바 선택 표시 수정 및 인벤토리·착용 장비·인공장기 분리 개편 |  | [25-1430-second-map-rail-and-inventory-gear-layout](worklog/2026/11/25-1430-second-map-rail-and-inventory-gear-layout.md) |
+|  | 2차 시안 Part 2 선택 아이콘 7종 메뉴 반영 |  | [25-1406-apply-r2-part2-icons](worklog/2026/11/25-1406-apply-r2-part2-icons.md) |
+|  | 남은 2차 SF 메뉴 아이콘 시안(Part 2 · 8종 × 5안) 생성 및 개발자 시안 모음 반영 |  | [25-1358-sf-menu-icons-r2-part2](worklog/2026/11/25-1358-sf-menu-icons-r2-part2.md) |
 | 2026-11-25 04:25 | SF 메뉴 아이콘 15종 교체 적용 및 개발자 시안 모음(/dev/mockups) 페이지 추가 | Antigravity | [25-0425-sf-menu-icons-and-dev-mockups](worklog/2026/11/25-0425-sf-menu-icons-and-dev-mockups.md) |
 | 2026-11-25 03:25 KST | 작업 기록 — 국가 미가입 가문의 세력 화면·홈 카드 모순 수정 | Antigravity | [25-0325-fix-nationless-house-faction-card](worklog/2026/11/25-0325-fix-nationless-house-faction-card.md) |
 | 2026-11-25 01:48 KST | 작업 기록 — 건물별 접근 권한 범위 및 외부인 건설 정책(4단계) | Antigravity | [25-0148-building-access-foreign-build](worklog/2026/11/25-0148-building-access-foreign-build.md) |

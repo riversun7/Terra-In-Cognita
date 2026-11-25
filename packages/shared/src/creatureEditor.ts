@@ -136,7 +136,14 @@ export interface CreatureJson {
   readonly tags?: readonly string[] | undefined;
   readonly image?: string | undefined;
   readonly portraitCrop?: CreaturePortraitCrop | undefined;
+  /** 3D 모델 파일 이름 또는 경로(GLB) */
+  readonly model?: string | undefined;
+  /** 변종이면 그룹 대표 크리쳐 ID */
+  readonly variantOf?: string | undefined;
+  /** 1레벨 기준 스탯(도감 값) */
   readonly primaries: CreaturePrimariesJson;
+  /** 스탯별 조우 오차(±). 없으면 기본 규칙(creatureDefaultSpread) */
+  readonly primarySpread?: CreaturePrimariesJson | undefined;
   readonly elements: readonly number[];
   readonly resistPm?: readonly number[] | undefined;
   readonly allowedSubspecies?: readonly string[] | undefined;
@@ -150,6 +157,7 @@ export interface CreatureJson {
 
 export const CREATURE_LIMITS = {
   stat: { min: 1, max: 999 },
+  spread: { min: 0, max: 10 },
   element: { min: 0, max: 10 },
   elementSumMax: 20,
   resistPm: { min: -1000, max: 1000 },
@@ -214,6 +222,8 @@ export interface CreatureEditorListResponse {
   readonly unitKinds: readonly CreatureEditorUnitKindOption[];
   /** public/creatures/ 아래에서 감지된 사용 가능 이미지 파일 이름 목록 */
   readonly availableImages: readonly string[];
+  /** public/creatures/models/ 아래에서 감지된 3D 모델(GLB) 파일 이름 목록 */
+  readonly availableModels: readonly string[];
   readonly retired: readonly string[];
   readonly sleeping: readonly ContentSleepingRow[];
 }
@@ -256,6 +266,134 @@ export function resolveCreatureImageUrl(image: string | undefined): string | nul
     return trimmed;
   }
   return `/creatures/${trimmed}`;
+}
+
+/** 크리처 3D 모델 경로 해석기 — 파일 이름만 적혀 있으면 `/creatures/models/<파일명>`, `/`·`http`로 시작하면 그대로 */
+export function resolveCreatureModelUrl(model: string | undefined): string | null {
+  if (!model) return null;
+  const trimmed = model.trim();
+  if (trimmed === "") return null;
+  if (trimmed.startsWith("/") || trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return trimmed;
+  }
+  return `/creatures/models/${trimmed}`;
+}
+
+/**
+ * 스탯 조우 오차(±) 기본값 — 사용자 결정 2026-11-25: 기준 스탯 10 이하 ±1, 20 이하 ±2, 그 위 ±3.
+ * 도감 값은 1레벨 기준이고, 조우 개체는 스탯마다 기준 ± 오차 안에서 굴린다(docs/adr/2026-11-25-creature-codex-groups.md)
+ */
+export function creatureDefaultSpread(value: number): number {
+  if (value <= 10) return 1;
+  if (value <= 20) return 2;
+  return 3;
+}
+
+/** 그 스탯의 오차(±): 적어 둔 값, 없으면 기본 규칙 */
+export function creatureSpreadOf(
+  entry: Pick<CreatureJson, "primaries" | "primarySpread">,
+  code: CreaturePrimaryCode,
+): number {
+  return entry.primarySpread?.[code] ?? creatureDefaultSpread(entry.primaries[code]);
+}
+
+/** 1레벨 조우 범위(최소 1): 기준 − 오차 ~ 기준 + 오차 */
+export function creatureStatRange(
+  entry: Pick<CreatureJson, "primaries" | "primarySpread">,
+  code: CreaturePrimaryCode,
+): { readonly min: number; readonly max: number; readonly spread: number } {
+  const base = entry.primaries[code];
+  const spread = creatureSpreadOf(entry, code);
+  return { min: Math.max(CREATURE_LIMITS.stat.min, base - spread), max: base + spread, spread };
+}
+
+/** 6스탯 합의 조우 범위(스탯마다 최소·최대를 더한 값) */
+export function creatureStatSumRange(entry: Pick<CreatureJson, "primaries" | "primarySpread">): {
+  readonly min: number;
+  readonly base: number;
+  readonly max: number;
+} {
+  let min = 0;
+  let base = 0;
+  let max = 0;
+  for (const code of CREATURE_PRIMARY_CODES) {
+    const range = creatureStatRange(entry, code);
+    min += range.min;
+    base += entry.primaries[code];
+    max += range.max;
+  }
+  return { min, base, max };
+}
+
+/** 스탯 분포 성향 — 1차 스탯 묶음(STR·VIT 물리, DEX·AGI 기교, INT·WIS 마법) 가운데 어디에 쏠렸는가 */
+export const CREATURE_STAT_LEANS = ["physical", "finesse", "magic", "balanced"] as const;
+export type CreatureStatLean = (typeof CREATURE_STAT_LEANS)[number];
+
+export interface CreatureStatProfile {
+  readonly lean: CreatureStatLean;
+  /** 묶음 몫(‰, 합 1000) */
+  readonly sharePm: { readonly physical: number; readonly finesse: number; readonly magic: number };
+  /** 값이 큰 차례 두 스탯(같으면 코드 차례) */
+  readonly top: readonly [CreaturePrimaryCode, CreaturePrimaryCode];
+}
+
+/** 묶음 하나가 이 몫(‰) 이상이면 그 성향, 아니면 균형 */
+const LEAN_THRESHOLD_PM = 400;
+
+export function creatureStatProfile(primaries: CreaturePrimariesJson): CreatureStatProfile {
+  const total = CREATURE_PRIMARY_CODES.reduce((acc, code) => acc + primaries[code], 0);
+  const share = (sum: number): number => (total > 0 ? Math.round((sum * 1000) / total) : 0);
+  const physical = share(primaries.str + primaries.vit);
+  const finesse = share(primaries.dex + primaries.agi);
+  const magic = total > 0 ? 1000 - physical - finesse : 0;
+  const ranked = [...CREATURE_PRIMARY_CODES].toSorted((a, b) => primaries[b] - primaries[a]);
+  const best = Math.max(physical, finesse, magic);
+  const lean: CreatureStatLean =
+    best < LEAN_THRESHOLD_PM
+      ? "balanced"
+      : best === physical
+        ? "physical"
+        : best === magic
+          ? "magic"
+          : "finesse";
+  return {
+    lean,
+    sharePm: { physical, finesse, magic },
+    top: [ranked[0] ?? "str", ranked[1] ?? "vit"],
+  };
+}
+
+/** 그룹 대표 ID: 변종이면 대표, 아니면 자기 */
+export function creatureGroupRootId(entry: Pick<CreatureJson, "id" | "variantOf">): string {
+  return entry.variantOf ?? entry.id;
+}
+
+export interface CreatureGroup<T> {
+  readonly rootId: string;
+  /** 대표(목록에 없으면 null — 걸러진 목록) */
+  readonly root: T | null;
+  /** 변종(목록 차례) */
+  readonly variants: readonly T[];
+}
+
+/** 목록을 그룹으로 묶는다(차례 = 그룹의 첫 항목이 나온 차례). 변종이 없는 크리쳐는 변종 0개 그룹이다 */
+export function groupCreatures<T>(
+  rows: readonly T[],
+  entryOf: (row: T) => Pick<CreatureJson, "id" | "variantOf">,
+): CreatureGroup<T>[] {
+  const groups = new Map<string, { rootId: string; root: T | null; variants: T[] }>();
+  for (const row of rows) {
+    const entry = entryOf(row);
+    const rootId = creatureGroupRootId(entry);
+    let group = groups.get(rootId);
+    if (!group) {
+      group = { rootId, root: null, variants: [] };
+      groups.set(rootId, group);
+    }
+    if (entry.id === rootId) group.root = row;
+    else group.variants.push(row);
+  }
+  return [...groups.values()];
 }
 
 /**
@@ -345,6 +483,64 @@ export function allocateCreatureStats(opts: {
     int: allocated[4] ?? 6,
     wis: allocated[5] ?? 6,
   };
+}
+
+/**
+ * 6스탯 랜덤 분포 뽑기(편의 기능, 사용자 결정 2026-11-25) — 총합(budget)과 고정할 스탯(locked)을 주면 나머지를 성향·크기 비중에
+ * 흔들림(±40%)을 얹어 나눈다. 강조 스탯(focus)은 비중을 더 준다. 합은 budget과 같다(고정 값이 budget을 넘지 않는 한). 같은 시드면 같은 분포다
+ */
+export function rollCreatureStatDistribution(opts: {
+  readonly budget: number;
+  readonly size: CreatureSize;
+  readonly tendency?: CreatureStatTendency | undefined;
+  readonly focus?: readonly CreaturePrimaryCode[] | undefined;
+  readonly locked?: Partial<Record<CreaturePrimaryCode, number>> | undefined;
+  readonly seed: number;
+}): CreaturePrimariesJson {
+  const rng = createRng(opts.seed);
+  const locked = opts.locked ?? {};
+  const free = CREATURE_PRIMARY_CODES.filter((code) => locked[code] === undefined);
+  const lockedSum = CREATURE_PRIMARY_CODES.reduce((acc, code) => acc + (locked[code] ?? 0), 0);
+  const budget = Math.max(6, Math.min(STAT_SUM_ABSOLUTE_MAX, Math.trunc(opts.budget)));
+  // 고정하지 않은 칸에 돌아갈 몫(칸마다 최소 1)
+  const pool = Math.max(free.length, budget - lockedSum);
+  const baseW = opts.tendency ? TENDENCY_WEIGHTS[opts.tendency] : [16, 16, 16, 16, 16, 16];
+  const sizeW = SIZE_MODIFIERS[opts.size];
+  const weights = free.map((code) => {
+    const idx = CREATURE_PRIMARY_CODES.indexOf(code);
+    const jitterPm = 600 + rng.nextInt(801);
+    const focus = opts.focus?.includes(code) === true ? 1.6 : 1;
+    return (baseW[idx] ?? 16) * (sizeW[idx] ?? 1) * focus * (jitterPm / 1000);
+  });
+  const totalW = weights.reduce((a, b) => a + b, 0);
+  const values = weights.map((w) => Math.max(1, Math.floor((w / totalW) * pool)));
+  // 남은 몫은 비중이 큰 칸부터, 넘친 몫은 값이 큰 칸부터 맞춘다
+  const order = weights.map((w, i) => ({ w, i })).toSorted((a, b) => b.w - a.w || a.i - b.i);
+  let diff = pool - values.reduce((a, b) => a + b, 0);
+  for (let step = 0; diff > 0 && order.length > 0; step++) {
+    const slot = order[step % order.length];
+    if (!slot) break;
+    values[slot.i] = (values[slot.i] ?? 1) + 1;
+    diff -= 1;
+  }
+  for (let guard = 0; diff < 0 && guard < 1000; guard++) {
+    let big = -1;
+    for (let i = 0; i < values.length; i++) {
+      if ((values[i] ?? 1) > 1 && (big < 0 || (values[i] ?? 1) > (values[big] ?? 1))) big = i;
+    }
+    if (big < 0) break;
+    values[big] = (values[big] ?? 2) - 1;
+    diff += 1;
+  }
+  const out: Record<CreaturePrimaryCode, number> = { str: 1, dex: 1, agi: 1, vit: 1, int: 1, wis: 1 };
+  for (const code of CREATURE_PRIMARY_CODES) {
+    const fixed = locked[code];
+    if (fixed !== undefined) out[code] = fixed;
+  }
+  free.forEach((code, i) => {
+    out[code] = values[i] ?? 1;
+  });
+  return out;
 }
 
 export interface CreatureStatDistributionSummary {

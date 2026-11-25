@@ -1,12 +1,17 @@
-// 크리처 전리품 드롭 테이블 & 몬테카를로 사냥 보상 시뮬레이터 탭(CreatureLootTab) — 기획 D-494·41_Time_Units §4.3.
+// 크리처 전리품 탭(CreatureLootTab) — 아이템을 고르고 획득 확률만 정한다(사용자 결정 2026-11-25 "일단 아이템 선택후 획득확률만",
+// docs/adr/2026-11-25-creature-codex-groups.md 5절). 전리품용 아이템이 아직 없어 수량·기대 가치·사냥 시뮬레이터는 화면에서 뺐다.
+// 자료 모양(drops: item·chancePm·min·max)은 그대로다: 이미 적힌 수량은 건드리지 않고, 새 줄은 1개(min = max = 1)로 넣는다.
 import {
   CREATURE_LIMITS,
   type CreatureEditorItemOption,
   type CreatureJson,
-  simulateCreatureLoot,
 } from "@terra/shared/creatureEditor";
 import { useState } from "react";
 import { NumberField, RemoveButton } from "../content/contentEditorFields.tsx";
+
+const DEFAULT_CHANCE_PM = 250;
+/** 고르기 목록에 한 번에 보이는 아이템 수(검색으로 좁힌다) */
+const PICK_LIMIT = 60;
 
 export function CreatureLootTab({
   draft,
@@ -20,145 +25,164 @@ export function CreatureLootTab({
   readonly onEdit: (next: CreatureJson) => void;
 }) {
   const ko = locale !== "en";
-  const [kills, setKills] = useState<100 | 1000 | 10000>(1000);
-  const [simSeed, setSimSeed] = useState(42);
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("all");
+  const [picked, setPicked] = useState("");
+  const [chancePm, setChancePm] = useState(DEFAULT_CHANCE_PM);
   const drops = draft.drops ?? [];
   const itemById = new Map(items.map((it) => [it.id, it]));
+  const used = new Set(drops.map((drop) => drop.item));
+  const full = drops.length >= CREATURE_LIMITS.dropsMax;
 
-  // 1회 처치당 기대 가치(아이템 startPrice 기준)
-  const expectedValuePerKill = drops.reduce((acc, drop) => {
-    const item = itemById.get(drop.item);
-    const price = item?.startPrice ?? 0;
-    const avgQty = (drop.min + drop.max) / 2;
-    return acc + (drop.chancePm / 1000) * avgQty * price;
-  }, 0);
+  const categories = [...new Set(items.map((item) => item.category))].toSorted();
+  const q = search.trim().toLowerCase();
+  const matches = items.filter((item) => {
+    if (used.has(item.id)) return false;
+    if (category !== "all" && item.category !== category) return false;
+    if (q === "") return true;
+    return (
+      item.id.toLowerCase().includes(q) ||
+      item.name.ko.toLowerCase().includes(q) ||
+      item.name.en.toLowerCase().includes(q)
+    );
+  });
+  const shown = matches.slice(0, PICK_LIMIT);
+  const target = shown.some((item) => item.id === picked) ? picked : (shown[0]?.id ?? "");
 
-  const simRows = simulateCreatureLoot(drops, kills, simSeed);
+  const add = (): void => {
+    if (target === "" || full) return;
+    onEdit({ ...draft, drops: [...drops, { item: target, chancePm, min: 1, max: 1 }] });
+    setPicked("");
+  };
 
   return (
     <div className="ce-tab-stack">
-      {/* 1. 전리품 드롭 테이블 */}
       <section className="be-card">
         <div className="ce-card-head">
           <div>
             <h3 className="ce-section-title">
               {ko
-                ? `전리품 드롭 테이블 (${drops.length}/${CREATURE_LIMITS.dropsMax})`
-                : `Loot Drop Table (${drops.length}/${CREATURE_LIMITS.dropsMax})`}
+                ? `전리품 (${drops.length}/${CREATURE_LIMITS.dropsMax})`
+                : `Loot (${drops.length}/${CREATURE_LIMITS.dropsMax})`}
             </h3>
             <p className="field-hint">
               {ko
-                ? "크리처 처치 시 확률(‰, 1000‰ = 100%)에 따라 min~max개를 드롭합니다. 크리처 착용 장비는 스틸 스킬 대상이 됩니다(D-494)."
-                : "Items dropped on kill by probability (‰, 1000‰ = 100%) and quantity range (min~max)."}
+                ? "아이템을 고르고 획득 확률(‰, 1000‰ = 100%)만 정합니다. 아이템마다 따로 굴립니다. 수량은 지금 다루지 않습니다(새 줄은 1개)."
+                : "Pick an item and set only its drop chance (‰, 1000‰ = 100%). Each item rolls on its own. Quantity is not handled yet (new rows drop 1)."}
             </p>
           </div>
-          <div className="ce-inline-controls">
-            <span className="dev-badge">
-              {ko
-                ? `1회 처치 기대 가치: ${expectedValuePerKill.toFixed(1)}`
-                : `Expected Value / Kill: ${expectedValuePerKill.toFixed(1)}`}
-            </span>
-            <button
-              type="button"
-              className="button-small ce-btn-accent"
-              disabled={drops.length >= CREATURE_LIMITS.dropsMax || items.length === 0}
-              onClick={() => {
-                const used = new Set(drops.map((d) => d.item));
-                const pick = items.find((it) => !used.has(it.id)) ?? items[0];
-                if (!pick) return;
-                onEdit({
-                  ...draft,
-                  drops: [...drops, { item: pick.id, chancePm: 250, min: 1, max: 2 }],
-                });
-              }}
-            >
-              {ko ? "+ 드롭 아이템 추가" : "+ Add Drop Item"}
-            </button>
+        </div>
+
+        {/* 아이템 고르기 → 확률 → 추가 */}
+        <div className="ce-loot-add">
+          <div className="field ce-field">
+            <label className="field-label" htmlFor="ce-loot-search">
+              {ko ? "아이템 찾기" : "Find item"}
+            </label>
+            <input
+              id="ce-loot-search"
+              type="search"
+              className="input"
+              placeholder={ko ? "이름·ID…" : "Name or ID…"}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
+          <div className="field ce-field">
+            <label className="field-label" htmlFor="ce-loot-category">
+              {ko ? "분류" : "Category"}
+            </label>
+            <select id="ce-loot-category" value={category} onChange={(e) => setCategory(e.target.value)}>
+              <option value="all">{ko ? "모든 분류" : "All categories"}</option>
+              {categories.map((code) => (
+                <option key={code} value={code}>
+                  {code}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field ce-field">
+            <label className="field-label" htmlFor="ce-loot-item">
+              {ko
+                ? `아이템 (${matches.length}개${matches.length > PICK_LIMIT ? ` 중 ${PICK_LIMIT}개 — 검색으로 좁히세요` : ""})`
+                : `Item (${matches.length}${matches.length > PICK_LIMIT ? `, showing ${PICK_LIMIT} — narrow by search` : ""})`}
+            </label>
+            <select id="ce-loot-item" value={target} onChange={(e) => setPicked(e.target.value)}>
+              {shown.length === 0 ? (
+                <option value="">{ko ? "— 맞는 아이템 없음 —" : "— No match —"}</option>
+              ) : null}
+              {shown.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {ko ? item.name.ko : item.name.en} ({item.id} · T{item.tier})
+                </option>
+              ))}
+            </select>
+          </div>
+          <NumberField
+            label={
+              ko
+                ? `획득 확률 ‰ (${(chancePm / 10).toFixed(1)}%)`
+                : `Chance ‰ (${(chancePm / 10).toFixed(1)}%)`
+            }
+            value={chancePm}
+            min={CREATURE_LIMITS.dropChancePm.min}
+            max={CREATURE_LIMITS.dropChancePm.max}
+            slider={false}
+            onChange={(value) => {
+              if (value !== undefined) setChancePm(value);
+            }}
+          />
+          <button
+            type="button"
+            className="button-small ce-btn-accent ce-loot-add-button"
+            disabled={full || target === ""}
+            onClick={add}
+          >
+            {ko ? "+ 전리품 추가" : "+ Add Loot"}
+          </button>
         </div>
 
         {drops.length > 0 ? (
           <div className="ce-list-rows">
             {drops.map((drop, idx) => {
-              const itemInfo = itemById.get(drop.item);
+              const info = itemById.get(drop.item);
               return (
-                <div key={`${drop.item}-${idx}`} className="ce-drop-row">
-                  <div className="field ce-field">
-                    <label className="field-label" htmlFor={`ce-drop-item-${idx}`}>
-                      {ko ? "드롭 아이템" : "Drop Item"}
-                    </label>
-                    <select
-                      id={`ce-drop-item-${idx}`}
-                      value={drop.item}
-                      onChange={(e) => {
-                        const next = [...drops];
-                        next[idx] = { ...drop, item: e.target.value };
-                        onEdit({ ...draft, drops: next });
-                      }}
-                    >
-                      {items.map((it) => (
-                        <option key={it.id} value={it.id}>
-                          {ko ? it.name.ko : it.name.en} ({it.id} · T{it.tier})
-                        </option>
-                      ))}
-                    </select>
+                <div key={`${drop.item}-${idx}`} className="ce-loot-row" data-item={drop.item}>
+                  <div className="ce-loot-item">
+                    <strong>{info ? (ko ? info.name.ko : info.name.en) : drop.item}</strong>
+                    <span className="ce-row-name">
+                      <code className="dev-code">{drop.item}</code>
+                      {info ? (
+                        <span className="dev-muted">
+                          T{info.tier} · {info.category}
+                        </span>
+                      ) : null}
+                      {info ? null : (
+                        <span className="dev-badge ce-badge-warn">{ko ? "없는 아이템" : "Missing item"}</span>
+                      )}
+                      {info && !info.enabled ? <span className="dev-badge">OFF</span> : null}
+                    </span>
                   </div>
                   <NumberField
                     label={
                       ko
-                        ? `확률 ‰ (${(drop.chancePm / 10).toFixed(1)}%)`
+                        ? `획득 확률 ‰ (${(drop.chancePm / 10).toFixed(1)}%)`
                         : `Chance ‰ (${(drop.chancePm / 10).toFixed(1)}%)`
                     }
                     value={drop.chancePm}
-                    min={1}
-                    max={1000}
-                    onChange={(v) => {
-                      if (v === undefined) return;
+                    min={CREATURE_LIMITS.dropChancePm.min}
+                    max={CREATURE_LIMITS.dropChancePm.max}
+                    onChange={(value) => {
+                      if (value === undefined) return;
                       const next = [...drops];
-                      next[idx] = { ...drop, chancePm: v };
+                      next[idx] = { ...drop, chancePm: value };
                       onEdit({ ...draft, drops: next });
                     }}
                   />
-                  <NumberField
-                    label={ko ? "최소 수량 (min)" : "Min Qty"}
-                    value={drop.min}
-                    min={1}
-                    max={CREATURE_LIMITS.dropQtyMax}
-                    onChange={(v) => {
-                      if (v === undefined) return;
-                      const next = [...drops];
-                      next[idx] = { ...drop, min: v, max: Math.max(v, drop.max) };
-                      onEdit({ ...draft, drops: next });
-                    }}
+                  <RemoveButton
+                    name={info ? (ko ? info.name.ko : info.name.en) : drop.item}
+                    onClick={() => onEdit({ ...draft, drops: drops.filter((_, i) => i !== idx) })}
                   />
-                  <NumberField
-                    label={ko ? "최대 수량 (max)" : "Max Qty"}
-                    value={drop.max}
-                    min={drop.min}
-                    max={CREATURE_LIMITS.dropQtyMax}
-                    onChange={(v) => {
-                      if (v === undefined) return;
-                      const next = [...drops];
-                      next[idx] = { ...drop, min: Math.min(drop.min, v), max: v };
-                      onEdit({ ...draft, drops: next });
-                    }}
-                  />
-                  <div className="ce-drop-meta">
-                    <span className="field-hint">
-                      {itemInfo?.startPrice
-                        ? `${ko ? "단가" : "Price"} ${itemInfo.startPrice}`
-                        : ko
-                          ? "단가 없음"
-                          : "No price"}
-                    </span>
-                    <RemoveButton
-                      name={drop.item}
-                      onClick={() => {
-                        const next = drops.filter((_, i) => i !== idx);
-                        onEdit({ ...draft, drops: next });
-                      }}
-                    />
-                  </div>
                 </div>
               );
             })}
@@ -166,87 +190,8 @@ export function CreatureLootTab({
         ) : (
           <p className="field-hint">
             {ko
-              ? "등록된 전리품이 없습니다. [+ 드롭 아이템 추가]를 눌러 전리품을 설정하세요."
-              : "No drop items configured."}
-          </p>
-        )}
-      </section>
-
-      {/* 2. 몬테카를로 전리품 사냥 시뮬레이터 (100 / 1,000 / 10,000회) */}
-      <section className="be-card">
-        <div className="ce-card-head">
-          <div>
-            <h3 className="ce-section-title">
-              {ko
-                ? "사냥 보상 몬테카를로 시뮬레이터 (100 · 1,000 · 10,000회 처치)"
-                : "Monte Carlo Loot Simulator (100 / 1,000 / 10,000 Kills)"}
-            </h3>
-            <p className="field-hint">
-              {ko
-                ? "결정적 시드 난수로 반복 처치 시 총 획득 수량과 기대 가치 편차를 검증합니다."
-                : "Simulates repeated kills using seeded RNG to verify drop quantities and expected value."}
-            </p>
-          </div>
-          <div className="ce-inline-controls">
-            {([100, 1000, 10000] as const).map((n) => (
-              <button
-                key={n}
-                type="button"
-                className="button-small"
-                aria-pressed={kills === n}
-                onClick={() => setKills(n)}
-              >
-                {ko ? `${n.toLocaleString()}회 처치` : `${n.toLocaleString()} Kills`}
-              </button>
-            ))}
-            <button type="button" className="button-small" onClick={() => setSimSeed((s) => s + 1)}>
-              {ko ? `시드 재추첨 (#${simSeed})` : `Reroll Seed (#${simSeed})`}
-            </button>
-          </div>
-        </div>
-
-        {simRows.length > 0 ? (
-          <div className="dev-table-wrap">
-            <table className="dev-table">
-              <thead>
-                <tr>
-                  <th>{ko ? "아이템" : "Item"}</th>
-                  <th>{ko ? "설정 확률 · 수량" : "Configured Chance & Qty"}</th>
-                  <th>
-                    {ko ? `${kills.toLocaleString()}회 총 획득` : `Total Dropped (${kills.toLocaleString()})`}
-                  </th>
-                  <th>{ko ? "1회당 평균" : "Avg / Kill"}</th>
-                  <th>{ko ? "총 추정 가치" : "Est. Total Value"}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {simRows.map((row, idx) => {
-                  const info = itemById.get(row.item);
-                  const cfg = drops[idx];
-                  const totalValue = (info?.startPrice ?? 0) * row.totalQty;
-                  return (
-                    <tr key={`${row.item}-${idx}`}>
-                      <td>
-                        <strong>{info ? (ko ? info.name.ko : info.name.en) : row.item}</strong>{" "}
-                        <span className="dev-muted">({row.item})</span>
-                      </td>
-                      <td>{cfg ? `${(cfg.chancePm / 10).toFixed(1)}% · ${cfg.min}~${cfg.max}` : "-"}</td>
-                      <td>
-                        <strong>{row.totalQty.toLocaleString()}</strong>
-                      </td>
-                      <td>{row.avgPerKill}</td>
-                      <td>{totalValue > 0 ? totalValue.toLocaleString() : "-"}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="field-hint">
-            {ko
-              ? "드롭 테이블에 아이템을 추가하면 시뮬레이션 결과가 표시됩니다."
-              : "Add drop items to simulate."}
+              ? "전리품이 없습니다. 위에서 아이템을 고르고 [+ 전리품 추가]를 누르세요."
+              : "No loot yet. Pick an item above and press Add Loot."}
           </p>
         )}
       </section>

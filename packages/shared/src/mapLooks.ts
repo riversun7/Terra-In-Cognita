@@ -37,6 +37,11 @@ export interface MapBuildingLook {
    * (화면이 그 밖으로 묶는다)
    */
   readonly category?: FacilityCategory;
+  /**
+   * 건물이 차지하는 배치 칸 네모(돌린 뒤의 칸 — @terra/sim footprintRect). 지도를 열지 않은 화면(홈 [도시 활동] 카드의 미니맵·거리)이 쓴다 —
+   * 2차맵 화면은 지도 자료의 건물 칸을 쓴다. 옛 서버는 없음
+   */
+  readonly rect?: { readonly x: number; readonly y: number; readonly width: number; readonly height: number };
 }
 
 export interface MapLooksResponse {

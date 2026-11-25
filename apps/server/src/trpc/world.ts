@@ -6,6 +6,8 @@
 //   응답 타입은 @terra/shared/mapUnits. 명령(옮기기·멈추기)은 WebSocket move_unit·stop_unit. 다른 곳 내 유닛 수·카메라 범위(기획 답 632 다·630).
 // - unitGlance: 누른 남의 유닛의 세력·종류(기획 답 636 나) — 지금 내 시야 안일 때만, 아니면 glance null.
 // - unitLooks: 그 2차맵에서 내가 보는 사이보그 본체·NPC 지도자의 3D 외형(docs/adr/2026-11-11-character-3d.md 5절)과 보는 유닛의 나라(질문 963 나).
+// - nearbyUnits: 그 2차맵에서 지금 내 시야 안에 있는 남의 유닛(가까운 차례) — 지도를 열지 않은 홈 [도시 활동] 카드의 유닛 탭
+//   (docs/adr/2026-11-25-home-city-card.md "바뀜"). 보는 규칙은 unitGlance와 같다.
 // - government: 2차맵에서 누른 행정 건물의 정부 판(도시·주인 나라·지도자·세율·행정 레벨·휴먼 수, "WP-NPC"). 모르는 도시면 unknown_building.
 //   도시 하루 값(만족도·발전도·생필품 충족, 743 나 "WP-NPC3")도 함께.
 // - leaderGovernment: 2차맵에서 누른 NPC 국가 지도자의 정부 판(742 나 — 지도자 = 정부 창구, 그 나라 수도 행정 건물 판). 시야 밖이면 unknown_unit.
@@ -19,7 +21,12 @@ import type {
   WorldTravelPlanResponse,
   WorldTravelsResponse,
 } from "@terra/shared/worldMap";
-import type { MapUnitGlanceResponse, MapUnitLooksResponse, MapUnitsResponse } from "@terra/shared/mapUnits";
+import type {
+  MapUnitGlanceResponse,
+  MapUnitLooksResponse,
+  MapUnitsResponse,
+  NearbyUnitsResponse,
+} from "@terra/shared/mapUnits";
 import type { GovernmentResponse } from "@terra/shared/government";
 import type { NaturalizationResponse } from "@terra/shared/citizenship";
 import { z } from "zod";
@@ -42,6 +49,11 @@ const governmentInput = z.object({ buildingId: z.number().int().positive().max(0
 
 /** 남의 유닛 한눈 정보 입력: 2차맵 키·유닛 ID */
 const unitGlanceInput = mapUnitsInput.extend({ unitId: z.number().int().positive().max(0xffff_ffff) });
+
+/** 시야 안 남의 유닛 목록 입력: 2차맵 키·거리를 잴 내 유닛(없으면 내 첫 유닛) */
+const nearbyUnitsInput = mapUnitsInput.extend({
+  unitId: z.number().int().positive().max(0xffff_ffff).optional(),
+});
 
 /** 정부 판 준비 전 답(세계·NPC 사회 런타임 전) */
 const notReadyGovernment = (buildingId: number, nowMs: number): GovernmentResponse => ({
@@ -127,6 +139,26 @@ export const worldRouter = router({
       return services?.unitLooks
         ? services.unitLooks(ctx.viewer, input.mapKey, ctx.now())
         : { status: "not_ready", mapKey: input.mapKey, units: [], generatedAt: ctx.now() };
+    }),
+  /**
+   * 그 2차맵에서 지금 내 시야 안에 있는 남의 유닛(가까운 차례, 상한 NEARBY_UNITS_MAX) — 지도를 열지 않은 화면(홈 [도시 활동] 카드)이 쓴다.
+   * unitId = 거리를 잴 내 유닛(없으면 내 첫 유닛)
+   */
+  nearbyUnits: signedInProcedure
+    .input(nearbyUnitsInput)
+    .query(async ({ ctx, input }): Promise<NearbyUnitsResponse> => {
+      const services = ctx.worldMap?.();
+      return services?.nearbyUnits
+        ? services.nearbyUnits(ctx.viewer, input.mapKey, input.unitId, ctx.now())
+        : {
+            status: "not_ready",
+            mapKey: input.mapKey,
+            loaded: false,
+            anchor: { x: 0, y: 0 },
+            units: [],
+            total: 0,
+            generatedAt: ctx.now(),
+          };
     }),
   /** 2차맵 행정 건물의 정부 판(읽기만 — 고용은 WebSocket recruit_hire) */
   government: signedInProcedure

@@ -145,7 +145,7 @@ describe("resetCards·addableCards", () => {
 
   it("홈에 없는 아는 카드를 카드 목록 순서로 돌려준다", () => {
     expect(addableCards(defaultHomeCards(["player"]))).toEqual(["timeline", "briefing", "diagnostics"]);
-    expect(addableCards([card("future_card")])).toHaveLength(9);
+    expect(addableCards([card("future_card")])).toHaveLength(10);
   });
 });
 

@@ -107,6 +107,11 @@ export interface MapVision {
    * 남의 유닛 한눈 정보(질문 636 나, docs/adr/2026-11-07-unit-control.md "바뀜 (기획 답 630~637)")가 묻는다
    */
   sees(viewer: VisionViewer, unitId: number): boolean;
+  /**
+   * sees를 여러 유닛에 물을 때 쓴다: 지금 시야(구독 중이 아니면 내 덮개·나라 덮개)를 한 번만 세고 유닛마다 답하는 함수를 준다
+   * (지도를 열지 않은 화면의 시야 안 유닛 목록 — world.nearbyUnits). 규칙은 sees와 같다
+   */
+  seer(viewer: VisionViewer): (unitId: number) => boolean;
   subscribe(subscriber: StreamSubscriber, viewer: VisionViewer): void;
   unsubscribe(subscriber: StreamSubscriber): void;
   unitChanged(unit: VisionUnit): void;
@@ -577,6 +582,20 @@ export function createMapVision(options: {
       if (share && isMember(share, unit.ownerId)) return true;
       const sight = share?.cover ?? coverOf(viewer.ownerId);
       return (sight[visionCellOf(positionAt(unit.motion, now()))] ?? 0) > 0;
+    },
+    seer(viewer) {
+      const group = groups.get(groupKeyOf(viewer));
+      const share = group ? undefined : shareFor(viewer);
+      const sight = group ? undefined : (share?.cover ?? coverOf(viewer.ownerId));
+      const at = now();
+      return (unitId) => {
+        const unit = source.unit(unitId);
+        if (!unit) return false;
+        if (owns(viewer, unit.ownerId)) return true;
+        if (group) return group.visible.has(unitId);
+        if (share && isMember(share, unit.ownerId)) return true;
+        return ((sight ?? [])[visionCellOf(positionAt(unit.motion, at))] ?? 0) > 0;
+      };
     },
     tick,
     get groupCount() {

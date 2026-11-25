@@ -9,7 +9,7 @@ import type { FacilityCategory } from "@terra/shared/facilityCategory";
 import type { FacilityLookJson } from "@terra/shared/facilityLook";
 import type { MapBuildingLook, MapLooksResponse } from "@terra/shared/mapLooks";
 import type { LocalizedName } from "@terra/shared/roster";
-import { type SocietyCoefficients, hasBit } from "@terra/sim";
+import { type SocietyCoefficients, footprintRect, hasBit } from "@terra/sim";
 import type { SecondMap } from "../world/secondMap.ts";
 import { buildingCell } from "../world/vision.ts";
 import type { FacilityRecord, JobRecord } from "./state.ts";
@@ -67,6 +67,8 @@ export function mapBuildingLooks(
       (viewer.sighted !== undefined && hasBit(viewer.sighted, buildingCell(building.placement)));
     if (!visible) return;
     const record = source.service.facilities.get(building.id);
+    const foot = footprintRect(building.placement);
+    const rect = { x: foot.x, y: foot.y, width: foot.width, height: foot.height };
     const factionId = building.ownerId === null ? null : (ownerFactions.get(building.ownerId) ?? null);
     const mine = viewer.ownerId !== undefined && building.ownerId === viewer.ownerId;
     if (!record) {
@@ -78,6 +80,7 @@ export function mapBuildingLooks(
         upgrading: false,
         factionId,
         mine,
+        rect,
       });
       return;
     }
@@ -99,6 +102,7 @@ export function mapBuildingLooks(
       mine,
       ...(art ? { art } : {}),
       ...(category ? { category } : {}),
+      rect,
     });
   });
   buildings.sort((a, b) => a.buildingId - b.buildingId);

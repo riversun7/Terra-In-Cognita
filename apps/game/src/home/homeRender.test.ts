@@ -264,7 +264,7 @@ describe("템플릿", () => {
 describe("카드 목록", () => {
   it("카드마다 이름이 있다", () => {
     const ids = Object.keys(HOME_CARDS).filter(isCardId);
-    expect(ids).toHaveLength(9);
+    expect(ids).toHaveLength(10);
     for (const id of ids) expect(cardTitle(id), id).not.toBe("");
   });
 });

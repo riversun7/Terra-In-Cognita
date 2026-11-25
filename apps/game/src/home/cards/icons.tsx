@@ -122,6 +122,18 @@ export function MapsIcon() {
   );
 }
 
+/** 도시 활동: 지붕 둘 + 탑(2차맵 [도시] 탭 아이콘과 같은 그림) */
+export function CityIcon() {
+  return (
+    <Icon>
+      <path d="M3.5 20.5h17" />
+      <path d="M5 20.5v-8l4-3 4 3v8" />
+      <path d="M13 20.5V8.5l3.5-3 3.5 3v12" />
+      <path d="M8 20.5v-3h2v3M16.5 11v2" />
+    </Icon>
+  );
+}
+
 export function DiagnosticsIcon() {
   return (
     <Icon>
@@ -133,6 +145,7 @@ export function DiagnosticsIcon() {
 /** 카드 머리 아이콘. 카드가 늘면 여기서 타입 오류가 난다 */
 export const CARD_ICONS = {
   inbox: InboxIcon,
+  city: CityIcon,
   cyborg: CyborgIcon,
   units: UnitsIcon,
   assets: AssetsIcon,

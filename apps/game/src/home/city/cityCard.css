@@ -1,0 +1,482 @@
+/*
+ * 홈 [도시 활동] 카드 — 고른 내 유닛이 있는 2차맵의 건물·유닛·자원·정보(cards/CityCard.tsx, city/CityPanels.tsx).
+ * 값은 styles/tokens.css의 var(--…)만 쓴다. 목록은 카드 안에서만 넘긴다(카드 높이가 끝없이 늘지 않게).
+ * 무리 색(--group-color)은 2차맵 도시 화면(map/mapHud.css)과 같은 짝이다 — 그 파일은 2차맵 조각이라 여기에 다시 적는다.
+ */
+.city-card {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.city-card [data-group="administration"] {
+  --group-color: var(--color-stat-str);
+}
+.city-card [data-group="gathering"] {
+  --group-color: var(--color-stat-agi);
+}
+.city-card [data-group="processing"] {
+  --group-color: var(--color-stat-vit);
+}
+.city-card [data-group="storage"] {
+  --group-color: var(--color-stat-dex);
+}
+.city-card [data-group="housing"] {
+  --group-color: var(--color-stat-wis);
+}
+.city-card [data-group="public"] {
+  --group-color: var(--color-stat-int);
+}
+.city-card [data-group="commerce"] {
+  --group-color: var(--color-warning);
+}
+.city-card [data-group="transport"] {
+  --group-color: var(--color-market-blue);
+}
+.city-card [data-group="military"] {
+  --group-color: var(--color-danger);
+}
+.city-card [data-group="other"],
+.city-card [data-group="unit"] {
+  --group-color: var(--color-text-muted);
+}
+
+/* 위 줄: 기준 유닛 고르기 + 새로고침 + 2차맵 열기 */
+.city-card-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+/* 이름이 잘리지 않게 좁은 화면에서는 [2차맵 열기]가 다음 줄로 넘어간다 */
+.city-card-unit {
+  flex: 1 1 14rem;
+  min-inline-size: min(100%, 14rem);
+}
+.city-card-unit select {
+  inline-size: 100%;
+  min-block-size: var(--tap-size);
+}
+.city-card-refresh {
+  flex: none;
+}
+.city-card-map {
+  margin: 0;
+}
+
+/* 있는 곳 한 줄 + 정부 건물 건설 가능 표시 */
+.city-card-place {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.city-card-place-name {
+  min-width: 0;
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.city-card-place[data-wild="true"] .city-card-place-name {
+  color: var(--color-text-muted);
+}
+.city-card-claim {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--tap-min);
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-primary-lip);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  text-decoration: none;
+}
+.city-card-loop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  border-inline-start: var(--border-strong-w) solid var(--color-primary);
+  background-color: var(--color-surface-2);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.city-card-problem {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  border-inline-start: var(--border-strong-w) solid var(--color-danger);
+  background-color: var(--color-danger-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+/* 탭 안 작은 제목(내 유닛·주변 유닛) */
+.city-card-section {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+
+/* 탭 줄 — 밑줄 탭(건물 판 탭과 같은 모양) */
+.city-card-tabs {
+  display: flex;
+  align-items: stretch;
+  border-bottom: var(--hairline) solid var(--color-border);
+  overflow-x: auto;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.city-card-tab {
+  --button-lip: transparent;
+  flex: 1 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-inline-size: var(--tap-size);
+  min-block-size: var(--tap-size);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-bottom: var(--border-strong-w) solid transparent;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background-color: transparent;
+  box-shadow: none;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  cursor: pointer;
+}
+.city-card-tab[aria-selected="true"] {
+  border-bottom-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.city-card-tab-count,
+.city-card-filter-count {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+@media (hover: hover) and (pointer: fine) {
+  .city-card-tab:hover {
+    background-color: var(--color-surface-2);
+    color: var(--color-text);
+  }
+}
+
+.city-card-panel {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* 거르기 칩 */
+.city-card-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.city-card-filter {
+  --button-lip: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-block-size: var(--tap-min);
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--dash-tile-bg);
+  box-shadow: none;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+.city-card-filter[aria-pressed="true"] {
+  border-color: var(--color-primary-lip);
+  background-color: var(--color-surface-2);
+  font-weight: var(--font-weight-strong);
+}
+
+/* 목록 — 카드 안에서만 넘긴다. 넓으면 두 줄로 */
+.city-card-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: var(--space-1);
+  max-block-size: calc(var(--tap-size) * 7);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+@media (min-width: 48em) {
+  .city-card-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 80em) {
+  .city-card-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.city-card-row {
+  --button-lip: transparent;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "mark name chip"
+    "mark detail chip";
+  align-items: center;
+  column-gap: var(--space-2);
+  inline-size: 100%;
+  min-block-size: var(--tap-size);
+  padding: var(--space-1) var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--dash-tile-bg);
+  box-shadow: none;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  text-align: start;
+}
+button.city-card-row {
+  cursor: pointer;
+}
+.city-card-row[aria-pressed="true"],
+.city-card-row[aria-expanded="true"] {
+  border-color: var(--color-primary-lip);
+  background-color: var(--color-surface-2);
+}
+@media (hover: hover) and (pointer: fine) {
+  button.city-card-row:hover {
+    border-color: var(--color-border-strong);
+    background-color: var(--dash-tile-hover);
+  }
+}
+.city-card-mark {
+  grid-area: mark;
+  display: grid;
+  place-items: center;
+  inline-size: calc(var(--icon-sm) + var(--space-3));
+  block-size: calc(var(--icon-sm) + var(--space-3));
+  border: var(--hairline) solid var(--group-color, var(--color-border));
+  border-radius: var(--radius-sm);
+  color: var(--group-color, var(--color-text-muted));
+}
+.city-card-mark .icon {
+  inline-size: var(--icon-sm);
+  block-size: var(--icon-sm);
+}
+.city-card-name {
+  grid-area: name;
+  min-width: 0;
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.city-card-detail {
+  grid-area: detail;
+  min-width: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+.city-card-detail:empty {
+  display: none;
+}
+.city-card-row .dash-tag-chip,
+.city-card-row .city-card-gather {
+  grid-area: chip;
+}
+
+/* 유닛 줄: 고르는 단추 + 유닛 화면으로 가는 작은 링크 */
+.city-card-unit-row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.city-card-unit-row .city-card-row {
+  flex: 1 1 auto;
+}
+.city-card-sheet {
+  flex: none;
+  display: grid;
+  place-items: center;
+  inline-size: var(--tap-size);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--dash-tile-bg);
+  color: var(--color-text-muted);
+}
+.city-card-sheet .home-icon {
+  inline-size: var(--icon-sm);
+  block-size: var(--icon-sm);
+}
+.city-card-more {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+/* 받지 못함: 글 + [다시 시도] */
+.city-card-failed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+/* 정보 탭 — 미니맵 + 사실 칸. 넓으면 옆으로 */
+.city-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.city-card-info-side {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+@media (min-width: 48em) {
+  .city-card-info {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+}
+.city-minimap {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  inline-size: min(100%, 20rem);
+  margin: 0;
+}
+.city-minimap-canvas {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  aspect-ratio: 1;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+}
+.city-minimap-zoom {
+  align-self: flex-start;
+}
+.city-minimap-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.city-minimap-legend [data-mark]::before {
+  content: "";
+  display: inline-block;
+  inline-size: var(--space-2);
+  block-size: var(--space-2);
+  margin-inline-end: var(--space-1);
+  border: var(--hairline) solid var(--color-text);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+}
+.city-minimap-legend [data-mark="building"]::before {
+  border-radius: 0;
+  background-color: var(--color-stat-agi);
+}
+.city-minimap-legend [data-mark="others"]::before {
+  background-color: var(--color-warning);
+}
+.city-card-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+}
+.city-card-facts > div {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-1) / 2);
+  min-width: 0;
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--dash-tile-bg);
+}
+.city-card-facts dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.city-card-facts dd {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.city-card-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+/* 단추 모양 링크(카드 정보 탭·건물 판 대화상자 위 줄) */
+.city-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: var(--tap-size);
+  padding: 0 var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  text-decoration: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .city-link-button:hover,
+  .city-card-sheet:hover {
+    border-color: var(--color-border-strong);
+    background-color: var(--color-surface-2);
+    color: var(--color-text);
+  }
+}
+
+.city-card-tab:focus-visible,
+.city-card-filter:focus-visible,
+.city-card-row:focus-visible,
+.city-card-claim:focus-visible,
+.city-card-sheet:focus-visible,
+.city-link-button:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+
+@media (forced-colors: active) {
+  .city-card-row,
+  .city-card-filter,
+  .city-card-facts > div,
+  .city-card-claim,
+  .city-link-button {
+    border: var(--hairline) solid CanvasText;
+  }
+}

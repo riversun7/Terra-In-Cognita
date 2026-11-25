@@ -210,3 +210,42 @@ export interface MapUnitLooksResponse {
   readonly labels?: readonly MapUnitLabel[];
   readonly generatedAt: number;
 }
+
+/** world.nearbyUnits가 한 번에 주는 남의 유닛 줄 수 상한(기준 자리에서 가까운 차례로 자른다) */
+export const NEARBY_UNITS_MAX = 60;
+
+/**
+ * 시야 안 남의 유닛 한 줄(tRPC world.nearbyUnits — 홈 [도시 활동] 카드의 유닛 탭, docs/adr/2026-11-25-home-city-card.md "바뀜"). 2차맵 화면은 지도
+ * 자료(WebSocket 시야 전송)로 남의 유닛을 받는다 — 이 조회는 지도를 열지 않은 화면이 같은 시야 규칙(MapVision — 내 유닛·건물·같은 나라 시야 안,
+ * 전체 보기 권한)으로 목록만 받는 길이다. 자세한 것(세력 이름·가문)은 누른 뒤 world.unitGlance가 준다
+ */
+export interface NearbyUnit {
+  readonly unitId: number;
+  /** 한눈 정보와 같은 종류(NPC 도시 휴먼은 human) */
+  readonly kind: MapUnitKind;
+  /** 이름: 사이보그 본체 = 사이보그 이름, NPC 도시 휴먼 = 휴먼 이름, NPC 지도자 = 팩 지도자 이름. 없으면 null(기기는 "종류 #번호") */
+  readonly name: LocalizedName | null;
+  /** 조회한 때의 배치 칸(0~255) */
+  readonly cellX: number;
+  readonly cellY: number;
+  /** 조회한 때 가는 중인가 */
+  readonly moving: boolean;
+  /** 주인의 나라(세력 행 ID — 건물 깃발과 같은 값). 나라가 없거나 모르면 null */
+  readonly factionId: number | null;
+  /** NPC 도시 경비대 휴먼이면 true(기기는 종류 대신 "경비대"). 아니면 없음 */
+  readonly guard?: true;
+}
+
+export interface NearbyUnitsResponse {
+  readonly status: "ready" | "not_ready";
+  readonly mapKey: number;
+  /** 그 2차맵을 서버가 띄웠는가(아니면 빈 목록) */
+  readonly loaded: boolean;
+  /** 거리를 잰 기준 자리(배치 칸 — 입력 유닛이 이 2차맵의 내 유닛이면 그 자리, 아니면 내 첫 유닛, 없으면 2차맵 가운데) */
+  readonly anchor: { readonly x: number; readonly y: number };
+  /** 시야 안 남의 유닛(내 유닛은 world.mapUnits가 준다), 기준 자리에서 가까운 차례, NEARBY_UNITS_MAX줄까지 */
+  readonly units: readonly NearbyUnit[];
+  /** 자르기 전 수(units보다 많으면 화면이 "N 더"를 알린다) */
+  readonly total: number;
+  readonly generatedAt: number;
+}

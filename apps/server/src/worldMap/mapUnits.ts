@@ -27,7 +27,10 @@ import type {
   MapUnitLooksResponse,
   MapUnitNation,
   MapUnitsResponse,
+  NearbyUnit,
+  NearbyUnitsResponse,
 } from "@terra/shared/mapUnits";
+import { NEARBY_UNITS_MAX } from "@terra/shared/mapUnits";
 import type { Viewer } from "../trpc/context.ts";
 import {
   type Primaries,
@@ -65,6 +68,10 @@ export interface MapUnitSource {
   hiddenUnits?: ((userId: string) => number) | undefined;
   /** 그 사람이 지금 그 유닛을 보는가(MapVision.sees). 없으면 내 유닛만 본다 */
   sees?: ((mapKey: number, viewer: Viewer, unitId: number) => boolean) | undefined;
+  /**
+   * 그 사람의 지금 시야로 유닛마다 보이는지 답하는 함수(MapVision.seer — 시야를 한 번만 센다). 없으면 sees로 유닛마다 묻는다(없으면 내 유닛만)
+   */
+  seer?: ((mapKey: number, viewer: Viewer) => ((unitId: number) => boolean) | undefined) | undefined;
   /** 전체 보기 권한(dev·admin — 시야로 거르지 않는다) */
   observer?: ((viewer: Viewer) => boolean) | undefined;
   /** 소유 주체 → 세력 정보(NPC 주체는 세력, 유저 주체는 가입한 국가). 없으면 null */
@@ -125,6 +132,16 @@ export interface MapUnitReads {
    * 주체의 가입 국가만 DB에서 한 번에 읽는다)
    */
   unitLooks(viewer: Viewer, mapKey: number, nowMs: number): Promise<MapUnitLooksResponse>;
+  /**
+   * 그 2차맵에서 지금 내 시야 안에 있는 남의 유닛(한눈 정보와 같은 보는 규칙), 기준 유닛에서 가까운 차례 NEARBY_UNITS_MAX줄까지. 지도를 열지 않은
+   * 화면(홈 [도시 활동] 카드 유닛 탭)이 쓴다 — 메모리만 읽고, 주인의 나라·지도자 이름만 한 번에 묻는다
+   */
+  nearbyUnits(
+    viewer: Viewer,
+    mapKey: number,
+    anchorUnitId: number | undefined,
+    nowMs: number,
+  ): Promise<NearbyUnitsResponse>;
 }
 
 /** 카메라 범위 여유(배치 칸): 시야 반지름 바깥으로 이만큼 더 본다(안개가 덮는 둘레). [임시] 화면 값 — 판정에 쓰지 않는다 */
@@ -327,6 +344,74 @@ export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
         .map(([factionId, ids]) => ({ factionId, unitIds: ids.toSorted((a, b) => a - b) }))
         .toSorted((a, b) => a.factionId - b.factionId);
       return { ...response, nations };
+    },
+
+    async nearbyUnits(viewer, mapKey, anchorUnitId, nowMs) {
+      const centre = { x: PLACEMENT_SIZE >> 1, y: PLACEMENT_SIZE >> 1 };
+      const base = { status: "ready", mapKey, generatedAt: nowMs } as const;
+      const map = source.map(mapKey);
+      if (!map) return { ...base, loaded: false, anchor: centre, units: [], total: 0 };
+      const ownerId = source.ownerOfUser(viewer.id);
+      const all = source.observer?.(viewer) ?? false;
+      const seer = all ? undefined : source.seer?.(mapKey, viewer);
+      const cellOf = (unit: { readonly motion: Parameters<typeof positionAt>[0] }) => {
+        const at = positionAt(unit.motion, nowMs);
+        return { x: clampCell(Math.floor(at.x / CELL_UNITS)), y: clampCell(Math.floor(at.y / CELL_UNITS)) };
+      };
+      // 기준 자리: 입력 유닛이 이 2차맵의 내 유닛이면 그 자리, 아니면 내 첫 유닛(사이보그 본체 먼저), 없으면 2차맵 가운데
+      let anchor: { x: number; y: number } | undefined;
+      let fallback: { x: number; y: number; body: boolean } | undefined;
+      const seen: { unit: Parameters<Parameters<typeof map.forEachUnit>[0]>[0]; x: number; y: number }[] = [];
+      map.forEachUnit((unit) => {
+        if (unit.ownerId === ownerId) {
+          const at = cellOf(unit);
+          if (unit.id === anchorUnitId) anchor = at;
+          const body = unit.kind === UNIT_KIND_CYBORG;
+          if (!fallback || (body && !fallback.body)) fallback = { ...at, body };
+          return;
+        }
+        // 한눈 정보와 같은 규칙: 전체 보기·지금 시야 안일 때만(시야 밖 유닛이 있는지 새지 않게)
+        const visible = all || (seer ? seer(unit.id) : (source.sees?.(mapKey, viewer, unit.id) ?? false));
+        if (visible) seen.push({ unit, ...cellOf(unit) });
+      });
+      const from = anchor ?? (fallback ? { x: fallback.x, y: fallback.y } : centre);
+      const far = (entry: { x: number; y: number }): number =>
+        (entry.x - from.x) * (entry.x - from.x) + (entry.y - from.y) * (entry.y - from.y);
+      seen.sort((a, b) => far(a) - far(b) || a.unit.id - b.unit.id);
+      const shown = seen.slice(0, NEARBY_UNITS_MAX);
+      const owners = [...new Set(shown.map((entry) => entry.unit.ownerId))];
+      const nationOf = (await source.ownerNations?.(owners)) ?? new Map<number, number | null>();
+      const units: NearbyUnit[] = [];
+      for (const { unit, x, y } of shown) {
+        let kind = kindOf(unit.kind);
+        let name: string | undefined;
+        let guard = false;
+        let localized: NearbyUnit["name"] = null;
+        if (unit.kind === UNIT_KIND_CYBORG) name = source.cyborgNameOfUnit?.(unit.id);
+        else if (unit.kind === UNIT_KIND_BOT) {
+          const human = source.npcHuman?.(unit.id);
+          if (human) {
+            kind = "human";
+            name = human.name;
+            guard = human.guard === true;
+          }
+        } else if (unit.kind === UNIT_KIND_NPC_LEADER) {
+          // NPC 국가 지도자는 그 나라 지도자 이름(한눈 정보와 같은 값 — 지도자는 2차맵에 몇 없다)
+          const faction = (await source.factionOfOwner?.(unit.ownerId)) ?? null;
+          localized = faction?.code ? (source.leaderName?.(faction.code) ?? null) : null;
+        }
+        units.push({
+          unitId: unit.id,
+          kind,
+          name: name === undefined ? localized : { ko: name, en: name },
+          cellX: x,
+          cellY: y,
+          moving: nowMs < arrivalAt(unit.motion),
+          factionId: nationOf.get(unit.ownerId) ?? null,
+          ...(guard ? { guard: true as const } : {}),
+        });
+      }
+      return { ...base, loaded: true, anchor: from, units, total: seen.length };
     },
 
     async unitGlance(viewer, mapKey, unitId, nowMs) {

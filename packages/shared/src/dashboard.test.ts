@@ -11,6 +11,7 @@ import {
   HOME_TEMPLATES,
   type ServerCardData,
   type ServerCardId,
+  HOME_AUTO_ADD_CARDS,
   defaultHomeCards,
   isCardId,
   isCardSize,
@@ -29,6 +30,9 @@ function bySource(source: string): string[] {
     .map(([id]) => id);
 }
 
+/** 자동 추가 카드를 이미 권한 저장값(자동 추가와 상관없는 시험이 쓴다) */
+const OFFERED = { offered: ["city"] };
+
 /** 타입 검사(pnpm typecheck)만 하는 함수 — 실행하지 않는다. @ts-expect-error 줄에 타입 오류가 없으면 타입 검사가 실패한다 */
 function cardStateTypeErrors(): CardState[] {
   // @ts-expect-error 자료 모양이 정해지지 않은 카드는 ready를 보낼 수 없다
@@ -40,6 +44,7 @@ function cardStateTypeErrors(): CardState[] {
 
 const PLAYER_DEFAULT = [
   { id: "inbox", size: "2x1" },
+  { id: "city", size: "2x2" },
   { id: "cyborg", size: "1x1" },
   { id: "units", size: "1x1" },
   { id: "assets", size: "1x1" },
@@ -48,9 +53,10 @@ const PLAYER_DEFAULT = [
 ];
 
 describe("카드 목록", () => {
-  it("ADR 37 6절의 카드 9개, 크기 3가지", () => {
+  it("ADR 37 6절의 카드 9개 + 도시 활동, 크기 3가지", () => {
     expect(Object.keys(HOME_CARDS)).toEqual([
       "inbox",
+      "city",
       "cyborg",
       "units",
       "assets",
@@ -73,10 +79,10 @@ describe("카드 목록", () => {
     }
   });
 
-  it("자료 출처: 서버 카드 4장(사이보그·보유 유닛·자산·세력), 처리할 일 묶음 3장, 기기 2장", () => {
+  it("자료 출처: 서버 카드 4장(사이보그·보유 유닛·자산·세력), 처리할 일 묶음 3장, 기기 3장", () => {
     expect(bySource("server")).toEqual(["cyborg", "units", "assets", "faction"]);
     expect(bySource("inbox")).toEqual(["inbox", "timeline", "briefing"]);
-    expect(bySource("device")).toEqual(["maps", "diagnostics"]);
+    expect(bySource("device")).toEqual(["city", "maps", "diagnostics"]);
     expectTypeOf<ServerCardId>().toEqualTypeOf<"cyborg" | "units" | "assets" | "faction">();
     // 카드별 ready 자료 자리는 서버 카드와 같아야 한다
     expectTypeOf<keyof ServerCardData>().toEqualTypeOf<ServerCardId>();
@@ -111,7 +117,7 @@ describe("템플릿", () => {
 });
 
 describe("기본 카드", () => {
-  it("처리할 일 → 네 카드(1×1) → 지도(2×1). 연결·성능은 dev·admin의 기본에만", () => {
+  it("처리할 일 → 도시 활동(2×2) → 네 카드(1×1) → 지도(2×1). 연결·성능은 dev·admin의 기본에만", () => {
     expect(defaultHomeCards(["player"])).toEqual(PLAYER_DEFAULT);
     expect(defaultHomeCards([])).toEqual(PLAYER_DEFAULT);
     expect(defaultHomeCards(["gm"])).toEqual(PLAYER_DEFAULT);
@@ -134,7 +140,7 @@ describe("parseHome", () => {
   });
 
   it("빈 카드 목록은 유저가 모두 뺀 것이라 그대로 둔다", () => {
-    expect(parseHome({ cards: [] }, ["player"]).cards).toEqual([]);
+    expect(parseHome({ ...OFFERED, cards: [] }, ["player"]).cards).toEqual([]);
   });
 
   it("비지 않은 목록에 남는 카드가 없으면 저장한 적 없는 것으로 본다(그 역할의 기본 카드)", () => {
@@ -146,10 +152,12 @@ describe("parseHome", () => {
   });
 
   it("아는 카드의 크기가 문자열이 아니거나 없으면 기본 크기로 읽는다(카드가 사라지지 않는다)", () => {
-    expect(parseHome({ cards: [{ id: "inbox", size: 2 }] }, ["player"]).cards).toEqual([
+    expect(parseHome({ ...OFFERED, cards: [{ id: "inbox", size: 2 }] }, ["player"]).cards).toEqual([
       { id: "inbox", size: "2x1" },
     ]);
-    expect(parseHome({ cards: [{ id: "maps", size: null }, { id: "units" }] }, ["player"]).cards).toEqual([
+    expect(
+      parseHome({ ...OFFERED, cards: [{ id: "maps", size: null }, { id: "units" }] }, ["player"]).cards,
+    ).toEqual([
       { id: "maps", size: "2x1" },
       { id: "units", size: "1x1" },
     ]);
@@ -165,13 +173,14 @@ describe("parseHome", () => {
       { id: "trade_watch", size: "3x1" },
       { id: "units", size: "2x1" },
     ];
-    expect(parseHome({ cards }, ["player"]).cards).toEqual(cards);
+    expect(parseHome({ ...OFFERED, cards }, ["player"]).cards).toEqual(cards);
   });
 
   it("아는 카드의 고를 수 없는 크기는 기본 크기로 바꾼다", () => {
     expect(
       parseHome(
         {
+          ...OFFERED,
           cards: [
             { id: "maps", size: "1x1" },
             { id: "cyborg", size: "9x9" },
@@ -190,6 +199,7 @@ describe("parseHome", () => {
   it("모양이 틀린 카드는 버리고, 겹친 카드는 앞의 것만, 상한을 넘으면 뒤를 버린다", () => {
     const parsed = parseHome(
       {
+        ...OFFERED,
         cards: [
           { id: "inbox", size: "2x2" },
           { id: "inbox", size: "2x1" },
@@ -218,11 +228,21 @@ describe("parseHome", () => {
 
 describe("mergeHome", () => {
   it("읽은 원래 값에 바꾼 칸만 덮어 쓴다: 더 새 버전의 칸·모르는 템플릿 값이 남는다", () => {
-    const raw = { template: "dt_space", cards: [{ id: "units", size: "1x1" }], layout: { dense: true } };
+    const raw = {
+      ...OFFERED,
+      template: "dt_space",
+      cards: [{ id: "units", size: "1x1" }],
+      layout: { dense: true },
+    };
     const saved = JSON.stringify(raw);
     const parsed = parseHome(raw, ["player"]);
     const cards = [...parsed.cards, { id: "assets", size: "1x1" }];
-    expect(mergeHome(raw, { cards })).toEqual({ template: "dt_space", cards, layout: { dense: true } });
+    expect(mergeHome(raw, { cards })).toEqual({
+      ...OFFERED,
+      template: "dt_space",
+      cards,
+      layout: { dense: true },
+    });
     expect(mergeHome(raw, { template: "dt_grid" })).toEqual({ ...raw, template: "dt_grid" });
     // 원래 값은 고치지 않고, 넘긴 카드 객체도 새로 만든다
     expect(JSON.stringify(raw)).toBe(saved);
@@ -232,6 +252,7 @@ describe("mergeHome", () => {
 
   it("모르는 카드와 카드 안의 모르는 칸은 읽고 다시 써도 남는다", () => {
     const raw = {
+      ...OFFERED,
       cards: [
         { id: "trade_watch", size: "3x1", pinned: 1 },
         { id: "inbox", size: "2x2" },
@@ -239,12 +260,63 @@ describe("mergeHome", () => {
     };
     const parsed = parseHome(raw, ["player"]);
     expect(mergeHome(raw, { cards: parsed.cards.toReversed() })).toEqual({
+      ...OFFERED,
       cards: [
         { id: "inbox", size: "2x2" },
         { id: "trade_watch", size: "3x1", pinned: 1 },
       ],
     });
     expect(mergeHome("x", { template: "dt_hybrid" })).toEqual({ template: "dt_hybrid" });
+  });
+});
+
+describe("자동 추가 카드(이미 카드 구성을 저장한 계정)", () => {
+  it("저장한 목록에 없고 권한 적도 없으면 처리할 일 다음(없으면 맨 앞)에 끼운다", () => {
+    expect(HOME_AUTO_ADD_CARDS).toEqual(["city"]);
+    const saved = {
+      cards: [
+        { id: "inbox", size: "2x1" },
+        { id: "units", size: "1x1" },
+      ],
+    };
+    expect(parseHome(saved, ["player"]).cards).toEqual([
+      { id: "inbox", size: "2x1" },
+      { id: "city", size: "2x2" },
+      { id: "units", size: "1x1" },
+    ]);
+    expect(parseHome({ cards: [{ id: "units", size: "1x1" }] }, ["player"]).cards).toEqual([
+      { id: "city", size: "2x2" },
+      { id: "units", size: "1x1" },
+    ]);
+    // 모두 뺀 계정도 한 번은 받는다
+    expect(parseHome({ cards: [] }, ["player"]).cards).toEqual([{ id: "city", size: "2x2" }]);
+    // offered가 배열이 아니거나 글자가 아닌 칸이면 권한 적 없는 것으로 읽는다
+    expect(parseHome({ cards: [], offered: "city" }, ["player"]).cards).toHaveLength(1);
+    expect(parseHome({ cards: [], offered: [3, null] }, ["player"]).cards).toHaveLength(1);
+  });
+
+  it("이미 목록에 있으면 그 자리·크기 그대로, 상한이면 넣지 않는다", () => {
+    const saved = {
+      cards: [
+        { id: "units", size: "1x1" },
+        { id: "city", size: "2x2" },
+      ],
+    };
+    expect(parseHome(saved, ["player"]).cards).toEqual(saved.cards);
+    const full = Array.from({ length: HOME_CARDS_MAX }, (_, i) => ({ id: `card_${i}`, size: "1x1" }));
+    expect(parseHome({ cards: full }, ["player"]).cards).toEqual(full);
+  });
+
+  it("카드 목록을 저장하면 offered에 적는다 — 뺀 카드는 다시 들어오지 않는다", () => {
+    const raw = { cards: [{ id: "inbox", size: "2x1" }], offered: ["old_card", 7] };
+    const shown = parseHome(raw, ["player"]).cards;
+    expect(shown.map((card) => card.id)).toEqual(["inbox", "city"]);
+    // 유저가 도시 활동을 뺐다
+    const saved = mergeHome(raw, { cards: shown.filter((card) => card.id !== "city") });
+    expect(saved["offered"]).toEqual(["old_card", "city"]);
+    expect(parseHome(saved, ["player"]).cards).toEqual([{ id: "inbox", size: "2x1" }]);
+    // 템플릿만 바꾸면 offered를 건드리지 않는다(카드 목록을 저장하지 않았다)
+    expect(mergeHome({ cards: [] }, { template: "dt_grid" })).toEqual({ cards: [], template: "dt_grid" });
   });
 });
 

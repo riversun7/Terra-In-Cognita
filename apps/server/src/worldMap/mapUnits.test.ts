@@ -13,6 +13,7 @@ import {
   UNIT_KIND_NPC_LEADER,
 } from "../world/unitKinds.ts";
 import { UNIT_VISION_CELLS } from "@terra/sim";
+import { NEARBY_UNITS_MAX } from "@terra/shared/mapUnits";
 import { VIEW_MARGIN_CELLS, createMapUnitReads } from "./mapUnits.ts";
 
 const NOW = 1_798_000_000_000;
@@ -456,5 +457,134 @@ describe("world.unitLooks (docs/adr/2026-11-11-character-3d.md 5절)", () => {
       [64, "test_unit"],
     ]);
     map.stop();
+  });
+});
+
+/** 내 주체 5(사이보그 9 = 10,11 · 휴먼 7 = 20,21), 남의 유닛: NPC 휴먼 3(50,50)·지도자 12(12,11)·남의 사이보그 13(30,11)·시험 유닛 14(200,200) */
+function nearbySetup(options: { sees?: (unitId: number) => boolean } = {}) {
+  const test = createTestMap({ mapKey: MAP_KEY });
+  const { map } = test;
+  map.addUnit({ id: 9, size: 1, speed: 437, cellX: 10, cellY: 11, ownerId: 5, kind: UNIT_KIND_CYBORG });
+  map.addUnit({ id: 7, size: 1, speed: 437, cellX: 20, cellY: 21, ownerId: 5, kind: UNIT_KIND_HUMAN });
+  map.addUnit({ id: 3, size: 1, speed: 437, cellX: 50, cellY: 50, ownerId: 6, kind: UNIT_KIND_BOT });
+  map.addUnit({
+    id: 12,
+    size: 1,
+    speed: 437,
+    cellX: 12,
+    cellY: 11,
+    ownerId: 6,
+    kind: UNIT_KIND_NPC_LEADER,
+  });
+  map.addUnit({ id: 13, size: 1, speed: 437, cellX: 30, cellY: 11, ownerId: 8, kind: UNIT_KIND_CYBORG });
+  map.addUnit({ id: 14, size: 1, speed: 437, cellX: 200, cellY: 200, ownerId: 8, kind: UNIT_KIND_HUMAN });
+  const seerCalls: number[] = [];
+  const reads = createMapUnitReads({
+    map: (key) => (key === MAP_KEY ? map : undefined),
+    ownerOfUser: (userId) => (userId === PLAYER.id ? 5 : undefined),
+    cyborgName: () => undefined,
+    cyborgNameOfUnit: (unitId) => (unitId === 13 ? "Rival" : undefined),
+    npcHuman: (unitId) => (unitId === 3 ? { name: "Kala", guard: true } : undefined),
+    factionOfOwner: (ownerId) =>
+      Promise.resolve(ownerId === 6 ? { id: 21, code: "kal", kind: "npc" as const, name: null } : null),
+    leaderName: (code) => (code === "kal" ? { ko: "말라니", en: "Malani" } : undefined),
+    ownerNations: (ownerIds) => Promise.resolve(new Map(ownerIds.map((id) => [id, id === 6 ? 21 : null]))),
+    observer: (viewer) => viewer.roles.includes("dev"),
+    seer: () => {
+      seerCalls.push(1);
+      return options.sees ?? ((unitId) => unitId !== 14);
+    },
+  });
+  return { ...test, reads, seerCalls };
+}
+
+describe("world.nearbyUnits", () => {
+  it("시야 안 남의 유닛만, 기준 유닛에서 가까운 차례 — 이름·종류·나라·경비대", async () => {
+    const { reads, seerCalls } = nearbySetup();
+    const answer = await reads.nearbyUnits(PLAYER, MAP_KEY, 9, NOW);
+    expect(answer).toMatchObject({ status: "ready", loaded: true, mapKey: MAP_KEY, total: 3 });
+    expect(answer.anchor).toEqual({ x: 10, y: 11 });
+    expect(answer.units).toEqual([
+      {
+        unitId: 12,
+        kind: "npc_leader",
+        name: { ko: "말라니", en: "Malani" },
+        cellX: 12,
+        cellY: 11,
+        moving: false,
+        factionId: 21,
+      },
+      {
+        unitId: 13,
+        kind: "cyborg_body",
+        name: { ko: "Rival", en: "Rival" },
+        cellX: 30,
+        cellY: 11,
+        moving: false,
+        factionId: null,
+      },
+      {
+        unitId: 3,
+        kind: "human",
+        name: { ko: "Kala", en: "Kala" },
+        cellX: 50,
+        cellY: 50,
+        moving: false,
+        factionId: 21,
+        guard: true,
+      },
+    ]);
+    // 시야는 한 번만 센다(유닛마다 다시 세지 않는다)
+    expect(seerCalls).toHaveLength(1);
+  });
+
+  it("기준 유닛이 내 유닛이 아니면 내 사이보그 본체, 내 유닛이 없으면 2차맵 가운데", async () => {
+    const { reads } = nearbySetup();
+    // 내 휴먼 7(20,21) 기준이면 남의 사이보그 13(30,11)이 지도자 12(12,11)보다 가깝지 않다 — 거리 제곱 200 대 164
+    expect((await reads.nearbyUnits(PLAYER, MAP_KEY, 7, NOW)).anchor).toEqual({ x: 20, y: 21 });
+    // 남의 유닛 ID·없는 ID·안 줌 → 사이보그 본체 자리
+    for (const unitId of [13, 999, undefined])
+      expect((await reads.nearbyUnits(PLAYER, MAP_KEY, unitId, NOW)).anchor).toEqual({ x: 10, y: 11 });
+    const stranger: Viewer = { id: "u-none", loginId: "none", roles: ["player"] };
+    expect((await reads.nearbyUnits(stranger, MAP_KEY, undefined, NOW)).anchor).toEqual({ x: 128, y: 128 });
+  });
+
+  it("전체 보기 권한은 시야로 거르지 않는다, 시야가 없으면 빈 목록, 띄우지 않은 2차맵", async () => {
+    const { reads } = nearbySetup({ sees: () => false });
+    expect((await reads.nearbyUnits(PLAYER, MAP_KEY, 9, NOW)).units).toEqual([]);
+    const all = await reads.nearbyUnits(DEV, MAP_KEY, undefined, NOW);
+    // dev는 소유 주체가 없다 → 여섯 유닛 모두 남의 유닛
+    expect(all.units.map((unit) => unit.unitId).toSorted((a, b) => a - b)).toEqual([3, 7, 9, 12, 13, 14]);
+    expect(await reads.nearbyUnits(PLAYER, MAP_KEY + 1, 9, NOW)).toMatchObject({
+      loaded: false,
+      units: [],
+      total: 0,
+    });
+  });
+
+  it("상한을 넘으면 가까운 것만 주고 전체 수를 알린다", async () => {
+    const test = createTestMap({ mapKey: MAP_KEY });
+    test.map.addUnit({ id: 1, size: 1, speed: 437, cellX: 5, cellY: 5, ownerId: 5, kind: UNIT_KIND_CYBORG });
+    const count = NEARBY_UNITS_MAX + 5;
+    for (let i = 0; i < count; i++)
+      test.map.addUnit({
+        id: 100 + i,
+        size: 1,
+        speed: 437,
+        cellX: 10 + (i % 100),
+        cellY: 10 + Math.floor(i / 100),
+        ownerId: 6,
+        kind: UNIT_KIND_HUMAN,
+      });
+    const reads = createMapUnitReads({
+      map: () => test.map,
+      ownerOfUser: () => 5,
+      cyborgName: () => undefined,
+      seer: () => () => true,
+    });
+    const answer = await reads.nearbyUnits(PLAYER, MAP_KEY, 1, NOW);
+    expect(answer.total).toBe(count);
+    expect(answer.units).toHaveLength(NEARBY_UNITS_MAX);
+    expect(answer.units[0]?.unitId).toBe(100);
   });
 });

@@ -9,6 +9,7 @@ import type { CardBodyProps, HomeViewProps } from "../homeTypes.ts";
 import type { ShownCard } from "../homeView.ts";
 import { BriefingCardBody } from "./BriefingCard.tsx";
 import { CardFrame } from "./CardFrame.tsx";
+import { CityCardBody } from "./CityCard.tsx";
 import { DiagnosticsCardBody } from "./DiagnosticsCard.tsx";
 import { InboxCardBody, PendingCount } from "./InboxCard.tsx";
 import { MapsCardBody } from "./MapsCard.tsx";
@@ -28,6 +29,8 @@ export interface CardView {
 
 export const CARD_VIEWS = {
   inbox: { title: m.card_inbox, to: { route: "inbox" }, Body: InboxCardBody },
+  // 빠른 도시 활동: 고른 내 유닛이 있는 2차맵의 건물·유닛·자원·정보(2차맵 열기 링크는 몸 안 — 고른 유닛의 2차맵으로 간다)
+  city: { title: m.card_city, to: null, Body: CityCardBody },
   cyborg: { title: m.card_cyborg, to: { route: "units", search: { unit: "self" } }, Body: CyborgCardBody },
   units: { title: m.card_units, to: { route: "units" }, Body: UnitsCardBody },
   // 자산·경제 요약: 경제 원장 잔고·추정 가치·일일 급여 → 인벤토리 화면(docs/adr/2026-11-14-inventory-screen.md)

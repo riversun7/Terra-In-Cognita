@@ -121,6 +121,7 @@ describe("mapBuildingLooks", () => {
         name: { ko: "창고", en: "Storehouse" },
         mine: false,
         category: "storage",
+        rect: { x: 40, y: 40, width: 3, height: 3 },
       },
       {
         buildingId: farm,
@@ -130,6 +131,7 @@ describe("mapBuildingLooks", () => {
         upgrading: false,
         factionId: 12,
         mine: false,
+        rect: { x: 60, y: 40, width: 3, height: 3 },
       },
       {
         buildingId: mine,
@@ -140,6 +142,7 @@ describe("mapBuildingLooks", () => {
         factionId: null,
         mine: false,
         art: { model: "mine", roof: "teal", heightPm: 1300 },
+        rect: { x: 80, y: 40, width: 3, height: 3 },
       },
       {
         buildingId: test,
@@ -149,6 +152,7 @@ describe("mapBuildingLooks", () => {
         upgrading: false,
         factionId: null,
         mine: false,
+        rect: { x: 100, y: 40, width: 3, height: 3 },
       },
     ]);
   });

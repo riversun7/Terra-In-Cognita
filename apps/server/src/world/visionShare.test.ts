@@ -114,6 +114,13 @@ describe("같은 나라 시야 공유(질문 746 나)", () => {
     expect(vision.sees(shared, 5)).toBe(true);
     expect(vision.sees(shared, 3)).toBe(true);
     expect(vision.sees(shared, 4)).toBe(false);
+    // seer(시야를 한 번만 세는 묶음 판정)는 sees와 같은 답을 낸다 — 없는 유닛은 false
+    const lone = vision.seer(alone);
+    const joint = vision.seer(shared);
+    for (const unitId of [1, 2, 3, 4, 5, 999]) {
+      expect(lone(unitId), `alone ${unitId}`).toBe(vision.sees(alone, unitId));
+      expect(joint(unitId), `shared ${unitId}`).toBe(vision.sees(shared, unitId));
+    }
     // 1차맵 도시 안개·건물 겉모습이 쓰는 아는 칸에도 공유 시야가 든다
     const sighted = await vision.sighted(shared);
     expect(hasBit(sighted, cellOf(200, 200))).toBe(true);

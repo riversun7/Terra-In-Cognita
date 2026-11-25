@@ -26,6 +26,8 @@ export interface CardDefinition {
  */
 export const HOME_CARDS = {
   inbox: { sizes: ["2x1", "2x2"], defaultSize: "2x1", source: "inbox" },
+  // 빠른 도시 활동: 고른 내 유닛이 있는 2차맵의 건물·유닛·자원·정보를 2차맵에 들어가지 않고 본다(자료는 카드가 직접 묻는다)
+  city: { sizes: ["2x2"], defaultSize: "2x2", source: "device" },
   cyborg: { sizes: ["1x1", "2x1"], defaultSize: "1x1", source: "server" },
   units: { sizes: ["1x1", "2x1"], defaultSize: "1x1", source: "server" },
   assets: { sizes: ["1x1", "2x1"], defaultSize: "1x1", source: "server" },
@@ -97,9 +99,16 @@ export function isCardSizeAllowed(id: CardId, size: unknown): size is CardSize {
 /** 기본 카드에 연결·성능을 더하는 역할 */
 const DIAGNOSTICS_DEFAULT_ROLES: readonly Role[] = ["dev", "admin"];
 
-/** 처음 카드 순서: 처리할 일(위 고정), 내 사이보그·보유 유닛·자산·세력(1×1), 지도(2×1). dev·admin은 연결·성능을 끝에 더한다 */
+/**
+ * 카드 구성을 이미 저장한 계정에도 한 번 끼워 넣는 카드(사용자 결정 2026-11-25 "새 카드, 기존 계정에도 자동 추가").
+ * 저장값의 `offered`(이미 권한 카드 ID 목록)에 없고 카드 목록에도 없으면 parseHome이 처리할 일 다음에 넣는다.
+ * 카드 목록을 저장할 때 mergeHome이 `offered`에 적는다 — 유저가 뺀 카드는 다시 들어오지 않는다.
+ */
+export const HOME_AUTO_ADD_CARDS: readonly CardId[] = ["city"];
+
+/** 처음 카드 순서: 처리할 일(위 고정), 도시 활동(2×2), 내 사이보그·보유 유닛·자산·세력(1×1), 지도(2×1). dev·admin은 연결·성능을 끝에 더한다 */
 export function defaultHomeCards(roles: readonly Role[]): HomeCardEntry[] {
-  const ids: CardId[] = ["inbox", "cyborg", "units", "assets", "faction", "maps"];
+  const ids: CardId[] = ["inbox", "city", "cyborg", "units", "assets", "faction", "maps"];
   if (roles.some((role) => DIAGNOSTICS_DEFAULT_ROLES.includes(role))) ids.push("diagnostics");
   return ids.map((id) => ({ id, size: HOME_CARDS[id].defaultSize }));
 }
@@ -137,6 +146,8 @@ function parseCard(raw: unknown): HomeCardEntry | null {
  *   모르는 카드와 카드 안의 모르는 칸은 지우지 않는다. 겹친 카드는 앞의 것만 남기고, 상한(24장)을 넘으면 뒤를 버린다.
  *   비지 않은 배열인데 남는 카드가 하나도 없으면 저장한 적 없는 것으로 본다(그 역할의 기본 카드). 모양이 다른 값을
  *   "유저가 모두 뺀 것"과 같게 읽지 않으려는 것이다.
+ * - offered: 이미 권한 자동 추가 카드(HOME_AUTO_ADD_CARDS). 저장한 카드 목록에 없고 offered에도 없는 자동 추가 카드는 처리할 일
+ *   다음에 끼워 그린다(저장은 다음에 카드 목록을 바꿀 때 mergeHome이 한다).
  * - 저장할 때는 mergeHome으로 읽은 원래 값에 바꾼 칸만 덮어 쓴다(더 새 버전이 넣은 칸이 남게).
  */
 export function parseHome(value: unknown, roles: readonly Role[]): HomeSettings {
@@ -154,7 +165,26 @@ export function parseHome(value: unknown, roles: readonly Role[]): HomeSettings 
     if (cards.length === HOME_CARDS_MAX) break;
   }
   if (cards.length === 0 && rawCards.length > 0) return { template, cards: defaultHomeCards(roles) };
-  return { template, cards };
+  return { template, cards: withAutoAdded(cards, ownField(value, "offered")) };
+}
+
+/** 저장값의 `offered`(이미 권한 카드 ID) — 배열이 아니면 빈 목록, 글자가 아닌 칸은 버린다 */
+function offeredIds(raw: unknown): string[] {
+  return Array.isArray(raw) ? raw.filter((id): id is string => typeof id === "string") : [];
+}
+
+/** 아직 권하지 않은 자동 추가 카드를 처리할 일 다음(없으면 맨 앞)에 넣는다. 상한(24장)이면 넣지 않는다 */
+function withAutoAdded(cards: readonly HomeCardEntry[], rawOffered: unknown): HomeCardEntry[] {
+  const offered = offeredIds(rawOffered);
+  const next = [...cards];
+  let at = next.findIndex((card) => card.id === "inbox") + 1;
+  for (const id of HOME_AUTO_ADD_CARDS) {
+    if (offered.includes(id) || next.some((card) => card.id === id)) continue;
+    if (next.length >= HOME_CARDS_MAX) break;
+    next.splice(at, 0, { id, size: HOME_CARDS[id].defaultSize });
+    at += 1;
+  }
+  return next;
 }
 
 /** mergeHome에 줄 바꾼 칸. 적은 칸만 덮어 쓴다 */
@@ -172,7 +202,11 @@ export interface HomePatch {
 export function mergeHome(raw: unknown, patch: HomePatch): { readonly [key: string]: unknown } {
   const merged: Record<string, unknown> = isRecord(raw) ? { ...raw } : {};
   if (patch.template !== undefined) merged["template"] = patch.template;
-  if (patch.cards !== undefined) merged["cards"] = patch.cards.map((card) => ({ ...card }));
+  if (patch.cards !== undefined) {
+    merged["cards"] = patch.cards.map((card) => ({ ...card }));
+    // 카드 목록을 저장하면 자동 추가 카드를 "이미 권함"으로 적는다(뺀 카드가 다시 들어오지 않게). 앞서 적힌 ID는 남긴다
+    merged["offered"] = [...new Set([...offeredIds(merged["offered"]), ...HOME_AUTO_ADD_CARDS])];
+  }
   return merged;
 }
 

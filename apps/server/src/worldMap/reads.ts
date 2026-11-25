@@ -759,6 +759,7 @@ export function worldMapReadsOf(options: {
     },
     sees: (mapKey, viewer, unitId) =>
       world.maps.get(mapKey)?.vision.sees(visionViewerOf(world, viewer.id), unitId) ?? false,
+    seer: (mapKey, viewer) => world.maps.get(mapKey)?.vision.seer(visionViewerOf(world, viewer.id)),
     observer: canObserve,
     factionOfOwner: (ownerId) =>
       factionOfOwner(

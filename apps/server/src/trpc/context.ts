@@ -413,6 +413,8 @@ export interface WorldMapReads {
   unitGlance?: MapUnitReads["unitGlance"];
   /** 2차맵 유닛의 3D 외형(docs/adr/2026-11-11-character-3d.md 5절, 같은 모듈). 없으면 not_ready */
   unitLooks?: MapUnitReads["unitLooks"];
+  /** 시야 안 남의 유닛 목록(홈 [도시 활동] 카드 유닛 탭, 같은 모듈). 없으면 not_ready */
+  nearbyUnits?: MapUnitReads["nearbyUnits"];
   /** 정부(행정 건물) 판(docs/adr/2026-11-07-play-flow.md "WP-NPC", src/government/reads.ts). 없으면 not_ready */
   government?: GovernmentReads["government"];
   /** 지도자 창구(742 나 "WP-NPC3", 같은 모듈 — 누른 지도자의 나라 수도 정부 판). 없으면 not_ready */

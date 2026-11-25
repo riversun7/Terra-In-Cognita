@@ -6,6 +6,7 @@
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
 | 2026-11-25 23:15 | 사이보그 본체 피로가 늘 0으로 보이던 것 고침(채집 피로) | Claude Code | [25-2315-cyborg-body-fatigue](worklog/2026/11/25-2315-cyborg-body-fatigue.md) |
+| 2026-11-25 22:40 | 홈 [도시 활동] 카드: 2차맵에 들어가지 않고 건물 목록·건물 판 | Claude Code | [25-2240-home-city-card](worklog/2026/11/25-2240-home-city-card.md) |
 | 2026-11-25 22:30 | 상태 0% 건물은 폐허: 고칠 수 없고 원래 건물로 치지 않는다 | Claude Code | [25-2230-ruined-buildings](worklog/2026/11/25-2230-ruined-buildings.md) |
 | 2026-11-25 21:40 | 주인 없는 빈 정부 건물과 차지하기, 정부 건물은 2차맵마다 하나, 현상금 안건은 도시 단위 투표 | Claude Code | [25-2140-vacant-government-take-and-city-vote](worklog/2026/11/25-2140-vacant-government-take-and-city-vote.md) |
 | 2026-11-25 20:15 | 현상금 도시 상한·의결 안건, 가문 없는 정부 건설은 지배 가문이 빈 상태 | Claude Code | [25-2015-bounty-vote-and-vacant-government](worklog/2026/11/25-2015-bounty-vote-and-vacant-government.md) |

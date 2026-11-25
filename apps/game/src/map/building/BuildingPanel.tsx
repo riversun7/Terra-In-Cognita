@@ -26,6 +26,7 @@ import type { GatherState } from "../gather/gatherState.ts";
 import { StationPanel, useStation } from "../gather/StationPanel.tsx";
 import { BuildingAccessControl } from "./BuildingAccessControl.tsx";
 import { BuildingLabor, useLaborBuilding } from "./BuildingLabor.tsx";
+import { BuildingReloadContext } from "./buildingReloadContext.ts";
 import { ResidenceCard } from "./ResidenceCard.tsx";
 import type { BuildingOwnerResponse } from "@terra/shared/businessBooks";
 import { STOCK_EXCHANGE_FACILITY } from "@terra/shared/cityShares";
@@ -312,7 +313,7 @@ export function BuildingPanel({
             {ok?.stage === "living" ? (
               <ResidenceCard buildingId={buildingId} actor={actor} unitLabel={unitLabel} />
             ) : null}
-            {extra}
+            {extra ? <BuildingReloadContext value={reloadAll}>{extra}</BuildingReloadContext> : null}
             {ok?.facilityId === STOCK_EXCHANGE_FACILITY && ok.level > 0 ? (
               // 증권 거래소 주기능(D-583): 그 나라 정부 지분·사업장 지분 시장
               <ShareHub key={buildingId} buildingId={buildingId} />

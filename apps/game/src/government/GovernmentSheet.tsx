@@ -4,11 +4,17 @@
 // 행정 건물이 아니거나(not_government) 모르는 도시(unknown_building)면 아무것도 그리지 않는다.
 // 바뀜(사용자 지적 2026-11-09 문제4 "하나의 건물 클릭시 여러개가 다 뜬다"): embedded면 따로 판을 띄우지 않고 건물 판(GatherPanel.tsx) 안의 몫으로 그린다.
 import type { GovernmentResponse } from "@terra/shared/government";
-import { Suspense, lazy, useEffect, useId, useState, useSyncExternalStore } from "react";
+import { Suspense, lazy, useContext, useEffect, useId, useState, useSyncExternalStore } from "react";
+import { sendHouseMember } from "../faction/identity/houseCommands.ts";
+import { HOUSE_ACTION_TEXT, HOUSE_MEMBER_ERROR_TEXT } from "../faction/identity/houseText.ts";
+import { BuildingReloadContext } from "../map/building/buildingReloadContext.ts";
 import type { GatherState } from "../map/gather/gatherState.ts";
 import { m } from "../paraglide/messages.js";
+import { AppLink } from "../shell/AppLink.tsx";
+import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import { NationEmblem } from "../ui/NationEmblem.tsx";
 import { ChunkErrorBoundary } from "../ui/ChunkErrorBoundary.tsx";
+import { applyBlockText, approverLabel } from "./cityJoinText.ts";
 import { cityTitle, leaderTitle, loadGovernment, nationTitle } from "./governmentData.ts";
 import "./government.css";
 
@@ -22,6 +28,7 @@ interface GovernmentSheetProps {
 }
 
 export function GovernmentSheet({ state, embedded = false }: GovernmentSheetProps) {
+  const onJoined = useContext(BuildingReloadContext);
   useSyncExternalStore(
     (listener) => state.subscribe(listener),
     () => state.version,
@@ -30,6 +37,9 @@ export function GovernmentSheet({ state, embedded = false }: GovernmentSheetProp
   const buildingId = sheet?.kind === "building" ? sheet.id : null;
   const [answer, setAnswer] = useState<GovernmentResponse | null>(null);
   const [open, setOpen] = useState(false);
+  const [joining, setJoining] = useState(false);
+  const notice = useLiveLines();
+  const problem = useLiveLines();
   const titleId = useId();
 
   // 누른 건물이 바뀌면 다시 묻는다
@@ -42,7 +52,7 @@ export function GovernmentSheet({ state, embedded = false }: GovernmentSheetProp
     return () => controller.abort();
   }, [buildingId]);
 
-  /** 대화상자를 닫으면 한 번 더 묻는다(고용한 휴먼 수) */
+  /** 대화상자를 닫거나 가입 명령 뒤 한 번 더 묻는다 */
   const refresh = (id: number): void => {
     loadGovernment(id)
       .then((response) => setAnswer(response))
@@ -51,9 +61,29 @@ export function GovernmentSheet({ state, embedded = false }: GovernmentSheetProp
 
   if (buildingId === null || answer === null || answer.buildingId !== buildingId) return null;
   if (answer.status !== "ready" || !answer.city || !answer.nation) return null;
-  const { city, nation, leader } = answer;
+  const { city, nation, leader, cityMembership } = answer;
   // 건물 판 안이면 그 판 제목(h2) 아래 몫이라 h3
   const Heading = embedded ? "h3" : "h2";
+
+  const joinCity = async (): Promise<void> => {
+    if (joining) return;
+    setJoining(true);
+    notice.clear();
+    problem.clear();
+    try {
+      const outcome = await sendHouseMember({ t: "house_city_apply", buildingId });
+      if (outcome.ok) {
+        notice.show([HOUSE_ACTION_TEXT[outcome.action]()]);
+        refresh(buildingId);
+        onJoined?.();
+      } else {
+        problem.show([HOUSE_MEMBER_ERROR_TEXT[outcome.code]()]);
+      }
+    } finally {
+      setJoining(false);
+    }
+  };
+
   return (
     <section
       className={embedded ? "gov-sheet gov-sheet-embedded" : "map-panel gov-sheet"}
@@ -79,16 +109,55 @@ export function GovernmentSheet({ state, embedded = false }: GovernmentSheetProp
         ) : null}
         {m.government_sheet_line({ nation: nationTitle(nation), leader: leaderTitle(leader) })}
       </p>
+      {cityMembership ? (
+        <p className="gov-muted" data-part="gov-sheet-join-policy">
+          {m.gov_sheet_join_policy({ approver: approverLabel(cityMembership.approver) })}
+          {cityMembership.approver === "auto"
+            ? ` · ${m.gov_city_join_min_standing({ min: cityMembership.minStanding })}`
+            : ""}
+        </p>
+      ) : null}
+      {cityMembership &&
+      cityMembership.hostileResidentUnits > 0 &&
+      cityMembership.applyBlock !== "same_city" ? (
+        <p className="field-error" role="alert" data-part="gov-sheet-hostile-warning">
+          {m.fid_home_hostile_warning({ count: String(cityMembership.hostileResidentUnits) })}
+        </p>
+      ) : null}
+      {cityMembership && !cityMembership.canApply && cityMembership.applyBlock ? (
+        <p className="gov-muted" data-part="gov-sheet-join-block">
+          {applyBlockText(cityMembership.applyBlock)}
+        </p>
+      ) : null}
       <div className="gov-actions">
+        {cityMembership?.canApply ? (
+          <button
+            type="button"
+            className="button-small button-primary"
+            disabled={joining}
+            data-part="gov-sheet-join-apply"
+            onClick={() => void joinCity()}
+          >
+            {cityMembership.approver === "auto" ? m.gov_sheet_join_btn() : m.gov_city_join_apply_btn()}
+          </button>
+        ) : cityMembership?.applyBlock === "no_house" ? (
+          <AppLink className="button-small" to={{ route: "faction_identity" }}>
+            {m.faction_found_family()}
+          </AppLink>
+        ) : null}
         <button
           type="button"
-          className="button-small button-primary gov-open"
+          className={
+            cityMembership?.canApply ? "button-small gov-open" : "button-small button-primary gov-open"
+          }
           aria-haspopup="dialog"
           onClick={() => setOpen(true)}
         >
           {m.government_open()}
         </button>
       </div>
+      <LiveMessage tone="success" lines={notice.lines} version={notice.version} />
+      <LiveMessage tone="error" lines={problem.lines} version={problem.version} />
       {open ? (
         <ChunkErrorBoundary fallback={<p className="gov-muted">{m.government_load_failed()}</p>}>
           <Suspense fallback={null}>
@@ -97,6 +166,7 @@ export function GovernmentSheet({ state, embedded = false }: GovernmentSheetProp
               onClose={() => {
                 setOpen(false);
                 refresh(buildingId);
+                onJoined?.();
               }}
             />
           </Suspense>

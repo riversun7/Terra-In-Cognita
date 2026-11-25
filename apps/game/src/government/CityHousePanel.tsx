@@ -3,7 +3,6 @@
 // - 통치 권한자(canSetPolicy / canManage): 가입 승인 정책 저장, 대기 중인 가입 신청 승인/거절, 소속 가문 추방, 블랙리스트 등록/해제.
 import type { CityJoinApprover, HouseCityTaxSetter } from "@terra/protocol";
 import {
-  type CityJoinApproverKind,
   type GovernmentCityMembership,
   HOUSE_CITY_TAX_PERIOD_DAYS,
   type HouseCityTaxSetterKind,
@@ -14,40 +13,10 @@ import { HOUSE_ACTION_TEXT, HOUSE_MEMBER_ERROR_TEXT } from "../faction/identity/
 import { m } from "../paraglide/messages.js";
 import { formatAmount } from "../roster/rosterText.ts";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
-
-function approverLabel(kind: CityJoinApproverKind): string {
-  if (kind === "leader") return m.gov_city_join_approver_leader();
-  if (kind === "auto") return m.gov_city_join_approver_auto();
-  return m.gov_city_join_approver_mayor();
-}
+import { applyBlockText, approverLabel } from "./cityJoinText.ts";
 
 function taxSetterLabel(kind: HouseCityTaxSetterKind): string {
   return kind === "leader" ? m.gov_house_tax_setter_leader() : m.gov_house_tax_setter_mayor();
-}
-
-function applyBlockText(code: string): string {
-  switch (code) {
-    case "no_house":
-      return m.gov_city_join_block_no_house();
-    case "not_leader":
-      return m.gov_city_join_block_not_leader();
-    case "has_city":
-      return m.gov_city_join_block_has_city();
-    case "same_city":
-      return m.gov_city_join_block_same_city();
-    case "wrong_city":
-      return m.gov_city_join_block_wrong_city();
-    case "home_wait":
-      return m.gov_city_join_block_home_wait();
-    case "blacklisted":
-      return m.gov_city_join_block_blacklisted();
-    case "standing_too_low":
-      return m.gov_city_join_block_standing_too_low();
-    case "already_applied":
-      return m.gov_city_join_block_already_applied();
-    default:
-      return m.fid_house_error_failed();
-  }
 }
 
 export function CityHousePanel({

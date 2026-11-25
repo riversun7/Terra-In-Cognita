@@ -1,12 +1,8 @@
-// "내 가문" 칸의 소속 도시 부분(기획 D-565) — 가문은 소속 도시를 골라 그 도시가 속한 나라의 가문이 된다(세금 납부·랭킹 집계).
-// - 가문원: 지금 소속 도시·나라. 가문장: 후보 고르기 + [소속 도시 바꾸기](WebSocket house_home, 프로토콜 39). 대기 중이면 다음 시각을 보이고
-//   단추를 막는다. 도시를 가진 가문은 아직 바꾸지 못한다(서버 has_city — 안내만).
-// - 공고(D-570): 가문장이 고르면 바로 옮기지 않고 공고한다(공고 기간 = 설정 칸). 공고 중이면 모두에게 새 도시·옮기는 시각·그 나라 정책(가입비·
-//   지원금)과 "원치 않으면 그 전에 가문을 나갈 수 있다"를 보이고, 가문장에게는 [공고 거두기](지금 소속 도시를 다시 보낸다)를 준다.
-// - 무소속(가문 없음): 내 도시가 소속 도시이고 개인 세금을 낸다는 안내, 유닛을 고용하려면 가문이 필요하다는 안내.
-// docs/adr/2026-11-11-faction-identity.md "바뀜 (2026-11-15, D-565)"
+// "내 가문" 칸의 소속 도시 부분(기획 D-565 · ADR 2026-11-24/25) — 가문은 사이보그 본체가 원하는 도시의 행정 건물(정부)에 직접 방문해
+// 가입 신청(house_city_apply)을 해서 그 도시·나라에 소속된다. 세력 탭에서는 원격으로 도시를 골라 가입할 수 없으며, 현재 소속 도시·가문 도시세·
+// 진행 중인 이동 공고(거두기)·재가입 대기 시각·소속 도시 탈퇴만 표시한다.
 import type { HouseCityTaxView, HouseHomeView } from "@terra/shared/house";
-import { useId, useState } from "react";
+import { useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import { formatAmount } from "../../roster/rosterText.ts";
 import { dateText } from "../../sections/screenText.ts";
@@ -16,10 +12,9 @@ export function HouseHomeBlock({
   home,
   inHouse,
   leader,
-  memberCount = 1,
   cityTax,
   busy,
-  onChange,
+  onCancelPending,
   onLeaveCity,
   onPayCityTax,
 }: {
@@ -27,19 +22,16 @@ export function HouseHomeBlock({
   /** 가문에 들어 있나(아니면 무소속 안내) */
   inHouse: boolean;
   leader: boolean;
-  /** 가문원 수(1인 가문은 공고 없이 바로 가입·이동한다 — ADR 2026-11-24-house-membership-separation.md) */
-  memberCount?: number;
   /** 가문 도시세 현황(소속 도시에 내는 일정액 세금·체납 빚 — ADR 2026-11-25-house-city-tax.md) */
   cityTax?: HouseCityTaxView | null | undefined;
   busy: boolean;
-  onChange: (cityId: number) => void;
+  /** 진행 중인 이동 공고 거두기(지금 소속 도시 ID로 house_home 전송) */
+  onCancelPending?: ((cityId: number) => void) | undefined;
   /** 소속 도시 탈퇴(ADR 2026-11-25) */
   onLeaveCity?: () => void;
   /** 가문 도시세 체납 빚 납부(ADR 2026-11-25-house-city-tax.md) */
   onPayCityTax?: () => void;
 }) {
-  const id = useId();
-  const [picked, setPicked] = useState(String(home.city?.id ?? home.choices[0]?.id ?? ""));
   const [askingLeave, setAskingLeave] = useState(false);
   const where = home.city === null ? m.fid_home_none() : homeChoiceText(home.city);
   if (!inHouse)
@@ -54,19 +46,8 @@ export function HouseHomeBlock({
         <p className="faction-muted">{m.fid_home_unaffiliated_hint()}</p>
       </div>
     );
-  const canChange = leader && !home.locked && home.choices.length > 0;
   const waiting = home.changeAt !== null;
   const pending = home.pending ?? null;
-  const same = picked === String(home.city?.id ?? "") || picked === String(pending?.city.id ?? "");
-  const selectedChoice = home.choices.find((city) => String(city.id) === picked);
-  const hostileUnits = selectedChoice?.hostileResidentUnits ?? 0;
-  const needsNotice = memberCount > 1 && (home.noticeMs ?? 0) > 0;
-  const noticeDays = Math.max(0, Math.round((home.noticeMs ?? 0) / 86_400_000));
-  const submitLabel = needsNotice
-    ? m.fid_home_announce()
-    : home.city === null
-      ? m.fid_home_join()
-      : m.fid_home_change();
   return (
     <div className="fid-house-block" data-testid="house-home">
       <h3 className="fid-house-sub">{m.fid_home_title()}</h3>
@@ -125,13 +106,13 @@ export function HouseHomeBlock({
                 : m.fid_home_pending_fee({ amount: formatAmount(pending.terms) })}
           </p>
           {leader ? null : <p className="faction-muted">{m.fid_home_pending_leave()}</p>}
-          {leader && home.city ? (
+          {leader && home.city && onCancelPending ? (
             <button
               type="button"
               className="button-small"
               aria-disabled={busy}
               onClick={() => {
-                if (!busy && home.city) onChange(home.city.id);
+                if (!busy && home.city) onCancelPending(home.city.id);
               }}
             >
               {m.fid_home_pending_cancel()}
@@ -139,56 +120,13 @@ export function HouseHomeBlock({
           ) : null}
         </div>
       ) : null}
-      {canChange ? (
-        <form
-          className="fid-house-home-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const cityId = Number(picked);
-            if (!Number.isSafeInteger(cityId) || cityId <= 0 || same || waiting) return;
-            onChange(cityId);
-          }}
-        >
-          <label className="fid-house-sub" htmlFor={`${id}-home`}>
-            {m.fid_home_change_label()}
-          </label>
-          <span className="fid-house-invite-row">
-            <select
-              id={`${id}-home`}
-              className="input"
-              value={picked}
-              onChange={(event) => setPicked(event.target.value)}
-            >
-              {home.choices.map((city) => (
-                <option key={city.id} value={String(city.id)}>
-                  {homeChoiceText(city)}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              className="button-small button-primary"
-              aria-disabled={busy || same || waiting}
-            >
-              {submitLabel}
-            </button>
-          </span>
-          {hostileUnits > 0 && !same ? (
-            <p className="field-error" role="alert" data-part="house-home-hostile-warning">
-              {m.fid_home_hostile_warning({ count: String(hostileUnits) })}
-            </p>
-          ) : null}
-          <span className="faction-muted">
-            {waiting
-              ? m.fid_home_wait({ when: dateText(home.changeAt ?? 0) })
-              : m.fid_home_wait_rule({ days: Math.max(0, Math.round(home.waitMs / 86_400_000)) })}
-          </span>
-        </form>
+      {leader && !home.locked ? (
+        <p className="faction-muted" data-part="house-home-visit-hint">
+          {m.fid_home_visit_to_join()}
+        </p>
       ) : null}
-      {/* 나라는 하나(D-569): 소속 도시를 바꾸면 가문원 모두의 나라가 바뀐다 */}
-      {canChange ? <p className="faction-muted">{m.fid_home_change_note()}</p> : null}
-      {canChange && needsNotice && noticeDays > 0 ? (
-        <p className="faction-muted">{m.fid_home_notice_rule({ days: noticeDays })}</p>
+      {leader && !home.locked && waiting ? (
+        <p className="faction-muted">{m.fid_home_wait({ when: dateText(home.changeAt ?? 0) })}</p>
       ) : null}
       {leader && home.city !== null && !home.locked && onLeaveCity ? (
         <div className="fid-house-actions" data-part="house-home-leave">

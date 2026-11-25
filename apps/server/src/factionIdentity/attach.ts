@@ -112,6 +112,8 @@ export function attachHouses(options: {
     now: options.now,
     presets: options.presets,
     persistence,
+    // 도시·국가 가입·이동은 행정 건물 직접 방문(house_city_apply)으로만 — house_home은 공고 거두기만 허용
+    cancelOnly: true,
   });
   // 가문 이동 정책 정하기(질문 2018 답, houseEntryPolicy.ts — 도시 주인·독립 나라 가문장)
   const entryPolicy = createHouseEntryPolicy({ pool, db: options.db, now: options.now });

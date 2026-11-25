@@ -431,8 +431,11 @@ describe.skipIf(!TEST_DATABASE_URL)("가문 가입·소속 도시 (DB)", () => {
     const moves = createHouseMoves({ pool: test.db.$client, db: test.db, now: () => clock });
     clock += rules.homeWaitMs;
     expect(await home.set(leader, 912)).toMatchObject({ ok: true, action: "home_announced" });
-    // 공고 중 지금 도시(911)를 고르면 거둔다
-    expect(await home.set(leader, 911)).toMatchObject({ ok: true, action: "home_cancelled" });
+    // 원격 가입 차단 모드(cancelOnly): 다른 도시 원격 가입은 wrong_city, 진행 중인 공고 거두기는 허용
+    const strictHome = createHouseHome({ ...deps(), rules: () => rules, cancelOnly: true });
+    expect(await strictHome.set(leader, 912)).toEqual({ ok: false, code: "same_city" });
+    expect(await strictHome.set(leader, 911)).toMatchObject({ ok: true, action: "home_cancelled" });
+    expect(await strictHome.set(leader, 912)).toEqual({ ok: false, code: "wrong_city" });
     expect((await view(member)).home?.pending).toBeNull();
     expect(await noticeKinds(member)).toEqual(["home_cancelled", "home_announced"]);
     // 다시 공고 → 원치 않는 가문원은 나간다 → 공고 기간 뒤 남은 가문만 옮긴다(나간 사람의 나라는 그대로)

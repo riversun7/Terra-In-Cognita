@@ -184,10 +184,9 @@ function MyHouse({
           home={home}
           inHouse
           leader={leader}
-          memberCount={house.members.length}
           cityTax={house.cityTax}
           busy={busy}
-          onChange={(cityId) => void run({ t: "house_home", cityId })}
+          onCancelPending={(cityId) => void run({ t: "house_home", cityId })}
           onLeaveCity={() => void run({ t: "house_city_leave" })}
           onPayCityTax={() => void run({ t: "house_city_tax_pay" })}
         />
@@ -395,9 +394,7 @@ function NoHouse({ view, command }: { view: HouseView; command: ReturnType<typeo
   );
   return (
     <>
-      {home ? (
-        <HouseHomeBlock home={home} inHouse={false} leader={false} busy={busy} onChange={() => undefined} />
-      ) : null}
+      {home ? <HouseHomeBlock home={home} inHouse={false} leader={false} busy={busy} /> : null}
       {view.offers.length > 0 ? (
         <div className="fid-house-block" data-testid="house-offers">
           <h3 className="fid-house-sub">{m.fid_house_offers_title()}</h3>

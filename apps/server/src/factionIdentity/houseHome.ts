@@ -149,6 +149,8 @@ export interface HouseHomeOptions {
   readonly presets?: (() => readonly NationPreset[]) | undefined;
   /** 세계 저장 층(바로 옮길 때 가입비·지원금 원장, D-570). 없으면 값 없이 옮긴다 */
   readonly persistence?: (() => HouseMovePersistence | undefined) | undefined;
+  /** true이면 진행 중인 이동 공고 거두기만 허용하고, 원격 도시 가입·변경은 막는다(실제 정부 방문 house_city_apply만 허용) */
+  readonly cancelOnly?: boolean | undefined;
 }
 
 export interface HouseHomeService {
@@ -216,6 +218,7 @@ export function createHouseHome(o: HouseHomeOptions): HouseHomeService {
             return { ok: true, action: "home_cancelled", factionId: house.id };
           }
         } else if (before?.cityId !== null && before?.cityId === city.id) return fail("same_city");
+        if (o.cancelOnly) return fail("wrong_city");
         if (before && before.setAtMs > 0 && before.setAtMs + o.rules().homeWaitMs > now)
           return fail("home_wait");
         const noticeMs = o.rules().homeNoticeMs;

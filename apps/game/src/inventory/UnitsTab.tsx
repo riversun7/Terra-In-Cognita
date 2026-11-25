@@ -66,8 +66,13 @@ export function UnitsTab({
                 ) : (
                   <p className="eco-empty">{m.inventory_cargo_none()}</p>
                 )}
-                <h3 className="eco-section-title">{m.holdings_unit_title()}</h3>
-                <UnitHoldings unit={unit.unitId} fallbackLayout={unit.layout} names={unit.names} />
+                <h3 className="eco-section-title">{m.holdings_carried_title()}</h3>
+                <UnitHoldings
+                  unit={unit.unitId}
+                  fallbackLayout={unit.layout}
+                  names={unit.names}
+                  mode="inventory"
+                />
               </div>
             ) : null}
           </li>

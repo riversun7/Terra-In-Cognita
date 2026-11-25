@@ -1,7 +1,7 @@
 // 2차맵 아래 탭 [가방] 판 — 사용자 요청 2026-11-14 "하단 메뉴에도 유닛이 보유한 아이템 리스트 볼수있는 버튼"(고른 유닛의 물건 — 사용자 답).
 // docs/adr/2026-11-14-inventory-screen.md. 고른 유닛(기본 내 사이보그)의 화물(원장 cargo 자리)과 장비·지닌 물건(holdings/UnitHoldings.tsx —
 // 칸 고르기·장착·해제·사용)을 보인다. 내 유닛이 아니면 안내만. [인벤토리에서 보기]는 그 유닛을 펼친 인벤토리 [유닛별] 칸을 연다.
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { fmt } from "../economy/economyText.ts";
 import { NO_ARGS, useHoldings } from "../economy/queries.ts";
 import { UnitHoldings } from "../holdings/UnitHoldings.tsx";
@@ -23,6 +23,7 @@ export function BagSheet({
   readonly mine: boolean;
   readonly onClose: () => void;
 }) {
+  const [gearOpen, setGearOpen] = useState(false);
   const gear = useGearSources();
   const holdings = useHoldings(NO_ARGS);
   const refresh = holdings.refresh;
@@ -41,6 +42,7 @@ export function BagSheet({
       className="map-panel map-units map-bag"
       aria-labelledby="map-bag-title"
       data-unit={unitId ?? undefined}
+      data-gear-open={gearOpen ? "true" : "false"}
     >
       <div className="map-units-head">
         <h2 id="map-bag-title" className="map-units-title">
@@ -69,11 +71,18 @@ export function BagSheet({
           ) : (
             <p className="map-units-note">{holdings.data ? m.inventory_cargo_none() : m.shell_loading()}</p>
           )}
-          <h3 className="map-bag-subtitle">{m.holdings_unit_title()}</h3>
+          <h3 className="map-bag-subtitle">{m.holdings_carried_title()}</h3>
           {gear.state.status !== "ready" ? (
             <LoadState state={gear.state} onRetry={gear.reload} />
           ) : unit ? (
-            <UnitHoldings unit={unitId} fallbackLayout={unit.layout} names={unit.names} onChanged={refresh} />
+            <UnitHoldings
+              unit={unitId}
+              fallbackLayout={unit.layout}
+              names={unit.names}
+              mode="inventory"
+              onGearOpenChange={setGearOpen}
+              onChanged={refresh}
+            />
           ) : (
             <p className="map-units-note">{m.map_bag_not_mine()}</p>
           )}

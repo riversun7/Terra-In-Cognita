@@ -34,6 +34,65 @@
   line-height: var(--line-height-snug);
 }
 
+/* ── 인벤토리 모드(소지품 중심 + [착용 장비] 토글 · 넓은 화면 2열 확장) ── */
+.holdings-inventory {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.holding-gear-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.holding-gear-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.holding-gear-toggle[aria-expanded="true"] {
+  border-color: var(--color-primary-lip);
+  background-color: var(--color-nav-active);
+  color: var(--color-text);
+}
+.holding-gear-caret {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.holdings-inventory-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  min-width: 0;
+}
+.holdings-inventory-main,
+.holdings-inventory-gear {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.holdings-inventory-gear {
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+}
+@media (min-width: 64em) {
+  .holdings-inventory-layout[data-gear-open="true"] {
+    grid-template-columns: minmax(0, 1fr) minmax(17rem, 22rem);
+    align-items: start;
+  }
+  .holdings-inventory-layout[data-gear-open="true"] .holdings-inventory-main {
+    order: 1;
+  }
+  .holdings-inventory-layout[data-gear-open="true"] .holdings-inventory-gear {
+    order: 2;
+  }
+}
+
 /* ── 물건 카드 ─────────────────────────────── */
 .holding-list {
   display: grid;

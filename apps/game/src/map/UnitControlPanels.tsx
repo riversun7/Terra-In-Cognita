@@ -94,8 +94,24 @@ export function MyUnitsPanel({
                 <span className="map-unit-name">{unitName(unit)}</span>
                 <span className="map-unit-status">{unitStatusText(unit, moving.has(unit.unitId), now)}</span>
               </button>
-              {/* 고른 내 유닛: 스탯 기준 추천 한 줄(1차 생산·전투 유형, docs/adr/2026-11-11-production-six.md) */}
-              {selected === unit.unitId && unit.stats ? <UnitAdvice stats={unit.stats} compact /> : null}
+              {/* 고른 내 유닛: 스탯 기준 추천 한 줄 + [유닛 정보](스탯·인공장기 상세로 이동) */}
+              {selected === unit.unitId ? (
+                <div className="map-unit-selected-meta">
+                  {unit.stats ? <UnitAdvice stats={unit.stats} compact /> : null}
+                  <button
+                    type="button"
+                    className="button-small map-unit-info-open"
+                    onClick={() =>
+                      navigate({
+                        route: "units",
+                        search: { unit: unit.kind === "cyborg" ? "self" : `w${unit.unitId}` },
+                      })
+                    }
+                  >
+                    {m.map_unit_info()}
+                  </button>
+                </div>
+              ) : null}
             </li>
           ))}
         </ul>

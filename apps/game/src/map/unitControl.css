@@ -106,6 +106,17 @@
 .map-unit-row[data-hold] .map-unit-status {
   color: var(--color-warning);
 }
+.map-unit-selected-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
+}
+.map-unit-info-open {
+  flex: none;
+}
 
 /* 운영자 표시 — 제목 옆 알약. 글자로 알리고(색에만 기대지 않음) 운영자 빨강(사용자 답 2026-11-08 "운영자 기능은 빨간색 ui로 구분") */
 .map-operator-badge {

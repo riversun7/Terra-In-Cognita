@@ -171,7 +171,7 @@ function InventoryBody({
   return (
     <>
       {view ? (
-        <HoldingsPanel view={view} controller={controller} names={data.names} />
+        <HoldingsPanel view={view} controller={controller} names={data.names} includeOrgans={false} />
       ) : (
         <p className="roster-empty">{m.holdings_no_cyborg_unit()}</p>
       )}

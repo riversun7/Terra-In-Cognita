@@ -1,8 +1,13 @@
 /* 2차맵 [가방] 판(BagSheet.tsx) — 내 유닛 목록 판(.map-units)의 모양을 쓰고, 안쪽만 스크롤한다(지도를 가리지 않게) */
+@media (min-width: 64em) {
+  .map-bag[data-gear-open="true"] {
+    inline-size: min(46rem, calc(100vw - var(--map-rail-w) - var(--space-8)));
+  }
+}
 .map-bag-body {
   display: grid;
   gap: var(--space-2);
-  max-block-size: 40dvh;
+  max-block-size: 46dvh;
   overflow-y: auto;
   overscroll-behavior: contain;
 }

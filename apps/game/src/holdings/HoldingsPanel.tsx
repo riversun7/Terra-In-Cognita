@@ -2,6 +2,7 @@
 // (전체·장비·소모품, 옛 분류 거르기) + 걸린 효과·쓰기 쿨 + 물건 카드(장비 → 소모품 → 그 밖, 이름 차례) + 결과 알림.
 // 칸 고르기 창이 열려 있으면 알림은 창 안에서 보인다(두 번 읽히지 않게).
 // docs/adr/2026-11-03-item-holdings.md "바뀜 (화면)".
+import { isOrganSlot } from "@terra/shared/roster";
 import type { RosterNames } from "@terra/shared/roster";
 import { useId, useState } from "react";
 import { m } from "../paraglide/messages.js";
@@ -20,14 +21,19 @@ export function HoldingsPanel({
   view,
   controller,
   names,
+  includeOrgans = true,
 }: {
   view: UnitHoldings;
   controller: HoldingsController;
   names: RosterNames;
+  /** false이면 인공장기 칸에 이식된 아이템은 소지품 목록에서 뺀다(인공장기는 유닛 정보·스탯창에서 본다) */
+  includeOrgans?: boolean;
 }) {
   const id = useId();
   const [filter, setFilter] = useState<HoldingFilter>("all");
-  const equipped = view.slots.filter((cell) => cell.holding !== null);
+  const equipped = view.slots.filter(
+    (cell) => cell.holding !== null && (includeOrgans || !isOrganSlot(cell.kind)),
+  );
   // 입은 것(칸 차례) + 든 것: 옛 화면처럼 한 목록에 착용 표를 붙여 보인다
   const all = [...equipped.flatMap((cell) => (cell.holding ? [cell.holding] : [])), ...view.carried];
   const shown = filterHoldings(all, filter);

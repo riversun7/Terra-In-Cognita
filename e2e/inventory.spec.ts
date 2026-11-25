@@ -40,7 +40,7 @@ test.describe("인벤토리: 플레이어", () => {
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(await smallTapTargets(page)).toEqual([]);
 
-    // [유닛별]: 유닛 줄, 첫 줄을 누르면 펼쳐 화물·장비 판(칸 고르기)
+    // [유닛별]: 유닛 줄, 첫 줄을 누르면 펼쳐 화물·소지품 판(넓은 화면은 착용 장비 기본 확장, 인공장기는 유닛 정보에만)
     await screen.locator('.eco-tab[data-tab="units"]').click();
     await expect(page).toHaveURL(/\/inventory\?tab=units$/);
     const first = screen.locator(".inventory-unit").first();
@@ -48,7 +48,11 @@ test.describe("인벤토리: 플레이어", () => {
     await first.locator(".inventory-unit-head").click();
     await expect(first).toHaveAttribute("data-open", "true");
     await expect(page).toHaveURL(/tab=units&unit=\d+/);
-    await expect(first.locator(".holding-slot-grid")).toBeVisible({ timeout: 20_000 });
+    await expect(first.locator(".holdings")).toBeVisible({ timeout: 20_000 });
+    await expect(first.locator('.holding-slot-group[data-side="organ"]')).toHaveCount(0);
+    await expect(first.locator('.holding-slot-group[data-side="gear"] .holding-slot-grid')).toBeVisible({
+      timeout: 20_000,
+    });
 
     // [창고별]·[건물별]
     await screen.locator('.eco-tab[data-tab="warehouses"]').click();
@@ -93,7 +97,11 @@ test.describe("인벤토리: 플레이어", () => {
     await expect(bag).toHaveAttribute("aria-pressed", "true");
     const sheet = page.locator(".map-bag");
     await expect(sheet).toHaveAttribute("data-unit", cyborg);
-    await expect(sheet.locator(".holding-slot-grid")).toBeVisible({ timeout: 20_000 });
+    await expect(sheet.locator(".holdings")).toBeVisible({ timeout: 20_000 });
+    await expect(sheet.locator('.holding-slot-group[data-side="organ"]')).toHaveCount(0);
+    await expect(sheet.locator('.holding-slot-group[data-side="gear"] .holding-slot-grid')).toBeVisible({
+      timeout: 20_000,
+    });
     expect(await horizontalOverflow(page)).toEqual([]);
     await bag.click();
     await expect(sheet).toHaveCount(0);
@@ -121,11 +129,21 @@ test.describe("인벤토리 사진(390)", () => {
         await page.locator('.eco-tab[data-tab="units"]').click();
         const first = page.locator(".inventory-unit").first();
         await first.locator(".inventory-unit-head").click();
-        await expect(first.locator(".holding-slot-grid")).toBeVisible({ timeout: 20_000 });
+        await expect(first.locator(".holdings")).toBeVisible({ timeout: 20_000 });
+        await expect(first.locator('.holding-slot-group[data-side="organ"]')).toHaveCount(0);
+        await expect(first.locator(".holding-slot-grid")).toHaveCount(0);
+        await first.locator(".holding-gear-toggle").click();
+        await expect(first.locator('.holding-slot-group[data-side="gear"] .holding-slot-grid')).toBeVisible();
         await shot(page, `inventory-units-390-${theme}`);
         await openMap(page);
         await navButton(page, "bag").click();
-        await expect(page.locator(".map-bag .holding-slot-grid")).toBeVisible({ timeout: 20_000 });
+        await expect(page.locator(".map-bag .holdings")).toBeVisible({ timeout: 20_000 });
+        await expect(page.locator('.map-bag .holding-slot-group[data-side="organ"]')).toHaveCount(0);
+        await expect(page.locator(".map-bag .holding-slot-grid")).toHaveCount(0);
+        await page.locator(".map-bag .holding-gear-toggle").click();
+        await expect(
+          page.locator('.map-bag .holding-slot-group[data-side="gear"] .holding-slot-grid'),
+        ).toBeVisible();
         await shot(page, `map-bag-390-${theme}`);
         expect(deviceErrors).toEqual([]);
       });

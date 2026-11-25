@@ -13,6 +13,9 @@
 //   지분이 하나도 없으면(상장폐지) 과반으로 본다(@terra/sim rulerHasMajority와 같다).
 // - 자본주의 가문 지분 계정(D-338·D-582)도 주주다: 플레이어 가문(p:)은 가문장이, NPC 가문(n:)은 NPC 규칙식(그 가문 도시 만족도·나라 성향)이 던진다.
 // - 빈자리(질문 2403 답 D-582): governance_state.vacant_since_ms가 있으면 지배 가문·지도자가 없다.
+// - 도시 단위 투표(사용자 결정 2026-11-25 "투표는 도시단위 나라단위 따로 있다", ADR 2026-11-25-vacant-government-and-city-vote.md): electorate에
+//   도시를 주면 투표권을 그 도시로 좁힌다 — 민주주의 = 그 도시에 소속했거나 그 도시를 가진 플레이어 가문 + 그 도시의 NPC 가문, 자본주의 =
+//   그 도시 지분의 주주(국고 지분의 의결권 나누기는 같다). 체제는 나라 체제를 따른다(독재 = 투표 없음).
 import { type HouseKey, isHouseKey } from "@terra/shared/governance";
 import type { NpcTraits } from "./npcVote.ts";
 import type { GovernanceNation, GovernancePort } from "./port.ts";
@@ -91,11 +94,19 @@ export function createElectorate(o: {
       1000,
     );
 
-  const electorate = async (nation: GovernanceNation): Promise<Electorate> => {
-    if (nation.regime === "dictatorship") return { voters: [], total: 0n };
+  const electorate = async (wholeNation: GovernanceNation, cityId?: number): Promise<Electorate> => {
+    if (wholeNation.regime === "dictatorship") return { voters: [], total: 0n };
+    // 도시 단위 투표: 그 나라 도시가 아니면 투표권이 비어 있다
+    const nation =
+      cityId === undefined
+        ? wholeNation
+        : { ...wholeNation, cities: wholeNation.cities.includes(cityId) ? [cityId] : [] };
+    if (cityId !== undefined && nation.cities.length === 0) return { voters: [], total: 0n };
+    const inCity = (house: { readonly cityId: number }): boolean =>
+      cityId === undefined || house.cityId === cityId;
     const voters: Voter[] = [];
     if (nation.regime === "democracy") {
-      for (const house of await o.store.playerHousesOf(nation.rowId))
+      for (const house of await o.store.playerHousesOf(nation.rowId, cityId))
         voters.push({
           key: `p:${house.id}`,
           weight: 1n,
@@ -106,7 +117,7 @@ export function createElectorate(o: {
           traits: NEUTRAL,
           loyal: false,
         });
-      for (const house of o.port.npcHousesOf(nation))
+      for (const house of o.port.npcHousesOf(wholeNation).filter(inCity))
         voters.push({
           key: `n:${house.id}`,
           weight: 1n,
@@ -124,7 +135,7 @@ export function createElectorate(o: {
       const others = holdings.filter((row) => row.holder !== treasuryKey);
       const othersTotal = others.reduce((sum, row) => sum + row.amount, 0n);
       // NPC 가문 도시(가문 지분 계정의 NPC 규칙식 만족도)
-      const npcCity = new Map(o.port.npcHousesOf(nation).map((house) => [house.id, house.cityId]));
+      const npcCity = new Map(o.port.npcHousesOf(wholeNation).map((house) => [house.id, house.cityId]));
       for (const holding of others) {
         // D-581: 국고 지분의 의결권을 지분 비례로 더한다
         const weight = holding.amount + (othersTotal > 0n ? (treasury * holding.amount) / othersTotal : 0n);
@@ -132,14 +143,15 @@ export function createElectorate(o: {
         if (house && isHouseKey(holding.holder)) {
           const head = house.npc ? undefined : await o.store.headOf(house.id);
           if (!house.npc && head === undefined) continue;
-          const cityId = npcCity.get(house.id);
+          const houseCity = npcCity.get(house.id);
           voters.push({
             key: holding.holder,
             weight,
             userId: head ?? null,
             npc: house.npc,
             self: holding.holder,
-            satisfaction: house.npc && cityId !== undefined ? o.port.citySatisfaction(cityId) : undefined,
+            satisfaction:
+              house.npc && houseCity !== undefined ? o.port.citySatisfaction(houseCity) : undefined,
             traits: house.npc ? nation.traits : NEUTRAL,
             loyal: false,
           });

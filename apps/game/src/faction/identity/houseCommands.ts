@@ -115,6 +115,13 @@ export type HouseCityRequest =
       readonly mode: HouseCityMode;
       readonly regime?: HouseRegime;
     }
+  /** 주인 없는 빈 정부 건물 차지하기(프로토콜 74 — 건물 판 map/building/VacantHallCard.tsx) */
+  | {
+      readonly t: "house_hall";
+      readonly buildingId: number;
+      readonly mode: HouseCityMode;
+      readonly regime?: HouseRegime;
+    }
   /** 봉신 가문 독립 선언(프로토콜 53, D-575) */
   | { readonly t: "house_independence"; readonly regime: HouseRegime };
 

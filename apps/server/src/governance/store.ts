@@ -510,7 +510,8 @@ export function createGovernanceStore(pool: GovernanceQueryable) {
      * 그 나라 소속 플레이어 가문과 가문장(houseTies.ts와 같은 규칙): 그 가문 자신(독립 가문 나라), 도시를 가진 봉신(parent_id), 도시 없는 가문의
      * 소속 도시 나라(born_of). 해산한 가문은 뺀다
      */
-    async playerHousesOf(nationId: number): Promise<PlayerHouseRow[]> {
+    async playerHousesOf(nationId: number, cityId?: number): Promise<PlayerHouseRow[]> {
+      // cityId가 있으면 그 도시의 가문만(도시 단위 투표 — 그 도시에 소속했거나 그 도시를 가진 가문)
       const { rows } = await pool.query(
         `select f.id, m.user_id, p.name from factions f
            join house_members m on m.faction_id = f.id and m.role = 'leader'
@@ -519,8 +520,11 @@ export function createGovernanceStore(pool: GovernanceQueryable) {
             f.id = $1
             or (f.parent_id = $1 and exists (select 1 from world_owners o where o.faction_id = f.id))
             or (f.born_of = $1 and not exists (select 1 from world_owners o where o.faction_id = f.id)))
+            and ($2::bigint is null
+              or exists (select 1 from house_homes h where h.faction_id = f.id and h.city_id = $2)
+              or exists (select 1 from world_cities c where c.id = $2 and c.faction_id = f.id))
           order by f.id`,
-        [nationId],
+        [nationId, cityId ?? null],
       );
       return rows.map((row) => ({
         id: num(row.id),

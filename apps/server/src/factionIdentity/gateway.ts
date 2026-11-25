@@ -58,7 +58,9 @@ export type HouseMemberClientMessage = ClientMessageOf<
   | "house_city_tax_policy"
   | "house_city_tax_pay"
 >;
-export type HouseCityClientMessage = ClientMessageOf<"house_village" | "house_ruin" | "house_independence">;
+export type HouseCityClientMessage = ClientMessageOf<
+  "house_village" | "house_ruin" | "house_hall" | "house_independence"
+>;
 export type HouseRecruitClientMessage = ClientMessageOf<"house_recruit_auto" | "house_recruit_hire">;
 /** 나라 세금 정하기(프로토콜 57 — 나라 지도자 = 독립 나라 가문장, government/nationTaxPolicy.ts) */
 export type NationTaxClientMessage = ClientMessageOf<"nation_tax">;
@@ -367,6 +369,7 @@ export function createHouseGateway(options: {
         else if (
           message.t === "house_village" ||
           message.t === "house_ruin" ||
+          message.t === "house_hall" ||
           message.t === "house_independence"
         )
           replyCity(message.id, cityFail(code));
@@ -395,7 +398,9 @@ export function createHouseGateway(options: {
                 y: message.y,
                 cost: message.cost,
               })
-            : await city.ruin(viewer.id, { ...choice, ruinId: message.ruinId });
+            : message.t === "house_hall"
+              ? await city.hall(viewer.id, { ...choice, buildingId: message.buildingId })
+              : await city.ruin(viewer.id, { ...choice, ruinId: message.ruinId });
         if (result.ok)
           options.log.info(
             {
@@ -504,7 +509,12 @@ export function createHouseGateway(options: {
       const process = async (message: HouseClientMessage): Promise<void> => {
         if (message.t === "nation_tax") return processTax(message);
         if (message.t === "city_currency") return processMoney(message);
-        if (message.t === "house_village" || message.t === "house_ruin" || message.t === "house_independence")
+        if (
+          message.t === "house_village" ||
+          message.t === "house_ruin" ||
+          message.t === "house_hall" ||
+          message.t === "house_independence"
+        )
           return processCity(message);
         if (message.t === "house_recruit_auto" || message.t === "house_recruit_hire")
           return processRecruit(message);

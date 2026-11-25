@@ -220,8 +220,15 @@ export function createGovernanceService(o: {
   };
 
   /** 안건의 투표권(나라 전체 — 빈자리 도시 독립 투표는 D-584로 없어졌다) */
-  const electorateOf = (_agenda: AgendaRow, nation: GovernanceNation): Promise<Electorate> =>
-    tools.electorate(nation);
+  /**
+   * 안건의 투표권: 나라 단위가 기본이고, 도시 일(블랙리스트 현상금 — 그 도시 국고에서 나간다)은 도시 단위다(사용자 결정 2026-11-25
+   * "투표는 도시단위 나라단위 따로 있다" — electorate.ts)
+   */
+  const electorateOf = (
+    agenda: Pick<AgendaRow, "kind" | "payload">,
+    nation: GovernanceNation,
+  ): Promise<Electorate> =>
+    tools.electorate(nation, agenda.kind === "blacklist_bounty" ? agenda.payload.cityId : undefined);
   /** 안건의 가결 문턱(종류마다, 해임은 지도자 신임도 고리 — D-585, 칸 출발값 0 = 그대로) */
   const thresholdFor = (agenda: AgendaRow): number =>
     agenda.kind === "leader_removal"
@@ -430,7 +437,8 @@ export function createGovernanceService(o: {
       if (input.regime === nation.regime) return fail("same_regime");
       return decideByAuthority(s, userId, input.regime, nowMs);
     }
-    if (!mayPropose(s)) return fail("not_eligible");
+    // 현상금 안건(도시 단위)의 올릴 자격은 고리가 본다(그 도시에 블랙리스트를 올릴 수 있는 가문장 — bountyTerms)
+    if (input.kind !== "blacklist_bounty" && !mayPropose(s)) return fail("not_eligible");
     const active = (await o.store.activeAgendas()).filter((agenda) => agenda.nationId === nation.rowId);
     const open = active.filter((agenda) => agenda.status === "open");
     const proposerKey = proposerKeyOf(s, userId);
@@ -569,7 +577,7 @@ export function createGovernanceService(o: {
     if ("ok" in found) return found;
     const { s, agenda } = found;
     const voters =
-      agenda.kind === "city_independence"
+      agenda.kind === "city_independence" || agenda.kind === "blacklist_bounty"
         ? (await electorateOf(agenda, s.nation)).voters
         : s.electorate.voters;
     const mine = voters.filter((voter) => voter.userId === userId);

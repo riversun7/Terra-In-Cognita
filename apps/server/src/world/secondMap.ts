@@ -938,6 +938,24 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       const building = buildings.get(buildingId);
       return building ? building.ownerId : undefined;
     },
+    setBuildingOwner(buildingId, ownerId) {
+      const building = buildings.get(buildingId);
+      if (!building) return false;
+      if (building.ownerId === ownerId) return true;
+      // 시야는 주인에 따라 달라진다(내 건물은 늘 보인다): 뺐다가 새 주인으로 다시 낸다
+      vision.buildingRemoved(buildingId);
+      building.ownerId = ownerId;
+      persist?.saveBuilding({
+        id: buildingId,
+        mapKey,
+        planetId,
+        domain: "land",
+        ownerId,
+        placement: building.placement,
+      });
+      vision.buildingPlaced(building);
+      return true;
+    },
     forEachBuilding(visit) {
       for (const building of buildings.values())
         visit({

@@ -31,6 +31,7 @@ import { moneyBalance, moneyOf } from "../world/money.ts";
 import type { Settlement } from "../world/settlement.ts";
 import type { HouseTies } from "../world/houseTies.ts";
 import { type ClaimNotice, nameUnnamedHouses, writeClaimNotices } from "./claimHouse.ts";
+import type { LandClaimChoice } from "@terra/shared/facilities";
 import { type LandClaimKind, createLandClaims } from "./landClaim.ts";
 
 /** 정부 짓기 자리를 찾는 반지름(칸, 폐허 칸 둘레) */
@@ -96,6 +97,25 @@ export interface RuinService extends RuinReadServices {
   claimLockedOf(ownerId: number): "vassal" | "independent" | null;
   /** 다 지은 빈 2차맵 행정 건물마다 새 도시를 세운다(NPC 사회 런타임 틱이 부른다, 같은 동기 처리에서 쓰기 대기열로). 세운 수 */
   foundClaims(nowMs: number): number;
+  /**
+   * 그 2차맵에 아직 도시가 되지 않은 정부 건물이 있나(짓는 중·주인 없음 포함 — landClaim.ts governmentOn). 있으면 다른 정부를 짓지
+   * 못한다(땅 규칙 미리 묻기 governmentExists, ADR 2026-11-25-vacant-government-and-city-vote.md)
+   */
+  governmentOn(mapKey: number): boolean;
+  /** 주인 없는 빈 정부 건물이면 그 2차맵(가문 없는 사람이 다 지은 정부 — 가문이 차지한다), 아니면 undefined */
+  vacantHall(buildingId: number): { readonly mapKey: number } | undefined;
+  /** 주인 없는 빈 정부를 가문이 차지한다(landClaim.ts takeVacant). 세운 도시 ID, 빈 정부가 아니면 undefined */
+  takeVacantHall(
+    input: {
+      readonly buildingId: number;
+      readonly owner: number;
+      readonly house: number;
+      readonly me: number;
+      readonly mode: "vassal" | "independent";
+      readonly choice: LandClaimChoice;
+    },
+    nowMs: number,
+  ): number | undefined;
 }
 
 export interface RuinDeps {
@@ -275,10 +295,14 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
       if (!runtime) return { ok: false, code: "not_ruin" };
       const ruin = ruinAt(runtime, mapKey, x, y);
       // 도시도 폐허도 없는 2차맵 = 알박기 자리(landClaim.ts): 다 지으면 새 도시. 주인이 없으면(세력이 사라짐 등) 막는다
-      if (!ruin && !claims.settled(runtime, mapKey))
+      if (!ruin && !claims.settled(runtime, mapKey)) {
+        // 정부 건물이 이미 있는 2차맵(짓는 중·주인 없는 빈 정부 포함)에는 다른 정부를 짓지 못한다(사용자 결정 2026-11-25 — 화면은 땅
+        // 규칙 미리 묻기 governmentExists로 까닭을 안다)
+        if (claims.governmentOn(mapKey)) return { ok: false, code: "forbidden" };
         return claims.kindOf(runtime, ownerId, mapKey) === null
           ? { ok: false, code: "forbidden" }
           : { ok: true, ruinId: null };
+      }
       if (!ruin) return { ok: false, code: "not_ruin" };
       // 주인 없음, 또는 주인의 정부 건물이 0%·사라짐이면 다시 지은 쪽이 주인(487 다)
       if (!runtime.society.ruins.claimable(ruin.id)) return { ok: false, code: "ruin_claimed" };
@@ -296,6 +320,15 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
 
   return {
     governmentStatus,
+    governmentOn: (mapKey) => claims.governmentOn(mapKey),
+    vacantHall(buildingId) {
+      const runtime = live();
+      return runtime ? claims.vacantHall(runtime, buildingId) : undefined;
+    },
+    takeVacantHall(input, nowMs) {
+      const runtime = live();
+      return runtime ? claims.takeVacant(runtime, input, nowMs) : undefined;
+    },
     claimOf(ownerId, mapKey) {
       const runtime = live();
       return runtime ? claims.kindOf(runtime, ownerId, mapKey) : null;

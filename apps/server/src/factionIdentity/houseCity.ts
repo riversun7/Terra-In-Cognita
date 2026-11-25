@@ -47,6 +47,11 @@ export interface HouseCityService {
     input: HouseCityChoice & { mapKey: number; x: number; y: number; cost: string },
   ): Promise<HouseCityResult>;
   ruin(userId: string, input: HouseCityChoice & { ruinId: number }): Promise<HouseCityResult>;
+  /**
+   * 주인 없는 빈 정부 건물을 가문이 차지한다(사용자 결정 2026-11-25 "그걸 차지한 가문이 소유한다" — ruins/landClaim.ts takeVacant): 가문장의
+   * 사이보그 본체가 그 2차맵에 있어야 하고(bad_spot), 빈 정부가 아니면 unknown_ruin. 그 가문이 이 정부로 도시를 세운다
+   */
+  hall(userId: string, input: HouseCityChoice & { buildingId: number }): Promise<HouseCityResult>;
   /** 봉신 가문 독립 선언(D-575 — houseIndependence.ts) */
   independence(userId: string, input: { regime: HouseRegime }): Promise<HouseCityResult>;
   /** 세력 화면 "내 가문" 칸의 도시 줄(가문장이면 마을 자리 제안·고를 폐허) */
@@ -320,6 +325,57 @@ export function createHouseCity(o: {
         mode,
       );
       return { ok: true, factionId: house.id, mode, cityId: ruin.id, paid: "0" };
+    },
+
+    async hall(userId, input) {
+      const ctx = await context(userId);
+      if (!ctx.ok) return fail(ctx.code);
+      const { world, npc, house } = ctx;
+      const p = world.persistence;
+      const vacant = p.ruins.vacantHall(input.buildingId);
+      if (!vacant) return fail("unknown_ruin");
+      // 차지하려면 가문장 사이보그 본체가 그 2차맵에 있어야 한다(순간이동 없음 — D-591)
+      const body = p.cyborgs.record(userId)?.unitId;
+      if (body === null || body === undefined || !world.maps.get(vacant.mapKey)?.unitInfo(body))
+        return fail("bad_spot");
+      const me = p.settlement.findOwnerOfUser(userId);
+      if (me === undefined) return fail("busy");
+      // 나라에 들지 않은 가문(국가 미소속 창설)은 귀속할 나라가 없다: 독립만
+      if (input.mode === "vassal" && house.nation === null && !npc.houses.mirrorOf(house.id))
+        return fail("mode_locked");
+      const problem = choiceProblem(npc, house, input);
+      if (problem) return fail(problem);
+      const at = o.now();
+      const owner = settle(npc, house, input, at);
+      if (owner === undefined) return fail("busy");
+      const mode = npc.houses.mirrorOf(house.id)?.vassal === false ? "independent" : "vassal";
+      const cityId = p.ruins.takeVacantHall(
+        {
+          buildingId: input.buildingId,
+          owner,
+          house: house.id,
+          me,
+          mode,
+          choice:
+            mode === "vassal"
+              ? { mode: "nation", regime: null }
+              : { mode: "independent", regime: input.regime ?? "democracy" },
+        },
+        at,
+      );
+      // 그 사이 다른 가문이 차지했다
+      if (cityId === undefined) return fail("unknown_ruin");
+      npc.houses.flush(owner, cityId);
+      await p.writer.durable();
+      await after(
+        world,
+        userId,
+        house,
+        "faction.house_hall",
+        { buildingId: input.buildingId, cityId, mapKey: vacant.mapKey, regime: input.regime ?? null },
+        mode,
+      );
+      return { ok: true, factionId: house.id, mode, cityId, paid: "0" };
     },
 
     async independence(userId, input) {

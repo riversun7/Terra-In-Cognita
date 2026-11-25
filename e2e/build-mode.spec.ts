@@ -207,18 +207,44 @@ test.describe("건축 모드: 플레이어", () => {
         await expect(sheet.locator('[data-part="build-claim-locked"]')).toHaveText(
           message("ko", "build_claim_locked_vassal"),
         );
+      } else if (claim === "personal") {
+        // 가문 없는 사람이 지은 정부는 주인 없는 비활성 상태로 남는다(사용자 결정 2026-11-25): 고를 것이 없다
+        await expect(choice).toHaveCount(0);
       } else {
-        // 기본 선택 = 소속 국가로 귀속(DEFAULT_LAND_CLAIM_MODE) → 독립을 고르면 가문은 체제, 1인 도시는 독재 안내
+        // 기본 선택 = 소속 국가로 귀속(DEFAULT_LAND_CLAIM_MODE) → 독립을 고르면 체제를 고른다
         await expect(choice).toHaveAttribute("data-mode", "nation");
         await choice.getByLabel(message("ko", "build_claim_mode_independent")).check();
         await expect(choice).toHaveAttribute("data-mode", "independent");
-        if (claim === "house") await expect(choice.locator("select")).toBeVisible();
-        else await expect(choice).toContainText(message("ko", "build_claim_personal_regime"));
+        await expect(choice.locator("select")).toBeVisible();
       }
       expect(await horizontalOverflow(page)).toEqual([]);
       await shot(page, `build-gov-${claim}${locked ? `-${locked}` : ""}-390`);
       expect(deviceErrors).toEqual([]);
     });
+
+  test("정부 건물이 이미 있는 2차맵: 경고를 보이고 정부를 더 짓지 못한다(사용자 결정 2026-11-25)", async ({
+    page,
+    deviceErrors,
+  }) => {
+    test.setTimeout(150_000);
+    await openMap(page, {
+      "facilities.landRule": (data) => {
+        emptyLand("house")(data);
+        if (typeof data === "object" && data !== null) Reflect.set(data, "governmentExists", true);
+      },
+    });
+    const sheet = await openBuild(page);
+    await expect(sheet).toHaveAttribute("data-land", "allowed", { timeout: 20_000 });
+    await pickAndPlace(page, "government_hall");
+    await expect(sheet.locator('[data-part="build-government-exists"]')).toHaveText(
+      message("ko", "build_government_exists"),
+    );
+    await expect(sheet.locator('[data-part="build-claim-choice"]')).toHaveCount(0);
+    await expect(sheet.locator(".map-build-confirm")).toBeDisabled();
+    expect(await horizontalOverflow(page)).toEqual([]);
+    await shot(page, "build-gov-exists-390");
+    expect(deviceErrors).toEqual([]);
+  });
 });
 
 const THEMES: readonly Theme[] = ["pastel", "dark"];

@@ -34,6 +34,9 @@ function fakeService(calls: string[]): RuinService {
     claimOf: () => null,
     claimLockedOf: () => null,
     foundClaims: () => 0,
+    governmentOn: () => false,
+    vacantHall: () => undefined,
+    takeVacantHall: () => undefined,
   };
 }
 

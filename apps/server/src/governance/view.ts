@@ -123,9 +123,17 @@ export function createGovernanceView(o: {
       s.electorate.voters.filter((voter) => voter.userId === userId).map((voter) => voter.key),
     );
     const nowMs = o.now();
+    // 도시 단위 안건(블랙리스트 현상금)은 투표권이 그 도시다: 내 표·투표권 합을 그 도시로 센다
+    const cityElectorates = new Map<number, Awaited<ReturnType<GovernanceService["electorateOf"]>>>();
+    for (const agenda of agendas)
+      if (agenda.kind === "blacklist_bounty" && agenda.status === "open")
+        cityElectorates.set(agenda.id, await o.service.electorateOf(agenda, nation));
     const toView = (agenda: AgendaRow): GovernanceAgendaView => {
       const mine = votes.filter((row) => row.agendaId === agenda.id);
-      const agendaKeys = myKeys;
+      const scoped = cityElectorates.get(agenda.id);
+      const agendaKeys = scoped
+        ? new Set(scoped.voters.filter((voter) => voter.userId === userId).map((voter) => voter.key))
+        : myKeys;
       const { shares, minPrice } = agenda.payload;
       const cands = candidates.filter((row) => row.agendaId === agenda.id);
       const open = agenda.status === "open" && agenda.closesAtMs > nowMs;
@@ -184,7 +192,7 @@ export function createGovernanceView(o: {
         effectAtMs: agenda.effectAtMs,
         reason: FAIL_REASONS.find((reason) => reason === agenda.result?.reason) ?? null,
         totals,
-        electorate: agenda.result?.electorate ?? s.electorate.total.toString(),
+        electorate: agenda.result?.electorate ?? (scoped ?? s.electorate).total.toString(),
         quorumPm: agenda.result?.quorumPm ?? rules.quorumOf(agenda.kind),
         thresholdPm:
           agenda.result?.thresholdPm ??

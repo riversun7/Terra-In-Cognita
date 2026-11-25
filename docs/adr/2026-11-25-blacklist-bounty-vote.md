@@ -1,6 +1,6 @@
 # 현상금 도시 상한·의결 안건, 가문 없는 정부 건설은 지배 가문이 빈 상태
 
-- 상태: 확정
+- 상태: 확정 (일부 대체됨: 2026-11-25-vacant-government-and-city-vote.md — 현상금 안건은 나라 단위가 아니라 도시 단위 투표, 가문 없는 정부는 "지은 사람의 가문을 기다림"이 아니라 주인 없는 비활성 건물·차지한 가문이 소유·정부 건물은 2차맵마다 하나)
 - 날짜: 2026-11-25
 - 관련: ADR `2026-11-25-blacklist-bounty-limits.md`(현상금 제한 — 이 ADR이 상한·의결 항목을 바꾼다), `2026-11-25-house-city-approval-and-blacklist.md`(블랙리스트), `2026-11-21-governance.md`(나라 의결), `2026-11-14-second-map-build.md`(알박기 — 가문 없는 사람의 정부 항목을 바꾼다), `2026-11-24-house-membership-separation.md`(국가 미소속 창설), `2026-10-28-time-and-session-protocol.md`(프로토콜 73)
 

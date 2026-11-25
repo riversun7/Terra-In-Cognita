@@ -17,6 +17,7 @@ import {
   HOUSE_CITY_TAX_PROTOCOL_VERSION,
   HOUSE_ENTRY_POLICY_PROTOCOL_VERSION,
   HOUSE_FOREIGN_BUILD_PROTOCOL_VERSION,
+  HOUSE_HALL_PROTOCOL_VERSION,
   HOUSE_HEIR_PROTOCOL_VERSION,
   HOUSE_HOME_PROTOCOL_VERSION,
   HOUSE_INDEPENDENCE_PROTOCOL_VERSION,
@@ -60,6 +61,7 @@ export const HOUSE_SOCKET_TYPES = [
   "house_city_tax_pay",
   "house_village",
   "house_ruin",
+  "house_hall",
   "house_independence",
   "house_recruit_auto",
   "house_recruit_hire",
@@ -116,6 +118,7 @@ const HOUSE_MESSAGE_NEED: Readonly<Record<HouseSocketMessage["t"], number>> = {
   house_city_tax_pay: HOUSE_CITY_TAX_PROTOCOL_VERSION,
   house_village: HOUSE_CITY_PROTOCOL_VERSION,
   house_ruin: HOUSE_CITY_PROTOCOL_VERSION,
+  house_hall: HOUSE_HALL_PROTOCOL_VERSION,
   house_independence: Math.max(HOUSE_CITY_PROTOCOL_VERSION, HOUSE_INDEPENDENCE_PROTOCOL_VERSION),
   house_recruit_auto: HOUSE_RECRUIT_PROTOCOL_VERSION,
   house_recruit_hire: HOUSE_RECRUIT_PROTOCOL_VERSION,
@@ -151,6 +154,7 @@ export function houseBusyReply(message: HouseSocketHead): ServerMessage {
       return { t: "city_currency_result", id, ok: false, code: "busy" };
     case "house_village":
     case "house_ruin":
+    case "house_hall":
     case "house_independence":
       return { t: "house_city_result", id, ok: false, code: "busy" };
     case "house_recruit_auto":

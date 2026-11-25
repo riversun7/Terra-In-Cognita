@@ -122,6 +122,10 @@ describe("가문 연결 처리(넘기기·해산·가문 도시, 프로토콜 24
           calls.push(`ruin:${userId}:${input.ruinId}:${input.mode}`);
           return Promise.resolve({ ok: false, code: "not_owner" });
         },
+        hall: (userId, input) => {
+          calls.push(`hall:${userId}:${input.buildingId}:${input.mode}`);
+          return Promise.resolve({ ok: false, code: "unknown_ruin" });
+        },
         independence: (userId, input) => {
           calls.push(`independence:${userId}:${input.regime}`);
           return Promise.resolve({ ok: false, code: "not_vassal" });

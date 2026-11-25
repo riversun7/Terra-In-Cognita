@@ -34,10 +34,16 @@ export function ClaimChoice({
         {claim.locked === "vassal" ? m.build_claim_locked_vassal() : m.build_claim_locked_independent()}
       </p>
     );
-  const personal = claim.kind === "personal";
-  const sentRegime: LandClaimRegime = personal ? "dictatorship" : regime;
+  // 가문 없는 사람이 짓는 정부는 다 지으면 주인 없는 비활성 상태가 된다(사용자 결정 2026-11-25): 고를 것이 없고 그 안내만 보인다
+  if (claim.kind === "personal")
+    return (
+      <p className="eco-footnote" data-part="facility-claim-vacant">
+        {m.build_claim_personal()}
+      </p>
+    );
+  const sentRegime: LandClaimRegime = regime;
   const changed =
-    mode !== claim.choice.mode || (mode === "independent" && !personal && sentRegime !== claim.choice.regime);
+    mode !== claim.choice.mode || (mode === "independent" && sentRegime !== claim.choice.regime);
   return (
     <fieldset className="facility-claim" data-part="facility-claim" data-mode={claim.choice.mode}>
       <legend className="eco-row-meta">{m.build_claim_mode_label()}</legend>
@@ -58,27 +64,23 @@ export function ClaimChoice({
         ))}
       </div>
       {mode === "independent" ? (
-        personal ? (
-          <p className="eco-footnote">{m.build_claim_personal_regime()}</p>
-        ) : (
-          <label className="facility-claim-option">
-            <span>{m.build_claim_regime_label()}</span>
-            <select
-              className="input"
-              value={regime}
-              onChange={(event) => {
-                const next = LAND_CLAIM_REGIMES.find((value) => value === event.target.value);
-                if (next) setRegime(next);
-              }}
-            >
-              {LAND_CLAIM_REGIMES.map((value) => (
-                <option key={value} value={value}>
-                  {CLAIM_REGIME_TEXT[value]()}
-                </option>
-              ))}
-            </select>
-          </label>
-        )
+        <label className="facility-claim-option">
+          <span>{m.build_claim_regime_label()}</span>
+          <select
+            className="input"
+            value={regime}
+            onChange={(event) => {
+              const next = LAND_CLAIM_REGIMES.find((value) => value === event.target.value);
+              if (next) setRegime(next);
+            }}
+          >
+            {LAND_CLAIM_REGIMES.map((value) => (
+              <option key={value} value={value}>
+                {CLAIM_REGIME_TEXT[value]()}
+              </option>
+            ))}
+          </select>
+        </label>
       ) : (
         <p className="eco-footnote">{m.build_claim_mode_note()}</p>
       )}

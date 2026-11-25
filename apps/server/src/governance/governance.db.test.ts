@@ -570,7 +570,7 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결(governance)", () => {
     gov.stop();
   }, 120_000);
 
-  it("현상금 승인 안건(사용자 결정 2026-11-25): 고리가 받아 준 안건을 올리고 가결되면 그 금액으로 집행한다", async () => {
+  it("현상금 승인 안건(사용자 결정 2026-11-25): 도시 단위 투표 — 그 도시 가문이 표를 던지고 가결되면 그 금액으로 집행한다", async () => {
     const world = await boot();
     const { npc } = parts(world);
     for (let i = 0; i < 4; i += 1) {
@@ -610,6 +610,9 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결(governance)", () => {
     faction.regime = "democracy";
     await house(world, head.userId, "현상가문", "BNT");
     await gov.service.tick();
+    // 안건의 도시 = 가문이 소속한 도시(가문장의 출발 도시). 다른 도시의 안건에는 이 가문의 표가 없다(도시 단위 투표)
+    const CITY = parts(world).persistence.cyborgs.record(head.userId)?.startCityId ?? -1;
+    const elsewhere = [...faction.cities].find((id) => id !== CITY);
     // 칸이 빠졌거나 고리가 거절하면 그 코드로 실패한다
     expect(await gov.service.propose(head.userId, { kind: "blacklist_bounty" })).toEqual({
       ok: false,
@@ -623,13 +626,18 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결(governance)", () => {
         bounty: "20000",
       }),
     ).toEqual({ ok: false, code: "unknown_target" });
-    const input = { kind: "blacklist_bounty", cityId: 7, bountyTarget: "Outlaw", bounty: "20000" } as const;
+    const input = {
+      kind: "blacklist_bounty",
+      cityId: CITY,
+      bountyTarget: "Outlaw",
+      bounty: "20000",
+    } as const;
     const opened = await gov.service.propose(head.userId, input);
     if (!opened.ok) throw new Error(opened.code);
     expect(checks.at(-1)).toMatchObject({
       nationId: head.nation,
       proposerId: head.userId,
-      cityId: 7,
+      cityId: CITY,
       targetName: "Outlaw",
     });
     // 같은 도시·대상의 열린 안건은 하나
@@ -638,11 +646,21 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결(governance)", () => {
     const view = await gov.view(head.userId);
     expect(view.canPropose).not.toContain("blacklist_bounty");
     expect(view.agendas.find((agenda) => agenda.id === opened.agendaId)?.bounty).toEqual({
-      cityId: 7,
+      cityId: CITY,
       userId: TARGET,
       name: null,
       amount: "20000",
     });
+    // 내 가문은 그 도시 가문이라 표가 있다. 다른 도시의 안건에는 표가 없다
+    expect(view.agendas.find((agenda) => agenda.id === opened.agendaId)?.me.canVote).toBe(true);
+    if (elsewhere !== undefined) {
+      const far = await gov.service.propose(head.userId, { ...input, cityId: elsewhere });
+      if (!far.ok) throw new Error(far.code);
+      expect(await gov.service.vote(head.userId, far.agendaId, "yes")).toEqual({
+        ok: false,
+        code: "not_eligible",
+      });
+    }
     await gov.service.vote(head.userId, opened.agendaId, "yes");
     await gov.service.tick();
     if (
@@ -654,15 +672,14 @@ describe.skipIf(!TEST_DATABASE_URL)("나라 의결(governance)", () => {
     expect(
       (await gov.view(head.userId)).agendas.find((agenda) => agenda.id === opened.agendaId)?.status,
     ).toBe("enacted");
-    expect(applied).toEqual([
-      {
-        nationId: head.nation,
-        agendaId: opened.agendaId,
-        proposerId: head.userId,
-        terms: { cityId: 7, bountyUserId: TARGET, bounty: "20000" },
-        nowMs: clock,
-      },
-    ]);
+    // (다른 도시의 안건은 그 도시 NPC 가문의 표로 따로 정해진다 — 여기서는 내 도시 안건만 본다)
+    expect(applied).toContainEqual({
+      nationId: head.nation,
+      agendaId: opened.agendaId,
+      proposerId: head.userId,
+      terms: { cityId: CITY, bountyUserId: TARGET, bounty: "20000" },
+      nowMs: clock,
+    });
     gov.stop();
   }, 120_000);
 });

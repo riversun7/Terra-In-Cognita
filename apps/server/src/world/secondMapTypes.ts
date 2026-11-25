@@ -224,6 +224,11 @@ export interface SecondMap {
   removeBuilding(buildingId: number): CommandResult;
   /** 건물 주인(노동 계약의 시설 주인). 건물이 없으면 undefined */
   buildingOwner(buildingId: number): number | null | undefined;
+  /**
+   * 건물 주인을 바꾼다(null = 주인 없음 — 가문 없는 사람이 다 지은 정부 건물, 가문이 차지하면 그 가문장. ADR
+   * 2026-11-25-vacant-government-and-city-vote.md). 저장하고 시야를 다시 낸다. 건물이 없으면 false
+   */
+  setBuildingOwner(buildingId: number, ownerId: number | null): boolean;
   /** 모든 건물 ID·주인·기준 칸(노동 계약 화면, 구인 게시판의 가까운 도시) */
   forEachBuilding(
     visit: (building: {

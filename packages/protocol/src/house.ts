@@ -326,6 +326,22 @@ export const houseRuinMessage = z.object({
   ...cityChoice,
 });
 
+/** 주인 없는 빈 정부 차지하기(house_hall)가 생긴 판(프로토콜 74 — docs/adr/2026-11-25-vacant-government-and-city-vote.md) */
+export const HOUSE_HALL_PROTOCOL_VERSION = 74;
+
+/**
+ * 가문장이 주인 없는 빈 정부 건물(가문 없는 사람이 다 지어 비활성으로 남은 정부)을 차지한다(사용자 결정 2026-11-25 "그걸 차지한 가문이
+ * 소유한다"): 그 가문이 이 정부로 도시를 세우고 건물 주인이 된다. 가문장 사이보그 본체가 그 2차맵에 있어야 한다. 고르기(mode·regime)는
+ * 마을 세우기·폐허 고르기와 같다(나라에 들지 않은 가문은 독립만). 답은 house_city_result(빈 정부가 아니면 unknown_ruin, 그 2차맵에 없으면
+ * bad_spot — 새 결과 코드는 없다)
+ */
+export const houseHallMessage = z.object({
+  t: z.literal("house_hall"),
+  id: requestId,
+  buildingId: rowId,
+  ...cityChoice,
+});
+
 /** 봉신 가문 독립 선언(house_independence)이 생긴 판(기획 D-575, 프로토콜 53) */
 export const HOUSE_INDEPENDENCE_PROTOCOL_VERSION = 53;
 
@@ -631,6 +647,7 @@ export const houseClientMessages = [
   houseDissolveMessage,
   houseVillageMessage,
   houseRuinMessage,
+  houseHallMessage,
   houseHomeMessage,
   houseEntryPolicyMessage,
   houseIndependenceMessage,

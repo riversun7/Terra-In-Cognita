@@ -114,6 +114,9 @@ export function BuildSheet({
   // 빈 2차맵 알박기(질문 2122 가): 정부 건물을 고르면 다 지었을 때의 편(서버 claimOf). 옛 서버는 칸이 없어 알리지 않는다
   const claim =
     chosen?.stage === "government" && land.data?.status === "ready" ? (land.data.claim ?? null) : null;
+  // 정부 건물이 이미 있는 2차맵(짓는 중·주인 없는 빈 정부 포함)에는 정부를 더 짓지 못한다(사용자 결정 2026-11-25 — 서버도 막는다)
+  const governmentTaken =
+    chosen?.stage === "government" && land.data?.status === "ready" && land.data.governmentExists === true;
   const problems = footprint
     ? placementProblems({
         anchor,
@@ -126,13 +129,13 @@ export function BuildSheet({
         landAllowed,
       })
     : [];
-  // 알박기 고르기(D-574): 가문(아직 안 정함)·1인 도시만 고른다. 세력·이미 정한 가문은 고르지 않는다
+  // 알박기 고르기(D-574): 가문(아직 안 정함)만 고른다. 세력·이미 정한 가문은 고르지 않는다. 가문 없는 사람이 지은 정부는 주인 없는
+  // 비활성 상태로 남아 고를 것이 없다(차지한 가문이 그때 고른다 — 사용자 결정 2026-11-25)
   const claimLocked = claim === "house" ? (land.data?.claimLocked ?? null) : null;
-  const choosing = (claim === "house" && claimLocked === null) || claim === "personal";
+  const choosing = claim === "house" && claimLocked === null && !governmentTaken;
   const [claimMode, setClaimMode] = useState<LandClaimMode>(DEFAULT_LAND_CLAIM_MODE);
   const [claimRegime, setClaimRegime] = useState<LandClaimRegime>("democracy");
-  // 1인 독재 도시는 늘 독재(D-574 "유닛 독재 도시")
-  const regimeSent: LandClaimRegime = claim === "personal" ? "dictatorship" : claimRegime;
+  const regimeSent: LandClaimRegime = claimRegime;
   // 일꾼: 고른 유닛이 이 2차맵의 내 유닛이고 다른 작업 중이 아니면
   const worker = data?.units.find((unit) => unit.id === builder && unit.mapKey === mapKey && !unit.busy);
   const [sending, setSending] = useState(false);
@@ -156,7 +159,7 @@ export function BuildSheet({
       engine.requestFrame();
     };
   }, [engineRef]);
-  const valid = problems.length === 0;
+  const valid = problems.length === 0 && !governmentTaken;
   // 미리보기 갱신: 자리·크기·회전·판정이 바뀔 때만(원시 값으로 의존성)
   const ax = anchor?.x ?? null;
   const ay = anchor?.y ?? null;
@@ -307,7 +310,11 @@ export function BuildSheet({
               ? m.build_ready()
               : problems.map((problem) => PROBLEM_TEXT[problem]()).join(" · ")}
           </p>
-          {claim !== null ? (
+          {governmentTaken ? (
+            <p className="field-error" role="alert" data-part="build-government-exists">
+              {m.build_government_exists()}
+            </p>
+          ) : claim !== null ? (
             <p className="map-units-note" data-part="build-claim" data-claim={claim}>
               {CLAIM_TEXT[claim]()}
             </p>
@@ -338,27 +345,23 @@ export function BuildSheet({
                 ))}
               </div>
               {claimMode === "independent" ? (
-                claim === "personal" ? (
-                  <p className="map-units-note">{m.build_claim_personal_regime()}</p>
-                ) : (
-                  <label className="map-build-claim-option">
-                    <span>{m.build_claim_regime_label()}</span>
-                    <select
-                      className="input"
-                      value={claimRegime}
-                      onChange={(event) => {
-                        const next = LAND_CLAIM_REGIMES.find((value) => value === event.target.value);
-                        if (next) setClaimRegime(next);
-                      }}
-                    >
-                      {LAND_CLAIM_REGIMES.map((value) => (
-                        <option key={value} value={value}>
-                          {CLAIM_REGIME_TEXT[value]()}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )
+                <label className="map-build-claim-option">
+                  <span>{m.build_claim_regime_label()}</span>
+                  <select
+                    className="input"
+                    value={claimRegime}
+                    onChange={(event) => {
+                      const next = LAND_CLAIM_REGIMES.find((value) => value === event.target.value);
+                      if (next) setClaimRegime(next);
+                    }}
+                  >
+                    {LAND_CLAIM_REGIMES.map((value) => (
+                      <option key={value} value={value}>
+                        {CLAIM_REGIME_TEXT[value]()}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               ) : (
                 <p className="map-units-note">{m.build_claim_mode_note()}</p>
               )}

@@ -138,6 +138,7 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
           names,
           place: (id) => buildingPlace(facilities.service.places, id),
           isBusiness: (id) => facilities.service.facilities.has(id),
+          vacantHall: (id) => persistence.ruins.vacantHall(id) !== undefined,
           isNpc,
           access: async (id) => {
             const checker = buildingAccessOf(ledger);
@@ -154,6 +155,7 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
     // 물류센터 자동 맡기기 계정 설정(기획 대조 2272)
     autoHaul: facilities.haul.prefs(),
     claim: (ownerId, mapKey) => persistence.ruins.claimOf(ownerId, mapKey),
+    governmentOn: (mapKey) => persistence.ruins.governmentOn(mapKey),
     claimLocked: (ownerId) => persistence.ruins.claimLockedOf(ownerId),
     async mapLooks(viewer, mapKey, nowMs) {
       // 보는 건물만(시야 전송과 같은 규칙): 전체 보기, 내 건물, 아는 시야 칸

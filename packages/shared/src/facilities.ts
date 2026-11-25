@@ -390,6 +390,12 @@ export interface FacilityLandRuleResponse {
    */
   readonly claim?: FacilityLandClaim | null | undefined;
   /**
+   * 그 2차맵에 아직 도시가 되지 않은 정부(행정) 건물이 이미 있나(짓는 중·주인 없는 빈 정부 포함 — 사용자 결정 2026-11-25, ADR
+   * 2026-11-25-vacant-government-and-city-vote.md). 참이면 정부 건물은 더 짓지 못한다(짓기 명령은 forbidden — 화면이 "이미 정부 건물이
+   * 존재합니다"를 알린다). 다른 시설은 그대로 짓는다. 옛 서버는 이 칸이 없다
+   */
+  readonly governmentExists?: boolean | undefined;
+  /**
    * 가문이 이미 도시를 가져 봉신·독립을 골라 둔 상태(바꾸지 못함 — houseCity mode_locked와 같다). house일 때만 값, 아직 안 골랐으면 null(짓기 때
    * 고른다, D-574). 옛 서버는 이 칸이 없다
    */

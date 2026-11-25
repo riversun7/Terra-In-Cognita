@@ -55,6 +55,8 @@ export interface FacilityScreenSource {
   land: LandCheck;
   /** 빈 2차맵 알박기의 편(폐허 서비스 claimOf — 짓기 명령의 행정 건물 판정과 같은 함수). 없으면 알리지 않는다 */
   claim?: ((ownerId: number, mapKey: number) => FacilityLandClaim | null) | undefined;
+  /** 그 2차맵에 아직 도시가 되지 않은 정부 건물이 있나(폐허 서비스 governmentOn — 있으면 정부를 더 짓지 못한다). 없으면 거짓 */
+  governmentOn?: ((mapKey: number) => boolean) | undefined;
   /** 그 주체의 가문이 봉신·독립을 이미 정했으면 그 상태(폐허 서비스 claimLockedOf). 없으면 null로 본다 */
   claimLocked?: ((ownerId: number) => "vassal" | "independent" | null) | undefined;
   /** 사업장 장부(보는 사람의 소유 주체 기준) */
@@ -158,6 +160,8 @@ export function createFacilityScreenServices(
             territoryFaction: verdict.territoryFaction ?? null,
             claim,
             claimLocked,
+            // 정부 건물이 이미 있는 2차맵(짓는 중·주인 없는 빈 정부 포함): 정부는 더 짓지 못한다(사용자 결정 2026-11-25)
+            ...(found.governmentOn?.(mapKey) ? { governmentExists: true } : {}),
           }
         : {
             status: "ready",

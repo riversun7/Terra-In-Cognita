@@ -9,8 +9,9 @@
 //   적으며, 한 번 주면 0이 된다.
 // - 도시 상한·의결(사용자 결정 2026-11-25 "정책에서 투표없이 상한 정하고 그 이상은 투표안건", ADR 2026-11-25-blacklist-bounty-vote.md):
 //   도시 정책(city_policies.bounty_max)이 그 도시에서 투표 없이 걸 수 있는 한 건 상한을 정한다(설정 칸보다 클 수 없다). 그보다 큰
-//   현상금은 나라 의결 안건(blacklist_bounty — governance/service.ts)으로 올리고, 가결되면 createBountyAgenda.apply가 그 금액으로
-//   올린다(bounty_agenda_id가 있어 상한으로 자르지 않는다). 다시 등록에 쉬는 시간은 없다.
+//   현상금은 의결 안건(blacklist_bounty — governance/service.ts, 도시 단위 투표: 그 도시 소속 가문·그 도시 지분 주주가 던진다 — ADR
+//   2026-11-25-vacant-government-and-city-vote.md)으로 올리고, 가결되면 createBountyAgenda.apply가 그 금액으로 올린다(bounty_agenda_id가
+//   있어 상한으로 자르지 않는다). 다시 등록에 쉬는 시간은 없다.
 //   3) 가문 도시 가입 신청·승인 시 가문원 중 블랙리스트 유저가 있으면 차단한다(houseCityJoin.ts).
 import type { GovernmentBlacklistRow } from "@terra/shared/government";
 import { hasUnstorableText } from "@terra/shared";

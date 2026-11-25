@@ -338,6 +338,8 @@ export interface OwnerLabelSource {
   place(buildingId: number): { ownerId: number | null; cityId: number | null } | undefined;
   isBusiness(buildingId: number): boolean;
   isNpc(ownerId: number): boolean;
+  /** 주인 없는 빈 정부 건물인가(ruins/landClaim.ts vacantHall). 없으면 아니다 */
+  readonly vacantHall?: ((buildingId: number) => boolean) | undefined;
   /** 건물별 접근 권한 범위·현재 사용자 이용 가능·변경 가능 여부(시설일 때만) */
   readonly access?:
     | ((buildingId: number) => Promise<
@@ -399,6 +401,7 @@ export async function readBuildingOwner(
       viewerOwnerId !== undefined &&
       (business ? majorHolders(holders).includes(viewerOwnerId) : ownerId === viewerOwnerId),
     business,
+    ...(ownerId === null && source.vacantHall?.(buildingId) ? { vacantHall: true } : {}),
     ...(access
       ? {
           accessScope: access.scope,

@@ -562,4 +562,9 @@ export type BuildingOwnerResponse =
       readonly accessBlockReason?: string | null | undefined;
       /** 보는 사람이 이 건물의 접근 권한 범위를 바꿀 수 있나(건물 주인·도시 통치자) */
       readonly canSetAccess?: boolean | undefined;
+      /**
+       * 주인 없는 빈 정부 건물인가(가문 없는 사람이 다 지어 비활성으로 남은 정부 — 가문장이 차지할 수 있다, 사용자 결정 2026-11-25,
+       * ADR 2026-11-25-vacant-government-and-city-vote.md). 아니면·옛 서버는 없음
+       */
+      readonly vacantHall?: boolean | undefined;
     };

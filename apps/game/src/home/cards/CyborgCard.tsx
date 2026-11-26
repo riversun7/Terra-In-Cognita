@@ -685,11 +685,12 @@ export function CyborgCardBody({ data }: CardBodyProps) {
   const query = useRosterQuery(loadCyborg, preview);
   const vitals = useVitals();
   const holdings = useHoldings();
+  // 받은 자료를 먼저 꺼낸다(거르는 함수 안에서는 상태 좁히기가 이어지지 않는다)
+  const held = holdings.state.status === "ready" ? holdings.state.data : null;
   const brokenEquipped =
-    holdings.state.status === "ready" && holdings.state.data.cyborgUnit !== null
-      ? holdings.state.data.holdings.filter(
-          (item) => item.unit === holdings.state.data.cyborgUnit && item.slot !== null && isBroken(item),
-        ).length
+    held !== null && held.cyborgUnit !== null
+      ? held.holdings.filter((item) => item.unit === held.cyborgUnit && item.slot !== null && isBroken(item))
+          .length
       : 0;
   if (query.state.status === "ready" && query.state.data.body !== null) {
     return (

@@ -127,30 +127,32 @@ const cheb = (a: { x: number; y: number }, b: { x: number; y: number }): number 
   Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 
 describe("움직임 부품이 없는 전투는 그대로(docs/adr/2026-11-15-combat-moves.md 4절)", () => {
+  // 지문 다시 뜸(2026-11-26): 기본 아머 재생이 0이 되어(커밋 b644f323, docs/adr/2026-10-31-combat-core.md) 세 지문이 모두 바뀌었다.
+  // 그래서 첫 지문은 이제 "바꾸기 전 코드(24f91102f1)"의 값이 아니라 그 뒤 기본값 바뀜까지 든 값이다(움직임 부품을 끈 전투의 기준 지문).
   it("시범 6 대 6 끝 상태·리플레이 사건 지문: 무기 곡선을 끄면 바꾸기 전 코드(24f91102f1)와 같다", () => {
     expect(movesBaselineHashes("off")).toEqual({
-      demo1: "9cc8c26e47eb4d66",
-      demo7: "cca9acc8145b0310",
-      demo42: "c136d8944d3a50ec",
-      replay3: "c53aa789a05bce41",
+      demo1: "5270ba726e98d4da",
+      demo7: "0a685a56d3d60dce",
+      demo42: "35ef82a0c66d9968",
+      replay3: "ba900ce1354c36f9",
     });
   });
 
   it("무기 사거리 예산 기본 켬(질문 1814, SIM 57 → 59 기본 공격에만 D-572 2008 나): 시범 6 대 6 지문(마법사·사제 지팡이 사거리 5~7이 기본 공격 간격 140~160%) — 스킬 곡선을 끄면 SIM 59 지문 그대로", () => {
     expect(movesBaselineHashes("weapon")).toEqual({
-      demo1: "02601dc164e38279",
-      demo7: "6d2adbc8b76da070",
-      demo42: "23a6a765217b21dd",
-      replay3: "877a34ae0893cca6",
+      demo1: "ed6e5448a7a99d50",
+      demo7: "a5977bb58ee8794d",
+      demo42: "9bc1a39695bf6f5e",
+      replay3: "3e42e11aaf421552",
     });
   });
 
   it("공격 스킬 사거리 예산 기본 켬(D-573 2009, SIM 60 — combat-4 줄기 몫): 시범 6 대 6 지문(마법사 원거리 스킬 사거리 4~6 뒤 행동 간격 130~150%)", () => {
     expect(movesBaselineHashes()).toEqual({
-      demo1: "4a92a055fcd89c9d",
-      demo7: "ec744b1b6d8732d3",
-      demo42: "641a00889d3fdb90",
-      replay3: "20271f807d1cd0b8",
+      demo1: "eb5656d19b19ef89",
+      demo7: "1c0c348fd78598f7",
+      demo42: "c9e84cbc69ead394",
+      replay3: "6e2cd12a8a31f1d2",
     });
   });
 

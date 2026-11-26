@@ -262,6 +262,8 @@ export interface SecondMap {
         held?: boolean | undefined;
         /** 봇(NPC 휴먼)의 집·일터(npc/humanPlaces.ts). 일터가 있으면 도시 경제 일꾼(작업 중 부상 — 질문 2702, fixes-1117i) */
         home?: BotHome | undefined;
+        /** 7축 성향(@terra/shared/unitTraits — 없으면 기본 성향). 유닛 생활 규칙의 성향 기본값이 규율 축을 읽는다(life/store.ts) */
+        traits?: readonly number[] | undefined;
       }
     | undefined;
   /** 배 하나를 물 칸 (x, y)(기준 칸, 크기 등급 2)에 세운다(docs/adr/2026-11-13-boats.md 3절). 물 격자가 없거나 설 수 없으면 false */

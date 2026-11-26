@@ -19,12 +19,13 @@ import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
 import { type OperatorPaceLink, type PaceMap, operatorFactor, withPace } from "../world/operatorPace.ts";
 import { canCommandAnyUnit } from "../world/unitControl.ts";
+import type { UnitLifeStore } from "../life/store.ts";
 import type { UnitTacticsStore } from "../tactics/store.ts";
 import { encounterStrikeOf } from "./encounterWorld.ts";
 import type { TravelCommandResult, TravelService } from "./service.ts";
 
 export type TravelClientMessage = ClientMessageOf<
-  "travel_start" | "travel_cancel" | "unit_tactics" | "unit_attack"
+  "travel_start" | "travel_cancel" | "unit_tactics" | "unit_attack" | "unit_life"
 >;
 type TravelMoveMessage = ClientMessageOf<"travel_start" | "travel_cancel">;
 
@@ -98,6 +99,8 @@ export function createTravelGateway(options: {
   service: () => TravelService | undefined;
   /** 유닛 AI 작전 저장소(세계가 준비되면, tactics/store.ts). 없으면 unit_tactics는 busy */
   tactics?: (() => UnitTacticsStore | undefined) | undefined;
+  /** 유닛 생활 규칙 저장소(세계가 준비되면, life/store.ts — 프로토콜 75 unit_life). 없으면 unit_life는 busy */
+  life?: (() => UnitLifeStore | undefined) | undefined;
   /** 띄운 2차맵(운영자 빠르기 표시를 단다 — world/operatorPace.ts). 없으면 표시하지 않는다(길의 빠르기는 그대로 정한다) */
   maps?: (() => Iterable<PaceMap>) | undefined;
   now: () => number;
@@ -129,6 +132,14 @@ export function createTravelGateway(options: {
           if (!tactics) return reply(message.id, fail("busy"));
           const { t: _t, id: _id, unitId, ...value } = message;
           return reply(message.id, tactics.set(viewer.id, unitId, value));
+        }
+        if (message.t === "unit_life") {
+          const life = options.life?.();
+          if (!life) return reply(message.id, fail("busy"));
+          return reply(
+            message.id,
+            life.set(viewer.id, message.unitId, { restAt: message.restAt, resumeAt: message.resumeAt }),
+          );
         }
         if (message.t === "unit_attack") {
           const strike = encounterStrikeOf(service);

@@ -196,6 +196,43 @@ describe("2차맵 사이 이동 연결 처리", () => {
     expect(playerLink.sent).toEqual([{ t: "travel_result", id: 7, ok: false, code: "forbidden" }]);
   });
 
+  it("유닛 생활 규칙 저장(unit_life, 프로토콜 75)은 저장소로 넘기고 travel_result로 답한다. 저장소가 없으면 busy", async () => {
+    const saved: unknown[] = [];
+    const gateway = createTravelGateway({
+      service: () => fakeService([]),
+      life: () => ({
+        get: () => undefined,
+        of: () => ({ restAt: 90, resumeAt: 0, saved: false }),
+        set: (userId, unitId, value) => {
+          saved.push([userId, unitId, value]);
+          return unitId === 5 ? { ok: true } : { ok: false, code: "forbidden" };
+        },
+        loaded: Promise.resolve(),
+      }),
+      now: () => 0,
+      log: { error: () => {} },
+    });
+    const sent: unknown[] = [];
+    const socket = gateway.open({
+      send: (text) => sent.push(decodeServerMessage(text)),
+      viewer: () => Promise.resolve(player),
+    });
+    socket.handle({ t: "unit_life", id: 3, unitId: 5, restAt: 80, resumeAt: 20 });
+    socket.handle({ t: "unit_life", id: 4, unitId: 6, restAt: 80, resumeAt: 20 });
+    const none = connect(fakeService([]), player);
+    none.socket.handle({ t: "unit_life", id: 5, unitId: 5, restAt: 80, resumeAt: 20 });
+    for (let i = 0; i < 8; i++) await settle();
+    expect(saved).toEqual([
+      ["user-1", 5, { restAt: 80, resumeAt: 20 }],
+      ["user-1", 6, { restAt: 80, resumeAt: 20 }],
+    ]);
+    expect(sent).toEqual([
+      { t: "travel_result", id: 3, ok: true },
+      { t: "travel_result", id: 4, ok: false, code: "forbidden" },
+    ]);
+    expect(none.sent).toEqual([{ t: "travel_result", id: 5, ok: false, code: "busy" }]);
+  });
+
   it("유닛 AI 작전 저장(unit_tactics, 프로토콜 50)은 저장소로 넘기고 travel_result로 답한다. 저장소가 없으면 busy", async () => {
     const saved: unknown[] = [];
     const tactics = {

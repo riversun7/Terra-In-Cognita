@@ -318,8 +318,10 @@
  *    (governance.ts BLACKLIST_BOUNTY_PROTOCOL_VERSION). 새 결과 코드는 없다. 더하기만 했다. 72판 기기는 새 칸·안건을 보내지 않는다.
  * 74: (주인 없는 빈 정부 차지하기 — 사용자 결정 2026-11-25, docs/adr/2026-11-25-vacant-government-and-city-vote.md)
  *    house_hall → house_city_result(house.ts HOUSE_HALL_PROTOCOL_VERSION). 새 결과 코드는 없다. 더하기만 했다. 73판 기기는 보내지 않는다.
+ * 75: (유닛 생활 규칙 — 사용자 결정 2026-11-26, docs/adr/2026-11-26-unit-life-rules.md)
+ *    unit_life → travel_result(travel.ts UNIT_LIFE_PROTOCOL_VERSION). 새 결과 코드는 없다. 더하기만 했다. 74판 기기는 보내지 않는다.
  */
-export const PROTOCOL_VERSION = 74;
+export const PROTOCOL_VERSION = 75;
 
 /**
  * 서버가 받아주는 가장 낮은 기기 프로토콜 버전. 원칙은 현재 + 직전 1개 지원이다(ADR 7). 5부터 3판 기기는 인사에서
@@ -331,7 +333,7 @@ export const PROTOCOL_VERSION = 74;
  * 속성 분배 전 사이보그(elements null)는 이제 기기가 만들지 않는다(5판부터 만들기에 분배가 꼭 든다). 화면 시험의 legacy 계정은
  * 지금 판으로 만든 뒤 서버를 끄고 DB에서 속성값을 비워 다시 켠다(e2e/global-setup.ts).
  */
-export const MIN_SUPPORTED_PROTOCOL_VERSION = 73;
+export const MIN_SUPPORTED_PROTOCOL_VERSION = 74;
 
 /** WebSocket 메시지 1개의 최대 크기 (바이트) */
 export const MAX_MESSAGE_BYTES = 64 * 1024;

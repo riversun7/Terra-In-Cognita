@@ -367,6 +367,11 @@ export interface RosterUnit {
    * aiTactics.ts DEFAULT_PLAYER_PRESET). 시안·옛 서버는 칸이 없다
    */
   readonly tactics?: AiTactics | null | undefined;
+  /**
+   * 생활 규칙(사용자 결정 2026-11-26 — @terra/shared/unitLife): 일하다 피로가 restAt에 닿으면 쉬러 가고 resumeAt까지 풀리면 다시 일한다.
+   * saved = 주인이 정한 값(false면 성향 기본값). 판단하는 내 세계 유닛만 칸이 있다. 시안·옛 서버는 칸이 없다
+   */
+  readonly life?: RosterLife | undefined;
   readonly stats: RosterStats;
   readonly slots: readonly RosterSlot[];
   readonly skills: RosterSkills;
@@ -750,6 +755,13 @@ export interface RosterMove {
   readonly mapCells: number;
   /** 전투맵 한 칸 걷는 간격(ms, 버프 전) */
   readonly battleMs: number;
+}
+
+/** 유닛 생활 규칙의 화면 값(유닛 화면 [생활 규칙] 판) */
+export interface RosterLife {
+  readonly restAt: number;
+  readonly resumeAt: number;
+  readonly saved: boolean;
 }
 
 /**

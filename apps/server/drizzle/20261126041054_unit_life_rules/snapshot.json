@@ -1,0 +1,128 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "4a80f3a5-611b-4a92-83b3-96fb5cc68a47",
+  "prevIds": [
+    "3d8620b4-32a7-4aff-bf4b-e2a34931f846"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "unit_life_rules"
+      ],
+      "writes": [
+        "s|tbl|public.unit_life_rules",
+        "n|tbl|public.unit_life_rules",
+        "e|tbl|public.unit_life_rules",
+        "n|rel|public.unit_life_rules",
+        "n|type|public.unit_life_rules",
+        "n|rel|public.unit_life_rules_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "unit_life_rules",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_life_rules",
+        "name": "unit_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_life_rules",
+        "name": "rest_at",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_life_rules",
+        "name": "resume_at",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_life_rules",
+        "name": "updated_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_life_rules",
+        "name": "unit_life_rules_pkey",
+        "columns": [
+          "unit_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_life_rules",
+        "name": "unit_life_rules_range",
+        "value": "\"rest_at\" between 1 and 120 and \"resume_at\" >= 0 and \"resume_at\" < \"rest_at\"",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

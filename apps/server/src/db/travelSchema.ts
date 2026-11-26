@@ -83,3 +83,24 @@ export const unitTactics = pgTable(
     check("unit_tactics_retreat", sql`${table.retreatPct} between 0 and 100`),
   ],
 );
+
+/**
+ * 유닛 생활 규칙(사용자 결정 2026-11-26 — docs/adr/2026-11-26-unit-life-rules.md, @terra/shared/unitLife): 일하다 피로가 rest_at에 닿으면 쉬러 가고,
+ * 쉬다 resume_at까지 풀리면 다시 일한다. 유닛당 한 줄, 없으면 성향 기본값(life/store.ts). unit_tactics와 같은 까닭으로 유닛에 외래 키를 두지 않는다.
+ * 쓰기는 월드 쓰기 대기열 하나. 직전 판 앱은 이 표를 모른 채 그대로 돈다(더하기만)
+ */
+export const unitLifeRules = pgTable(
+  "unit_life_rules",
+  {
+    unitId: bigint("unit_id", { mode: "number" }).primaryKey(),
+    restAt: smallint("rest_at").notNull(),
+    resumeAt: smallint("resume_at").notNull(),
+    updatedAtMs: bigint("updated_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    check(
+      "unit_life_rules_range",
+      sql`${table.restAt} between 1 and 120 and ${table.resumeAt} >= 0 and ${table.resumeAt} < ${table.restAt}`,
+    ),
+  ],
+);

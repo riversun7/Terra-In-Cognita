@@ -277,13 +277,32 @@ test.describe("admin + 실제 자료", () => {
         await expect(panel.getByRole("status")).toHaveText(message(language, "tactics_saved"), {
           timeout: 15_000,
         });
-        // 다시 받아 열면 저장한 값(고른 프리셋에서 고친 교전 10)
+        // [생활 규칙] 판(사용자 결정 2026-11-26 — 쉬러 가는 피로·다시 일하는 피로): 값을 바꿔 저장한다(판마다 다른 값)
+        const life = page.locator('[data-part="unit-life"]');
+        await expect(life).toBeVisible();
+        const restWant = theme === "pastel" ? "100" : "80";
+        const restAt = life.getByLabel(message(language, "life_rest_at"));
+        await restAt.fill(restWant);
+        await expect(life.locator('[data-part="life-rest"]')).toHaveText(restWant);
+        const resumeAt = life.getByLabel(message(language, "life_resume_at"));
+        await resumeAt.fill("20");
+        await expect(life.locator('[data-part="life-resume"]')).toHaveText("20");
+        expect(await horizontalOverflow(page)).toEqual([]);
+        await elementShot(life, `unit-life-390-${theme}-${language}`);
+        await life.getByRole("button", { name: message(language, "life_save"), exact: true }).click();
+        await expect(life.getByRole("status")).toHaveText(message(language, "life_saved"), {
+          timeout: 15_000,
+        });
+        // 다시 받아 열면 저장한 값(고른 프리셋에서 고친 교전 10, 생활 규칙)
         await page.reload();
         await unitsReady(page);
         await open();
         await expect(preset(pick)).toHaveAttribute("aria-pressed", "true");
         await panel.locator("summary").click();
         await expect(panel.getByLabel(message(language, "tactics_slider_engage"))).toHaveValue("10");
+        await expect(life).toHaveAttribute("data-saved", "true");
+        await expect(life.getByLabel(message(language, "life_rest_at"))).toHaveValue(restWant);
+        await expect(life.getByLabel(message(language, "life_resume_at"))).toHaveValue("20");
         expect(deviceErrors).toEqual([]);
       });
     });

@@ -36,6 +36,20 @@ export interface JobRules {
   readonly fatigueMax: number;
   /** 피로 1을 회복하는 시간(ms). 주거가 아직 없어 노숙 배율(D-296)로 느리게 둔다 */
   readonly restStepMs: number;
+  /**
+   * 쉬러 가는 피로(유닛 생활 규칙 — 사용자 결정 2026-11-26, @terra/shared/unitLife): 일하다 피로가 이 값에 닿으면 쉰다. 없으면 fatigueMax
+   * (다 차야 쉰다 — 옛 셈). 1 ~ fatigueMax로 자른다
+   */
+  readonly restAt?: number | undefined;
+  /** 다시 일하는 피로: 쉬다 이 값까지 풀리면 다시 일한다. 없으면 0(다 풀고 온다). 0 ~ 쉬러 가는 피로 − 1로 자른다 */
+  readonly resumeAt?: number | undefined;
+}
+
+/** 실효 문턱: 쉬러 가는 피로(1 ~ fatigueMax)와 다시 일하는 피로(0 ~ 그 아래) */
+function thresholds(rules: JobRules): { readonly restAt: number; readonly resumeAt: number } {
+  const restAt = Math.min(rules.fatigueMax, Math.max(1, Math.trunc(rules.restAt ?? rules.fatigueMax)));
+  const resumeAt = Math.min(restAt - 1, Math.max(0, Math.trunc(rules.resumeAt ?? 0)));
+  return { restAt, resumeAt };
 }
 
 export const TEST_JOB_RULES: JobRules = { cycleMs: 60_000, fatigueMax: 120, restStepMs: 120_000 };
@@ -64,8 +78,10 @@ function checkRules(rules: JobRules): void {
 }
 
 /**
- * 일하는 시간 durationMs만큼 직무 상태를 앞으로 보낸다. 일 단계: 주기마다 산출 1·피로 +1, 피로가 다 차면 쉰다.
- * 쉼 단계: restStepMs마다 피로 −1, 0이 되면 다시 일한다(D-144 "피로가 차면 쉬고, 회복하면 다시 일한다").
+ * 일하는 시간 durationMs만큼 직무 상태를 앞으로 보낸다. 일 단계: 주기마다 산출 1·피로 +1, 피로가 쉬러 가는 피로(restAt, 없으면 상한)에
+ * 닿으면 쉰다. 쉼 단계: restStepMs마다 피로 −1, 다시 일하는 피로(resumeAt, 없으면 0)까지 풀리면 다시 일한다(D-144 "피로가 차면 쉬고,
+ * 회복하면 다시 일한다", 문턱은 유닛 생활 규칙 — 사용자 결정 2026-11-26). 피로가 이미 문턱 밖이어도(직접 채집으로 찬 피로, 규칙을 바꾼 뒤)
+ * 같은 규칙으로 이어 간다: 일 단계에서 쉬러 가는 피로 이상이면 바로 쉬고, 쉼 단계에서 다시 일하는 피로 이하면 바로 일한다.
  */
 export function advanceJob(state: JobState, durationMs: number, rules: JobRules): JobAdvance {
   checkRules(rules);
@@ -73,41 +89,53 @@ export function advanceJob(state: JobState, durationMs: number, rules: JobRules)
   let { phase, progressMs, fatigue } = state;
   let left = durationMs;
   let cycles = 0;
-  const periodMs = rules.fatigueMax * (rules.cycleMs + rules.restStepMs);
+  const { restAt, resumeAt } = thresholds(rules);
+  /** 일·쉼 한 묶음의 주기 수(다시 일하는 피로 → 쉬러 가는 피로)와 길이 */
+  const span = restAt - resumeAt;
+  const periodMs = span * (rules.cycleMs + rules.restStepMs);
   let fullPeriodsTaken = false;
   while (left > 0) {
     if (phase === PHASE_WORK) {
-      const toRest = (rules.fatigueMax - fatigue) * rules.cycleMs - progressMs;
-      if (left < toRest) {
+      const toRest = (restAt - fatigue) * rules.cycleMs - progressMs;
+      if (fatigue >= restAt) {
+        // 이미 쉬러 가는 피로 이상(직접 채집으로 찬 피로·규칙을 바꾼 뒤): 바로 쉰다. 일 주기에 쓴 시간은 쉰 시간으로 친다(옛 셈과 같다)
+        left += progressMs;
+        phase = PHASE_REST;
+        progressMs = 0;
+      } else if (left < toRest) {
         const done = Math.floor((progressMs + left) / rules.cycleMs);
         cycles += done;
         fatigue += done;
         progressMs = (progressMs + left) % rules.cycleMs;
         left = 0;
       } else {
-        cycles += rules.fatigueMax - fatigue;
+        cycles += restAt - fatigue;
         left -= toRest;
-        fatigue = rules.fatigueMax;
+        fatigue = restAt;
         phase = PHASE_REST;
         progressMs = 0;
       }
     } else {
-      const toWork = fatigue * rules.restStepMs - progressMs;
-      if (left < toWork) {
+      const toWork = (fatigue - resumeAt) * rules.restStepMs - progressMs;
+      if (fatigue <= resumeAt) {
+        // 이미 다시 일하는 피로 이하: 바로 일한다(쉼 걸음에 쓴 시간은 버린다 — 단위가 달라 넘겨 쓰지 않는다, switchJob과 같다)
+        phase = PHASE_WORK;
+        progressMs = 0;
+      } else if (left < toWork) {
         const done = Math.floor((progressMs + left) / rules.restStepMs);
         fatigue -= done;
         progressMs = (progressMs + left) % rules.restStepMs;
         left = 0;
       } else {
         left -= toWork;
-        fatigue = 0;
+        fatigue = resumeAt;
         phase = PHASE_WORK;
         progressMs = 0;
-        // 일 시작(피로 0, 주기 0)에서 온전한 일·쉼 묶음은 한 번에 센다
+        // 일 시작(다시 일하는 피로, 주기 0)에서 온전한 일·쉼 묶음은 한 번에 센다
         if (!fullPeriodsTaken) {
           fullPeriodsTaken = true;
           const periods = Math.floor(left / periodMs);
-          cycles += periods * rules.fatigueMax;
+          cycles += periods * span;
           left -= periods * periodMs;
         }
       }

@@ -109,11 +109,17 @@ async function hireSelf(world: World, userId: string, count: number, spare: bigi
   return contracts;
 }
 
+/**
+ * 세계가 직무 유닛에 얹는 기본 생활 규칙(사용자 결정 2026-11-26 — life/store.ts): 성향 없는 유닛은 첫 불이익 구간(피로 90)에서 쉬고 다 풀고
+ * 돌아온다
+ */
+const LIFE_RULES = { ...TEST_JOB_RULES, restAt: 90, resumeAt: 0 };
+
 /** 해결 함수를 한 번에 부른 기댓값: 접속 [T0, T0+2h], 끊김 T0+2h부터 */
 function expectedCycles(endMs: number): number {
   const start: JobState = { job: JOB_GATHER, phase: PHASE_WORK, progressMs: 0, fatigue: 0 };
-  const online = settleJob(start, T0, T0 + 2 * HOUR, null, TEST_JOB_RULES);
-  const offline = settleJob(online.state, T0 + 2 * HOUR, endMs, T0 + 2 * HOUR, TEST_JOB_RULES);
+  const online = settleJob(start, T0, T0 + 2 * HOUR, null, LIFE_RULES);
+  const offline = settleJob(online.state, T0 + 2 * HOUR, endMs, T0 + 2 * HOUR, LIFE_RULES);
   return online.cycles + offline.cycles;
 }
 

@@ -2,7 +2,14 @@
 // 읽는 차례는 복귀 요약의 생산 칸(world/summarySources.ts)과 같다: 그 주체를 지금까지 정산하고(직무·피로가 지금 값이 되게)
 // 쓰기 대기열이 비기를 기다린 뒤(DB가 메모리를 따라잡은 뒤) 읽는다. 이동 중인지는 메모리의 움직임으로 본다.
 // 세계 표는 바꾸지 않는다(읽기만). 저장된 스탯·장비가 아직 없어 화면 스탯은 [임시] 기본값이다(body.ts baselineBody).
-import type { RosterCargo, RosterDomain, RosterInjury, RosterJob, UnitType } from "@terra/shared/roster";
+import type {
+  RosterCargo,
+  RosterDomain,
+  RosterInjury,
+  RosterJob,
+  RosterLife,
+  UnitType,
+} from "@terra/shared/roster";
 import { JOB_GATHER, JOB_HUNT, NATURAL_HEAL_PM, PHASE_REST, arrivalAt, injuryGreenAtMs } from "@terra/sim";
 import { injuryNowOf, injuryRules } from "../world/unitCondition.ts";
 import {
@@ -13,6 +20,7 @@ import {
 } from "../world/unitKinds.ts";
 import type { World } from "../world/world.ts";
 import type { AiTactics } from "@terra/shared/aiTactics";
+import { unitLifeOf } from "../life/store.ts";
 import { TACTICS_KINDS, tacticsOfRow } from "../tactics/store.ts";
 
 /** 실제 유닛 한 줄(화면 모양으로 바꾸기 전) */
@@ -35,6 +43,8 @@ export interface WorldRosterRow {
   readonly cargo: readonly RosterCargo[];
   /** AI 작전(판단하는 유닛만 칸 — 저장한 적이 없으면 null, D-5039·D-5040) */
   readonly tactics?: AiTactics | null | undefined;
+  /** 생활 규칙(쉬러 가는 피로·다시 일하는 피로 — 판단하는 내 유닛만, 띄운 2차맵 위일 때. saved = 주인이 정한 값, life/store.ts) */
+  readonly life?: RosterLife | undefined;
 }
 
 export interface WorldRoster {
@@ -155,6 +165,7 @@ export function createWorldRosterSource(world: World): WorldRosterSource {
       }
       const units: WorldRosterRow[] = [];
       const prisoners: WorldRosterRow[] = [];
+      const lifeStore = unitLifeOf(world.persistence);
       for (const row of unitRows.rows) {
         const id = num(row.id);
         const mapKey = num(row.map_key);
@@ -186,6 +197,8 @@ export function createWorldRosterSource(world: World): WorldRosterSource {
           ...(mine && TACTICS_KINDS.has(num(row.kind)) && row.guardian !== true
             ? {
                 tactics: row.preset === null || row.preset === undefined ? null : (tacticsOfRow(row) ?? null),
+                // 생활 규칙(사용자 결정 2026-11-26): 띄운 2차맵 위 유닛만(좌표 유닛은 정산이 없다)
+                ...(lifeStore && world.maps.get(mapKey)?.unitInfo(id) ? { life: lifeStore.of(id) } : {}),
               }
             : {}),
         };

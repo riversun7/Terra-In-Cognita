@@ -289,14 +289,14 @@ describe.skipIf(!TEST_DATABASE_URL)("채집소(DB)", () => {
     const sum = (location: number): bigint =>
       cropAssets.reduce((total, asset) => total + p.ledger.balanceOf(ownerId, asset, location), 0n);
     const cityBefore = sum(cityLocation(cityId ?? 0));
-    // 농장(선택 방식): 스탯 10·10 → 해금 T1, 필요 진행 60 = 1시간에 하나 → 90분 정산(직무 피로 상한 120 전이라 일하는 중)
-    clock += 90 * 60_000;
+    // 농장(선택 방식): 스탯 10·10 → 해금 T1, 필요 진행 60 = 1시간에 하나 → 80분 정산(쉬러 가는 피로 90 전이라 일하는 중)
+    clock += 80 * 60_000;
     p.settlement.settleOwner(ownerId, clock);
     expect(sum(buildingLocation(farmId))).toBeGreaterThan(0n);
     expect(sum(cityLocation(cityId ?? 0))).toBe(cityBefore);
     expect(current.station.status(unitId)).toMatchObject({ buildingId: farmId, state: "working" });
-    // 피로: 90주기 × 1점 − 레벨 1 피로 덜기 (1000 − 900)‰ = 81점(시설 레벨 1 = −10%, 사용자 결정 2026-11-26)
-    expect(map.unitInfo(unitId)?.job.fatigue).toBe(81);
+    // 피로: 80주기 × 1점 − 레벨 1 피로 덜기 (1000 − 900)‰ = 72점(시설 레벨 1 = −10%, 사용자 결정 2026-11-26)
+    expect(map.unitInfo(unitId)?.job.fatigue).toBe(72);
 
     const view = gatherReadsOf(() => gather.current()).station(
       { id: userId, loginId: "fake_farm_station", roles: [] },
@@ -315,7 +315,7 @@ describe.skipIf(!TEST_DATABASE_URL)("채집소(DB)", () => {
     expect(view.storage.capacityGrams).toBe("300000");
     expect(view.storage.goods.length).toBeGreaterThan(0);
     expect(view.workers).toEqual([
-      expect.objectContaining({ unitId, via: "assign", state: "working", fatigue: 81 }),
+      expect.objectContaining({ unitId, via: "assign", state: "working", fatigue: 72 }),
     ]);
     expect(view.upgrade?.buffs).toMatchObject({ radiusCells: null, yieldPm: 1200, regrowPm: null });
 

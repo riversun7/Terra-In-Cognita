@@ -115,6 +115,7 @@ export function realUnit(
     ...(condition ? { condition } : {}),
     party: null,
     ...(row.tactics === undefined ? {} : { tactics: row.tactics }),
+    ...(row.life === undefined ? {} : { life: row.life }),
     ...effectiveView(catalog, base, gear),
     preview: false,
   };

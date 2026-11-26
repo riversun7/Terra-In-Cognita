@@ -40,6 +40,7 @@ import {
   unitLabel,
 } from "../roster/rosterText.ts";
 import { HospitalCare } from "./HospitalCare.tsx";
+import { LifeRulesPanel } from "./LifeRulesPanel.tsx";
 import { TacticsPanel } from "./TacticsPanel.tsx";
 import { UnitGift } from "../map/business/UnitGift.tsx";
 import { EntityRef, type UnitSymbolRole } from "../ui/EntityRef.tsx";
@@ -238,6 +239,10 @@ export function UnitDetail({
       {/* AI 작전(D-5039·D-5040 — 조우 판단·조우 전투 퇴각 기준, 판단하는 세계 유닛만 칸이 온다) */}
       {worldUnit !== null && unit.tactics !== undefined ? (
         <TacticsPanel key={`tactics-${unit.id}`} id={`${id}-tactics`} unit={worldUnit} saved={unit.tactics} />
+      ) : null}
+      {/* 생활 규칙(쉬러 가는 피로·다시 일하는 피로 — 사용자 결정 2026-11-26, 판단하는 띄운 2차맵 위 내 유닛만 칸이 온다) */}
+      {worldUnit !== null && unit.life !== undefined ? (
+        <LifeRulesPanel key={`life-${unit.id}`} id={`${id}-life`} unit={worldUnit} saved={unit.life} />
       ) : null}
       {/* 용돈 주기(유닛 사유재산 — D-555 1508, docs/adr/2026-11-15-business-ledger.md) */}
       {worldUnit !== null && !self ? <UnitGift key={`gift-${unit.id}`} unitId={worldUnit} /> : null}

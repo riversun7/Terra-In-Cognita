@@ -58,13 +58,16 @@ export function boatCrew(map: SecondMap, boatId: number, ownerId: number, nowMs:
     .toSorted((a, b) => a - b);
 }
 
-/** 일꾼 모두에게 피로를 더한다(상한에서 멈춤). 이끄는 유닛이 상한이면 true */
+/**
+ * 일꾼 모두에게 피로를 더한다(상한에서 멈춤). 이끄는 유닛이 멈출 피로(stopAt — 쉬러 가는 피로, 없으면 상한)에 닿았으면 true
+ */
 export function tireCrew(
   map: SecondMap,
   crew: readonly number[],
   leadId: number,
   amount: number,
   max: number,
+  stopAt: number = max,
 ): boolean {
   let tired = false;
   for (const unitId of crew) {
@@ -72,7 +75,7 @@ export function tireCrew(
     if (!info) continue;
     const value = Math.min(max, info.job.fatigue + amount);
     map.setJob(unitId, { ...info.job, fatigue: value });
-    if (unitId === leadId && value >= max) tired = true;
+    if (unitId === leadId && value >= Math.min(max, stopAt)) tired = true;
   }
   return tired;
 }

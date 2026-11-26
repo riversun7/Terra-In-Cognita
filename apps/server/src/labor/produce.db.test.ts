@@ -8,6 +8,7 @@ import { facilityScreenSourceOf } from "../facilities/appSource.ts";
 import { goodsAsset } from "../facilities/materials.ts";
 import { TEST_FACILITY_SOURCE } from "../facilities/testFacilities.ts";
 import { facilitiesOverview } from "../facilities/views.ts";
+import { unitLifeOf } from "../life/store.ts";
 import { TEST_HOLDING_CONTENT } from "../holdings/testContent.ts";
 import {
   TEST_DATABASE_URL,
@@ -310,17 +311,17 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 생산(서버)", () => {
     expect(view.units.find((unit) => unit.id === away)?.mapKey).toBe(other.mapKey);
     expect(view.units.find((unit) => unit.id === a.unitId)?.mapKey).toBe(firstMap(world).mapKey);
 
-    // 같은 2차맵 유닛: 2시간 일하면 피로 120(쉼 단계), 풀면 직무 없음에서 2분에 1점씩 풀린다
+    // 같은 2차맵 유닛: 90분 일하면 쉬러 가는 피로(기본 생활 규칙 90)에 닿아 쉬고, 30분 쉬면 75(2분에 1점). 풀면 직무 없음에서 2분에 1점씩 풀린다
     expect(await p.labor.assign(a.userId, camp, a.unitId)).toEqual({ ok: true });
     clock += 2 * HOUR;
     expect(await p.labor.unassign(a.userId, a.unitId)).toEqual({ ok: true });
-    expect(jobStateOf(world, a.unitId)).toEqual({ job: JOB_NONE, phase: PHASE_REST, fatigue: 120 });
+    expect(jobStateOf(world, a.unitId)).toEqual({ job: JOB_NONE, phase: PHASE_REST, fatigue: 75 });
     clock += HOUR;
     p.settlement.settleOwner(a.ownerId, clock);
-    expect(jobStateOf(world, a.unitId)).toEqual({ job: JOB_NONE, phase: PHASE_REST, fatigue: 90 });
+    expect(jobStateOf(world, a.unitId)).toEqual({ job: JOB_NONE, phase: PHASE_REST, fatigue: 45 });
     // 다시 배치해도 피로는 그대로(쉼 단계를 마저 한다)
     expect(await p.labor.assign(a.userId, camp, a.unitId)).toEqual({ ok: true });
-    expect(jobStateOf(world, a.unitId)).toEqual({ job: JOB_GATHER, phase: PHASE_REST, fatigue: 90 });
+    expect(jobStateOf(world, a.unitId)).toEqual({ job: JOB_GATHER, phase: PHASE_REST, fatigue: 45 });
     expect(await world.checkInvariants()).toEqual([]);
   });
 
@@ -348,7 +349,8 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 생산(서버)", () => {
         { account: p.ledger.ownerAccount(boss.ownerId, pine, here), amount: 98n },
       ],
     });
-    clock += 4 * HOUR;
+    // 8시간: 90주기 일하고 쉬고(기본 생활 규칙 — 피로 90에서 쉰다) 다시 일해 묶음이 둘 넘게 끝난다
+    clock += 8 * HOUR;
     p.settlement.settleOwner(tenant.ownerId, clock);
     let tenantGrams = 0n;
     let totalGrams = 0n;
@@ -406,5 +408,59 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 생산(서버)", () => {
     expect(await p.labor.terminate(boss.userId, contractId)).toEqual({ ok: true });
     expect(jobOf(world, boss.unitId)).toBe(JOB_NONE);
     expect(await world.checkInvariants()).toEqual([]);
+  });
+
+  it("유닛 생활 규칙(사용자 결정 2026-11-26): 정하지 않으면 첫 불이익 구간(90)에서 쉬고, 주인이 정하면 그 피로에서 쉬고 돌아온다. 다시 켜도 남는다", async () => {
+    const first = await boot();
+    const p = persistence(first);
+    const a = await setup(first, "ruler", 30);
+    const farm = await buildAt(first, a.userId, "farm", 50, { pine_log: 20 });
+    const life = unitLifeOf(p);
+    if (!life) throw new Error("no life store");
+    // 성향 없는 유닛의 기본값 = 첫 불이익 구간 시작, 다 풀고 돌아온다
+    expect(life.of(a.unitId)).toEqual({ restAt: 90, resumeAt: 0, saved: false });
+    expect(await p.labor.assign(a.userId, farm, a.unitId)).toEqual({ ok: true });
+    // 3시간(90주기 = 90분 뒤 쉼): 상한 120까지 가지 않는다
+    let peak = 0;
+    for (let i = 0; i < 36; i++) {
+      clock += 5 * 60_000;
+      p.settlement.settleOwner(a.ownerId, clock);
+      peak = Math.max(peak, jobStateOf(first, a.unitId)?.fatigue ?? 0);
+    }
+    expect(peak).toBeGreaterThan(60);
+    expect(peak).toBeLessThanOrEqual(90);
+    expect(jobStateOf(first, a.unitId)?.phase).toBe(PHASE_REST);
+    // 남의 유닛은 못 정한다. 내 유닛은 정하고, 그 뒤로는 30에서 쉬고 10까지 풀리면 다시 일한다
+    const other = await setup(first, "stranger", 34);
+    expect(life.set(other.userId, a.unitId, { restAt: 30, resumeAt: 10 })).toEqual({
+      ok: false,
+      code: "forbidden",
+    });
+    expect(life.set(a.userId, a.unitId, { restAt: 30, resumeAt: 10 })).toEqual({ ok: true });
+    expect(life.of(a.unitId)).toEqual({ restAt: 30, resumeAt: 10, saved: true });
+    // 하루 쉬고 일하기를 되풀이: 처음 쉼(90 → 10) 뒤로는 피로가 30을 넘지 않고, 일도 쉼도 한다
+    clock += 12 * HOUR;
+    p.settlement.settleOwner(a.ownerId, clock);
+    let high = 0;
+    const phases = new Set<number>();
+    for (let i = 0; i < 60; i++) {
+      clock += 5 * 60_000;
+      p.settlement.settleOwner(a.ownerId, clock);
+      const state = jobStateOf(first, a.unitId);
+      high = Math.max(high, state?.fatigue ?? 0);
+      if (state) phases.add(state.phase);
+    }
+    expect(high).toBeLessThanOrEqual(30);
+    expect(high).toBeGreaterThan(10);
+    expect(phases.size).toBe(2);
+    await p.writer.durable();
+    await first.stop();
+    worlds.splice(worlds.indexOf(first), 1);
+
+    const second = await boot();
+    const again = unitLifeOf(persistence(second));
+    await again?.loaded;
+    expect(again?.of(a.unitId)).toEqual({ restAt: 30, resumeAt: 10, saved: true });
+    expect(await second.checkInvariants()).toEqual([]);
   });
 });

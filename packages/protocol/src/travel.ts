@@ -20,6 +20,13 @@ export const TELEPORT_PROTOCOL_VERSION = 36;
  */
 export const UNIT_TACTICS_PROTOCOL_VERSION = 50;
 /**
+ * 유닛 생활 규칙 저장(unit_life — 사용자 결정 2026-11-26 "유닛 성향, 주인유저가 규칙 설정 가능", docs/adr/2026-11-26-unit-life-rules.md)이 생긴 판.
+ * 더 낮은 연결이 보내면 서버가 invalid_message로 거절한다. 답은 travel_result(새 코드 없음)
+ */
+export const UNIT_LIFE_PROTOCOL_VERSION = 75;
+/** 피로 상한의 구조 값(49 N21, @terra/shared/unitLife LIFE_FATIGUE_LIMIT와 같다 — 실효 상한은 서버가 설정 칸으로 다시 본다) */
+export const UNIT_LIFE_FATIGUE_LIMIT = 120;
+/**
  * 유닛 공격(unit_attack, 묶음 1117d 64 — 줄기 fixes-1117c 판 123 — 사용자 결정 D-588 2496 가 "같은 나라 유저의 건물이나 유닛을 공격하면(약탈 행위) 신용이 내린다", 기획 대조 2543):
  * 내 유닛이 가까이 있는 남의 유닛을 일부러 친다. 조우(D-570 1904)는 다른 나라끼리만 저절로 만나므로 같은 나라 유저끼리 싸움·약탈은 이 명령으로만 난다 [임시 2581].
  * 더 낮은 연결이 보내면 서버가 invalid_message로 거절한다. 답은 travel_result(새 코드 out_of_reach·own_target·safe_zone은 이 메시지의 답에만 간다)
@@ -91,6 +98,24 @@ export const unitTacticsMessage = z.object({
   retreatPct: z.number().int().min(0).max(100),
   target: z.enum(UNIT_TACTICS_TARGETS),
 });
+
+/**
+ * 내 유닛의 생활 규칙을 저장한다(프로토콜 75): 일하다 피로가 restAt에 닿으면 쉬러 가고, 쉬다 resumeAt까지 풀리면 다시 일한다
+ * (0 ≤ resumeAt < restAt ≤ 피로 상한). 소유·유닛 종류·실효 상한은 서버가 본다. 저장한 값은 다음 정산부터 쓴다
+ */
+export const unitLifeMessage = z
+  .object({
+    t: z.literal("unit_life"),
+    id: requestId,
+    unitId,
+    restAt: z.number().int().min(1).max(UNIT_LIFE_FATIGUE_LIMIT),
+    resumeAt: z
+      .number()
+      .int()
+      .min(0)
+      .max(UNIT_LIFE_FATIGUE_LIMIT - 1),
+  })
+  .refine((message) => message.resumeAt < message.restAt, { path: ["resumeAt"] });
 
 /**
  * 내 유닛(unitIds)으로 남의 유닛(targetUnitId)을 친다(프로토콜 64): 같은 띄운 2차맵에서 조우 거리(설정 칸 encounter_radius_cells) 안이어야 한다.
@@ -165,5 +190,6 @@ export const travelClientMessages = [
   travelCancelMessage,
   unitTacticsMessage,
   unitAttackMessage,
+  unitLifeMessage,
 ] as const;
 export const travelServerMessages = [travelResultMessage] as const;

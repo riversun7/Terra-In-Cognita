@@ -67,6 +67,11 @@ export interface GatherDeps {
    * 경계를 굴린다. 없으면 다치지 않는다(시험)
    */
   workInjury?: GatherInjuryHook | undefined;
+  /**
+   * 그 유닛이 쉬러 가는 피로(유닛 생활 규칙 — 사용자 결정 2026-11-26, life/store.ts). 이끄는 유닛의 피로가 이 값에 닿으면 채집 줄을 끝낸다
+   * (넣고 끝 — 상한을 채우지 않는다). 없으면 피로 상한
+   */
+  restAt?: ((unitId: number) => number | undefined) | undefined;
   /** 배 창고 상한(g, 배 종류 — boats 고리, D-568). 없거나 undefined면 설정 칸 boat_hold_kg */
   boatHoldGrams?: ((boatId: number) => number | undefined) | undefined;
   /** 배 채집 일꾼(낚시 선원 ↔ 포획 장비 최대 티어, D-570 1821 — boats/gear.ts). 없으면 이끄는 유닛 혼자, 티어를 자르지 않는다 */

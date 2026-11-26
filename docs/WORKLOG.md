@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-26 14:00 | 유닛 생활 규칙: 쉬러 가는 피로·다시 일하는 피로(성향 기본값 + 유닛 화면 설정) | Claude Code | [26-1400-unit-life-rules](worklog/2026/11/26-1400-unit-life-rules.md) |
 | 2026-11-26 13:30 | 피로 불이익을 1차 스탯 감소로 바꿈, 직접 채집 피로 10·시설 감소, 숙소 종류별 회복 배율 | Claude Code | [26-1330-fatigue-stat-penalty](worklog/2026/11/26-1330-fatigue-stat-penalty.md) |
 | 2026-11-26 09:00 | 피로 구간 불이익(N23)을 직접 채집·직무·걷기에 건다 | Claude Code | [26-0900-fatigue-band-penalty](worklog/2026/11/26-0900-fatigue-band-penalty.md) |
 | 2026-11-26 00:15 | NPC 시설 일자리(자원 값 안의 임금), 가입비 나라 시작 막기, 본체 숙박비, 노동 표 화폐 제약 | Claude Code | [26-0015-npc-facility-jobs-and-start-fee-block](worklog/2026/11/26-0015-npc-facility-jobs-and-start-fee-block.md) |

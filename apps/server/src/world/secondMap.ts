@@ -1005,6 +1005,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
             guardian: unit.guardian,
             held: unit.held,
             home: unit.home,
+            traits: unit.traits,
           }
         : undefined;
     },

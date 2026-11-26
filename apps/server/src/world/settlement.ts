@@ -24,6 +24,7 @@ import {
   type OutputSegment,
   type SettleAccounts,
   TEST_ASSET_ORE,
+  TEST_JOB_RULES,
   TEST_SYSTEM_RESERVE_ORE,
   UPKEEP_PERIOD_MS,
   settleOwnerPeriod,
@@ -116,6 +117,15 @@ export interface Settlement {
    * undefined면 모두 기본 규칙(예전과 같다)
    */
   restRules(hook: RestRulesHook | undefined): void;
+  /**
+   * 유닛 생활 규칙 고리(사용자 결정 2026-11-26, life/store.ts): 직무가 있는 유닛마다 쉬러 가는 피로·다시 일하는 피로를 묻는다. 그 유닛의 직무
+   * 규칙(쉼터 규칙 또는 기본)에 문턱만 얹는다. 없거나 undefined를 돌려주면 옛 셈(상한에서 쉬고 0에서 돌아온다)
+   */
+  lifeRules(
+    hook:
+      | ((unitId: number) => { readonly restAt: number; readonly resumeAt: number } | undefined)
+      | undefined,
+  ): void;
   /**
    * 좌표 유닛 목록(이동 서비스 — docs/adr/2026-11-15-unloaded-second-maps.md 6절): 띄우지 않은 2차맵 위 유닛도 유지비를 낸다(직무는 없다).
    * 없으면 띄운 2차맵 유닛만(예전과 같다)
@@ -268,6 +278,26 @@ export function createSettlement(options: {
   let injury: WorkInjuryHook | undefined;
   let exempt: ((unitId: number) => boolean) | undefined;
   let restHook: RestRulesHook | undefined;
+  let lifeHook:
+    | ((unitId: number) => { readonly restAt: number; readonly resumeAt: number } | undefined)
+    | undefined;
+  /** 유닛 생활 규칙(쉬러 가는 피로·다시 일하는 피로)을 직무가 있는 유닛의 규칙에 얹는다. 얹을 것이 없으면 받은 그대로 */
+  const withLife = (
+    rules: readonly (JobRules | undefined)[] | undefined,
+    units: readonly { readonly id: number; readonly job: { readonly job: number } }[],
+  ): readonly (JobRules | undefined)[] | undefined => {
+    const hook = lifeHook;
+    if (!hook) return rules;
+    let any = false;
+    const out = units.map((unit, index) => {
+      const base = rules?.[index];
+      const life = unit.job.job === JOB_NONE ? undefined : hook(unit.id);
+      if (!life) return base;
+      any = true;
+      return { ...(base ?? TEST_JOB_RULES), restAt: life.restAt, resumeAt: life.resumeAt };
+    });
+    return any ? out : rules;
+  };
   const weightOf = options.upkeepWeightPm;
 
   const settleWith = (owner: OwnerRow, units: readonly UnitRef[], toMs: number): SettleReport => {
@@ -311,7 +341,7 @@ export function createSettlement(options: {
         outputs: special ? units.map(outputOf) : undefined,
         upkeepWeightPm: weightOf ? units.reduce((sum, unit) => sum + weightOf(unit.kind), 0) : undefined,
         // 일꾼 쉼터(질문 1088 가): 숙소·집 회복 배율을 얹은 유닛별 규칙
-        unitRules: restHook?.(owner.id, units, from, toMs),
+        unitRules: withLife(restHook?.(owner.id, units, from, toMs), units),
       },
       ledger,
       settleAccountsOf(ledger, owner.id),
@@ -449,6 +479,9 @@ export function createSettlement(options: {
     },
     restRules(hook) {
       restHook = hook;
+    },
+    lifeRules(hook) {
+      lifeHook = hook;
     },
     stop() {
       clearInterval(sweepTimer);

@@ -45,6 +45,105 @@ function reference(
   return { state: { job: state.job, phase, progressMs, fatigue }, cycles };
 }
 
+/** 쉬러 가는 피로·다시 일하는 피로가 있는 느린 참조 구현(1ms씩) */
+function thresholdReference(
+  state: JobState,
+  durationMs: number,
+  rules: JobRules,
+): { state: JobState; cycles: number } {
+  const restAt = rules.restAt ?? rules.fatigueMax;
+  const resumeAt = rules.resumeAt ?? 0;
+  let { phase, progressMs, fatigue } = state;
+  let cycles = 0;
+  for (let t = 0; t < durationMs; t++) {
+    progressMs += 1;
+    if (phase === PHASE_WORK && progressMs === rules.cycleMs) {
+      progressMs = 0;
+      cycles += 1;
+      fatigue += 1;
+      if (fatigue >= restAt) phase = PHASE_REST;
+    } else if (phase === PHASE_REST && progressMs === rules.restStepMs) {
+      progressMs = 0;
+      fatigue -= 1;
+      if (fatigue <= resumeAt) phase = PHASE_WORK;
+    }
+  }
+  return { state: { job: state.job, phase, progressMs, fatigue }, cycles };
+}
+
+/** 상한 12, 피로 9에서 쉬러 가고 3까지 풀리면 다시 일한다 */
+const LIFE: JobRules = { cycleMs: 7, fatigueMax: 12, restStepMs: 5, restAt: 9, resumeAt: 3 };
+
+describe("advanceJob: 유닛 생활 규칙(쉬러 가는 피로·다시 일하는 피로)", () => {
+  it("상한을 채우지 않고 쉬러 가는 피로에서 쉬고, 다시 일하는 피로까지만 풀고 돌아온다", () => {
+    // 9주기(63ms) 일하면 쉰다
+    expect(advanceJob(fresh(), 62, LIFE).state).toEqual({ ...fresh(), fatigue: 8, progressMs: 6 });
+    expect(advanceJob(fresh(), 63, LIFE)).toEqual({
+      state: { ...fresh(), phase: PHASE_REST, fatigue: 9 },
+      cycles: 9,
+    });
+    // 6점(30ms) 풀리면 피로 3에서 다시 일한다
+    expect(advanceJob(fresh(), 63 + 30, LIFE)).toEqual({ state: { ...fresh(), fatigue: 3 }, cycles: 9 });
+    // 그 뒤 한 묶음 = 6주기 × (7 + 5) = 72ms에 6주기
+    expect(advanceJob(fresh(), 63 + 30 + 72 * 100, LIFE)).toEqual({
+      state: { ...fresh(), fatigue: 3 },
+      cycles: 9 + 600,
+    });
+  });
+
+  it("한 걸음씩 흉내와 같고, 나눠 셈해도 같다(무작위 상태·자르기)", () => {
+    const rng = createRng(11);
+    for (let i = 0; i < 1_000; i++) {
+      const phase = rng.nextInt(2);
+      // 문턱 안의 상태: 일 단계는 3~8, 쉼 단계는 4~9
+      const fatigue = phase === PHASE_WORK ? 3 + rng.nextInt(6) : 4 + rng.nextInt(6);
+      const progressMs = rng.nextInt(phase === PHASE_WORK ? LIFE.cycleMs : LIFE.restStepMs);
+      const state = { job: JOB_GATHER, phase, progressMs, fatigue };
+      const total = rng.nextInt(500);
+      const whole = advanceJob(state, total, LIFE);
+      expect(whole).toEqual(thresholdReference(state, total, LIFE));
+      let at = state as JobState;
+      let cycles = 0;
+      let left = total;
+      while (left > 0) {
+        const step = Math.min(left, 1 + rng.nextInt(70));
+        const part = advanceJob(at, step, LIFE);
+        at = part.state;
+        cycles += part.cycles;
+        left -= step;
+      }
+      expect({ state: at, cycles }).toEqual(whole);
+    }
+  });
+
+  it("문턱 밖 상태도 이어 간다: 직접 채집으로 찬 피로는 바로 쉬고, 규칙을 낮추면 낮춘 값에서 쉰다. 문턱이 없으면 옛 셈과 같다", () => {
+    // 일 단계인데 피로가 쉬러 가는 피로 이상 → 바로 쉼(피로 11 → 3까지 8점 × 5ms)
+    const tired = { ...fresh(), fatigue: 11 };
+    expect(advanceJob(tired, 39, LIFE).state).toEqual({
+      ...fresh(),
+      phase: PHASE_REST,
+      fatigue: 4,
+      progressMs: 4,
+    });
+    expect(advanceJob(tired, 40, LIFE).state).toEqual({ ...fresh(), fatigue: 3 });
+    // 쉼 단계인데 이미 다시 일하는 피로 이하 → 바로 일한다
+    expect(advanceJob({ ...fresh(), phase: PHASE_REST, fatigue: 2 }, 7, LIFE)).toEqual({
+      state: { ...fresh(), fatigue: 3 },
+      cycles: 1,
+    });
+    // 문턱이 범위를 벗어나면 자른다(쉬러 가는 피로 ≤ 상한, 다시 일하는 피로 < 쉬러 가는 피로)
+    const wide: JobRules = { ...SMALL, restAt: 99, resumeAt: 99 };
+    expect(advanceJob(fresh(), 27, wide)).toEqual({
+      state: { ...fresh(), fatigue: 3, progressMs: 6 },
+      cycles: 3,
+    });
+    for (const total of [0, 6, 7, 27, 28, 47, 48, 500])
+      expect(advanceJob(fresh(), total, { ...SMALL, restAt: undefined, resumeAt: undefined })).toEqual(
+        advanceJob(fresh(), total, SMALL),
+      );
+  });
+});
+
 describe("advanceJob", () => {
   it("손 계산: 일 주기 3번, 피로가 차면 쉬고 다 회복하면 다시 일한다", () => {
     expect(advanceJob(fresh(), 21, SMALL)).toEqual({ state: { ...fresh(), fatigue: 3 }, cycles: 3 });

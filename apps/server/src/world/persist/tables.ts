@@ -296,6 +296,12 @@ export const WORLD_TABLES = {
     ],
     key: ["unit_id"],
   },
+  /** 유닛 생활 규칙(쉬러 가는 피로·다시 일하는 피로, src/life/store.ts — 유닛에 외래 키 없음, 유닛 다음에 쓴다) */
+  unitLifeRules: {
+    name: "unit_life_rules",
+    columns: ["unit_id", "rest_at", "resume_at", "updated_at_ms"],
+    key: ["unit_id"],
+  },
   /** 기도 쿨다운(소유 주체마다 마지막 기도 시각, 소유 주체 다음에 쓴다) */
   templeDevotions: {
     name: "temple_devotions",
@@ -910,6 +916,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "unitSkills",
   "unitFaith",
   "unitTactics",
+  "unitLifeRules",
   "templeDevotions",
   "templeGuardians",
   "recruitDraws",

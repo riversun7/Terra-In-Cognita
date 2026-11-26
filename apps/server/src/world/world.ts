@@ -52,6 +52,7 @@ import { commandRankSource } from "./commandRanks.ts";
 import { blacklistReward } from "../factionIdentity/blacklistReward.ts";
 import { nationEntryTerms } from "../factionIdentity/houseEntry.ts";
 import { houseRulesFrom } from "../factionIdentity/rules.ts";
+import { attachUnitLife } from "../life/store.ts";
 import type { NpcJobValue } from "../npc/npcJobValue.ts";
 import { type NpcJobs, npcJobsOf } from "../npc/npcJobs.ts";
 import { defenseRenown } from "./defenseRenown.ts";
@@ -856,6 +857,15 @@ export function startWorld(
     // 도시 가진 가문의 시야 묶음(houseTies.ts, D-250): 부팅 때 읽고 1분마다 다시 읽는다(가문 명령 뒤에도 다시 읽는다)
     const ties = attachHouseTies(persistence, db);
     await ties.reload();
+    // 유닛 생활 규칙(쉬러 가는 피로·다시 일하는 피로 — 사용자 결정 2026-11-26, life/store.ts): 저장소를 세계 저장 층에 붙이고(게이트웨이·로스터가
+    // unitLifeOf로 찾는다) 소유 주체 정산이 직무가 있는 유닛마다 묻는다. 저장한 값이 없으면 성향 기본값
+    const life = attachUnitLife(
+      { maps, persistence: { pool: db, writer, settlement }, now, rules: societyRules },
+      log,
+      persistence,
+    );
+    await life?.loaded;
+    settlement.lifeRules((unitId) => life?.of(unitId));
     // 건물별 접근 권한 판정기(ADR 2026-11-25-building-access-and-foreign-build.md)
     attachBuildingAccess(
       ledger,

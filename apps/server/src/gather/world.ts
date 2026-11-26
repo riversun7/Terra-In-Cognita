@@ -9,6 +9,7 @@ import type { StorageContext } from "../facilities/storage.ts";
 import { PROPERTY_UNIT_KINDS } from "../labor/wagePurse.ts";
 import type { LaborWorkerEntry } from "../labor/workerEntry.ts";
 import { type WorkerRest, attachWorkerRest } from "../labor/workerRest.ts";
+import { unitLifeOf } from "../life/store.ts";
 import { nationOfOwner } from "../world/nationVision.ts";
 import { createGatherInjury } from "../world/unitCondition.ts";
 import { UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN, isGuardianUnit } from "../world/unitKinds.ts";
@@ -140,6 +141,8 @@ export function startWorldGather(
         },
         // 채집 중 부상(D-521, docs/adr/2026-11-08-injury.md 5절): 직무 정산과 같은 판정·시드
         workInjury: createGatherInjury(),
+        // 쉬러 가는 피로(유닛 생활 규칙 — 사용자 결정 2026-11-26): 이끄는 유닛이 그 피로에 닿으면 줄을 끝낸다
+        restAt: (unitId) => unitLifeOf(world.persistence)?.of(unitId).restAt,
         // 배 창고 상한(D-568 배 단위 채집 — 배 서비스가 배 고리에 채운다)
         boatHoldGrams: (boatId) => world.persistence?.boatHooks.info(boatId)?.holdCapGrams,
         // 배 채집 일꾼(D-570 1821 — 낚시 선원 ↔ 포획 장비)

@@ -11,7 +11,9 @@ export type TravelCommand =
   // 유닛 AI 작전 저장(프로토콜 50, 유닛 화면 units/TacticsPanel.tsx — 답도 travel_result)
   | Omit<ClientMessageOf<"unit_tactics">, "id">
   // 유닛 공격(프로토콜 64 — 남의 유닛 작은 창 map/UnitAttack.tsx, 답도 travel_result)
-  | Omit<ClientMessageOf<"unit_attack">, "id">;
+  | Omit<ClientMessageOf<"unit_attack">, "id">
+  // 유닛 생활 규칙 저장(프로토콜 75, 유닛 화면 units/LifeRulesPanel.tsx — 답도 travel_result)
+  | Omit<ClientMessageOf<"unit_life">, "id">;
 
 export type TravelOutcome =
   | { readonly ok: true; readonly maps?: number | undefined; readonly arriveAt?: number | undefined }

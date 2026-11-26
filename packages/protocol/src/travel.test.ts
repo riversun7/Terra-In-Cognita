@@ -11,6 +11,8 @@ import {
   UNIT_ATTACK_ESCAPE_PROTOCOL_VERSION,
   UNIT_ATTACK_PROTOCOL_VERSION,
   UNIT_TACTICS_PRESETS,
+  UNIT_LIFE_FATIGUE_LIMIT,
+  UNIT_LIFE_PROTOCOL_VERSION,
   UNIT_TACTICS_PROTOCOL_VERSION,
   UNIT_TACTICS_TARGETS,
   decodeClientMessage,
@@ -90,6 +92,19 @@ describe("2차맵 사이 이동 메시지(프로토콜 16)", () => {
     expect(decodes(decodeClientMessage, { ...message, target: "random" })).toBe(false);
     expect(UNIT_TACTICS_PRESETS).toEqual(["aggressive", "balanced", "defensive", "hold"]);
     expect(UNIT_TACTICS_TARGETS).toEqual(["nearest", "weakest", "threat"]);
+  });
+
+  it("유닛 생활 규칙 저장(프로토콜 75): 쉬러 가는 피로 1~120, 다시 일하는 피로는 그보다 낮다", () => {
+    expect(UNIT_LIFE_PROTOCOL_VERSION).toBe(75);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(75);
+    expect(UNIT_LIFE_FATIGUE_LIMIT).toBe(120);
+    const message = { t: "unit_life", id: 6, unitId: 7, restAt: 90, resumeAt: 20 } as const;
+    expect(decodeClientMessage(encodeMessage(message))).toEqual(message);
+    expect(decodes(decodeClientMessage, { ...message, restAt: 121 })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...message, restAt: 0 })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...message, resumeAt: 90 })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...message, resumeAt: -1 })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...message, restAt: 50.5 })).toBe(false);
   });
 
   it("유닛 공격(프로토콜 64 — 묶음 1117d, 줄기 판 123 — D-588 2496 가·2543): 내 유닛 1~30·대상 하나, 새 결과 코드", () => {

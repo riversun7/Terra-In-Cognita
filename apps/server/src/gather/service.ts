@@ -547,7 +547,16 @@ export function createGatherService(deps: GatherDeps): GatherService {
     // 피로는 일꾼과 이끄는 유닛(배 줄), 이끄는 유닛이 상한이면 끝
     const tiredIds = [...new Set([action.unitId, ...crew.map((worker) => worker.unitId)])];
     const tired =
-      fatigue.whole > 0 && tireCrew(where.map, tiredIds, action.unitId, fatigue.whole, rules.fatigueMax);
+      fatigue.whole > 0 &&
+      tireCrew(
+        where.map,
+        tiredIds,
+        action.unitId,
+        fatigue.whole,
+        rules.fatigueMax,
+        // 쉬러 가는 피로(유닛 생활 규칙): 상한을 채우지 않고 그 피로에서 줄을 끝낸다
+        deps.restAt?.(action.unitId),
+      );
     // 채집 중 부상(D-521): 지난번 뒤로 지난 작업 주기 경계를 굴린다. 빨강(활동 불가)이면 그 자리에서 끝(든 화물은 그대로)
     if (deps.workInjury) {
       const fatigueNow = where.map.unitInfo(action.unitId)?.job.fatigue ?? where.info.job.fatigue;

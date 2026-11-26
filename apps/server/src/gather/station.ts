@@ -259,11 +259,15 @@ export function scaleByPm(qty: bigint, yieldPm: number, unitId: number, seq: num
   return whole;
 }
 
-/** 일한 주기의 피로에서 덜어 줄 몫(‰ 점): 막혀 하나도 못 끝냈으면 모두, 아니면 (1000 − 피로 배율) */
-export function fatigueRefundPm(made: number, lots: number, blocked: boolean, fatiguePm: number): number {
+/**
+ * 일한 주기의 피로를 묶음 단위로 맞추는 몫(‰ 점, 사용자 결정 2026-11-26 "직무 10점 — 묶음 하나마다"): 정산 엔진은 일 주기마다 1점을 쌓으므로
+ * 그것을 모두 덜고(주기 × 1000) 끝낸 묶음마다 묶음 피로(perLot 점) × 시설 피로 배율(‰)을 쌓는다. 양수 = 덜어 줄 몫, 음수 = 더 쌓을 몫.
+ * 묶음을 하나도 못 끝낸 주기(막힘 포함)는 피로가 없다
+ */
+export function fatigueRefundPm(made: number, lots: number, fatiguePm: number, perLot: number): number {
   const cycles = Math.max(0, Math.floor(made));
-  if (lots === 0 && blocked) return cycles * 1000;
-  return cycles * Math.max(0, 1000 - Math.min(1000, Math.max(0, fatiguePm)));
+  const rate = Math.min(1000, Math.max(0, fatiguePm));
+  return cycles * 1000 - Math.max(0, Math.floor(lots)) * Math.max(0, Math.floor(perLot)) * rate;
 }
 
 export function createStationRuntime(deps: StationDeps): StationRuntime {
@@ -398,20 +402,24 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
         const key = `${buildingId}:${unitId}`;
         const lots = (totals.get(key) ?? 0) + result.lots;
         totals.set(key, lots);
-        const blocked = result.capped || result.clipped || full;
         statuses.set(unitId, {
           buildingId,
           state: full || result.clipped ? "storage_full" : result.capped ? "no_objects" : "working",
           lots,
           settledAtMs: at,
         });
-        const refund = fatigueRefundPm(result.made, result.lots, blocked, buffs.fatiguePm);
-        if (refund > 0) refunds.set(unitId, (refunds.get(unitId) ?? 0) + refund);
+        const refund = fatigueRefundPm(
+          result.made,
+          result.lots,
+          buffs.fatiguePm,
+          deps.rules().gatherObjects.jobFatiguePerLot,
+        );
+        if (refund !== 0) refunds.set(unitId, (refunds.get(unitId) ?? 0) + refund);
       },
     };
   };
 
-  /** 정산 뒤: 그 주체 유닛의 덜어 줄 피로를 직무 상태에 적는다(나머지 ‰은 들고 간다) */
+  /** 정산 뒤: 그 주체 유닛의 덜어 줄(양수)·더 쌓을(음수) 피로를 직무 상태에 적는다(나머지 ‰은 들고 간다) */
   const afterSettle = (ownerId: number): void => {
     for (const [unitId, carry] of refunds) {
       let done = false;
@@ -420,11 +428,11 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
         if (!info) continue;
         done = true;
         if (info.ownerId !== ownerId) break;
-        const whole = Math.floor(carry / 1000);
-        const rest = carry % 1000;
-        if (whole > 0 && info.job.fatigue > 0)
-          map.setJob(unitId, { ...info.job, fatigue: Math.max(0, info.job.fatigue - whole) });
-        if (rest > 0) refunds.set(unitId, rest);
+        const whole = Math.trunc(carry / 1000);
+        const rest = carry - whole * 1000;
+        const fatigue = Math.min(Math.max(1, deps.rules().fatigueMax), Math.max(0, info.job.fatigue - whole));
+        if (fatigue !== info.job.fatigue) map.setJob(unitId, { ...info.job, fatigue });
+        if (rest !== 0) refunds.set(unitId, rest);
         else refunds.delete(unitId);
         break;
       }

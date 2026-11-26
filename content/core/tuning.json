@@ -10598,6 +10598,24 @@
       "source": "ADR 2026-11-07-gather-objects [임시]"
     },
     {
+      "id": "gather_obj_job_fatigue",
+      "code": "",
+      "name": {
+        "ko": "직무 묶음 하나의 피로(점)",
+        "en": "Fatigue per job lot (points)"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 120,
+      "desc": {
+        "ko": "시설에서 일하는 유닛이 묶음(수확) 하나를 끝낼 때 쌓이는 피로. 시설 피로 배율을 곱한다.",
+        "en": "Fatigue when a facility worker finishes one lot (harvest). Multiplied by the facility fatigue rate."
+      },
+      "source": "ADR 2026-11-26-job-fatigue-per-lot (사용자 결정)"
+    },
+    {
       "id": "gather_obj_next_radius",
       "code": "",
       "name": {

@@ -18,6 +18,11 @@ export interface GatherObjectCoefficients {
   readonly campRegrowPm: number;
   /** [임시] 채집 한 번에 쌓이는 피로(점, 피로 상한 N21) */
   readonly fatiguePerGather: number;
+  /**
+   * 직무(시설 일꾼)가 묶음(수확) 하나를 끝낼 때 쌓이는 피로(점 — 사용자 결정 2026-11-26 "직무 10점", 단위 = 묶음 하나). 직접 채집과 같은
+   * 시설 피로 배율(campFatiguePm·레벨 걸음)을 곱한다. 일 주기마다 1점씩 쌓던 것을 대신한다(채집소가 정산 뒤에 맞춘다)
+   */
+  readonly jobFatiguePerLot: number;
   /** [임시] 오브젝트가 다 떨어지면 다음 같은 종류 오브젝트를 찾는 반경(배치 칸) */
   readonly nextRadiusCells: number;
   /** [임시] 오염 최대(100,000)일 때 다시 자라는 시간에 더하는 몫(‰). 오염 값에 비례(D-115) */
@@ -45,6 +50,7 @@ export const START_GATHER_OBJECTS: GatherObjectCoefficients = {
   campFatiguePm: 900,
   campRegrowPm: 500,
   fatiguePerGather: 10,
+  jobFatiguePerLot: 10,
   nextRadiusCells: 24,
   pollutionRegrowPm: 1000,
   stationRadiusStep: 4,

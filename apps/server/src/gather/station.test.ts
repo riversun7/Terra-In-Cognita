@@ -286,9 +286,12 @@ describe("채집소 레벨 버프", () => {
     expect(total).toBeGreaterThan(1400n);
     expect(total).toBeLessThan(1600n);
     expect(scaleByPm(1n, 1500, 9, 7, ORE)).toBe(scaleByPm(1n, 1500, 9, 7, ORE));
-    expect(fatigueRefundPm(4, 1, false, 500)).toBe(2000);
-    expect(fatigueRefundPm(4, 0, true, 500)).toBe(4000);
-    expect(fatigueRefundPm(4, 2, true, 400)).toBe(2400);
+    // 묶음 단위 피로(사용자 결정 2026-11-26): 일 주기의 피로는 모두 덜고(양수), 끝낸 묶음마다 묶음 피로 × 시설 배율을 쌓는다(음수 = 더 쌓을 몫)
+    expect(fatigueRefundPm(30, 0, 900, 10)).toBe(30_000);
+    expect(fatigueRefundPm(30, 1, 900, 10)).toBe(21_000);
+    expect(fatigueRefundPm(4, 1, 900, 10)).toBe(-5000);
+    expect(fatigueRefundPm(4, 2, 500, 10)).toBe(-6000);
+    expect(fatigueRefundPm(4, 1, 1000, 0)).toBe(4000);
   });
 });
 
@@ -328,7 +331,7 @@ describe("채집소 일꾼 산출·창고", () => {
     expect(r.runtime.hook.plan(999, 1, null)).toBeUndefined();
   });
 
-  it("정산 뒤 피로 덜기(일한 주기 × (1000 − 피로 배율)), 나머지는 들고 간다", () => {
+  it("정산 뒤 피로 맞추기: 일 주기의 피로는 덜고 끝낸 묶음마다 10점 × 시설 배율(레벨 1 = 900‰)을 쌓는다", () => {
     const r = rig();
     expect(
       r.map.addUnit({
@@ -341,17 +344,25 @@ describe("채집소 일꾼 산출·창고", () => {
         kind: UNIT_KIND_HUMAN,
       }),
     ).toBe(true);
-    r.map.setJob(1, { job: JOB_GATHER, phase: PHASE_WORK, progressMs: 0, fatigue: 10 });
+    // 정산 엔진이 25주기 동안 25점을 쌓아 피로 40이 된 유닛(그 전 15)
+    r.map.setJob(1, { job: JOB_GATHER, phase: PHASE_WORK, progressMs: 0, fatigue: 40 });
     r.runtime.hook.plan(r.mineId, 1, null)?.commit(commitOf(25, 1));
     // 남의 정산에는 건드리지 않는다
     r.runtime.hook.afterSettle(TENANT);
-    expect(r.map.unitInfo(1)?.job.fatigue).toBe(10);
-    // 25주기 × (1000 − 900)‰ = 2.5점 → 2점 덜고 0.5점은 다음에
+    expect(r.map.unitInfo(1)?.job.fatigue).toBe(40);
+    // 25주기의 25점을 덜고 묶음 하나 9점(10 × 900‰)을 쌓는다 → 15 + 9 = 24
     r.runtime.hook.afterSettle(OWNER);
-    expect(r.map.unitInfo(1)?.job.fatigue).toBe(8);
-    r.runtime.hook.plan(r.mineId, 1, null)?.commit(commitOf(5, 1));
+    expect(r.map.unitInfo(1)?.job.fatigue).toBe(24);
+    // 묶음을 못 끝낸 5주기는 피로가 없다(엔진이 쌓은 5점을 모두 던다)
+    r.map.setJob(1, { job: JOB_GATHER, phase: PHASE_WORK, progressMs: 0, fatigue: 29 });
+    r.runtime.hook.plan(r.mineId, 1, null)?.commit(commitOf(5, 0));
     r.runtime.hook.afterSettle(OWNER);
-    expect(r.map.unitInfo(1)?.job.fatigue).toBe(7);
+    expect(r.map.unitInfo(1)?.job.fatigue).toBe(24);
+    // 한 번에 묶음 둘(2주기): 2점을 덜고 18점을 쌓는다. 상한(120)을 넘지 않는다
+    r.map.setJob(1, { job: JOB_GATHER, phase: PHASE_WORK, progressMs: 0, fatigue: 110 });
+    r.runtime.hook.plan(r.mineId, 1, null)?.commit(commitOf(2, 2));
+    r.runtime.hook.afterSettle(OWNER);
+    expect(r.map.unitInfo(1)?.job.fatigue).toBe(120);
   });
 
   it("자동 옮김: 채집소 창고의 주인 몫 물자만 그 도시 창고로(임차인 몫은 그대로)", () => {
@@ -504,7 +515,7 @@ describe("농장 채집소(오브젝트 없음, 756 ②)", () => {
     expect(r.runtime.status(2)).toMatchObject({ state: "storage_full", lots: 6 });
   });
 
-  it("정산 뒤 피로 덜기(레벨 1 = 100‰), 막혀 하나도 못 끝냈으면 모두", () => {
+  it("농장도 묶음 단위 피로(레벨 1 = 묶음마다 9점), 막혀 하나도 못 끝냈으면 피로가 없다", () => {
     const r = rig();
     expect(
       r.map.addUnit({
@@ -517,13 +528,15 @@ describe("농장 채집소(오브젝트 없음, 756 ②)", () => {
         kind: UNIT_KIND_HUMAN,
       }),
     ).toBe(true);
-    r.map.setJob(2, { job: JOB_GATHER, phase: PHASE_WORK, progressMs: 0, fatigue: 10 });
-    r.runtime.hook.plan(r.farmId, 2, null)?.commit(commitOf(20, 1));
+    r.map.setJob(2, { job: JOB_GATHER, phase: PHASE_WORK, progressMs: 0, fatigue: 60 });
+    r.runtime.hook.plan(r.farmId, 2, null)?.commit(commitOf(60, 1));
     r.runtime.hook.afterSettle(OWNER);
-    expect(r.map.unitInfo(2)?.job.fatigue).toBe(8);
+    // 60주기의 60점을 덜고 묶음 하나 9점
+    expect(r.map.unitInfo(2)?.job.fatigue).toBe(9);
+    r.map.setJob(2, { job: JOB_GATHER, phase: PHASE_WORK, progressMs: 0, fatigue: 12 });
     r.runtime.hook.plan(r.farmId, 2, 0n)?.commit(commitOf(3, 0, true));
     r.runtime.hook.afterSettle(OWNER);
-    expect(r.map.unitInfo(2)?.job.fatigue).toBe(5);
+    expect(r.map.unitInfo(2)?.job.fatigue).toBe(9);
   });
 
   it("자동 옮김: 농장 창고의 주인 몫도 그 도시 창고로", () => {

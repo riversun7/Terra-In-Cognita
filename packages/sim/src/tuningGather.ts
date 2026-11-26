@@ -41,6 +41,12 @@ export const GATHER_OBJECT_TUNING_KEYS: readonly TuningKey[] = [
   ),
   k("gather_obj_fatigue", "fatiguePerGather", "채집 한 번의 피로(점)", "Fatigue per gather (points)"),
   k(
+    "gather_obj_job_fatigue",
+    "jobFatiguePerLot",
+    "직무 묶음 하나의 피로(점)",
+    "Fatigue per job lot (points)",
+  ),
+  k(
     "gather_obj_next_radius",
     "nextRadiusCells",
     "다음 오브젝트 찾는 반경(배치 칸)",

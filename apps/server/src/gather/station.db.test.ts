@@ -295,8 +295,8 @@ describe.skipIf(!TEST_DATABASE_URL)("채집소(DB)", () => {
     expect(sum(buildingLocation(farmId))).toBeGreaterThan(0n);
     expect(sum(cityLocation(cityId ?? 0))).toBe(cityBefore);
     expect(current.station.status(unitId)).toMatchObject({ buildingId: farmId, state: "working" });
-    // 피로: 80주기 × 1점 − 레벨 1 피로 덜기 (1000 − 900)‰ = 72점(시설 레벨 1 = −10%, 사용자 결정 2026-11-26)
-    expect(map.unitInfo(unitId)?.job.fatigue).toBe(72);
+    // 피로: 묶음 하나(60분) × 10점 × 시설 레벨 1 배율 900‰ = 9점(직무 피로는 묶음 단위 — 사용자 결정 2026-11-26)
+    expect(map.unitInfo(unitId)?.job.fatigue).toBe(9);
 
     const view = gatherReadsOf(() => gather.current()).station(
       { id: userId, loginId: "fake_farm_station", roles: [] },
@@ -315,7 +315,7 @@ describe.skipIf(!TEST_DATABASE_URL)("채집소(DB)", () => {
     expect(view.storage.capacityGrams).toBe("300000");
     expect(view.storage.goods.length).toBeGreaterThan(0);
     expect(view.workers).toEqual([
-      expect.objectContaining({ unitId, via: "assign", state: "working", fatigue: 72 }),
+      expect.objectContaining({ unitId, via: "assign", state: "working", fatigue: 9 }),
     ]);
     expect(view.upgrade?.buffs).toMatchObject({ radiusCells: null, yieldPm: 1200, regrowPm: null });
 

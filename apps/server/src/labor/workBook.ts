@@ -165,6 +165,11 @@ export function createWorkBook(options: {
   readonly payFrom?: ((unitId: number, atMs: number) => void) | undefined;
   /** 저장된 일터 가는 길(walkToWork.ts — 질문 2699). 없으면 빈 것 */
   readonly commutes?: readonly CommuteRecord[] | undefined;
+  /**
+   * 채집 경험치(사용자 결정 2026-11-26 — docs/adr/2026-11-26-gather-exp.md): 일꾼이 물건이 나온 묶음을 끝낼 때마다 부른다
+   * (묶음 수와 그 티어 합 — 경험치 = 묶음 × 기본 + 티어 합 × 티어당 더함). 없으면 주지 않는다
+   */
+  readonly onLots?: ((unitId: number, lots: number, tierSum: number) => void) | undefined;
 }): WorkBook {
   const { maps, ledger, writer } = options;
   const records = new Map<number, WorkRecord>(options.loaded.map((record) => [record.unitId, { ...record }]));
@@ -296,6 +301,7 @@ export function createWorkBook(options: {
           });
         }
         plan?.commit({ made, lots: result.lots, capped: result.capped, clipped, outputs: placed });
+        if (result.landedLots > 0) options.onLots?.(unitId, result.landedLots, result.tierSum);
         return lines;
       };
     },

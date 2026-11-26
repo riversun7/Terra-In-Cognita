@@ -46,6 +46,8 @@ export const GATHER_OBJECT_TUNING_KEYS: readonly TuningKey[] = [
     "직무 묶음 하나의 피로(점)",
     "Fatigue per job lot (points)",
   ),
+  k("gather_obj_exp", "expPerGather", "채집 한 번의 기본 경험치", "Base experience per gather"),
+  k("gather_obj_exp_tier", "expPerTier", "채집 티어당 더하는 경험치", "Experience added per gather tier"),
   k(
     "gather_obj_next_radius",
     "nextRadiusCells",

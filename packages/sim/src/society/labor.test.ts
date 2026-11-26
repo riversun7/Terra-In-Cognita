@@ -7,6 +7,7 @@ import {
   efficiencyScore,
   fatiguePenalty,
   fatigueStatCutPm,
+  gatherExp,
   production,
   recoveryPm,
   rulesWithRecovery,
@@ -25,6 +26,17 @@ const content = {
   war: false,
   injured: false,
 };
+
+describe("채집 경험치(사용자 결정 2026-11-26)", () => {
+  it("경험치 = 기본 10 + 티어당 10 × 티어(0 ~ 9로 자름)", () => {
+    const rules = c.gatherObjects;
+    expect([0, 1, 5, 9].map((tier) => gatherExp(tier, rules))).toEqual([10, 20, 60, 100]);
+    expect(gatherExp(12, rules)).toBe(100);
+    expect(gatherExp(-3, rules)).toBe(10);
+    expect(gatherExp(3, { expPerGather: 25, expPerTier: 5 })).toBe(40);
+    expect(gatherExp(3, { expPerGather: -1, expPerTier: -1 })).toBe(0);
+  });
+});
 
 describe("노동 공식(기획 48 §7, N21~N33)", () => {
   it("피로: 구간 불이익(N23), 회복 = 주거(N24 ×1.5·×2·×3) × 만족도 × 노숙(S25), 기본 1점/3분", () => {

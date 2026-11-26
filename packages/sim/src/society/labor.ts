@@ -195,3 +195,15 @@ export function clampSatisfaction(milli: number): number {
 export function shiftSatisfaction(milli: number, points: number): number {
   return clampSatisfaction(milli + points * 1000);
 }
+
+/**
+ * 채집 한 번(직접 채집 한 번·직무 묶음 하나)의 경험치 = 기본 + 티어당 더함 × 나온 물건의 티어(0 ~ 9로 자른다) — 사용자 결정 2026-11-26,
+ * docs/adr/2026-11-26-gather-exp.md. 음수 설정 값은 0으로 본다
+ */
+export function gatherExp(
+  tier: number,
+  c: Pick<SocietyCoefficients["gatherObjects"], "expPerGather" | "expPerTier">,
+): number {
+  const t = Math.min(9, Math.max(0, Math.trunc(tier)));
+  return Math.max(0, Math.trunc(c.expPerGather)) + Math.max(0, Math.trunc(c.expPerTier)) * t;
+}

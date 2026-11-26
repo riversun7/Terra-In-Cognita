@@ -10616,6 +10616,42 @@
       "source": "ADR 2026-11-26-job-fatigue-per-lot (사용자 결정)"
     },
     {
+      "id": "gather_obj_exp",
+      "code": "",
+      "name": {
+        "ko": "채집 한 번의 기본 경험치",
+        "en": "Base experience per gather"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "직접 채집 한 번, 직무 묶음 하나에 주는 기본 경험치(티어 0).",
+        "en": "Base experience for one direct gather or one job lot (tier 0)."
+      },
+      "source": "ADR 2026-11-26-gather-exp (사용자 결정)"
+    },
+    {
+      "id": "gather_obj_exp_tier",
+      "code": "",
+      "name": {
+        "ko": "채집 티어당 더하는 경험치",
+        "en": "Experience added per gather tier"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "나온 물건의 티어 하나마다 더하는 경험치(경험치 = 기본 + 이 값 × 티어).",
+        "en": "Experience added per tier of the gathered item (experience = base + this × tier)."
+      },
+      "source": "ADR 2026-11-26-gather-exp (사용자 결정)"
+    },
+    {
       "id": "gather_obj_next_radius",
       "code": "",
       "name": {

@@ -23,9 +23,11 @@ export interface CrewHaulInput {
   readonly carry: Map<number, number>;
 }
 
-/** 일꾼별 수확(자산·온 묶음 수, 일꾼 차례 — 0묶음·잡지 못한 일꾼은 빠진다) */
-export function crewHaul(input: CrewHaulInput): { readonly asset: string; readonly lots: number }[] {
-  const out: { asset: string; lots: number }[] = [];
+/** 일꾼별 수확(일꾼·자산·온 묶음 수, 일꾼 차례 — 0묶음·잡지 못한 일꾼은 빠진다) */
+export function crewHaul(
+  input: CrewHaulInput,
+): { readonly unitId: number; readonly asset: string; readonly lots: number }[] {
+  const out: { unitId: number; asset: string; lots: number }[] = [];
   for (const worker of input.workers) {
     const stats = input.statsOf(worker.unitId);
     const item = catchYieldItem(
@@ -45,7 +47,7 @@ export function crewHaul(input: CrewHaulInput): { readonly asset: string; readon
     if (item === null) continue;
     const lots = splitPm(input.yieldPmOf(stats.secondary), input.carry.get(worker.unitId) ?? 0);
     input.carry.set(worker.unitId, lots.carryPm);
-    if (lots.whole > 0) out.push({ asset: `item:${item}`, lots: lots.whole });
+    if (lots.whole > 0) out.push({ unitId: worker.unitId, asset: `item:${item}`, lots: lots.whole });
   }
   return out;
 }

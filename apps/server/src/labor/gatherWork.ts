@@ -136,6 +136,9 @@ export interface GatherLotsResult extends GatherProgress {
   readonly lots: number;
   /** 묶음 상한(maxLots)에 막혀 더 끝내지 못했나 */
   readonly capped: boolean;
+  /** 물건이 나온 묶음 수(빈 묶음은 뺀다 — 채집 경험치가 센다)와 그 묶음들의 티어 합 */
+  readonly landedLots: number;
+  readonly tierSum: number;
 }
 
 /** 한 번 부를 때 끝내는 묶음 상한(잘못된 설정 값으로 도는 것을 막는다, 남은 진행은 다음 정산으로) */
@@ -176,6 +179,8 @@ export function gatherLots(progress: GatherProgress, made: number, input: Gather
   let points = progress.points + Math.max(0, made) * effects.progress * Math.max(1, input.cycleMs);
   let seq = progress.seq;
   let lots = 0;
+  let landedLots = 0;
+  let tierSum = 0;
   let capped = false;
   const limit = Math.min(MAX_LOTS_PER_CALL, Math.max(0, Math.floor(input.maxLots ?? MAX_LOTS_PER_CALL)));
   const out = new Map<string, bigint>();
@@ -218,6 +223,10 @@ export function gatherLots(progress: GatherProgress, made: number, input: Gather
     points -= need;
     seq += 1;
     lots += 1;
+    if (rolled.outputs.some((stack) => stack.qty > 0n)) {
+      landedLots += 1;
+      tierSum += tier;
+    }
     for (const stack of rolled.outputs) out.set(stack.asset, (out.get(stack.asset) ?? 0n) + stack.qty);
   }
   // 사다리 차례로, 사다리 밖(굴림표 줄·다른 사다리 오브젝트)은 뒤에 처음 나온 차례로(같은 입력이면 같은 줄 차례)
@@ -229,5 +238,5 @@ export function gatherLots(progress: GatherProgress, made: number, input: Gather
     const qty = out.get(asset);
     if (qty !== undefined && qty > 0n) outputs.push({ asset, qty });
   }
-  return { points, seq, outputs, lots, capped };
+  return { points, seq, outputs, lots, capped, landedLots, tierSum };
 }

@@ -46,6 +46,7 @@ import {
   checkLaborEscrow,
   depositCyclesLeft,
   fundLaborDeposit,
+  gatherExp,
   laborAccounts,
   laborWarning,
   openLabor,
@@ -256,6 +257,10 @@ export function createLaborService(options: {
    * (시설 쪽) 주체의 돈(world/money.ts)
    */
   moneyAt?: ((buildingId: number) => string) | undefined;
+  /**
+   * 유닛에게 경험치를 준다(채집 직무의 묶음 — docs/adr/2026-11-26-gather-exp.md). 받는 쪽(사이보그 본체 등)은 세계가 잇는다. 없으면 주지 않는다
+   */
+  gainExp?: ((unitId: number, amount: number) => void) | undefined;
 }): LaborService {
   const { maps, settlement, ledger, writer, now } = options;
   const contracts = new Map<number, LaborContract>(options.loaded.contracts.map((c) => [c.id, c]));
@@ -306,6 +311,13 @@ export function createLaborService(options: {
     now,
     payFrom: (unitId, atMs) => shiftPayStart(contracts.values(), unitId, atMs, save),
     commutes: options.loaded.commutes,
+    // 채집 경험치: 묶음마다 기본 + 티어당 더함(설정 칸) → 그 유닛에게(world.ts가 받는 쪽을 잇는다)
+    onLots: options.gainExp
+      ? (unitId, lots, tierSum) => {
+          const c = options.rules().gatherObjects;
+          options.gainExp?.(unitId, lots * gatherExp(0, c) + tierSum * Math.max(0, Math.trunc(c.expPerTier)));
+        }
+      : undefined,
   });
 
   /** 유닛 주인(없으면 undefined) */

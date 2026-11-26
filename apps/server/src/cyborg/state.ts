@@ -42,8 +42,9 @@ export interface CyborgRecord {
   /** 내 도시(첫 접속 시작 도시, 귀화하면 귀화한 도시 — 구인 기본 도시·거래소 기본 도시·본체를 다시 놓는 곳) */
   startCityId: number;
   unitId: number | null;
-  readonly level: number;
-  readonly exp: number;
+  /** 레벨과 그 레벨 구간 안의 경험치(채집 경험치가 올린다 — docs/adr/2026-11-26-gather-exp.md, service.ts addExp) */
+  level: number;
+  exp: number;
   readonly rebirths: number;
   /** 신앙도(D-451: 쌓이는 문턱 점수, 0~100). 신전 기도·헌금이 올린다(docs/adr/2026-11-07-temple-religion.md) */
   faith: number;

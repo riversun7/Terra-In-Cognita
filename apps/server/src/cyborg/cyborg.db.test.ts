@@ -218,6 +218,33 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
     expect(await service.create(user, input)).toEqual({ ok: true });
   });
 
+  it("경험치(채집 경험치 — docs/adr/2026-11-26-gather-exp.md): 구간을 넘으면 레벨이 오르고 남은 경험치가 이어진다. 다시 켜도 남는다", async () => {
+    const world = await boot();
+    const service = cyborgsOf(world);
+    const user = await fakeUser("Exp_Gainer");
+    const start = startOf(world, user);
+    await service.roll(user, "combat");
+    expect(
+      await service.create(user, {
+        name: "Grower",
+        appearance: DEFAULT_CYBORG_APPEARANCE,
+        ...start,
+        elements: fireWind,
+      }),
+    ).toEqual({ ok: true });
+    // 기본 경험치 표: Lv1 → 2 = 35, Lv2 → 3 = 132, Lv3 → 4 = 285
+    expect(service.addExp(user, 34)).toEqual({ level: 1, exp: 34, gainedLevels: 0 });
+    expect(service.addExp(user, 1)).toEqual({ level: 2, exp: 0, gainedLevels: 1 });
+    // 한 번에 두 레벨: 132 + 285 + 5
+    expect(service.addExp(user, 422)).toEqual({ level: 4, exp: 5, gainedLevels: 2 });
+    expect(service.addExp(user, 0)).toEqual({ level: 4, exp: 5, gainedLevels: 0 });
+    expect(service.addExp("nobody", 10)).toBeUndefined();
+    expect(service.record(user)).toMatchObject({ level: 4, exp: 5 });
+    await world.persistence?.writer.durable();
+    const again = cyborgsOf(await restart(world));
+    expect(again.record(user)).toMatchObject({ level: 4, exp: 5 });
+  });
+
   it("3D 외형(docs/adr/2026-11-11-character-3d.md 5절): 서버가 목록·범위를 보고 저장한다. 옛 칸은 그 외형에서 넘긴 값, 다시 켜도 남는다", async () => {
     const world = await boot();
     const service = cyborgsOf(world);

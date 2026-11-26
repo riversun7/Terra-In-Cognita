@@ -23,6 +23,13 @@ export interface GatherObjectCoefficients {
    * 시설 피로 배율(campFatiguePm·레벨 걸음)을 곱한다. 일 주기마다 1점씩 쌓던 것을 대신한다(채집소가 정산 뒤에 맞춘다)
    */
   readonly jobFatiguePerLot: number;
+  /**
+   * 채집 한 번(직접 채집 한 번·직무 묶음 하나)의 기본 경험치(사용자 결정 2026-11-26 "기본 10" — docs/adr/2026-11-26-gather-exp.md).
+   * 나온 물건의 티어마다 expPerTier를 더한다: 경험치 = expPerGather + expPerTier × 티어
+   */
+  readonly expPerGather: number;
+  /** 채집 티어 하나마다 더하는 경험치(T0 = 기본, T9 = 기본 + 9 × 이 값) */
+  readonly expPerTier: number;
   /** [임시] 오브젝트가 다 떨어지면 다음 같은 종류 오브젝트를 찾는 반경(배치 칸) */
   readonly nextRadiusCells: number;
   /** [임시] 오염 최대(100,000)일 때 다시 자라는 시간에 더하는 몫(‰). 오염 값에 비례(D-115) */
@@ -51,6 +58,8 @@ export const START_GATHER_OBJECTS: GatherObjectCoefficients = {
   campRegrowPm: 500,
   fatiguePerGather: 10,
   jobFatiguePerLot: 10,
+  expPerGather: 10,
+  expPerTier: 10,
   nextRadiusCells: 24,
   pollutionRegrowPm: 1000,
   stationRadiusStep: 4,

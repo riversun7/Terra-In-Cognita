@@ -143,6 +143,12 @@ export function startWorldGather(
         workInjury: createGatherInjury(),
         // 쉬러 가는 피로(유닛 생활 규칙 — 사용자 결정 2026-11-26): 이끄는 유닛이 그 피로에 닿으면 줄을 끝낸다
         restAt: (unitId) => unitLifeOf(world.persistence)?.of(unitId).restAt,
+        // 채집 경험치(docs/adr/2026-11-26-gather-exp.md): 사이보그 본체면 사이보그 경험치로(그 밖 유닛은 아직 받지 않는다)
+        gainExp: (unitId, amount) => {
+          const cyborgs = world.persistence?.cyborgs;
+          const userId = cyborgs?.userOfUnit(unitId);
+          if (cyborgs && userId !== undefined) cyborgs.addExp(userId, amount);
+        },
         // 배 창고 상한(D-568 배 단위 채집 — 배 서비스가 배 고리에 채운다)
         boatHoldGrams: (boatId) => world.persistence?.boatHooks.info(boatId)?.holdCapGrams,
         // 배 채집 일꾼(D-570 1821 — 낚시 선원 ↔ 포획 장비)

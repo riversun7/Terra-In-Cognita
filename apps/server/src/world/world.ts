@@ -562,6 +562,8 @@ export function startWorld(
       // 가입비를 받는 나라에서는 시작하지 못한다(사용자 결정 2026-11-25): 가문이 그 나라에 들 때와 같은 조건을 읽는다
       entryFeeOf: async (factionId, rules) =>
         (await nationEntryTerms(db, factionId, houseRulesFrom(rules).npcEntry)).terms,
+      // 경험치 표(실효 팩 — 채집 경험치의 레벨 오르기)
+      expTable: () => config.roster?.().expTable,
       // 나라 고르기 카드의 자세한 정보(2026-11-11): 실효 프리셋 + NPC 사회 런타임 거울 세계(부를 때마다 지금 npc를 읽는다)
       nationProfiles: (uploads) =>
         nationProfilesOf(
@@ -734,6 +736,12 @@ export function startWorld(
       isHostileCity,
       npc: () => npc,
     });
+    // 유닛 경험치(채집 — docs/adr/2026-11-26-gather-exp.md): 사이보그 본체면 사이보그 경험치로. 그 밖 유닛(휴먼·사이보그 유닛)은 레벨이
+    // 몸에 이어져 있지 않아 아직 받지 않는다
+    const gainUnitExp = (unitId: number, amount: number): void => {
+      const userId = cyborgs.userOfUnit(unitId);
+      if (userId !== undefined) cyborgs.addExp(userId, amount);
+    };
     // 노동 계약: 소유 주체 정산이 계약을 같은 시각까지 정산하고 산출을 계약 몫으로 나눈다
     const labor = createLaborService({
       loaded: laborData,
@@ -748,6 +756,7 @@ export function startWorld(
       buildingWorks: (buildingId) => facilities.service.works(buildingId),
       unitInJob: (unitId) => facilities.service.unitInJob(unitId),
       moneyAt: (buildingId) => facilities.money(buildingId), // 건물의 돈(facilities/buildingMoney.ts)
+      gainExp: gainUnitExp, // 채집 직무의 묶음 경험치(docs/adr/2026-11-26-gather-exp.md)
       ...laborWorldHooks(() => ({ temple: persistence?.fusion.temple, npc })), // 신전·NPC 성향(D-573 2045)
     });
     facilities.attachLabor(labor);

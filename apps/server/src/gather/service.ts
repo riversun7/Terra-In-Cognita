@@ -26,6 +26,7 @@ import {
   anchorCenter,
   arrivalAt,
   footprintRect,
+  gatherExp,
   positionAt,
 } from "@terra/sim";
 import { type StorageContext, roomGrams } from "../facilities/storage.ts";
@@ -532,6 +533,11 @@ export function createGatherService(deps: GatherDeps): GatherService {
     };
     let heaviest = BigInt(catalog.unitWeightOf(kind.item) ?? 0) * harvestUnit(`item:${kind.item}`);
     for (const haul of hauls) {
+      // 채집 경험치(사용자 결정 2026-11-26): 한 번 캐서 물건이 나온 일꾼마다 기본 + 티어당 더함 × 그 물건의 티어
+      deps.gainExp?.(
+        haul.unitId,
+        gatherExp(catalog.itemTier(haul.asset.slice("item:".length)) ?? 0, rules.gatherObjects),
+      );
       const unit = harvestUnit(haul.asset);
       const qty = BigInt(haul.lots) * unit;
       gatherIntoCargo(deps.ledger, action.ownerId, holder(action), haul.asset, qty, at);

@@ -109,6 +109,8 @@ interface Rig {
   ledger: ReturnType<typeof createLedgerBook>;
   facilities: Map<number, FacilityRecord>;
   store: ReturnType<typeof createObjectStore>;
+  /** 채집 경험치를 받은 차례(유닛, 양) */
+  gained: [number, number][];
 }
 
 /** 시험 2차맵 하나 더: 물 띠(지형 칸 열 60~62 = 배치 칸 120~125)와 그 2차맵 바이옴(어군 시험, 기획 D-536) */
@@ -162,6 +164,7 @@ function rig(options: RigOptions = {}): Rig {
     ...TEST_SOCIETY_COEFFICIENTS,
     gatherObjects: { ...TEST_SOCIETY_COEFFICIENTS.gatherObjects, carryGrams: 3000, directYieldPm: 1000 },
   };
+  const gained: [number, number][] = [];
   const gather = createGatherService({
     maps,
     now: () => Date.now(),
@@ -180,9 +183,10 @@ function rig(options: RigOptions = {}): Rig {
     // 배 창고 3kg(D-568 — 걷는 화물과 같은 값으로 시험 시간을 맞춘다)
     boatHoldGrams: () => 3000,
     boatCatch: options.boatCatch,
+    gainExp: (unitId, amount) => void gained.push([unitId, amount]),
     ready: () => true,
   });
-  return { maps, gather, ledger, facilities, store };
+  return { maps, gather, ledger, facilities, store, gained };
 }
 
 function placeMine(r: Rig, x: number, y: number, id = 1, mapIndex = 0): void {
@@ -226,6 +230,8 @@ describe("원자재 오브젝트 채집", () => {
     await until(() => loopOf(r)?.phase === "gathering");
     await until(() => r.ledger.balanceOf(OWNER, ORE, cargoLocation(1)) === 2n);
     expect(loopOf(r)).toMatchObject({ gatheredLots: 2, carriedGrams: 2000, capacityGrams: 3000 });
+    // 채집 경험치: 한 번 캘 때마다 기본 10(티어 0 — 묶음 수와 상관없이 한 번에 한 번)
+    expect(r.gained).toEqual([[1, 10]]);
 
     // 두 번째(번수 2)로 떨어진다 → 다시 자라는 시각 = 그때 + 10분. 화물 4kg > 상한 3kg → 도시로
     await until(() => loopOf(r)?.phase === "to_deposit");

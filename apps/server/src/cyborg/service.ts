@@ -26,6 +26,7 @@ import type {
 } from "@terra/shared/cyborg";
 import { characterLookFromLegacy, characterSeedOf, isCharacterLook } from "@terra/shared/characterLook";
 import { checkElementAllocation, isCyborgAppearance, parseCyborgName } from "@terra/shared/cyborg";
+import { DEFAULT_EXP_TABLE, type ExpTableEntryJson, applyExpGain } from "@terra/shared/expTable";
 import { cityLocation } from "@terra/shared/goodsPlaces";
 import { RELATION_SCORE_MAX, RELATION_SCORE_MIN } from "@terra/shared/faction";
 import type { LocalizedName } from "@terra/shared/roster";
@@ -214,6 +215,14 @@ export interface CyborgService {
     userId: string,
     gain: number,
   ): { readonly faith: number; readonly faithPoints: number } | undefined;
+  /**
+   * 경험치를 더하고 구간을 넘으면 레벨을 올린다(채집 경험치 — docs/adr/2026-11-26-gather-exp.md, 경험치 표 = 팩 exp_table, 만렙 = 설정 칸).
+   * 만렙이면 더하지 않는다. 사이보그가 없으면 undefined. 쓰기 대기열에 넣기만 한다(다음 묶음에 커밋)
+   */
+  addExp(
+    userId: string,
+    gain: number,
+  ): { readonly level: number; readonly exp: number; readonly gainedLevels: number } | undefined;
   readonly size: number;
 }
 
@@ -253,6 +262,8 @@ export interface CyborgServiceOptions {
    * 시작하지 못한다. 없으면 막지 않는다(DB 없는 세계·시험). rules = 이 명령이 쓰는 설정 칸 값 한 벌(NPC 나라 규칙식)
    */
   entryFeeOf?: ((factionId: number, rules: CyborgRules) => Promise<bigint>) | undefined;
+  /** 경험치 표(실효 팩 exp_table — 레벨 구간 경험치). 없으면 기본 표 */
+  expTable?: (() => readonly ExpTableEntryJson[] | undefined) | undefined;
   settlement: Settlement;
   /** 원장(정착 지원금을 세력 국고에서 옮긴다) */
   ledger: Ledger;
@@ -730,6 +741,25 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
     record: (userId) => byUser.get(userId),
     isBodyUnit: (unitId) => bodyUnits.has(unitId),
     userOfUnit: (unitId) => bodyUnits.get(unitId),
+    addExp(userId, gain) {
+      const record = byUser.get(userId);
+      if (!record) return undefined;
+      const amount = Number.isFinite(gain) ? Math.max(0, Math.floor(gain)) : 0;
+      const next = applyExpGain(
+        options.expTable?.() ?? DEFAULT_EXP_TABLE,
+        record.level,
+        record.exp,
+        amount,
+        options.rules().cyborg.maxLevel,
+      );
+      const gainedLevels = next.level - record.level;
+      if (gainedLevels !== 0 || next.expInto !== record.exp) {
+        record.level = next.level;
+        record.exp = next.expInto;
+        writer.upsert("cyborgs", cyborgRow(record));
+      }
+      return { level: record.level, exp: record.exp, gainedLevels };
+    },
     addFaith(userId, gain) {
       const record = byUser.get(userId);
       if (!record) return undefined;

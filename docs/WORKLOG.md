@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-26 16:00 | 채집·직무 경험치(기본 10 + 티어당 10, 설정 칸) — 사이보그 본체 | Claude Code | [26-1600-gather-exp](worklog/2026/11/26-1600-gather-exp.md) |
 | 2026-11-26 15:00 | 직무(시설 일꾼)의 피로를 묶음 하나마다 10점 × 시설 배율로(설정 칸) | Claude Code | [26-1500-job-fatigue-per-lot](worklog/2026/11/26-1500-job-fatigue-per-lot.md) |
 | 2026-11-26 14:00 | 유닛 생활 규칙: 쉬러 가는 피로·다시 일하는 피로(성향 기본값 + 유닛 화면 설정) | Claude Code | [26-1400-unit-life-rules](worklog/2026/11/26-1400-unit-life-rules.md) |
 | 2026-11-26 13:30 | 피로 불이익을 1차 스탯 감소로 바꿈, 직접 채집 피로 10·시설 감소, 숙소 종류별 회복 배율 | Claude Code | [26-1330-fatigue-stat-penalty](worklog/2026/11/26-1330-fatigue-stat-penalty.md) |

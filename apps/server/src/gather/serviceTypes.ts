@@ -72,6 +72,8 @@ export interface GatherDeps {
    * (넣고 끝 — 상한을 채우지 않는다). 없으면 피로 상한
    */
   restAt?: ((unitId: number) => number | undefined) | undefined;
+  /** 유닛에게 경험치를 준다(채집 한 번 — docs/adr/2026-11-26-gather-exp.md). 받는 쪽은 세계가 잇는다. 없으면 주지 않는다 */
+  gainExp?: ((unitId: number, amount: number) => void) | undefined;
   /** 배 창고 상한(g, 배 종류 — boats 고리, D-568). 없거나 undefined면 설정 칸 boat_hold_kg */
   boatHoldGrams?: ((boatId: number) => number | undefined) | undefined;
   /** 배 채집 일꾼(낚시 선원 ↔ 포획 장비 최대 티어, D-570 1821 — boats/gear.ts). 없으면 이끄는 유닛 혼자, 티어를 자르지 않는다 */

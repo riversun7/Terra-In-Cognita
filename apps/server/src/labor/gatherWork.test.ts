@@ -58,6 +58,9 @@ describe("채집 직무 산출(서버, 시뮬과 같은 규칙 함수)", () => {
     expect(full.seq).toBe(1);
     expect(full.points).toBe(0);
     expect(full.outputs).toEqual([{ asset: "item:pine_log", qty: 2n }]);
+    // 채집 경험치가 세는 값: 물건이 나온 묶음 수와 그 티어 합(T0 = 0)
+    expect(short).toMatchObject({ landedLots: 0, tierSum: 0 });
+    expect(full).toMatchObject({ landedLots: 1, tierSum: 0 });
   });
 
   it("묶음 상한(채집소 반경 안 남은 번수): 닿으면 멈추고 진행은 묶음 하나 몫까지만 남는다", () => {
@@ -126,6 +129,8 @@ describe("채집 직무 산출(서버, 시뮬과 같은 규칙 함수)", () => {
     });
     expect(lots.lots).toBe(1);
     expect(lots.outputs).toEqual([{ asset: "item:potato", qty: 1n }]);
+    // T1 묶음 하나 → 티어 합 1(경험치 = 기본 + 티어당 더함 × 1)
+    expect(lots).toMatchObject({ landedLots: 1, tierSum: 1 });
   });
 
   it("약초원(추첨 INT + WIS)·목장(선택 WIS + AGI): 앞 셋과 같은 함수가 스탯 짝만 바꿔 돈다", () => {

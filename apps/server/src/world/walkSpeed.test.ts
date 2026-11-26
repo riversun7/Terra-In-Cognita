@@ -1,6 +1,13 @@
 // 걷기 빠르기 시험(walkSpeed.ts, 사용자 결정 D-540 "걷기만 AGI 반영") — 실효 AGI(전투와 같은 몸) → 계산식 walk_speed가 2차맵 이동·운영자 빠르기·
 // 도착 시각에 들고, 탈것 봇·땅이 아닌 유닛은 그대로, 몸 셈은 바뀐 때만 하는지
-import { CAR_SPEED, CELL_UNITS, WALK_SPEED, anchorCenter, arrivalAt } from "@terra/sim";
+import {
+  CAR_SPEED,
+  CELL_UNITS,
+  TEST_SOCIETY_COEFFICIENTS,
+  WALK_SPEED,
+  anchorCenter,
+  arrivalAt,
+} from "@terra/sim";
 import { DEFAULT_CHARACTER_LOOK } from "@terra/shared/characterLook";
 import { zeroElements } from "@terra/shared/cyborg";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,7 +17,7 @@ import { NO_GEAR, type UnitGear } from "../roster/unitBody.ts";
 import { OPERATOR_SPEED_FACTOR } from "./operatorPace.ts";
 import { createTestMap } from "./testSupport.ts";
 import { UNIT_KIND_BOT, UNIT_KIND_CYBORG } from "./unitKinds.ts";
-import { createWalkSpeeds, walksOnFoot } from "./walkSpeed.ts";
+import { createWalkSpeeds, walkSpeedsOf, walksOnFoot } from "./walkSpeed.ts";
 
 const START = 1_798_000_000_000;
 const catalog = testRosterCatalog();
@@ -61,6 +68,8 @@ function speeds(state: { record?: CyborgRecord; gear?: UnitGear }) {
   });
   return { walk, gearOf };
 }
+
+const societyRules = () => TEST_SOCIETY_COEFFICIENTS;
 
 const foot = (id: number, kind = UNIT_KIND_CYBORG) => ({ id, kind, speed: WALK_SPEED, domain: "land" });
 
@@ -124,6 +133,33 @@ describe("걷기 빠르기 = 계산식 walk_speed(실효 AGI)", () => {
     expect(walk.speedOf(car)).toBe(CAR_SPEED);
     const boat = { id: 4, kind: UNIT_KIND_CYBORG, speed: 3000, domain: "sea" };
     expect(walk.speedOf(boat)).toBe(3000);
+  });
+
+  it("피로 구간의 이동 불이익(N23): 걷는 유닛만, 피로 61부터 −15%·91부터 −30%(내림)", () => {
+    const speedOf = walkSpeedsOf(
+      { userOfUnit: () => undefined, record: () => undefined },
+      () => NO_GEAR,
+      () => catalog,
+      () => Date.now(),
+      societyRules,
+    );
+    const base = speedOf(foot(2));
+    const tired = (fatigue: number) => speedOf({ ...foot(2), job: { fatigue } });
+    expect(tired(0)).toBe(base);
+    expect(tired(60)).toBe(base);
+    expect(tired(61)).toBe(Math.floor((base * 850) / 1000));
+    expect(tired(120)).toBe(Math.floor((base * 700) / 1000));
+    // 탈것 봇은 그대로
+    const car = { id: 3, kind: UNIT_KIND_BOT, speed: CAR_SPEED, domain: "land", job: { fatigue: 120 } };
+    expect(speedOf(car)).toBe(CAR_SPEED);
+    // 구간 값을 주지 않으면(규칙 없음) 불이익 없음
+    const plain = walkSpeedsOf(
+      { userOfUnit: () => undefined, record: () => undefined },
+      () => NO_GEAR,
+      () => catalog,
+      () => Date.now(),
+    );
+    expect(plain({ ...foot(2), job: { fatigue: 120 } })).toBe(base);
   });
 
   it("몸 셈은 지문이 같으면 다시 하지 않는다(받아 둔 AGI), TTL이 지나면 다시", () => {

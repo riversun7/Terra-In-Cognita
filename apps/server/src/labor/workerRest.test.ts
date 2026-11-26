@@ -37,10 +37,14 @@ describe("createWorkerRest", () => {
   it("숙소 Lv1이면 예전 정산 규칙과 같고(2분에 1점), 집이면 3분에 1점, 일꾼이 아니면 기본", () => {
     const lodged = setup(1).rest.rulesFor(5, [{ id: 100 }, { id: 101 }], 0, 1);
     expect(lodged?.[0]?.restStepMs).toBe(TEST_JOB_RULES.restStepMs);
-    expect(lodged?.[1]).toBeUndefined();
+    // 쉼터가 없는 유닛은 기본 회복에 피로 구간 불이익(N23 작업 속도)만 얹은 규칙이다
+    expect(lodged?.[1]?.restStepMs).toBe(TEST_JOB_RULES.restStepMs);
+    expect(lodged?.[1]?.workBands?.map((band) => band.cycleMs)).toEqual([60_000, 66_667, 80_000, 120_000]);
+    expect(lodged?.[0]?.workBands).toEqual(lodged?.[1]?.workBands);
     const home = setup(null).rest.rulesFor(5, [{ id: 100 }], 0, 1);
     expect(home?.[0]?.restStepMs).toBe(180_000);
-    expect(setup(null).rest.rulesFor(5, [{ id: 101 }], 0, 1)).toBeUndefined();
+    // 일꾼이 하나도 없어도 피로 구간 규칙은 준다
+    expect(setup(null).rest.rulesFor(5, [{ id: 101 }], 0, 1)?.[0]?.workBands?.length).toBe(4);
     expect(setup(3).rest.restOf(100)?.recoveryPm).toBeGreaterThan(1500);
   });
 

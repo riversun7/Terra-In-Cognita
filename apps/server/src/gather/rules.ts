@@ -27,9 +27,18 @@ export interface YieldRule {
 /** 시설 없는 종류의 수확량 상한(옛 gather_type_config 광산·벌목장 상한과 같은 10) */
 const DEFAULT_YIELD_CAP = 10;
 
-/** 채집 한 번에 걸리는 시간(ms) */
-export function gatherDurationMs(kind: Pick<GatherKind, "workMs">, primary: number, divisor: number): number {
-  return Math.ceil(kind.workMs / gatherProgress(primary, divisor));
+/**
+ * 채집 한 번에 걸리는 시간(ms). abilityPm = 피로 구간의 능력 ‰(N23 작업 속도 불이익 — @terra/sim fatiguePenalty, 사용자 결정 2026-11-26):
+ * 시간 = 기본 × 1000 ÷ 능력 ‰(올림). 없거나 1000 이상이면 기본 그대로
+ */
+export function gatherDurationMs(
+  kind: Pick<GatherKind, "workMs">,
+  primary: number,
+  divisor: number,
+  abilityPm = 1000,
+): number {
+  const base = Math.ceil(kind.workMs / gatherProgress(primary, divisor));
+  return abilityPm >= 1000 ? base : Math.ceil((base * 1000) / Math.max(1, abilityPm));
 }
 
 /** 채집 효율(‰): 시설 반경 안이면 시설 레벨로, 아니면 직접 배율 */

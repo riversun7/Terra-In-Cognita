@@ -233,6 +233,10 @@ describe("채집 셈", () => {
   it("걸리는 시간 = ⌈일 ÷ 진행 속도⌉(진행 속도 = max(1, ⌊주 스탯 ÷ 20⌋))", () => {
     expect(gatherDurationMs({ workMs: 20_000 }, 10, 20)).toBe(20_000);
     expect(gatherDurationMs({ workMs: 20_000 }, 60, 20)).toBe(6667);
+    // 피로 구간 불이익(N23 작업 속도): 능력 900‰ → 시간 ÷ 0.9, 500‰ → 두 배(올림)
+    expect(gatherDurationMs({ workMs: 20_000 }, 10, 20, 1000)).toBe(20_000);
+    expect(gatherDurationMs({ workMs: 20_000 }, 10, 20, 900)).toBe(22_223);
+    expect(gatherDurationMs({ workMs: 20_000 }, 10, 20, 500)).toBe(40_000);
   });
 
   it("효율: 직접 500‰, 시설 Lv1 1000‰ · Lv3 1400‰. 수확 ‰ 묶음과 나머지", () => {

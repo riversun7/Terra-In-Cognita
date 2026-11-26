@@ -5,9 +5,11 @@ import {
   SATISFACTION_MAX_MILLI,
   baseWageRateMilli,
   efficiencyScore,
+  fatigueMoveSpeed,
   fatiguePenalty,
   production,
   recoveryPm,
+  rulesWithFatigueBands,
   rulesWithRecovery,
   satisfactionTarget,
   satisfactionToward,
@@ -26,6 +28,23 @@ const content = {
 };
 
 describe("노동 공식(기획 48 §7, N21~N33)", () => {
+  it("구간 불이익을 정산 규칙·걷기에 얹는다: 일 주기 = 기본 × 1000 ÷ 능력 ‰(올림), 빠르기 × 이동 ‰(내림)", () => {
+    const rules = rulesWithFatigueBands(TEST_JOB_RULES, c);
+    expect(rules.fatigueMax).toBe(c.fatigueMax);
+    expect(rules.workBands).toEqual([
+      { from: 0, cycleMs: 60_000 },
+      { from: 31, cycleMs: 66_667 },
+      { from: 61, cycleMs: 80_000 },
+      { from: 91, cycleMs: 120_000 },
+    ]);
+    // 회복 규칙에도 같은 구간이 든다
+    expect(rulesWithRecovery(TEST_JOB_RULES, 1000, c).workBands).toEqual(rules.workBands);
+    expect(fatigueMoveSpeed(4000, 60, c)).toBe(4000);
+    expect(fatigueMoveSpeed(4000, 61, c)).toBe(3400);
+    expect(fatigueMoveSpeed(4000, 120, c)).toBe(2800);
+    expect(fatigueMoveSpeed(1, 120, c)).toBe(1);
+  });
+
   it("피로: 구간 불이익(N23), 회복 = 주거(N24 ×1.5·×2·×3) × 만족도 × 노숙(S25), 기본 1점/3분", () => {
     expect(fatiguePenalty(30, c)).toEqual({ abilityPm: 1000, movePm: 1000 });
     expect(fatiguePenalty(31, c)).toEqual({ abilityPm: 900, movePm: 1000 });

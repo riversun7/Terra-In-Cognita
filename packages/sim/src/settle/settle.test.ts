@@ -45,6 +45,98 @@ function reference(
   return { state: { job: state.job, phase, progressMs, fatigue }, cycles };
 }
 
+/** 피로 구간이 있는 느린 참조 구현: 주기 길이 = 그 주기를 시작할 때 피로의 구간 값 */
+function bandReference(
+  state: JobState,
+  durationMs: number,
+  rules: JobRules,
+): { state: JobState; cycles: number } {
+  const lengthAt = (fatigue: number): number => {
+    let length = rules.cycleMs;
+    for (const band of rules.workBands ?? []) if (band.from <= fatigue) length = band.cycleMs;
+    return length;
+  };
+  let { phase, progressMs, fatigue } = state;
+  let cycles = 0;
+  for (let t = 0; t < durationMs; t++) {
+    progressMs += 1;
+    if (phase === PHASE_WORK && progressMs === lengthAt(fatigue)) {
+      progressMs = 0;
+      cycles += 1;
+      fatigue += 1;
+      if (fatigue === rules.fatigueMax) phase = PHASE_REST;
+    } else if (phase === PHASE_REST && progressMs === rules.restStepMs) {
+      progressMs = 0;
+      fatigue -= 1;
+      if (fatigue === 0) phase = PHASE_WORK;
+    }
+  }
+  return { state: { job: state.job, phase, progressMs, fatigue }, cycles };
+}
+
+/** 피로 0~2는 주기 7, 3~4는 10, 5는 14(상한 6) */
+const BANDED: JobRules = {
+  cycleMs: 7,
+  fatigueMax: 6,
+  restStepMs: 5,
+  workBands: [
+    { from: 0, cycleMs: 7 },
+    { from: 3, cycleMs: 10 },
+    { from: 5, cycleMs: 14 },
+  ],
+};
+
+describe("advanceJob: 피로 구간의 일 주기 길이(N23 작업 속도)", () => {
+  it("피로가 쌓이면 주기가 길어진다: 3주기는 21ms, 다음 2주기는 20ms, 마지막은 14ms", () => {
+    expect(advanceJob(fresh(), 21, BANDED)).toEqual({ state: { ...fresh(), fatigue: 3 }, cycles: 3 });
+    // 구간이 바뀐 뒤 9ms는 아직 주기 하나가 안 된다(10ms)
+    expect(advanceJob(fresh(), 30, BANDED)).toEqual({
+      state: { ...fresh(), fatigue: 3, progressMs: 9 },
+      cycles: 3,
+    });
+    expect(advanceJob(fresh(), 41, BANDED).cycles).toBe(5);
+    expect(advanceJob(fresh(), 54, BANDED).cycles).toBe(5);
+    // 21 + 20 + 14 = 55ms에 다 차서 쉰다
+    expect(advanceJob(fresh(), 55, BANDED)).toEqual({
+      state: { ...fresh(), phase: PHASE_REST, fatigue: 6 },
+      cycles: 6,
+    });
+    // 일·쉼 한 묶음 = 55 + 6 × 5 = 85ms. 긴 시간도 묶음으로 센다
+    expect(advanceJob(fresh(), 85 * 1000, BANDED)).toEqual({ state: fresh(), cycles: 6000 });
+  });
+
+  it("한 걸음씩 흉내와 같고, 나눠 셈해도 같다(무작위 자르기)", () => {
+    let seed = 12345;
+    const next = (bound: number): number => {
+      seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
+      return seed % bound;
+    };
+    for (let round = 0; round < 200; round++) {
+      const total = next(400);
+      const whole = advanceJob(fresh(), total, BANDED);
+      expect(whole).toEqual(bandReference(fresh(), total, BANDED));
+      let state = fresh();
+      let cycles = 0;
+      let left = total;
+      while (left > 0) {
+        const step = Math.min(left, 1 + next(60));
+        const part = advanceJob(state, step, BANDED);
+        state = part.state;
+        cycles += part.cycles;
+        left -= step;
+      }
+      expect({ state, cycles }).toEqual(whole);
+    }
+  });
+
+  it("구간이 없으면 옛 셈 그대로다", () => {
+    for (const total of [0, 6, 7, 27, 28, 47, 48, 500])
+      expect(advanceJob(fresh(), total, { ...SMALL, workBands: [] })).toEqual(
+        advanceJob(fresh(), total, SMALL),
+      );
+  });
+});
+
 describe("advanceJob", () => {
   it("손 계산: 일 주기 3번, 피로가 차면 쉬고 다 회복하면 다시 일한다", () => {
     expect(advanceJob(fresh(), 21, SMALL)).toEqual({ state: { ...fresh(), fatigue: 3 }, cycles: 3 });

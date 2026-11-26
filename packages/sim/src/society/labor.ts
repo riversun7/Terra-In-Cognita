@@ -10,7 +10,7 @@ export const SATISFACTION_MAX_MILLI = 100_000;
 /** 피로 구간 불이익(N23): 능력(공격·명중·공속, 직무는 작업 속도)·이동 ‰ */
 export function fatiguePenalty(
   fatigue: number,
-  c: SocietyCoefficients,
+  c: Pick<SocietyCoefficients, "fatigueBands">,
 ): { abilityPm: number; movePm: number } {
   let band = c.fatigueBands[0] ?? { from: 0, abilityPm: 1000, movePm: 1000 };
   for (const entry of c.fatigueBands) if (fatigue >= entry.from) band = entry;
@@ -40,10 +40,37 @@ export function recoveryPm(
   return Math.max(1, livingUnpaid ? Math.floor((base * c.cyborg.livingUnpaidPm) / 1000) : base);
 }
 
-/** 회복 배율을 정산 규칙(settle)에 얹는다: 피로 1점 푸는 시간 = 기본(N24 3분) ÷ 배율. 정산 엔진은 그대로다 */
-export function rulesWithRecovery(base: JobRules, recovery: number, c: SocietyCoefficients): JobRules {
+/**
+ * 피로 구간 불이익(N23 작업 속도)을 정산 규칙에 얹는다(사용자 결정 2026-11-26): 피로가 그 구간일 때 일 주기 길이 = 기본 주기 × 1000 ÷ 능력 ‰
+ * (올림). 능력 1000‰ 구간은 기본 주기 그대로다. 피로 상한도 계수표 값으로 맞춘다
+ */
+export function rulesWithFatigueBands(base: JobRules, c: SocietyCoefficients): JobRules {
   return {
     ...base,
+    fatigueMax: c.fatigueMax,
+    workBands: c.fatigueBands.map((band) => ({
+      from: band.from,
+      cycleMs: Math.max(1, Math.ceil((base.cycleMs * 1000) / Math.max(1, band.abilityPm))),
+    })),
+  };
+}
+
+/**
+ * 피로 구간의 이동 불이익(N23 이동 ‰)을 빠르기에 곱한다(내림, 1 이상). 피로가 불이익 없는 구간이면 그대로
+ */
+export function fatigueMoveSpeed(
+  speed: number,
+  fatigue: number,
+  c: Pick<SocietyCoefficients, "fatigueBands">,
+): number {
+  const pm = fatiguePenalty(fatigue, c).movePm;
+  return pm >= 1000 ? speed : Math.max(1, Math.floor((speed * Math.max(0, pm)) / 1000));
+}
+
+/** 회복 배율을 정산 규칙(settle)에 얹는다: 피로 1점 푸는 시간 = 기본(N24 3분) ÷ 배율. 피로 구간 불이익(N23)도 같이 얹는다 */
+export function rulesWithRecovery(base: JobRules, recovery: number, c: SocietyCoefficients): JobRules {
+  return {
+    ...rulesWithFatigueBands(base, c),
     fatigueMax: c.fatigueMax,
     restStepMs: Math.max(1, Math.floor((c.fatigueRecoverStepMs * 1000) / Math.max(1, recovery))),
   };

@@ -36,11 +36,6 @@ export interface JobRules {
   readonly fatigueMax: number;
   /** 피로 1을 회복하는 시간(ms). 주거가 아직 없어 노숙 배율(D-296)로 느리게 둔다 */
   readonly restStepMs: number;
-  /**
-   * 피로 구간의 일 주기 길이(N23 작업 속도 불이익, 사용자 결정 2026-11-26 — society/labor.ts rulesWithFatigueBands): 피로가 from 이상인 주기는
-   * cycleMs 대신 이 길이로 돈다(from 오름차순, 맞는 구간이 없으면 cycleMs). 없으면 모든 주기가 cycleMs
-   */
-  readonly workBands?: readonly { readonly from: number; readonly cycleMs: number }[] | undefined;
 }
 
 export const TEST_JOB_RULES: JobRules = { cycleMs: 60_000, fatigueMax: 120, restStepMs: 120_000 };
@@ -66,42 +61,11 @@ function checkRules(rules: JobRules): void {
   ) {
     throw new RangeError("job rules must be positive safe integers");
   }
-  for (const band of rules.workBands ?? [])
-    if (!Number.isSafeInteger(band.from) || !Number.isSafeInteger(band.cycleMs) || band.cycleMs < 1)
-      throw new RangeError("job work bands must be safe integers with a positive cycle");
-}
-
-/** 피로 fatigue에서 도는 일 주기의 길이와 그 길이가 이어지는 끝 피로(다음 구간 시작, fatigueMax를 넘지 않는다) */
-function workSpan(fatigue: number, rules: JobRules): { readonly cycleMs: number; readonly end: number } {
-  let cycleMs = rules.cycleMs;
-  let end = rules.fatigueMax;
-  for (const band of rules.workBands ?? []) {
-    if (band.from <= fatigue) {
-      cycleMs = band.cycleMs;
-      end = rules.fatigueMax;
-    } else if (band.from < end) end = band.from;
-  }
-  return { cycleMs, end: Math.max(end, fatigue + 1) };
-}
-
-/** 피로 0에서 다 찰 때까지 일하는 시간(구간마다 주기 길이가 다르다) */
-function fullWorkMs(rules: JobRules): number {
-  let ms = 0;
-  let fatigue = 0;
-  while (fatigue < rules.fatigueMax) {
-    const span = workSpan(fatigue, rules);
-    const end = Math.min(span.end, rules.fatigueMax);
-    ms += (end - fatigue) * span.cycleMs;
-    fatigue = end;
-  }
-  return ms;
 }
 
 /**
  * 일하는 시간 durationMs만큼 직무 상태를 앞으로 보낸다. 일 단계: 주기마다 산출 1·피로 +1, 피로가 다 차면 쉰다.
  * 쉼 단계: restStepMs마다 피로 −1, 0이 되면 다시 일한다(D-144 "피로가 차면 쉬고, 회복하면 다시 일한다").
- * 피로 구간(workBands)이 있으면 일 주기 길이가 그 피로의 구간 값이다(피로가 쌓일수록 주기가 길다 — 작업 속도 불이익 N23). 주기 길이는
- * 주기가 끝나 피로가 오를 때만 바뀌므로 나눠 셈해도 같다.
  */
 export function advanceJob(state: JobState, durationMs: number, rules: JobRules): JobAdvance {
   checkRules(rules);
@@ -109,33 +73,23 @@ export function advanceJob(state: JobState, durationMs: number, rules: JobRules)
   let { phase, progressMs, fatigue } = state;
   let left = durationMs;
   let cycles = 0;
-  const periodMs = fullWorkMs(rules) + rules.fatigueMax * rules.restStepMs;
+  const periodMs = rules.fatigueMax * (rules.cycleMs + rules.restStepMs);
   let fullPeriodsTaken = false;
   while (left > 0) {
     if (phase === PHASE_WORK) {
-      if (fatigue >= rules.fatigueMax) {
-        // 이미 다 찬 채 일 단계(직접 채집으로 찬 피로 등): 쉼으로 넘긴다(일 주기에 쓴 시간은 쉰 시간으로 친다 — 옛 셈 그대로)
-        left += progressMs;
-        phase = PHASE_REST;
-        progressMs = 0;
-        continue;
-      }
-      // 주기 길이가 같은 구간(피로 fatigue ~ span.end)을 한 번에 센다
-      const span = workSpan(fatigue, rules);
-      const end = Math.min(span.end, rules.fatigueMax);
-      const toEnd = (end - fatigue) * span.cycleMs - progressMs;
-      if (left < toEnd) {
-        const done = Math.floor((progressMs + left) / span.cycleMs);
+      const toRest = (rules.fatigueMax - fatigue) * rules.cycleMs - progressMs;
+      if (left < toRest) {
+        const done = Math.floor((progressMs + left) / rules.cycleMs);
         cycles += done;
         fatigue += done;
-        progressMs = (progressMs + left) % span.cycleMs;
+        progressMs = (progressMs + left) % rules.cycleMs;
         left = 0;
       } else {
-        cycles += end - fatigue;
-        left -= toEnd;
-        fatigue = end;
+        cycles += rules.fatigueMax - fatigue;
+        left -= toRest;
+        fatigue = rules.fatigueMax;
+        phase = PHASE_REST;
         progressMs = 0;
-        if (fatigue >= rules.fatigueMax) phase = PHASE_REST;
       }
     } else {
       const toWork = fatigue * rules.restStepMs - progressMs;

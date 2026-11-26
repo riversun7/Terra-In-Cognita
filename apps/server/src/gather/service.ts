@@ -25,7 +25,6 @@ import {
   anchorAt,
   anchorCenter,
   arrivalAt,
-  fatiguePenalty,
   footprintRect,
   positionAt,
 } from "@terra/sim";
@@ -468,14 +467,7 @@ export function createGatherService(deps: GatherDeps): GatherService {
       return;
     }
     const primary = Math.max(0, ...crew.map((w) => statOf(deps.primaries(w.unitId), kind.primary) ?? 0));
-    // 피로 구간 불이익(N23): 이끄는 유닛의 지금 피로만큼 한 번 캐는 시간이 길어진다
-    const ruleNow = deps.rules();
-    const duration = gatherDurationMs(
-      kind,
-      primary,
-      ruleNow.productionMainDivisor,
-      fatiguePenalty(where.info.job.fatigue, ruleNow).abilityPm,
-    );
+    const duration = gatherDurationMs(kind, primary, deps.rules().productionMainDivisor);
     action.phase = "gathering";
     action.motion = where.info.motion;
     action.updatedAt = now();

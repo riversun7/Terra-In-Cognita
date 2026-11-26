@@ -104,6 +104,8 @@ export interface UnitGear {
   readonly effects: readonly GearEffect[];
   /** 부상 불이익(1차 스탯 ‰ 감소, D-514 — 그 시각의 부상 단계 × 설정 칸). 없으면 0. 몸을 다시 만들 까닭(hasGear)에는 넣지 않는다 */
   readonly injuryPm?: number | undefined;
+  /** 피로 구간의 스탯 감소(1차 스탯 ‰, 사용자 결정 2026-11-26 — 그 유닛의 지금 피로 × 설정 칸 구간). 없으면 0 */
+  readonly fatiguePm?: number | undefined;
 }
 
 export const NO_GEAR: UnitGear = { equipped: [], effects: [] };
@@ -215,6 +217,7 @@ export function bodySpecOf(base: BodyBase, gear: UnitGear): BodySpec {
       source: "baseline",
       buffs,
       injuryPm: gear.injuryPm,
+      fatiguePm: gear.fatiguePm,
     };
   if (base.kind === "stats")
     return {
@@ -230,6 +233,7 @@ export function bodySpecOf(base: BodyBase, gear: UnitGear): BodySpec {
       ...(base.elements ? { elements: base.elements } : {}),
       buffs,
       injuryPm: gear.injuryPm,
+      fatiguePm: gear.fatiguePm,
     };
   const { record } = base;
   return {
@@ -245,6 +249,7 @@ export function bodySpecOf(base: BodyBase, gear: UnitGear): BodySpec {
     elements: elementsToArray(sumElementSources(record.elements ?? zeroElements(), [])),
     buffs,
     injuryPm: gear.injuryPm,
+    fatiguePm: gear.fatiguePm,
   };
 }
 
@@ -504,7 +509,12 @@ export interface BodyPair {
  * 걸린 효과를 뺀 몸 사양(사이보그 판 줄 값의 기본): 1차 스탯 버프·디버프와 부상 불이익(D-514, 1차 출처에 효과 "injury"로 보이는 몫)을
  * 뺀다 — 1차 줄의 몫(출처의 effect 합)과 2차·판정 값 줄의 몫이 같은 것을 센다
  */
-export const withoutBuffs = (spec: BodySpec): BodySpec => ({ ...spec, buffs: [], injuryPm: 0 });
+export const withoutBuffs = (spec: BodySpec): BodySpec => ({
+  ...spec,
+  buffs: [],
+  injuryPm: 0,
+  fatiguePm: 0,
+});
 
 /** 효과 합을 읽는 판정 그릇: 전투 시작 때 걸리는 효과(battleState와 같은 변환)만 든다 */
 function holderOf(effects: readonly StartEffect[]): EffectHolder {

@@ -20,11 +20,8 @@ describe("사이보그 생활비(D-453: 유닛 유지비 규칙 D-150, 못 내�
     const weights = [1000, 0, 0, 1000, 0, 0];
     expect(efficiencyScore(primaries, weights, 0, 100, c)).toBe(20);
     expect(efficiencyScore(primaries, weights, 0, 100, c, true)).toBe(14);
-    // 주거 등급 1(1.5배)·만족도 100: 1500‰ → 못 내면 × 700‰
+    // 피로 회복은 생활비 미납과 무관하다(사용자 결정 2026-11-26): 주거 등급 1(1.5배)·만족도 100 = 1500‰
     expect(recoveryPm(1, 100_000, c)).toBe(1500);
-    expect(recoveryPm(1, 100_000, c, true)).toBe(1050);
-    // 노숙 불이익과 겹친다(곱)
-    expect(recoveryPm(0, 100_000, c, true)).toBe(Math.floor((recoveryPm(0, 100_000, c) * 700) / 1000));
   });
 });
 

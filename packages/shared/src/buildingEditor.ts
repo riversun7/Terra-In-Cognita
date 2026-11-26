@@ -185,6 +185,8 @@ export interface FacilityJson {
   /** 레벨당 일하는 자리(Lv × 이 값) */
   readonly slotsPerLevel: number;
   readonly pollution?: number | undefined;
+  /** 숙소의 피로 회복 배율(‰). 없으면 레벨로 센다(팩 스키마 restRecoveryPm) */
+  readonly restRecoveryPm?: number | undefined;
   readonly gather?: FacilityGatherJson | undefined;
   readonly build?: FacilityBuildJson | undefined;
   /** 장비 수리 줄(D-512 323, 옛 공방 REPAIR_MAP). 없으면 수리하지 않는 시설 */
@@ -231,6 +233,7 @@ export interface FacilityJson {
 export const FACILITY_LIMITS = {
   slotsPerLevel: { min: 0, max: 1000 },
   pollution: { min: 0, max: 10_000 },
+  restRecoveryPm: { min: 1, max: 100_000 },
   yieldBase: { min: 0, max: 1000 },
   yieldPerStatPm: { min: 0, max: 100_000 },
   yieldCap: { min: 1, max: 1000 },

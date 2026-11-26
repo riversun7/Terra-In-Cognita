@@ -269,10 +269,11 @@ const commitOf = (made: number, lots: number, capped = false, clipped = false) =
 describe("채집소 레벨 버프", () => {
   it("반경 = 기본 + 레벨 걸음, 수확 = 레벨 효율, 피로·다시 자람 = 기본 − 레벨 걸음(하한)", () => {
     const rules = TEST_SOCIETY_COEFFICIENTS.gatherObjects;
-    expect(stationBuffs(rules, 1)).toEqual({ radiusCells: 40, yieldPm: 1000, fatiguePm: 500, regrowPm: 500 });
-    expect(stationBuffs(rules, 3)).toEqual({ radiusCells: 48, yieldPm: 1400, fatiguePm: 400, regrowPm: 400 });
-    // 하한 200‰
-    expect(stationBuffs(rules, 20)).toMatchObject({ fatiguePm: 200, regrowPm: 200 });
+    // 피로: 레벨 1 −10%, 레벨마다 −10%p(사용자 결정 2026-11-26)
+    expect(stationBuffs(rules, 1)).toEqual({ radiusCells: 40, yieldPm: 1000, fatiguePm: 900, regrowPm: 500 });
+    expect(stationBuffs(rules, 3)).toEqual({ radiusCells: 48, yieldPm: 1400, fatiguePm: 700, regrowPm: 400 });
+    // 하한 100‰(−90%)
+    expect(stationBuffs(rules, 20)).toMatchObject({ fatiguePm: 100, regrowPm: 100 });
     // 기본이 하한보다 작으면 기본 그대로
     expect(stationBuffs({ ...rules, campFatiguePm: 100 }, 5).fatiguePm).toBe(100);
   });
@@ -341,14 +342,14 @@ describe("채집소 일꾼 산출·창고", () => {
       }),
     ).toBe(true);
     r.map.setJob(1, { job: JOB_GATHER, phase: PHASE_WORK, progressMs: 0, fatigue: 10 });
-    r.runtime.hook.plan(r.mineId, 1, null)?.commit(commitOf(5, 1));
+    r.runtime.hook.plan(r.mineId, 1, null)?.commit(commitOf(25, 1));
     // 남의 정산에는 건드리지 않는다
     r.runtime.hook.afterSettle(TENANT);
     expect(r.map.unitInfo(1)?.job.fatigue).toBe(10);
-    // 5주기 × 500‰ = 2.5점 → 2점 덜고 0.5점은 다음에
+    // 25주기 × (1000 − 900)‰ = 2.5점 → 2점 덜고 0.5점은 다음에
     r.runtime.hook.afterSettle(OWNER);
     expect(r.map.unitInfo(1)?.job.fatigue).toBe(8);
-    r.runtime.hook.plan(r.mineId, 1, null)?.commit(commitOf(1, 1));
+    r.runtime.hook.plan(r.mineId, 1, null)?.commit(commitOf(5, 1));
     r.runtime.hook.afterSettle(OWNER);
     expect(r.map.unitInfo(1)?.job.fatigue).toBe(7);
   });
@@ -503,7 +504,7 @@ describe("농장 채집소(오브젝트 없음, 756 ②)", () => {
     expect(r.runtime.status(2)).toMatchObject({ state: "storage_full", lots: 6 });
   });
 
-  it("정산 뒤 피로 덜기(레벨 1 = 500‰), 막혀 하나도 못 끝냈으면 모두", () => {
+  it("정산 뒤 피로 덜기(레벨 1 = 100‰), 막혀 하나도 못 끝냈으면 모두", () => {
     const r = rig();
     expect(
       r.map.addUnit({
@@ -517,7 +518,7 @@ describe("농장 채집소(오브젝트 없음, 756 ②)", () => {
       }),
     ).toBe(true);
     r.map.setJob(2, { job: JOB_GATHER, phase: PHASE_WORK, progressMs: 0, fatigue: 10 });
-    r.runtime.hook.plan(r.farmId, 2, null)?.commit(commitOf(4, 1));
+    r.runtime.hook.plan(r.farmId, 2, null)?.commit(commitOf(20, 1));
     r.runtime.hook.afterSettle(OWNER);
     expect(r.map.unitInfo(2)?.job.fatigue).toBe(8);
     r.runtime.hook.plan(r.farmId, 2, 0n)?.commit(commitOf(3, 0, true));

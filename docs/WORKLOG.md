@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-26 13:30 | 피로 불이익을 1차 스탯 감소로 바꿈, 직접 채집 피로 10·시설 감소, 숙소 종류별 회복 배율 | Claude Code | [26-1330-fatigue-stat-penalty](worklog/2026/11/26-1330-fatigue-stat-penalty.md) |
 | 2026-11-26 09:00 | 피로 구간 불이익(N23)을 직접 채집·직무·걷기에 건다 | Claude Code | [26-0900-fatigue-band-penalty](worklog/2026/11/26-0900-fatigue-band-penalty.md) |
 | 2026-11-26 00:15 | NPC 시설 일자리(자원 값 안의 임금), 가입비 나라 시작 막기, 본체 숙박비, 노동 표 화폐 제약 | Claude Code | [26-0015-npc-facility-jobs-and-start-fee-block](worklog/2026/11/26-0015-npc-facility-jobs-and-start-fee-block.md) |
 | 2026-11-25 23:55 | 기본 아머 재생 0 · 전투 후 아머 회복 방어구 내구도 차감 · 내구도 0 비활성 표시 | Antigravity | [25-2355-armor-recovery-durability-and-inactive-gear](worklog/2026/11/25-2355-armor-recovery-durability-and-inactive-gear.md) |

@@ -91,6 +91,11 @@ export function createWorldHoldings(input: {
   readonly seed: () => number;
   /** 전투 밖 HP(D-512, 생명 수치 서비스). 없으면 회복 물약은 전투 중에만 */
   readonly vitals?: HoldingVitals | undefined;
+  /**
+   * 피로 → 1차 스탯 감소 ‰(사용자 결정 2026-11-26 — @terra/sim fatigueStatCutPm, 설정 칸 피로 구간). 없으면 감소 없음. 유닛의 피로는 2차맵 직무
+   * 상태의 마지막 정산 값이다
+   */
+  readonly fatigueCutPm?: ((fatigue: number) => number) | undefined;
 }): WorldHoldings {
   const { maps, cyborgs, config } = input;
   const infoOf = (unitId: number) => {
@@ -115,8 +120,14 @@ export function createWorldHoldings(input: {
     if (stage === 0) return 0;
     return (config?.rules?.() ?? TEST_HOLDING_RULES).vitals.injuryPenaltyPm[stage] ?? 0;
   };
+  /** 피로 구간의 스탯 감소 ‰(그 유닛의 지금 피로) */
+  const fatiguePmOf = (unitId: number): number => {
+    const fatigue = infoOf(unitId)?.job.fatigue ?? 0;
+    return fatigue > 0 ? (input.fatigueCutPm?.(fatigue) ?? 0) : 0;
+  };
   const gearOf = (unitId: number, nowMs: number): UnitGear => ({
     injuryPm: injuryPmOf(unitId, nowMs),
+    fatiguePm: fatiguePmOf(unitId),
     equipped: service.equippedOn(unitId).map((record) => ({
       item: record.itemId,
       slot: record.slot ?? 0,

@@ -4481,6 +4481,8 @@
   "dev_buildings_category_desc": "도시 화면 건물 무리와 지도 이름표 색을 정합니다(기획 D-560). 고르지 않으면 생산 단계에서 고른 값입니다.",
   "dev_buildings_field_max_level": "최고 레벨(비우면 5)",
   "dev_buildings_field_slots": "레벨당 일하는 자리",
+  "dev_buildings_field_rest_recovery": "숙소 피로 회복 배율(‰, 비우면 레벨로 셈)",
+  "dev_buildings_rest_recovery_desc": "이 시설에서 쉬는 일꾼의 피로 회복 = 기본(3분에 1점) × 이 값. 1000 = 그대로, 2000 = 두 배. 레벨은 침대 수만 늘립니다.",
   "dev_buildings_field_pollution": "오염(Lv1·1시간, 비우면 0)",
   "dev_buildings_section_build": "건설 재료",
   "dev_buildings_build_hint": "레벨 L 재료 = 줄마다 round(수량 × L² × 분류 배율 ÷ 1000), 수량은 묶음 단위입니다. 옛 건물 티어를 시설 레벨로 읽었습니다(기술 해석).",

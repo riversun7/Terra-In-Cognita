@@ -550,11 +550,12 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   shareSaleAmount: 100,
   shareSalePrice: 10,
   fatigueMax: 120,
+  // 사용자 결정 2026-11-26: 피로 90·100·110 이상 → 1차 스탯 −10%·−20%·−30%(능력 ‰ = 남는 몫). 이동 ‰는 쓰지 않는다(AGI 감소로 걷기가 느려진다)
   fatigueBands: [
     { from: 0, abilityPm: 1000, movePm: 1000 },
-    { from: 31, abilityPm: 900, movePm: 1000 },
-    { from: 61, abilityPm: 750, movePm: 850 },
-    { from: 91, abilityPm: 500, movePm: 700 },
+    { from: 90, abilityPm: 900, movePm: 1000 },
+    { from: 100, abilityPm: 800, movePm: 1000 },
+    { from: 110, abilityPm: 700, movePm: 1000 },
   ],
   fatigueRecoverStepMs: 180_000,
   housingRecoveryPm: [1000, 1500, 2000, 3000],

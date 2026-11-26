@@ -4481,6 +4481,8 @@
   "dev_buildings_category_desc": "Groups buildings on the city screen and colours map labels (design D-560). If not picked, it follows the production stage.",
   "dev_buildings_field_max_level": "Max level (blank = 5)",
   "dev_buildings_field_slots": "Work slots per level",
+  "dev_buildings_field_rest_recovery": "Lodging fatigue recovery (‰, blank = by level)",
+  "dev_buildings_rest_recovery_desc": "Fatigue recovery for workers resting here = base (1 point per 3 min) × this value. 1000 = unchanged, 2000 = double. Level only adds beds.",
   "dev_buildings_field_pollution": "Pollution (Lv1 per hour, blank = 0)",
   "dev_buildings_section_build": "Construction materials",
   "dev_buildings_build_hint": "Level L cost = per line round(qty × L² × category multiplier ÷ 1000); quantities are in lots. Old building tiers are read as facility levels (technical interpretation).",

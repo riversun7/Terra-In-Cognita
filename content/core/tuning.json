@@ -367,7 +367,7 @@
         "ko": "피로 구간 1 시작",
         "en": "Fatigue band 1 start"
       },
-      "value": 31,
+      "value": 90,
       "structural": false,
       "desc": {
         "ko": "피로가 이 값에 이르면 1구간 불이익이 붙는다.",
@@ -412,7 +412,7 @@
         "ko": "피로 구간 2 시작",
         "en": "Fatigue band 2 start"
       },
-      "value": 61,
+      "value": 100,
       "structural": false,
       "desc": {
         "ko": "피로가 이 값에 이르면 2구간 불이익이 붙는다.",
@@ -427,7 +427,7 @@
         "ko": "피로 구간 2 능력(‰)",
         "en": "Fatigue band 2 ability (‰)"
       },
-      "value": 750,
+      "value": 800,
       "structural": false,
       "desc": {
         "ko": "2구간 능력 배율.",
@@ -442,7 +442,7 @@
         "ko": "피로 구간 2 이동(‰)",
         "en": "Fatigue band 2 move (‰)"
       },
-      "value": 850,
+      "value": 1000,
       "structural": false,
       "desc": {
         "ko": "2구간 이동 배율.",
@@ -457,7 +457,7 @@
         "ko": "피로 구간 3 시작",
         "en": "Fatigue band 3 start"
       },
-      "value": 91,
+      "value": 110,
       "structural": false,
       "desc": {
         "ko": "피로가 이 값에 이르면 3구간(가장 무거운) 불이익이 붙는다.",
@@ -472,7 +472,7 @@
         "ko": "피로 구간 3 능력(‰)",
         "en": "Fatigue band 3 ability (‰)"
       },
-      "value": 500,
+      "value": 700,
       "structural": false,
       "desc": {
         "ko": "3구간 능력 배율.",
@@ -487,7 +487,7 @@
         "ko": "피로 구간 3 이동(‰)",
         "en": "Fatigue band 3 move (‰)"
       },
-      "value": 700,
+      "value": 1000,
       "structural": false,
       "desc": {
         "ko": "3구간 이동 배율.",
@@ -10550,7 +10550,7 @@
         "ko": "시설 반경 안 피로 배율(‰)",
         "en": "Fatigue near a facility (‰)"
       },
-      "value": 500,
+      "value": 900,
       "structural": false,
       "unit": "pm",
       "min": 0,
@@ -10586,7 +10586,7 @@
         "ko": "채집 한 번의 피로(점)",
         "en": "Fatigue per gather (points)"
       },
-      "value": 1,
+      "value": 10,
       "structural": false,
       "unit": "points",
       "min": 0,
@@ -10658,7 +10658,7 @@
         "ko": "채집소 레벨당 피로 배율 줄임(‰)",
         "en": "Gather station fatigue cut per level (‰)"
       },
-      "value": 50,
+      "value": 100,
       "structural": false,
       "unit": "pm",
       "min": 0,
@@ -10694,7 +10694,7 @@
         "ko": "채집소 피로·다시 자람 배율 하한(‰)",
         "en": "Gather station fatigue/regrow floor (‰)"
       },
-      "value": 200,
+      "value": 100,
       "structural": false,
       "unit": "pm",
       "min": 1,

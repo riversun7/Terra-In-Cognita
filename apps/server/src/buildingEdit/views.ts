@@ -38,6 +38,7 @@ export function facilityJsonOf(entry: FacilityEntry): FacilityJson {
     ...(entry.maxLevel === undefined ? {} : { maxLevel: entry.maxLevel }),
     slotsPerLevel: entry.slotsPerLevel,
     ...(entry.pollution === undefined ? {} : { pollution: entry.pollution }),
+    ...(entry.restRecoveryPm === undefined ? {} : { restRecoveryPm: entry.restRecoveryPm }),
     ...(gather
       ? {
           gather: {

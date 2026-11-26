@@ -8,6 +8,7 @@ import { randomInt, randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import { EARTH_FACE_LEVEL } from "@terra/planet";
 import type { BattleInit, CombatCatalog, CombatCoefficients } from "@terra/sim";
+import { fatigueStatCutPm } from "@terra/sim";
 import type { WorldDirectory } from "./gateway.ts";
 import { type Ledger, createLedger } from "../economy/ledger.ts";
 import { type MemoryChecks, checkMemoryInvariants, checkSqlInvariants } from "./invariants.ts";
@@ -628,6 +629,8 @@ export function startWorld(
       config: config.holdings,
       now,
       seed: () => randomInt(0x1_0000_0000),
+      // 피로 구간의 1차 스탯 감소(사용자 결정 2026-11-26): 작업·전투·걷기가 같은 몸(gearOf)을 읽어 함께 느려진다
+      fatigueCutPm: (fatigue) => fatigueStatCutPm(fatigue, (config.cyborgRules ?? defaultCyborgRules)()),
       vitals: {
         hp: (unitId, nowMs) => {
           const read = vitals.service.read(unitId, nowMs);

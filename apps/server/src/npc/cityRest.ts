@@ -35,6 +35,8 @@ export interface RestLodging {
   readonly id: number;
   readonly area: TripArea;
   readonly level: number;
+  /** 그 숙소 종류의 회복 배율(‰, 팩 시설 restRecoveryPm). 없으면 레벨로 센다 */
+  readonly recoveryPm?: number | undefined;
   readonly ownerId: number | null;
   /** 세계 씨앗이 세운 숙소(질문 1131 나): Lv1 침대는 시작 도시 주거에 든 것이라 인구 상한에 더하지 않는다 */
   readonly seeded?: boolean | undefined;
@@ -160,7 +162,7 @@ export function planCityRest(input: CityRestInput): CityRestPlan {
         rest = {
           facilityId: facility.id,
           lodgingId: best.lodging.id,
-          place: { kind: "lodging", level: best.lodging.level },
+          place: { kind: "lodging", level: best.lodging.level, recoveryPm: best.lodging.recoveryPm },
           commuteCells: best.near,
         };
       } else {
@@ -282,7 +284,7 @@ export function planPlayerRest(input: {
       free.set(best.lodging.id, (free.get(best.lodging.id) ?? 0) - 1);
       out.set(worker.unitId, {
         lodgingId: best.lodging.id,
-        place: { kind: "lodging", level: best.lodging.level },
+        place: { kind: "lodging", level: best.lodging.level, recoveryPm: best.lodging.recoveryPm },
         commuteCells: best.near,
       });
     } else

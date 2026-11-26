@@ -19,6 +19,9 @@ describe("숙소 회복", () => {
   it("숙소 레벨이 주거 등급 배율(N24)을 따르고, 집은 기본·노숙은 S25", () => {
     expect(restRecoveryPm({ kind: "lodging", level: 1 }, c)).toBe(1500);
     expect(restRecoveryPm({ kind: "lodging", level: 3 }, c)).toBe(3000);
+    // 숙소 종류의 배율 칸(사용자 결정 2026-11-26): 있으면 레벨과 상관없이 그 값
+    expect(restRecoveryPm({ kind: "lodging", level: 3, recoveryPm: 1500 }, c)).toBe(1500);
+    expect(restRecoveryPm({ kind: "lodging", level: 1, recoveryPm: 2500 }, c)).toBe(2500);
     expect(restRecoveryPm({ kind: "home" }, c)).toBe(1000);
     expect(restRecoveryPm({ kind: "homeless" }, c)).toBe(100);
   });

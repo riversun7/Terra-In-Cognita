@@ -19,7 +19,12 @@ export { type LogisticsCoefficients, START_LOGISTICS } from "./logisticsCoeffici
 
 /** 일꾼이 쉬는 곳: 숙소(레벨), 숙소 없는 집(도시 주거 수 안), 노숙 */
 export type RestPlace =
-  | { readonly kind: "lodging"; readonly level: number }
+  | {
+      readonly kind: "lodging";
+      readonly level: number;
+      /** 그 숙소 종류의 회복 배율(‰, 팩 시설 restRecoveryPm — 사용자 결정 2026-11-26). 없으면 레벨로 센다(N24) */
+      readonly recoveryPm?: number | undefined;
+    }
   | { readonly kind: "home" }
   | { readonly kind: "homeless" };
 
@@ -50,7 +55,10 @@ export function walkMsPerCell(speed: number = WALK_SPEED): number {
 
 /** 쉬는 곳의 회복 배율(‰). 만족도는 가득으로 본다(도시 경제는 사람마다 만족도를 모른다 [임시]) */
 export function restRecoveryPm(place: RestPlace, c: SocietyCoefficients): number {
-  if (place.kind === "lodging") return recoveryPm(Math.max(1, place.level), SATISFACTION_MAX_MILLI, c);
+  if (place.kind === "lodging")
+    return place.recoveryPm === undefined
+      ? recoveryPm(Math.max(1, place.level), SATISFACTION_MAX_MILLI, c)
+      : Math.max(1, Math.trunc(place.recoveryPm));
   if (place.kind === "homeless") return recoveryPm(0, SATISFACTION_MAX_MILLI, c);
   return Math.max(1, Math.trunc(c.logistics.homeRecoveryPm));
 }

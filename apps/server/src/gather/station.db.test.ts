@@ -213,7 +213,7 @@ describe.skipIf(!TEST_DATABASE_URL)("채집소(DB)", () => {
       level: 1,
       mine: true,
       cityId,
-      buffs: { radiusCells: 40, yieldPm: 1000, fatiguePm: 500, regrowPm: 500 },
+      buffs: { radiusCells: 40, yieldPm: 1000, fatiguePm: 900, regrowPm: 500 },
       haul: { everyMs: 600_000 },
     });
     expect(view.objects?.usesLeft).toBe(after);
@@ -295,9 +295,8 @@ describe.skipIf(!TEST_DATABASE_URL)("채집소(DB)", () => {
     expect(sum(buildingLocation(farmId))).toBeGreaterThan(0n);
     expect(sum(cityLocation(cityId ?? 0))).toBe(cityBefore);
     expect(current.station.status(unitId)).toMatchObject({ buildingId: farmId, state: "working" });
-    // 피로: 90분 = 80주기(피로 구간 불이익 N23 — 31주기는 60초, 다음 30주기는 66.7초, 그 뒤는 80초씩 19주기) × 1점
-    // − 레벨 1 피로 덜기 (1000 − 500)‰ = 40점
-    expect(map.unitInfo(unitId)?.job.fatigue).toBe(40);
+    // 피로: 90주기 × 1점 − 레벨 1 피로 덜기 (1000 − 900)‰ = 81점(시설 레벨 1 = −10%, 사용자 결정 2026-11-26)
+    expect(map.unitInfo(unitId)?.job.fatigue).toBe(81);
 
     const view = gatherReadsOf(() => gather.current()).station(
       { id: userId, loginId: "fake_farm_station", roles: [] },
@@ -309,14 +308,14 @@ describe.skipIf(!TEST_DATABASE_URL)("채집소(DB)", () => {
       kind: "facility",
       mine: true,
       objects: null,
-      buffs: { radiusCells: null, yieldPm: 1000, fatiguePm: 500, regrowPm: null },
+      buffs: { radiusCells: null, yieldPm: 1000, fatiguePm: 900, regrowPm: null },
       haul: { everyMs: 600_000 },
     });
     expect(view.haul.nextAtMs).not.toBeNull();
     expect(view.storage.capacityGrams).toBe("300000");
     expect(view.storage.goods.length).toBeGreaterThan(0);
     expect(view.workers).toEqual([
-      expect.objectContaining({ unitId, via: "assign", state: "working", fatigue: 40 }),
+      expect.objectContaining({ unitId, via: "assign", state: "working", fatigue: 81 }),
     ]);
     expect(view.upgrade?.buffs).toMatchObject({ radiusCells: null, yieldPm: 1200, regrowPm: null });
 

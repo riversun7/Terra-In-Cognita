@@ -116,6 +116,7 @@ export function cleanFacility(entry: FacilityJson): FacilityJson {
     ...(entry.maxLevel === undefined ? {} : { maxLevel: entry.maxLevel }),
     slotsPerLevel: entry.slotsPerLevel,
     ...(entry.pollution === undefined ? {} : { pollution: entry.pollution }),
+    ...(entry.restRecoveryPm === undefined ? {} : { restRecoveryPm: entry.restRecoveryPm }),
     // 건물 런타임 칸(docs/adr/2026-11-07-buildings-runtime.md): 빼면 다른 칸만 고쳐도 덮어쓰기가 이 칸을 지운다
     ...(entry.footprint === undefined
       ? {}
@@ -175,6 +176,7 @@ export function mergeFacility(
     maxLevel: pick("maxLevel"),
     slotsPerLevel: pick("slotsPerLevel"),
     pollution: pick("pollution"),
+    restRecoveryPm: pick("restRecoveryPm"),
     footprint: pick("footprint"),
     durability: pick("durability"),
     storageKg: pick("storageKg"),

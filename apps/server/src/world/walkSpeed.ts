@@ -17,9 +17,7 @@
 import {
   type CombatCoefficients,
   MIN_MOVE_SPEED_PM,
-  type SocietyCoefficients,
   TEST_COMBAT_COEFFICIENTS,
-  fatigueMoveSpeed,
   walkSpeedOf,
 } from "@terra/sim";
 import type { CyborgService } from "../cyborg/service.ts";
@@ -42,8 +40,6 @@ export interface WalkUnit {
   /** 지금 빠르기(단위/초) */
   readonly speed: number;
   readonly domain: string;
-  /** 직무 상태의 피로(마지막 정산 값 — 피로 구간 이동 불이익 N23). 없으면 불이익 없음 */
-  readonly job?: { readonly fatigue: number } | undefined;
 }
 
 export interface WalkSpeeds {
@@ -81,7 +77,7 @@ function bodyKey(base: ReturnType<typeof worldBodyBase>, gear: UnitGear): string
     base.kind === "cyborg"
       ? `c${base.record.level}/${base.record.rebirths}/${base.record.initial.agi}/${base.record.kPm.agi}`
       : "b";
-  key += `|${gear.injuryPm ?? 0}`;
+  key += `|${gear.injuryPm ?? 0}|${gear.fatiguePm ?? 0}`;
   for (const item of gear.equipped)
     key += `|${item.item}@${item.slot}:${item.durability === 0 ? 0 : 1}:${item.stats.map((s) => `${s.stat}=${s.value}`).join(",")}`;
   for (const effect of gear.effects)
@@ -122,7 +118,8 @@ export function createWalkSpeeds(input: {
       base.kind === "baseline" &&
       gear.equipped.length === 0 &&
       gear.effects.length === 0 &&
-      !gear.injuryPm
+      !gear.injuryPm &&
+      !gear.fatiguePm
     ) {
       agis.delete(unitId);
       return { agi: BASELINE_PRIMARY, movePm: 0 };
@@ -184,24 +181,13 @@ export function walkSpeedsOf(
   gearOf: (unitId: number, nowMs: number) => UnitGear,
   catalog: (() => RosterCatalog) | undefined,
   now: () => number,
-  rules?: () => {
-    readonly boats: { readonly speed: number };
-    readonly fatigueBands?: SocietyCoefficients["fatigueBands"] | undefined;
-  },
+  rules?: () => { readonly boats: { readonly speed: number } },
   /** 배 종류·내구도 빠르기 배율(‰, boats/hooks.ts — D-547 1484·1495). 없으면 1000 */
   boatPm?: (unitId: number) => number,
 ): (unit: WalkUnit) => number {
   const walk = createWalkSpeeds({ cyborgs, gearOf, catalog, fallback: TEST_COMBAT_COEFFICIENTS, now });
-  return (unit) => {
-    if (unit.kind === UNIT_KIND_BOAT && rules)
-      return Math.max(
-        1,
-        Math.round((boatSpeedOf(unit, rules().boats.speed) * (boatPm?.(unit.id) ?? 1000)) / 1000),
-      );
-    const speed = walk.speedOf(unit);
-    // 피로 구간의 이동 불이익(N23, 사용자 결정 2026-11-26): 걷는 유닛만, 이동을 시작할 때의 피로로(그 이동은 그 빠르기로 간다)
-    const fatigue = unit.job?.fatigue ?? 0;
-    const fatigueBands = fatigue > 0 && walksOnFoot(unit) ? rules?.().fatigueBands : undefined;
-    return fatigueBands ? fatigueMoveSpeed(speed, fatigue, { fatigueBands }) : speed;
-  };
+  return (unit) =>
+    unit.kind === UNIT_KIND_BOAT && rules
+      ? Math.max(1, Math.round((boatSpeedOf(unit, rules().boats.speed) * (boatPm?.(unit.id) ?? 1000)) / 1000))
+      : walk.speedOf(unit);
 }

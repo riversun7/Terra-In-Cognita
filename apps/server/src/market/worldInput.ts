@@ -159,12 +159,14 @@ export function cityRestPlacesOf(
         continue;
       const area = areas.get(record.buildingId);
       if (!area) continue;
-      const stage = facilityCatalog.facility(record.facilityId)?.stage;
+      const def = facilityCatalog.facility(record.facilityId);
+      const stage = def?.stage;
       if (stage === "living")
         lodgings.push({
           id: record.buildingId,
           area,
           level: record.level,
+          ...(def?.restRecoveryPm === undefined ? {} : { recoveryPm: def.restRecoveryPm }),
           ownerId: owners.get(record.buildingId) ?? null,
           ...(record.seeded === true ? { seeded: true } : {}),
         });

@@ -132,6 +132,11 @@ export const facilityEntrySchema = z.strictObject({
    */
   pollution: z.int().min(0).max(10_000).optional(),
   /**
+   * 숙소의 피로 회복 배율(‰ — 사용자 결정 2026-11-26 "숙소 레벨·등급보다는 숙소마다 배율을 정하는 옵션", 건물 종류마다 자료 칸). 이 시설에서
+   * 쉬는 일꾼의 회복 = 기본(N24 3분에 1점) × 이 값. 레벨은 침대 수만 늘린다. 없으면 옛 셈(주거 등급 = 레벨, N24 배율)
+   */
+  restRecoveryPm: z.int().min(1).max(100_000).optional(),
+  /**
    * 채집 티어 추첨(D-506, 질문 300·301): 이 시설의 레시피 가운데 산출이 모두 이 중분류인 것은 산출 묶음마다 티어를 뽑는다.
    * 유효 스탯 = 일꾼의 primary + secondary(43 §4: 광산 STR + VIT, 벌목 DEX + STR, 약초 INT + WIS, 낚시 AGI + DEX)
    * + 레벨 보너스(설정 칸 N43 n43_level_bonus × (레벨 − 1)), 확률표 = gather_tiers. 채집 단계(stage gather) 시설에만 쓴다

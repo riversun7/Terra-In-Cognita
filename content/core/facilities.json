@@ -1181,6 +1181,7 @@
       "category": "housing",
       "maxLevel": 3,
       "slotsPerLevel": 0,
+      "restRecoveryPm": 1500,
       "build": {
         "mulPm": 1000,
         "levels": [

@@ -233,10 +233,6 @@ describe("채집 셈", () => {
   it("걸리는 시간 = ⌈일 ÷ 진행 속도⌉(진행 속도 = max(1, ⌊주 스탯 ÷ 20⌋))", () => {
     expect(gatherDurationMs({ workMs: 20_000 }, 10, 20)).toBe(20_000);
     expect(gatherDurationMs({ workMs: 20_000 }, 60, 20)).toBe(6667);
-    // 피로 구간 불이익(N23 작업 속도): 능력 900‰ → 시간 ÷ 0.9, 500‰ → 두 배(올림)
-    expect(gatherDurationMs({ workMs: 20_000 }, 10, 20, 1000)).toBe(20_000);
-    expect(gatherDurationMs({ workMs: 20_000 }, 10, 20, 900)).toBe(22_223);
-    expect(gatherDurationMs({ workMs: 20_000 }, 10, 20, 500)).toBe(40_000);
   });
 
   it("효율: 직접 500‰, 시설 Lv1 1000‰ · Lv3 1400‰. 수확 ‰ 묶음과 나머지", () => {
@@ -252,8 +248,11 @@ describe("채집 셈", () => {
   });
 
   it("피로: 시설 반경 안이면 배율, 다시 자람: 오염 비례 + 시설 반경 안 배율", () => {
-    expect(gatherFatiguePm(rules, null)).toBe(1000);
-    expect(gatherFatiguePm(rules, 1)).toBe(500);
+    // 직접 채집 한 번 10점, 시설 반경 안(레벨 1)은 −10%(사용자 결정 2026-11-26)
+    expect(gatherFatiguePm(rules, null)).toBe(10_000);
+    expect(gatherFatiguePm(rules, 1)).toBe(9000);
+    expect(gatherFatiguePm(rules, 9)).toBe(1000);
+    expect(gatherFatiguePm(rules, 20)).toBe(1000);
     expect(regrowMs({ regrowMs: 1_800_000 }, rules, 0, null)).toBe(1_800_000);
     expect(regrowMs({ regrowMs: 1_800_000 }, rules, 100_000, null)).toBe(3_600_000);
     expect(regrowMs({ regrowMs: 1_800_000 }, rules, 50_000, 1)).toBe(1_350_000);

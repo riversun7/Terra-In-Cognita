@@ -7,7 +7,10 @@ import type { SocietyCoefficients } from "./coefficients.ts";
 
 export const SATISFACTION_MAX_MILLI = 100_000;
 
-/** 피로 구간 불이익(N23): 능력(공격·명중·공속, 직무는 작업 속도)·이동 ‰ */
+/**
+ * 피로 구간 값(N23): 능력 ‰ = 그 구간에서 남는 1차 스탯 몫(fatigueStatCutPm이 쓴다), 이동 ‰는 쓰지 않는다(걷기는 AGI 감소로 저절로 느려진다 —
+ * 사용자 결정 2026-11-26)
+ */
 export function fatiguePenalty(
   fatigue: number,
   c: Pick<SocietyCoefficients, "fatigueBands">,
@@ -18,16 +21,20 @@ export function fatiguePenalty(
 }
 
 /**
- * 피로 회복 배율(D-430, 48 §7.1) = 주거 등급 배율(N24) × 만족도 배율(N25) × 노숙 배율(S25) × 생활비 미납 배율(N38) (‰).
- * housing: 0 = 주거 없음(노숙, D-296), 1~3 = 주거 등급. livingUnpaid = 유닛 유지비(생활비)를 마지막 경계에 못 냄
- * (D-453·D-455 188: 노숙과 같은 자리, 사이보그 본체 포함)
+ * 피로 구간의 1차 스탯 감소(‰, 사용자 결정 2026-11-26 — docs/adr/2026-11-26-fatigue-stat-penalty.md): 피로가 구간 시작 이상이면 1차 스탯
+ * 여섯 칸을 모두 (1000 − 그 구간 능력 ‰)만큼 깎는다(출발값 90·100·110 이상 → 100·200·300‰). 작업·전투·걷기가 모두 1차 스탯에서
+ * 나오므로 따로 걸지 않는다. 0~1000으로 자른다
  */
-export function recoveryPm(
-  housing: number,
-  satisfactionMilli: number,
-  c: SocietyCoefficients,
-  livingUnpaid = false,
-): number {
+export function fatigueStatCutPm(fatigue: number, c: Pick<SocietyCoefficients, "fatigueBands">): number {
+  return Math.min(1000, Math.max(0, 1000 - fatiguePenalty(fatigue, c).abilityPm));
+}
+
+/**
+ * 피로 회복 배율(D-430, 48 §7.1) = 주거 등급 배율(N24) × 만족도 배율(N25) × 노숙 배율(S25) (‰).
+ * housing: 0 = 주거 없음(노숙, D-296), 1~3 = 주거 등급. 생활비(유지비) 미납은 피로 회복과 무관하다(사용자 결정 2026-11-26 —
+ * 옛 D-455 188의 회복 몫을 뺐다. 직무 효율 몫은 그대로 efficiencyScore)
+ */
+export function recoveryPm(housing: number, satisfactionMilli: number, c: SocietyCoefficients): number {
   const homeless = housing <= 0;
   const grade = Math.min(c.housingRecoveryPm.length - 1, Math.max(1, housing));
   const house = homeless ? 1000 : (c.housingRecoveryPm[grade] ?? 1000);
@@ -37,40 +44,13 @@ export function recoveryPm(
     Math.floor(((1000 - c.lowSatisfactionRecoveryPm) * sat) / SATISFACTION_MAX_MILLI);
   const homelessPm = homeless ? c.homelessRecoveryPm : 1000;
   const base = Math.floor((Math.floor((house * satPm) / 1000) * homelessPm) / 1000);
-  return Math.max(1, livingUnpaid ? Math.floor((base * c.cyborg.livingUnpaidPm) / 1000) : base);
+  return Math.max(1, base);
 }
 
-/**
- * 피로 구간 불이익(N23 작업 속도)을 정산 규칙에 얹는다(사용자 결정 2026-11-26): 피로가 그 구간일 때 일 주기 길이 = 기본 주기 × 1000 ÷ 능력 ‰
- * (올림). 능력 1000‰ 구간은 기본 주기 그대로다. 피로 상한도 계수표 값으로 맞춘다
- */
-export function rulesWithFatigueBands(base: JobRules, c: SocietyCoefficients): JobRules {
-  return {
-    ...base,
-    fatigueMax: c.fatigueMax,
-    workBands: c.fatigueBands.map((band) => ({
-      from: band.from,
-      cycleMs: Math.max(1, Math.ceil((base.cycleMs * 1000) / Math.max(1, band.abilityPm))),
-    })),
-  };
-}
-
-/**
- * 피로 구간의 이동 불이익(N23 이동 ‰)을 빠르기에 곱한다(내림, 1 이상). 피로가 불이익 없는 구간이면 그대로
- */
-export function fatigueMoveSpeed(
-  speed: number,
-  fatigue: number,
-  c: Pick<SocietyCoefficients, "fatigueBands">,
-): number {
-  const pm = fatiguePenalty(fatigue, c).movePm;
-  return pm >= 1000 ? speed : Math.max(1, Math.floor((speed * Math.max(0, pm)) / 1000));
-}
-
-/** 회복 배율을 정산 규칙(settle)에 얹는다: 피로 1점 푸는 시간 = 기본(N24 3분) ÷ 배율. 피로 구간 불이익(N23)도 같이 얹는다 */
+/** 회복 배율을 정산 규칙(settle)에 얹는다: 피로 1점 푸는 시간 = 기본(N24 3분) ÷ 배율. 정산 엔진은 그대로다 */
 export function rulesWithRecovery(base: JobRules, recovery: number, c: SocietyCoefficients): JobRules {
   return {
-    ...rulesWithFatigueBands(base, c),
+    ...base,
     fatigueMax: c.fatigueMax,
     restStepMs: Math.max(1, Math.floor((c.fatigueRecoverStepMs * 1000) / Math.max(1, recovery))),
   };

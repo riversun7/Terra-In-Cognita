@@ -58,10 +58,17 @@ export interface BodySpec {
    * (장비 1차 보너스에는 걸지 않는다). 효과 출처 ID "injury"로 보인다. 없거나 0이면 불이익 없음
    */
   readonly injuryPm?: number | undefined;
+  /**
+   * 피로 구간의 스탯 감소(‰, 사용자 결정 2026-11-26 — @terra/sim fatigueStatCutPm: 피로 90·100·110 이상 → 100·200·300‰). 부상 불이익과 같은
+   * 꼴로 성장값 + 버프에서 스탯마다 뺀다(부상과 따로 세어 더한다). 효과 출처 ID "fatigue". 없거나 0이면 감소 없음
+   */
+  readonly fatiguePm?: number | undefined;
 }
 
 /** 부상 불이익의 효과 출처 ID(사이보그 화면 1차 출처의 "효과" 칸에 든다) */
 export const INJURY_BUFF_ID = "injury";
+/** 피로 구간 스탯 감소의 효과 출처 ID */
+export const FATIGUE_BUFF_ID = "fatigue";
 
 /** 장비 칸 하나: 범위 자리(‰, 시안·미리 보기) 또는 굴린 값(보유 물건, 만들 때 정해짐 N49 285) */
 export type EquippedSpec =
@@ -215,13 +222,20 @@ function withBuffs(base: Primaries, buffs: readonly PrimaryBuff[] | undefined): 
 function buffsWithInjury(base: Primaries, spec: BodySpec): readonly PrimaryBuff[] {
   const buffs = spec.buffs ?? [];
   const pm = Math.min(1000, Math.max(0, spec.injuryPm ?? 0));
-  if (pm === 0) return buffs;
+  const tired = Math.min(1000, Math.max(0, spec.fatiguePm ?? 0));
+  if (pm === 0 && tired === 0) return buffs;
   const buffed = withBuffs(base, buffs);
-  const injury = PRIMARY_STATS.flatMap((stat): PrimaryBuff[] => {
-    const cut = Math.floor((Math.max(0, buffed[stat]) * pm) / 1000);
-    return cut > 0 ? [{ id: INJURY_BUFF_ID, stat, value: -cut }] : [];
+  // 부상·피로는 같은 바탕(성장값 + 버프)에서 따로 세어 뺀다(합이 바탕을 넘지 않게 피로 몫은 남은 값까지만)
+  const cuts = PRIMARY_STATS.flatMap((stat): PrimaryBuff[] => {
+    const whole = Math.max(0, buffed[stat]);
+    const injury = Math.floor((whole * pm) / 1000);
+    const fatigue = Math.min(whole - injury, Math.floor((whole * tired) / 1000));
+    return [
+      ...(injury > 0 ? [{ id: INJURY_BUFF_ID, stat, value: -injury }] : []),
+      ...(fatigue > 0 ? [{ id: FATIGUE_BUFF_ID, stat, value: -fatigue }] : []),
+    ];
   });
-  return [...buffs, ...injury];
+  return [...buffs, ...cuts];
 }
 
 /**

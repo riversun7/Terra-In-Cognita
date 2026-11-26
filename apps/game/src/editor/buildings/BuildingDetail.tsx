@@ -383,6 +383,7 @@ export function BuildingDetail({
                 "maxLevel",
                 "slotsPerLevel",
                 "pollution",
+                "restRecoveryPm",
                 "durability",
                 "storageKg",
                 "needsWaterWithin",
@@ -450,6 +451,16 @@ export function BuildingDetail({
                   min={FACILITY_LIMITS.pollution.min}
                   max={FACILITY_LIMITS.pollution.max}
                   onChange={(pollution) => edit({ ...draft, pollution })}
+                />
+                <NumberField
+                  label={m.dev_buildings_field_rest_recovery()}
+                  path="restRecoveryPm"
+                  desc={m.dev_buildings_rest_recovery_desc()}
+                  optional
+                  value={draft.restRecoveryPm}
+                  min={FACILITY_LIMITS.restRecoveryPm.min}
+                  max={FACILITY_LIMITS.restRecoveryPm.max}
+                  onChange={(restRecoveryPm) => edit({ ...draft, restRecoveryPm })}
                 />
                 <NumberField
                   label={m.dev_buildings_field_durability()}

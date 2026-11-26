@@ -232,6 +232,29 @@ describe("입은 장비 → 사이보그 화면(cyborg.get 몸)", () => {
     expect(hasGear({ ...NO_GEAR, injuryPm: 400 })).toBe(false);
   });
 
+  it("피로 구간 스탯 감소(사용자 결정 2026-11-26): 1차 스탯 여섯 칸을 ‰만큼 빼고(효과 출처 fatigue), 부상과 따로 세어 더한다. 걷기 AGI도 준다", () => {
+    const tired: UnitGear = { ...NO_GEAR, fatiguePm: 300 };
+    const body = realCyborgBody(catalog, record, false, tired);
+    // 10 → −⌊10 × 0.3⌋ = −3 (여섯 칸 모두)
+    for (const stat of ["str", "vit", "int", "wis", "dex", "agi"] as const)
+      expect(body.stats.primaries[stat]).toEqual({ base: 10, bonus: -3 });
+    expect(body.primarySources.agi).toEqual([
+      { kind: "body", value: 10 },
+      { kind: "effect", id: "fatigue", value: -3 },
+    ]);
+    // 부상 400‰ + 피로 300‰: −4, −3
+    const both = realCyborgBody(catalog, record, false, { ...NO_GEAR, injuryPm: 400, fatiguePm: 300 });
+    expect(both.stats.primaries.str).toEqual({ base: 10, bonus: -7 });
+    expect(both.primarySources.str).toEqual([
+      { kind: "body", value: 10 },
+      { kind: "effect", id: "injury", value: -4 },
+      { kind: "effect", id: "fatigue", value: -3 },
+    ]);
+    // 걷기(AGI)도 함께 느려진다
+    expect(walkAgiOf(catalog, { kind: "cyborg", record }, tired)).toBe(7);
+    expect(walkAgiOf(catalog, { kind: "cyborg", record }, NO_GEAR)).toBe(10);
+  });
+
   it("실제 스태미나 회복 = 행 값 × min(2, STA 점수 ÷ 적정 STA)(D-511 real_stamina_regen)", () => {
     const fresh = realCyborgBody(catalog, record, false);
     expect(fresh.combat?.staminaRegen).toEqual({ row: 720, score: 10, appropriateMilli: 10_000, real: 720 });

@@ -18,7 +18,6 @@ import {
   TEST_JOB_RULES,
   restPeriodMs,
   restRecoveryPm,
-  rulesWithFatigueBands,
   rulesWithRecovery,
 } from "@terra/sim";
 import { unitPurseLocation } from "@terra/shared/businessBooks";
@@ -227,17 +226,17 @@ export function createWorkerRest(deps: WorkerRestDeps): WorkerRest {
     },
     rulesFor(ownerId, units, fromMs, toMs) {
       const c = deps.rules();
-      // 쉼터가 없는 유닛도 피로 구간 불이익(N23 작업 속도)은 받는다(사용자 결정 2026-11-26) — 기본 규칙에 구간만 얹는다
-      const plain = rulesWithFatigueBands(TEST_JOB_RULES, c);
+      let any = false;
       const out = units.map((unit) => {
         const rest = restOf(unit.id);
-        if (!rest) return plain;
+        if (!rest) return undefined;
+        any = true;
         const paid = chargeFee(ownerId, unit.id, rest, toMs - fromMs, toMs);
         // 숙박비를 다 못 내면 회복이 떨어진다(D-555 1508, 노숙 회복 [임시])
         const recovery = paid ? rest.recoveryPm : restRecoveryPm({ kind: "homeless" }, c);
         return rulesWithRecovery(TEST_JOB_RULES, recovery, c);
       });
-      return out;
+      return any ? out : undefined;
     },
   };
 }

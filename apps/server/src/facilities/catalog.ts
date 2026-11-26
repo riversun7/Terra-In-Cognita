@@ -38,6 +38,8 @@ export interface FacilityDef {
   readonly category?: FacilityCategory | undefined;
   readonly maxLevel: number;
   readonly slotsPerLevel: number;
+  /** 숙소의 피로 회복 배율(‰, 팩 restRecoveryPm). 없으면 레벨로 센다 */
+  readonly restRecoveryPm?: number | undefined;
   readonly footprint: { readonly width: number; readonly height: number } | undefined;
   /** 물가 조건(배치 칸 반경, 팩 needsWaterWithin — 질문 947 나). 없으면 땅 조건 없음 */
   readonly needsWaterWithin?: number | undefined;
@@ -137,6 +139,7 @@ function defOf(entry: FacilityEntry): FacilityDef {
     id: entry.id,
     name: { ko: entry.name.ko, en: entry.name.en },
     stage: entry.stage,
+    ...(entry.restRecoveryPm === undefined ? {} : { restRecoveryPm: entry.restRecoveryPm }),
     category: facilityCategoryOf(entry),
     maxLevel: entry.maxLevel ?? 5,
     slotsPerLevel: entry.slotsPerLevel,

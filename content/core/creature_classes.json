@@ -9,12 +9,285 @@
       "icon": "🐺"
     },
     {
+      "id": "beast_canine",
+      "parent": "beast",
+      "name": {
+        "ko": "개·늑대과",
+        "en": "Canines"
+      },
+      "icon": "🐕"
+    },
+    {
+      "id": "beast_canine_wolf",
+      "parent": "beast_canine",
+      "name": {
+        "ko": "늑대류",
+        "en": "Wolves"
+      }
+    },
+    {
+      "id": "beast_canine_fox",
+      "parent": "beast_canine",
+      "name": {
+        "ko": "여우·요호류",
+        "en": "Foxes"
+      }
+    },
+    {
+      "id": "beast_canine_hound",
+      "parent": "beast_canine",
+      "name": {
+        "ko": "사냥개·신견류",
+        "en": "Hounds"
+      }
+    },
+    {
+      "id": "beast_feline",
+      "parent": "beast",
+      "name": {
+        "ko": "고양잇과",
+        "en": "Felines"
+      },
+      "icon": "🐅"
+    },
+    {
+      "id": "beast_feline_bigcat",
+      "parent": "beast_feline",
+      "name": {
+        "ko": "맹호·사자류",
+        "en": "Big Cats"
+      }
+    },
+    {
+      "id": "beast_feline_wildcat",
+      "parent": "beast_feline",
+      "name": {
+        "ko": "살쾡이·괴묘류",
+        "en": "Wildcats"
+      }
+    },
+    {
+      "id": "beast_ungulate",
+      "parent": "beast",
+      "name": {
+        "ko": "발굽·우제류",
+        "en": "Ungulates"
+      },
+      "icon": "🦌"
+    },
+    {
+      "id": "beast_ungulate_equine",
+      "parent": "beast_ungulate",
+      "name": {
+        "ko": "말·준마류",
+        "en": "Equines"
+      }
+    },
+    {
+      "id": "beast_ungulate_bovine",
+      "parent": "beast_ungulate",
+      "name": {
+        "ko": "소·염소·양류",
+        "en": "Bovines & Caprines"
+      }
+    },
+    {
+      "id": "beast_ungulate_boar",
+      "parent": "beast_ungulate",
+      "name": {
+        "ko": "멧돼지·코뿔소류",
+        "en": "Boars & Rhinos"
+      }
+    },
+    {
+      "id": "beast_ungulate_deer",
+      "parent": "beast_ungulate",
+      "name": {
+        "ko": "사슴·영양류",
+        "en": "Deer & Antelopes"
+      }
+    },
+    {
+      "id": "beast_ursine",
+      "parent": "beast",
+      "name": {
+        "ko": "곰·대형 포유류",
+        "en": "Bears & Megafauna"
+      },
+      "icon": "🐻"
+    },
+    {
+      "id": "beast_ursine_bear",
+      "parent": "beast_ursine",
+      "name": {
+        "ko": "곰·유대류",
+        "en": "Bears & Marsupials"
+      }
+    },
+    {
+      "id": "beast_ursine_giant",
+      "parent": "beast_ursine",
+      "name": {
+        "ko": "매머드·거수류",
+        "en": "Mammoths & Titans"
+      }
+    },
+    {
+      "id": "beast_small",
+      "parent": "beast",
+      "name": {
+        "ko": "소형 포유류",
+        "en": "Small Mammals"
+      },
+      "icon": "🐇"
+    },
+    {
+      "id": "beast_small_rabbit",
+      "parent": "beast_small",
+      "name": {
+        "ko": "토끼·환상토끼류",
+        "en": "Rabbits & Hares"
+      }
+    },
+    {
+      "id": "beast_small_rodent",
+      "parent": "beast_small",
+      "name": {
+        "ko": "쥐·족제비·너구리류",
+        "en": "Rodents & Mustelids"
+      }
+    },
+    {
+      "id": "beast_small_primate",
+      "parent": "beast_small",
+      "name": {
+        "ko": "원숭이·유인원류",
+        "en": "Primates"
+      }
+    },
+    {
+      "id": "beast_reptile",
+      "parent": "beast",
+      "name": {
+        "ko": "파충류",
+        "en": "Reptiles"
+      },
+      "icon": "🐍"
+    },
+    {
+      "id": "beast_reptile_serpent",
+      "parent": "beast_reptile",
+      "name": {
+        "ko": "뱀·구렁이류",
+        "en": "Serpents"
+      }
+    },
+    {
+      "id": "beast_reptile_lizard",
+      "parent": "beast_reptile",
+      "name": {
+        "ko": "도마뱀·악어류",
+        "en": "Lizards & Crocs"
+      }
+    },
+    {
       "id": "dragon",
       "name": {
         "ko": "용족",
         "en": "Dragon"
       },
       "icon": "🐉"
+    },
+    {
+      "id": "dragon_western",
+      "parent": "dragon",
+      "name": {
+        "ko": "서양 용",
+        "en": "Western Dragons"
+      },
+      "icon": "🐲"
+    },
+    {
+      "id": "dragon_western_true",
+      "parent": "dragon_western",
+      "name": {
+        "ko": "고룡·진룡",
+        "en": "True Dragons"
+      }
+    },
+    {
+      "id": "dragon_western_wyvern",
+      "parent": "dragon_western",
+      "name": {
+        "ko": "와이번·비룡",
+        "en": "Wyverns"
+      }
+    },
+    {
+      "id": "dragon_western_drake",
+      "parent": "dragon_western",
+      "name": {
+        "ko": "드레이크·지룡",
+        "en": "Drakes"
+      }
+    },
+    {
+      "id": "dragon_eastern",
+      "parent": "dragon",
+      "name": {
+        "ko": "동양 용",
+        "en": "Eastern Dragons"
+      },
+      "icon": "🌊"
+    },
+    {
+      "id": "dragon_eastern_celestial",
+      "parent": "dragon_eastern",
+      "name": {
+        "ko": "천룡·신룡",
+        "en": "Celestial Dragons"
+      }
+    },
+    {
+      "id": "dragon_eastern_nine_sons",
+      "parent": "dragon_eastern",
+      "name": {
+        "ko": "용생구자",
+        "en": "Nine Sons of Dragon"
+      }
+    },
+    {
+      "id": "dragon_eastern_imugi",
+      "parent": "dragon_eastern",
+      "name": {
+        "ko": "이무기·교룡",
+        "en": "Imugi & Flood Dragons"
+      }
+    },
+    {
+      "id": "dragon_wyrm",
+      "parent": "dragon",
+      "name": {
+        "ko": "웜·사룡",
+        "en": "Wyrms & Serpents"
+      },
+      "icon": "🐍"
+    },
+    {
+      "id": "dragon_wyrm_serpent",
+      "parent": "dragon_wyrm",
+      "name": {
+        "ko": "린트부름·다두룡",
+        "en": "Lindworms & Hydras"
+      }
+    },
+    {
+      "id": "dragon_wyrm_feathered",
+      "parent": "dragon_wyrm",
+      "name": {
+        "ko": "날개뱀·깃털용",
+        "en": "Feathered Serpents"
+      }
     },
     {
       "id": "aquatic",
@@ -25,12 +298,212 @@
       "icon": "🦈"
     },
     {
+      "id": "aquatic_leviathan",
+      "parent": "aquatic",
+      "name": {
+        "ko": "심해 거수",
+        "en": "Deep Sea Beasts"
+      },
+      "icon": "🐋"
+    },
+    {
+      "id": "aquatic_leviathan_serpent",
+      "parent": "aquatic_leviathan",
+      "name": {
+        "ko": "바다뱀·해룡",
+        "en": "Sea Serpents"
+      }
+    },
+    {
+      "id": "aquatic_leviathan_cephalopod",
+      "parent": "aquatic_leviathan",
+      "name": {
+        "ko": "크라켄·두족류",
+        "en": "Cephalopods"
+      }
+    },
+    {
+      "id": "aquatic_leviathan_whale",
+      "parent": "aquatic_leviathan",
+      "name": {
+        "ko": "고래·수장룡",
+        "en": "Whales & Plesiosaurs"
+      }
+    },
+    {
+      "id": "aquatic_fish",
+      "parent": "aquatic",
+      "name": {
+        "ko": "어류·갑각류",
+        "en": "Fish & Crustaceans"
+      },
+      "icon": "🐟"
+    },
+    {
+      "id": "aquatic_fish_fin",
+      "parent": "aquatic_fish",
+      "name": {
+        "ko": "어류·장어류",
+        "en": "Fish & Eels"
+      }
+    },
+    {
+      "id": "aquatic_fish_shell",
+      "parent": "aquatic_fish",
+      "name": {
+        "ko": "거북·게류",
+        "en": "Turtles & Crabs"
+      }
+    },
+    {
+      "id": "aquatic_amphibian",
+      "parent": "aquatic",
+      "name": {
+        "ko": "양서·물짐승",
+        "en": "Amphibians & Waterfolk"
+      },
+      "icon": "🐸"
+    },
+    {
+      "id": "aquatic_amphibian_mermaid",
+      "parent": "aquatic_amphibian",
+      "name": {
+        "ko": "인어·수인",
+        "en": "Merfolk & Kappa"
+      }
+    },
+    {
+      "id": "aquatic_amphibian_otter",
+      "parent": "aquatic_amphibian",
+      "name": {
+        "ko": "수달·물말·두꺼비",
+        "en": "Otters, Kelpies & Toads"
+      }
+    },
+    {
+      "id": "aquatic_slime",
+      "parent": "aquatic",
+      "name": {
+        "ko": "슬라임·점액체",
+        "en": "Slimes & Oozes"
+      },
+      "icon": "💧"
+    },
+    {
+      "id": "aquatic_slime_gel",
+      "parent": "aquatic_slime",
+      "name": {
+        "ko": "젤리 슬라임",
+        "en": "Gel Slimes"
+      }
+    },
+    {
+      "id": "aquatic_slime_metal",
+      "parent": "aquatic_slime",
+      "name": {
+        "ko": "금속·왕 슬라임",
+        "en": "Metal & Royal Slimes"
+      }
+    },
+    {
       "id": "bird",
       "name": {
         "ko": "조류",
         "en": "Bird"
       },
       "icon": "🦅"
+    },
+    {
+      "id": "bird_raptor",
+      "parent": "bird",
+      "name": {
+        "ko": "맹금류",
+        "en": "Raptors"
+      },
+      "icon": "🦅"
+    },
+    {
+      "id": "bird_raptor_eagle",
+      "parent": "bird_raptor",
+      "name": {
+        "ko": "독수리·매·로크",
+        "en": "Eagles, Hawks & Rocs"
+      }
+    },
+    {
+      "id": "bird_raptor_corvid",
+      "parent": "bird_raptor",
+      "name": {
+        "ko": "까마귀·삼족오",
+        "en": "Corvids"
+      }
+    },
+    {
+      "id": "bird_flame",
+      "parent": "bird",
+      "name": {
+        "ko": "화조·폭풍조",
+        "en": "Flame & Storm Birds"
+      },
+      "icon": "🔥"
+    },
+    {
+      "id": "bird_flame_phoenix",
+      "parent": "bird_flame",
+      "name": {
+        "ko": "피닉스·불새·봉황",
+        "en": "Phoenixes & Firebirds"
+      }
+    },
+    {
+      "id": "bird_flame_storm",
+      "parent": "bird_flame",
+      "name": {
+        "ko": "천둥새·폭풍조",
+        "en": "Storm Birds"
+      }
+    },
+    {
+      "id": "bird_grace",
+      "parent": "bird",
+      "name": {
+        "ko": "영조·물새류",
+        "en": "Cranes, Swans & Songbirds"
+      },
+      "icon": "🦢"
+    },
+    {
+      "id": "bird_grace_crane",
+      "parent": "bird_grace",
+      "name": {
+        "ko": "두루미·백조·공작",
+        "en": "Cranes, Swans & Peacocks"
+      }
+    },
+    {
+      "id": "bird_grace_small",
+      "parent": "bird_grace",
+      "name": {
+        "ko": "물총새·방울새·닭류",
+        "en": "Songbirds & Fowl"
+      }
+    },
+    {
+      "id": "bird_hybrid",
+      "parent": "bird",
+      "name": {
+        "ko": "괴조·환상조",
+        "en": "Hybrid Birds"
+      },
+      "icon": "🪶"
+    },
+    {
+      "id": "bird_hybrid_cockatrice",
+      "parent": "bird_hybrid",
+      "name": {
+        "ko": "코카트리스·하르피아",
+        "en": "Cockatrices & Harpies"
+      }
     },
     {
       "id": "insect",
@@ -41,12 +514,82 @@
       "icon": "🦂"
     },
     {
+      "id": "insect_beetle",
+      "parent": "insect",
+      "name": {
+        "ko": "갑충·사마귀",
+        "en": "Beetles & Mantises"
+      },
+      "icon": "🪲"
+    },
+    {
+      "id": "insect_arachnid",
+      "parent": "insect",
+      "name": {
+        "ko": "거미·전갈류",
+        "en": "Arachnids"
+      },
+      "icon": "🕷️"
+    },
+    {
+      "id": "insect_arachnid_spider",
+      "parent": "insect_arachnid",
+      "name": {
+        "ko": "거미류",
+        "en": "Spiders"
+      }
+    },
+    {
+      "id": "insect_arachnid_scorpion",
+      "parent": "insect_arachnid",
+      "name": {
+        "ko": "전갈류",
+        "en": "Scorpions"
+      }
+    },
+    {
+      "id": "insect_winged",
+      "parent": "insect",
+      "name": {
+        "ko": "벌·나방·개미",
+        "en": "Bees, Moths & Ants"
+      },
+      "icon": "🐝"
+    },
+    {
       "id": "undead",
       "name": {
         "ko": "언데드",
         "en": "Undead"
       },
       "icon": "💀"
+    },
+    {
+      "id": "undead_skeletal",
+      "parent": "undead",
+      "name": {
+        "ko": "해골·좀비류",
+        "en": "Skeletal & Risen"
+      },
+      "icon": "🦴"
+    },
+    {
+      "id": "undead_spectral",
+      "parent": "undead",
+      "name": {
+        "ko": "유령·원령류",
+        "en": "Specters & Wraiths"
+      },
+      "icon": "👻"
+    },
+    {
+      "id": "undead_lich",
+      "parent": "undead",
+      "name": {
+        "ko": "리치·강령군주",
+        "en": "Liches & Deathlords"
+      },
+      "icon": "☠️"
     },
     {
       "id": "humanoid",
@@ -57,12 +600,213 @@
       "icon": "👹"
     },
     {
+      "id": "humanoid_goblinoid",
+      "parent": "humanoid",
+      "name": {
+        "ko": "고블린·오크·트롤",
+        "en": "Goblinoids & Giants"
+      },
+      "icon": "🧌"
+    },
+    {
+      "id": "humanoid_beastkin",
+      "parent": "humanoid",
+      "name": {
+        "ko": "반인반수·수인",
+        "en": "Beastkin & Half-folk"
+      },
+      "icon": "🏹"
+    },
+    {
+      "id": "humanoid_zodiac_avatar",
+      "parent": "humanoid",
+      "name": {
+        "ko": "십이지신 화신(환생)",
+        "en": "Zodiac Avatars (Reborn)"
+      },
+      "icon": "☯️"
+    },
+    {
+      "id": "humanoid_zodiac_martial",
+      "parent": "humanoid_zodiac_avatar",
+      "name": {
+        "ko": "십이지신 무신",
+        "en": "Zodiac Martial Avatars"
+      }
+    },
+    {
+      "id": "humanoid_zodiac_mystic",
+      "parent": "humanoid_zodiac_avatar",
+      "name": {
+        "ko": "십이지신 도신",
+        "en": "Zodiac Mystic Avatars"
+      }
+    },
+    {
+      "id": "humanoid_arcane",
+      "parent": "humanoid",
+      "name": {
+        "ko": "이족·요정·수호자",
+        "en": "Arcane Humanoids"
+      },
+      "icon": "🧙"
+    },
+    {
       "id": "mythical",
       "name": {
         "ko": "신화",
         "en": "Mythical"
       },
       "icon": "✨"
+    },
+    {
+      "id": "mythical_zodiac_animal",
+      "parent": "mythical",
+      "name": {
+        "ko": "십이지신 (동물형)",
+        "en": "12 Zodiac Beasts"
+      },
+      "icon": "🐾"
+    },
+    {
+      "id": "mythical_zodiac_yang",
+      "parent": "mythical_zodiac_animal",
+      "name": {
+        "ko": "십이지신 전반 (자~사)",
+        "en": "Zodiac First Half (Rat–Snake)"
+      }
+    },
+    {
+      "id": "mythical_zodiac_yin",
+      "parent": "mythical_zodiac_animal",
+      "name": {
+        "ko": "십이지신 후반 (오~해)",
+        "en": "Zodiac Second Half (Horse–Boar)"
+      }
+    },
+    {
+      "id": "mythical_horoscope",
+      "parent": "mythical",
+      "name": {
+        "ko": "황도 12궁",
+        "en": "12 Horoscope"
+      },
+      "icon": "⭐"
+    },
+    {
+      "id": "mythical_horoscope_fire_air",
+      "parent": "mythical_horoscope",
+      "name": {
+        "ko": "불·바람 별자리",
+        "en": "Fire & Air Signs"
+      }
+    },
+    {
+      "id": "mythical_horoscope_water_earth",
+      "parent": "mythical_horoscope",
+      "name": {
+        "ko": "물·땅 별자리",
+        "en": "Water & Earth Signs"
+      }
+    },
+    {
+      "id": "mythical_eastern",
+      "parent": "mythical",
+      "name": {
+        "ko": "동양 신수·요괴",
+        "en": "Eastern Mythic"
+      },
+      "icon": "🏮"
+    },
+    {
+      "id": "mythical_eastern_cardinals",
+      "parent": "mythical_eastern",
+      "name": {
+        "ko": "사신수·황룡",
+        "en": "Four Gods & Yellow Dragon"
+      }
+    },
+    {
+      "id": "mythical_eastern_perils",
+      "parent": "mythical_eastern",
+      "name": {
+        "ko": "사흉",
+        "en": "Four Perils"
+      }
+    },
+    {
+      "id": "mythical_eastern_spirits",
+      "parent": "mythical_eastern",
+      "name": {
+        "ko": "기린·해태·영수",
+        "en": "Qilin, Haetae & Spirits"
+      }
+    },
+    {
+      "id": "mythical_western",
+      "parent": "mythical",
+      "name": {
+        "ko": "서양 신화수",
+        "en": "Western Mythic"
+      },
+      "icon": "🏛️"
+    },
+    {
+      "id": "mythical_western_greek",
+      "parent": "mythical_western",
+      "name": {
+        "ko": "그리스·로마 신화",
+        "en": "Greco-Roman Myth"
+      }
+    },
+    {
+      "id": "mythical_western_norse",
+      "parent": "mythical_western",
+      "name": {
+        "ko": "북유럽 신화",
+        "en": "Norse Myth"
+      }
+    },
+    {
+      "id": "mythical_western_celtic",
+      "parent": "mythical_western",
+      "name": {
+        "ko": "켈트·유럽 전승",
+        "en": "Celtic & European Lore"
+      }
+    },
+    {
+      "id": "mythical_world",
+      "parent": "mythical",
+      "name": {
+        "ko": "세계 민속·신화",
+        "en": "World Folklore"
+      },
+      "icon": "🌍"
+    },
+    {
+      "id": "mythical_world_mena",
+      "parent": "mythical_world",
+      "name": {
+        "ko": "중동·이집트·페르시아",
+        "en": "MENA & Persia"
+      }
+    },
+    {
+      "id": "mythical_world_americas",
+      "parent": "mythical_world",
+      "name": {
+        "ko": "아메리카 민담",
+        "en": "Americas Folklore"
+      }
+    },
+    {
+      "id": "mythical_world_asia_oceania",
+      "parent": "mythical_world",
+      "name": {
+        "ko": "인도·동남아·아프리카·오세아니아",
+        "en": "India, SEA, Africa & Oceania"
+      }
     },
     {
       "id": "construct",
@@ -73,12 +817,66 @@
       "icon": "⚙️"
     },
     {
+      "id": "construct_golem",
+      "parent": "construct",
+      "name": {
+        "ko": "골렘류",
+        "en": "Golems"
+      },
+      "icon": "🪨"
+    },
+    {
+      "id": "construct_automaton",
+      "parent": "construct",
+      "name": {
+        "ko": "기계·청동 병기",
+        "en": "Automatons"
+      },
+      "icon": "🤖"
+    },
+    {
+      "id": "construct_mimic",
+      "parent": "construct",
+      "name": {
+        "ko": "의태·움직이는 건축",
+        "en": "Mimics & Living Structures"
+      },
+      "icon": "📦"
+    },
+    {
       "id": "dinosaur",
       "name": {
         "ko": "공룡",
         "en": "Dinosaur"
       },
       "icon": "🦕"
+    },
+    {
+      "id": "dinosaur_theropod",
+      "parent": "dinosaur",
+      "name": {
+        "ko": "육식 수각류",
+        "en": "Theropods"
+      },
+      "icon": "🦖"
+    },
+    {
+      "id": "dinosaur_herbivore",
+      "parent": "dinosaur",
+      "name": {
+        "ko": "초식·각룡류",
+        "en": "Herbivores & Ceratopsians"
+      },
+      "icon": "🦕"
+    },
+    {
+      "id": "dinosaur_pterosaur",
+      "parent": "dinosaur",
+      "name": {
+        "ko": "익룡·고대수룡",
+        "en": "Pterosaurs & Ancient Reptiles"
+      },
+      "icon": "🦅"
     },
     {
       "id": "elemental",
@@ -89,12 +887,48 @@
       "icon": "🌀"
     },
     {
+      "id": "elemental_primal",
+      "parent": "elemental",
+      "name": {
+        "ko": "4원소 정령",
+        "en": "Primal Elementals"
+      },
+      "icon": "🔥"
+    },
+    {
+      "id": "elemental_astral",
+      "parent": "elemental",
+      "name": {
+        "ko": "빛·어둠 정령",
+        "en": "Astral Elementals"
+      },
+      "icon": "🌟"
+    },
+    {
       "id": "demon",
       "name": {
         "ko": "악마",
         "en": "Demon"
       },
       "icon": "😈"
+    },
+    {
+      "id": "demon_lesser",
+      "parent": "demon",
+      "name": {
+        "ko": "하급 악마",
+        "en": "Lesser Fiends"
+      },
+      "icon": "👿"
+    },
+    {
+      "id": "demon_archfiend",
+      "parent": "demon",
+      "name": {
+        "ko": "상급 마왕·거수",
+        "en": "Archfiends & Behemoths"
+      },
+      "icon": "🔥"
     },
     {
       "id": "plant",
@@ -105,12 +939,48 @@
       "icon": "🌿"
     },
     {
+      "id": "plant_treant",
+      "parent": "plant",
+      "name": {
+        "ko": "트리언트·드리아드",
+        "en": "Treants & Dryads"
+      },
+      "icon": "🌳"
+    },
+    {
+      "id": "plant_carnivore",
+      "parent": "plant",
+      "name": {
+        "ko": "식충·포자 식물",
+        "en": "Carnivorous & Fungal"
+      },
+      "icon": "🍄"
+    },
+    {
       "id": "aberration",
       "name": {
         "ko": "이형",
         "en": "Aberration"
       },
       "icon": "👾"
+    },
+    {
+      "id": "aberration_eldritch",
+      "parent": "aberration",
+      "name": {
+        "ko": "심연·촉수 이형",
+        "en": "Eldritch Horrors"
+      },
+      "icon": "👁️"
+    },
+    {
+      "id": "aberration_planar",
+      "parent": "aberration",
+      "name": {
+        "ko": "차원·기괴체",
+        "en": "Planar & Phase Entities"
+      },
+      "icon": "🌀"
     }
   ]
 }

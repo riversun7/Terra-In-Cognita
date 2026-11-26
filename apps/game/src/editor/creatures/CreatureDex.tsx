@@ -289,17 +289,6 @@ export function CreatureDex({
         onSelect={setClassId}
       />
 
-      {editing ? (
-        <CreatureClassEditor
-          list={list}
-          rows={classRows}
-          creatures={allEntries}
-          locale={locale}
-          onPut={onPutClass}
-          onRemove={onRemoveClass}
-        />
-      ) : null}
-
       <div className="ce-filter-bar">
         <div className="ce-filter-top">
           <input
@@ -464,6 +453,21 @@ export function CreatureDex({
             : "Codex values are for level 1. Encountered individuals roll each stat within base ± spread (level and spawn chance come from encounters; K is random 0.8–1.2). Click a column header to sort."}
         </p>
       </div>
+
+      {editing ? (
+        <CreatureClassEditor
+          list={list}
+          rows={classRows}
+          creatures={allEntries}
+          locale={locale}
+          onPut={onPutClass}
+          onRemove={onRemoveClass}
+          onClose={() => {
+            setEditing(false);
+            setPicked(new Set());
+          }}
+        />
+      ) : null}
 
       {editing ? (
         <div

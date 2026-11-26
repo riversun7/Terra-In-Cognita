@@ -256,7 +256,6 @@ const TOOL_SCOPES = [
   ["/dev/buildings", "common"],
   ["/dev/production", "common"],
   ["/dev/gather-tiers", "common"],
-  ["/dev/creatures", "common"],
   ["/dev/nations", "common"],
   ["/dev/world-layout", "planet"],
   ["/dev/territory", "planet"],
@@ -299,6 +298,9 @@ test.describe("범위 줄", () => {
         await expect(bar.locator(".scope-note"), path).not.toBeEmpty();
       }
       await page.goto("/dev");
+      await framed(page);
+      await expect(page.locator(".scope-bar")).toHaveCount(0);
+      await page.goto("/dev/creatures");
       await framed(page);
       await expect(page.locator(".scope-bar")).toHaveCount(0);
     });

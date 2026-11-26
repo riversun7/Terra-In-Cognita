@@ -6,10 +6,10 @@ import { routeScope } from "./scopeRoutes.ts";
 const ROUTE_IDS = Object.keys(ROUTES).filter((id): id is RouteId => Object.hasOwn(ROUTES, id));
 
 describe("화면마다 범위", () => {
-  it("개발·운영 화면은 개발자 홈만 빼고 모두 범위가 있고, 게임 화면에는 없다", () => {
+  it("개발·운영 화면은 개발자 홈·크리쳐 편집기만 빼고 모두 범위가 있고, 게임 화면에는 없다", () => {
     for (const id of ROUTE_IDS) {
       const scope = routeScope(id);
-      if (!isDevSurfaceRoute(id) || id === "dev") expect(scope, id).toBeNull();
+      if (!isDevSurfaceRoute(id) || id === "dev" || id === "dev_creatures") expect(scope, id).toBeNull();
       else {
         expect(scope, id).not.toBeNull();
         expect(scope?.note(), id).not.toBe("");

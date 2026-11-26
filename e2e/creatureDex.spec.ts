@@ -144,10 +144,10 @@ test.describe("도감 → 상세", () => {
     const overview = page.locator('.ce-overview[data-creature="wolf"]');
     await expect(overview).toBeVisible();
     await expect(overview.locator(".ce-overview-art img")).toBeVisible();
-    // 모델 파일이 없는 크리쳐: 임시 몸이 그려진다
+    // 기본 3D 모델(GLB)이 연결된 크리쳐: GLB 모델이 그려진다
     await expect(viewer(page)).toHaveAttribute("data-viewer", "ready", { timeout: 20_000 });
-    await expect(viewer(page)).toHaveAttribute("data-kind", "placeholder");
-    await expect(viewer(page)).toHaveAttribute("data-model", "none");
+    await expect(viewer(page)).toHaveAttribute("data-kind", "model", { timeout: 20_000 });
+    await expect(viewer(page)).toHaveAttribute("data-model", "ok");
     expect(Number(await viewer(page).getAttribute("data-triangles"))).toBeGreaterThan(0);
     // 1레벨 조우 범위: 회색늑대 STR 7 → 기본 오차 ±1 → 6~8
     await expect(overview.locator(".ce-range-row")).toHaveCount(6);
@@ -176,6 +176,13 @@ test.describe("도감 → 상세", () => {
 
     await tab(page, /^1\. 기본/).click();
     const modelField = page.getByLabel("모델 파일 이름 또는 경로");
+    // 모델 칸을 비우면 임시 몸으로 바뀐다
+    await modelField.fill("");
+    await tab(page, /^도감 정보/).click();
+    await expect(viewer(page)).toHaveAttribute("data-model", "none", { timeout: 20_000 });
+    await expect(viewer(page)).toHaveAttribute("data-kind", "placeholder");
+
+    await tab(page, /^1\. 기본/).click();
     await modelField.fill("e2e_quad.glb");
     await tab(page, /^도감 정보/).click();
     await expect(viewer(page)).toHaveAttribute("data-model", "ok", { timeout: 20_000 });
@@ -275,13 +282,15 @@ test.describe("변종 그룹", () => {
   });
 });
 
-const column = (page: Page, stat: string) =>
+const column = (page: Page, stat: string, depth?: 0 | 1) =>
   page
-    .locator(`.ce-dex-row .ce-dex-stat[data-stat="${stat}"] .ce-dex-stat-value`)
+    .locator(
+      `${depth === undefined ? ".ce-dex-row" : `.ce-dex-row[data-depth="${depth}"]`} .ce-dex-stat[data-stat="${stat}"] .ce-dex-stat-value`,
+    )
     .evaluateAll((nodes) => nodes.map((node) => Number(node.textContent)));
-const sums = (page: Page) =>
+const sums = (page: Page, depth?: 0 | 1) =>
   page
-    .locator(".ce-dex-row .ce-sum strong")
+    .locator(`${depth === undefined ? ".ce-dex-row" : `.ce-dex-row[data-depth="${depth}"]`} .ce-sum strong`)
     .evaluateAll((nodes) => nodes.map((node) => Number(node.textContent)));
 
 test.describe("도감 표 — 정렬·필터·속성·기술 슬롯", () => {
@@ -291,17 +300,18 @@ test.describe("도감 표 — 정렬·필터·속성·기술 슬롯", () => {
     await openDex(page);
     const total = await page.locator(".ce-dex-row").count();
 
-    // STR 큰 것부터 → 작은 것부터 → 도감 차례
+    // STR 큰 것부터 → 작은 것부터 → 도감 차례 (그룹 묶기 상태에서는 대표 줄이 정렬된다)
     await page.locator('.ce-sort[data-sort="str"]').click();
-    const desc = await column(page, "str");
+    const desc = await column(page, "str", 0);
     expect(desc).toEqual(desc.toSorted((a, b) => b - a));
     await page.locator('.ce-sort[data-sort="str"]').click();
-    const asc = await column(page, "str");
+    const asc = await column(page, "str", 0);
     expect(asc).toEqual(asc.toSorted((a, b) => a - b));
     await page.locator('.ce-sort[data-sort="str"]').click();
     await expect(page.locator(".ce-dex-row").first()).toHaveAttribute("data-id", "wolf");
 
-    // DEX(스탯)도 줄을 세운다 — 도감 차례와 이름이 겹치지 않는다
+    // 그룹 묶기를 끄면 모든 줄이 통째로 정렬된다 (DEX 스탯 — 도감 차례와 이름이 겹치지 않는다)
+    await page.getByRole("button", { name: "그룹으로 묶기" }).click();
     await page.locator('.ce-sort[data-sort="dex"]').click();
     const byDex = await column(page, "dex");
     expect(byDex).toEqual(byDex.toSorted((a, b) => b - a));
@@ -315,6 +325,7 @@ test.describe("도감 표 — 정렬·필터·속성·기술 슬롯", () => {
     expect(bySum).toEqual(bySum.toSorted((a, b) => b - a));
     await page.locator('.ce-sort[data-sort="sum"]').click();
     await page.locator('.ce-sort[data-sort="sum"]').click();
+    await page.getByRole("button", { name: "그룹으로 묶기" }).click();
 
     // 합 범위
     await page.getByLabel("스탯 합 최소").fill("70");
@@ -386,6 +397,10 @@ test.describe("분류 편집(대·중·소)", () => {
       await apply.click();
       await expect(page.getByText(/크리처 변경 4건을 반영했습니다/)).toBeVisible({ timeout: 15_000 });
 
+      // 분류 편집 머리의 [닫기] 단추로 닫힌다
+      await page.locator(".ce-class-editor").getByRole("button", { name: "닫기" }).click();
+      await expect(page.locator(".ce-class-editor")).toHaveCount(0);
+
       // 분류 띠: 야수 → 늑대류 2종
       await page.locator('.ce-class-card[data-class="beast"]').click();
       await page.locator('.ce-class-chips .ce-tag-chip[data-class="e2e_wolves"]').click();
@@ -404,8 +419,14 @@ test.describe("사진", () => {
       test("도감 탭·도감 정보 탭", async ({ page }) => {
         await openDex(page);
         await shot(page, `creatures-dex-1440-${devTheme}`);
+        if (devTheme === "neon") {
+          await page.getByRole("button", { name: "분류 편집" }).click();
+          await expect(page.locator(".ce-class-editor")).toBeVisible();
+          await shot(page, "creatures-classes-1440-neon");
+          await page.locator(".ce-class-editor").getByRole("button", { name: "닫기" }).click();
+        }
         await page.locator('.ce-dex-row[data-id="wolf"] .ce-dex-open').click();
-        await expect(viewer(page)).toHaveAttribute("data-kind", "placeholder", { timeout: 20_000 });
+        await expect(viewer(page)).toHaveAttribute("data-kind", "model", { timeout: 20_000 });
         await page.getByRole("button", { name: "돌림판" }).click();
         await expect
           .poll(() =>
@@ -430,7 +451,7 @@ test.describe("사진", () => {
       expect(await horizontalOverflow(page)).toEqual([]);
       await shot(page, "creatures-dex-390-neon");
       await page.locator('.ce-dex-row[data-id="wolf"] .ce-dex-open').click();
-      await expect(viewer(page)).toHaveAttribute("data-kind", "placeholder", { timeout: 20_000 });
+      await expect(viewer(page)).toHaveAttribute("data-kind", "model", { timeout: 20_000 });
       await page.getByRole("button", { name: "돌림판" }).click();
       expect(await horizontalOverflow(page)).toEqual([]);
       await shot(page, "creatures-overview-390-neon", { fullPage: true });

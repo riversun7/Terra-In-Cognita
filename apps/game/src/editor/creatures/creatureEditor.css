@@ -1317,44 +1317,101 @@ th[data-stat] > .ce-sort {
   font-size: var(--font-size-xs);
 }
 
-/* 분류 편집기: 트리를 한 줄씩 */
+/* 분류 편집기: 트리를 한 줄씩(입력 칸 너비를 알맞게 묶고 스크롤 상자 안에 둔다) */
+.ce-class-editor {
+  gap: var(--space-2);
+}
+.ce-class-editor-head {
+  align-items: center;
+}
+.ce-class-search {
+  width: 11rem;
+  max-width: 100%;
+}
 .ce-class-tree {
   display: grid;
   gap: var(--space-1);
+  max-height: 28rem;
+  overflow-y: auto;
   margin: 0;
-  padding: 0;
+  padding: 0 var(--space-1) 0 0;
   list-style: none;
 }
 .ce-class-row {
   display: grid;
   gap: var(--space-1);
-  padding: var(--space-2);
+  padding: var(--space-1) var(--space-2);
   border: var(--hairline) solid var(--color-border);
   border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
 }
 .ce-class-row[data-depth="2"] {
-  margin-inline-start: var(--space-5);
+  margin-inline-start: var(--space-4);
+  border-inline-start: var(--border-w) solid var(--color-border-strong);
 }
 .ce-class-row[data-depth="3"] {
-  margin-inline-start: var(--space-10);
+  margin-inline-start: var(--space-8);
+  border-inline-start: var(--border-w) solid var(--color-focus);
 }
 .ce-class-row-main {
-  display: grid;
-  grid-template-columns: auto 4rem repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
 }
-.ce-class-row-main > .input,
-.ce-class-row-main > select {
-  min-width: 0;
-  width: 100%;
+.ce-class-fold {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  padding: 0;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.ce-class-fold:hover {
+  border-color: var(--color-primary);
+  color: var(--color-text);
+}
+.ce-class-fold-spacer {
+  display: inline-block;
+  width: var(--control-h-sm);
+  flex-shrink: 0;
+}
+.ce-class-icon-input {
+  width: 3.25rem;
+  flex: 0 0 3.25rem;
+  text-align: center;
+  padding-inline: var(--space-1);
+}
+.ce-class-ko-input {
+  width: 9.5rem;
+  flex: 0 1 9.5rem;
+  min-width: 6.5rem;
+}
+.ce-class-en-input {
+  width: 10.5rem;
+  flex: 0 1 10.5rem;
+  min-width: 7rem;
+}
+.ce-class-parent-select {
+  width: 12.5rem;
+  flex: 0 1 12.5rem;
+  min-width: 8rem;
+  max-width: 100%;
 }
 .ce-class-row-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
+  margin-inline-start: auto;
   font-size: var(--font-size-xs);
 }
 .ce-class-level {
@@ -1367,14 +1424,24 @@ th[data-stat] > .ce-sort {
   border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-strong);
+  flex-shrink: 0;
 }
 .ce-class-level[data-depth="1"] {
   border-color: var(--color-primary);
   color: var(--color-primary);
 }
+.ce-class-level[data-depth="2"] {
+  border-color: var(--color-stat-int);
+  color: var(--color-stat-int);
+}
+.ce-class-level[data-depth="3"] {
+  border-color: var(--color-stat-wis);
+  color: var(--color-stat-wis);
+}
 .ce-class-add {
   display: grid;
   gap: var(--space-2);
+  max-width: 52rem;
   padding: var(--space-2);
   border: var(--hairline) dashed var(--color-focus);
   border-radius: var(--radius-sm);

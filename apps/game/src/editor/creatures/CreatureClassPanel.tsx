@@ -276,6 +276,7 @@ export function CreatureClassEditor({
   locale,
   onPut,
   onRemove,
+  onClose,
 }: {
   readonly list: CreatureEditorListResponse;
   /** 실효 분류(담은 바꿈 포함) */
@@ -286,10 +287,14 @@ export function CreatureClassEditor({
   readonly onPut: (entry: CreatureClassJson) => void;
   /** 분류를 지우거나(만든 것) 팩 원본으로 되돌린다(담기). 새로 담은 것이면 담기 취소 */
   readonly onRemove: (id: string) => void;
+  /** 분류 편집 닫기 */
+  readonly onClose: () => void;
 }) {
   const ko = locale !== "en";
   // 넣기 칸이 열린 자리: 위 분류 ID, "" = 대분류, null = 닫힘
   const [adding, setAdding] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const classes = rows.map((row) => row.entry);
   const rowById = new Map(rows.map((row) => [row.entry.id, row]));
   const usedIds = new Set([...classes.map((entry) => entry.id), ...list.classes.map((row) => row.entry.id)]);
@@ -297,33 +302,91 @@ export function CreatureClassEditor({
   const flat = flattenCreatureClasses(classes);
   const originOf = new Map(list.classes.map((row) => [row.entry.id, row.origin]));
   const hasChild = new Set(classes.flatMap((entry) => (entry.parent === undefined ? [] : [entry.parent])));
+  const parentIds = [...hasChild];
+
+  const q = query.trim().toLowerCase();
+  const visibleIds =
+    q === ""
+      ? null
+      : new Set(
+          classes
+            .filter(
+              (entry) =>
+                entry.id.toLowerCase().includes(q) ||
+                entry.name.ko.toLowerCase().includes(q) ||
+                entry.name.en.toLowerCase().includes(q),
+            )
+            .flatMap((entry) => creatureClassPath(classes, entry.id).map((p) => p.id)),
+        );
+
+  const visibleFlat = flat.filter(({ entry }) => {
+    if (visibleIds !== null) return visibleIds.has(entry.id);
+    if (collapsed.size === 0) return true;
+    const path = creatureClassPath(classes, entry.id);
+    // 위 분류 가운데 접힌 것이 있으면 숨긴다(자신은 보인다)
+    return !path.slice(0, -1).some((ancestor) => collapsed.has(ancestor.id));
+  });
+
+  const toggleCollapse = (id: string): void => {
+    const next = new Set(collapsed);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setCollapsed(next);
+  };
 
   const add = (entry: CreatureClassJson): void => {
     onPut(entry);
+    if (entry.parent && collapsed.has(entry.parent)) {
+      const next = new Set(collapsed);
+      next.delete(entry.parent);
+      setCollapsed(next);
+    }
     setAdding(null);
   };
 
   return (
     <section className="be-card ce-class-editor" aria-label={ko ? "분류 편집" : "Edit classes"}>
-      <div className="ce-card-head">
+      <div className="ce-card-head ce-class-editor-head">
         <div>
           <h3 className="ce-section-title">
-            {ko ? "분류 편집 (대 · 중 · 소)" : "Edit Classes (Large · Mid · Small)"}
+            {ko ? `분류 편집 (대 · 중 · 소 — ${classes.length}개)` : `Edit Classes (${classes.length})`}
           </h3>
           <p className="field-hint">
             {ko
-              ? "분류를 더하고 이름을 고치고 위 분류를 바꿔 옮깁니다. 크리쳐는 아래 표에서 골라 한 번에 옮기거나 상세의 [기본] 탭에서 바꿉니다. 바꿈은 아래 막대에 담겨 [즉시 반영]으로 적용됩니다."
-              : "Add, rename and move classes. Move creatures by selecting rows in the table below or in the Basic tab. Changes are staged and applied from the bar below."}
+              ? "분류를 더하고 이름·위 분류를 바꿉니다. 크리쳐는 아래 표에서 골라 한 번에 옮깁니다. 바꿈은 아래 막대에서 [즉시 반영]으로 적용됩니다."
+              : "Add, rename, or reparent classes. Select rows in the table below to move creatures in bulk, then Apply."}
           </p>
         </div>
-        <button
-          type="button"
-          className="button-small ce-btn-accent"
-          aria-expanded={adding === ""}
-          onClick={() => setAdding(adding === "" ? null : "")}
-        >
-          {ko ? "+ 대분류 추가" : "+ Add Large Class"}
-        </button>
+        <div className="be-actions">
+          <input
+            type="search"
+            className="input ce-class-search"
+            placeholder={ko ? "분류 이름·ID 검색…" : "Search class…"}
+            aria-label={ko ? "분류 검색" : "Search classes"}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {parentIds.length > 0 ? (
+            <button
+              type="button"
+              className="button-small"
+              onClick={() => setCollapsed(collapsed.size > 0 ? new Set() : new Set(parentIds))}
+            >
+              {collapsed.size > 0 ? (ko ? "모두 펼치기" : "Expand All") : ko ? "모두 접기" : "Collapse All"}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="button-small ce-btn-accent"
+            aria-expanded={adding === ""}
+            onClick={() => setAdding(adding === "" ? null : "")}
+          >
+            {ko ? "+ 대분류 추가" : "+ Add Large Class"}
+          </button>
+          <button type="button" className="button-small" onClick={onClose}>
+            {ko ? "닫기" : "Close"}
+          </button>
+        </div>
       </div>
       {adding === "" ? (
         <AddClassForm
@@ -337,13 +400,15 @@ export function CreatureClassEditor({
       ) : null}
 
       <ul className="ce-class-tree">
-        {flat.map(({ entry, depth }) => {
+        {visibleFlat.map(({ entry, depth }) => {
           const row = rowById.get(entry.id);
           const origin = originOf.get(entry.id);
           const level = LEVEL_NAMES[depth - 1] ?? LEVEL_NAMES[2];
           const mine = direct.get(entry.id) ?? 0;
           const all = total.get(entry.id) ?? 0;
-          const removable = row?.created === true && !hasChild.has(entry.id) && mine === 0;
+          const isParent = hasChild.has(entry.id);
+          const isCollapsed = collapsed.has(entry.id);
+          const removable = row?.created === true && !isParent && mine === 0;
           const parents = classes.filter(
             (candidate) => candidate.id !== entry.id && canMoveCreatureClass(classes, entry.id, candidate.id),
           );
@@ -351,6 +416,27 @@ export function CreatureClassEditor({
           return (
             <li key={entry.id} className="ce-class-row" data-class={entry.id} data-depth={depth}>
               <div className="ce-class-row-main">
+                {isParent ? (
+                  <button
+                    type="button"
+                    className="ce-class-fold"
+                    aria-expanded={!isCollapsed}
+                    aria-label={
+                      isCollapsed
+                        ? ko
+                          ? `${entry.name.ko} 펼치기`
+                          : `Expand ${entry.name.en}`
+                        : ko
+                          ? `${entry.name.ko} 접기`
+                          : `Collapse ${entry.name.en}`
+                    }
+                    onClick={() => toggleCollapse(entry.id)}
+                  >
+                    {isCollapsed ? "▸" : "▾"}
+                  </button>
+                ) : (
+                  <span className="ce-class-fold-spacer" aria-hidden="true" />
+                )}
                 <span className="ce-class-level" data-depth={depth}>
                   {ko ? level.ko : level.en}
                 </span>
@@ -364,18 +450,19 @@ export function CreatureClassEditor({
                   }
                 />
                 <input
-                  className="input"
+                  className="input ce-class-ko-input"
                   aria-label={ko ? `${entry.id} 한국어 이름` : `${entry.id} Korean name`}
                   value={entry.name.ko}
                   onChange={(e) => onPut({ ...entry, name: { ...entry.name, ko: e.target.value } })}
                 />
                 <input
-                  className="input"
+                  className="input ce-class-en-input"
                   aria-label={ko ? `${entry.id} 영어 이름` : `${entry.id} English name`}
                   value={entry.name.en}
                   onChange={(e) => onPut({ ...entry, name: { ...entry.name, en: e.target.value } })}
                 />
                 <select
+                  className="ce-class-parent-select"
                   aria-label={ko ? `${entry.name.ko} 위 분류(옮기기)` : `${entry.name.en} parent (move)`}
                   value={entry.parent ?? ""}
                   onChange={(e) =>
@@ -396,60 +483,60 @@ export function CreatureClassEditor({
                     </option>
                   ))}
                 </select>
-              </div>
-              <div className="ce-class-row-meta">
-                <code className="dev-code">{entry.id}</code>
-                <span className="dev-muted">
-                  {ko ? `크리쳐 ${mine}종` : `${mine} creatures`}
-                  {all !== mine ? (ko ? ` (아래 포함 ${all})` : ` (${all} incl. below)`) : ""}
-                </span>
-                {row?.isNew ? <span className="dev-badge be-badge-staged">NEW</span> : null}
-                {!row?.isNew && row?.isStaged ? (
-                  <span className="dev-badge be-badge-staged">{ko ? "담김" : "Staged"}</span>
-                ) : null}
-                {depth < CREATURE_CLASS_MAX_DEPTH ? (
-                  <button
-                    type="button"
-                    className="button-small"
-                    aria-expanded={adding === entry.id}
-                    onClick={() => setAdding(adding === entry.id ? null : entry.id)}
-                  >
-                    {ko ? "+ 하위 분류" : "+ Sub-class"}
-                  </button>
-                ) : null}
-                {origin === "edited" && !row?.isNew ? (
-                  <button type="button" className="button-small" onClick={() => onRemove(entry.id)}>
-                    {ko ? "팩 원본으로" : "Revert to Pack"}
-                  </button>
-                ) : null}
-                {row?.created ? (
-                  <button
-                    type="button"
-                    className="button-small"
-                    disabled={!removable}
-                    title={
-                      removable
-                        ? undefined
-                        : ko
-                          ? "아래 분류나 크리쳐가 있으면 지울 수 없습니다. 먼저 옮기세요."
-                          : "Move sub-classes and creatures out first."
-                    }
-                    onClick={() => onRemove(entry.id)}
-                  >
-                    {ko ? "지우기" : "Delete"}
-                  </button>
-                ) : (
-                  <span
-                    className="dev-muted"
-                    title={
-                      ko
-                        ? "팩에 든 분류는 지울 수 없습니다(이름·자리만 바꿉니다)."
-                        : "Pack classes cannot be deleted."
-                    }
-                  >
-                    {ko ? "팩 분류" : "Pack class"}
+                <div className="ce-class-row-meta">
+                  <code className="dev-code">{entry.id}</code>
+                  <span className="dev-muted">
+                    {ko ? `${mine}종` : `${mine}`}
+                    {all !== mine ? (ko ? ` (총 ${all})` : ` (${all} tot)`) : ""}
                   </span>
-                )}
+                  {row?.isNew ? <span className="dev-badge be-badge-staged">NEW</span> : null}
+                  {!row?.isNew && row?.isStaged ? (
+                    <span className="dev-badge be-badge-staged">{ko ? "담김" : "Staged"}</span>
+                  ) : null}
+                  {depth < CREATURE_CLASS_MAX_DEPTH ? (
+                    <button
+                      type="button"
+                      className="button-small"
+                      aria-expanded={adding === entry.id}
+                      onClick={() => setAdding(adding === entry.id ? null : entry.id)}
+                    >
+                      {ko ? "+ 하위 분류" : "+ Sub-class"}
+                    </button>
+                  ) : null}
+                  {origin === "edited" && !row?.isNew ? (
+                    <button type="button" className="button-small" onClick={() => onRemove(entry.id)}>
+                      {ko ? "팩 원본으로" : "Revert to Pack"}
+                    </button>
+                  ) : null}
+                  {row?.created ? (
+                    <button
+                      type="button"
+                      className="button-small"
+                      disabled={!removable}
+                      title={
+                        removable
+                          ? undefined
+                          : ko
+                            ? "아래 분류나 크리쳐가 있으면 지울 수 없습니다. 먼저 옮기세요."
+                            : "Move sub-classes and creatures out first."
+                      }
+                      onClick={() => onRemove(entry.id)}
+                    >
+                      {ko ? "지우기" : "Delete"}
+                    </button>
+                  ) : (
+                    <span
+                      className="dev-muted"
+                      title={
+                        ko
+                          ? "팩에 든 분류는 지울 수 없습니다(이름·자리만 바꿉니다)."
+                          : "Pack classes cannot be deleted."
+                      }
+                    >
+                      {ko ? "팩" : "Pack"}
+                    </span>
+                  )}
+                </div>
               </div>
               {adding === entry.id ? (
                 <AddClassForm

@@ -33,7 +33,7 @@ export interface RouteScope {
 const common = (note: () => string = m.scope_note_common): RouteScope => ({ kind: "common", note });
 const planet = (group: PlanetGroup, note: () => string): RouteScope => ({ kind: "planet", group, note });
 
-const ROUTE_SCOPES: { readonly [Id in RouteId]?: RouteScope } = {
+const ROUTE_SCOPES: { readonly [Id in RouteId]?: RouteScope | null } = {
   // (가) 모든 행성 공통: 콘텐츠 팩 덮어쓰기(content_overrides)·설정 칸(tuning_overrides)·계산식 — 표에 행성 칸이 없다
   dev_tuning: common(m.scope_note_tuning),
   dev_npc_ai: common(m.scope_note_tuning),
@@ -47,7 +47,8 @@ const ROUTE_SCOPES: { readonly [Id in RouteId]?: RouteScope } = {
   dev_buildings: common(),
   dev_production: common(),
   dev_gather_tiers: common(),
-  dev_creatures: common(),
+  // 크리쳐 도감은 행성과 무관한 공용 카탈로그(출현 조건은 인카운터 편집기에서 설정) — 범위 줄을 보이지 않는다(사용자 결정 2026-11-25)
+  dev_creatures: null,
   // 국가 프리셋은 팩 항목이다. [이 세계에 반영]은 세력 정체성·화폐 표시(세계에 하나)를 바꾼다 — 도시·유닛(행성 몫)은 건드리지 않는다
   dev_nations: common(m.scope_note_nations),
   // (나) 행성 하나: 세계 표의 planet_id로 묶인 자료
@@ -68,10 +69,9 @@ const ROUTE_SCOPES: { readonly [Id in RouteId]?: RouteScope } = {
   admin: { kind: "none", note: m.scope_note_accounts },
 };
 
-/** 그 화면의 범위. 범위 줄을 그리지 않는 화면(개발자 홈·게임 화면)은 null */
+/** 그 화면의 범위. 범위 줄을 그리지 않는 화면(개발자 홈·크리쳐 편집기·게임 화면)은 null */
 export function routeScope(id: RouteId): RouteScope | null {
-  const found = ROUTE_SCOPES[id];
-  if (found) return found;
+  if (Object.hasOwn(ROUTE_SCOPES, id)) return ROUTE_SCOPES[id] ?? null;
   // 표에 없는 새 개발 도구: 팩 덮어쓰기 편집기로 본다
   return id.startsWith("dev_") ? common() : null;
 }

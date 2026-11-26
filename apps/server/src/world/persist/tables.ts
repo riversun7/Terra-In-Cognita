@@ -250,6 +250,13 @@ export const WORLD_TABLES = {
     key: ["unit_id"],
     updateOnly: true,
   },
+  /** 휴먼의 레벨만 고친다(유닛 성장 — growth/store.ts). humans 행 쓰기(환생 등)는 레벨을 함께 쓴다 */
+  humanLevel: {
+    name: "world_humans",
+    columns: ["unit_id", "level"],
+    key: ["unit_id"],
+    updateOnly: true,
+  },
   /**
    * 휴먼의 경비대 표시만 고친다(국력 등급 씨앗 — docs/adr/2026-11-10-nation-editor.md "바뀜 (2026-11-11)"). humans 행은 이 칸을 쓰지 않는다
    * (유저 휴먼을 쓰는 다른 곳이 이 칸을 몰라도 된다). 휴먼 행 다음에 쓴다
@@ -264,6 +271,19 @@ export const WORLD_TABLES = {
   cyborgUnits: {
     name: "cyborg_units",
     columns: ["unit_id", "level", "stats", "elements", "human_stats", "donor", "bonus_pm", "fused_at_ms"],
+    key: ["unit_id"],
+  },
+  /** 사이보그 유닛의 레벨만 고친다(유닛 성장 — growth/store.ts) */
+  cyborgUnitLevel: {
+    name: "cyborg_units",
+    columns: ["unit_id", "level"],
+    key: ["unit_id"],
+    updateOnly: true,
+  },
+  /** 유닛 경험치(그 레벨 구간 안의 값 — growth/store.ts, 유닛에 외래 키 없음, 유닛 다음에 쓴다) */
+  unitExp: {
+    name: "unit_exp",
+    columns: ["unit_id", "exp", "updated_at_ms"],
     key: ["unit_id"],
   },
   /** 유닛이 배운 스킬(스킬 유전자 주입 D-516, 유닛·스킬마다 한 줄). 유닛 다음에 쓰고, 유닛이 지워지면 DB가 함께 지운다 */
@@ -917,6 +937,9 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "unitFaith",
   "unitTactics",
   "unitLifeRules",
+  "humanLevel",
+  "cyborgUnitLevel",
+  "unitExp",
   "templeDevotions",
   "templeGuardians",
   "recruitDraws",

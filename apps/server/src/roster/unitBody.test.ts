@@ -20,6 +20,7 @@ import { type RosterContentEntries, rosterCatalogOf } from "./catalog.ts";
 import { realCyborgBody } from "./cyborgBody.ts";
 import {
   BASELINE_BASE,
+  type BodyBase,
   type GearEffect,
   type GearItem,
   NO_GEAR,
@@ -27,6 +28,7 @@ import {
   combatSpecOf,
   effectiveView,
   hasGear,
+  primariesOfStats,
   primaryBuffsOf,
   rosterMoveOf,
   startEffectsOf,
@@ -230,6 +232,26 @@ describe("입은 장비 → 사이보그 화면(cyborg.get 몸)", () => {
     const hp = (view: typeof body) => view.stats.secondary.find((entry) => entry.id === "hp")?.value ?? 0;
     expect(hp(body)).toBeLessThan(hp(fresh));
     expect(hasGear({ ...NO_GEAR, injuryPm: 400 })).toBe(false);
+  });
+
+  it("유닛 성장(docs/adr/2026-11-26-unit-growth.md): 저장된 스탯 몸에 성장 K가 있으면 레벨만큼 자란다(사이보그와 같은 식), 없으면 그대로", () => {
+    const stats = { str: 20, dex: 10, agi: 10, vit: 10, int: 10, wis: 10 };
+    const k = { str: 1000, dex: 1000, agi: 1000, vit: 1000, int: 1000, wis: 1000 };
+    const base = (level: number, kPm: typeof k | null): BodyBase => ({
+      kind: "stats",
+      unitKind: "human",
+      primaries: stats,
+      kPm,
+      level,
+      rebirths: 0,
+      elements: null,
+    });
+    // 성장률 100‰ × K 1000‰: 레벨마다 처음 값의 10% → Lv6 STR = 20 × 1.5 = 30
+    expect(walkAgiOf(catalog, base(1, k), NO_GEAR)).toBe(10);
+    expect(walkAgiOf(catalog, base(6, k), NO_GEAR)).toBe(15);
+    expect(primariesOfStats(effectiveView(catalog, base(6, k), NO_GEAR).stats).str).toBe(30);
+    // K 없음(수호신): 레벨이 올라도 저장된 스탯 그대로
+    expect(primariesOfStats(effectiveView(catalog, base(6, null), NO_GEAR).stats).str).toBe(20);
   });
 
   it("피로 구간 스탯 감소(사용자 결정 2026-11-26): 1차 스탯 여섯 칸을 ‰만큼 빼고(효과 출처 fatigue), 부상과 따로 세어 더한다. 걷기 AGI도 준다", () => {

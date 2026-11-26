@@ -272,6 +272,10 @@ export function UnitDetail({
                 typeLabel(unit.type),
                 // 본체의 레벨·환생은 본체 판 머리가 보인다(최고 레벨과 함께)
                 unit.level === null || self ? null : m.roster_level({ level: formatNumber(unit.level) }),
+                // 유닛 성장(휴먼·사이보그 유닛): 이번 레벨 안 경험치 / 다음 레벨까지(만렙이면 구간 0 — 보이지 않는다)
+                unit.exp && unit.exp.span > 0 && !self
+                  ? m.roster_exp({ into: formatNumber(unit.exp.into), span: formatNumber(unit.exp.span) })
+                  : null,
                 unit.rebirths > 0 && !self ? m.roster_rebirths({ count: formatNumber(unit.rebirths) }) : null,
               ]
                 .filter((part) => part !== null)

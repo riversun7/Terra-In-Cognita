@@ -7,7 +7,7 @@ import type { VitalsListResponse, VitalsView } from "@terra/shared/vitals";
 import { TEST_SOCIETY_COEFFICIENTS, stageHealMs } from "@terra/sim";
 import type { CyborgService } from "../cyborg/service.ts";
 import type { CyborgRecord } from "../cyborg/state.ts";
-import { NO_GEAR, type UnitGear } from "../roster/unitBody.ts";
+import { type BodyBase, NO_GEAR, type UnitGear } from "../roster/unitBody.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { Settlement } from "../world/settlement.ts";
@@ -22,7 +22,7 @@ export interface VitalsConfig {
   /** 사이보그 본체의 몸 자료(사이보그 화면과 같은 셈의 2차 스탯, 입은 장비·버프 포함) */
   readonly cyborgBody?: ((record: CyborgRecord, gear: UnitGear) => VitalsBody) | undefined;
   /** 그 밖 유닛의 몸 자료(유닛 상세와 같은 셈: [임시] 1차 모두 10 + 입은 장비·버프) */
-  readonly defaultBody?: ((gear: UnitGear) => VitalsBody) | undefined;
+  readonly defaultBody?: ((gear: UnitGear, base?: BodyBase) => VitalsBody) | undefined;
   /** 부상 단계별 HP 회복 속도(‰, 설정 칸 n54_injury_regen_1~3 — 세력·사회 계수표 vitals). 없으면 시험 계수표 */
   readonly rules?: (() => { readonly injuryRegenPm: readonly number[] }) | undefined;
 }
@@ -47,6 +47,8 @@ export function createWorldVitals(input: {
   readonly now: () => number;
   /** 유닛이 지닌 것(보유 물건, 보유 물건 서비스를 이 뒤에 만들므로 부를 때 찾는다). 없으면 빈 몸 */
   readonly gearOf?: ((unitId: number, nowMs: number) => UnitGear) | undefined;
+  /** 유닛 성장 거울(growth/store.ts baseOf — 휴먼·사이보그 유닛의 저장된 스탯 + 레벨 성장). 없으면 기본 몸 */
+  readonly baseOf?: ((unitId: number) => BodyBase | undefined) | undefined;
 }): WorldVitals {
   const { maps, cyborgs, config } = input;
   const gearOf = (unitId: number, nowMs: number): UnitGear => input.gearOf?.(unitId, nowMs) ?? NO_GEAR;
@@ -92,7 +94,7 @@ export function createWorldVitals(input: {
         const record = userId === undefined ? undefined : cyborgs.record(userId);
         return record && config?.cyborgBody ? config.cyborgBody(record, gearOf(unitId, nowMs)) : undefined;
       },
-      defaultBody: (unitId, nowMs) => config?.defaultBody?.(gearOf(unitId, nowMs)),
+      defaultBody: (unitId, nowMs) => config?.defaultBody?.(gearOf(unitId, nowMs), input.baseOf?.(unitId)),
       modifiersOf: (unitId, nowMs) => modifiersOf(unitId, nowMs),
     },
   });

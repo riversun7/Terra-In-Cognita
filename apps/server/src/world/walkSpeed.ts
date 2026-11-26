@@ -23,7 +23,7 @@ import {
 import type { CyborgService } from "../cyborg/service.ts";
 import { BASELINE_PRIMARY } from "../roster/body.ts";
 import type { RosterCatalog } from "../roster/catalog.ts";
-import { type UnitGear, walkBodyOf } from "../roster/unitBody.ts";
+import { type BodyBase, type UnitGear, walkBodyOf } from "../roster/unitBody.ts";
 import { worldBodyBase } from "./battleBodies.ts";
 import { UNIT_KIND_BOAT, wireKindOf } from "./unitKinds.ts";
 
@@ -76,7 +76,9 @@ function bodyKey(base: ReturnType<typeof worldBodyBase>, gear: UnitGear): string
   let key =
     base.kind === "cyborg"
       ? `c${base.record.level}/${base.record.rebirths}/${base.record.initial.agi}/${base.record.kPm.agi}`
-      : "b";
+      : base.kind === "stats"
+        ? `s${base.level}/${base.rebirths}/${base.primaries.agi}/${base.kPm?.agi ?? 0}`
+        : "b";
   key += `|${gear.injuryPm ?? 0}|${gear.fatiguePm ?? 0}`;
   for (const item of gear.equipped)
     key += `|${item.item}@${item.slot}:${item.durability === 0 ? 0 : 1}:${item.stats.map((s) => `${s.stat}=${s.value}`).join(",")}`;
@@ -87,6 +89,8 @@ function bodyKey(base: ReturnType<typeof worldBodyBase>, gear: UnitGear): string
 
 export function createWalkSpeeds(input: {
   readonly cyborgs: Pick<CyborgService, "userOfUnit" | "record">;
+  /** 유닛 성장 거울(growth/store.ts baseOf). 없으면 사이보그 밖 유닛은 기본 몸 */
+  readonly growth?: ((unitId: number) => BodyBase | undefined) | undefined;
   readonly gearOf: (unitId: number, nowMs: number) => UnitGear;
   /** 유닛 화면 전투 자료(실효 장비·가중치 표·계수표 — 계산식 포함). 없으면 기본 몸·기본 식 */
   readonly catalog: (() => RosterCatalog) | undefined;
@@ -112,7 +116,7 @@ export function createWalkSpeeds(input: {
   /** 걷기 몸(실효 AGI·장비 옵션과 지속형 스킬 이동 속도‰). 아무것도 없는 유닛은 기본 AGI·0 */
   const bodyOf = (unitId: number): { agi: number; movePm: number } => {
     const nowMs = input.now();
-    const base = worldBodyBase(input.cyborgs, unitId);
+    const base = worldBodyBase(input.cyborgs, unitId, input.growth);
     const gear = input.gearOf(unitId, nowMs);
     if (
       base.kind === "baseline" &&
@@ -184,8 +188,17 @@ export function walkSpeedsOf(
   rules?: () => { readonly boats: { readonly speed: number } },
   /** 배 종류·내구도 빠르기 배율(‰, boats/hooks.ts — D-547 1484·1495). 없으면 1000 */
   boatPm?: (unitId: number) => number,
+  /** 유닛 성장 거울(growth/store.ts baseOf) */
+  growth?: (unitId: number) => BodyBase | undefined,
 ): (unit: WalkUnit) => number {
-  const walk = createWalkSpeeds({ cyborgs, gearOf, catalog, fallback: TEST_COMBAT_COEFFICIENTS, now });
+  const walk = createWalkSpeeds({
+    cyborgs,
+    gearOf,
+    catalog,
+    fallback: TEST_COMBAT_COEFFICIENTS,
+    now,
+    growth,
+  });
   return (unit) =>
     unit.kind === UNIT_KIND_BOAT && rules
       ? Math.max(1, Math.round((boatSpeedOf(unit, rules().boats.speed) * (boatPm?.(unit.id) ?? 1000)) / 1000))

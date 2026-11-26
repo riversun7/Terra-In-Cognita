@@ -1537,6 +1537,7 @@
   "roster_type_test_unit": "시험 유닛",
   "unit_guardian_label": "수호신",
   "roster_unnamed": "{type} #{number}",
+  "roster_exp": "경험치 {into}/{span}",
   "roster_level": "Lv {level}",
   "roster_per_minute": "{value}/분",
   "roster_level_of": "Lv {level} / {max}",

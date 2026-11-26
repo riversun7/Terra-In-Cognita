@@ -1,0 +1,112 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "652674e9-a33f-42be-bca4-4c13910fb89c",
+  "prevIds": [
+    "4a80f3a5-611b-4a92-83b3-96fb5cc68a47"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "unit_exp"
+      ],
+      "writes": [
+        "s|tbl|public.unit_exp",
+        "n|tbl|public.unit_exp",
+        "e|tbl|public.unit_exp",
+        "n|rel|public.unit_exp",
+        "n|type|public.unit_exp",
+        "n|rel|public.unit_exp_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "unit_exp",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_exp",
+        "name": "unit_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_exp",
+        "name": "exp",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_exp",
+        "name": "updated_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_exp",
+        "name": "unit_exp_pkey",
+        "columns": [
+          "unit_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_exp",
+        "name": "unit_exp_nonnegative",
+        "value": "\"exp\" >= 0",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

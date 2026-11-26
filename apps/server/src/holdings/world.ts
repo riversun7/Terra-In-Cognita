@@ -10,7 +10,7 @@ import type { Primaries, StatRow } from "@terra/sim";
 import type { CyborgService } from "../cyborg/service.ts";
 import type { CyborgRecord } from "../cyborg/state.ts";
 import { BASELINE_PRIMARY } from "../roster/body.ts";
-import type { UnitGear } from "../roster/unitBody.ts";
+import type { BodyBase, UnitGear } from "../roster/unitBody.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { Settlement } from "../world/settlement.ts";
@@ -33,7 +33,7 @@ export interface HoldingsConfig {
   /** 사이보그 본체의 1차 스탯(입은 장비·1차 스탯 버프 포함, 사이보그 화면과 같은 셈). 없으면 기본값 */
   readonly cyborgPrimaries?: ((record: CyborgRecord, gear: UnitGear) => Primaries) | undefined;
   /** 그 밖 유닛의 1차 스탯([임시] 기본 몸 + 입은 장비·버프, 유닛 상세와 같은 셈). 없으면 기본값 */
-  readonly defaultPrimaries?: ((gear: UnitGear) => Primaries) | undefined;
+  readonly defaultPrimaries?: ((gear: UnitGear, base?: BodyBase) => Primaries) | undefined;
   /** 가중치 표 실효 값(수리 장인 실력의 제작 직무 행, D-512 323). 없으면 시험 표 */
   readonly statTable?: (() => readonly StatRow[]) | undefined;
 }
@@ -96,6 +96,8 @@ export function createWorldHoldings(input: {
    * 상태의 마지막 정산 값이다
    */
   readonly fatigueCutPm?: ((fatigue: number) => number) | undefined;
+  /** 유닛 성장 거울(growth/store.ts baseOf — 휴먼·사이보그 유닛의 저장된 스탯 + 레벨 성장). 없으면 기본 몸 */
+  readonly baseOf?: ((unitId: number) => BodyBase | undefined) | undefined;
 }): WorldHoldings {
   const { maps, cyborgs, config } = input;
   const infoOf = (unitId: number) => {
@@ -157,7 +159,7 @@ export function createWorldHoldings(input: {
     const userId = cyborgs.userOfUnit(unitId);
     const record = userId === undefined ? undefined : cyborgs.record(userId);
     if (record) return config?.cyborgPrimaries?.(record, gearOf(unitId, input.now())) ?? BASELINE;
-    return config?.defaultPrimaries?.(gearOf(unitId, input.now())) ?? BASELINE;
+    return config?.defaultPrimaries?.(gearOf(unitId, input.now()), input.baseOf?.(unitId)) ?? BASELINE;
   };
   let locked: (holdingId: number) => boolean = NEVER_LOCKED;
   const service = createHoldingService({

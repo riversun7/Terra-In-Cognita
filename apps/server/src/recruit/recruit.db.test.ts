@@ -3,6 +3,7 @@
 // 유저 구인(recruit.board 조회 → recruit_hire: 값 소각, 휴먼 유닛 종류 4, 산 칸, 거절 코드)을 본다.
 import { DAY_MS } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { unitGrowthOf } from "../growth/store.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { giveTestHouse } from "../factionIdentity/testHouses.ts";
 import { silentLog } from "../world/testSupport.ts";
@@ -235,9 +236,31 @@ describe.skipIf(!TEST_DATABASE_URL)("구인 카드(D-469)", () => {
     expect(
       await count(`select owner_id from recruit_draws where owner_id = $1 and taken = 2`, [ownerId]),
     ).toBe(1);
+    // 유닛 성장(docs/adr/2026-11-26-unit-growth.md): 고용한 휴먼의 몸 바탕 = 구인 카드 스탯(기본 몸이 아니다), 경험치로 레벨이 오른다
+    const growth = unitGrowthOf(world.persistence);
+    expect(growth?.baseOf(hired.unitId)).toMatchObject({
+      kind: "stats",
+      unitKind: "human",
+      primaries: card.stats,
+      level: 1,
+    });
+    expect(growth?.viewOf(hired.unitId)).toEqual({ level: 1, exp: 0, span: 35 });
+    // Lv1 → 2 = 35, Lv2 → 3 = 132: 한 번에 두 레벨 + 4
+    expect(growth?.gain(hired.unitId, 35 + 132 + 4)).toEqual({ level: 3, exp: 4, gainedLevels: 2 });
+    expect(growth?.baseOf(hired.unitId)).toMatchObject({ level: 3 });
+    await world.persistence?.writer.durable();
     expect(await world.checkInvariants()).toEqual([]);
 
     world = await restart(world);
+    // 다시 켜도 레벨(world_humans.level)과 경험치(unit_exp)가 남는다
+    expect(unitGrowthOf(world.persistence)?.viewOf(hired.unitId)).toEqual({ level: 3, exp: 4, span: 285 });
+    expect(
+      (
+        await rows<{ level: number }>(test.db, "select level from world_humans where unit_id = $1", [
+          hired.unitId,
+        ])
+      )[0]?.level,
+    ).toBe(3);
     const again = world.persistence?.recruits.board({ id: userId, owner: false }, board.cityId, clock);
     expect(again?.cards[1]?.taken).toBe(true);
     // NPC 런타임은 유저 휴먼을 돌리지 않는다(봇 휴먼만 들인다)

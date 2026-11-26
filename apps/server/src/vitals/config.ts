@@ -44,8 +44,8 @@ export function vitalsConfigOf(
       const parts = bodyParts(roster, bodySpecOf({ kind: "cyborg", record }, gear));
       return vitalsBodyOf(parts.view.stats, roster.coefficients, parts.loadout.armorRegen);
     },
-    defaultBody: (gear) => {
-      const parts = bodyParts(roster, bodySpecOf(BASELINE_BASE, gear));
+    defaultBody: (gear, base) => {
+      const parts = bodyParts(roster, bodySpecOf(base ?? BASELINE_BASE, gear));
       return vitalsBodyOf(parts.view.stats, roster.coefficients, parts.loadout.armorRegen);
     },
     rules: () => (tuning ? tuning.society().vitals : TEST_SOCIETY_COEFFICIENTS.vitals),

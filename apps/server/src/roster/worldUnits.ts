@@ -20,7 +20,9 @@ import {
 } from "../world/unitKinds.ts";
 import type { World } from "../world/world.ts";
 import type { AiTactics } from "@terra/shared/aiTactics";
+import { type UnitGrowthView, unitGrowthOf } from "../growth/store.ts";
 import { unitLifeOf } from "../life/store.ts";
+import type { BodyBase } from "./unitBody.ts";
 import { TACTICS_KINDS, tacticsOfRow } from "../tactics/store.ts";
 
 /** 실제 유닛 한 줄(화면 모양으로 바꾸기 전) */
@@ -64,6 +66,11 @@ export interface WorldRosterSource {
    * 사이보그 판·홈 카드의 본체 피로가 쓴다
    */
   fatigueOf(unitId: number): number | undefined;
+  /**
+   * 유닛 성장(휴먼·사이보그 유닛 — growth/store.ts): 몸 바탕(저장된 스탯 + 레벨 성장)과 레벨·경험치. 거울에 없으면 undefined(기본 몸).
+   * 없어도 된다(시험 — 그러면 모두 기본 몸)
+   */
+  growthOf?(unitId: number): { readonly base: BodyBase; readonly view: UnitGrowthView } | undefined;
 }
 
 export const EMPTY_WORLD_ROSTER: WorldRosterSource = {
@@ -206,6 +213,12 @@ export function createWorldRosterSource(world: World): WorldRosterSource {
         else prisoners.push(entry);
       }
       return { units, prisoners };
+    },
+    growthOf(unitId) {
+      const growth = unitGrowthOf(world.persistence);
+      const base = growth?.baseOf(unitId);
+      const view = growth?.viewOf(unitId);
+      return base && view ? { base, view } : undefined;
     },
     fatigueOf(unitId) {
       for (const map of world.maps.values()) {

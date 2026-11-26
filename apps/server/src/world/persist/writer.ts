@@ -34,6 +34,11 @@ export interface WorldWriter {
   upsert(table: WorldTable, row: Row): void;
   /** 열쇠 열만 있으면 된다 */
   remove(table: WorldTable, key: Row): void;
+  /**
+   * 넣는 바뀜(upsert·remove)을 지켜본다(메모리 거울이 표를 따라간다 — growth/store.ts). 대기열에 넣을 때 동기로 부른다(커밋 전).
+   * 듣는 쪽이 던지면 그대로 올라간다. 시험용 가짜 대기열은 없어도 된다(그러면 거울이 따라가지 않는다)
+   */
+  observe?(listener: (table: WorldTable, row: Row, removed: boolean) => void): void;
   append(table: WorldTable, row: Row): void;
   /** 지금까지 넣은 바뀜이 커밋되면 풀린다 */
   durable(): Promise<void>;
@@ -138,6 +143,8 @@ export function createWorldWriter(options: WorldWriterOptions): WorldWriter {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let timerAt = Number.POSITIVE_INFINITY;
   let crashed: "commit" | "rollback" | undefined;
+  /** 넣는 바뀜을 지켜보는 쪽(observe) */
+  const observers: ((table: WorldTable, row: Row, removed: boolean) => void)[] = [];
   let failingSince: number | undefined;
   let fatal = false;
   let retryDelayMs = 0;
@@ -286,6 +293,7 @@ export function createWorldWriter(options: WorldWriterOptions): WorldWriter {
       const key = keyOf(spec, row);
       if (!map.has(key)) touched();
       map.set(key, { remove: false, row });
+      for (const listener of observers) listener(table, row, false);
     },
     remove(table, key) {
       if (crashed) return;
@@ -294,6 +302,10 @@ export function createWorldWriter(options: WorldWriterOptions): WorldWriter {
       const id = keyOf(spec, key);
       if (!map.has(id)) touched();
       map.set(id, { remove: true, row: key });
+      for (const listener of observers) listener(table, key, true);
+    },
+    observe(listener) {
+      observers.push(listener);
     },
     append(table, row) {
       if (crashed) return;

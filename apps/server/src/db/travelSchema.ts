@@ -104,3 +104,18 @@ export const unitLifeRules = pgTable(
     ),
   ],
 );
+
+/**
+ * 유닛 경험치(유닛 성장 — docs/adr/2026-11-26-unit-growth.md, src/growth/store.ts): 휴먼·사이보그 유닛의 지금 레벨 구간 안 경험치. 레벨은 그 유닛
+ * 표(world_humans.level·cyborg_units.level)에 있다. 유닛당 한 줄, 없으면 0. 유닛에 외래 키를 두지 않는다(유닛이 사라진 줄은 읽을 때 무시).
+ * 직전 판 앱은 이 표를 모른 채 그대로 돈다(더하기만)
+ */
+export const unitExp = pgTable(
+  "unit_exp",
+  {
+    unitId: bigint("unit_id", { mode: "number" }).primaryKey(),
+    exp: integer("exp").notNull(),
+    updatedAtMs: bigint("updated_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [check("unit_exp_nonnegative", sql`${table.exp} >= 0`)],
+);

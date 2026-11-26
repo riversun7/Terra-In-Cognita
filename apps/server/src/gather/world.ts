@@ -9,6 +9,7 @@ import type { StorageContext } from "../facilities/storage.ts";
 import { PROPERTY_UNIT_KINDS } from "../labor/wagePurse.ts";
 import type { LaborWorkerEntry } from "../labor/workerEntry.ts";
 import { type WorkerRest, attachWorkerRest } from "../labor/workerRest.ts";
+import { unitGrowthOf } from "../growth/store.ts";
 import { unitLifeOf } from "../life/store.ts";
 import { nationOfOwner } from "../world/nationVision.ts";
 import { createGatherInjury } from "../world/unitCondition.ts";
@@ -143,11 +144,12 @@ export function startWorldGather(
         workInjury: createGatherInjury(),
         // 쉬러 가는 피로(유닛 생활 규칙 — 사용자 결정 2026-11-26): 이끄는 유닛이 그 피로에 닿으면 줄을 끝낸다
         restAt: (unitId) => unitLifeOf(world.persistence)?.of(unitId).restAt,
-        // 채집 경험치(docs/adr/2026-11-26-gather-exp.md): 사이보그 본체면 사이보그 경험치로(그 밖 유닛은 아직 받지 않는다)
+        // 채집 경험치(docs/adr/2026-11-26-gather-exp.md): 사이보그 본체면 사이보그 경험치로, 휴먼·사이보그 유닛은 유닛 성장 거울로
         gainExp: (unitId, amount) => {
           const cyborgs = world.persistence?.cyborgs;
           const userId = cyborgs?.userOfUnit(unitId);
           if (cyborgs && userId !== undefined) cyborgs.addExp(userId, amount);
+          else unitGrowthOf(world.persistence)?.gain(unitId, amount);
         },
         // 배 창고 상한(D-568 배 단위 채집 — 배 서비스가 배 고리에 채운다)
         boatHoldGrams: (boatId) => world.persistence?.boatHooks.info(boatId)?.holdCapGrams,

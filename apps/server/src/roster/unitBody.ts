@@ -121,6 +121,11 @@ export type BodyBase =
       /** 팩 unit_kinds ID(칸 배치·스킬 칸) */
       readonly unitKind: string;
       readonly primaries: Primaries;
+      /**
+       * 성장 K(‰, 1차 스탯마다 — 유닛 성장 growth/store.ts): 있으면 레벨 성장을 센다(사이보그와 같은 식, primaries = 처음 값). 없으면 성장 없음
+       * (수호신 — 저장된 스탯 그대로)
+       */
+      readonly kPm?: Primaries | null | undefined;
       readonly level: number;
       readonly rebirths: number;
       /** 속성값 12칸(없으면 null) */
@@ -223,8 +228,8 @@ export function bodySpecOf(base: BodyBase, gear: UnitGear): BodySpec {
     return {
       kind: base.unitKind,
       initial: base.primaries,
-      // 성장 없음(저장된 1차 스탯 그대로, D-416 안드로이드와 같은 꼴)
-      kPm: null,
+      // 성장 K가 있으면 레벨 성장(유닛 성장), 없으면 성장 없음(저장된 1차 스탯 그대로 — 수호신, D-416 안드로이드와 같은 꼴)
+      kPm: base.kPm ?? null,
       level: base.level,
       rebirths: base.rebirths,
       equipped,

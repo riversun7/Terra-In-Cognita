@@ -32,7 +32,7 @@ export function holdingsConfigOf(options: {
       ? (record, gear) => primariesOfStats(effectiveView(roster, { kind: "cyborg", record }, gear).stats)
       : undefined,
     defaultPrimaries: roster
-      ? (gear) => primariesOfStats(effectiveView(roster, BASELINE_BASE, gear).stats)
+      ? (gear, base) => primariesOfStats(effectiveView(roster, base ?? BASELINE_BASE, gear).stats)
       : undefined,
   };
 }

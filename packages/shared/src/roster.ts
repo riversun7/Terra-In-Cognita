@@ -327,6 +327,11 @@ export interface RosterUnit {
   readonly type: UnitType;
   /** 레벨(안드로이드·시험 유닛은 null, D-416) */
   readonly level: number | null;
+  /**
+   * 이번 레벨 안 경험치 / 다음 레벨까지(유닛 성장 — 저장된 스탯이 있는 휴먼·사이보그 유닛만 칸이 있다, 만렙이면 span 0).
+   * 사이보그 본체는 사이보그 판(body.exp)이 보인다
+   */
+  readonly exp?: { readonly into: number; readonly span: number } | undefined;
   readonly rebirths: number;
   /** 있는 곳. 거점 이름은 시안만 있다 */
   readonly place: {

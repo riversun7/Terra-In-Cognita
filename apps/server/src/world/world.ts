@@ -52,6 +52,7 @@ import { commandRankSource } from "./commandRanks.ts";
 import { blacklistReward } from "../factionIdentity/blacklistReward.ts";
 import { nationEntryTerms } from "../factionIdentity/houseEntry.ts";
 import { houseRulesFrom } from "../factionIdentity/rules.ts";
+import { createUnitGrowth, registerUnitGrowth } from "../growth/store.ts";
 import { attachUnitLife } from "../life/store.ts";
 import type { NpcJobValue } from "../npc/npcJobValue.ts";
 import { type NpcJobs, npcJobsOf } from "../npc/npcJobs.ts";
@@ -613,6 +614,17 @@ export function startWorld(
     });
     // 생명 수치(D-512): 보유 물건이 전투 밖 회복 물약을 쓸 때 부른다(holdings/world.ts) → 먼저 만든다. 입은 장비·버프는 아래에서 잇는다
     let gearOf: (unitId: number, nowMs: number) => UnitGear = noGear;
+    // 유닛 성장 거울(휴먼·사이보그 유닛의 저장된 스탯 + 레벨·경험치 — growth/store.ts, docs/adr/2026-11-26-unit-growth.md): 몸을 읽는 곳들보다
+    // 먼저 만든다(쓰기 대기열을 지켜보며 따라간다). 세계 저장 층에는 아래에서 붙인다
+    const growth = createUnitGrowth({
+      pool: db,
+      writer,
+      now,
+      rules: config.cyborgRules ?? defaultCyborgRules,
+      expTable: () => config.roster?.().expTable,
+      log,
+    });
+    const growthBase = (unitId: number) => growth.baseOf(unitId);
     const vitals = createWorldVitals({
       loaded: vitalsData,
       writer,
@@ -621,6 +633,7 @@ export function startWorld(
       settlement,
       config: config.vitals,
       now,
+      baseOf: growthBase,
       gearOf: (unitId, nowMs) => gearOf(unitId, nowMs),
     });
     const holdings = createWorldHoldings({
@@ -634,6 +647,7 @@ export function startWorld(
       seed: () => randomInt(0x1_0000_0000),
       // 피로 구간의 1차 스탯 감소(사용자 결정 2026-11-26): 작업·전투·걷기가 같은 몸(gearOf)을 읽어 함께 느려진다
       fatigueCutPm: (fatigue) => fatigueStatCutPm(fatigue, (config.cyborgRules ?? defaultCyborgRules)()),
+      baseOf: growthBase,
       vitals: {
         hp: (unitId, nowMs) => {
           const read = vitals.service.read(unitId, nowMs);
@@ -659,9 +673,16 @@ export function startWorld(
         bountyMax: () => BigInt(Math.max(0, Math.trunc(societyRules().house.blacklistBountyMax ?? 5000))),
       }),
     ); // 블랙리스트 사냥 보상(ADR 2026-11-25)
-    const bodies = createBattleBodies({ maps, cyborgs, gearOf, catalog: config.roster, commandRankOf });
+    const bodies = createBattleBodies({
+      maps,
+      cyborgs,
+      gearOf,
+      catalog: config.roster,
+      commandRankOf,
+      growth: growthBase,
+    });
     factory.attachWalk?.(
-      walkSpeedsOf(cyborgs, holdings.gearOf, config.roster, now, societyRules, boatHooks.speedPm),
+      walkSpeedsOf(cyborgs, holdings.gearOf, config.roster, now, societyRules, boatHooks.speedPm, growthBase),
     ); // 걷기 AGI·배 속도
     // 전투에 가지고 들어가는 물약·탄(287): 생명 수치 다음에 붙인다
     items = createBattleItems({
@@ -736,11 +757,12 @@ export function startWorld(
       isHostileCity,
       npc: () => npc,
     });
-    // 유닛 경험치(채집 — docs/adr/2026-11-26-gather-exp.md): 사이보그 본체면 사이보그 경험치로. 그 밖 유닛(휴먼·사이보그 유닛)은 레벨이
-    // 몸에 이어져 있지 않아 아직 받지 않는다
+    // 유닛 경험치(채집 — docs/adr/2026-11-26-gather-exp.md): 사이보그 본체면 사이보그 경험치로, 휴먼·사이보그 유닛은 유닛 성장 거울로
+    // (docs/adr/2026-11-26-unit-growth.md — 저장된 스탯이 없는 유닛은 받지 않는다)
     const gainUnitExp = (unitId: number, amount: number): void => {
       const userId = cyborgs.userOfUnit(unitId);
       if (userId !== undefined) cyborgs.addExp(userId, amount);
+      else growth.gain(unitId, amount);
     };
     // 노동 계약: 소유 주체 정산이 계약을 같은 시각까지 정산하고 산출을 계약 몫으로 나눈다
     const labor = createLaborService({
@@ -866,6 +888,9 @@ export function startWorld(
     // 도시 가진 가문의 시야 묶음(houseTies.ts, D-250): 부팅 때 읽고 1분마다 다시 읽는다(가문 명령 뒤에도 다시 읽는다)
     const ties = attachHouseTies(persistence, db);
     await ties.reload();
+    // 유닛 성장 거울을 세계 저장 층에 붙인다(로스터·채집 세계가 unitGrowthOf로 찾는다). 표를 다 읽은 뒤에 넘어간다
+    registerUnitGrowth(persistence, growth);
+    await growth.loaded;
     // 유닛 생활 규칙(쉬러 가는 피로·다시 일하는 피로 — 사용자 결정 2026-11-26, life/store.ts): 저장소를 세계 저장 층에 붙이고(게이트웨이·로스터가
     // unitLifeOf로 찾는다) 소유 주체 정산이 직무가 있는 유닛마다 묻는다. 저장한 값이 없으면 성향 기본값
     const life = attachUnitLife(

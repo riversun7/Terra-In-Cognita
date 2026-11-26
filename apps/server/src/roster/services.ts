@@ -47,6 +47,7 @@ import {
 } from "./unitBody.ts";
 import { sheetOfSpec } from "./unitSheet.ts";
 import { EMPTY_WORLD_ROSTER, type WorldRosterRow, type WorldRosterSource } from "./worldUnits.ts";
+import type { UnitGrowthView } from "../growth/store.ts";
 
 const worldId = (id: number): string => `w${id}`;
 
@@ -93,13 +94,17 @@ export function realUnit(
   gear: UnitGear = NO_GEAR,
   condition?: RosterCondition,
   self?: CyborgRecord,
+  /** 유닛 성장(휴먼·사이보그 유닛의 저장된 스탯 + 레벨·경험치 — growth/store.ts). 없으면 기본 몸·레벨 없음 */
+  growth?: { readonly base: BodyBase; readonly view: UnitGrowthView },
 ): RosterUnit {
-  const base: BodyBase = row.self === true && self ? { kind: "cyborg", record: self } : BASELINE_BASE;
+  const base: BodyBase =
+    row.self === true && self ? { kind: "cyborg", record: self } : (growth?.base ?? BASELINE_BASE);
   return {
     id: worldId(row.id),
     name: row.self === true && self ? self.name : null,
     type: row.type,
-    level: row.self === true && self ? self.level : null,
+    level: row.self === true && self ? self.level : (growth?.view.level ?? null),
+    ...(row.self !== true && growth ? { exp: { into: growth.view.exp, span: growth.view.span } } : {}),
     rebirths: row.self === true && self ? self.rebirths : 0,
     place: { planetId: row.planetId, mapKey: String(row.mapKey), domain: row.domain, base: null },
     job: row.job,
@@ -256,7 +261,10 @@ export function createRosterServices(
       if (!row) return none;
       const record = row.self === true ? options.cyborgs?.()?.record(viewer.id) : undefined;
       const gear = gearOf(unitId, query.now);
-      const spec = bodySpecOf(record ? { kind: "cyborg", record } : BASELINE_BASE, gear);
+      const spec = bodySpecOf(
+        record ? { kind: "cyborg", record } : (world.growthOf?.(unitId)?.base ?? BASELINE_BASE),
+        gear,
+      );
       // K가 보이는 곳(D-449): 본체는 만렙일 때만 처음 값·K를 보낸다(사이보그 화면과 같다)
       const maxed = record !== undefined && record.level >= catalog.society.cyborg.maxLevel;
       const base = sheetOfSpec(catalog, spec, {
@@ -283,6 +291,7 @@ export function createRosterServices(
           gearOf(row.id, query.now),
           condition ? rosterConditionOf(condition.read(row.id), condition.cap) : undefined,
           row.self === true ? record : undefined,
+          row.self === true ? undefined : world.growthOf?.(row.id),
         ),
       );
       const prisoners = real.prisoners.map(realPrisoner);

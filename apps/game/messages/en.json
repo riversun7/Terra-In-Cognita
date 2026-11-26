@@ -1537,6 +1537,7 @@
   "roster_type_test_unit": "Test unit",
   "unit_guardian_label": "Guardian Spirit",
   "roster_unnamed": "{type} #{number}",
+  "roster_exp": "EXP {into}/{span}",
   "roster_level": "Lv {level}",
   "roster_per_minute": "{value}/min",
   "roster_level_of": "Lv {level} / {max}",

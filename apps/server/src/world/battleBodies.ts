@@ -40,10 +40,12 @@ export interface BattleBodies {
 export function worldBodyBase(
   cyborgs: Pick<CyborgService, "userOfUnit" | "record">,
   unitId: number,
+  /** 유닛 성장 거울(휴먼·사이보그 유닛의 저장된 스탯 + 레벨 성장 — growth/store.ts). 없거나 거울에 없으면 기본 몸 */
+  growth?: (unitId: number) => BodyBase | undefined,
 ): BodyBase {
   const userId = cyborgs.userOfUnit(unitId);
   const record = userId === undefined ? undefined : cyborgs.record(userId);
-  return record ? { kind: "cyborg", record } : BASELINE_BASE;
+  return record ? { kind: "cyborg", record } : (growth?.(unitId) ?? BASELINE_BASE);
 }
 
 export function createBattleBodies(input: {
@@ -54,12 +56,14 @@ export function createBattleBodies(input: {
   readonly catalog: (() => RosterCatalog) | undefined;
   /** 지휘 계급(D-558, commandRanks.ts). 없으면 계급 없음(아래 끝 정원) */
   readonly commandRankOf?: ((unitId: number) => CommandRank | undefined) | undefined;
+  /** 유닛 성장 거울(growth/store.ts baseOf). 없으면 사이보그 밖 유닛은 기본 몸 */
+  readonly growth?: ((unitId: number) => BodyBase | undefined) | undefined;
 }): BattleBodies {
   const exists = (unitId: number): boolean => {
     for (const map of input.maps.values()) if (map.unitInfo(unitId)) return true;
     return false;
   };
-  const baseOf = (unitId: number): BodyBase => worldBodyBase(input.cyborgs, unitId);
+  const baseOf = (unitId: number): BodyBase => worldBodyBase(input.cyborgs, unitId, input.growth);
   /** 기본 몸·입은 것 없음의 전투력(팩 자료가 바뀌면 다시 센다) */
   let bare: { readonly catalog: RosterCatalog; readonly power: number } | undefined;
   const POWER_PLACE: SpecPlace = {

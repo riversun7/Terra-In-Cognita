@@ -53,6 +53,7 @@ import { blacklistReward } from "../factionIdentity/blacklistReward.ts";
 import { nationEntryTerms } from "../factionIdentity/houseEntry.ts";
 import { houseRulesFrom } from "../factionIdentity/rules.ts";
 import { createUnitGrowth, registerUnitGrowth } from "../growth/store.ts";
+import { stationOf } from "../gather/registry.ts";
 import { attachUnitLife } from "../life/store.ts";
 import type { NpcJobValue } from "../npc/npcJobValue.ts";
 import { type NpcJobs, npcJobsOf } from "../npc/npcJobs.ts";
@@ -656,6 +657,8 @@ export function startWorld(
       seed: () => randomInt(0x1_0000_0000),
       // 피로 구간의 1차 스탯 감소(사용자 결정 2026-11-26): 작업·전투·걷기가 같은 몸(gearOf)을 읽어 함께 느려진다
       fatigueCutPm: (fatigue) => fatigueStatCutPm(fatigue, (config.cyborgRules ?? defaultCyborgRules)()),
+      // NPC 일꾼 상태 기반 피로(docs/adr/2026-11-27-npc-stateful-fatigue.md): NPC에도 N23 피로 스탯 불이익 동일 적용
+      npcFatigueOf: (unitId, nowMs) => npc?.fatigue.fatigueOf(unitId, nowMs),
       baseOf: growthBase,
       vitals: {
         hp: (unitId, nowMs) => {
@@ -1083,7 +1086,10 @@ export function startWorld(
           tierApply: seeded?.tierApply !== undefined,
           // 죽은 휴먼이 2차맵 사이 이동 중이면 길을 바로 버린다(질문 2696 — travel/npcTravel.ts cancel(drop))
           onHumanDied: (unitId) => void npcTravelOf(travel).cancel(unitId, true),
+          // 물류센터 운반꾼의 실제 운반 중 여부(NPC 상태 기반 피로 누적 판정)
+          isHauling: (unitId) => stationOf(persistence)?.isCarrying(unitId) === true,
         });
+        factory.attachBotFatigue?.(npc.fatigue);
         attachDeliveryRenown(npc.economy, { owners, cyborgs, rules: societyRules }); // 납품 명성(D-326)
         npcJobs = npcJobsOf(npc.economy, labor, config.npcJobValue); // NPC 시설 일자리(사용자 지시 2026-11-25)
         await finishTierApply(db, TEST_PLANET_ID, now(), seeded?.tierApply, npc.seedReport, log);

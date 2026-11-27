@@ -167,6 +167,8 @@ export interface Porters {
   step(nowMs: number): void;
   /** 다음에 깨어날 시각(짐이 없으면 undefined) */
   nextWakeAt(nowMs: number): number | undefined;
+  /** 그 유닛이 지금 짐을 나르는 중인가 */
+  isCarrying(unitId: number): boolean;
 }
 
 export function createPorters(deps: PorterDeps): Porters {
@@ -413,5 +415,6 @@ export function createPorters(deps: PorterDeps): Porters {
       for (const trip of trips.values()) if (trip.arriveAtMs < next) next = trip.arriveAtMs;
       return next;
     },
+    isCarrying: carrying,
   };
 }

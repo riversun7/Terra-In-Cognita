@@ -290,6 +290,8 @@ export interface StationRuntime {
   ): FacilityResultCode | null | undefined;
   /** 물류센터의 지금 나를 수 있는 일꾼 수(화면 — porter.ts freeStaff) */
   freeStaff(buildingId: number, mapKey: number, nowMs: number): number;
+  /** 그 유닛이 지금 짐을 나르는 중인가(NPC 상태 기반 피로 판정) */
+  isCarrying(unitId: number): boolean;
   /** 실제 운반 하나(CarrySpec — 거래소 넣기·배 상하역이 같이 쓴다) */
   carry(spec: CarrySpec): CarryResult;
   /** 그 원장 자리로 나르는 중인 짐 무게(g) — 배 싣기가 창고 상한에 미리 센다 */
@@ -1030,6 +1032,7 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
     carry,
     inbound,
     freeStaff: (buildingId, mapKey, nowMs) => porters.freeStaff(buildingId, mapKey, nowMs),
+    isCarrying: (unitId) => porters.isCarrying(unitId),
     stop() {
       stopped = true;
       if (timer) clearTimeout(timer);

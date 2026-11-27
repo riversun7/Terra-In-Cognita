@@ -12,6 +12,7 @@ import {
 } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { NpcCityHouses } from "./cityHouses.ts";
+import type { BotFatigueAccess } from "../world/bots.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { restCycleOf } from "./cityRest.ts";
 import type { ServerEconomy } from "./economy.ts";
@@ -43,6 +44,7 @@ export interface NpcAiBridge {
     nowMs: number,
     cityId?: number,
     econOf?: (cityId: number) => MonitorCityEcon | undefined,
+    fatigue?: BotFatigueAccess,
   ): AiMonitorView;
   /** 가문 일 지시 점검: 바뀐 도시의 일꾼 수를 도시 경제에 다시 세게 하고 바뀐 도시 수를 돌려준다 */
   laborTick(nowMs: number, econ?: Pick<ServerEconomy, "refreshCity">): number;
@@ -193,11 +195,11 @@ export function createNpcAiBridge(o: {
       }
       return changed.length;
     },
-    monitor(nowMs, cityId, econOf) {
+    monitor(nowMs, cityId, econOf, fatigue) {
       const ai = o.rules().npcAi;
       const unitRows = function* (): Generator<MonitorUnitInput> {
         for (const unit of o.units.values()) {
-          const seen = monitorBodyOf(o.maps, o.mapKeyOfCity(unit.city), unit.id, nowMs);
+          const seen = monitorBodyOf(o.maps, o.mapKeyOfCity(unit.city), unit.id, nowMs, fatigue);
           yield {
             id: unit.id,
             city: unit.city,

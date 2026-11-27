@@ -87,6 +87,22 @@ describe("NPC 휴먼 지갑(humanPurse.ts)", () => {
     expect(facilityIds).toEqual(facilityIds.toSorted((a, b) => a - b));
   });
 
+  it("타 맵 이탈(away) 휴먼은 일꾼·건설 도우미·임금 대상에서 빠지고, 대신 현장 뒷순번 휴먼이 채운다", () => {
+    const { world, economy, cityId, units } = setup();
+    const [first, second] = units;
+    if (!first || !second) throw new Error("units");
+    first.away = true;
+    const workers = cityWorkerUnits(world, economy, cityId);
+    expect(workers.some((worker) => worker.unitId === first.id)).toBe(false);
+    expect(workers[0]?.unitId).toBe(second.id);
+    // 하루 끝 정산: away 휴먼은 임금·paidToday를 받지 않고(생필품 유지비는 유지), 현장 일꾼만 임금을 받는다
+    feed(economy, world.cities.keys(), units.length);
+    economy.today.building = new Set([cityId]);
+    livingDay(economy, world, DAY, { ...RULES, buildersMax: 2 });
+    expect(first.paidToday).toBeUndefined();
+    expect(second.paidToday).toBeGreaterThan(0);
+  });
+
   it("다 먹은 일꾼: 임금(국고 → 지갑)으로 먹은 생필품 값을 낸다(지갑 → 국고) — 기본 임금이 생활비보다 작아 국고·지갑이 그대로", () => {
     const { world, economy, faction, cityId, currency, units } = setup();
     feed(economy, world.cities.keys(), 100);

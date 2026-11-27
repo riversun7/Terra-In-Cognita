@@ -545,18 +545,24 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   const cityStrikes = new Map<number, number>();
   /** 도시마다 지금 그 도시에 없는 휴먼 수(경비대·불복 빼고 — 일꾼으로 세지 않는다, 질문 2697 나) */
   const cityAway = new Map<number, number>();
-  const recount = (): void => {
+  const recount = (): Set<number> => {
+    const awayChanged = new Set<number>();
     economy.cityUnits.clear();
     cityGuards.clear();
     cityStrikes.clear();
     cityAway.clear();
     for (const unit of world.units.values()) {
       economy.cityUnits.set(unit.city, (economy.cityUnits.get(unit.city) ?? 0) + 1);
+      const nextAway = o.away?.(unit.id, unit.city) === true ? true : undefined;
+      if (unit.away !== nextAway) {
+        unit.away = nextAway;
+        awayChanged.add(unit.city);
+      }
       if (unit.guard === true) cityGuards.set(unit.city, (cityGuards.get(unit.city) ?? 0) + 1);
       else if (unit.onStrike === true) cityStrikes.set(unit.city, (cityStrikes.get(unit.city) ?? 0) + 1);
-      else if (o.away?.(unit.id, unit.city) === true)
-        cityAway.set(unit.city, (cityAway.get(unit.city) ?? 0) + 1);
+      else if (nextAway === true) cityAway.set(unit.city, (cityAway.get(unit.city) ?? 0) + 1);
     }
+    return awayChanged;
   };
   recount();
 
@@ -1056,10 +1062,10 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     refreshPresence(nowMs) {
       if (!o.away) return 0;
       const before = new Map(cityAway);
-      recount();
+      const awayChanged = recount();
       let changed = 0;
       for (const cityId of [...world.cities.keys()].toSorted((a, b) => a - b)) {
-        if ((before.get(cityId) ?? 0) === (cityAway.get(cityId) ?? 0)) continue;
+        if (!awayChanged.has(cityId) && (before.get(cityId) ?? 0) === (cityAway.get(cityId) ?? 0)) continue;
         syncCity(cityId, nowMs);
         changed += 1;
       }

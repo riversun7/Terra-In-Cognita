@@ -74,6 +74,26 @@ describe("NPC 물류센터 운반꾼", () => {
     expect(logistics.staffAt(40)).toEqual([3, 5]);
   });
 
+  it("타 맵 이탈(away)·지시 불복(onStrike) 휴먼은 물류센터 운반꾼에서 빠지고 laborRank 차례를 따른다", () => {
+    const units = new Map([
+      [1, { id: 1, city: 7, owner: 50, away: true }],
+      [2, { id: 2, city: 7, owner: 50, onStrike: true }],
+      [3, { id: 3, city: 7, owner: 50, laborRank: 2 }],
+      [4, { id: 4, city: 7, owner: 50, laborRank: 0 }],
+      [5, { id: 5, city: 7, owner: 50, laborRank: 1 }],
+    ]);
+    const logistics = createNpcLogistics({
+      world: { cities: new Map([[7, { owner: 50 }]]), units },
+      // 생산 시설 1자리 → laborRank 0인 4번이 생산 일꾼, 남은 5번(rank 1)·3번(rank 2)이 물류센터 운반꾼
+      economy: { facilities: new Map([[100, { id: 100, city: 7, workers: 1 }]]) },
+      facilitiesIn: () => [{ buildingId: 40, facility: "logistics_center", level: 1, ownerId: 50 }],
+      defOf: () => ({ logistics: true, slotsPerLevel: 2 }),
+      cityOf: () => 7,
+      now: () => 1_000,
+    });
+    expect(logistics.staffAt(40)).toEqual([5, 3]);
+  });
+
   it("withNpcStaff: 노동 계약 일꾼이 있으면 그대로, 없으면 NPC 운반꾼(주인 모르는 유닛은 뺀다)", () => {
     const hired = [{ unitId: 8, workerOwnerId: 2, via: "wage" as const }];
     expect(withNpcStaff(hired, [3], () => 50)).toBe(hired);

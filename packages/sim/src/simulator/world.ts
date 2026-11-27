@@ -243,6 +243,11 @@ export interface SimUnit {
    */
   laborRank?: number | undefined;
   onStrike?: boolean | undefined;
+  /**
+   * 지금 사는 도시 2차맵에 없음(다른 2차맵·2차맵 사이 이동 중 held — 서버 npc/economy.ts recount가 적는다. 시뮬은 비운다. 저장하지 않는다).
+   * 일꾼 ↔ 휴먼 나눔(humanPurse.ts laborOrderOf·cityWorkerUnits)이 경비대·불복과 같은 규칙으로 뺀다
+   */
+  away?: boolean | undefined;
 }
 
 /** 수비 차례: 경비대 먼저, 그다음 유닛 ID 차례 */

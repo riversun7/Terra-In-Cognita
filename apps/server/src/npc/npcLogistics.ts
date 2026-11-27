@@ -32,6 +32,7 @@ import {
   cityUnitOrder,
   cityWorkerUnits,
   humanPurseAccount,
+  laborOrderOf,
   npcBaseDailyWage,
   npcDailyWage,
 } from "@terra/sim";
@@ -106,7 +107,11 @@ interface CenterDef {
 export interface NpcLogisticsDeps {
   readonly world: {
     readonly cities: ReadonlyMap<number, Pick<SimCity, "owner">>;
-    readonly units: ReadonlyMap<number, Pick<SimUnit, "id" | "city" | "guard" | "owner">>;
+    readonly units: ReadonlyMap<
+      number,
+      Pick<SimUnit, "id" | "city" | "guard" | "owner"> &
+        Partial<Pick<SimUnit, "laborRank" | "onStrike" | "away">>
+    >;
   };
   readonly economy: { readonly facilities: Parameters<typeof cityWorkerUnits>[1]["facilities"] };
   /** 그 도시에 선 시설(다 지은 것, 일하는 상태 — npc/economy.ts NpcEconomyInput.facilitiesIn) */
@@ -153,8 +158,8 @@ export function createNpcLogistics(deps: NpcLogisticsDeps): NpcLogistics {
     if (centers.length > 0) {
       const units = cityUnitOrder(deps.world, cityId);
       const workers = new Set(cityWorkerUnits(deps.world, deps.economy, cityId, units).map((w) => w.unitId));
-      const idle = units
-        .filter((unit) => unit.guard !== true && !workers.has(unit.id))
+      const idle = laborOrderOf(units)
+        .filter((unit) => !workers.has(unit.id))
         .map((unit) => unit.id);
       staff = assignCenterStaff(idle, centers);
     }

@@ -48,9 +48,10 @@ const BASELINE_STATS: readonly number[] = Array.from({ length: 6 }, () => BASELI
 /** 조회가 읽는 유닛 정보(2차맵 unitInfo) */
 type UnitInfo = NonNullable<ReturnType<SecondMap["unitInfo"]>>;
 
-/** NPC 도시 일꾼인가(도시 경제가 일터나 건물 없는 도시 직무를 준 휴먼 — 직무 상태가 없다) */
+/** NPC 도시 일꾼인가(도시 경제가 일터나 건물 없는 도시 직무를 준 휴먼 — 2차맵 이동 중(held)은 제외, 직무 상태가 없다) */
 const isNpcWorker = (info: UnitInfo): boolean =>
   info.job.job === 0 &&
+  info.held !== true &&
   info.home !== undefined &&
   (info.home.work !== undefined || info.home.cityJob === true);
 

@@ -143,11 +143,12 @@ export interface CityWorker {
 }
 
 /** 일꾼 나누기가 보는 휴먼 칸 */
-type WorkerUnit = Pick<SimUnit, "id" | "city" | "guard"> & Partial<Pick<SimUnit, "laborRank" | "onStrike">>;
+type WorkerUnit = Pick<SimUnit, "id" | "city" | "guard"> &
+  Partial<Pick<SimUnit, "laborRank" | "onStrike" | "away">>;
 
-/** 일꾼 자리를 채우는 휴먼 차례: 경비대·지시 불복을 빼고, 가문 일 지시 차례(laborRank)가 있으면 그 차례 먼저, 나머지는 유닛 ID 차례 */
+/** 일꾼 자리를 채우는 휴먼 차례: 경비대·지시 불복·타 맵 이탈(away)을 빼고, 가문 일 지시 차례(laborRank)가 있으면 그 차례 먼저, 나머지는 유닛 ID 차례 */
 export function laborOrderOf<U extends WorkerUnit>(units: readonly U[]): U[] {
-  const humans = units.filter((unit) => unit.guard !== true && unit.onStrike !== true);
+  const humans = units.filter((unit) => unit.guard !== true && unit.onStrike !== true && unit.away !== true);
   if (!humans.some((unit) => unit.laborRank !== undefined)) return humans;
   const rank = (unit: U): number => unit.laborRank ?? Number.MAX_SAFE_INTEGER;
   return humans.toSorted((a, b) => rank(a) - rank(b) || a.id - b.id);
@@ -367,7 +368,7 @@ export function livingDay(
           bump(out.wages, currency, pay);
         }
       }
-      unit.paidToday = unit.guard === true ? undefined : Number(paid);
+      unit.paidToday = unit.guard === true || unit.away === true ? undefined : Number(paid);
       if (eaten > 0n) {
         // 다음 숙박비 몫은 남긴다(서버가 하루 끝 뒤에 지갑에서 낸다)
         const keep = worker ? (lodging?.get(`${worker.facilityId}:${worker.index}`) ?? 0n) : 0n;

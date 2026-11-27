@@ -77,6 +77,16 @@ describe("assignHumanPlaces", () => {
     expect(homes.get(303)?.work).toEqual(farm);
     expect(homes.get(301)?.work).toEqual(farm);
     expect(homes.get(302)?.work).toBeUndefined();
+    // 시설 일꾼 수가 남은 휴먼보다 많아도 지시 불복 휴먼은 일터를 받지 않는다
+    const overflow = assignHumanPlaces({
+      humans: [301, 302, 303],
+      home,
+      facilities: [{ id: 10, buildingId: 10, workers: 5 }],
+      areas,
+      laborOf: (unitId) => labor.get(unitId),
+    });
+    expect(overflow.get(302)?.work).toBeUndefined();
+    expect(overflow.get(302)?.cityJob).toBeUndefined();
   });
 
   it("일꾼 수가 휴먼보다 많으면 앞 시설부터 채우고 끝난다. 2차맵에 없는 건물은 일터 없이", () => {
@@ -196,6 +206,39 @@ describe("createHumanPlaces", () => {
     // 일꾼이 늘면 그 휴먼만
     workers = 2;
     expect(people.sync(input)).toBe(1);
+    expect(set.get(2)?.work).toEqual(workAreaOf(placement));
+  });
+
+  it("2차맵 사이 이동 중(held)인 휴먼은 일꾼 후보에서 빼고 기존 일터 표시를 비운다", () => {
+    const set = new Map<number, BotHome | null>();
+    const held = new Set<number>();
+    const placement: BuildingPlacement = { x: 88, y: 88, width: 4, height: 4, rotation: 0 };
+    const map = {
+      forEachBuilding: (visit: (building: { id: number; placement: BuildingPlacement }) => void) =>
+        visit({ id: 10, placement }),
+      unitInfo: (unitId: number) => ({ held: held.has(unitId) ? true : undefined }),
+      setHome: (unitId: number, value: BotHome | null) => {
+        set.set(unitId, value);
+        return true;
+      },
+    };
+    const input = {
+      units: new Map([
+        [1, { id: 1, city: 7 }],
+        [2, { id: 2, city: 7 }],
+      ]),
+      places: new Map([[7, { mapKey: 99, cellX: 128, cellY: 128 }]]),
+      maps: new Map([[99, map]]),
+      facilitiesOf: () => [{ id: 10, buildingId: 10, workers: 1 }],
+    };
+    const people = createHumanPlaces();
+    people.sync(input);
+    expect(set.get(1)?.work).toEqual(workAreaOf(placement));
+    expect(set.get(2)?.work).toBeUndefined();
+    // 1번이 2차맵 이동 시작(held=true) → 1번 home 비움, 2번이 일터를 이어받는다
+    held.add(1);
+    people.sync(input);
+    expect(set.get(1)).toBeNull();
     expect(set.get(2)?.work).toEqual(workAreaOf(placement));
   });
 

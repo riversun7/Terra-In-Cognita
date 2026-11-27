@@ -32,17 +32,20 @@ import {
   EVENT_UPKEEP,
   type GatherSettings,
   HOUR_MS,
+  type PendingBatch,
   type RuinedGoodsHome,
   type ScenarioEconomy,
   type ScheduledEvent,
   type SimEvent,
   type SimFaction,
   type LedgerBook,
+  type RestPlace,
   type SimHooks,
   type SimLoop,
   type SimWorld,
   type SocietyCoefficients,
   assignCityWorkers,
+  batchDurationFor,
   type CityWorkSlot,
   cityStartStock,
   cityWorkerUnits,
@@ -74,7 +77,14 @@ import { type CarryBoard, type CarryBoardOptions, createCarryBoard, peopleCounte
 import { EVENT_NPC_DELIVER, type NpcBusiness, createNpcDeliveries } from "./npcDelivery.ts";
 import { shopPriceSource } from "./npcShopPrice.ts";
 import { createNpcWages } from "./npcWages.ts";
-import { type NpcLogistics, createNpcLogistics, payCenterHaulers } from "./npcLogistics.ts";
+import {
+  LOGISTICS_WORK_BASE,
+  type NpcCenterSlots,
+  type NpcLogistics,
+  createNpcLogistics,
+  payCenterHaulers,
+  planCenterWorkFacilities,
+} from "./npcLogistics.ts";
 import type { NpcBuildWorld } from "./cityBuild.ts";
 import type { ServerEconomyCatalog } from "../market/catalog.ts";
 import { rulingVaultOf } from "../factionIdentity/houseVault.ts";
@@ -264,6 +274,14 @@ export interface ServerEconomy {
   workFacilities(cityId: number): WorkFacility[];
   /** NPC 물류센터 운반꾼(house-10 기획 대조 2301, npcLogistics.ts — 운반 길·적정가가 본다). NPC 물류센터가 아니면 빈 목록 */
   centerStaff(buildingId: number): readonly number[];
+  /** 그 생산·도시직무 시설이 지금 실제로 가동 중인가(일꾼 > 0, 진행 중 배치 존재, 생산 끔·적자 멈춤·재료 부족 정지 아님) */
+  isFacilityActive(facilityId: number): boolean;
+  /** 그 유닛이 배정된 NPC 일자리(생산·도시직무·물류센터)와 쉼터 종류(NPC 상태 기반 피로 판정) */
+  workerAssignmentOf(
+    unitId: number,
+  ): { readonly facilityId: number; readonly isLogistics: boolean; readonly place: RestPlace } | undefined;
+  /** 현재 배정된 모든 NPC 일꾼 유닛 ID 목록(생산·도시직무·물류센터) */
+  workerIds(): number[];
   /** 만료 주문 거두기(런타임 틱이 부른다) */
   expire(nowMs: number): number;
   /** 다음 환전 회차 시각(회차 길이의 정시, 564 다: 마지막 회차 다음 정시, 아직 없으면 켠 시각 다음 정시) */
@@ -334,6 +352,49 @@ export function gatherSettingsOf(c: SocietyCoefficients): GatherSettings {
     conditionCap: c.condition.cap,
     building: c.buildingGather,
   };
+}
+
+/** 생산 배치 진행률 눈금(백만분율 — 30초마다 재조정되어도 10시간 배치 진행률이 버려지지 않게) */
+export const BATCH_PROGRESS_PPM = 1_000_000;
+
+/** 시설 하나의 진행 중 생산 기록(화면 표시 + 파라미터 변동 시 진행률 보존 재예약) */
+export interface FacilityRunNote {
+  startedAtMs: number;
+  endsAtMs: number | null;
+  buildingId: number | null;
+  /** 현재 예약 구간을 시작한 시각(ms) */
+  segmentStartMs: number;
+  /** 현재 배치에서 이미 채운 진행률(0 ~ 999,999 ppm). 워커 0명 일시정지 시에도 보존 */
+  donePpm: number;
+  /** 워커 0명으로 일시정지된 배치의 원래 산출·필요 진행(워커가 돌아오면 이어서 진행) */
+  pausedBatch?: PendingBatch | undefined;
+}
+
+/** 현재 시각까지 채운 배치 진행률(0 ~ 999,999 ppm, 정수·BigInt 계산) */
+export function elapsedBatchPpm(
+  note: Pick<FacilityRunNote, "endsAtMs" | "segmentStartMs" | "donePpm">,
+  nowMs: number,
+): number {
+  const base = Math.max(0, Math.min(BATCH_PROGRESS_PPM - 1, Math.trunc(note.donePpm)));
+  if (note.endsAtMs === null) return base;
+  const segMs = note.endsAtMs - note.segmentStartMs;
+  if (segMs <= 0) return BATCH_PROGRESS_PPM - 1;
+  const elapsed = Math.min(segMs, Math.max(0, nowMs - note.segmentStartMs));
+  const remBefore = BigInt(BATCH_PROGRESS_PPM - base);
+  const gained = Number((BigInt(elapsed) * remBefore) / BigInt(segMs));
+  return Math.min(BATCH_PROGRESS_PPM - 1, base + gained);
+}
+
+/** 남은 진행률 몫의 잔여 시간(ms, 최소 1ms 올림) */
+export function remainingBatchMs(fullDurationMs: number, donePpm: number): number {
+  const remPpm = Math.max(1, BATCH_PROGRESS_PPM - Math.max(0, Math.min(BATCH_PROGRESS_PPM - 1, donePpm)));
+  return Math.max(
+    1,
+    Number(
+      (BigInt(Math.max(1, Math.trunc(fullDurationMs))) * BigInt(remPpm) + BigInt(BATCH_PROGRESS_PPM - 1)) /
+        BigInt(BATCH_PROGRESS_PPM),
+    ),
+  );
 }
 
 /** 세력의 나라 성격: 그 세력 코드의 국가 프리셋 → 반란 부모·종주 → 없음(거래세와 같은 차례, 도시 이름과 같은 nationPresetOf) */
@@ -545,18 +606,24 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   const cityStrikes = new Map<number, number>();
   /** 도시마다 지금 그 도시에 없는 휴먼 수(경비대·불복 빼고 — 일꾼으로 세지 않는다, 질문 2697 나) */
   const cityAway = new Map<number, number>();
-  const recount = (): void => {
+  const recount = (): Set<number> => {
+    const awayChanged = new Set<number>();
     economy.cityUnits.clear();
     cityGuards.clear();
     cityStrikes.clear();
     cityAway.clear();
     for (const unit of world.units.values()) {
       economy.cityUnits.set(unit.city, (economy.cityUnits.get(unit.city) ?? 0) + 1);
+      const nextAway = o.away?.(unit.id, unit.city) === true ? true : undefined;
+      if (unit.away !== nextAway) {
+        unit.away = nextAway;
+        awayChanged.add(unit.city);
+      }
       if (unit.guard === true) cityGuards.set(unit.city, (cityGuards.get(unit.city) ?? 0) + 1);
       else if (unit.onStrike === true) cityStrikes.set(unit.city, (cityStrikes.get(unit.city) ?? 0) + 1);
-      else if (o.away?.(unit.id, unit.city) === true)
-        cityAway.set(unit.city, (cityAway.get(unit.city) ?? 0) + 1);
+      else if (nextAway === true) cityAway.set(unit.city, (cityAway.get(unit.city) ?? 0) + 1);
     }
+    return awayChanged;
   };
   recount();
 
@@ -583,8 +650,15 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
 
   /** 도시 → 마지막 쉼터·옮김 계획(질문 1047 다·1050 가) */
   const restPlans = new Map<number, CityRestPlan>();
-  /** 시설 → 시작·끝 시각(화면용) */
-  const runs = new Map<number, { startedAtMs: number; endsAtMs: number | null; buildingId: number | null }>();
+  /** 시설 → 진행 중 생산 기록(화면용 + 파라미터 변동 시 진행률 보존) */
+  const runs = new Map<number, FacilityRunNote>();
+  /** 생산 끔·적자 멈춤·재료 부족으로 직전 차례가 정지된 시설 ID(상태 기반 피로 가동 여부 판정) */
+  const stalledFacilities = new Set<number>();
+  /** 도시 → (유닛 ID → 일자리·쉼터 캐시, recount·syncCity 때 비운다) */
+  const workerIndex = new Map<
+    number,
+    Map<number, { readonly facilityId: number; readonly isLogistics: boolean; readonly place: RestPlace }>
+  >();
   // NPC 물류센터 운반꾼(2301): 시설 일꾼 다음 일 없는 휴먼 — 건물 서비스가 없으면(시험) 물류센터 없음
   const centers = createNpcLogistics({
     world,
@@ -603,6 +677,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     restPlans,
     currencyOf: cityCurrency,
     buildingOf: (facilityId) => runs.get(facilityId)?.buildingId ?? null,
+    extraWorkers: (cityId) => centers.centerWorkers(cityId),
     rules: o.rules,
   });
   const noteRun = (facility: EcoFacility, nowMs: number, buildingId: number | null): void => {
@@ -610,6 +685,8 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       startedAtMs: nowMs,
       endsAtMs: facility.pending ? nowMs + facility.pending.durationMs : null,
       buildingId,
+      segmentStartMs: nowMs,
+      donePpm: 0,
     });
   };
 
@@ -682,16 +759,33 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         yieldPerLot: effects.yieldPerLot,
       });
     }
-    const workers = assignCityWorkers(
-      slots,
-      Math.max(
-        0,
-        (economy.cityUnits.get(cityId) ?? 0) -
-          (cityGuards.get(cityId) ?? 0) -
-          (cityStrikes.get(cityId) ?? 0) -
-          (cityAway.get(cityId) ?? 0),
-      ),
-      catalog.necessities,
+    const eligibleCount = Math.max(
+      0,
+      (economy.cityUnits.get(cityId) ?? 0) -
+        (cityGuards.get(cityId) ?? 0) -
+        (cityStrikes.get(cityId) ?? 0) -
+        (cityAway.get(cityId) ?? 0),
+    );
+    const workers = assignCityWorkers(slots, eligibleCount, catalog.necessities);
+    // NPC 물류센터 운반꾼도 쉼터 계획(planCityRest)에 함께 넣어 숙소 배정(rests)·피로 바퀴(cycles)·침대 점유율(occupancy)을 맞춘다
+    let prodAssigned = 0;
+    for (const count of workers.values()) prodAssigned += count;
+    const centerSlots: NpcCenterSlots[] = [];
+    if (city && o.input.build) {
+      const facilityCatalog = o.input.build.catalog();
+      for (const entry of o.input.facilitiesIn(cityId)) {
+        if (entry.ownerId !== city.owner || entry.level < 1) continue;
+        const def = facilityCatalog.facility(entry.facility);
+        if (def?.logistics !== true) continue;
+        centerSlots.push({
+          buildingId: entry.buildingId,
+          slots: Math.max(0, entry.level * def.slotsPerLevel),
+        });
+      }
+    }
+    const centerRestFacilities = planCenterWorkFacilities(
+      Math.max(0, eligibleCount - prodAssigned),
+      centerSlots,
     );
     // 쉼터·옮김(질문 1047 다·1050 가): 일꾼이 쉬는 숙소·집과 채집소 → 창고 칸 → 생산 속도 배율·옮김 칸
     const rules = o.rules();
@@ -700,14 +794,17 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         ? o.input.cityRest(
             cityId,
             { ownerId: city.owner, housing: city.housing },
-            [...wanted].map(([id, want]) => ({
-              id,
-              buildingId: want.buildingId,
-              workers: workers.get(id) ?? 0,
-              // 건물 시설은 모두 산출을 창고로 나르는 시간을 센다(기획 D-569 1784 "거래소 반입은 실제 운반만", D-564 1626 "보이지 않는 곳은
-              // 시간 자동 계산" — 예전에는 채집소만, 가공 시설 산출은 도시 창고로 바로). 도시 직무(건물 없음)는 시청 칸에서 일해 거리가 없다
-              hauls: want.buildingId !== null,
-            })),
+            [
+              ...[...wanted].map(([id, want]) => ({
+                id,
+                buildingId: want.buildingId,
+                workers: workers.get(id) ?? 0,
+                // 건물 시설은 모두 산출을 창고로 나르는 시간을 센다(기획 D-569 1784 "거래소 반입은 실제 운반만", D-564 1626 "보이지 않는 곳은
+                // 시간 자동 계산" — 예전에는 채집소만, 가공 시설 산출은 도시 창고로 바로). 도시 직무(건물 없음)는 시청 칸에서 일해 거리가 없다
+                hauls: want.buildingId !== null,
+              })),
+              ...centerRestFacilities,
+            ],
             rules,
           )
         : undefined;
@@ -727,31 +824,105 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
           : {}),
       };
     };
-    // 지금 시설과 견준다: 없어진 것은 멈추고, 새것·바뀐 것은 새로 놓는다
+    // 지금 시설과 견준다: 없어진 것·레시피가 바뀐 것은 멈추고, 파라미터만 바뀐 것은 진행률을 보존해 재예약한다
+    const syncAt = Math.max(nowMs, loop.nowMs);
     for (const [id, facility] of economy.facilities) {
       if (facility.city !== cityId) continue;
       const want = wanted.get(id);
+      if (!want || want.recipe !== facility.recipe.id) {
+        if (facility.eventId !== undefined) loop.cancel(facility.eventId);
+        economy.facilities.delete(id);
+        runs.delete(id);
+        continue;
+      }
       const logistics = logisticsOf(id);
-      const same =
-        want &&
-        want.recipe === facility.recipe.id &&
+      const wantWorkers = workers.get(id) ?? 0;
+      const sameCore =
         want.level === facility.level &&
         want.plots === (facility.plots ?? 0) &&
-        (want.tier === undefined || want.tier === facility.selectTier) &&
-        (workers.get(id) ?? 0) === facility.workers &&
+        wantWorkers === facility.workers &&
         logistics.dutyPm === facility.dutyPm &&
         logistics.haul?.cells === facility.haul?.cells &&
         logistics.haul?.carryG === facility.haul?.carryG;
-      if (same) continue;
+      const sameTier = want.tier === undefined || want.tier === facility.selectTier;
+      if (sameCore && sameTier) continue;
+      const recipe = catalog.recipes.get(want.recipe);
+      const spec = catalog.facilities.get(want.facility);
+      if (!recipe || !spec) {
+        if (facility.eventId !== undefined) loop.cancel(facility.eventId);
+        economy.facilities.delete(id);
+        runs.delete(id);
+        continue;
+      }
+      const effects = workerEffects(
+        spec.gather,
+        { level: want.level, plots: want.plots, tier: want.tier },
+        economy.gather,
+      );
+      // 시세 변동으로 selectTier만 바뀐 경우: 진행 중 배치는 원래 티어·산출로 끝내고 다음 배치부터 새 티어 적용(D3 확정)
+      if (sameCore && !sameTier && facility.pending !== undefined && facility.eventId !== undefined) {
+        const nextFacility: EcoFacility = {
+          ...facility,
+          ...effects,
+          pending: facility.pending,
+          eventId: facility.eventId,
+        };
+        economy.facilities.set(id, nextFacility);
+        continue;
+      }
+      const oldRun = runs.get(id);
+      const nextDonePpm = oldRun ? elapsedBatchPpm(oldRun, syncAt) : 0;
+      const carryBatch = facility.pending ?? oldRun?.pausedBatch;
       if (facility.eventId !== undefined) loop.cancel(facility.eventId);
-      economy.facilities.delete(id);
-      runs.delete(id);
+      const nextFacility: EcoFacility = {
+        id,
+        city: cityId,
+        recipe,
+        level: want.level,
+        workers: wantWorkers,
+        ...effects,
+        ...logistics,
+        batches: facility.batches,
+        eventId: undefined,
+      };
+      if (wantWorkers <= 0) {
+        // 워커 0명 일시정지: aiMonitor가 unstaffed(running=false)로 읽도록 pending은 비우고 runs에 진행률·배치를 보존
+        economy.facilities.set(id, nextFacility);
+        runs.set(id, {
+          startedAtMs: syncAt,
+          endsAtMs: null,
+          buildingId: want.buildingId,
+          segmentStartMs: syncAt,
+          donePpm: nextDonePpm,
+          pausedBatch: carryBatch,
+        });
+        continue;
+      }
+      economy.facilities.set(id, nextFacility);
+      const fullDurationMs = carryBatch ? batchDurationFor(economy, nextFacility, carryBatch) : undefined;
+      if (carryBatch && fullDurationMs !== undefined) {
+        const remainingMs = remainingBatchMs(fullDurationMs, nextDonePpm);
+        const fireAtMs = syncAt + remainingMs;
+        nextFacility.pending = { ...carryBatch, durationMs: fullDurationMs };
+        nextFacility.eventId = loop.schedule(fireAtMs, { kind: EVENT_PRODUCE, subject: id });
+        runs.set(id, {
+          startedAtMs: fireAtMs - fullDurationMs,
+          endsAtMs: fireAtMs,
+          buildingId: want.buildingId,
+          segmentStartMs: syncAt,
+          donePpm: nextDonePpm,
+        });
+      } else {
+        scheduleProduce(economy, world, loop, nextFacility, syncAt);
+        noteRun(nextFacility, syncAt, want.buildingId);
+      }
     }
     for (const [id, want] of wanted) {
       if (economy.facilities.has(id)) continue;
       const recipe = catalog.recipes.get(want.recipe);
       const spec = catalog.facilities.get(want.facility);
       if (!recipe || !spec) continue;
+      stalledFacilities.delete(id);
       const facility: EcoFacility = {
         id,
         city: cityId,
@@ -768,9 +939,11 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         eventId: undefined,
       };
       economy.facilities.set(id, facility);
-      scheduleProduce(economy, world, loop, facility, nowMs);
-      noteRun(facility, nowMs, want.buildingId);
+      scheduleProduce(economy, world, loop, facility, syncAt);
+      noteRun(facility, syncAt, want.buildingId);
     }
+    centers.invalidate(cityId);
+    workerIndex.delete(cityId);
   };
 
   /**
@@ -829,7 +1002,9 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       if (facility.eventId !== undefined) loop.cancel(facility.eventId);
       economy.facilities.delete(id);
       runs.delete(id);
+      stalledFacilities.delete(id);
     }
+    workerIndex.clear();
   };
 
   // 처음 예약: 유지비·거래 판단·환전 회차(시뮬과 같은 함수) 다음에 시설을 놓는다(시설 예약은 syncAll이 한다)
@@ -939,7 +1114,8 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
             atMs: nowMs,
           }) === true;
         if ((c.switches.productionEnabled === 0 || paused) && facility) {
-          // 생산 끔(49 N53)·적자 멈춤: 이번 차례를 건너뛰고 다음 차례만 잡는다
+          // 생산 끔(49 N53)·적자 멈춤: 이번 차례를 건너뛰고 다음 차례만 잡는다(피로 가동 중지 표시)
+          stalledFacilities.add(subject);
           scheduleProduce(economy, world, loop, facility, nowMs);
           noteRun(facility, nowMs, runs.get(subject)?.buildingId ?? null);
           return true;
@@ -947,8 +1123,15 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         const batch = facility?.pending;
         const shortBefore = economy.today.inputShort;
         run.handle(event, nowMs);
-        // 일꾼 경험치: 실제로 생산한 번(재료가 모자라지 않은 번)만
-        if (facility && economy.today.inputShort === shortBefore) giveWorkExp(facility, c);
+        // 일꾼 경험치·가동 상태: 실제로 생산한 번(재료가 모자라지 않은 번)만 가동으로 본다
+        if (facility) {
+          if (economy.today.inputShort === shortBefore) {
+            stalledFacilities.delete(subject);
+            giveWorkExp(facility, c);
+          } else {
+            stalledFacilities.add(subject);
+          }
+        }
         // NPC 사업장(기획 대조 2053·2054, npcDelivery.ts): 산출은 시설 창고로, 재료비, 일꾼이 도시 창고로 실제로 나른다(닿으면 나라가 산 매출), 하루 끝 정산
         const buildingId = runs.get(subject)?.buildingId ?? null;
         const city = facility ? world.cities.get(facility.city) : undefined;
@@ -985,7 +1168,10 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         deliveries?.arrive(subject, nowMs);
         return true;
       }
-      if (kind === EVENT_UPKEEP) recount();
+      if (kind === EVENT_UPKEEP) {
+        recount();
+        workerIndex.clear();
+      }
       if (kind === EVENT_TRADE && c.switches.marketEnabled === 0) {
         // 거래소 끔(49 N53): 판단을 건너뛰고 다음 판단만 잡는다
         loop.schedule(nowMs + economy.settings.tradeEveryMs, { kind: EVENT_TRADE, subject });
@@ -1004,11 +1190,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     },
     afterDay(nowMs, day) {
       o.log.info({ npcEcon: { day, ...run.dayLine() } }, "npc economy day");
-      // 숙박비(npcWages.ts): 휴먼 지갑에서(옛 판은 국고에서)
-      const fees = wagesRef.current?.chargeLodgingFees(nowMs);
-      if (fees && (fees.paid > 0n || fees.short > 0))
-        o.log.info({ npcLodgingFees: { day, ...fees, paid: String(fees.paid) } }, "npc lodging fees");
-      // NPC 물류센터 운반꾼 임금(2347 나, npcLogistics.ts): 그 물류센터 금고(모자라면 국고가 넣음)에서 휴먼 지갑으로
+      // NPC 물류센터 운반꾼 임금(2347 나, npcLogistics.ts): 숙박비 차감 전에 먼저 지갑으로 넣어 첫날 미납 불이익을 막는다
       const haul = payCenterHaulers(
         {
           book,
@@ -1024,6 +1206,10 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       fed.clear();
       if (haul.paidHaulers + haul.unpaidHaulers + haul.hungryHaulers > 0)
         o.log.info({ npcHaulWages: { day, ...haul, paid: String(haul.paid) } }, "npc haul wages");
+      // 숙박비(npcWages.ts): 휴먼 지갑에서(생산 일꾼 + 물류센터 운반꾼 모두, 옛 판은 국고에서)
+      const fees = wagesRef.current?.chargeLodgingFees(nowMs);
+      if (fees && (fees.paid > 0n || fees.short > 0))
+        o.log.info({ npcLodgingFees: { day, ...fees, paid: String(fees.paid) } }, "npc lodging fees");
       syncAll(nowMs);
     },
     restPlan: (cityId) => restPlans.get(cityId),
@@ -1048,18 +1234,62 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       return [...out.toSorted((a, b) => a.id - b.id), ...centers.workFacilities(cityId)];
     },
     centerStaff: (buildingId) => centers.staffAt(buildingId),
+    isFacilityActive(facilityId) {
+      if (o.rules().switches.productionEnabled === 0) return false;
+      const facility = economy.facilities.get(facilityId);
+      if (!facility || facility.workers <= 0 || facility.pending === undefined) return false;
+      return !stalledFacilities.has(facilityId);
+    },
+    workerAssignmentOf(unitId) {
+      const unit = world.units.get(unitId);
+      if (!unit || unit.guard === true || unit.away === true || unit.onStrike === true) return undefined;
+      let byUnit = workerIndex.get(unit.city);
+      if (!byUnit) {
+        byUnit = new Map();
+        const plan = restPlans.get(unit.city);
+        const restByKey = new Map<string, RestPlace>();
+        if (plan) {
+          const next = new Map<number, number>();
+          for (const entry of plan.workers) {
+            const idx = next.get(entry.facilityId) ?? 0;
+            next.set(entry.facilityId, idx + 1);
+            restByKey.set(`${entry.facilityId}:${idx}`, entry.place);
+          }
+        }
+        const all = [...cityWorkerUnits(world, economy, unit.city), ...centers.centerWorkers(unit.city)];
+        for (const w of all) {
+          byUnit.set(w.unitId, {
+            facilityId: w.facilityId,
+            isLogistics: w.facilityId >= LOGISTICS_WORK_BASE,
+            place: restByKey.get(`${w.facilityId}:${w.index}`) ?? { kind: "home" },
+          });
+        }
+        workerIndex.set(unit.city, byUnit);
+      }
+      return byUnit.get(unitId);
+    },
+    workerIds() {
+      const out: number[] = [];
+      for (const cityId of world.cities.keys()) {
+        for (const w of cityWorkerUnits(world, economy, cityId)) out.push(w.unitId);
+        for (const w of centers.centerWorkers(cityId)) out.push(w.unitId);
+      }
+      return out;
+    },
     cityJobsOf: (cityId) => personalityOfCity(cityId)?.cityJobs ?? CITY_JOBS,
     refreshCity(cityId, nowMs) {
       recount();
+      workerIndex.clear();
       syncCity(cityId, nowMs);
     },
     refreshPresence(nowMs) {
       if (!o.away) return 0;
       const before = new Map(cityAway);
-      recount();
+      const awayChanged = recount();
+      workerIndex.clear();
       let changed = 0;
       for (const cityId of [...world.cities.keys()].toSorted((a, b) => a - b)) {
-        if ((before.get(cityId) ?? 0) === (cityAway.get(cityId) ?? 0)) continue;
+        if (!awayChanged.has(cityId) && (before.get(cityId) ?? 0) === (cityAway.get(cityId) ?? 0)) continue;
         syncCity(cityId, nowMs);
         changed += 1;
       }

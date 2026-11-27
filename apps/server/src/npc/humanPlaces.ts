@@ -133,13 +133,18 @@ export function assignHumanPlaces(input: {
 }): Map<number, BotHome> {
   const shift = input.shift ?? DEFAULT_WORK_SHIFT;
   const out = new Map<number, BotHome>();
-  // 일꾼 차례: 가문 일 지시(laborOf — 임금 나눔 cityWorkerUnits와 같은 차례)가 있으면 그 차례, 지시 불복은 맨 뒤(일터를 받지 않는다)
-  const rankOf = (unitId: number): number => {
-    const labor = input.laborOf?.(unitId);
-    if (labor?.onStrike === true) return Number.MAX_SAFE_INTEGER;
-    return labor?.laborRank ?? Number.MAX_SAFE_INTEGER - 1;
-  };
-  const humans = input.humans.toSorted((a, b) => rankOf(a) - rankOf(b) || a - b);
+  // 일꾼 차례: 가문 일 지시(laborOf — 임금 나눔 cityWorkerUnits·laborOrderOf와 같은 차례)가 있으면 그 차례, 지시 불복은 시설 배정에서 뺀다
+  const strikers: number[] = [];
+  const rankOf = (unitId: number): number => input.laborOf?.(unitId)?.laborRank ?? Number.MAX_SAFE_INTEGER;
+  const humans = input.humans
+    .filter((unitId) => {
+      if (input.laborOf?.(unitId)?.onStrike === true) {
+        strikers.push(unitId);
+        return false;
+      }
+      return true;
+    })
+    .toSorted((a, b) => rankOf(a) - rankOf(b) || a - b);
   let next = 0;
   /** 시설 일꾼(받은 차례, 운반꾼이 아닌 사람) — 빈 일꾼 운반이 일 없는 휴먼보다 많으면 뒤에서부터 짬을 내 나른다(2155) */
   const spare: number[] = [];
@@ -217,6 +222,8 @@ export function assignHumanPlaces(input: {
     });
     input.onCarrier?.(trip.key, unitId);
   }
+  // 지시 불복 휴먼은 일터·운반 없이 집 둘레에만 둔다
+  for (const unitId of strikers) out.set(unitId, { x: input.home.x, y: input.home.y });
   const aiEnabled = input.ai?.unitAiEnabled === 1;
   const withAi = (unitId: number, role: "citizen" | "worker" | "guard", base: BotHome): BotHome => {
     if (!aiEnabled || !input.ai) return base;
@@ -275,7 +282,7 @@ export interface PlacesMap {
   forEachBuilding(
     visit: (building: { readonly id: number; readonly placement: BuildingPlacement }) => void,
   ): void;
-  unitInfo(unitId: number): object | undefined;
+  unitInfo(unitId: number): { readonly held?: boolean | undefined } | undefined;
   setHome(unitId: number, home: BotHome | null): boolean;
   /** 이 2차맵을 보는 연결(구독자) 수 — 보이는 운반꾼은 보는 사람이 있을 때만(D-570 1886). 없으면 보지 않는 2차맵 */
   readonly stream?: { readonly subscriberCount: number } | undefined;
@@ -369,7 +376,18 @@ export function createHumanPlaces(): { sync(input: HumanPlacesInput): number } {
         const place = input.places.get(cityId);
         const map = place ? input.maps.get(place.mapKey) : undefined;
         if (!place || !map) continue;
-        const here = humans.filter((id) => map.unitInfo(id) !== undefined);
+        // 그 도시 2차맵에 서 있고 2차맵 사이 이동 중(held)이 아닌 휴먼만 일꾼 후보(runtime.ts awayFromCity와 같은 기준)
+        const here: number[] = [];
+        for (const id of humans) {
+          const info = map.unitInfo(id);
+          if (!info) continue;
+          if (info.held === true) {
+            // 이동 시작 직후 옛 일터 표시가 남지 않게 비운다
+            if (placed.delete(id) && map.setHome(id, null)) changed += 1;
+            continue;
+          }
+          here.push(id);
+        }
         // 보는 사람이 없는 2차맵은 운반 모습 없이(시간 셈만 — D-570 1886)
         const watched = (map.stream?.subscriberCount ?? 0) > 0;
         const facilities = (input.facilitiesOf?.(cityId) ?? []).map((facility) =>

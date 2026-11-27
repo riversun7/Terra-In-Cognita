@@ -151,4 +151,34 @@ describe("NPC 일꾼 작업 중 부상", () => {
     expect(injury.roll(40 * HOUR)).toBe(0);
     expect(map.writes).toBe(0);
   });
+
+  it("상태 기반 피로 저장소(fatigue)를 넘기면 실제로 일하는 중일 때만 실제 피로로 굴린다", () => {
+    const seen: [number, number, number][] = [];
+    const onMap = new Map<number, FakeUnit>([
+      [1, { condition: HEALTHY, home: { x: 0, y: 0, work: WORK, shift: ALWAYS } }],
+      [2, { condition: HEALTHY, home: { x: 0, y: 0, work: WORK, shift: ALWAYS } }],
+    ]);
+    const map = fakeMap(onMap);
+    const injury = createNpcWorkInjury({
+      units: new Map([
+        [1, { id: 1, city: 10 }],
+        [2, { id: 2, city: 10 }],
+      ]),
+      places: new Map([[10, { mapKey: 100 }]]),
+      maps: new Map([[100, map]]),
+      startMs: 10 * HOUR + 5,
+      fatigue: {
+        isWorking: (unitId) => unitId === 1,
+        fatigueOf: (unitId) => (unitId === 1 ? 95 : 40),
+        fatigueMax: () => 120,
+      },
+      hook: (_map, unitId, fatigue, fatigueMax) => {
+        seen.push([unitId, fatigue, fatigueMax]);
+        return 0;
+      },
+    });
+    expect(injury.roll(11 * HOUR + 3)).toBe(0);
+    // 쉬거나 비가동인 유닛 2는 건너뛰고, 일하는 유닛 1만 실제 피로(95/120)로 굴린다
+    expect(seen).toEqual([[1, 95, 120]]);
+  });
 });

@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 import { EMPTY_BUSINESS, createBusinessCore } from "../business/core.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { CityRestPlan } from "./cityRest.ts";
+import { LOGISTICS_WORK_BASE } from "./npcLogistics.ts";
 import { createNpcWages } from "./npcWages.ts";
 
 const NATION = 9;
@@ -170,6 +171,81 @@ describe("NPC 일꾼 숙박비(휴먼 지갑에서)", () => {
     expect(wages.chargeLodgingFees(1).paid).toBe(2n * nights);
     expect(book.balanceOf(NATION, CUR)).toBe(treasury - 2n * nights);
     expect(business.vaultBalance(LODGING, NATION, CUR)).toBe(2n * nights);
+  });
+
+  it("물류센터 운반꾼(extraWorkers)도 숙소 배정 시 숙박비 예약·징수 대상에 포함된다", () => {
+    let ids = 1;
+    const book = createLedgerBook({ nextAccountId: () => ids++, nextTxId: () => ids++ });
+    const CENTER = 60;
+    const business = createBusinessCore({
+      ledger: book,
+      writer,
+      planetId: "p",
+      loaded: EMPTY_BUSINESS,
+      place: (buildingId) =>
+        buildingId === FARM || buildingId === LODGING || buildingId === CENTER
+          ? { ownerId: NATION, cityId: CITY }
+          : undefined,
+      businesses: () => [FARM, LODGING, CENTER],
+      tax: () => ({ treasuryOwner: NATION, bp: 0 }),
+      rules: () => START_BUSINESS,
+    });
+    const rules: SocietyCoefficients = {
+      ...TEST_SOCIETY_COEFFICIENTS,
+      business: { ...TEST_SOCIETY_COEFFICIENTS.business, npcWageMode: 1 },
+      logistics: { ...TEST_SOCIETY_COEFFICIENTS.logistics, lodgingFeePerNight: 2 },
+    };
+    const place = { kind: "lodging", level: 1 } as const;
+    const nights = BigInt(restsPerDay(place, 0, rules));
+    const haulerFacId = LOGISTICS_WORK_BASE + CENTER;
+    const units = new Map([
+      [101, { id: 101, city: CITY, owner: NATION }],
+      [102, { id: 102, city: CITY, owner: NATION }],
+    ]);
+    const plan: CityRestPlan = {
+      workers: [
+        { facilityId: FARM, lodgingId: LODGING, place, commuteCells: 0 },
+        { facilityId: haulerFacId, lodgingId: LODGING, place, commuteCells: 0 },
+      ],
+      facilities: new Map(),
+      occupancy: new Map([[LODGING, 2]]),
+      beds: new Map([[LODGING, 10]]),
+      owners: new Map([[LODGING, NATION]]),
+      bedTotal: 10,
+      capBeds: 10,
+    };
+    const wages = createNpcWages({
+      book,
+      world: { cities: new Map([[CITY, { owner: NATION }]]), units },
+      economy: { facilities: new Map([[FARM, { id: FARM, city: CITY, workers: 1 }]]) },
+      extraWorkers: (cityId) => (cityId === CITY ? [{ unitId: 102, facilityId: haulerFacId, index: 0 }] : []),
+      business,
+      restPlans: new Map([[CITY, plan]]),
+      currencyOf: () => CUR,
+      buildingOf: (id) => (id === FARM ? FARM : null),
+      rules: () => rules,
+    });
+    // 두 일꾼(생산 101 + 물류센터 운반꾼 102) 지갑에 임금을 넣어 둔다
+    for (const unitId of [101, 102]) {
+      book.post({
+        kind: "grant",
+        atMs: 0,
+        entries: [
+          { account: book.systemAccount(`source:${CUR}`, CUR), amount: -100n },
+          { account: humanPurseAccount(book, NATION, CUR, unitId), amount: 100n },
+        ],
+      });
+    }
+    expect(wages.living.lodgingDue?.(CITY)).toEqual(
+      new Map([
+        [`${FARM}:0`, 2n * nights],
+        [`${haulerFacId}:0`, 2n * nights],
+      ]),
+    );
+    const fees = wages.chargeLodgingFees(1);
+    expect(fees).toEqual({ paid: 4n * nights, lodgings: 1, short: 0 });
+    expect(book.balance(humanPurseAccount(book, NATION, CUR, 102))).toBe(100n - 2n * nights);
+    expect(business.vaultBalance(LODGING, NATION, CUR)).toBe(4n * nights);
   });
 });
 

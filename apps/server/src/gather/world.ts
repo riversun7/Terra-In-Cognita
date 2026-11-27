@@ -16,7 +16,7 @@ import { createGatherInjury } from "../world/unitCondition.ts";
 import { UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN, isGuardianUnit } from "../world/unitKinds.ts";
 import { TEST_PLANET_ID, type World } from "../world/world.ts";
 import type { GatherKind } from "./kinds.ts";
-import { registerGather } from "./registry.ts";
+import { registerGather, registerStation } from "./registry.ts";
 import { type GatherService, createGatherService } from "./service.ts";
 import { type ObjectStore, createObjectStore, loadObjectStates } from "./state.ts";
 import { type StationRuntime, createStationRuntime } from "./station.ts";
@@ -87,6 +87,18 @@ export function startWorldGather(
       const works = (id: number): boolean => facilities.service.works(id);
       const ownerOf = (userId: string): number | undefined => parts.settlement.findOwnerOfUser(userId);
       const workersAt = (id: number) => parts.labor.workersAt(id);
+      // 채집·물류 운반 경험치(docs/adr/2026-11-26-gather-exp.md): 사이보그 본체면 사이보그 경험치로, 휴먼·사이보그 유닛은 유닛 성장 거울로.
+      // NPC 휴먼이 레벨업하면 거울 세계 레벨도 맞춰 다음 휴먼 줄 저장에서 옛 레벨로 덮이지 않게 한다(world.ts gainUnitExp와 같은 길)
+      const gainExp = (unitId: number, amount: number): void => {
+        const cyborgs = world.persistence?.cyborgs;
+        const userId = cyborgs?.userOfUnit(unitId);
+        if (cyborgs && userId !== undefined) {
+          cyborgs.addExp(userId, amount);
+          return;
+        }
+        const gained = unitGrowthOf(world.persistence)?.gain(unitId, amount);
+        if (gained && gained.gainedLevels > 0) world.npc?.setHumanLevel(unitId, gained.level);
+      };
       const service = createGatherService({
         maps: world.maps,
         now: options.now,
@@ -144,13 +156,8 @@ export function startWorldGather(
         workInjury: createGatherInjury(),
         // 쉬러 가는 피로(유닛 생활 규칙 — 사용자 결정 2026-11-26): 이끄는 유닛이 그 피로에 닿으면 줄을 끝낸다
         restAt: (unitId) => unitLifeOf(world.persistence)?.of(unitId).restAt,
-        // 채집 경험치(docs/adr/2026-11-26-gather-exp.md): 사이보그 본체면 사이보그 경험치로, 휴먼·사이보그 유닛은 유닛 성장 거울로
-        gainExp: (unitId, amount) => {
-          const cyborgs = world.persistence?.cyborgs;
-          const userId = cyborgs?.userOfUnit(unitId);
-          if (cyborgs && userId !== undefined) cyborgs.addExp(userId, amount);
-          else unitGrowthOf(world.persistence)?.gain(unitId, amount);
-        },
+        // 채집 경험치(docs/adr/2026-11-26-gather-exp.md): 위 gainExp 공용 길
+        gainExp,
         // 배 창고 상한(D-568 배 단위 채집 — 배 서비스가 배 고리에 채운다)
         boatHoldGrams: (boatId) => world.persistence?.boatHooks.info(boatId)?.holdCapGrams,
         // 배 채집 일꾼(D-570 1821 — 낚시 선원 ↔ 포획 장비)
@@ -204,6 +211,8 @@ export function startWorldGather(
           facilities.service.ownerSale(ownerId, buildingId, asset, qty, atMs),
         // 물류센터 운반 대행(기획 D-576 — logistics/haulService.ts): 고른 물류센터·자동 맡기기
         haulService: facilities.haul,
+        // 물류센터 배달 완료 경험치(플레이어·NPC 물류센터 운반꾼 공통)
+        gainExp,
       });
       facilities.attachHaulStaff((buildingId, mapKey, nowMs) => station.freeStaff(buildingId, mapKey, nowMs));
       // NPC 운반 맡기기도 같은 실제 운반 길(기획 대조 2274 — logistics/npcOutsource.ts)
@@ -345,6 +354,7 @@ export function startWorldGather(
         workersAt,
       };
       registerGather(parts, service);
+      registerStation(parts, station);
       options.log.info({ objectStates: rows.length }, "gather objects ready");
     })
     .catch((error: unknown) => {

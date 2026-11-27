@@ -150,6 +150,8 @@ export interface EcoFacility {
 export interface PendingBatch {
   readonly outputs: readonly { asset: string; qty: bigint }[];
   readonly durationMs: number;
+  /** 추첨·선택 채집 배치의 필요 진행 총합(진행 중 재예약 시 새 속도로 전체 시간을 다시 셈한다 — 서버 syncCity용) */
+  readonly gatherProgress?: number | undefined;
 }
 
 export interface Cargo {
@@ -575,7 +577,34 @@ function nextBatch(economy: Economy, world: SimWorld, facility: EcoFacility): Pe
   const worked = supplyPm >= 1000 ? plain.durationMs : Math.ceil((plain.durationMs * 1000) / supplyPm);
   // 채집소 → 창고 옮김 시간을 그 번에 더한다(질문 1050 가, 시설에 옮김 칸이 있을 때만)
   const durationMs = worked + haulOfBatch(economy, facility, plain.outputs);
-  return durationMs === plain.durationMs ? plain : { outputs: plain.outputs, durationMs };
+  return durationMs === plain.durationMs ? plain : { ...plain, durationMs };
+}
+
+/**
+ * 이미 뽑아 둔 배치(PendingBatch)를 바뀐 시설 조건(일꾼 수·숙소 배율·운반·배후지 공급)으로 처음부터 끝까지 돌릴 때의 전체 시간(ms).
+ * 일꾼이 0이거나 속도가 0이면 undefined. 시뮬레이터는 부르지 않는다(서버 syncCity 진행률 보존 재예약용)
+ */
+export function batchDurationFor(
+  economy: Economy,
+  facility: EcoFacility,
+  batch: PendingBatch,
+): number | undefined {
+  if (facility.workers <= 0) return undefined;
+  let plainMs: number | undefined;
+  if (batch.gatherProgress !== undefined) {
+    const speed = facility.workers * facility.progress * dutyOf(facility);
+    if (speed <= 0) return undefined;
+    plainMs = Math.max(
+      1,
+      Math.ceil((batch.gatherProgress * (economy.gather.tickMs ?? 60_000) * 1000) / speed),
+    );
+  } else {
+    plainMs = batchDurationMs(facility.recipe.work, pointsPerHour(facility));
+  }
+  if (plainMs === undefined) return undefined;
+  const supplyPm = facilitySupplyPm(economy.catchment, facility.city, facility.recipe.facility);
+  const worked = supplyPm >= 1000 ? plainMs : Math.ceil((plainMs * 1000) / supplyPm);
+  return worked + haulOfBatch(economy, facility, batch.outputs);
 }
 
 /** 아이템 ID 비중 → 자산 비중(규칙 표마다 한 번 만든다) */
@@ -646,7 +675,7 @@ function plainBatch(economy: Economy, world: SimWorld, facility: EcoFacility): P
     progress += count * tierRequiredProgress(tier, base, step);
   });
   const durationMs = Math.max(1, Math.ceil((progress * (rules.tickMs ?? 60_000) * 1000) / speed));
-  return { outputs: result.outputs, durationMs };
+  return { outputs: result.outputs, durationMs, gatherProgress: progress };
 }
 
 /** 시설 하나의 다음 생산을 예약한다(서버가 거울 세계에 시설을 새로 붙일 때도 부른다) */

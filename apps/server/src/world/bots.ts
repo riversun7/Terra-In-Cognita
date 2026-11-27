@@ -253,35 +253,78 @@ export function shiftFatiguePm(shift: WorkShift, unitId: number, nowMs: number):
   return fatigueRamp((t - shift.startPm + 1000) % 1000, work, 1000);
 }
 
+/** NPC 상태 기반 피로 조회·동기화 고리(npc/npcFatigue.ts가 구현, world/bots.ts·secondMap.ts가 사용) */
+export interface BotFatigueAccess {
+  /** 그 유닛의 현재 피로 스냅샷(nowMs까지 전진한 값). 추적 대상이 아니면 undefined */
+  snapshot(
+    unitId: number,
+    nowMs: number,
+  ):
+    | {
+        /** 현재 피로(0 ~ fatigueMax, 정수) */
+        readonly fatigue: number;
+        /** 현재 피로 밀리점(0 ~ fatigueMax * 1000, 회복 완료 판정용) */
+        readonly fatigueMilli: number;
+        /** 피로 상한(기본 120) */
+        readonly fatigueMax: number;
+        /** 성향 기반 쉬러 가는 피로(기본 70~110) */
+        readonly restAt: number;
+        /** 다시 일하는 피로(기본 0) */
+        readonly resumeAt: number;
+        /** 직전 확정 FSM 상태 */
+        readonly aiState: UnitAiState;
+        /** 직전 상태 진입 시각(ms) */
+        readonly stateEnteredAtMs: number;
+      }
+    | undefined;
+  /** 실제 상태 전이 확정(SecondMap onEvent·npc.tick에서만 호출, 읽기 전용 조회에서는 호출하지 않음) */
+  commitState?(unitId: number, state: UnitAiState, nowMs: number): void;
+}
+
 /** 5상태 FSM 기반 현재 상태 결정(aiEnabled && traits가 있을 때만 사용, 없으면 undefined) */
 export function resolveBotAiState(
   home: BotHome,
   unitId: number,
   nowMs: number,
+  fatigue?: BotFatigueAccess,
+  commit = false,
 ):
   | { readonly state: UnitAiState; readonly job: UnitJobKind | null; readonly nextReevalMs: number }
   | undefined {
   if (!home.aiEnabled || !home.traits) return undefined;
   const shift = home.shift ?? DEFAULT_WORK_SHIFT;
-  const isWorkHours = atWork(shift, unitId, nowMs);
+  const snap = fatigue?.snapshot(unitId, nowMs);
+  const hasWorkplace = home.work !== undefined || home.cityJob === true;
+  // 상태 기반 피로(NpcFatigueStore)가 있을 때: 피로 바퀴 모드(shift.cycle)는 시간 삼각파 대신 실제 피로(restAt/resumeAt)로 일·쉼을 나눈다
+  const isWorkHours = snap && shift.cycle ? true : atWork(shift, unitId, nowMs);
   const hasHaulJob = hauling(home, nowMs);
-  const role: UnitBrainRole = home.role ?? (home.work ? "worker" : "citizen");
+  const role: UnitBrainRole = home.role ?? (hasWorkplace ? "worker" : "citizen");
   const ai = home.aiRules ?? DEFAULT_NPC_AI_COEFFICIENTS;
+  const mustRest =
+    snap !== undefined &&
+    hasWorkplace &&
+    (snap.fatigue >= snap.restAt || (snap.aiState === "rest" && snap.fatigueMilli > snap.resumeAt * 1000));
+  if (mustRest && !hasHaulJob) {
+    if (commit) fatigue?.commitState?.(unitId, "rest", nowMs);
+    return { state: "rest", job: null, nextReevalMs: Math.max(HOME_IDLE_MIN_MS, ai.unitDwellMinMs) };
+  }
   // 유닛 ID + 현재 재평가 구간으로 결정적 굴림 생성(매 호출마다 진동하지 않게 dwell 간격으로 양자화)
   const bucket = Math.floor(nowMs / Math.max(1_000, ai.unitDwellMinMs));
   const roll = mix32(Math.imul(unitId, 0x9e37_79b1) ^ Math.imul(bucket, 0x85eb_ca6b)) >>> 0;
-  // 피로: 일하는 때 동안 오르고 쉬는 때 동안 내리는 어림값(예전: 일하는 때 300·쉬는 때 650 고정)
-  const fatiguePm = shiftFatiguePm(shift, unitId, nowMs);
+  // 상태 기반 피로가 있으면 restAt 비율로 정규화해(0..400‰) restAt 전 조기 휴식·N23 구간 미도달을 막고, 없으면 기존 어림 피로 fallback
+  const fatiguePm = snap
+    ? Math.min(400, Math.floor((snap.fatigue * 400) / Math.max(1, snap.restAt)))
+    : shiftFatiguePm(shift, unitId, nowMs);
   const dec = decideUnitState(
     {
       unitId,
       role,
       traits: home.traits,
-      currentState: hasHaulJob || (isWorkHours && home.work) ? "work" : "rest",
-      stateEnteredAtMs: 0,
-      nowMs: Math.max(ai.unitDwellMaxMs + 1, nowMs),
+      currentState: snap ? snap.aiState : hasHaulJob || (isWorkHours && hasWorkplace) ? "work" : "rest",
+      stateEnteredAtMs: snap ? snap.stateEnteredAtMs : 0,
+      nowMs: snap ? nowMs : Math.max(ai.unitDwellMaxMs + 1, nowMs),
       isWorkHours,
-      hasWorkplace: home.work !== undefined,
+      hasWorkplace,
       hasHaulJob,
       hasMarket: home.market !== undefined,
       fatiguePm,
@@ -293,6 +336,7 @@ export function resolveBotAiState(
     },
     roll,
   );
+  if (commit) fatigue?.commitState?.(unitId, dec.state, nowMs);
   return { state: dec.state, job: dec.job, nextReevalMs: dec.nextReevalMs };
 }
 
@@ -304,12 +348,22 @@ export function botActivity(
   home: BotHome,
   unitId: number,
   nowMs: number,
+  fatigue?: BotFatigueAccess,
 ): { readonly state: UnitAiState; readonly job: UnitJobKind | null } {
-  const fsm = resolveBotAiState(home, unitId, nowMs);
+  const fsm = resolveBotAiState(home, unitId, nowMs, fatigue, false);
   if (fsm) return { state: fsm.state, job: fsm.job };
+  const shift = home.shift ?? DEFAULT_WORK_SHIFT;
+  const snap = fatigue?.snapshot(unitId, nowMs);
+  const hasWorkplace = home.work !== undefined || home.cityJob === true;
   if (hauling(home, nowMs)) return { state: "work", job: "haul" };
-  if (home.work && atWork(home.shift ?? DEFAULT_WORK_SHIFT, unitId, nowMs))
-    return { state: "work", job: "post" };
+  if (
+    snap !== undefined &&
+    hasWorkplace &&
+    (snap.fatigue >= snap.restAt || (snap.aiState === "rest" && snap.fatigueMilli > snap.resumeAt * 1000))
+  )
+    return { state: "rest", job: null };
+  const isWorkHours = snap && shift.cycle ? true : atWork(shift, unitId, nowMs);
+  if (hasWorkplace && isWorkHours) return { state: "work", job: "post" };
   return { state: "rest", job: null };
 }
 
@@ -322,9 +376,10 @@ export function botStatus(
   unit: { readonly id: number; readonly size: SizeClass },
   at: Point,
   nowMs: number,
+  fatigue?: BotFatigueAccess,
 ): { readonly state: UnitAiState; readonly job: UnitJobKind | null; readonly arrived: boolean } {
-  const now = botActivity(home, unit.id, nowMs);
-  const target = targetOf(home, unit.id, nowMs);
+  const now = botActivity(home, unit.id, nowMs, fatigue);
+  const target = targetOf(home, unit.id, nowMs, fatigue, false);
   const here = anchorAt(at, unit.size);
   return {
     state: now.state,
@@ -334,9 +389,15 @@ export function botStatus(
 }
 
 /** 지금 가려는 네모: FSM이 켜져 있으면 5상태 목적지(일은 일감에 따라), 아니면 기존 운반 → 일터 → 집 규칙 */
-function targetOf(home: BotHome, unitId: number, nowMs: number): TripArea {
+function targetOf(
+  home: BotHome,
+  unitId: number,
+  nowMs: number,
+  fatigue?: BotFatigueAccess,
+  commit = false,
+): TripArea {
   const baseHome: TripArea = { x: home.x, y: home.y, radius: home.homeRadius ?? HOME_RADIUS_CELLS };
-  const fsm = resolveBotAiState(home, unitId, nowMs);
+  const fsm = resolveBotAiState(home, unitId, nowMs, fatigue, commit);
   if (fsm) {
     switch (fsm.state) {
       case "work":
@@ -360,8 +421,25 @@ function targetOf(home: BotHome, unitId: number, nowMs: number): TripArea {
         return baseHome;
     }
   }
-  if (home.haul && hauling(home, nowMs)) return home.haul.area;
-  return home.work && atWork(home.shift ?? DEFAULT_WORK_SHIFT, unitId, nowMs) ? home.work : baseHome;
+  const shift = home.shift ?? DEFAULT_WORK_SHIFT;
+  const snap = fatigue?.snapshot(unitId, nowMs);
+  const hasWorkplace = home.work !== undefined || home.cityJob === true;
+  if (home.haul && hauling(home, nowMs)) {
+    if (commit) fatigue?.commitState?.(unitId, "work", nowMs);
+    return home.haul.area;
+  }
+  if (
+    snap !== undefined &&
+    hasWorkplace &&
+    (snap.fatigue >= snap.restAt || (snap.aiState === "rest" && snap.fatigueMilli > snap.resumeAt * 1000))
+  ) {
+    if (commit) fatigue?.commitState?.(unitId, "rest", nowMs);
+    return baseHome;
+  }
+  const isWorkHours = snap && shift.cycle ? true : atWork(shift, unitId, nowMs);
+  const working = hasWorkplace && isWorkHours;
+  if (commit) fatigue?.commitState?.(unitId, working ? "work" : "rest", nowMs);
+  return working ? (home.work ?? baseHome) : baseHome;
 }
 
 /**
@@ -390,15 +468,16 @@ export function homeArea(
   return approach(from, size, { x: home.x, y: home.y, radius: HOME_RADIUS_CELLS });
 }
 
-/** 집이 있는 봇의 목적지 네모(지역 시각에 따라 일터 또는 집) */
+/** 집이 있는 봇의 목적지 네모(지역 시각·피로 상태에 따라 일터 또는 집) */
 export function tripArea(
   from: Point,
   size: SizeClass,
   home: BotHome,
   unitId: number,
   nowMs: number,
+  fatigue?: BotFatigueAccess,
 ): TripArea {
-  return approach(from, size, targetOf(home, unitId, nowMs));
+  return approach(from, size, targetOf(home, unitId, nowMs, fatigue, true));
 }
 
 /**
@@ -410,17 +489,18 @@ export function arrivalIdleMs(
   bot: { readonly id: number; readonly size: SizeClass; readonly home: BotHome | undefined },
   at: Point,
   nowMs: number,
+  fatigue?: BotFatigueAccess,
 ): number {
   const { home } = bot;
   if (!home) return idleMs(rng);
-  const target = targetOf(home, bot.id, nowMs);
+  const target = targetOf(home, bot.id, nowMs, fatigue, true);
   const here = anchorAt(at, bot.size);
   if (Math.max(Math.abs(target.x - here.x), Math.abs(target.y - here.y)) > target.radius) return idleMs(rng);
   const baseRest =
     target === home.work
       ? WORK_IDLE_MIN_MS + rng.nextInt(WORK_IDLE_SPREAD_MS + 1)
       : HOME_IDLE_MIN_MS + rng.nextInt(HOME_IDLE_SPREAD_MS + 1);
-  const fsm = resolveBotAiState(home, bot.id, nowMs);
+  const fsm = resolveBotAiState(home, bot.id, nowMs, fatigue, false);
   const rest = fsm ? Math.max(HOME_IDLE_MIN_MS, fsm.nextReevalMs) : baseRest;
   // 운반 일정(D-570 1886): 창고에 닿으면 내려놓는 동안만 서 있고(일정 끝까지), 다가오는 일정이 있으면 그때 깨어 창고로 간다
   if (home.haul && target === home.haul.area) return Math.max(HAUL_IDLE_MIN_MS, home.haul.untilMs - nowMs);

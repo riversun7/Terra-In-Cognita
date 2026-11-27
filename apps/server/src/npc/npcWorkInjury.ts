@@ -58,6 +58,14 @@ export function createNpcWorkInjury(o: {
   readonly startMs: number;
   /** 굴림(시험이 바꾼다). 없으면 플레이어 채집과 같은 판정·시드 */
   readonly hook?: GatherInjuryHook | undefined;
+  /** 상태 기반 NPC 피로 저장소(있으면 실제 일하는 중 여부와 실제 피로를 쓰고, 없으면 기존 어림 피로 fallback) */
+  readonly fatigue?:
+    | {
+        isWorking(unitId: number, atMs: number): boolean;
+        fatigueOf(unitId: number, atMs: number): number | undefined;
+        fatigueMax(): number;
+      }
+    | undefined;
 }): NpcWorkInjury {
   const hook = o.hook ?? createGatherInjury();
   let checkedMs = o.startMs;
@@ -79,17 +87,20 @@ export function createNpcWorkInjury(o: {
           // 시설 일터 또는 건물 없는 도시 직무(fixes-1117j 2741)
           const working = info?.home?.work !== undefined || info?.home?.cityJob === true;
           if (!map || !info || !working || info.held === true || unavailable(info.condition, at)) continue;
-          const shift = info.home?.shift ?? DEFAULT_WORK_SHIFT;
-          if (!atWork(shift, unit.id, at)) continue;
+          let fatigueVal: number;
+          let fatigueMax: number;
+          if (o.fatigue) {
+            if (!o.fatigue.isWorking(unit.id, at)) continue;
+            fatigueVal = o.fatigue.fatigueOf(unit.id, at) ?? 0;
+            fatigueMax = Math.max(1, o.fatigue.fatigueMax());
+          } else {
+            const shift = info.home?.shift ?? DEFAULT_WORK_SHIFT;
+            if (!atWork(shift, unit.id, at)) continue;
+            fatigueVal = shiftFatiguePm(shift, unit.id, at);
+            fatigueMax = NPC_WORK_FATIGUE_MAX;
+          }
           // 경계 하나만 굴린다((at − 1, at] — 같은 경계 번호·시드라 나눠 불러도 같다)
-          const stage = hook(
-            map,
-            unit.id,
-            shiftFatiguePm(shift, unit.id, at),
-            NPC_WORK_FATIGUE_MAX,
-            at - 1,
-            at,
-          );
+          const stage = hook(map, unit.id, fatigueVal, fatigueMax, at - 1, at);
           if (stage > 0) hurt += 1;
         }
       }

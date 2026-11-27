@@ -9150,7 +9150,13 @@
           "max": 1
         }
       ],
-      "enabled": true
+      "enabled": true,
+      "image": "ZODIAC_SNAKE.jpg",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 320,
+        "radiusPm": 270
+      }
     },
     {
       "id": "zodiac_horse",
@@ -9345,7 +9351,13 @@
           "max": 1
         }
       ],
-      "enabled": true
+      "enabled": true,
+      "image": "ZODIAC_GOAT.jpg",
+      "portraitCrop": {
+        "cxPm": 490,
+        "cyPm": 330,
+        "radiusPm": 270
+      }
     },
     {
       "id": "zodiac_monkey",
@@ -9437,7 +9449,13 @@
           "max": 1
         }
       ],
-      "enabled": true
+      "enabled": true,
+      "image": "ZODIAC_MONKEY.jpg",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 330,
+        "radiusPm": 260
+      }
     },
     {
       "id": "zodiac_rooster",
@@ -9537,7 +9555,13 @@
           "max": 1
         }
       ],
-      "enabled": true
+      "enabled": true,
+      "image": "ZODIAC_ROOSTER.jpg",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 310,
+        "radiusPm": 260
+      }
     },
     {
       "id": "zodiac_dog",
@@ -9637,7 +9661,13 @@
           "max": 1
         }
       ],
-      "enabled": true
+      "enabled": true,
+      "image": "ZODIAC_DOG.jpg",
+      "portraitCrop": {
+        "cxPm": 490,
+        "cyPm": 320,
+        "radiusPm": 260
+      }
     },
     {
       "id": "zodiac_boar",
@@ -9737,7 +9767,13 @@
           "max": 1
         }
       ],
-      "enabled": true
+      "enabled": true,
+      "image": "ZODIAC_BOAR.jpg",
+      "portraitCrop": {
+        "cxPm": 480,
+        "cyPm": 350,
+        "radiusPm": 280
+      }
     },
     {
       "id": "zodiac_rat_avatar",
@@ -10148,7 +10184,13 @@
           "max": 1
         }
       ],
-      "enabled": true
+      "enabled": true,
+      "image": "ZODIAC_RABBIT_AVATAR.jpg",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 280,
+        "radiusPm": 220
+      }
     },
     {
       "id": "zodiac_dragon_avatar",
@@ -10445,7 +10487,13 @@
           "max": 1
         }
       ],
-      "enabled": true
+      "enabled": true,
+      "image": "ZODIAC_HORSE_AVATAR.jpg",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 260,
+        "radiusPm": 210
+      }
     },
     {
       "id": "zodiac_goat_avatar",
@@ -10539,7 +10587,13 @@
           "max": 1
         }
       ],
-      "enabled": true
+      "enabled": true,
+      "image": "ZODIAC_GOAT_AVATAR.jpg",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 270,
+        "radiusPm": 210
+      }
     },
     {
       "id": "zodiac_monkey_avatar",
@@ -10636,7 +10690,13 @@
           "max": 1
         }
       ],
-      "enabled": true
+      "enabled": true,
+      "image": "ZODIAC_MONKEY_AVATAR.jpg",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 270,
+        "radiusPm": 210
+      }
     },
     {
       "id": "zodiac_rooster_avatar",
@@ -10745,7 +10805,13 @@
           "max": 1
         }
       ],
-      "enabled": true
+      "enabled": true,
+      "image": "ZODIAC_ROOSTER_AVATAR.jpg",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 260,
+        "radiusPm": 210
+      }
     },
     {
       "id": "zodiac_dog_avatar",
@@ -16211,7 +16277,13 @@
           "max": 1
         }
       ],
-      "enabled": true
+      "enabled": true,
+      "image": "QILIN.jpg",
+      "portraitCrop": {
+        "cxPm": 480,
+        "cyPm": 300,
+        "radiusPm": 260
+      }
     },
     {
       "id": "fenghuang",

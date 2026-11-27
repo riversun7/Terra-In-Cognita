@@ -354,13 +354,22 @@ describe.skipIf(!TEST_DATABASE_URL)("운영자 콘솔(DB)", () => {
     expect(list.rows.find((unit) => unit.id === plain)).toMatchObject({
       name: null,
       growth: { source: "baseline", level: 1, exp: 0, stats: [10, 10, 10, 10, 10, 10], kPm: null },
-      npcWork: null,
+      doing: "idle",
+      npcWorker: false,
     });
     // 정렬: 레벨 내림차순이면 레벨 2 본체가 먼저, 오름차순이면 기본 몸이 먼저. 같은 값은 ID 차례
     const byLevel = await ops.units({ ownerKind: "user", sort: "level", desc: true, limit: 10, offset: 0 });
     expect(byLevel.rows.map((unit) => unit.id)).toEqual([body, plain]);
     const byLevelUp = await ops.units({ ownerKind: "user", sort: "level", limit: 10, offset: 0 });
     expect(byLevelUp.rows.map((unit) => unit.id)).toEqual([plain, body]);
+    // 레벨 정렬은 레벨 다음에 경험치를 본다: 레벨 2·경험치 5인 본체가 레벨 2·경험치 0이 되면(같은 레벨) 차례는 그대로,
+    // 경험치를 더 받으면 정렬 값이 커진다(레벨 없는 시험 유닛은 늘 맨 아래)
+    persistence.cyborgs.addExp(player, 20);
+    expect(persistence.cyborgs.record(player)).toMatchObject({ level: 2, exp: 25 });
+    expect(
+      (await ops.units({ ownerKind: "user", sort: "level", desc: true, limit: 10, offset: 0 })).rows[0]
+        ?.growth,
+    ).toMatchObject({ level: 2, exp: 25 });
     // 작업 상태 거르기: 둘 다 직무가 없고 서 있다 → "하는 일 없음"에 둘, "일하는 중"·"부상"에는 없음
     const idle = await ops.units({ ownerKind: "user", state: "idle", limit: 10, offset: 0 });
     expect(idle.total).toBe(2);
@@ -372,7 +381,8 @@ describe.skipIf(!TEST_DATABASE_URL)("운영자 콘솔(DB)", () => {
     expect(injured.rows.map((unit) => unit.id)).toEqual([plain]);
 
     const detail = await ops.unit(body);
-    expect(detail?.unit.growth).toEqual(row?.growth);
+    // 상세의 성장 값 = 목록의 값(위에서 경험치 20을 더 받았다)
+    expect(detail?.unit.growth).toEqual({ ...row?.growth, exp: 25 });
     expect(detail?.work).toMatchObject({ workplace: null, tactics: null, destination: null });
     // 생활 규칙: 주인이 정하지 않았으면 성향 기본값
     expect(detail?.work?.life).toMatchObject({ saved: false });

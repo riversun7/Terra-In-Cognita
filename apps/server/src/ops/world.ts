@@ -3,6 +3,7 @@
 // 유닛 지우기는 두지 않는다: 종류마다 정리할 것(NPC 사회 런타임 거울·보유 물건·스킬·신앙·화물)이 달라 이 층에서 안전하게 못 한다(ADR 4절).
 import type {
   OpsOwnerKind,
+  OpsUnitDoing,
   OpsUnitGrowth,
   OpsUnitResult,
   OpsUnitSort,
@@ -14,7 +15,7 @@ import { unitGrowthOf } from "../growth/store.ts";
 import { unitLifeOf } from "../life/store.ts";
 import { BASELINE_PRIMARY } from "../roster/body.ts";
 import { TACTICS_KINDS, unitTacticsOf } from "../tactics/store.ts";
-import { type BotHome, DEFAULT_WORK_SHIFT, atWork } from "../world/bots.ts";
+import { DEFAULT_WORK_SHIFT, atWork, botStatus, shiftFatiguePm } from "../world/bots.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { World } from "../world/world.ts";
 
@@ -35,18 +36,62 @@ export interface OpsUnitCore {
   captive: boolean;
   name: string | null;
   growth: OpsUnitGrowth | null;
-  job: { kind: number; phase: number; fatigue: number };
-  npcWork: "work" | "rest" | null;
+  job: { kind: number; phase: number; fatigue: number; fatigueEstimated?: boolean };
+  doing: OpsUnitDoing;
+  npcWorker: boolean;
   workplace: number | null;
 }
 
 /** 저장된 스탯이 없는 유닛의 몸(roster/body.ts baselineBody와 같은 값: 1차 모두 10, 레벨 1, 성장 없음) */
 const BASELINE_STATS: readonly number[] = Array.from({ length: 6 }, () => BASELINE_PRIMARY);
 
-/** NPC 도시 일꾼(일터나 도시 직무를 받은 휴먼)의 지금: 일하는 때·쉬는 때. 일꾼이 아니면 null */
-function npcWorkOf(home: BotHome | undefined, unitId: number, nowMs: number): "work" | "rest" | null {
-  if (!home || (home.work === undefined && home.cityJob !== true)) return null;
-  return atWork(home.shift ?? DEFAULT_WORK_SHIFT, unitId, nowMs) ? "work" : "rest";
+/** 조회가 읽는 유닛 정보(2차맵 unitInfo) */
+type UnitInfo = NonNullable<ReturnType<SecondMap["unitInfo"]>>;
+
+/** NPC 도시 일꾼인가(도시 경제가 일터나 건물 없는 도시 직무를 준 휴먼 — 직무 상태가 없다) */
+const isNpcWorker = (info: UnitInfo): boolean =>
+  info.job.job === 0 &&
+  info.home !== undefined &&
+  (info.home.work !== undefined || info.home.cityJob === true);
+
+/**
+ * 지금 하는 일(하나): 직무 유닛은 직무 단계, 집이 있는 봇(NPC 휴먼)은 움직임을 정하는 판단(world/bots.ts botStatus — 화면에 보이는 움직임과 같다)과
+ * 그 자리에 닿았는지, 그 밖 유닛은 걷는 중인지. "쉬는 중인데 이동 중" 같은 어긋난 표시를 내지 않는다(사용자 지적 2026-11-27)
+ */
+function doingOf(info: UnitInfo, unitId: number, nowMs: number): OpsUnitDoing {
+  if (info.job.job !== 0) return info.job.phase === 0 ? "working" : "resting";
+  const moving = (info.motion.arrivals.at(-1) ?? info.motion.departAtMs) > nowMs;
+  const home = info.home;
+  if (!home) return moving ? "moving" : "idle";
+  const status = botStatus(home, { id: unitId, size: info.size }, positionAt(info.motion, nowMs), nowMs);
+  if (status.state === "work") {
+    if (status.job === "haul") return "hauling";
+    return status.arrived ? "working" : "to_work";
+  }
+  if (status.state === "need") return "need";
+  if (status.state === "patrol") return "patrol";
+  if (status.state === "evade") return "evade";
+  // 건물 없는 도시 직무 일꾼은 집(시청 칸) 둘레에서 일한다: 일하는 때면 일하는 중
+  if (home.cityJob === true && atWork(home.shift ?? DEFAULT_WORK_SHIFT, unitId, nowMs))
+    return status.arrived ? "working" : "to_work";
+  if (isNpcWorker(info)) return status.arrived ? "resting" : "to_rest";
+  return status.arrived ? "idle" : "moving";
+}
+
+/**
+ * 피로: 직무 유닛은 직무 상태의 값. NPC 도시 일꾼은 직무 상태가 없어 어림 피로(bots.ts shiftFatiguePm ‰ — 일하는 때 오르고 쉬는 때 내린다, NPC 작업
+ * 중 부상 판정이 쓰는 값)를 피로 상한 눈금으로 바꿔 보인다
+ */
+function fatigueOf(
+  world: World,
+  info: UnitInfo,
+  unitId: number,
+  nowMs: number,
+): { fatigue: number; estimated: boolean } {
+  const max = isNpcWorker(info) ? unitLifeOf(world.persistence)?.fatigueMax() : undefined;
+  if (max === undefined) return { fatigue: info.job.fatigue, estimated: false };
+  const pm = shiftFatiguePm(info.home?.shift ?? DEFAULT_WORK_SHIFT, unitId, nowMs);
+  return { fatigue: Math.round((pm * max) / 1000), estimated: true };
 }
 
 /** Primaries 객체 → STR·DEX·AGI·VIT·INT·WIS 배열 */
@@ -186,6 +231,7 @@ function unitCore(world: World, map: SecondMap, unitId: number, nowMs: number): 
   const point = positionAt(info.motion, nowMs);
   const last = info.motion.arrivals.at(-1) ?? info.motion.departAtMs;
   const owner = ownerKindOf(world, info.ownerId);
+  const fatigue = fatigueOf(world, info, unitId, nowMs);
   return {
     id: unitId,
     kind: info.kind,
@@ -201,33 +247,45 @@ function unitCore(world: World, map: SecondMap, unitId: number, nowMs: number): 
     injury: info.condition.injury,
     captive: info.condition.heldBy !== null,
     ...unitGrowth(world, unitId),
-    job: { kind: info.job.job, phase: info.job.phase, fatigue: info.job.fatigue },
-    npcWork: npcWorkOf(info.home, unitId, nowMs),
+    job: {
+      kind: info.job.job,
+      phase: info.job.phase,
+      fatigue: fatigue.fatigue,
+      ...(fatigue.estimated ? { fatigueEstimated: true } : {}),
+    },
+    doing: doingOf(info, unitId, nowMs),
+    npcWorker: isNpcWorker(info),
     workplace: world.persistence?.labor.workplaceOf(unitId) ?? null,
   };
 }
 
-/** 유닛이 그 작업 상태인가(목록 거르기). 직무 유닛은 직무 단계로, NPC 도시 일꾼은 일하는 때로 본다 */
+/** 유닛이 그 상태인가(목록 거르기): 부상·포로, 그 밖은 지금 하는 일(doingOf) */
 function inState(map: SecondMap, unitId: number, state: OpsUnitState, nowMs: number): boolean {
   const info = map.unitInfo(unitId);
   if (!info) return false;
   if (state === "injured") return info.condition.injury > 0;
   if (state === "captive") return info.condition.heldBy !== null;
-  const moving = (info.motion.arrivals.at(-1) ?? info.motion.departAtMs) > nowMs;
-  if (state === "moving") return moving;
-  const hasJob = info.job.job !== 0;
-  const npc = hasJob ? null : npcWorkOf(info.home, unitId, nowMs);
-  if (state === "working") return hasJob ? info.job.phase === 0 : npc === "work";
-  if (state === "resting") return hasJob ? info.job.phase !== 0 : npc === "rest";
-  return !hasJob && npc === null && !moving;
+  return doingOf(info, unitId, nowMs) === state;
 }
 
-/** 유닛 레벨(정렬용 — 본체는 만든 기록, 그 밖은 성장 거울, 거울에 없으면 기본 몸 1) */
-function levelOf(world: World, unitId: number): number {
+/** 피로 정렬 값(NPC 도시 일꾼은 어림 피로) */
+function fatigueKeyOf(world: World, map: SecondMap, unitId: number, nowMs: number): number {
+  const info = map.unitInfo(unitId);
+  return info ? fatigueOf(world, info, unitId, nowMs).fatigue : 0;
+}
+
+/** 레벨 정렬 값에서 레벨 한 칸의 크기(그 구간 안 경험치보다 크다) */
+const LEVEL_SORT_STEP = 1_000_000_000;
+
+/**
+ * 레벨·경험치 정렬 값(레벨이 먼저, 같은 레벨이면 그 구간 안 경험치 — 본체는 만든 기록, 그 밖은 성장 거울). 레벨이 없는 유닛(배·시험 유닛)은 0
+ */
+function levelKeyOf(world: World, unitId: number): number {
   const persistence = world.persistence;
   const userId = persistence?.cyborgs.userOfUnit(unitId);
   const record = userId === undefined ? undefined : persistence?.cyborgs.record(userId);
-  return record?.level ?? unitGrowthOf(persistence)?.viewOf(unitId)?.level ?? 1;
+  const view = record ?? unitGrowthOf(persistence)?.viewOf(unitId);
+  return view ? view.level * LEVEL_SORT_STEP + Math.min(LEVEL_SORT_STEP - 1, Math.max(0, view.exp)) : 0;
 }
 
 /**
@@ -252,7 +310,11 @@ export function listUnits(
         return;
       if (state !== undefined && !inState(map, unit.id, state, nowMs)) return;
       const key =
-        sort === "level" ? levelOf(world, unit.id) : sort === "fatigue" ? unit.job.fatigue : unit.id;
+        sort === "level"
+          ? levelKeyOf(world, unit.id)
+          : sort === "fatigue"
+            ? fatigueKeyOf(world, map, unit.id, nowMs)
+            : unit.id;
       ids.push({ id: unit.id, map, key });
     });
   }
@@ -279,7 +341,7 @@ export function unitDetailCore(
   | (OpsUnitCore & {
       speed: number;
       size: SizeClass;
-      job: { kind: number; phase: number; progressMs: number; fatigue: number };
+      job: { kind: number; phase: number; progressMs: number; fatigue: number; fatigueEstimated?: boolean };
       injuryUntilMs: number | null;
       heldBy: number | null;
     })
@@ -292,12 +354,7 @@ export function unitDetailCore(
     ...core,
     speed: info.speed,
     size: info.size,
-    job: {
-      kind: info.job.job,
-      phase: info.job.phase,
-      progressMs: info.job.progressMs,
-      fatigue: info.job.fatigue,
-    },
+    job: { ...core.job, progressMs: info.job.progressMs },
     injuryUntilMs: info.condition.injuryUntilMs,
     heldBy: info.condition.heldBy,
   };

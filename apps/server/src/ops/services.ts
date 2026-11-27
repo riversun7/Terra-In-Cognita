@@ -208,7 +208,8 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
             : null),
         growth: core.growth,
         job: core.job,
-        npcWork: core.npcWork,
+        doing: core.doing,
+        npcWorker: core.npcWorker,
         workplace: core.workplace,
       };
     });

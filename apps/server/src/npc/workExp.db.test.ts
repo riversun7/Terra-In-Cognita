@@ -8,6 +8,7 @@ import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { createContentEditState } from "../contentEdit/state.ts";
 import { economyCatalogFromPack } from "../economyView/catalog.ts";
 import { unitGrowthOf } from "../growth/store.ts";
+import { createOpsServices } from "../ops/services.ts";
 import { serverEconomyCatalogAccessor } from "../market/catalog.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { legacyNationPresets, silentLog } from "../world/testSupport.ts";
@@ -126,6 +127,57 @@ describe.skipIf(!TEST_DATABASE_URL)("모든 유닛에 스탯·레벨 (DB)", () =
       expect(growthAgain?.sheetOf(id)?.initial).toEqual(sheet?.initial);
       expect(growthAgain?.sheetOf(id)?.level).toBe(id === first ? 2 : 1);
     }
+  });
+});
+
+describe.skipIf(!TEST_DATABASE_URL)("운영 조회의 NPC 일꾼 (DB)", () => {
+  it("NPC 도시 일꾼: 지금 하는 일은 하나(거르기와 같은 값)이고, 피로는 어림값으로 보이며 피로 정렬이 그 값을 쓴다", async () => {
+    const world = await boot();
+    const ops = createOpsServices(
+      {
+        pool: test.db.$client,
+        world: () => world,
+        worldStatus: () => world.status(),
+        wsConnections: () => 0,
+        now: () => clock,
+      },
+      { ip: "127.0.0.1" },
+    );
+    let maxFatigue = 0;
+    let seenWorkers = 0;
+    // 하루를 여섯 시간씩 넷으로 나눠 본다(일하는 때·쉬는 때가 모두 지나간다)
+    for (let step = 0; step < 4; step++) {
+      await advance(world, 6 * HOUR_MS);
+      const list = await ops.units({
+        ownerKind: "faction",
+        sort: "fatigue",
+        desc: true,
+        limit: 200,
+        offset: 0,
+      });
+      const workers = list.rows.filter((row) => row.npcWorker === true);
+      seenWorkers = Math.max(seenWorkers, workers.length);
+      for (const row of workers) {
+        expect(row.job?.fatigueEstimated).toBe(true);
+        // 일꾼은 "하는 일 없음"·"이동 중"으로 뜨지 않는다(일하는 중·가는 중·쉬는 중 … 가운데 하나)
+        expect(["working", "to_work", "hauling", "resting", "to_rest", "need", "patrol", "evade"]).toContain(
+          row.doing,
+        );
+      }
+      // 피로 정렬(내림차순)은 보이는 피로 값 차례다
+      const shown = list.rows.map((row) => row.job?.fatigue ?? 0);
+      expect(shown).toEqual(shown.toSorted((a, b) => b - a));
+      maxFatigue = Math.max(maxFatigue, shown[0] ?? 0);
+      // 상태 거르기는 줄에 보이는 "지금 하는 일"과 같다
+      for (const state of ["working", "resting", "to_work"] as const) {
+        const filtered = await ops.units({ ownerKind: "faction", state, limit: 200, offset: 0 });
+        expect(filtered.rows.every((row) => row.doing === state)).toBe(true);
+      }
+    }
+    expect(seenWorkers).toBeGreaterThan(0);
+    // 일하는 때를 지나면 피로가 0보다 크고 피로 상한(120)을 넘지 않는다
+    expect(maxFatigue).toBeGreaterThan(0);
+    expect(maxFatigue).toBeLessThanOrEqual(TEST_SOCIETY_COEFFICIENTS.fatigueMax);
   });
 });
 

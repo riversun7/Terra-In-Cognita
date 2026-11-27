@@ -313,6 +313,26 @@ export function botActivity(
   return { state: "rest", job: null };
 }
 
+/**
+ * 지금 하는 일과 그 자리(지금 가려는 네모)에 닿았는가(읽기만 — 운영자 콘솔 ops/world.ts). 판단은 botActivity·targetOf와 같아 화면에 보이는
+ * 움직임과 어긋나지 않는다. 닿았다 = 유닛 자리가 그 네모 안(arrivalIdleMs와 같은 셈)
+ */
+export function botStatus(
+  home: BotHome,
+  unit: { readonly id: number; readonly size: SizeClass },
+  at: Point,
+  nowMs: number,
+): { readonly state: UnitAiState; readonly job: UnitJobKind | null; readonly arrived: boolean } {
+  const now = botActivity(home, unit.id, nowMs);
+  const target = targetOf(home, unit.id, nowMs);
+  const here = anchorAt(at, unit.size);
+  return {
+    state: now.state,
+    job: now.job,
+    arrived: Math.max(Math.abs(target.x - here.x), Math.abs(target.y - here.y)) <= target.radius,
+  };
+}
+
 /** 지금 가려는 네모: FSM이 켜져 있으면 5상태 목적지(일은 일감에 따라), 아니면 기존 운반 → 일터 → 집 규칙 */
 function targetOf(home: BotHome, unitId: number, nowMs: number): TripArea {
   const baseHome: TripArea = { x: home.x, y: home.y, radius: home.homeRadius ?? HOME_RADIUS_CELLS };

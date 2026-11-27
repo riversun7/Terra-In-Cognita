@@ -626,7 +626,7 @@ export function startWorld(
       rollable: (unitId) => {
         for (const map of maps.values()) {
           const info = map.unitInfo(unitId);
-          if (info) return rollsUnitStats(info.kind, info.speed);
+          if (info) return rollsUnitStats(info.kind);
         }
         return undefined;
       },

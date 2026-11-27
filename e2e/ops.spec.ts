@@ -53,7 +53,7 @@ test.describe("운영자 콘솔 — admin", () => {
     await expect(page.locator(".ops-main .dev-table tbody tr").first()).toBeVisible();
     await page.locator(".ops-main .dev-table tbody tr td button").first().click();
     await expect(page.locator(".ops-side [data-ops-section='growth']")).toBeVisible();
-    await expect(page.locator(".ops-side [data-ops-section='work'] .ops-kv-row")).toHaveCount(8);
+    await expect(page.locator(".ops-side [data-ops-section='work'] .ops-kv-row")).toHaveCount(9);
     // 화면 잇기: 유닛 상세의 [이 주인의 유닛] → 그 주인으로 거른 유닛 목록(줄 위 표지), [거르기 풀기]로 푼다
     await page.locator(".ops-side [data-ops-link='owner-units']").click();
     await expect(page.locator(".ops-main [data-ops-owner-filter]")).toBeVisible();

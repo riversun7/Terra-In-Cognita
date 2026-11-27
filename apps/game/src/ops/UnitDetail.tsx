@@ -2,7 +2,13 @@
 // 휴먼(도시·만족도·수명·스탯)·생명 수치·스킬·물건·화물.
 // 통제: 멈추기(unit_stop)·안전한 곳으로(unit_rescue)·치료(unit_heal)·같은 2차맵 안 순간이동(unit_teleport). 사유는 감사 기록에 남는다.
 // 유닛 지우기는 아직 없다(종류마다 정리할 자료가 달라 다음 단계 — docs/adr/2026-11-08-operator-console.md 4절).
-import type { OpsPermission, OpsUnitGrowth, OpsUnitResult, OpsUnitWork } from "@terra/shared/ops";
+import type {
+  OpsPermission,
+  OpsUnitDoing,
+  OpsUnitGrowth,
+  OpsUnitResult,
+  OpsUnitWork,
+} from "@terra/shared/ops";
 import { useCallback, useId, useState } from "react";
 import { api } from "../net/api.ts";
 import { m } from "../paraglide/messages.js";
@@ -16,8 +22,8 @@ import {
   formatBig,
   formatInt,
   formatTime,
+  UNIT_STATE_LABELS,
   jobLabel,
-  phaseLabel,
   resultText,
   unitKindLabel,
   useOpsLoad,
@@ -54,7 +60,7 @@ function GrowthSection({ growth }: { growth: OpsUnitGrowth | null }) {
           <KeyValues
             rows={[
               [m.ops_f_growth_source(), GROWTH_SOURCES[growth.source]()],
-              [m.ops_col_level(), growth.level],
+              [m.ops_col_level(), growth.source === "baseline" ? m.ops_none() : growth.level],
               [
                 m.ops_f_exp(),
                 growth.source === "baseline"
@@ -87,12 +93,15 @@ function GrowthSection({ growth }: { growth: OpsUnitGrowth | null }) {
 function WorkSection({
   job,
   work,
-  npcWork,
+  doing,
+  npcWorker,
 }: {
-  job: { kind: number; phase: number; progressMs: number; fatigue: number };
+  job: { kind: number; phase: number; progressMs: number; fatigue: number; fatigueEstimated?: boolean };
   work: OpsUnitWork | undefined;
-  /** NPC 도시 일꾼의 지금(직무 상태가 없는 휴먼) */
-  npcWork: "work" | "rest" | null;
+  /** 지금 하는 일(하나) */
+  doing: OpsUnitDoing;
+  /** NPC 도시 일꾼인가(직무 상태가 없는 휴먼) */
+  npcWorker: boolean;
 }) {
   const place = work?.workplace ?? null;
   return (
@@ -102,14 +111,20 @@ function WorkSection({
         rows={[
           [
             m.ops_f_job_state(),
-            job.kind !== 0
-              ? `${jobLabel(job.kind)} · ${phaseLabel(job.phase)}`
-              : npcWork
-                ? `${m.ops_npc_worker()} · ${phaseLabel(npcWork === "rest" ? 1 : 0)}`
-                : jobLabel(0),
+            job.kind !== 0 ? jobLabel(job.kind) : npcWorker ? m.ops_npc_worker() : jobLabel(0),
           ],
+          [m.ops_f_doing(), UNIT_STATE_LABELS[doing]()],
           [m.ops_f_job_progress(), m.ops_f_ms({ ms: formatInt(job.progressMs) })],
-          [m.ops_col_fatigue(), formatInt(job.fatigue)],
+          [
+            m.ops_col_fatigue(),
+            job.fatigueEstimated ? (
+              <span key="fatigue">
+                {formatInt(job.fatigue)} <span className="dev-muted">{m.ops_fatigue_estimated()}</span>
+              </span>
+            ) : (
+              formatInt(job.fatigue)
+            ),
+          ],
           [
             m.ops_f_workplace(),
             place ? (
@@ -248,7 +263,6 @@ export function UnitDetail({ unitId, can, open }: UnitDetailProps) {
                 </span>,
               ],
               [m.ops_f_speed_size(), m.ops_f_of({ a: data.speed, b: data.size })],
-              [m.ops_col_status(), data.unit.moving ? m.ops_status_moving() : m.ops_none()],
               [m.ops_injury({ stage: injuryStageName(data.unit.injury) }), formatTime(data.injuryUntilMs)],
               [
                 m.ops_f_held_by(),
@@ -349,7 +363,12 @@ export function UnitDetail({ unitId, can, open }: UnitDetailProps) {
             </section>
           ) : null}
           <GrowthSection growth={data.unit.growth ?? null} />
-          <WorkSection job={data.job} work={data.work} npcWork={data.unit.npcWork ?? null} />
+          <WorkSection
+            job={data.job}
+            work={data.work}
+            doing={data.unit.doing ?? (data.unit.moving ? "moving" : "idle")}
+            npcWorker={data.unit.npcWorker === true}
+          />
           {data.human ? (
             <section>
               <h3 className="ops-h3">{m.ops_sec_human()}</h3>

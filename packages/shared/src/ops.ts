@@ -234,10 +234,15 @@ export interface OpsUnitRow {
   name?: string | null;
   /** 성장(레벨·경험치·스탯). 모든 유닛에 있다 — 저장된 스탯이 없으면 종류 기본 몸(source "baseline") */
   growth?: OpsUnitGrowth | null;
-  /** 직무 상태: 직무 코드(0 = 없음)·단계(0 = 일, 1 = 쉼)·피로 */
-  job?: { kind: number; phase: number; fatigue: number };
-  /** NPC 도시 일꾼(도시 경제가 일터를 준 휴먼 — 직무 상태가 없다)의 지금: work = 일하는 때, rest = 쉬는 때. 일꾼이 아니면 null */
-  npcWork?: "work" | "rest" | null;
+  /**
+   * 직무 상태: 직무 코드(0 = 없음)·단계(0 = 일, 1 = 쉼)·피로. NPC 도시 일꾼은 직무 상태가 없어 피로가 어림값이다(fatigueEstimated — 일하는 때
+   * 오르고 쉬는 때 내리는 값, NPC 작업 중 부상 판정이 쓰는 것과 같다. 피로 상한 눈금으로 바꾼 값)
+   */
+  job?: { kind: number; phase: number; fatigue: number; fatigueEstimated?: boolean };
+  /** 지금 하는 일(하나로 — 작업 상태와 이동을 따로 보이지 않는다) */
+  doing?: OpsUnitDoing;
+  /** NPC 도시 일꾼인가(도시 경제가 일터나 도시 직무를 준 휴먼) */
+  npcWorker?: boolean;
   /** 일하는 건물 ID(직무 배치·노동 계약). 없으면 null */
   workplace?: number | null;
 }
@@ -246,7 +251,7 @@ export interface OpsUnitRow {
 export interface OpsUnitGrowth {
   /**
    * cyborg = 사이보그 본체, human = 휴먼, cyborg_unit = 사이보그 유닛, unit = 그 밖 유닛(NPC 지도자·봇 등 — 굴려 저장한 스탯, unit_stats),
-   * baseline = 스탯을 두지 않는 유닛(탈것·배·시험 유닛 — 종류 기본 몸, 경험치를 받지 않는다)
+   * baseline = 레벨·스탯을 두지 않는 유닛(배·시험 유닛 — 종류 기본 몸, 경험치를 받지 않는다. 화면은 레벨·경험치를 "—"로 보인다)
    */
   source: "cyborg" | "human" | "cyborg_unit" | "unit" | "baseline";
   level: number;
@@ -284,8 +289,27 @@ export interface OpsUnitWork {
   destination: { cellX: number; cellY: number; arriveAtMs: number } | null;
 }
 
-/** 유닛 목록 거르기: 작업 상태 */
-export const OPS_UNIT_STATES = ["working", "resting", "idle", "moving", "injured", "captive"] as const;
+/**
+ * 유닛이 지금 하는 일(운영 조회 — 하나만): working = 일하는 중(직무의 일 단계, NPC는 일터에 닿아 일하는 때), to_work = 일터로 가는 중,
+ * hauling = 운반 중, resting = 쉬는 중(직무의 쉼 단계, NPC 일꾼은 쉼터·집에 닿아 쉬는 때), to_rest = 쉬러 가는 중, need = 볼일(시장),
+ * patrol = 순찰, evade = 피하는 중, moving = 이동 중(직무·일터 없는 유닛이 걷는 중), idle = 하는 일 없음
+ */
+export const OPS_UNIT_DOINGS = [
+  "working",
+  "to_work",
+  "hauling",
+  "resting",
+  "to_rest",
+  "need",
+  "patrol",
+  "evade",
+  "moving",
+  "idle",
+] as const;
+export type OpsUnitDoing = (typeof OPS_UNIT_DOINGS)[number];
+
+/** 유닛 목록 거르기: 지금 하는 일 + 부상·포로 */
+export const OPS_UNIT_STATES = [...OPS_UNIT_DOINGS, "injured", "captive"] as const;
 export type OpsUnitState = (typeof OPS_UNIT_STATES)[number];
 /** 유닛 목록 정렬 칸 */
 export const OPS_UNIT_SORTS = ["id", "level", "fatigue"] as const;
@@ -429,7 +453,7 @@ export interface OpsUnitDetail {
   unit: OpsUnitRow;
   speed: number;
   size: number;
-  job: { kind: number; phase: number; progressMs: number; fatigue: number };
+  job: { kind: number; phase: number; progressMs: number; fatigue: number; fatigueEstimated?: boolean };
   injuryUntilMs: number | null;
   heldBy: number | null;
   human: {

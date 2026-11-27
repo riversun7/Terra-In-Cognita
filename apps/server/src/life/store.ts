@@ -34,6 +34,8 @@ export interface UnitLifeStore {
   get(unitId: number): UnitLifeRules | undefined;
   /** 실효 규칙: 저장한 값(실효 상한에 맞게 자름) → 없으면 성향 기본값 */
   of(unitId: number): UnitLifeView;
+  /** 피로 상한(설정 칸 실효 값 — 운영 조회가 NPC 일꾼의 어림 피로 ‰를 같은 눈금으로 바꾼다) */
+  fatigueMax(): number;
   /** 내 유닛의 규칙을 저장한다(소유·종류·모양 검사) */
   set(userId: string, unitId: number, rules: UnitLifeRules): LifeSetResult;
   /** 표를 다 읽었을 때 끝난다(시험) */
@@ -107,6 +109,7 @@ export function attachUnitLife(
 
   const store: UnitLifeStore = {
     get: (unitId) => table.get(unitId),
+    fatigueMax: () => world.rules().fatigueMax,
     of(unitId) {
       const c = world.rules();
       const saved = table.get(unitId);

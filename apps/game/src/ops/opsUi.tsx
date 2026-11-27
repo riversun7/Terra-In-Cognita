@@ -1,6 +1,6 @@
 // 운영자 콘솔 공용 조각 — 불러오기 훅, 문구 표(권한·유닛 종류·결과 코드), 숫자·시각 모양, 키-값 표.
 // 키로 고르는 문구는 여기 표에 적는다(네임스페이스를 계산해서 읽지 않는다 — oxlint import(namespace)).
-import type { OpsPermission, OpsTier, OpsUnitRow } from "@terra/shared/ops";
+import type { OpsPermission, OpsTier, OpsUnitRow, OpsUnitState } from "@terra/shared/ops";
 import { type ReactNode, useEffect, useState } from "react";
 import { adminErrorInfo } from "../admin/adminErrors.ts";
 import { refreshSession } from "../auth/session.ts";
@@ -105,10 +105,21 @@ export function jobLabel(kind: number): string {
   return m.ops_job_other({ kind });
 }
 
-/** 직무 단계 → 이름(0 = 일, 1 = 쉼) */
-export function phaseLabel(phase: number): string {
-  return phase === 1 ? m.ops_phase_rest() : m.ops_phase_work();
-}
+/** 지금 하는 일·부상·포로 → 이름(유닛 표의 작업 칸, 유닛 탭의 상태 거르기) */
+export const UNIT_STATE_LABELS: { readonly [S in OpsUnitState]: () => string } = {
+  working: m.ops_state_working,
+  to_work: m.ops_do_to_work,
+  hauling: m.ops_do_hauling,
+  resting: m.ops_state_resting,
+  to_rest: m.ops_do_to_rest,
+  need: m.ops_do_need,
+  patrol: m.ops_do_patrol,
+  evade: m.ops_do_evade,
+  moving: m.ops_status_moving,
+  idle: m.ops_state_idle,
+  injured: m.ops_state_injured,
+  captive: m.ops_status_captive,
+};
 
 export function whereText(unit: Pick<OpsUnitRow, "planetId" | "mapKey" | "cellX" | "cellY">): string {
   return m.ops_where({ planet: unit.planetId, map: unit.mapKey, x: unit.cellX, y: unit.cellY });

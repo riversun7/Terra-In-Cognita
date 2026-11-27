@@ -1,12 +1,13 @@
 // 운영자 콘솔 · 유닛 표(유닛 탭·유저 상세·세력 상세가 같이 쓴다). ID·이름 → 유닛 상세, 주인 → 유저·세력 상세,
 // 위치는 짧게 보이고 누르면 전체 위치와 [이 2차맵의 유닛]을 펼친다. 칸은 좁게 둔다(자세한 것은 유닛 상세).
 // 유닛 탭에서는 칸 머리(ID·레벨·피로)를 눌러 정렬하고, 작업·상태 표지를 눌러 그 상태로 거른다(onSort·onState가 있을 때만).
+// 작업 칸 = 지금 하는 일 하나(일하는 중·일터로 가는 중·쉬는 중·쉬러 가는 중·운반 중 …), 상태 칸 = 부상·포로.
 import type { OpsUnitRow, OpsUnitSort, OpsUnitState } from "@terra/shared/ops";
 import type { ReactNode } from "react";
 import { m } from "../paraglide/messages.js";
 import { injuryStageName } from "../roster/InjuryBadge.tsx";
 import type { OpenDetail } from "./OpsConsole.tsx";
-import { WhereCell, formatInt, jobLabel, phaseLabel, unitKindLabel } from "./opsUi.tsx";
+import { UNIT_STATE_LABELS, WhereCell, formatInt, jobLabel, unitKindLabel } from "./opsUi.tsx";
 
 export interface UnitSort {
   key: OpsUnitSort;
@@ -135,8 +136,14 @@ export function UnitTable({ rows, open, sort, onSort, onState }: UnitTableProps)
         </thead>
         <tbody>
           {rows.map((row) => {
-            const working = row.job && row.job.kind !== 0 ? row.job.phase === 0 : row.npcWork === "work";
-            const hasWork = (row.job && row.job.kind !== 0) || Boolean(row.npcWork);
+            // 지금 하는 일은 하나만 보인다(작업 상태와 이동을 따로 내지 않는다). 앞에 직무 이름(직무 유닛)·"도시 일꾼"(NPC 일꾼)
+            const doing = row.doing ?? (row.moving ? "moving" : "idle");
+            const role =
+              row.job && row.job.kind !== 0
+                ? jobLabel(row.job.kind)
+                : row.npcWorker
+                  ? m.ops_npc_worker()
+                  : null;
             return (
               <tr key={row.id}>
                 <td className="dev-num">
@@ -169,15 +176,13 @@ export function UnitTable({ rows, open, sort, onSort, onState }: UnitTableProps)
                   <WhereCell where={row} open={open} />
                 </td>
                 <td className="dev-code">
-                  {row.growth ? (
+                  {row.growth && row.growth.source !== "baseline" ? (
                     <>
                       {row.growth.level}{" "}
                       <span className="dev-muted">
-                        {row.growth.source === "baseline"
-                          ? m.ops_none()
-                          : row.growth.expSpan > 0
-                            ? m.ops_f_of({ a: formatInt(row.growth.exp), b: formatInt(row.growth.expSpan) })
-                            : m.ops_exp_max()}
+                        {row.growth.expSpan > 0
+                          ? m.ops_f_of({ a: formatInt(row.growth.exp), b: formatInt(row.growth.expSpan) })
+                          : m.ops_exp_max()}
                       </span>
                     </>
                   ) : (
@@ -188,23 +193,25 @@ export function UnitTable({ rows, open, sort, onSort, onState }: UnitTableProps)
                   {row.growth ? row.growth.stats.join("·") : m.ops_none()}
                 </td>
                 <td>
-                  {hasWork ? (
-                    <StateBadge state={working ? "working" : "resting"} onState={onState}>
-                      {row.job && row.job.kind !== 0 ? jobLabel(row.job.kind) : m.ops_npc_worker()} ·{" "}
-                      {phaseLabel(working ? 0 : 1)}
+                  {doing === "idle" && role === null ? (
+                    <span className="dev-muted">{UNIT_STATE_LABELS.idle()}</span>
+                  ) : (
+                    <StateBadge state={doing} onState={onState}>
+                      {role ? `${role} · ` : ""}
+                      {UNIT_STATE_LABELS[doing]()}
                     </StateBadge>
-                  ) : null}
+                  )}
                   {typeof row.workplace === "number" ? (
                     <span className="dev-muted"> {m.ops_work_building_short({ id: row.workplace })}</span>
                   ) : null}
                 </td>
-                <td className="dev-num">{row.job ? formatInt(row.job.fatigue) : m.ops_none()}</td>
+                <td
+                  className="dev-num"
+                  title={row.job?.fatigueEstimated ? m.ops_fatigue_estimated() : undefined}
+                >
+                  {row.job ? formatInt(row.job.fatigue) : m.ops_none()}
+                </td>
                 <td>
-                  {row.moving ? (
-                    <StateBadge state="moving" onState={onState}>
-                      {m.ops_status_moving()}
-                    </StateBadge>
-                  ) : null}
                   {row.injury > 0 ? (
                     <StateBadge state="injured" bad onState={onState}>
                       {m.ops_injury({ stage: injuryStageName(row.injury) })}

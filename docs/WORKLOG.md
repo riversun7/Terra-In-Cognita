@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-27 21:15 | 운영자 콘솔: 경험치 없는 유닛 줄 없애기, 레벨 정렬이 경험치까지, NPC 일꾼 피로, 지금 하는 일 하나로 | Claude Code | [27-2115-ops-exp-sort-vehicle-bots](worklog/2026/11/27-2115-ops-exp-sort-vehicle-bots.md) |
 | 2026-11-27 13:50 | 모든 사람 유닛에 저장된 스탯·레벨: 지도자·봇도 휴먼과 똑같이 | Claude Code | [27-1350-all-units-have-stats](worklog/2026/11/27-1350-all-units-have-stats.md) |
 | 2026-11-27 13:25 | NPC 일꾼 경험치: 시설이 생산하면 그 시설 일꾼이 경험치를 받는다 | Claude Code | [27-1325-npc-work-exp](worklog/2026/11/27-1325-npc-work-exp.md) |
 | 2026-11-27 12:50 | 운영자 콘솔: 유닛의 성장·작업 상태 조회, 화면끼리 잇기 | Claude Code | [27-1250-ops-console-unit-growth-links](worklog/2026/11/27-1250-ops-console-unit-growth-links.md) |

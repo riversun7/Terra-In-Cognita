@@ -5,20 +5,12 @@ import { useCallback, useState } from "react";
 import { api } from "../net/api.ts";
 import { m } from "../paraglide/messages.js";
 import type { OpenDetail, OpsUnitsJump } from "./OpsConsole.tsx";
-import { LoadState, Pager, UNIT_KIND_CODES, unitKindLabel, useOpsLoad } from "./opsUi.tsx";
+import { LoadState, Pager, UNIT_KIND_CODES, UNIT_STATE_LABELS, unitKindLabel, useOpsLoad } from "./opsUi.tsx";
 import { type UnitSort, UnitTable } from "./UnitTable.tsx";
 
 const PAGE = 100;
 type OwnerKind = "user" | "faction" | "";
 
-const STATE_LABELS: { readonly [S in OpsUnitState]: () => string } = {
-  working: m.ops_state_working,
-  resting: m.ops_state_resting,
-  idle: m.ops_state_idle,
-  moving: m.ops_status_moving,
-  injured: m.ops_state_injured,
-  captive: m.ops_status_captive,
-};
 const isState = (value: string): value is OpsUnitState =>
   (OPS_UNIT_STATES as readonly string[]).includes(value);
 
@@ -139,7 +131,7 @@ export function UnitsTab({
             <option value="">{m.ops_filter_all()}</option>
             {OPS_UNIT_STATES.map((value) => (
               <option key={value} value={value}>
-                {STATE_LABELS[value]()}
+                {UNIT_STATE_LABELS[value]()}
               </option>
             ))}
           </select>

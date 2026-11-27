@@ -202,6 +202,7 @@ describe("2차맵 사이 이동 연결 처리", () => {
       service: () => fakeService([]),
       life: () => ({
         get: () => undefined,
+        fatigueMax: () => 120,
         of: () => ({ restAt: 90, resumeAt: 0, saved: false }),
         set: (userId, unitId, value) => {
           saved.push([userId, unitId, value]);

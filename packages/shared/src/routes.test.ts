@@ -263,6 +263,8 @@ describe("주소 표", () => {
       dev_secondary_stats: ["/dev/secondary-stats", "dev", "shown", "dev_admin", ["target"]],
       // 유닛 공통 경험치 테이블 편집·시각화 화면
       dev_exp_table: ["/dev/exp-table", "dev", "shown", "dev_admin", []],
+      // 경제 흐름 모식도(보기 전용)
+      dev_economy_flow: ["/dev/economy-flow", "dev", "shown", "dev_admin", []],
       // 스킬 편집기·행동별 소모(docs/adr/2026-11-01-skill-editor.md 5절)
       dev_skills: ["/dev/skills", "dev", "shown", "dev_admin", ["skill"]],
       // 아이템 편집기(docs/adr/2026-11-01-item-editor.md)

@@ -59,7 +59,8 @@ test.describe("관리자", () => {
     await expect(drawer).not.toHaveAttribute("open", "");
     // 도구 스물한 줄(시안 모음 /dev/mockups 포함. 2차맵 시험·지형 오브젝트는 /dev/terrain-objects 하나로 통합, 전투 다시보기는 /dev/balance의 [3D 전투 · 리플레이] 탭으로 통합).
     // 운영 권한 부여(/dev/ops-grants)는 개발자만이라 관리자에게는 숨는다
-    await expect(page.locator("#main a.dev-tool")).toHaveCount(21);
+    // 스물두 줄: 경제 흐름 모식도(/dev/economy-flow)가 더해졌다
+    await expect(page.locator("#main a.dev-tool")).toHaveCount(22);
     await expect(page.locator("#main a.dev-tool .dev-tool-badge")).toHaveCount(0);
     for (const path of [
       "/dev/planet-editor",
@@ -247,6 +248,7 @@ test.describe("플레이어", () => {
 // 도구를 더하면 한 줄 더한다(줄이 없으면 그 화면은 이 시험 밖이다). 행성 고르기·주소 ?planet=은 e2e/planet-scope.spec.ts가 본다.
 const TOOL_SCOPES = [
   ["/dev/tuning", "common"],
+  ["/dev/economy-flow", "common"],
   ["/dev/balance", "common"],
   ["/dev/secondary-stats", "common"],
   ["/dev/exp-table", "common"],

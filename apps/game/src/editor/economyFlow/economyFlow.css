@@ -1,0 +1,666 @@
+/* 경제 흐름 모식도(/dev/economy-flow) — 개발 화면 층(data-surface="dev", 네온 다크·라이트 양쪽 대응) */
+
+.econ-flow-screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  max-width: 82rem;
+}
+
+.econ-flow-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.econ-flow-tuning-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-primary);
+  border-radius: var(--radius-control);
+  background-color: var(--color-nav-active);
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.econ-flow-tuning-link:hover {
+  filter: brightness(1.1);
+}
+
+.econ-flow-lead-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.econ-flow-lead {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-md);
+}
+
+.econ-flow-sync-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: var(--hairline) solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.econ-flow-sync-pill.is-synced {
+  border-color: var(--color-success);
+  background-color: var(--color-success-surface);
+  color: var(--color-success);
+}
+
+/* KPI 요약 4열 */
+.econ-flow-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--space-3);
+}
+
+.econ-flow-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+}
+
+.econ-flow-kpi-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.econ-flow-kpi-value {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-display);
+  font-family: var(--font-mono);
+  color: var(--color-text);
+}
+
+.econ-flow-kpi-value.is-accent {
+  color: var(--color-primary);
+}
+
+.econ-flow-kpi-value.is-warn {
+  color: var(--color-warning);
+}
+
+/* 섹션 패널 */
+.econ-flow-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+}
+
+.econ-flow-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.econ-flow-panel-title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-display);
+  color: var(--color-text);
+}
+
+.econ-flow-panel-hint {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* 필터 칩 줄 */
+.econ-flow-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.econ-flow-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  cursor: pointer;
+}
+
+.econ-flow-chip:hover {
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+
+.econ-flow-chip.is-active {
+  border-color: var(--color-primary);
+  background-color: var(--color-nav-active);
+  color: var(--color-primary);
+}
+
+.econ-flow-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* 카테고리 색상 토큰(네온 다크·라이트 토큰 위에서 동작) */
+.econ-cat-tax {
+  --econ-cat: var(--color-warning);
+}
+.econ-cat-labor {
+  --econ-cat: var(--color-success);
+}
+.econ-cat-trade {
+  --econ-cat: var(--color-stat-int);
+}
+.econ-cat-consume {
+  --econ-cat: var(--color-stat-vit);
+}
+.econ-cat-invest {
+  --econ-cat: var(--color-primary);
+}
+.econ-cat-monetary {
+  --econ-cat: var(--color-danger);
+}
+
+.econ-flow-dot.econ-cat-tax {
+  background-color: var(--color-warning);
+}
+.econ-flow-dot.econ-cat-labor {
+  background-color: var(--color-success);
+}
+.econ-flow-dot.econ-cat-trade {
+  background-color: var(--color-stat-int);
+}
+.econ-flow-dot.econ-cat-consume {
+  background-color: var(--color-stat-vit);
+}
+.econ-flow-dot.econ-cat-invest {
+  background-color: var(--color-primary);
+}
+.econ-flow-dot.econ-cat-monetary {
+  background-color: var(--color-danger);
+}
+
+/* SVG 모식도 무대 */
+.econ-diagram-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-bg);
+}
+
+.econ-diagram-svg {
+  display: block;
+  width: 100%;
+  min-width: 48.75rem;
+  height: auto;
+  user-select: none;
+}
+
+.econ-svg-node {
+  cursor: pointer;
+  transition: opacity 0.16s ease;
+}
+
+.econ-svg-node.is-dim {
+  opacity: 0.34;
+}
+
+.econ-svg-node-box {
+  fill: var(--color-surface);
+  stroke: var(--color-border-strong);
+  stroke-width: 1.5;
+  rx: 8;
+}
+
+.econ-svg-node.is-selected .econ-svg-node-box,
+.econ-svg-node:hover .econ-svg-node-box {
+  stroke: var(--econ-cat, var(--color-primary));
+  stroke-width: 2.5;
+}
+
+.econ-svg-node.is-planned .econ-svg-node-box {
+  stroke-dasharray: 6 4;
+}
+
+.econ-svg-node-bar {
+  fill: var(--econ-cat, var(--color-primary));
+}
+
+.econ-svg-node-badge {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  fill: var(--econ-cat, var(--color-primary));
+}
+
+.econ-svg-node-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  fill: var(--color-text);
+}
+
+.econ-svg-node-sub {
+  font-family: var(--font-body);
+  fill: var(--color-text-muted);
+}
+
+.econ-svg-node-eq {
+  font-family: var(--font-mono);
+  fill: var(--color-text);
+}
+
+.econ-svg-edge {
+  transition: opacity 0.16s ease;
+}
+
+.econ-svg-edge.is-dim {
+  opacity: 0.14;
+}
+
+.econ-svg-edge-path {
+  fill: none;
+  stroke: var(--econ-cat, var(--color-border-strong));
+  stroke-width: 2;
+}
+
+.econ-svg-edge.is-selected .econ-svg-edge-path {
+  stroke-width: 2.8;
+}
+
+.econ-svg-edge.is-planned .econ-svg-edge-path {
+  stroke-dasharray: 5 4;
+}
+
+.econ-svg-edge-pill {
+  fill: var(--color-surface);
+  stroke: var(--econ-cat, var(--color-border));
+  stroke-width: 1;
+  rx: 4;
+}
+
+.econ-svg-edge-label {
+  font-family: var(--font-body);
+  font-weight: 600;
+  fill: var(--color-text);
+  text-anchor: middle;
+}
+
+.econ-svg-edge-tag {
+  font-family: var(--font-mono);
+  fill: var(--econ-cat, var(--color-text-muted));
+  text-anchor: middle;
+}
+
+/* 선택 노드 인/아웃 요약 바 */
+.econ-selected-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-primary);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+}
+
+.econ-selected-head {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.econ-selected-name {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-display);
+  color: var(--color-primary);
+}
+
+.econ-selected-col h4 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+.econ-selected-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.econ-selected-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.econ-selected-tag {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* 주체별 손익 수식 카드 그리드 */
+.econ-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(26rem, 1fr));
+  gap: var(--space-4);
+}
+
+.econ-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--hairline) solid var(--color-border);
+  border-top: 0.2rem solid var(--econ-cat, var(--color-primary));
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  min-width: 0;
+}
+
+.econ-card.is-selected {
+  border-color: var(--econ-cat, var(--color-primary));
+  outline: var(--hairline) solid var(--econ-cat, var(--color-primary));
+}
+
+.econ-card.is-planned {
+  border-style: dashed;
+  border-top-style: solid;
+}
+
+.econ-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.econ-card-title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-display);
+  color: var(--color-text);
+}
+
+.econ-card-sub {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.econ-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.econ-status-badge.is-live {
+  background-color: var(--color-success-surface);
+  color: var(--color-success);
+  border: var(--hairline) solid var(--color-success);
+}
+
+.econ-status-badge.is-partial {
+  background-color: var(--color-warning-surface);
+  color: var(--color-warning);
+  border: var(--hairline) solid var(--color-warning);
+}
+
+.econ-status-badge.is-planned {
+  background-color: var(--color-surface-2);
+  color: var(--color-text-muted);
+  border: var(--hairline) solid var(--color-border-strong);
+}
+
+/* 손익 등식 스트립 (매출 − 비용 = 수익 − 세금 → 정산) */
+.econ-eq-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+}
+
+.econ-eq-step {
+  flex: 1 1 9.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  border-left: 0.2rem solid var(--color-border-strong);
+  min-width: 0;
+}
+
+.econ-eq-step.sign-plus {
+  border-left-color: var(--color-success);
+}
+.econ-eq-step.sign-minus {
+  border-left-color: var(--color-danger);
+}
+.econ-eq-step.sign-tax {
+  border-left-color: var(--color-warning);
+}
+.econ-eq-step.sign-equals {
+  border-left-color: var(--color-primary);
+}
+.econ-eq-step.sign-split {
+  border-left-color: var(--color-stat-int);
+}
+
+.econ-eq-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text);
+}
+
+.econ-eq-detail {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: var(--line-height-snug);
+}
+
+/* 카드 안 항목 목록 */
+.econ-item-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.econ-item-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg);
+}
+
+.econ-item-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.econ-item-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text);
+}
+
+.econ-item-flow {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.econ-item-values {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-1);
+}
+
+.econ-item-default {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-primary);
+}
+
+.econ-item-override {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-warning-surface);
+  color: var(--color-warning);
+  border: var(--hairline) solid var(--color-warning);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+
+.econ-item-key {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* 전체 기본값 검색 표 */
+.econ-table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.econ-search-input {
+  flex: 1 1 16rem;
+  max-width: 24rem;
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: var(--hairline) solid var(--color-field-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-field-bg);
+  color: var(--color-text);
+  font-size: var(--font-size-input);
+}
+
+.econ-unit-note {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+}
+
+.econ-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.econ-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.econ-table th,
+.econ-table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--hairline) solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.econ-table th {
+  background-color: var(--color-card-head);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+}
+
+.econ-table tbody tr:hover {
+  background-color: var(--color-surface-2);
+}
+
+.econ-table-mono {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+
+.econ-table-empty {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 48rem) {
+  .econ-cards {
+    grid-template-columns: 1fr;
+  }
+}

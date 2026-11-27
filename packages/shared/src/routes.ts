@@ -278,6 +278,14 @@ export const ROUTES = {
     frame: "shown",
     access: "dev_admin",
   },
+  // 경제 흐름 모식도(/dev/economy-flow): 건물·유닛·거래소·정부 등 주체마다 수입 − 비용 = 수익 − 세금 흐름과 기본값(보기 전용)
+  dev_economy_flow: {
+    path: "/dev/economy-flow",
+    search: [],
+    parent: "dev",
+    frame: "shown",
+    access: "dev_admin",
+  },
   // 스킬 편집기·행동별 소모(docs/adr/2026-11-01-skill-editor.md 5절): 틀 안 빽빽한 편집 화면. ?skill=<ID>는 그 스킬을 바로 연다
   // (효과 사전 쓰는 곳에서 온다). 저장하면 그 세계에 바로 든다
   dev_skills: {

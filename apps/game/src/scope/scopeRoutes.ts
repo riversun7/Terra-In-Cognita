@@ -64,6 +64,8 @@ const ROUTE_SCOPES: { readonly [Id in RouteId]?: RouteScope | null } = {
   dev_star_system: { kind: "system", note: m.scope_note_star_system },
   // 행성과 상관없음
   dev_mockups: { kind: "none", note: m.scope_note_mockups },
+  // 경제 흐름 모식도: 모든 행성 공통 경제 규칙·기본값과 라이브 설정을 본다
+  dev_economy_flow: common(m.scope_note_tuning),
   dev_gpu_bench: { kind: "none", note: m.scope_note_device },
   dev_ops_grants: { kind: "none", note: m.scope_note_accounts },
   admin: { kind: "none", note: m.scope_note_accounts },

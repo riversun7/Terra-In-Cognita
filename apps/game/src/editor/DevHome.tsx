@@ -123,6 +123,15 @@ const DEV_TOOLS = {
     tagEn: "LIVE EDIT · EXP Lv 1–60",
     ready: true,
   },
+  // 경제 흐름 모식도(/dev/economy-flow): 주체마다 수입 − 비용 = 수익 − 세금 흐름과 코드 기본값(보기 전용)
+  dev_economy_flow: {
+    name: m.shell_route_dev_economy_flow,
+    desc: m.dev_tool_economy_flow_desc,
+    mark: <ScaleIcon />,
+    tagKo: "MAP · 돈 흐름·기본값",
+    tagEn: "MAP · Money flow & defaults",
+    ready: true,
+  },
   // 스킬 편집기·행동별 소모(docs/adr/2026-11-01-skill-editor.md): 스킬마다 모든 칸·특수 효과, 행동별 스태미나·MP
   dev_skills: {
     name: m.shell_route_dev_skills,
@@ -296,7 +305,14 @@ const DEV_SECTIONS: readonly DevSection[] = [
       "2차 스탯 가중치·계산식, 실제 판정 N회 전투 보고서·유닛 프리셋·3D 전투 리플레이(공성·A/B·피해 흐름), 49 설정 칸(N53 스위치 포함)을 다룹니다.",
     subEn:
       "Secondary stat weights and formulas, N-run battle reports, unit presets, and 3D battle replays from the real engine (siege, A/B, damage flow), plus 49 settings cells (including N53 switches).",
-    routes: ["dev_exp_table", "dev_secondary_stats", "dev_balance", "dev_npc_ai", "dev_tuning"],
+    routes: [
+      "dev_economy_flow",
+      "dev_exp_table",
+      "dev_secondary_stats",
+      "dev_balance",
+      "dev_npc_ai",
+      "dev_tuning",
+    ],
   },
   {
     id: "world",

@@ -127,7 +127,25 @@ export function PlayersTab({ open }: { open: OpenDetail }) {
                     <span className="dev-muted">{m.ops_status_offline()}</span>
                   )}
                 </td>
-                <td translate="no">{row.cyborgName ?? m.ops_none()}</td>
+                <td translate="no">
+                  {row.cyborgName === null ? (
+                    m.ops_none()
+                  ) : typeof row.cyborgUnitId === "number" ? (
+                    <button
+                      type="button"
+                      className="button-text"
+                      onClick={() =>
+                        typeof row.cyborgUnitId === "number"
+                          ? open({ kind: "unit", id: row.cyborgUnitId })
+                          : undefined
+                      }
+                    >
+                      {row.cyborgName}
+                    </button>
+                  ) : (
+                    row.cyborgName
+                  )}
+                </td>
                 <td className="dev-num">{formatInt(row.level)}</td>
                 <td>
                   {row.factionId === null ? (
@@ -144,7 +162,29 @@ export function PlayersTab({ open }: { open: OpenDetail }) {
                     </button>
                   )}
                 </td>
-                <td className="dev-num">{formatInt(row.units)}</td>
+                <td className="dev-num">
+                  {row.ownerId === null || row.units === 0 ? (
+                    formatInt(row.units)
+                  ) : (
+                    <button
+                      type="button"
+                      className="button-text"
+                      title={m.ops_link_owner_units()}
+                      onClick={() =>
+                        row.ownerId === null
+                          ? undefined
+                          : open({
+                              kind: "units",
+                              ownerId: row.ownerId,
+                              ownerKind: "user",
+                              label: row.loginId,
+                            })
+                      }
+                    >
+                      {formatInt(row.units)}
+                    </button>
+                  )}
+                </td>
                 <td className="dev-num">{formatBig(row.credit)}</td>
                 <td className="dev-code">{row.roles.join(",")}</td>
                 <td className="dev-muted">{formatTime(row.createdAt)}</td>

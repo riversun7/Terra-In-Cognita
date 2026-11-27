@@ -1,6 +1,7 @@
 // 운영자 콘솔 DB 통합 시험 — TEST_DATABASE_URL이 있을 때만. 계정은 시험용 가짜 값이다(docs/adr/2026-11-08-operator-console.md).
 // 실제 월드(저장 켬)와 DB로: 현황 수, 유저 목록·상세(유닛·자산), 유닛 목록·상세, 유닛 통제(멈추기·치료·순간이동),
 // 원장 지급·회수(잔고·운영자 거래·감사 기록), 정지·해제와 세션 지우기, 권한 체크박스 저장, 세력·도시·감사 기록 조회를 본다.
+import { DEFAULT_CYBORG_APPEARANCE } from "@terra/shared/cyborg";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { ASSET_CREDIT } from "../world/settlement.ts";
@@ -276,5 +277,105 @@ describe.skipIf(!TEST_DATABASE_URL)("운영자 콘솔(DB)", () => {
     expect(totals[0]).toMatchObject({ planetId, playable: true, maps: world.maps.size });
     expect(totals[0]?.units).toBe((await ops.overview()).world.units);
     expect(totals.reduce((sum, row) => sum + row.cities, 0)).toBe((await ops.overview()).counts.cities);
+  });
+
+  it("유닛 조회에 성장(레벨·경험치·스탯·성장 K)과 작업 상태가 실린다", async () => {
+    const world = await boot();
+    const persistence = world.persistence;
+    if (!persistence) throw new Error("no persistence");
+    const ops = createOpsServices(
+      {
+        pool: test.db.$client,
+        world: () => world,
+        worldStatus: () => world.status(),
+        wsConnections: () => 0,
+        now: () => clock,
+      },
+      { ip: "127.0.0.1" },
+    );
+    const player = await fakeUser("ops_grower");
+    const faction = persistence.cyborgs.creation(player, clock).factions[0];
+    const city = faction?.cities[0];
+    if (!faction || !city) throw new Error("no start city");
+    await persistence.cyborgs.roll(player, "combat");
+    const made = await persistence.cyborgs.create(player, {
+      name: "Grower",
+      appearance: DEFAULT_CYBORG_APPEARANCE,
+      factionId: faction.id,
+      cityId: city.id,
+      elements: { fire: 6, wind: 4 },
+    });
+    if (!made.ok) throw new Error(`create failed: ${made.code}`);
+    // Lv1 → 2 구간(35)을 넘겨 레벨 2, 남은 경험치 5
+    persistence.cyborgs.addExp(player, 40);
+    const record = persistence.cyborgs.record(player);
+    const body = record?.unitId ?? 0;
+    if (!record) throw new Error("no record");
+    const [plain = 0] = addTestUnits(world, player, [...world.maps.keys()][0] ?? 0, 1, clock);
+    await persistence.writer.durable();
+
+    const list = await ops.units({ ownerKind: "user", limit: 10, offset: 0 });
+    const row = list.rows.find((unit) => unit.id === body);
+    const six = (p: typeof record.initial) => [p.str, p.dex, p.agi, p.vit, p.int, p.wis];
+    expect(row).toMatchObject({
+      name: "Grower",
+      growth: {
+        source: "cyborg",
+        level: 2,
+        exp: 5,
+        expSpan: 132,
+        rebirths: 0,
+        initial: six(record.initial),
+        kPm: six(record.kPm),
+      },
+      job: { kind: 0, phase: 0, fatigue: 0 },
+      workplace: null,
+    });
+    // 지금 스탯 = 처음 스탯에 레벨 성장을 센 값(레벨 2라 처음 값보다 작지 않다)
+    const stats = row?.growth?.stats ?? [];
+    expect(stats).toHaveLength(6);
+    expect(stats.every((value, index) => value >= (six(record.initial)[index] ?? 0))).toBe(true);
+    expect(stats.some((value, index) => value > (six(record.initial)[index] ?? 0))).toBe(true);
+    // 화면 잇기 자료: 유닛 줄의 주인 계정, 유저 줄의 사이보그 본체 유닛, 주인으로 거른 유닛 목록
+    expect(row).toMatchObject({ ownerUserId: player, ownerFactionId: null });
+    const found = await ops.players({
+      search: "ops_grower",
+      status: "all",
+      sort: "login",
+      limit: 10,
+      offset: 0,
+    });
+    expect(found.rows[0]).toMatchObject({ cyborgUnitId: body, units: 2 });
+    const owned = await ops.units({ ownerKind: "user", ownerId: row?.ownerId, limit: 10, offset: 0 });
+    expect(owned.rows.map((unit) => unit.id).toSorted((a, b) => a - b)).toEqual(
+      [body, plain].toSorted((a, b) => a - b),
+    );
+    // 저장된 스탯이 없는 시험 유닛: 세계가 쓰는 종류 기본 몸(레벨 1, 1차 스탯 모두 10) — 모든 유닛에 레벨·스탯이 있다
+    expect(list.rows.find((unit) => unit.id === plain)).toMatchObject({
+      name: null,
+      growth: { source: "baseline", level: 1, exp: 0, stats: [10, 10, 10, 10, 10, 10], kPm: null },
+      npcWork: null,
+    });
+    // 정렬: 레벨 내림차순이면 레벨 2 본체가 먼저, 오름차순이면 기본 몸이 먼저. 같은 값은 ID 차례
+    const byLevel = await ops.units({ ownerKind: "user", sort: "level", desc: true, limit: 10, offset: 0 });
+    expect(byLevel.rows.map((unit) => unit.id)).toEqual([body, plain]);
+    const byLevelUp = await ops.units({ ownerKind: "user", sort: "level", limit: 10, offset: 0 });
+    expect(byLevelUp.rows.map((unit) => unit.id)).toEqual([plain, body]);
+    // 작업 상태 거르기: 둘 다 직무가 없고 서 있다 → "하는 일 없음"에 둘, "일하는 중"·"부상"에는 없음
+    const idle = await ops.units({ ownerKind: "user", state: "idle", limit: 10, offset: 0 });
+    expect(idle.total).toBe(2);
+    expect((await ops.units({ ownerKind: "user", state: "working", limit: 10, offset: 0 })).total).toBe(0);
+    world.maps
+      .get([...world.maps.keys()][0] ?? 0)
+      ?.setCondition(plain, { injury: 1, injuryUntilMs: clock + 60 * MINUTE, heldBy: null });
+    const injured = await ops.units({ ownerKind: "user", state: "injured", limit: 10, offset: 0 });
+    expect(injured.rows.map((unit) => unit.id)).toEqual([plain]);
+
+    const detail = await ops.unit(body);
+    expect(detail?.unit.growth).toEqual(row?.growth);
+    expect(detail?.work).toMatchObject({ workplace: null, tactics: null, destination: null });
+    // 생활 규칙: 주인이 정하지 않았으면 성향 기본값
+    expect(detail?.work?.life).toMatchObject({ saved: false });
+    expect(detail?.work?.life?.restAt).toBeGreaterThan(detail?.work?.life?.resumeAt ?? Number.NaN);
   });
 });

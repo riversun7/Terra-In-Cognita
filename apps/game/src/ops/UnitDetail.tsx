@@ -1,18 +1,23 @@
-// 운영자 콘솔 · 유닛 상세 — 자리·주인·직무·부상·휴먼(도시·만족도·수명·스탯)·생명 수치·스킬·물건·화물.
+// 운영자 콘솔 · 유닛 상세 — 자리·주인·부상·성장(레벨·경험치·스탯·성장 K)·작업 상태(직무·피로·일터·계약·생활 규칙·AI 작전·가는 곳)·
+// 휴먼(도시·만족도·수명·스탯)·생명 수치·스킬·물건·화물.
 // 통제: 멈추기(unit_stop)·안전한 곳으로(unit_rescue)·치료(unit_heal)·같은 2차맵 안 순간이동(unit_teleport). 사유는 감사 기록에 남는다.
 // 유닛 지우기는 아직 없다(종류마다 정리할 자료가 달라 다음 단계 — docs/adr/2026-11-08-operator-console.md 4절).
-import type { OpsPermission, OpsUnitResult } from "@terra/shared/ops";
+import type { OpsPermission, OpsUnitGrowth, OpsUnitResult, OpsUnitWork } from "@terra/shared/ops";
 import { useCallback, useId, useState } from "react";
 import { api } from "../net/api.ts";
 import { m } from "../paraglide/messages.js";
 import { injuryStageName } from "../roster/InjuryBadge.tsx";
 import { BalanceTable, ItemTable, SkillTable, StatLine } from "./DetailParts.tsx";
+import type { OpenDetail } from "./OpsConsole.tsx";
 import {
   ActionButton,
   KeyValues,
   LoadState,
+  formatBig,
   formatInt,
   formatTime,
+  jobLabel,
+  phaseLabel,
   resultText,
   unitKindLabel,
   useOpsLoad,
@@ -24,11 +29,145 @@ const DAY_MS = 86_400_000;
 interface UnitDetailProps {
   unitId: number;
   can: (permission: OpsPermission) => boolean;
+  open: OpenDetail;
 }
 
 const failure = (result: OpsUnitResult): string | null => (result === "ok" ? null : resultText(result));
 
-export function UnitDetail({ unitId, can }: UnitDetailProps) {
+const GROWTH_SOURCES = {
+  cyborg: m.ops_growth_cyborg,
+  human: m.ops_growth_human,
+  cyborg_unit: m.ops_growth_cyborg_unit,
+  baseline: m.ops_growth_baseline,
+} as const;
+
+const VIA_LABELS = { assign: m.ops_via_assign, wage: m.ops_via_wage, lease: m.ops_via_lease } as const;
+
+/** 성장 판: 레벨·경험치·지금 스탯·처음 스탯·성장 K. 저장된 스탯이 없는 유닛은 안내 한 줄 */
+function GrowthSection({ growth }: { growth: OpsUnitGrowth | null }) {
+  return (
+    <section data-ops-section="growth">
+      <h3 className="ops-h3">{m.ops_sec_growth()}</h3>
+      {growth ? (
+        <>
+          <KeyValues
+            rows={[
+              [m.ops_f_growth_source(), GROWTH_SOURCES[growth.source]()],
+              [m.ops_col_level(), growth.level],
+              [
+                m.ops_f_exp(),
+                growth.source === "baseline"
+                  ? m.ops_none()
+                  : growth.expSpan > 0
+                    ? m.ops_f_of({ a: formatInt(growth.exp), b: formatInt(growth.expSpan) })
+                    : m.ops_exp_max(),
+              ],
+              [m.ops_f_rebirths(), growth.rebirths],
+              [m.ops_f_stats_now(), <StatLine key="now" values={growth.stats} />],
+              [m.ops_f_stats_initial(), <StatLine key="initial" values={growth.initial} />],
+              [
+                m.ops_f_growth_k(),
+                growth.kPm ? <StatLine key="k" values={growth.kPm} /> : m.ops_growth_k_default(),
+              ],
+            ]}
+          />
+          <p className="dev-muted">
+            {growth.source === "baseline" ? m.ops_growth_none() : m.ops_growth_note()}
+          </p>
+        </>
+      ) : (
+        <p className="dev-muted">{m.ops_growth_none()}</p>
+      )}
+    </section>
+  );
+}
+
+/** 작업 상태 판: 직무·단계·피로·일터·계약·생활 규칙·AI 작전·가는 곳 */
+function WorkSection({
+  job,
+  work,
+  npcWork,
+}: {
+  job: { kind: number; phase: number; progressMs: number; fatigue: number };
+  work: OpsUnitWork | undefined;
+  /** NPC 도시 일꾼의 지금(직무 상태가 없는 휴먼) */
+  npcWork: "work" | "rest" | null;
+}) {
+  const place = work?.workplace ?? null;
+  return (
+    <section data-ops-section="work">
+      <h3 className="ops-h3">{m.ops_sec_work()}</h3>
+      <KeyValues
+        rows={[
+          [
+            m.ops_f_job_state(),
+            job.kind !== 0
+              ? `${jobLabel(job.kind)} · ${phaseLabel(job.phase)}`
+              : npcWork
+                ? `${m.ops_npc_worker()} · ${phaseLabel(npcWork === "rest" ? 1 : 0)}`
+                : jobLabel(0),
+          ],
+          [m.ops_f_job_progress(), m.ops_f_ms({ ms: formatInt(job.progressMs) })],
+          [m.ops_col_fatigue(), formatInt(job.fatigue)],
+          [
+            m.ops_f_workplace(),
+            place ? (
+              <span key="place">
+                {m.ops_work_building({ id: place.buildingId })}
+                {place.facility ? <span className="dev-code"> {place.facility}</span> : null} ·{" "}
+                {VIA_LABELS[place.via]()}
+              </span>
+            ) : (
+              m.ops_none()
+            ),
+          ],
+          [
+            m.ops_f_contract(),
+            place?.rate ? (
+              <span key="contract" className="dev-code">
+                {formatBig(place.rate)} {place.asset} · {place.state}
+              </span>
+            ) : (
+              m.ops_none()
+            ),
+          ],
+          [
+            m.ops_f_life(),
+            work?.life
+              ? m.ops_life_value({
+                  rest: work.life.restAt,
+                  resume: work.life.resumeAt,
+                  source: work.life.saved ? m.ops_life_saved() : m.ops_life_default(),
+                })
+              : m.ops_none(),
+          ],
+          [
+            m.ops_f_tactics(),
+            work?.tactics ? (
+              <span key="tactics" className="dev-code">
+                {work.tactics}
+              </span>
+            ) : (
+              m.ops_tactics_default()
+            ),
+          ],
+          [
+            m.ops_f_destination(),
+            work?.destination
+              ? m.ops_destination_value({
+                  x: work.destination.cellX,
+                  y: work.destination.cellY,
+                  time: formatTime(work.destination.arriveAtMs),
+                })
+              : m.ops_none(),
+          ],
+        ]}
+      />
+    </section>
+  );
+}
+
+export function UnitDetail({ unitId, can, open }: UnitDetailProps) {
   const loaded = useOpsLoad(
     useCallback((signal: AbortSignal) => api.ops.units.get.query({ unitId }, { signal }), [unitId]),
   );
@@ -56,16 +195,80 @@ export function UnitDetail({ unitId, can }: UnitDetailProps) {
             rows={[
               [m.ops_col_num(), data.unit.id],
               [m.ops_col_kind(), unitKindLabel(data.unit.kind)],
-              [m.ops_col_owner(), `${data.unit.ownerLabel} (${data.unit.ownerId})`],
-              [m.ops_col_where(), whereText(data.unit)],
-              [m.ops_f_speed_size(), m.ops_f_of({ a: data.speed, b: data.size })],
+              [m.ops_col_name(), data.unit.name ?? m.ops_none()],
               [
-                m.ops_f_job(),
-                `${data.job.kind} / ${data.job.phase} / ${formatInt(data.job.progressMs)} / ${formatInt(data.job.fatigue)}`,
+                m.ops_col_owner(),
+                <span key="owner" className="ops-inline-edit">
+                  {data.unit.ownerUserId || typeof data.unit.ownerFactionId === "number" ? (
+                    <button
+                      type="button"
+                      className="button-text"
+                      translate="no"
+                      onClick={() => {
+                        if (data.unit.ownerUserId) open({ kind: "user", id: data.unit.ownerUserId });
+                        else if (typeof data.unit.ownerFactionId === "number")
+                          open({ kind: "faction", id: data.unit.ownerFactionId });
+                      }}
+                    >
+                      {data.unit.ownerLabel}
+                    </button>
+                  ) : (
+                    <span translate="no">{data.unit.ownerLabel}</span>
+                  )}
+                  <span className="dev-muted">({data.unit.ownerId})</span>
+                  <button
+                    type="button"
+                    className="button-text"
+                    data-ops-link="owner-units"
+                    onClick={() =>
+                      open({
+                        kind: "units",
+                        ownerId: data.unit.ownerId,
+                        ownerKind: data.unit.ownerKind ?? undefined,
+                        label: data.unit.ownerLabel,
+                      })
+                    }
+                  >
+                    {m.ops_link_owner_units()}
+                  </button>
+                </span>,
               ],
+              [
+                m.ops_col_where(),
+                <span key="where" className="ops-inline-edit">
+                  <span className="dev-code">{whereText(data.unit)}</span>
+                  <button
+                    type="button"
+                    className="button-text"
+                    onClick={() => open({ kind: "units", mapKey: data.unit.mapKey })}
+                  >
+                    {m.ops_link_map_units()}
+                  </button>
+                </span>,
+              ],
+              [m.ops_f_speed_size(), m.ops_f_of({ a: data.speed, b: data.size })],
               [m.ops_col_status(), data.unit.moving ? m.ops_status_moving() : m.ops_none()],
               [m.ops_injury({ stage: injuryStageName(data.unit.injury) }), formatTime(data.injuryUntilMs)],
-              [m.ops_f_held_by(), data.heldBy ?? m.ops_none()],
+              [
+                m.ops_f_held_by(),
+                data.heldBy === null ? (
+                  m.ops_none()
+                ) : (
+                  <button
+                    key="held"
+                    type="button"
+                    className="button-text"
+                    title={m.ops_link_owner_units()}
+                    onClick={() =>
+                      data.heldBy === null
+                        ? undefined
+                        : open({ kind: "units", ownerId: data.heldBy, label: `#${data.heldBy}` })
+                    }
+                  >
+                    {data.heldBy}
+                  </button>
+                ),
+              ],
             ]}
           />
           {anyControl ? (
@@ -144,6 +347,8 @@ export function UnitDetail({ unitId, can }: UnitDetailProps) {
               <p className="dev-muted">{m.ops_unit_remove_note()}</p>
             </section>
           ) : null}
+          <GrowthSection growth={data.unit.growth ?? null} />
+          <WorkSection job={data.job} work={data.work} npcWork={data.unit.npcWork ?? null} />
           {data.human ? (
             <section>
               <h3 className="ops-h3">{m.ops_sec_human()}</h3>

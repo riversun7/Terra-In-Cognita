@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-27 12:50 | 운영자 콘솔: 유닛의 성장·작업 상태 조회, 화면끼리 잇기 | Claude Code | [27-1250-ops-console-unit-growth-links](worklog/2026/11/27-1250-ops-console-unit-growth-links.md) |
 | 2026-11-26 23:15 | 2차맵 인접 경계 시각 UI 추가 | Antigravity | [26-2315-second-map-neighbour-border](worklog/2026/11/26-2315-second-map-neighbour-border.md) |
 | 2026-11-26 23:00 | 개발자 페이지 경제 흐름 모식도(/dev/economy-flow) 추가 | Antigravity | [26-2300-dev-economy-flow](worklog/2026/11/26-2300-dev-economy-flow.md) |
 | 2026-11-26 20:39 | 크리쳐 일러스트 이어서 생성 (12지신 완성 + 기린 12종) | Antigravity | [26-2039-creature-portraits-batch2](worklog/2026/11/26-2039-creature-portraits-batch2.md) |

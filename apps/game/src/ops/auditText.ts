@@ -225,6 +225,18 @@ export function auditSummary(row: OpsAuditRow): string {
 }
 
 /** 대상: 계정 아이디 → 유닛 → 세력 소유 주체 → ID 앞 8자 */
+/** 감사 기록 대상으로 건너뛸 곳(계정 → 유저 상세, 유닛 → 유닛 상세, 세력 → 세력 상세). 없으면 null */
+export function auditTargetLink(
+  row: OpsAuditRow,
+): { kind: "user"; id: string } | { kind: "unit"; id: number } | { kind: "faction"; id: number } | null {
+  if (row.targetLoginId && row.targetId) return { kind: "user", id: row.targetId };
+  const unitId = Number(text(field(row.meta, "unitId")));
+  if (Number.isSafeInteger(unitId) && unitId > 0) return { kind: "unit", id: unitId };
+  const factionId = Number(text(field(row.meta, "factionId")));
+  if (Number.isSafeInteger(factionId) && factionId > 0) return { kind: "faction", id: factionId };
+  return null;
+}
+
 export function targetText(row: OpsAuditRow): string {
   if (row.targetLoginId) return row.targetLoginId;
   const unitId = text(field(row.meta, "unitId"));

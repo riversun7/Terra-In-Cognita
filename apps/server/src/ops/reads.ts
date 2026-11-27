@@ -16,6 +16,7 @@ export interface PlayerBase {
   online: boolean;
   offlineSinceMs: number | null;
   cyborgName: string | null;
+  cyborgUnitId: number | null;
   level: number | null;
   factionId: number | null;
   factionCode: string | null;
@@ -33,6 +34,7 @@ interface PlayerSqlRow {
   offline_since_ms: string | null;
   has_presence: boolean;
   cyborg_name: string | null;
+  cyborg_unit_id: string | null;
   level: number | null;
   faction_id: string | null;
   faction_code: string | null;
@@ -53,6 +55,7 @@ function toPlayer(row: PlayerSqlRow): PlayerBase {
     online: row.has_presence && row.offline_since_ms === null,
     offlineSinceMs: num(row.offline_since_ms),
     cyborgName: row.cyborg_name,
+    cyborgUnitId: num(row.cyborg_unit_id),
     level: row.level,
     factionId: num(row.faction_id),
     factionCode: row.faction_code,
@@ -63,7 +66,7 @@ function toPlayer(row: PlayerSqlRow): PlayerBase {
 const PLAYER_SELECT = `
   select u.id, u.name, u.role, u.banned, u.ban_reason, u.ban_expires, u.created_at,
          p.offline_since_ms, (p.user_id is not null) as has_presence,
-         c.name as cyborg_name, c.level, coalesce(c.faction_id, fm.faction_id) as faction_id, f.code as faction_code,
+         c.name as cyborg_name, c.unit_id as cyborg_unit_id, c.level, coalesce(c.faction_id, fm.faction_id) as faction_id, f.code as faction_code,
          o.id as owner_id
     from users u
     left join world_presence p on p.user_id = u.id
@@ -448,19 +451,20 @@ export async function listCities(
 }
 
 /** 소유 주체 → 이름표 재료(유저 아이디·세력 코드) */
+/** 소유 주체 하나의 이름표(유저면 계정 ID·아이디, 세력이면 세력 ID·코드) */
+export interface OwnerLabel {
+  kind: "user" | "faction" | null;
+  userId: string | null;
+  loginId: string | null;
+  factionId: number | null;
+  code: string | null;
+}
+
 export async function ownerLabels(
   db: OpsQueryable,
   ownerIds: readonly number[],
-): Promise<
-  Map<
-    number,
-    { kind: "user" | "faction" | null; loginId: string | null; factionId: number | null; code: string | null }
-  >
-> {
-  const result = new Map<
-    number,
-    { kind: "user" | "faction" | null; loginId: string | null; factionId: number | null; code: string | null }
-  >();
+): Promise<Map<number, OwnerLabel>> {
+  const result = new Map<number, OwnerLabel>();
   if (ownerIds.length === 0) return result;
   const { rows } = await db.query<{
     id: string;
@@ -477,6 +481,7 @@ export async function ownerLabels(
   for (const row of rows)
     result.set(Number(row.id), {
       kind: row.user_id !== null ? "user" : row.faction_id !== null ? "faction" : null,
+      userId: row.user_id,
       loginId: row.name,
       factionId: num(row.faction_id),
       code: row.code,

@@ -345,6 +345,28 @@
   white-space: nowrap;
   overflow-wrap: normal;
 }
+/* 유닛 표: 누르는 칸 머리(정렬)와 누르는 상태 표지(거르기) */
+.ops-sort {
+  font: inherit;
+  color: inherit;
+}
+.ops-badge-button {
+  cursor: pointer;
+  font-family: inherit;
+}
+.ops-badge-button:hover {
+  border-color: var(--color-primary);
+}
+/* 표의 위치 칸을 펼친 줄(opsUi.tsx WhereCell): 짧은 위치 아래에 전체 위치와 건너뛰기 */
+.ops-where-full {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
 /* 마크 관리 탭(EmblemsTab.tsx): 올린 그림과 자동 생성 마크를 나란히 */
 .ops-emblem-pair {
   display: inline-flex;

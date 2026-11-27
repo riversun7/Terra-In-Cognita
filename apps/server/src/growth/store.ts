@@ -9,6 +9,7 @@
 // - 경험치(gain): 구간을 넘으면 레벨이 오른다(경험치 표 = 팩 exp_table, 만렙 = 설정 칸 cyborg.maxLevel — 본체와 같다). 레벨은 그 유닛 표의
 //   level 칸만 고치는 쓰기(humanLevel·cyborgUnitLevel)로, 경험치는 unit_exp로 남긴다.
 import { DEFAULT_EXP_TABLE, type ExpTableEntryJson, applyExpGain, expSpanAt } from "@terra/shared/expTable";
+import { primaryAtLevel } from "@terra/shared/statGrowth";
 import type { SocietyCoefficients } from "@terra/sim";
 import type { BodyBase } from "../roster/unitBody.ts";
 import type { QueryPool } from "../world/persist/load.ts";
@@ -35,7 +36,22 @@ export interface UnitGrowthView {
   readonly span: number;
 }
 
+/** 운영 조회용 한 줄: 처음 스탯·성장 K(없으면 null = 기준 K)·지금 스탯(레벨 성장) — 배열 차례 STR·DEX·AGI·VIT·INT·WIS */
+export interface UnitGrowthSheet extends UnitGrowthView {
+  readonly kind: "human" | "cyborg";
+  readonly rebirths: number;
+  readonly initial: readonly number[];
+  readonly kPm: readonly number[] | null;
+  readonly stats: readonly number[];
+}
+
 export interface UnitGrowthStore {
+  /** 운영 조회(레벨·경험치·처음 스탯·K·지금 스탯). 거울에 없으면 undefined */
+  sheetOf(unitId: number): UnitGrowthSheet | undefined;
+  /** 그 레벨의 구간 경험치(만렙이면 0) — 사이보그 본체 조회도 쓴다 */
+  spanAt(level: number): number;
+  /** 레벨 성장을 센 스탯(처음 스탯 × (1 + 성장률 × K × (레벨 − 1)), K가 없으면 기준 K) */
+  grownOf(initial: readonly number[], kPm: readonly number[] | null, level: number): number[];
   /** 그 유닛의 몸 바탕(저장된 스탯 + 레벨 성장). 거울에 없으면 undefined(기본 몸) */
   baseOf(unitId: number): BodyBase | undefined;
   /** 레벨·경험치(화면). 거울에 없으면 undefined */
@@ -166,7 +182,30 @@ export function createUnitGrowth(input: {
     }
   });
 
+  const spanAt = (level: number): number =>
+    level >= input.rules().cyborg.maxLevel ? 0 : expSpanAt(expTable(), level);
+  const grownOf = (initial: readonly number[], kPm: readonly number[] | null, level: number): number[] =>
+    initial.map((value, index) =>
+      primaryAtLevel(value, input.rules().cyborg.growthPm, kPm?.[index] ?? DEFAULT_GROWTH_K_PM, level),
+    );
+
   const store: UnitGrowthStore = {
+    spanAt,
+    grownOf,
+    sheetOf(unitId) {
+      const entry = table.get(unitId);
+      if (!entry) return undefined;
+      return {
+        kind: entry.kind,
+        level: entry.level,
+        exp: entry.exp,
+        span: spanAt(entry.level),
+        rebirths: entry.rebirths,
+        initial: entry.stats,
+        kPm: entry.kPm,
+        stats: grownOf(entry.stats, entry.kPm, entry.level),
+      };
+    },
     baseOf(unitId) {
       const entry = table.get(unitId);
       if (!entry) return undefined;
@@ -185,12 +224,7 @@ export function createUnitGrowth(input: {
     viewOf(unitId) {
       const entry = table.get(unitId);
       if (!entry) return undefined;
-      const maxLevel = input.rules().cyborg.maxLevel;
-      return {
-        level: entry.level,
-        exp: entry.exp,
-        span: entry.level >= maxLevel ? 0 : expSpanAt(expTable(), entry.level),
-      };
+      return { level: entry.level, exp: entry.exp, span: spanAt(entry.level) };
     },
     gain(unitId, amount) {
       const entry = table.get(unitId);

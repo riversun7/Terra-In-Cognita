@@ -5,7 +5,14 @@
 // 오류(error.data.code): UNAUTHORIZED, FORBIDDEN(권한 없음), PRECONDITION_FAILED(운영 서비스 없음 — DB 없는 서버), NOT_FOUND(대상 없음,
 // "UNKNOWN_PLANET": 플레이 행성이 아닌 planetId)
 // 행성 거르기(docs/adr/2026-11-11-planet-scope.md): 세력·도시·유닛·감사 기록 조회는 planetId(선택)를 받는다. 없으면 모든 행성(옛 기기와 같다).
-import { AUDIT_CATEGORY_IDS, OPS_PERMISSIONS, OPS_SWITCHES, type OpsPermission } from "@terra/shared/ops";
+import {
+  AUDIT_CATEGORY_IDS,
+  OPS_PERMISSIONS,
+  OPS_SWITCHES,
+  OPS_UNIT_SORTS,
+  OPS_UNIT_STATES,
+  type OpsPermission,
+} from "@terra/shared/ops";
 import { OPS_EMBLEM_SORTS } from "@terra/shared/factionIdentity";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -145,6 +152,9 @@ export const opsRouter = router({
           planetId,
           mapKey: z.int().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
           kind: z.int().min(0).max(32767).optional(),
+          state: z.enum(OPS_UNIT_STATES).optional(),
+          sort: z.enum(OPS_UNIT_SORTS).optional(),
+          desc: z.boolean().optional(),
           ...page,
         }),
       )

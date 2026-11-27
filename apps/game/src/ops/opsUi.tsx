@@ -7,6 +7,7 @@ import { refreshSession } from "../auth/session.ts";
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
 import { text } from "../ui/text.ts";
+import type { OpenDetail } from "./OpsConsole.tsx";
 
 export const PERMISSION_LABELS: { readonly [P in OpsPermission]: () => string } = {
   view_players: m.ops_perm_view_players,
@@ -96,8 +97,61 @@ export function formatTime(value: string | number | null | undefined): string {
   return Number.isNaN(time) ? String(value) : dateFormat.format(time);
 }
 
+/** 직무 코드 → 이름(@terra/sim JOB_NONE 0·JOB_GATHER 1·JOB_HUNT 2) */
+export function jobLabel(kind: number): string {
+  if (kind === 0) return m.ops_job_none();
+  if (kind === 1) return m.ops_job_gather();
+  if (kind === 2) return m.ops_job_hunt();
+  return m.ops_job_other({ kind });
+}
+
+/** 직무 단계 → 이름(0 = 일, 1 = 쉼) */
+export function phaseLabel(phase: number): string {
+  return phase === 1 ? m.ops_phase_rest() : m.ops_phase_work();
+}
+
 export function whereText(unit: Pick<OpsUnitRow, "planetId" | "mapKey" | "cellX" | "cellY">): string {
   return m.ops_where({ planet: unit.planetId, map: unit.mapKey, x: unit.cellX, y: unit.cellY });
+}
+
+/**
+ * 표의 위치 칸: 짧게(2차맵 키 끝 네 자리 + 칸) 보이고, 누르면 그 아래에 전체(행성·2차맵 키·칸)와 [이 2차맵의 유닛]을 펼친다
+ * (사용자 지시 2026-11-27 "위치 간단하게 쓰고 누르면 자세하게 보여라").
+ */
+export function WhereCell({
+  where,
+  open,
+}: {
+  where: Pick<OpsUnitRow, "planetId" | "mapKey" | "cellX" | "cellY">;
+  open: OpenDetail;
+}) {
+  const [shown, setShown] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        className="button-text dev-code"
+        aria-expanded={shown}
+        title={whereText(where)}
+        onClick={() => setShown(!shown)}
+      >
+        {m.ops_where_short({ map: String(where.mapKey).slice(-4), x: where.cellX, y: where.cellY })}
+      </button>
+      {shown ? (
+        <span className="ops-where-full">
+          <span className="dev-code">{whereText(where)}</span>
+          <button
+            type="button"
+            className="button-text"
+            data-ops-link="map-units"
+            onClick={() => open({ kind: "units", mapKey: where.mapKey })}
+          >
+            {m.ops_link_map_units()}
+          </button>
+        </span>
+      ) : null}
+    </>
+  );
 }
 
 export function errorText(error: unknown): string {

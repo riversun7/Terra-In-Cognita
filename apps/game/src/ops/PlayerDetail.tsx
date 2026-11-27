@@ -159,9 +159,25 @@ export function PlayerDetail({ userId, viewerId, can, open }: PlayerDetailProps)
                 rows={[
                   [
                     m.ops_col_name(),
-                    <span key="n" translate="no">
-                      {data.cyborg.name}
-                    </span>,
+                    data.cyborg.unitId === null ? (
+                      <span key="n" translate="no">
+                        {data.cyborg.name}
+                      </span>
+                    ) : (
+                      <button
+                        key="n"
+                        type="button"
+                        className="button-text"
+                        translate="no"
+                        onClick={() =>
+                          data.cyborg?.unitId === null || data.cyborg?.unitId === undefined
+                            ? undefined
+                            : open({ kind: "unit", id: data.cyborg.unitId })
+                        }
+                      >
+                        {data.cyborg.name}
+                      </button>
+                    ),
                   ],
                   [m.ops_f_temperament(), data.cyborg.temperament],
                   [m.ops_f_level_exp(), m.ops_f_of({ a: data.cyborg.level, b: formatInt(data.cyborg.exp) })],
@@ -205,6 +221,24 @@ export function PlayerDetail({ userId, viewerId, can, open }: PlayerDetailProps)
             ) : (
               <UnitTable rows={data.units} open={open} />
             )}
+            {data.player.ownerId !== null && data.units.length > 0 ? (
+              <button
+                type="button"
+                className="button-small"
+                onClick={() =>
+                  data.player.ownerId === null
+                    ? undefined
+                    : open({
+                        kind: "units",
+                        ownerId: data.player.ownerId,
+                        ownerKind: "user",
+                        label: data.player.loginId,
+                      })
+                }
+              >
+                {m.ops_link_units_all()}
+              </button>
+            ) : null}
           </section>
           <section>
             <h3 className="ops-h3">{m.ops_sec_items()}</h3>
@@ -216,7 +250,7 @@ export function PlayerDetail({ userId, viewerId, can, open }: PlayerDetailProps)
           </section>
           <section>
             <h3 className="ops-h3">{m.ops_sec_audit()}</h3>
-            <AuditTable rows={data.audit} />
+            <AuditTable rows={data.audit} open={open} />
           </section>
         </>
       ) : null}

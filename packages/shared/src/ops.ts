@@ -196,6 +196,8 @@ export interface OpsPlayerRow {
   /** 마지막으로 끊긴 시각(접속 중이면 null, 기록 없으면 null) */
   offlineSinceMs: number | null;
   cyborgName: string | null;
+  /** 사이보그 본체 유닛 ID(유닛 상세로 건너뛴다). 사이보그가 없거나 본체가 세계에 없으면 null */
+  cyborgUnitId?: number | null;
   level: number | null;
   factionId: number | null;
   factionName: string | null;
@@ -225,7 +227,66 @@ export interface OpsUnitRow {
   moving: boolean;
   injury: number;
   captive: boolean;
+  /** 주인이 유저면 그 계정 ID, NPC 세력이면 세력 ID(상세로 건너뛴다) */
+  ownerUserId?: string | null;
+  ownerFactionId?: number | null;
+  /** 이름: 사이보그 본체 이름, NPC 휴먼 이름(나라 이름 목록 규칙), NPC 지도자 이름(국가 프리셋). 없으면 null */
+  name?: string | null;
+  /** 성장(레벨·경험치·스탯). 모든 유닛에 있다 — 저장된 스탯이 없으면 종류 기본 몸(source "baseline") */
+  growth?: OpsUnitGrowth | null;
+  /** 직무 상태: 직무 코드(0 = 없음)·단계(0 = 일, 1 = 쉼)·피로 */
+  job?: { kind: number; phase: number; fatigue: number };
+  /** NPC 도시 일꾼(도시 경제가 일터를 준 휴먼 — 직무 상태가 없다)의 지금: work = 일하는 때, rest = 쉬는 때. 일꾼이 아니면 null */
+  npcWork?: "work" | "rest" | null;
+  /** 일하는 건물 ID(직무 배치·노동 계약). 없으면 null */
+  workplace?: number | null;
 }
+
+/** 유닛 성장 값(운영 조회). 배열 차례 = STR·DEX·AGI·VIT·INT·WIS */
+export interface OpsUnitGrowth {
+  /** cyborg = 사이보그 본체, human = 휴먼, cyborg_unit = 사이보그 유닛, baseline = 저장된 스탯이 없어 종류 기본 몸(경험치를 받지 않는다) */
+  source: "cyborg" | "human" | "cyborg_unit" | "baseline";
+  level: number;
+  /** 이번 레벨 안 경험치 / 구간(만렙이면 구간 0) */
+  exp: number;
+  expSpan: number;
+  rebirths: number;
+  /** 처음 스탯(레벨 1 값) */
+  initial: number[];
+  /** 성장 K(‰). null = 저장된 K 없음(기준 K 1000‰로 자란다) */
+  kPm: number[] | null;
+  /** 지금 스탯(레벨 성장 반영 — 장비·버프·부상·피로는 뺀 값) */
+  stats: number[];
+}
+
+/** 유닛의 작업 상태(운영 조회 — 유닛 상세) */
+export interface OpsUnitWork {
+  /** 일하는 건물과 방식(assign = 직무 배치, wage = 임금형, lease = 임대형). 없으면 null */
+  workplace: {
+    buildingId: number;
+    /** 시설 종류 ID(팩 facilities). 시설 줄이 없으면 null */
+    facility: string | null;
+    via: "assign" | "wage" | "lease";
+    /** 계약의 주기당 임금·임대료(최소 단위 정수 문자열)와 화폐. 직무 배치면 null */
+    rate: string | null;
+    asset: string | null;
+    /** 계약 상태(active·paused·grace 등). 직무 배치면 null */
+    state: string | null;
+  } | null;
+  /** 생활 규칙(쉬러 가는 피로·다시 일하는 피로, saved = 주인이 정함). 판단하지 않는 유닛은 null */
+  life: { restAt: number; resumeAt: number; saved: boolean } | null;
+  /** AI 작전 프리셋(저장한 적이 없으면 null) */
+  tactics: string | null;
+  /** 가는 곳(이동 중일 때 — 마지막 도착 칸과 시각) */
+  destination: { cellX: number; cellY: number; arriveAtMs: number } | null;
+}
+
+/** 유닛 목록 거르기: 작업 상태 */
+export const OPS_UNIT_STATES = ["working", "resting", "idle", "moving", "injured", "captive"] as const;
+export type OpsUnitState = (typeof OPS_UNIT_STATES)[number];
+/** 유닛 목록 정렬 칸 */
+export const OPS_UNIT_SORTS = ["id", "level", "fatigue"] as const;
+export type OpsUnitSort = (typeof OPS_UNIT_SORTS)[number];
 
 export interface OpsPlayerDetail {
   player: OpsPlayerRow;
@@ -391,6 +452,8 @@ export interface OpsUnitDetail {
   skills: OpsSkillRow[];
   items: OpsItemRow[];
   cargo: OpsBalance[];
+  /** 작업 상태(일터·계약·생활 규칙·AI 작전·가는 곳). 옛 서버는 없음 */
+  work?: OpsUnitWork;
 }
 
 export interface OpsAuditRow {

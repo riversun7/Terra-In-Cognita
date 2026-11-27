@@ -21,6 +21,8 @@ import {
   type OpsUnitDetail,
   type OpsUnitResult,
   type OpsUnitRow,
+  type OpsUnitSort,
+  type OpsUnitState,
   isOpsPermission,
 } from "@terra/shared/ops";
 import { moneyBalance, moneyOf, NO_NATION_MONEY } from "../world/money.ts";
@@ -29,7 +31,8 @@ import { type OpsQueryable, opsAccessOf } from "./access.ts";
 import { planetTotals } from "./planetReads.ts";
 import * as reads from "./reads.ts";
 import { NO_OPS_SWITCHES, type OpsSwitches } from "./switches.ts";
-import { type NationPreset, presetOfCode } from "../npc/nations.ts";
+import { type NationPreset, nationLeaderName, presetOfCode } from "../npc/nations.ts";
+import { UNIT_KIND_NPC_LEADER } from "../world/unitKinds.ts";
 import {
   type CurrencyProfile,
   type FactionProfile,
@@ -52,6 +55,7 @@ import {
   postOperatorGrant,
   topHolders,
   unitDetailCore,
+  unitWork,
   worldGauges,
 } from "./world.ts";
 
@@ -156,6 +160,7 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
     online: base.online,
     offlineSinceMs: base.offlineSinceMs,
     cyborgName: base.cyborgName,
+    cyborgUnitId: base.cyborgUnitId,
     level: base.level,
     factionId: base.factionId,
     factionName: base.factionId === null ? null : factionLabel(base.factionId, base.factionCode),
@@ -186,6 +191,8 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
         ownerId: core.ownerId,
         ownerKind: core.ownerKind,
         ownerLabel: label?.loginId ?? factionLabel(label?.factionId ?? null, label?.code ?? null),
+        ownerUserId: label?.userId ?? null,
+        ownerFactionId: label?.userId ? null : (label?.factionId ?? null),
         planetId: core.planetId,
         mapKey: core.mapKey,
         cellX: core.cellX,
@@ -193,6 +200,16 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
         moving: core.moving,
         injury: core.injury,
         captive: core.captive,
+        // NPC 지도자 이름은 저장하지 않는다(팩 국가 프리셋 leaderName — npc/leaders.ts)
+        name:
+          core.name ??
+          (core.kind === UNIT_KIND_NPC_LEADER && label?.code
+            ? (nationLeaderName(label.code, shared.presets ?? [])?.ko ?? null)
+            : null),
+        growth: core.growth,
+        job: core.job,
+        npcWork: core.npcWork,
+        workplace: core.workplace,
       };
     });
   };
@@ -427,6 +444,10 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
       planetId?: string | undefined;
       mapKey?: number | undefined;
       kind?: number | undefined;
+      /** 작업 상태 거르기·정렬 칸(없으면 ID 차례) */
+      state?: OpsUnitState | undefined;
+      sort?: OpsUnitSort | undefined;
+      desc?: boolean | undefined;
       limit: number;
       offset: number;
     }): Promise<{ status: "ok" | "not_ready"; rows: OpsUnitRow[]; total: number }> {
@@ -441,6 +462,9 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
           planetId: input.planetId,
           mapKey: input.mapKey,
           kind: input.kind,
+          state: input.state,
+          sort: input.sort,
+          desc: input.desc,
         },
         { limit: input.limit, offset: input.offset },
         shared.now(),
@@ -471,6 +495,7 @@ export function createOpsServices(shared: OpsShared, request: { ip: string | nul
         skills: await reads.skillsOfUnits(pool, [unitId]),
         items: await reads.itemsOfUnit(pool, unitId),
         cargo,
+        work: unitWork(world, unitId, shared.now()),
       };
     },
 

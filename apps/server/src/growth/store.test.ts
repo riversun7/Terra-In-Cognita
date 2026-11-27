@@ -100,6 +100,38 @@ describe("유닛 성장 저장소", () => {
     });
   });
 
+  it("운영 조회 판: 처음 스탯·성장 K·레벨 성장을 센 지금 스탯, 구간 경험치(만렙이면 0)", async () => {
+    const r = rig({
+      humans: [human(1, 5), human(2, 1, { k_pm: [800, 900, 1000, 1100, 1200, 1000] })],
+      exps: [{ unit_id: 1, exp: 9 }],
+    });
+    await r.store.loaded;
+    const growthPm = TEST_SOCIETY_COEFFICIENTS.cyborg.growthPm;
+    const sheet = r.store.sheetOf(1);
+    expect(sheet).toMatchObject({
+      kind: "human",
+      level: 5,
+      exp: 9,
+      rebirths: 0,
+      initial: [12, 10, 8, 14, 10, 6],
+      kPm: null,
+    });
+    // 기준 K(1000‰): 처음 스탯 × (1 + 성장률 × (레벨 − 1))
+    expect(sheet?.stats).toEqual(
+      [12, 10, 8, 14, 10, 6].map((value) => Math.floor((value * (1000 + growthPm * 4)) / 1000)),
+    );
+    expect(sheet?.stats).toEqual(r.store.grownOf([12, 10, 8, 14, 10, 6], null, 5));
+    // 레벨 1은 처음 스탯 그대로, 저장된 K는 그대로 보인다
+    expect(r.store.sheetOf(2)).toMatchObject({
+      level: 1,
+      stats: [12, 10, 8, 14, 10, 6],
+      kPm: [800, 900, 1000, 1100, 1200, 1000],
+    });
+    expect(r.store.sheetOf(99)).toBeUndefined();
+    expect(r.store.spanAt(1)).toBe(35);
+    expect(r.store.spanAt(TEST_SOCIETY_COEFFICIENTS.cyborg.maxLevel)).toBe(0);
+  });
+
   it("경험치를 더하면 구간을 넘을 때 레벨이 오르고, 레벨·경험치를 따로 쓴다", async () => {
     const r = rig({
       humans: [human(1)],

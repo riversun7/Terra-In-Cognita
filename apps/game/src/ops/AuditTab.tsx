@@ -13,10 +13,12 @@ import {
   auditCategoryOf,
   auditSummary,
   categoryLabel,
+  auditTargetLink,
   targetText,
 } from "./auditText.ts";
 import { planetLabel } from "../scope/ScopeBar.tsx";
 import { usePlanetScope } from "../scope/planetScopeStore.ts";
+import type { OpenDetail } from "./OpsConsole.tsx";
 import { LoadState, errorText, useOpsLoad } from "./opsUi.tsx";
 
 const PAGE = 50;
@@ -51,8 +53,18 @@ function AuditScope({ row, nameOf }: { row: OpsAuditRow; nameOf: (planetId: stri
   return <span className="dev-muted">{m.ops_none()}</span>;
 }
 
-function AuditRow({ row, nameOf }: { row: OpsAuditRow; nameOf: (planetId: string) => string }) {
+function AuditRow({
+  row,
+  nameOf,
+  go,
+}: {
+  row: OpsAuditRow;
+  nameOf: (planetId: string) => string;
+  /** 한 사람·대상을 누르면 그 상세로(없으면 글자만) */
+  go?: OpenDetail | undefined;
+}) {
   const [open, setOpen] = useState(false);
+  const target = go ? auditTargetLink(row) : null;
   const time = Date.parse(row.at);
   const category = auditCategoryOf(row.action);
   return (
@@ -66,10 +78,26 @@ function AuditRow({ row, nameOf }: { row: OpsAuditRow; nameOf: (planetId: string
           <span className="ops-audit-what">{actionLabel(row.action)}</span>
         </td>
         <td className="ops-audit-who" translate="no">
-          {actorText(row)}
+          {go && row.actorLoginId && row.actorId ? (
+            <button
+              type="button"
+              className="button-text"
+              onClick={() => (row.actorId ? go({ kind: "user", id: row.actorId }) : undefined)}
+            >
+              {actorText(row)}
+            </button>
+          ) : (
+            actorText(row)
+          )}
         </td>
         <td className="ops-audit-who" translate="no">
-          {targetText(row)}
+          {go && target ? (
+            <button type="button" className="button-text" onClick={() => go(target)}>
+              {targetText(row)}
+            </button>
+          ) : (
+            targetText(row)
+          )}
         </td>
         <td className="ops-audit-scope">
           <AuditScope row={row} nameOf={nameOf} />
@@ -105,7 +133,7 @@ function AuditRow({ row, nameOf }: { row: OpsAuditRow; nameOf: (planetId: string
   );
 }
 
-export function AuditTable({ rows }: { rows: readonly OpsAuditRow[] }) {
+export function AuditTable({ rows, open }: { rows: readonly OpsAuditRow[]; open?: OpenDetail | undefined }) {
   // 행성 이름(범위 목록에 없는 ID는 그대로 보인다)
   const scope = usePlanetScope("monitor");
   const nameOf = (planetId: string): string => {
@@ -132,7 +160,7 @@ export function AuditTable({ rows }: { rows: readonly OpsAuditRow[] }) {
         </thead>
         <tbody>
           {rows.map((row) => (
-            <AuditRow key={row.id} row={row} nameOf={nameOf} />
+            <AuditRow key={row.id} row={row} nameOf={nameOf} go={open} />
           ))}
         </tbody>
       </table>
@@ -149,7 +177,13 @@ interface AuditQuery {
 
 const EMPTY_QUERY: AuditQuery = { categories: [], actorSearch: "", targetSearch: "", action: "" };
 
-export function AuditTab({ planetId }: { planetId?: string | undefined }) {
+export function AuditTab({
+  planetId,
+  open,
+}: {
+  planetId?: string | undefined;
+  open?: OpenDetail | undefined;
+}) {
   const actorId = useId();
   const targetId = useId();
   const actionId = useId();
@@ -280,7 +314,7 @@ export function AuditTab({ planetId }: { planetId?: string | undefined }) {
       </form>
       <p className="dev-muted">{m.audit_view_off_note()}</p>
       <LoadState loaded={loaded} />
-      <AuditTable rows={rows} />
+      <AuditTable rows={rows} open={open} />
       {moreError ? (
         <p className="message message-error" role="alert">
           {moreError}

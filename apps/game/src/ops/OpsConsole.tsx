@@ -2,6 +2,8 @@
 // 탭은 내 운영 권한(api.ops.me)으로 고른다. 화면에서 가리는 것은 편의일 뿐이고, 서버가 요청마다 권한을 본다.
 // 유저와 NPC를 탭으로 나눈다. 방대한 자료(스탯·스킬·보유 물건)는 목록에서 줄을 눌러 상세(오른쪽·아래 판)로 옮겨 본다.
 // 주소 검색어 ?tab=·?user=·?faction=·?unit=은 처음 열 때만 읽는다(바로 연 링크). 그 뒤 탭·상세는 화면 안 상태다.
+// 화면끼리 잇기(사용자 지시 2026-11-27 "유기적으로 연결하라"): 목록·상세의 이름·수를 누르면 그 대상의 상세(유저·세력·유닛)나
+// 거른 유닛 목록(유닛 탭으로 건너뛰기 — 주인·2차맵)으로 간다. 모두 open 하나로 부른다.
 // 행성 거르기(docs/adr/2026-11-11-planet-scope.md): 범위 줄(화면 위, 주소 ?planet=)에서 고른 행성으로 현황·세력·도시·유닛·감사 기록을 거른다.
 // "전체"(처음 값)면 거르지 않는다. 유저·화폐·경제 탭은 세계 전체라 거르지 않는다(탭 위에 한 줄로 알린다).
 import type { AccountView, RouteMatch } from "@terra/shared";
@@ -80,8 +82,19 @@ export type OpsDetail =
   | { kind: "unit"; id: number }
   | null;
 
-/** 목록·상세가 다른 대상을 열 때 쓴다 */
-export type OpenDetail = (detail: OpsDetail) => void;
+/** 유닛 탭으로 건너뛰기: 주인(소유 주체 ID)·2차맵으로 거른 유닛 목록을 연다 */
+export interface OpsUnitsJump {
+  kind: "units";
+  ownerId?: number | undefined;
+  /** 주인 종류(알면 준다 — 한쪽 보기 권한만 있는 운영자도 그 목록을 볼 수 있다) */
+  ownerKind?: "user" | "faction" | undefined;
+  /** 거르기 줄에 보일 주인 이름 */
+  label?: string | undefined;
+  mapKey?: number | undefined;
+}
+
+/** 목록·상세가 다른 대상을 열 때 쓴다(상세 판 또는 거른 유닛 목록) */
+export type OpenDetail = (target: OpsDetail | OpsUnitsJump) => void;
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const positiveId = (value: string | undefined): number | null => {
@@ -119,7 +132,16 @@ export default function OpsConsole({ viewer, match }: OpsConsoleProps) {
   const can = (permission: OpsPermission): boolean => permissions.includes(permission);
   const visibleTabs = TABS.filter((value) => TAB_NEEDS[value].some(can));
   const shownTab = tab !== null && visibleTabs.includes(tab) ? tab : (visibleTabs[0] ?? null);
-  const open: OpenDetail = setDetail;
+  const [unitsJump, setUnitsJump] = useState<{ jump: OpsUnitsJump; seq: number } | null>(null);
+  const open: OpenDetail = useCallback((target) => {
+    if (target?.kind === "units") {
+      // 유닛 탭을 그 거르기로 새로 연다(seq가 바뀌면 탭을 새로 만든다)
+      setUnitsJump((previous) => ({ jump: target, seq: (previous?.seq ?? 0) + 1 }));
+      setTab("units");
+      return;
+    }
+    setDetail(target);
+  }, []);
   // 고른 행성(전체면 undefined). 행성이 바뀌면 거르는 탭을 새로 만든다(쪽·더 보기 줄을 비운다)
   const scope = usePlanetScope("monitor");
   const planetId = scope.planetId;
@@ -148,7 +170,8 @@ export default function OpsConsole({ viewer, match }: OpsConsoleProps) {
     case "units":
       body = (
         <UnitsTab
-          key={planetKey}
+          key={`${planetKey}:${unitsJump?.seq ?? 0}`}
+          jump={unitsJump?.jump}
           open={open}
           canUsers={can("view_players")}
           canNpcs={can("view_npcs")}
@@ -160,7 +183,7 @@ export default function OpsConsole({ viewer, match }: OpsConsoleProps) {
       body = <EconomyTab />;
       break;
     case "audit":
-      body = <AuditTab key={planetKey} planetId={planetId} />;
+      body = <AuditTab key={planetKey} planetId={planetId} open={open} />;
       break;
     case null:
       body = null;
@@ -171,7 +194,8 @@ export default function OpsConsole({ viewer, match }: OpsConsoleProps) {
     side = <PlayerDetail key={detail.id} userId={detail.id} viewerId={viewer.id} can={can} open={open} />;
   else if (detail?.kind === "faction")
     side = <FactionDetail key={detail.id} factionId={detail.id} can={can} open={open} />;
-  else if (detail?.kind === "unit") side = <UnitDetail key={detail.id} unitId={detail.id} can={can} />;
+  else if (detail?.kind === "unit")
+    side = <UnitDetail key={detail.id} unitId={detail.id} can={can} open={open} />;
 
   return (
     <section className="screen ops" data-density="compact" aria-labelledby="ops-title">

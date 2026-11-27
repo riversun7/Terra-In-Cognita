@@ -34,9 +34,42 @@ test.describe("운영자 콘솔 — admin", () => {
       .click();
     await expect(page.locator(".ops-side .ops-kv").first()).toBeVisible();
     await expect(page.locator(".ops-side .ops-controls")).toBeVisible();
-    // 유닛 탭
+    // 유닛 탭: 표 칸 열(ID·이름·종류·주인·위치·레벨과 경험치·스탯·작업·피로·상태), 줄을 누르면 상세에 성장·작업 상태 판
     await page.locator(".ops-tabs [role='tab']").nth(5).click();
     await expect(page.locator(".ops-main .dev-table")).toBeVisible();
+    await expect(page.locator(".ops-main .dev-table thead th")).toHaveCount(10);
+    // 모든 유닛에 레벨·스탯이 보인다(저장된 스탯이 없으면 기본 몸)
+    await expect(page.locator(".ops-main .dev-table tbody tr td:nth-child(7)").first()).toContainText("·");
+    // 칸 머리를 누르면 정렬(레벨: 큰 것부터 → 다시 누르면 작은 것부터), 작업 상태로 거른다
+    const levelHead = page.locator(".ops-main .dev-table thead th").nth(5);
+    await levelHead.locator("button").click();
+    await expect(levelHead).toHaveAttribute("aria-sort", "descending");
+    await levelHead.locator("button").click();
+    await expect(levelHead).toHaveAttribute("aria-sort", "ascending");
+    await page.locator(".ops-main .dev-table thead th").first().locator("button").click();
+    await page.locator(".ops-main [data-ops-filter='state']").selectOption("captive");
+    await expect(page.locator(".ops-main .dev-table tbody tr")).toHaveCount(0);
+    await page.locator(".ops-main [data-ops-filter='state']").selectOption("");
+    await expect(page.locator(".ops-main .dev-table tbody tr").first()).toBeVisible();
+    await page.locator(".ops-main .dev-table tbody tr td button").first().click();
+    await expect(page.locator(".ops-side [data-ops-section='growth']")).toBeVisible();
+    await expect(page.locator(".ops-side [data-ops-section='work'] .ops-kv-row")).toHaveCount(8);
+    // 화면 잇기: 유닛 상세의 [이 주인의 유닛] → 그 주인으로 거른 유닛 목록(줄 위 표지), [거르기 풀기]로 푼다
+    await page.locator(".ops-side [data-ops-link='owner-units']").click();
+    await expect(page.locator(".ops-main [data-ops-owner-filter]")).toBeVisible();
+    await expect(page.locator(".ops-main .dev-table tbody tr").first()).toBeVisible();
+    await page.locator(".ops-main [data-ops-owner-filter] button").click();
+    await expect(page.locator(".ops-main [data-ops-owner-filter]")).toHaveCount(0);
+    // 표의 위치는 짧게 보이고 누르면 전체 위치가 펼쳐진다. [이 2차맵의 유닛] → 그 2차맵으로 거른다(2차맵 키 칸이 채워진다).
+    // 주인을 누르면 유저·세력 상세
+    const where = page.locator(".ops-main .dev-table tbody tr td:nth-child(5)").first();
+    await expect(where.locator(".ops-where-full")).toHaveCount(0);
+    await where.locator("button").first().click();
+    await expect(where.locator(".ops-where-full")).toBeVisible();
+    await where.locator("[data-ops-link='map-units']").click();
+    await expect(page.locator(".ops-main form.ops-toolbar input").first()).not.toHaveValue("");
+    await page.locator(".ops-main .dev-table tbody tr td:nth-child(4) button").first().click();
+    await expect(page.locator(".ops-side .ops-kv").first()).toBeVisible();
     // 감사 기록: 분류 칩 8개(전체 + 7), 계정 분류를 누르면 그 분류만(전역 준비가 역할을 넣은 기록이 있다)
     await page.locator(".ops-tabs [role='tab']").nth(7).click();
     await expect(page.locator(".ops-chips .ops-chip")).toHaveCount(8);
@@ -128,6 +161,11 @@ test.describe("운영자 콘솔 — admin", () => {
           await page.locator(".ops-tabs [role='tab']").nth(4).click();
           await expect(page.locator(".ops-main .dev-table tbody tr").first()).toBeVisible();
           await shot(page, `ops-currencies-1440-${theme}`);
+          await page.goto("/ops?tab=units");
+          await expect(page.locator(".ops-main .dev-table tbody tr").first()).toBeVisible();
+          await page.locator(".ops-main .dev-table tbody tr td button").first().click();
+          await expect(page.locator(".ops-side [data-ops-section='work']")).toBeVisible();
+          await shot(page, `ops-units-1440-${theme}`);
           await page.goto("/admin");
           await expect(page.locator(".admin-switch-card[data-switch-id='view_audit']")).toBeVisible();
           await shot(page, `admin-log-switch-1440-${theme}`, { fullPage: true });
@@ -148,6 +186,11 @@ test.describe("운영자 콘솔 — admin", () => {
         await expect(page.locator(".ops-side .ops-kv").first()).toBeVisible();
         expect(await horizontalOverflow(page)).toEqual([]);
         await shot(page, `ops-player-390-${theme}`, { fullPage: true });
+        await page.locator(".ops-tabs [role='tab']").nth(5).click();
+        await page.locator(".ops-main .dev-table tbody tr td button").first().click();
+        await expect(page.locator(".ops-side [data-ops-section='work']")).toBeVisible();
+        expect(await horizontalOverflow(page)).toEqual([]);
+        await shot(page, `ops-unit-390-${theme}`, { fullPage: true });
       });
     });
   }

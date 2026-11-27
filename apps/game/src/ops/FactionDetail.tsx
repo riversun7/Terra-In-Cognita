@@ -176,6 +176,24 @@ export function FactionDetail({ factionId, can, open }: FactionDetailProps) {
             ) : (
               <UnitTable rows={data.units} open={open} />
             )}
+            {data.faction.ownerId !== null && data.units.length > 0 ? (
+              <button
+                type="button"
+                className="button-small"
+                onClick={() =>
+                  data.faction.ownerId === null
+                    ? undefined
+                    : open({
+                        kind: "units",
+                        ownerId: data.faction.ownerId,
+                        ownerKind: "faction",
+                        label: data.faction.name,
+                      })
+                }
+              >
+                {m.ops_link_units_all()}
+              </button>
+            ) : null}
           </section>
         </>
       ) : null}

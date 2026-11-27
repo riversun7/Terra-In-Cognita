@@ -3,7 +3,7 @@ import { type FormEvent, useCallback, useId, useState } from "react";
 import { api } from "../net/api.ts";
 import { m } from "../paraglide/messages.js";
 import type { OpenDetail } from "./OpsConsole.tsx";
-import { LoadState, formatInt, useOpsLoad } from "./opsUi.tsx";
+import { LoadState, WhereCell, formatInt, useOpsLoad } from "./opsUi.tsx";
 
 export function CitiesTab({ open, planetId }: { open: OpenDetail; planetId?: string | undefined }) {
   const searchId = useId();
@@ -56,7 +56,7 @@ export function CityTable({
 }) {
   return (
     <div className="dev-table-wrap">
-      <table className="dev-table">
+      <table className="dev-table ops-nowrap">
         <thead>
           <tr>
             <th scope="col" className="dev-num">
@@ -96,8 +96,8 @@ export function CityTable({
                   {row.factionName}
                 </button>
               </td>
-              <td className="dev-code">
-                {m.ops_where({ planet: row.planetId, map: row.mapKey, x: row.cellX, y: row.cellY })}
+              <td>
+                <WhereCell where={row} open={open} />
               </td>
               <td className="dev-num">{formatInt(row.humans)}</td>
               <td className="dev-num">{formatInt(row.housing)}</td>

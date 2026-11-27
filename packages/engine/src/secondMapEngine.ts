@@ -61,6 +61,7 @@ import {
   terrainProblem,
 } from "./terrain/terrainData.ts";
 import { isPlacementExplored } from "./terrain/fogBits.ts";
+import { NO_TERRAIN_BORDER, type TerrainBorderStyle, borderStyleForZoom } from "./terrain/borderStyle.ts";
 import { type NeighbourTerrain, NeighbourTerrains, UNEXPLORED } from "./terrain/neighbourTerrains.ts";
 import { TerrainView } from "./terrain/terrainView.ts";
 import { cameraThroughPlacement, invertPlacement } from "./terrain/rebase.ts";
@@ -242,6 +243,22 @@ export function createSecondMapEngine(
   let pendingNeighbours: readonly NeighbourTerrain[] | null = null;
   /** 격자 선(개발자 2차맵 시험, setViewOptions) */
   let grid = false;
+  /** 마지막으로 지형·이웃에 넣은 경계 표시 세기(확대 거리 변화에 맞춰 부드럽게 갱신) */
+  let borderStyle: TerrainBorderStyle = NO_TERRAIN_BORDER;
+  const syncBorders = (force = false): void => {
+    const next = borderStyleForZoom(state.distance, limits, neighbours.count > 0);
+    if (
+      !force &&
+      Math.abs(next.mainLine - borderStyle.mainLine) < 1e-3 &&
+      Math.abs(next.subLine - borderStyle.subLine) < 1e-3 &&
+      Math.abs(next.neighbourTone - borderStyle.neighbourTone) < 1e-3
+    ) {
+      return;
+    }
+    borderStyle = next;
+    terrainView.setBorder(next.mainLine, next.subLine, next.neighbourTone, false);
+    neighbours.setBorderStyle(next);
+  };
   let lastView = "";
   /** 고른 유닛 따라가기·확대 단계 움직임, 지금 확대 단계(바뀔 때 알린다) */
   const glide = new CameraGlide();
@@ -423,6 +440,7 @@ export function createSecondMapEngine(
       }
     }
     applyCamera();
+    syncBorders();
     // 가까이면 화면이 보는 땅(가시거리까지)에 소품 모델을 세운다(보는 땅이 세운 땅을 벗어나면 다시 세운다)
     updateProps();
     // 카메라가 바뀌었으면 알린다(나침반·이웃 받기). 같은 값이면 부르지 않는다
@@ -733,6 +751,7 @@ export function createSecondMapEngine(
       }
       limits = computeLimits();
       state = clampCamera(state, limits);
+      syncBorders(true);
       lastView = "";
       scheduler.request();
       return true;
@@ -758,6 +777,7 @@ export function createSecondMapEngine(
       syncBuildingVision();
       limits = computeLimits();
       state = clampCamera(state, limits);
+      syncBorders(true);
       scheduler.request();
     },
 

@@ -8,6 +8,7 @@
 //   지금 2차맵이 전체 보기(안개 없음)면 이웃도 끈다. 사용자 지적 2026-11-08 "인접한 맵은 포그가 적용되지 않는 문제"
 //   (docs/adr/2026-11-08-seamless-second-map.md WP-3). 그 전에는 지형이 숨김 정보가 아니라 안개를 뺐다(ADR 26).
 import { Group } from "three";
+import { NO_TERRAIN_BORDER, type TerrainBorderStyle } from "./borderStyle.ts";
 import type { TerrainBuilder } from "./terrainBuilder.ts";
 import { isPlacementExplored } from "./fogBits.ts";
 import { composePlacement } from "./rebase.ts";
@@ -70,6 +71,8 @@ export class NeighbourTerrains {
   private readonly entries = new Map<string, Entry>();
   private version = 0;
   private grid = false;
+  /** 경계 점선·인접 톤 낮추기 세기(지금 이웃과 뒤에 올 이웃 모두에 적용) */
+  private border: TerrainBorderStyle = NO_TERRAIN_BORDER;
   /** 안개를 그리나(지금 2차맵에 안개가 있을 때) */
   private fog = false;
   /** 이웃 id → 탐사 칸(받은 것만) */
@@ -108,6 +111,7 @@ export class NeighbourTerrains {
       const view = new TerrainView();
       view.setWalls(false);
       view.setGrid(this.grid);
+      view.setBorder(this.border.mainLine, this.border.subLine, this.border.neighbourTone, true);
       view.setExplored(this.fogOf(item.id));
       view.set(built.mesh, terrain, built.noise, shade);
       placeView(view, item.placement, cellSizeM);
@@ -177,10 +181,19 @@ export class NeighbourTerrains {
     if (explored) this.explored.set(id, explored);
     view.setWalls(false);
     view.setGrid(this.grid);
+    view.setBorder(this.border.mainLine, this.border.subLine, this.border.neighbourTone, true);
     view.setExplored(this.fogOf(id));
     placeView(view, placement, terrain.cellSizeM);
     this.group.add(view.group);
     this.entries.set(id, { view, terrain, placement });
+  }
+
+  /** 경계 표시 세기(지금 이웃과 뒤에 올 이웃 모두, 인접 역할로 적용) */
+  setBorderStyle(style: TerrainBorderStyle): void {
+    this.border = style;
+    for (const entry of this.entries.values()) {
+      entry.view.setBorder(style.mainLine, style.subLine, style.neighbourTone, true);
+    }
   }
 
   /** 격자 선(개발자 2차맵 시험): 지금 이웃과 뒤에 올 이웃 모두 */

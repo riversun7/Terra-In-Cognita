@@ -5,6 +5,9 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-26 23:15 | 2차맵 인접 경계 시각 UI 추가 | Antigravity | [26-2315-second-map-neighbour-border](worklog/2026/11/26-2315-second-map-neighbour-border.md) |
+| 2026-11-26 23:00 | 개발자 페이지 경제 흐름 모식도(/dev/economy-flow) 추가 | Antigravity | [26-2300-dev-economy-flow](worklog/2026/11/26-2300-dev-economy-flow.md) |
+| 2026-11-26 20:39 | 크리쳐 일러스트 이어서 생성 (12지신 완성 + 기린 12종) | Antigravity | [26-2039-creature-portraits-batch2](worklog/2026/11/26-2039-creature-portraits-batch2.md) |
 | 2026-11-26 17:30 | 유닛 성장: 휴먼·사이보그 유닛의 경험치·레벨, 저장된 스탯을 세계 몸에 연결 | Claude Code | [26-1730-unit-growth](worklog/2026/11/26-1730-unit-growth.md) |
 | 2026-11-26 16:00 | 채집·직무 경험치(기본 10 + 티어당 10, 설정 칸) — 사이보그 본체 | Claude Code | [26-1600-gather-exp](worklog/2026/11/26-1600-gather-exp.md) |
 | 2026-11-26 15:00 | 직무(시설 일꾼)의 피로를 묶음 하나마다 10점 × 시설 배율로(설정 칸) | Claude Code | [26-1500-job-fatigue-per-lot](worklog/2026/11/26-1500-job-fatigue-per-lot.md) |

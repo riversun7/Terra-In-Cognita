@@ -26,6 +26,7 @@ import {
   RepeatWrapping,
   UnsignedByteType,
   Vector3,
+  Vector4,
 } from "three";
 import { PROP_TEXTURE_BYTES, buildPropTextureData } from "../props/propLook.ts";
 import { PLACEMENT_CELLS, TERRAIN_CELLS, type TerrainInput } from "./terrainData.ts";
@@ -109,6 +110,98 @@ uniform vec3 uHeight;
 uniform sampler2D uFog;
 uniform float uFogOn;
 uniform float uGrid;
+// 2차맵 경계 표시: x = 중심 테두리 점선 세기, y = 이웃 간 경계 세기, z = 인접 톤 낮추기 세기, w = 인접 2차맵 여부(0 중심 / 1 인접)
+uniform vec4 uBorder;
+
+// 대칭 점선 패턴(0~1): 4칸(먼 화면) ↔ 1칸(가까운 화면) 주기를 화면 픽셀 크기로 자동 전환한다.
+// 128칸의 약수이고 0·128 모서리가 대시 중앙이라 90° 회전된 이웃과 만나도 위상이 어긋나지 않는다.
+float terrainDashMask(float along, float alongW, float cornerHold) {
+  float pxPerCell = 1.0 / max(alongW, 1e-4);
+  float fineMix = smoothstep(8.0, 22.0, pxPerCell);
+  float pCoarse = abs(fract(along / 4.0) - 0.5);
+  float wCoarse = max(alongW / 4.0, 1e-4);
+  float dCoarse = smoothstep(0.22 - wCoarse * 0.7, 0.22 + wCoarse * 0.7, pCoarse);
+  float pFine = abs(fract(along) - 0.5);
+  float wFine = max(alongW, 1e-4);
+  float dFine = smoothstep(0.22 - wFine * 0.7, 0.22 + wFine * 0.7, pFine);
+  return max(mix(dCoarse, dFine, fineMix), cornerHold);
+}
+
+// 인접 2차맵 톤 낮추기(안 B): 채도·밝기를 살짝 낮추고 중심 경계 바깥에 얕은 음영을 깔아 중심 구역을 도드라지게 한다.
+vec3 applyNeighbourTone(vec3 color, vec2 mainCells, float tone) {
+  if (tone <= 0.001) return color;
+  float luma = dot(color, vec3(0.299, 0.587, 0.114));
+  vec3 muted = mix(color, vec3(luma), 0.26);
+  muted = mix(muted * 0.85, vec3(0.08, 0.12, 0.18), 0.07);
+  vec2 outMain = max(max(-mainCells, mainCells - vec2(${glslFloat(TERRAIN_CELLS)})), vec2(0.0));
+  float rimShade = 1.0 - smoothstep(0.0, 3.0, length(outMain));
+  vec3 toned = muted * (1.0 - rimShade * 0.08);
+  return mix(color, toned, tone);
+}
+
+// 2차맵 경계 이중 점선(안 A + 3×3 이웃 간 경계): 중심 2차맵 사각형 [0, 128]² 테두리는 또렷하게,
+// 이웃 2차맵끼리의 연장선(x·y ∈ {0, 128}의 바깥)은 연하게 그린다. 3×3 맨 바깥 외곽(하늘 맞닿음)은 그리지 않는다.
+vec3 applyMapBorderLines(vec3 color, vec2 mainCells, vec2 mw, float depthFade, float fogWeight) {
+  float mainStr = uBorder.x * depthFade * fogWeight;
+  float subStr = uBorder.y * step(0.5, uBorder.w) * depthFade * fogWeight;
+  if (mainStr <= 0.001 && subStr <= 0.001) return color;
+
+  float side = ${glslFloat(TERRAIN_CELLS)};
+  bool isNeighbour = uBorder.w > 0.5;
+  vec2 inDist = min(mainCells, vec2(side) - mainCells);
+  vec2 outDist = max(max(-mainCells, mainCells - vec2(side)), vec2(0.0));
+  vec2 inPx = inDist / mw;
+  vec2 outPx = outDist / mw;
+
+  float mainEdgePx;
+  float mainAlong;
+  float mainAlongW;
+  if (isNeighbour) {
+    mainEdgePx = length(outPx);
+    bool vertical = outPx.x > outPx.y;
+    mainAlong = vertical ? mainCells.y : mainCells.x;
+    mainAlongW = vertical ? mw.y : mw.x;
+  } else {
+    bool vertical = inPx.x < inPx.y;
+    mainEdgePx = vertical ? inPx.x : inPx.y;
+    mainAlong = vertical ? mainCells.y : mainCells.x;
+    mainAlongW = vertical ? mw.y : mw.x;
+  }
+
+  // 중심 2차맵 네 모서리(변 끝 1.6칸 이내)는 점선을 끊지 않고 직각 꺾쇠로 마감한다
+  float cornerDist = min(abs(mainAlong), abs(mainAlong - side));
+  float cornerHold = 1.0 - smoothstep(1.3, 1.8, cornerDist);
+  float mainDash = terrainDashMask(mainAlong, mainAlongW, cornerHold);
+  float mainHalo = (1.0 - smoothstep(1.7, 2.6, mainEdgePx)) * mainDash * mainStr;
+  float mainCore = (1.0 - smoothstep(0.65, 1.35, mainEdgePx)) * mainDash * mainStr;
+
+  // 인접 2차맵끼리의 내부 경계선(중심 변 연장선). 중심 테두리 바로 옆에서는 겹치지 않게 비운다
+  float subHalo = 0.0;
+  float subCore = 0.0;
+  if (subStr > 0.001) {
+    float dxPx = min(abs(mainCells.x), abs(mainCells.x - side)) / mw.x;
+    float dyPx = min(abs(mainCells.y), abs(mainCells.y - side)) / mw.y;
+    bool subVertical = dxPx < dyPx;
+    float subEdgePx = subVertical ? dxPx : dyPx;
+    float subAlong = subVertical ? mainCells.y : mainCells.x;
+    float subAlongW = subVertical ? mw.y : mw.x;
+    float awayFromMain = smoothstep(2.2, 5.2, mainEdgePx);
+    float subDash = terrainDashMask(subAlong, subAlongW, 0.0);
+    float subWeight = subDash * subStr * awayFromMain;
+    subHalo = (1.0 - smoothstep(1.1, 1.9, subEdgePx)) * subWeight;
+    subCore = (1.0 - smoothstep(0.35, 0.95, subEdgePx)) * subWeight;
+  }
+
+  vec3 haloColor = vec3(0.04, 0.065, 0.11);
+  vec3 mainCoreColor = vec3(0.95, 0.97, 1.0);
+  vec3 subCoreColor = vec3(0.84, 0.89, 0.96);
+
+  vec3 outColor = mix(color, haloColor, clamp(subHalo * 0.42, 0.0, 1.0));
+  outColor = mix(outColor, subCoreColor, clamp(subCore * 0.52, 0.0, 1.0));
+  outColor = mix(outColor, haloColor, clamp(mainHalo * 0.78, 0.0, 1.0));
+  outColor = mix(outColor, mainCoreColor, clamp(mainCore * 0.95, 0.0, 1.0));
+  return outColor;
+}
 
 // 격자 선(개발자 2차맵 시험): 지형 칸 선(가까이만, 화면 한 점이 칸의 1/4보다 작을 때) + 16칸마다 굵은 선(2차맵 변 포함).
 // 선 폭은 화면 한 점(fwidth)으로 맞춘다. 0 ~ 1(선 위 1)
@@ -227,14 +320,26 @@ const FRAGMENT_COLOR = /* glsl */ `
 {
   // 윗면만 칠한다(가장자리 벽은 법선 y = 0이라 꼭짓점 색 그대로). 계산은 분기 밖(미분이 정의되게)
   vec3 terrainColor = terrainSurfaceColor(vTerrainPos, vTerrainLocal);
+  vec2 mainCells = vTerrainPos.xz / uCellSize;
+  vec2 mainCellsW = max(fwidth(mainCells), vec2(1e-4));
   // 격자 선(끄면 0): 미분이 있어 분기 밖에서 계산한다. 2차맵 안 자리(지형 칸)로 그린다
   float gridLine = terrainGridLine(vTerrainLocal.xz / uCellSize) * uGrid;
   terrainColor = mix(terrainColor, vec3(0.08, 0.1, 0.12), gridLine * 0.55);
+  // 인접 2차맵 톤 낮추기(안개 앞: 미탐사 검정은 건드리지 않는다)
+  terrainColor = applyNeighbourTone(terrainColor, mainCells, uBorder.z * step(0.5, uBorder.w));
   diffuseColor.rgb = vTerrainUp > 0.01 ? terrainColor : diffuseColor.rgb;
   // 안개(S3 시야 전송): 탐사하지 않은 시야 칸은 검게. 시야 칸 32×32 = 지형 칸 4×4, 경계는 선형 거르기로 부드럽게
+  float borderFogWeight = 1.0;
   if (uFogOn > 0.5) {
     float explored = texture(uFog, vTerrainLocal.xz / (uCellSize * ${glslFloat(TERRAIN_CELLS)})).r;
     diffuseColor.rgb *= mix(${glslFloat(FOG_UNEXPLORED)}, 1.0, explored);
+    // 미탐사 어둠 위에서도 경계 점선이 은은하게 남아 구획을 가늠할 수 있게 한다
+    borderFogWeight = mix(0.35, 1.0, explored);
+  }
+  // 2차맵 경계 이중 점선(안개 뒤, 깊은 해저 시차 방지를 위해 수심 15m 아래는 자연스럽게 줄인다)
+  if (vTerrainUp > 0.01) {
+    float depthFade = smoothstep(-15.0, -3.0, vTerrainPos.y - uHeight.z);
+    diffuseColor.rgb = applyMapBorderLines(diffuseColor.rgb, mainCells, mainCellsW, depthFade, borderFogWeight);
   }
 }
 `;
@@ -334,6 +439,7 @@ export class TerrainMaterial {
     uProps: { value: DataTexture };
     uPropsOn: { value: number };
     uGrid: { value: number };
+    uBorder: { value: Vector4 };
   } = {
     uSurface: { value: this.surfaceTexture },
     uNoise: { value: null },
@@ -346,6 +452,8 @@ export class TerrainMaterial {
     uPropsOn: { value: 0 },
     /** 격자 선(1 켬, 개발자 2차맵 시험) */
     uGrid: { value: 0 },
+    /** 경계 표시(중심 점선, 이웃 간 경계, 인접 톤 낮추기, 인접 여부 0/1) */
+    uBorder: { value: new Vector4(0, 0, 0, 0) },
   };
 
   constructor() {
@@ -402,6 +510,14 @@ export class TerrainMaterial {
   /** 격자 선(지형 칸·16칸)을 그릴지(개발자 2차맵 시험). 셰이더는 다시 만들지 않는다 */
   setGrid(on: boolean): void {
     this.uniforms.uGrid.value = on ? 1 : 0;
+  }
+
+  /**
+   * 2차맵 경계 표시 세기와 역할(중심 / 인접)을 바꾼다. 셰이더는 다시 만들지 않는다.
+   * mainLine·subLine·neighbourTone은 0 ~ 1, isNeighbour = 인접 2차맵이면 true
+   */
+  setBorder(mainLine: number, subLine: number, neighbourTone: number, isNeighbour: boolean): void {
+    this.uniforms.uBorder.value.set(mainLine, subLine, neighbourTone, isNeighbour ? 1 : 0);
   }
 
   dispose(): void {

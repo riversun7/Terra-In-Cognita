@@ -1,4 +1,4 @@
-import { DataTexture, ShaderLib, Vector3 } from "three";
+import { DataTexture, ShaderLib, Vector3, Vector4 } from "three";
 import { describe, expect, it } from "vitest";
 import { createMockTerrain } from "../mock/mockTerrain.ts";
 import { TERRAIN_SHADER_INSERTS, TerrainMaterial, type TerrainShaderSource } from "./terrainMaterial.ts";
@@ -26,7 +26,7 @@ describe("TerrainMaterial 셰이더 끼우기", () => {
     }
   });
 
-  it("자리마다 코드를 끼우고 유니폼 여덟 개(안개 둘·소품 둘 포함)를 잇는다", () => {
+  it("자리마다 코드를 끼우고 유니폼 열 개(안개·소품·경계 포함)를 잇는다", () => {
     const material = new TerrainMaterial();
     const shader = lambertSource();
     material.patchShader(shader);
@@ -36,6 +36,7 @@ describe("TerrainMaterial 셰이더 끼우기", () => {
       expect(shader.fragmentShader).toContain(`${anchor}\n${code}`);
     }
     expect(Object.keys(shader.uniforms).toSorted()).toEqual([
+      "uBorder",
       "uCellSize",
       "uFog",
       "uFogOn",
@@ -117,6 +118,20 @@ describe("안개(S3 시야 전송)", () => {
     expect(shader.uniforms.uFogOn?.value).toBe(1);
     material.setExplored(null);
     expect(shader.uniforms.uFogOn?.value).toBe(0);
+    material.dispose();
+  });
+});
+
+describe("2차맵 경계 표시(uBorder)", () => {
+  it("중심·인접 역할과 세기를 uBorder 유니폼에 반영한다", () => {
+    const material = new TerrainMaterial();
+    const shader = lambertSource();
+    material.patchShader(shader);
+    expect(shader.uniforms.uBorder?.value).toEqual(new Vector4(0, 0, 0, 0));
+    material.setBorder(0.9, 0.4, 0.8, true);
+    expect(shader.uniforms.uBorder?.value).toEqual(new Vector4(0.9, 0.4, 0.8, 1));
+    material.setBorder(0.5, 0.2, 0.3, false);
+    expect(shader.uniforms.uBorder?.value).toEqual(new Vector4(0.5, 0.2, 0.3, 0));
     material.dispose();
   });
 });

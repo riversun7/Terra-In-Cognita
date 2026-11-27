@@ -1,14 +1,24 @@
 // 지형 그리기 — 워커가 만든 타입 배열을 BufferGeometry로 감싼다(화면 스레드는 복사하지 않는다).
 // 물: 꼭짓점 물 높이가 있으면(TCTR 2판) 그 높이의 물 면(waterMesh.ts), 없으면 해수면 판 하나.
 // 윗면 색은 지형 재질(terrainMaterial.ts)이 칸 자료 텍스처로 조각마다 칠한다. 가장자리 벽은 꼭짓점 색이다.
-import { BufferAttribute, BufferGeometry, Group, Mesh, MeshLambertMaterial, PlaneGeometry } from "three";
+import {
+  BufferAttribute,
+  BufferGeometry,
+  Color,
+  Group,
+  Mesh,
+  MeshLambertMaterial,
+  PlaneGeometry,
+} from "three";
 import { buildWaterMesh } from "./waterMesh.ts";
 import { type TerrainInput, mapSizeM } from "./terrainData.ts";
 import { TerrainMaterial } from "./terrainMaterial.ts";
 import { SURFACE_INDEX_COUNT, type TerrainMeshArrays } from "./terrainMesh.ts";
 
-/** 물 색(파스텔 하늘물빛)과 불투명도 */
+/** 물 색(파스텔 하늘물빛)과 인접 구역 톤 낮추기 색, 불투명도 */
 const WATER_COLOR = 0x7ccbe8;
+const WATER_BASE = new Color(WATER_COLOR);
+const WATER_NEIGHBOUR = new Color(0x6199b3);
 const WATER_OPACITY = 0.82;
 
 function waterMaterial(): MeshLambertMaterial {
@@ -26,6 +36,8 @@ export class TerrainView {
   private readonly surface = new TerrainMaterial();
   private water: Mesh<BufferGeometry, MeshLambertMaterial> | null = null;
   private walls = true;
+  /** 인접 구역 톤 낮추기 세기(0 중심/끔 ~ 1 인접 최대) — 물 색에도 같이 반영한다 */
+  private waterTone = 0;
 
   /**
    * 가장자리 벽(치마)을 보일지. 이웃 2차맵을 둘레에 그릴 때는 숨긴다: 이웃 땅과 맞닿은 벽 윗단이 깊이 정밀도 때문에
@@ -44,6 +56,18 @@ export class TerrainView {
   /** 격자 선(개발자 2차맵 시험) */
   setGrid(on: boolean): void {
     this.surface.setGrid(on);
+  }
+
+  /** 2차맵 경계 점선·인접 톤 낮추기 세기와 역할(중심 / 인접) */
+  setBorder(mainLine: number, subLine: number, neighbourTone: number, isNeighbour: boolean): void {
+    this.surface.setBorder(mainLine, subLine, neighbourTone, isNeighbour);
+    this.waterTone = isNeighbour ? neighbourTone : 0;
+    this.applyWaterTone();
+  }
+
+  private applyWaterTone(): void {
+    if (!this.water) return;
+    this.water.material.color.copy(WATER_BASE).lerp(WATER_NEIGHBOUR, this.waterTone);
   }
 
   /** 메시(워커 결과)와 그 메시를 만든 지형 입력(칸 지표·칸 크기·물 높이), 지형 재질의 잡음 자료(terrainBuilder.ts) */
@@ -81,6 +105,7 @@ export class TerrainView {
       waterGeometry.computeVertexNormals();
       waterGeometry.computeBoundingSphere();
       this.water = new Mesh(waterGeometry, waterMaterial());
+      this.applyWaterTone();
       this.group.add(this.water);
     } else if (!terrain.waterLevels && mesh.hasWater) {
       const size = mapSizeM(terrain);
@@ -88,6 +113,7 @@ export class TerrainView {
       const water = new Mesh(plane, waterMaterial());
       water.position.set(size / 2, terrain.waterLevelM, size / 2);
       this.water = water;
+      this.applyWaterTone();
       this.group.add(water);
     }
   }

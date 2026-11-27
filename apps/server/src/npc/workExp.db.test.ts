@@ -11,6 +11,7 @@ import { unitGrowthOf } from "../growth/store.ts";
 import { serverEconomyCatalogAccessor } from "../market/catalog.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { legacyNationPresets, silentLog } from "../world/testSupport.ts";
+import { UNIT_KIND_NPC_LEADER } from "../world/unitKinds.ts";
 import { type World, startWorld } from "../world/world.ts";
 import { nationPresetsOf } from "./presets.ts";
 
@@ -84,6 +85,49 @@ const storedLevels = async (): Promise<Map<number, number>> =>
       (row) => [Number(row.unit_id), row.level],
     ),
   );
+
+describe.skipIf(!TEST_DATABASE_URL)("모든 유닛에 스탯·레벨 (DB)", () => {
+  it("NPC 지도자는 처음 읽힐 때 굴린 스탯을 unit_stats에 저장하고, 다시 켜도 같은 값이다", async () => {
+    const world = await boot();
+    const growth = unitGrowthOf(world.persistence);
+    if (!growth) throw new Error("growth");
+    await growth.loaded;
+    const leaders: number[] = [];
+    for (const map of world.maps.values())
+      map.forEachUnit((unit) => {
+        if (unit.kind === UNIT_KIND_NPC_LEADER) leaders.push(unit.id);
+      });
+    expect(leaders.length).toBe(2);
+    const sheets = new Map(leaders.map((id) => [id, growth.sheetOf(id)]));
+    for (const sheet of sheets.values()) {
+      expect(sheet).toMatchObject({ kind: "unit", level: 1, exp: 0 });
+      expect(sheet?.initial).toHaveLength(6);
+    }
+    // 몸 바탕도 그 스탯이다(전투·걷기·작업이 같은 값을 쓴다)
+    const [first = 0] = leaders;
+    expect(growth.baseOf(first)).toMatchObject({ kind: "stats", unitKind: "human" });
+    // 경험치를 받으면 휴먼과 똑같이 레벨이 오른다(묶음 하나 40 > 구간 35)
+    expect(growth.gain(first, 40)).toMatchObject({ level: 2, gainedLevels: 1 });
+    await world.persistence?.writer.durable();
+    const saved = await rows<{ unit_id: string; level: number; stats: number[] }>(
+      test.db,
+      `select unit_id, level, stats from unit_stats where unit_id = any($1::bigint[]) order by unit_id`,
+      [leaders],
+    );
+    expect(saved.map((row) => Number(row.unit_id))).toEqual(leaders.toSorted((a, b) => a - b));
+    expect(saved.find((row) => Number(row.unit_id) === first)?.level).toBe(2);
+
+    await world.stop();
+    worlds.splice(0);
+    const again = await boot();
+    const growthAgain = unitGrowthOf(again.persistence);
+    await growthAgain?.loaded;
+    for (const [id, sheet] of sheets) {
+      expect(growthAgain?.sheetOf(id)?.initial).toEqual(sheet?.initial);
+      expect(growthAgain?.sheetOf(id)?.level).toBe(id === first ? 2 : 1);
+    }
+  });
+});
 
 describe.skipIf(!TEST_DATABASE_URL)("NPC 일꾼 경험치 (DB)", () => {
   it("시설이 생산하면 그 시설 일꾼이 경험치를 받아 레벨이 오르고, 하루 끝·다시 켜기 뒤에도 오른 레벨이 남는다", async () => {

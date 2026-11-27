@@ -119,3 +119,23 @@ export const unitExp = pgTable(
   },
   (table) => [check("unit_exp_nonnegative", sql`${table.exp} >= 0`)],
 );
+
+/**
+ * 그 밖 유닛의 저장된 스탯·레벨(docs/adr/2026-11-27-all-units-have-stats.md, src/growth/store.ts): 휴먼(world_humans)·사이보그 유닛
+ * (cyborg_units)·사이보그 본체(cyborgs)가 아닌 유닛(NPC 지도자·봇 등)의 1차 스탯 6칸(STR·DEX·AGI·VIT·INT·WIS)·속성값·레벨. 처음 읽힐 때 구인 카드
+ * 규칙으로 굴려 쓴다. 유닛당 한 줄, 유닛에 외래 키를 두지 않는다(유닛이 사라지면 서버가 지운다). 직전 판 앱은 이 표를 모른 채 그대로 돈다(더하기만)
+ */
+export const unitStats = pgTable(
+  "unit_stats",
+  {
+    unitId: bigint("unit_id", { mode: "number" }).primaryKey(),
+    level: integer("level").notNull(),
+    stats: smallint("stats").array().notNull(),
+    elements: smallint("elements").array(),
+    updatedAtMs: bigint("updated_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    check("unit_stats_six", sql`cardinality(${table.stats}) = 6`),
+    check("unit_stats_level", sql`${table.level} >= 1`),
+  ],
+);

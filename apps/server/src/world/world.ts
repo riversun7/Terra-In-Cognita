@@ -62,6 +62,7 @@ import { type BoatHooks, createBoatHooks } from "../boats/hooks.ts";
 import type { RosterCatalog } from "../roster/catalog.ts";
 import { NO_GEAR, type UnitGear } from "../roster/unitBody.ts";
 import { retireTestMaps } from "./pins.ts";
+import { rollsUnitStats } from "./unitKinds.ts";
 import { auditRetiredWorkers, retireOldWorkers, splitOldWorkers } from "./retireOldWorkers.ts";
 import type { TerrainService } from "./terrainService.ts";
 import { createMapFactory, exploredStoreOf } from "./mapFactory.ts";
@@ -621,6 +622,14 @@ export function startWorld(
       writer,
       now,
       rules: config.cyborgRules ?? defaultCyborgRules,
+      // 저장된 스탯이 없는 사람 유닛(NPC 지도자·봇 등)은 처음 읽힐 때 굴려 저장한다(모든 유닛에 스탯·레벨 — unitKinds.ts rollsUnitStats)
+      rollable: (unitId) => {
+        for (const map of maps.values()) {
+          const info = map.unitInfo(unitId);
+          if (info) return rollsUnitStats(info.kind, info.speed);
+        }
+        return undefined;
+      },
       expTable: () => config.roster?.().expTable,
       log,
     });

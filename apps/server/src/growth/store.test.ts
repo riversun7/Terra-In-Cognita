@@ -9,8 +9,12 @@ function rig(tables: {
   humans?: Record<string, unknown>[];
   cyborgUnits?: Record<string, unknown>[];
   exps?: Record<string, unknown>[];
+  units?: Record<string, unknown>[];
+  /** 굴려 줄 유닛인가(없으면 굴리지 않는다) */
+  rollable?: (unitId: number) => boolean | undefined;
 }) {
   const writes: [string, Record<string, unknown>][] = [];
+  const removes: [string, Record<string, unknown>][] = [];
   const listeners: Listener[] = [];
   const pool = {
     query: (text: string) =>
@@ -19,13 +23,19 @@ function rig(tables: {
           ? (tables.humans ?? [])
           : text.includes("from cyborg_units")
             ? (tables.cyborgUnits ?? [])
-            : (tables.exps ?? []),
+            : text.includes("from unit_stats")
+              ? (tables.units ?? [])
+              : (tables.exps ?? []),
       }),
   };
   const writer = {
     upsert: (table: string, row: Record<string, unknown>) => {
       writes.push([table, row]);
       for (const listener of listeners) listener(table, row, false);
+    },
+    remove: (table: string, key: Record<string, unknown>) => {
+      removes.push([table, key]);
+      for (const listener of listeners) listener(table, key, true);
     },
     observe: (listener: Listener) => {
       listeners.push(listener);
@@ -37,11 +47,12 @@ function rig(tables: {
     writer: writer as unknown as Parameters<typeof createUnitGrowth>[0]["writer"],
     now: () => 5000,
     rules: () => TEST_SOCIETY_COEFFICIENTS,
+    rollable: tables.rollable,
   });
   const emit = (table: string, row: Record<string, unknown>, removed = false): void => {
     for (const listener of listeners) listener(table, row, removed);
   };
-  return { store, writes, emit };
+  return { store, writes, removes, emit };
 }
 
 const human = (unitId: number, level = 1, extra: Record<string, unknown> = {}) => ({
@@ -130,6 +141,66 @@ describe("유닛 성장 저장소", () => {
     expect(r.store.sheetOf(99)).toBeUndefined();
     expect(r.store.spanAt(1)).toBe(35);
     expect(r.store.spanAt(TEST_SOCIETY_COEFFICIENTS.cyborg.maxLevel)).toBe(0);
+  });
+
+  it("그 밖 유닛(지도자·봇 등): 처음 읽힐 때 구인 카드 규칙으로 굴려 저장하고, 그 뒤로는 휴먼과 똑같이 자란다", async () => {
+    // 7 = 굴려 줄 유닛, 8 = 굴리지 않는 유닛(탈것·배·시험 유닛), 9 = 지금 세계에 없는 유닛
+    const r = rig({ rollable: (unitId) => (unitId === 7 ? true : unitId === 8 ? false : undefined) });
+    // 표를 읽기 전에는 굴리지 않는다(읽을 줄을 굴린 값으로 덮지 않게)
+    expect(r.store.baseOf(7)).toBeUndefined();
+    await r.store.loaded;
+    const sheet = r.store.sheetOf(7);
+    expect(sheet).toMatchObject({ kind: "unit", level: 1, exp: 0, rebirths: 0, kPm: null });
+    expect(sheet?.initial).toHaveLength(6);
+    expect(sheet?.initial.every((value) => Number.isInteger(value) && value > 0)).toBe(true);
+    // 굴린 값을 unit_stats에 한 번 쓴다. 다시 읽어도 같은 값이고 또 쓰지 않는다
+    expect(r.writes).toEqual([
+      [
+        "unitStats",
+        { unit_id: 7, level: 1, stats: sheet?.initial, elements: expect.any(Array), updated_at_ms: 5000 },
+      ],
+    ]);
+    expect(r.store.sheetOf(7)?.initial).toEqual(sheet?.initial);
+    expect(r.writes).toHaveLength(1);
+    // 몸 바탕은 휴먼 칸 배치의 저장된 스탯 몸
+    expect(r.store.baseOf(7)).toMatchObject({ kind: "stats", unitKind: "human", level: 1 });
+    // 굴리지 않는 유닛·세계에 없는 유닛은 기본 몸 그대로
+    expect(r.store.baseOf(8)).toBeUndefined();
+    expect(r.store.baseOf(9)).toBeUndefined();
+    expect(r.writes).toHaveLength(1);
+    // 경험치: 레벨이 오르면 unit_stats 줄에 레벨을 다시 쓴다
+    expect(r.store.gain(7, 40)).toEqual({ level: 2, exp: 5, gainedLevels: 1 });
+    expect(r.writes.slice(1)).toEqual([
+      ["unitStats", expect.objectContaining({ unit_id: 7, level: 2, stats: sheet?.initial })],
+      ["unitExp", { unit_id: 7, exp: 5, updated_at_ms: 5000 }],
+    ]);
+    // 그 유닛의 휴먼 줄이 생기면 그 줄이 이긴다(굴려 둔 줄은 지운다)
+    r.emit("humans", human(7, 4));
+    expect(r.removes).toEqual([["unitStats", { unit_id: 7 }]]);
+    expect(r.store.sheetOf(7)).toMatchObject({
+      kind: "human",
+      level: 4,
+      exp: 0,
+      initial: [12, 10, 8, 14, 10, 6],
+    });
+  });
+
+  it("그 밖 유닛의 저장된 줄을 읽는다(다시 굴리지 않는다). 유닛이 지워지면 줄도 지운다", async () => {
+    const r = rig({
+      units: [{ unit_id: 7, level: 3, stats: [5, 6, 7, 8, 9, 10], elements: null }],
+      exps: [{ unit_id: 7, exp: 12 }],
+      rollable: () => true,
+    });
+    await r.store.loaded;
+    expect(r.store.sheetOf(7)).toMatchObject({
+      kind: "unit",
+      level: 3,
+      exp: 12,
+      initial: [5, 6, 7, 8, 9, 10],
+    });
+    expect(r.writes).toEqual([]);
+    r.emit("units", { id: 7 }, true);
+    expect(r.removes).toEqual([["unitStats", { unit_id: 7 }]]);
   });
 
   it("경험치를 더하면 구간을 넘을 때 레벨이 오르고, 레벨·경험치를 따로 쓴다", async () => {

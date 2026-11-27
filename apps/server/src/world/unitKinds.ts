@@ -62,6 +62,17 @@ export function isAfloat(
 }
 
 /**
+ * 저장된 스탯이 없으면 굴려 주는 유닛 종류인가(사용자 결정 2026-11-27 "모든 것은 유닛이고 레벨 스탯이 있어야한다"·"똑같은 유닛이라니까",
+ * docs/adr/2026-11-27-all-units-have-stats.md — growth/store.ts): 자기 스탯 줄이 없는 사람 유닛 = 봇(NPC 나라 휴먼이 되기 전·규모 시험 봇)과
+ * NPC 지도자. 나머지는 이미 자기 줄이 있다 — 사이보그 본체(cyborgs), 휴먼(world_humans — 구인이 늘 스탯을 쓴다), 사이보그 유닛(cyborg_units).
+ * 탈것(차 빠르기 봇)·배는 사람이 아니라 빠진다. 줄 없이 세운 휴먼·시험 유닛(개발 도구·시험 도우미 addTestUnits)은 기본 몸 그대로다
+ */
+export function rollsUnitStats(kind: number, speed: number): boolean {
+  if (kind === UNIT_KIND_BOT) return speed < VEHICLE_MIN_SPEED;
+  return kind === UNIT_KIND_NPC_LEADER;
+}
+
+/**
  * 보유 유닛 수(주거 상한 D-153 — 사이보그 판의 유닛 수, roster/worldUnits.ts)에 드는 종류인가: 사이보그 본체(D-445 178)와 배(기획 D-542 1326 나 —
  * 배는 사람이 아니다)는 빠진다. 배 유지비는 그대로 설정 칸 boat_upkeep_pm(D-541 1277 다)으로 낸다(world/upkeepWeights.ts)
  */

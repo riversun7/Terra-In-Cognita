@@ -6,11 +6,15 @@
 // - 몸 바탕(baseOf): 저장된 1차 스탯 + 레벨 성장(@terra/shared primaryAtLevel — 초기 × (1 + 성장률 × K × (Lv − 1)), 사이보그와 같은 식).
 //   성장 K가 없는 유닛(구인 휴먼·사이보그 유닛)은 기준 K(DEFAULT_GROWTH_K_PM = 1000‰, 사이보그 K 범위의 가운데)로 자란다 [임시].
 //   저장된 스탯이 없는 휴먼(처음부터 있던 NPC 휴먼)은 거울에 없다 → 기본 몸 그대로.
+// - 그 밖 유닛(docs/adr/2026-11-27-all-units-have-stats.md — 사용자 결정 2026-11-27 "모든 것은 유닛이고 레벨 스탯이 있어야한다"): 휴먼·사이보그
+//   유닛·본체가 아닌 사람 유닛(NPC 지도자·봇, world/unitKinds.ts rollsUnitStats)은 처음 읽힐 때 구인 카드 규칙(@terra/sim foundingProfileOf —
+//   처음부터 있던 휴먼과 같은 굴림, 행정 레벨 1)으로 스탯·속성을 굴려 unit_stats에 저장한다(kind "unit"). 그 뒤로는 휴먼과 똑같이 자란다. 뒤에 그
+//   유닛의 휴먼·사이보그 유닛 줄이 생기면 그 줄이 이긴다(unit_stats 줄은 지운다).
 // - 경험치(gain): 구간을 넘으면 레벨이 오른다(경험치 표 = 팩 exp_table, 만렙 = 설정 칸 cyborg.maxLevel — 본체와 같다). 레벨은 그 유닛 표의
 //   level 칸만 고치는 쓰기(humanLevel·cyborgUnitLevel)로, 경험치는 unit_exp로 남긴다.
 import { DEFAULT_EXP_TABLE, type ExpTableEntryJson, applyExpGain, expSpanAt } from "@terra/shared/expTable";
 import { primaryAtLevel } from "@terra/shared/statGrowth";
-import type { SocietyCoefficients } from "@terra/sim";
+import { type SocietyCoefficients, foundingProfileOf, recruitElementSlots } from "@terra/sim";
 import type { BodyBase } from "../roster/unitBody.ts";
 import type { QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
@@ -18,9 +22,17 @@ import type { WorldWriter } from "../world/persist/writer.ts";
 /** 성장 K가 없는 유닛의 기준 K(‰, 1차 스탯마다) [임시 — 사이보그 K 범위 800~1200의 가운데] */
 export const DEFAULT_GROWTH_K_PM = 1000;
 
-/** 거울 한 줄(유닛 하나). 스탯 배열 차례 = STR·DEX·AGI·VIT·INT·WIS(world_humans.stats·cyborg_units.stats와 같다) */
+/** 그 밖 유닛의 스탯 굴림 시드(유닛 ID마다 한 번 굴려 저장한다 — 세계 시드와 따로, 값은 정해진 상수) */
+const UNIT_STAT_SEED = 0x756e_6974;
+/** 그 밖 유닛의 스탯 굴림에 쓰는 행정 레벨(구인 카드 규칙의 가장 낮은 단계) */
+const UNIT_STAT_ADMIN_LEVEL = 1;
+
+/**
+ * 거울 한 줄(유닛 하나). 스탯 배열 차례 = STR·DEX·AGI·VIT·INT·WIS(world_humans.stats·cyborg_units.stats·unit_stats.stats와 같다).
+ * kind: human = 휴먼, cyborg = 사이보그 유닛, unit = 그 밖 유닛(unit_stats)
+ */
 export interface UnitGrowthEntry {
-  kind: "human" | "cyborg";
+  kind: "human" | "cyborg" | "unit";
   level: number;
   exp: number;
   rebirths: number;
@@ -38,7 +50,7 @@ export interface UnitGrowthView {
 
 /** 운영 조회용 한 줄: 처음 스탯·성장 K(없으면 null = 기준 K)·지금 스탯(레벨 성장) — 배열 차례 STR·DEX·AGI·VIT·INT·WIS */
 export interface UnitGrowthSheet extends UnitGrowthView {
-  readonly kind: "human" | "cyborg";
+  readonly kind: "human" | "cyborg" | "unit";
   readonly rebirths: number;
   readonly initial: readonly number[];
   readonly kPm: readonly number[] | null;
@@ -89,9 +101,14 @@ export function registerUnitGrowth(persistence: object, store: UnitGrowthStore):
 /** 저장소를 만든다(쓰기 대기열이 생긴 뒤 — 몸을 읽는 곳들이 세계 저장 층보다 먼저 만들어진다). 붙이기는 registerUnitGrowth */
 export function createUnitGrowth(input: {
   readonly pool: QueryPool;
-  readonly writer: Pick<WorldWriter, "upsert" | "observe">;
+  readonly writer: Pick<WorldWriter, "upsert" | "observe" | "remove">;
   readonly now: () => number;
-  readonly rules: () => Pick<SocietyCoefficients, "cyborg">;
+  readonly rules: () => Pick<SocietyCoefficients, "cyborg" | "recruit">;
+  /**
+   * 저장된 스탯이 없을 때 굴려 줄 유닛인가(세계가 답한다 — world/unitKinds.ts rollsUnitStats): true = 굴려 저장한다(봇·NPC 지도자), false =
+   * 굴리지 않는다(기본 몸 — 탈것·배·줄 없이 세운 시험 유닛), undefined = 지금 세계에 없는 유닛(다음에 다시 묻는다). 없으면 굴리지 않는다
+   */
+  readonly rollable?: ((unitId: number) => boolean | undefined) | undefined;
   /** 경험치 표(실효 팩). 없으면 기본 표 */
   readonly expTable?: (() => readonly ExpTableEntryJson[] | undefined) | undefined;
   readonly log?: { error(obj: object, message: string): void } | undefined;
@@ -101,16 +118,74 @@ export function createUnitGrowth(input: {
   const touchedExp = new Set<number>();
   const expTable = (): readonly ExpTableEntryJson[] => input.expTable?.() ?? DEFAULT_EXP_TABLE;
 
+  /** 굴리지 않는 유닛(다시 묻지 않는다) */
+  const plain = new Set<number>();
+  /** 표를 다 읽었나(읽기 전에는 굴리지 않는다 — 읽을 줄을 굴린 값으로 덮지 않게) */
+  let ready = false;
+  const saveUnit = (unitId: number, entry: UnitGrowthEntry): void => {
+    input.writer.upsert("unitStats", {
+      unit_id: unitId,
+      level: entry.level,
+      stats: [...entry.stats],
+      elements: entry.elements ? [...entry.elements] : null,
+      updated_at_ms: input.now(),
+    });
+  };
+  /** 그 유닛의 휴먼·사이보그 유닛 줄이 생겼다: 굴려 둔 그 밖 유닛 줄은 지운다(그 줄이 이긴다) */
+  const dropUnitRow = (unitId: number): void => {
+    if (table.get(unitId)?.kind === "unit") input.writer.remove("unitStats", { unit_id: unitId });
+  };
+  /** 거울의 한 줄. 없고 굴려 줄 유닛이면 구인 카드 규칙으로 굴려 저장한다 */
+  const ensure = (unitId: number): UnitGrowthEntry | undefined => {
+    const entry = table.get(unitId);
+    if (entry || !ready || !input.rollable || plain.has(unitId)) return entry;
+    const can = input.rollable(unitId);
+    if (can !== true) {
+      if (can === false) plain.add(unitId);
+      return undefined;
+    }
+    const profile = foundingProfileOf(UNIT_STAT_SEED, unitId, UNIT_STAT_ADMIN_LEVEL, input.rules().recruit);
+    const stats = sixOrNull([...profile.stats]);
+    if (!stats) return undefined;
+    const made: UnitGrowthEntry = {
+      kind: "unit",
+      level: Math.max(1, Math.trunc(profile.level)),
+      exp: 0,
+      rebirths: 0,
+      stats,
+      kPm: null,
+      elements: recruitElementSlots(profile.elements),
+    };
+    table.set(unitId, made);
+    saveUnit(unitId, made);
+    return made;
+  };
+  const setUnit = (row: Readonly<Record<string, unknown>>): void => {
+    const unitId = Number(row["unit_id"]);
+    const stats = sixOrNull(row["stats"]);
+    if (!Number.isFinite(unitId) || !stats) return;
+    table.set(unitId, {
+      kind: "unit",
+      level: Math.max(1, Math.trunc(Number(row["level"] ?? 1))),
+      exp: 0,
+      rebirths: 0,
+      stats,
+      kPm: null,
+      elements: numbers(row["elements"]),
+    });
+  };
+
   const setHuman = (row: Readonly<Record<string, unknown>>): void => {
     const unitId = Number(row["unit_id"]);
     const stats = sixOrNull(row["stats"]);
     if (!Number.isFinite(unitId)) return;
     if (!stats) {
-      // 저장된 스탯이 없는 휴먼(처음부터 있던 NPC 휴먼): 거울에 두지 않는다
-      table.delete(unitId);
+      // 저장된 스탯이 없는 휴먼 줄(NPC 런타임이 켤 때 채운다): 휴먼 줄에서 온 값만 뺀다(굴려 둔 그 밖 유닛 줄은 그대로 쓴다)
+      if (table.get(unitId)?.kind === "human") table.delete(unitId);
       return;
     }
-    const old = table.get(unitId);
+    dropUnitRow(unitId);
+    const old = table.get(unitId)?.kind === "unit" ? undefined : table.get(unitId);
     table.set(unitId, {
       kind: "human",
       level: Math.max(1, Math.trunc(Number(row["level"] ?? old?.level ?? 1))),
@@ -126,6 +201,7 @@ export function createUnitGrowth(input: {
     const unitId = Number(row["unit_id"]);
     const stats = sixOrNull(row["stats"]);
     if (!Number.isFinite(unitId) || !stats) return;
+    dropUnitRow(unitId);
     const old = table.get(unitId);
     table.set(unitId, {
       kind: "cyborg",
@@ -145,10 +221,14 @@ export function createUnitGrowth(input: {
     ),
     input.pool.query("select unit_id, level, stats, elements from cyborg_units"),
     input.pool.query("select unit_id, exp from unit_exp"),
+    input.pool.query("select unit_id, level, stats, elements from unit_stats"),
   ])
-    .then(([humans, cyborgUnits, exps]) => {
+    .then(([humans, cyborgUnits, exps, units]) => {
       for (const row of humans.rows) if (!table.has(Number(row.unit_id))) setHuman(row);
       for (const row of cyborgUnits.rows) if (!table.has(Number(row.unit_id))) setCyborgUnit(row);
+      // 그 밖 유닛: 휴먼·사이보그 유닛 줄이 있으면 그 줄이 이긴다
+      for (const row of units.rows) if (!table.has(Number(row.unit_id))) setUnit(row);
+      ready = true;
       for (const row of exps.rows) {
         const entry = table.get(Number(row.unit_id));
         if (entry && !touchedExp.has(Number(row.unit_id))) entry.exp = Math.max(0, Number(row.exp));
@@ -160,7 +240,11 @@ export function createUnitGrowth(input: {
   input.writer.observe?.((name, row, removed) => {
     const unitId = Number(row["unit_id"] ?? row["id"]);
     if (name === "units") {
-      if (removed) table.delete(unitId);
+      if (removed) {
+        dropUnitRow(unitId);
+        table.delete(unitId);
+        plain.delete(unitId);
+      }
       return;
     }
     if (name === "humans") {
@@ -193,7 +277,7 @@ export function createUnitGrowth(input: {
     spanAt,
     grownOf,
     sheetOf(unitId) {
-      const entry = table.get(unitId);
+      const entry = ensure(unitId);
       if (!entry) return undefined;
       return {
         kind: entry.kind,
@@ -207,13 +291,14 @@ export function createUnitGrowth(input: {
       };
     },
     baseOf(unitId) {
-      const entry = table.get(unitId);
+      const entry = ensure(unitId);
       if (!entry) return undefined;
       const at = (index: number): number => entry.stats[index] ?? 0;
       const k = (index: number): number => entry.kPm?.[index] ?? DEFAULT_GROWTH_K_PM;
       return {
         kind: "stats",
-        unitKind: entry.kind,
+        // 그 밖 유닛은 휴먼 칸 배치(기본 몸과 같다)
+        unitKind: entry.kind === "cyborg" ? "cyborg" : "human",
         primaries: { str: at(0), dex: at(1), agi: at(2), vit: at(3), int: at(4), wis: at(5) },
         kPm: { str: k(0), dex: k(1), agi: k(2), vit: k(3), int: k(4), wis: k(5) },
         level: entry.level,
@@ -222,12 +307,12 @@ export function createUnitGrowth(input: {
       };
     },
     viewOf(unitId) {
-      const entry = table.get(unitId);
+      const entry = ensure(unitId);
       if (!entry) return undefined;
       return { level: entry.level, exp: entry.exp, span: spanAt(entry.level) };
     },
     gain(unitId, amount) {
-      const entry = table.get(unitId);
+      const entry = ensure(unitId);
       if (!entry) return undefined;
       const gain = Number.isFinite(amount) ? Math.max(0, Math.floor(amount)) : 0;
       const next = applyExpGain(expTable(), entry.level, entry.exp, gain, input.rules().cyborg.maxLevel);
@@ -238,10 +323,12 @@ export function createUnitGrowth(input: {
       touchedExp.add(unitId);
       if (gainedLevels !== 0) {
         entry.level = next.level;
-        input.writer.upsert(entry.kind === "human" ? "humanLevel" : "cyborgUnitLevel", {
-          unit_id: unitId,
-          level: entry.level,
-        });
+        if (entry.kind === "unit") saveUnit(unitId, entry);
+        else
+          input.writer.upsert(entry.kind === "human" ? "humanLevel" : "cyborgUnitLevel", {
+            unit_id: unitId,
+            level: entry.level,
+          });
       }
       input.writer.upsert("unitExp", { unit_id: unitId, exp: entry.exp, updated_at_ms: input.now() });
       return { level: entry.level, exp: entry.exp, gainedLevels };

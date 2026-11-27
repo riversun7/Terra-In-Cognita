@@ -244,8 +244,11 @@ export interface OpsUnitRow {
 
 /** 유닛 성장 값(운영 조회). 배열 차례 = STR·DEX·AGI·VIT·INT·WIS */
 export interface OpsUnitGrowth {
-  /** cyborg = 사이보그 본체, human = 휴먼, cyborg_unit = 사이보그 유닛, baseline = 저장된 스탯이 없어 종류 기본 몸(경험치를 받지 않는다) */
-  source: "cyborg" | "human" | "cyborg_unit" | "baseline";
+  /**
+   * cyborg = 사이보그 본체, human = 휴먼, cyborg_unit = 사이보그 유닛, unit = 그 밖 유닛(NPC 지도자·봇 등 — 굴려 저장한 스탯, unit_stats),
+   * baseline = 스탯을 두지 않는 유닛(탈것·배·시험 유닛 — 종류 기본 몸, 경험치를 받지 않는다)
+   */
+  source: "cyborg" | "human" | "cyborg_unit" | "unit" | "baseline";
   level: number;
   /** 이번 레벨 안 경험치 / 구간(만렙이면 구간 0) */
   exp: number;

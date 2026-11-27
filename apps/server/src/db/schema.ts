@@ -938,7 +938,7 @@ export { restorationContributions, worldRuins } from "./ruinsSchema.ts";
 export * from "./marketSchema.ts";
 export * from "./exchangeLockerSchema.ts";
 /** 2차맵 사이 이동 표(WP9)·원자재 오브젝트 상태 표(docs/adr/2026-11-07-gather-objects.md) */
-export { unitExp, unitLifeRules, unitTactics, worldTravels } from "./travelSchema.ts";
+export { unitExp, unitLifeRules, unitStats, unitTactics, worldTravels } from "./travelSchema.ts";
 export { gatherObjectStates } from "./gatherSchema.ts";
 /** 배 만들기 작업 표(docs/adr/2026-11-13-boats.md "바뀜 (2026-11-14, B2)") */
 export { boatFacilities, boatJobs, boatResets, boatStates } from "./boatSchema.ts";

@@ -286,6 +286,12 @@ export const WORLD_TABLES = {
     columns: ["unit_id", "exp", "updated_at_ms"],
     key: ["unit_id"],
   },
+  /** 그 밖 유닛(NPC 지도자·봇 등)의 저장된 스탯·레벨(growth/store.ts — 유닛에 외래 키 없음, 유닛 다음에 쓴다) */
+  unitStats: {
+    name: "unit_stats",
+    columns: ["unit_id", "level", "stats", "elements", "updated_at_ms"],
+    key: ["unit_id"],
+  },
   /** 유닛이 배운 스킬(스킬 유전자 주입 D-516, 유닛·스킬마다 한 줄). 유닛 다음에 쓰고, 유닛이 지워지면 DB가 함께 지운다 */
   unitSkills: {
     name: "unit_skills",
@@ -940,6 +946,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "humanLevel",
   "cyborgUnitLevel",
   "unitExp",
+  "unitStats",
   "templeDevotions",
   "templeGuardians",
   "recruitDraws",

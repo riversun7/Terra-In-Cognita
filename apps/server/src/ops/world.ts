@@ -104,7 +104,7 @@ export function unitGrowth(world: World, unitId: number): { name: string | null;
   return {
     name,
     growth: {
-      source: sheet.kind === "human" ? "human" : "cyborg_unit",
+      source: sheet.kind === "human" ? "human" : sheet.kind === "cyborg" ? "cyborg_unit" : "unit",
       level: sheet.level,
       exp: sheet.exp,
       expSpan: sheet.span,

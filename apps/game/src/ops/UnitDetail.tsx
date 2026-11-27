@@ -38,6 +38,7 @@ const GROWTH_SOURCES = {
   cyborg: m.ops_growth_cyborg,
   human: m.ops_growth_human,
   cyborg_unit: m.ops_growth_cyborg_unit,
+  unit: m.ops_growth_unit,
   baseline: m.ops_growth_baseline,
 } as const;
 

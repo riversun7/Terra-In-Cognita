@@ -761,8 +761,13 @@ export function startWorld(
     // (docs/adr/2026-11-26-unit-growth.md — 저장된 스탯이 없는 유닛은 받지 않는다)
     const gainUnitExp = (unitId: number, amount: number): void => {
       const userId = cyborgs.userOfUnit(unitId);
-      if (userId !== undefined) cyborgs.addExp(userId, amount);
-      else growth.gain(unitId, amount);
+      if (userId !== undefined) {
+        cyborgs.addExp(userId, amount);
+        return;
+      }
+      // 레벨이 오르면 NPC 거울 세계의 휴먼 레벨도 맞춘다(안 맞추면 다음 휴먼 줄 저장이 옛 레벨로 덮는다 — npc/runtime.ts setHumanLevel)
+      const gained = growth.gain(unitId, amount);
+      if (gained && gained.gainedLevels > 0) npc?.setHumanLevel(unitId, gained.level);
     };
     // 노동 계약: 소유 주체 정산이 계약을 같은 시각까지 정산하고 산출을 계약 몫으로 나눈다
     const labor = createLaborService({
@@ -1036,6 +1041,7 @@ export function startWorld(
           now,
           log,
           rules: config.cyborgRules ?? defaultCyborgRules,
+          gainExp: gainUnitExp, // NPC 일꾼 경험치(docs/adr/2026-11-27-npc-work-exp.md)
           dayMs: config.npc.dayMs,
           manual: config.npc.manual,
           gardenerWaves: config.npc.gardenerWaves,

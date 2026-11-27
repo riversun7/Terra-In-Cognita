@@ -143,6 +143,8 @@ export interface NpcRuntimeOptions {
   readonly rules: () => SocietyCoefficients;
   /** 하루 길이(ms, 기본 실제 24시간). 측정용으로만 줄인다(NPC_DAY_MS) */
   readonly dayMs?: number | undefined;
+  /** 일꾼 경험치를 받는 곳(유닛 성장 거울 — 도시 경제가 생산할 때마다 부른다, economy.ts gainExp). 없으면 NPC 일꾼은 경험치를 받지 않는다 */
+  readonly gainExp?: ((unitId: number, amount: number) => void) | undefined;
   /** 정원사 웨이브 켬(GARDENER_WAVES). false면 도시 웨이브 확률 0(오염은 그대로 쌓임). 없으면 켬 */
   readonly gardenerWaves?: boolean | undefined;
   /** 타이머를 켜지 않는다(시험이 tick을 직접 부른다) */
@@ -229,6 +231,11 @@ export interface NpcRuntime {
   readonly unitTraits: (unitId: number) => ReturnType<NpcAiBridge["factionBaseTraits"]>; // 유닛 7축 성향(aiBridge — NPC 가문의 연맹·지분 판단은 가문장 성향)
   /** NPC 휴먼 이름(기획 답 773 나, humanNames.ts — 그 휴먼 나라의 팩 목록). 거울 세계 휴먼이 아니거나 목록이 없으면 undefined */
   humanName(unitId: number): string | undefined;
+  /**
+   * 경험치로 레벨이 오른 휴먼의 레벨을 거울 세계에 맞춘다(유닛 성장 — growth/store.ts). 거울의 레벨이 옛 값이면 다음 휴먼 줄 저장이 오른 레벨을
+   * 옛 값으로 덮는다(persist.ts — 휴먼 줄은 거울의 레벨을 쓴다). 스탯이 없는 휴먼·거울에 없는 유닛은 아무 일도 없다
+   */
+  setHumanLevel(unitId: number, level: number): void;
   /** 그 도시의 지난 하루 끝 생필품 충족 ‰(781 나, cityDayStore.ts). 아직 하루 끝 전이면 undefined */
   necessitiesOf(cityId: number): number | undefined;
   /** 그 세력(소유 주체 ID)의 수도 도시(D-528, capitals.ts). 도시가 없으면 undefined */
@@ -711,6 +718,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         cityMapOf: (cityId) => persist.places.get(cityId)?.mapKey,
         catchmentSaved,
         away: awayFromCity,
+        gainExp: o.gainExp,
       })
     : undefined;
   const catchmentState = econ?.economy.catchment;
@@ -1015,6 +1023,10 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     humanName(unitId) {
       const unit = world.units.get(unitId);
       return unit ? humanNameOf(namesOf(unit.owner), unitId) : undefined;
+    },
+    setHumanLevel(unitId, level) {
+      const unit = world.units.get(unitId);
+      if (unit?.recruit && unit.recruit.level !== level) unit.recruit = { ...unit.recruit, level };
     },
     necessitiesOf: (cityId) => cityDay.necessitiesOf(cityId),
     capitalOf: (owner) => capitals.capitalOf(owner),

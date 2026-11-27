@@ -45,6 +45,8 @@ import {
   assignCityWorkers,
   type CityWorkSlot,
   cityStartStock,
+  cityWorkerUnits,
+  gatherExp,
   defaultGatherStat,
   lotSizeOf,
   nextFxRoundAt,
@@ -295,6 +297,11 @@ export interface ServerEconomyOptions {
   readonly startMs: number;
   readonly now: () => number;
   readonly log: { info(obj: object, message: string): void; warn(obj: object, message: string): void };
+  /**
+   * 일꾼 경험치(사용자 지적 2026-11-27 "경험치 적용했다면서 전부 레벨1이고 경험치 0이냐", docs/adr/2026-11-27-npc-work-exp.md): 시설이 한 번
+   * 생산할 때마다 그 시설 일꾼 한 명(차례로)에게 묶음 하나 몫의 경험치를 준다. 없으면 주지 않는다
+   */
+  readonly gainExp?: ((unitId: number, amount: number) => void) | undefined;
   /** 도시 → 그 도시 2차맵(1차맵 칸 키, 배후지 칸을 센다). 없으면 배후지 다툼을 켜지 않는다 */
   readonly cityMapOf?: ((cityId: number) => number | undefined) | undefined;
   /**
@@ -852,6 +859,27 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     metrics.trades += 1;
   });
 
+  /** 시설마다 경험치를 받을 일꾼 차례(메모리 — 다시 켜면 처음 일꾼부터) */
+  const expTurns = new Map<number, number>();
+  /**
+   * 일꾼 경험치: 생산 한 번 = 묶음 하나 몫(플레이어 채집·직무와 같은 식 @terra/sim gatherExp — 기본 + 티어당 더함. 티어는 선택형 채집소의 기르는
+   * 티어, 그 밖 시설은 0)을 그 시설 일꾼 한 명에게 차례로 준다. 일꾼 ↔ 휴먼 = cityWorkerUnits(임금·보이는 일터와 같은 나눔)
+   */
+  const giveWorkExp = (facility: EcoFacility, c: SocietyCoefficients): void => {
+    if (!o.gainExp) return;
+    const workers = cityWorkerUnits(world, economy, facility.city).filter(
+      (worker) => worker.facilityId === facility.id,
+    );
+    if (workers.length === 0) return;
+    const turn = expTurns.get(facility.id) ?? 0;
+    expTurns.set(facility.id, turn + 1);
+    const worker = workers[turn % workers.length];
+    if (!worker) return;
+    const tier = isSelectRecipe(facility.recipe) ? facility.selectTier : 0;
+    const amount = gatherExp(tier, c.gatherObjects);
+    if (amount > 0) o.gainExp(worker.unitId, amount);
+  };
+
   const hooks: SimHooks = {
     ...run.hooks,
     factionBorn: (child, parent) => {
@@ -919,6 +947,8 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         const batch = facility?.pending;
         const shortBefore = economy.today.inputShort;
         run.handle(event, nowMs);
+        // 일꾼 경험치: 실제로 생산한 번(재료가 모자라지 않은 번)만
+        if (facility && economy.today.inputShort === shortBefore) giveWorkExp(facility, c);
         // NPC 사업장(기획 대조 2053·2054, npcDelivery.ts): 산출은 시설 창고로, 재료비, 일꾼이 도시 창고로 실제로 나른다(닿으면 나라가 산 매출), 하루 끝 정산
         const buildingId = runs.get(subject)?.buildingId ?? null;
         const city = facility ? world.cities.get(facility.city) : undefined;

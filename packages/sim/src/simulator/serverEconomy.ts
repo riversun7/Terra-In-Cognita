@@ -6,6 +6,7 @@ export {
   EVENT_PRODUCE,
   EVENT_TRADE,
   EVENT_UPKEEP,
+  batchDurationFor,
   checkEconomy,
   defaultGatherStat,
   nextFxRoundAt,
@@ -15,6 +16,7 @@ export {
   type EcoFacility,
   type Economy,
   type GatherSettings,
+  type PendingBatch,
 } from "./economy.ts";
 // 폐허가 된 도시 창고 물건의 갈 곳(기획 D-518 535·540 나 — 시뮬·서버 같은 규칙)
 export {

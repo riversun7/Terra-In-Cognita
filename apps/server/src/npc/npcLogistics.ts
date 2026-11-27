@@ -24,6 +24,7 @@
 // - 운반꾼은 NPC 자기 짐(빈 일꾼 운반)의 운반꾼 수에서 뺀다(staffIn — npc/economy.ts peopleOf). 운반꾼은 물류센터에 맡긴 짐을 진다.
 // 정수만 쓴다.
 import {
+  type CityWorker,
   type SimCity,
   type SimUnit,
   type SocietyCoefficients,
@@ -37,6 +38,7 @@ import {
   npcDailyWage,
 } from "@terra/sim";
 import type { BusinessCore } from "../business/core.ts";
+import type { RestFacility } from "./cityRest.ts";
 import type { WorkFacility } from "./humanPlaces.ts";
 import { traitScalePm } from "./rulingSpend.ts";
 
@@ -66,6 +68,30 @@ export function assignCenterStaff(
       if (unitId !== undefined) staff.push(unitId);
     }
     out.set(center.buildingId, staff);
+  }
+  return out;
+}
+
+/**
+ * 쉼터 계획(cityRest.ts planCityRest)에 넣을 NPC 물류센터 시설 줄(순수 함수): 생산 시설 일꾼을 뺀 남은 휴먼 수(idleCount)를
+ * 물류센터 건물 ID 차례로 채워 RestFacility 목록으로 돌려준다. 시설 ID = LOGISTICS_WORK_BASE + buildingId(생산·도시 직무 뒤)
+ */
+export function planCenterWorkFacilities(
+  idleCount: number,
+  centers: readonly NpcCenterSlots[],
+): RestFacility[] {
+  let left = Math.max(0, Math.trunc(idleCount));
+  const out: RestFacility[] = [];
+  for (const center of centers.toSorted((a, b) => a.buildingId - b.buildingId)) {
+    const taken = Math.min(Math.max(0, Math.trunc(center.slots)), left);
+    if (taken <= 0) continue;
+    left -= taken;
+    out.push({
+      id: LOGISTICS_WORK_BASE + center.buildingId,
+      buildingId: center.buildingId,
+      workers: taken,
+      hauls: false,
+    });
   }
   return out;
 }
@@ -137,6 +163,10 @@ export interface NpcLogistics {
   staffIn(cityId: number): number;
   /** 그 도시 NPC 물류센터마다 운반꾼(건물 ID 차례 — 임금) */
   centersIn(cityId: number): ReadonlyMap<number, readonly number[]>;
+  /** 숙박비·쉼터 맞춤용 CityWorker 목록(시설 ID = LOGISTICS_WORK_BASE + buildingId, 건물 ID 차례) */
+  centerWorkers(cityId: number): CityWorker[];
+  /** syncCity 직후 스테일 캐시 무효화 */
+  invalidate(cityId?: number): void;
 }
 
 export function createNpcLogistics(deps: NpcLogisticsDeps): NpcLogistics {
@@ -190,6 +220,18 @@ export function createNpcLogistics(deps: NpcLogisticsDeps): NpcLogistics {
       return count;
     },
     centersIn: (cityId) => staffOf(cityId),
+    centerWorkers(cityId) {
+      const out: CityWorker[] = [];
+      for (const [buildingId, staff] of [...staffOf(cityId)].toSorted((a, b) => a[0] - b[0])) {
+        const facilityId = LOGISTICS_WORK_BASE + buildingId;
+        staff.forEach((unitId, index) => out.push({ unitId, facilityId, index }));
+      }
+      return out;
+    },
+    invalidate(cityId) {
+      if (cityId === undefined) cache.clear();
+      else cache.delete(cityId);
+    },
   };
 }
 

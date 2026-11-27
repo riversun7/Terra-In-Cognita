@@ -49,7 +49,7 @@
 // 정산하는 때의 남은 번수만 쓴다(기획 정리: 750~755·757 지금 코드). facility 채집소 버프는 objects 채집소와 같은 설정 칸을 쓴다(확인 대기 810~813).
 // 정수 연산만 쓴다(판정 코드 규칙).
 import type { SocietyCoefficients } from "@terra/sim";
-import { PHASE_REST, footprintRect, haulMs, haulOn, mix32 } from "@terra/sim";
+import { PHASE_REST, footprintRect, gatherExp, haulMs, haulOn, mix32 } from "@terra/sim";
 import type { FacilityResultCode } from "@terra/protocol";
 import { buildingLocation, cargoLocation, cityLocation } from "@terra/shared/goodsPlaces";
 import type { Ledger } from "../economy/ledger.ts";
@@ -149,6 +149,69 @@ export interface StationDeps {
     | undefined;
   /** 물류센터 운반 대행(기획 D-576 — logistics/haulService.ts). 없으면 맡기지 못한다(via 건물 ID = service_closed, auto = 내 운반꾼만) */
   readonly haulService?: HaulCarryHook | undefined;
+  /** 물류센터 배달 완료 경험치(플레이어·NPC 물류센터 운반꾼 공통) */
+  readonly gainExp?: ((unitId: number, amount: number) => void) | undefined;
+}
+
+/** 물류센터 배달 완료 경험치 입력 */
+export interface DeliveryExpInput {
+  /** 기준 묶음 경험치(설정 칸 gather_obj_exp, 출발 10) */
+  readonly baseExp: number;
+  /** 출발 ↔ 도착 편도 체비셰프 거리(칸) */
+  readonly cells: number;
+  /** 출발 시 실은 총 무게(g) */
+  readonly expectedGrams: bigint;
+  /** 실제 도착지에 내려놓은 무게(g) */
+  readonly deliveredGrams: bigint;
+  /** 운반꾼 1회 적재 상한(g, 설정 칸 gather_obj_carry_g, 출발 50,000g) */
+  readonly carryGrams: number;
+}
+
+/** 한 배달에서 경험치로 인정하는 최대 왕복 수(초대형 화물 1건 폭등 방지) */
+export const DELIVERY_EXP_MAX_TRIPS = 10;
+/** 의미 있는 최소 화물 무게(g, 1kg 미만 극소량 쪼개기 악용 방지) */
+const MIN_SIGNIFICANT_GRAMS = 1_000n;
+/** 거리 계수 기준 칸 수(20칸 = 1000‰, 4칸 = 600‰, 80칸+ = 2500‰ 상한) */
+const DISTANCE_BASE_CELLS = 20;
+
+/** 왕복 1회 적재 무게 계수(‰): 1kg 미만은 선형 감쇠(1g 스팸 → 0), 1kg~만재는 200~1000‰ */
+function tripWeightPm(loadGrams: bigint, carry: bigint): number {
+  if (loadGrams <= 0n) return 0;
+  if (loadGrams < MIN_SIGNIFICANT_GRAMS) return Number((loadGrams * 100n) / MIN_SIGNIFICANT_GRAMS);
+  const fillPm = Number(((loadGrams > carry ? carry : loadGrams) * 1000n) / carry);
+  return 200 + Math.floor((fillPm * 800) / 1000);
+}
+
+/**
+ * 물류센터 배달 완료 경험치(정수 순수 함수): 왕복 횟수마다 산정하고 거리·무게·성공 여부에 따라 차등 지급한다.
+ * - 실패(전달 무게 0) 또는 거리 0이면 0.
+ * - 무게: 1회 적재 상한(carryGrams) 기준 왕복마다 무게 계수(tripWeightPm)를 합산(최대 10왕복 캡). 1kg 미만 극소량 쪼개기 악용 차단.
+ * - 거리: 편도 칸 수에 비례해 500‰(0칸) ~ 1000‰(20칸) ~ 2500‰(80칸+) 차등.
+ * - 성공: 전량 배달 성공 시 1200‰(완수 보너스 +20%), 일부 손실(부분 전달)은 전달 비율(delivered/expected)‰로 감액.
+ */
+export function deliveryExp(input: DeliveryExpInput): number {
+  const base = Math.max(0, Math.trunc(input.baseExp));
+  const cells = Math.max(0, Math.trunc(input.cells));
+  if (base <= 0 || cells <= 0 || input.expectedGrams <= 0n || input.deliveredGrams <= 0n) return 0;
+  const delivered = input.deliveredGrams > input.expectedGrams ? input.expectedGrams : input.deliveredGrams;
+  const carry = BigInt(Math.max(1, Math.trunc(input.carryGrams)));
+  const fullTrips = Number(delivered / carry);
+  const remGrams = delivered % carry;
+  const totalWeightPm = Math.min(
+    DELIVERY_EXP_MAX_TRIPS * 1000,
+    fullTrips * 1000 + tripWeightPm(remGrams, carry),
+  );
+  if (totalWeightPm <= 0) return 0;
+  const distancePm = Math.min(2500, 500 + Math.floor((cells * 500) / DISTANCE_BASE_CELLS));
+  const fullSuccess = delivered === input.expectedGrams;
+  const successPm = fullSuccess ? 1200 : Number((delivered * 1000n) / input.expectedGrams);
+  if (successPm <= 0) return 0;
+  const raw = Number(
+    (BigInt(base) * BigInt(totalWeightPm) * BigInt(distancePm) * BigInt(successPm)) / 1_000_000_000n,
+  );
+  if (raw > 0) return raw;
+  // 1kg 이상 정상 화물을 실제로 배달했으면 최소 1점, 1kg 미만 극소량은 0점(쪼개기 방지)
+  return delivered >= MIN_SIGNIFICANT_GRAMS ? 1 : 0;
 }
 
 /** 옮김 길의 출발 건물(채집소 또는 다른 시설 건물, D-569 1784) */
@@ -516,6 +579,19 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
     deskAt: (buildingId) => deps.deskHaulPm?.(buildingId) !== undefined,
     busy: deps.busy,
     ownUnits: deps.ownUnits,
+    // 물류센터 대행 배달 완료 시 거리·무게·성공 차등 경험치 지급(플레이어·NPC 물류센터 공통)
+    onDelivered(report) {
+      if (!report.trip.service || !deps.gainExp) return;
+      const c = deps.rules().gatherObjects;
+      const amount = deliveryExp({
+        baseExp: gatherExp(0, c),
+        cells: report.cells,
+        expectedGrams: report.expectedGrams,
+        deliveredGrams: report.deliveredGrams,
+        carryGrams: c.carryGrams,
+      });
+      if (amount > 0) deps.gainExp(report.trip.porter, amount);
+    },
   });
 
   /**
@@ -795,6 +871,7 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
     porter: number,
     loads: readonly { asset: string; qty: bigint; grams: bigint }[],
     cells: number,
+    service = false,
   ): CarryResult => {
     const trip = porters.depart({
       buildingId,
@@ -812,6 +889,7 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
       deliverTo: spec.deliverTo,
       redirect: spec.redirect,
       sourceOwnerId: spec.sellerId,
+      service,
     });
     rearm();
     return { arriveAtMs: trip.arriveAtMs, porter };
@@ -838,7 +916,7 @@ export function createStationRuntime(deps: StationDeps): StationRuntime {
       const fee = service.fee(centerId, grams, cells);
       const paid = service.pay(spec.ownerId, centerId, fee, spec.atMs, spec.keep);
       if (paid !== null) return paid;
-      return departCarry(spec, centerId, porter, loads, cells);
+      return departCarry(spec, centerId, porter, loads, cells, true);
     }
     return undefined;
   };

@@ -76,7 +76,13 @@ import { type CarryBoard, type CarryBoardOptions, createCarryBoard, peopleCounte
 import { EVENT_NPC_DELIVER, type NpcBusiness, createNpcDeliveries } from "./npcDelivery.ts";
 import { shopPriceSource } from "./npcShopPrice.ts";
 import { createNpcWages } from "./npcWages.ts";
-import { type NpcLogistics, createNpcLogistics, payCenterHaulers } from "./npcLogistics.ts";
+import {
+  type NpcCenterSlots,
+  type NpcLogistics,
+  createNpcLogistics,
+  payCenterHaulers,
+  planCenterWorkFacilities,
+} from "./npcLogistics.ts";
 import type { NpcBuildWorld } from "./cityBuild.ts";
 import type { ServerEconomyCatalog } from "../market/catalog.ts";
 import { rulingVaultOf } from "../factionIdentity/houseVault.ts";
@@ -654,6 +660,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     restPlans,
     currencyOf: cityCurrency,
     buildingOf: (facilityId) => runs.get(facilityId)?.buildingId ?? null,
+    extraWorkers: (cityId) => centers.centerWorkers(cityId),
     rules: o.rules,
   });
   const noteRun = (facility: EcoFacility, nowMs: number, buildingId: number | null): void => {
@@ -735,16 +742,33 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         yieldPerLot: effects.yieldPerLot,
       });
     }
-    const workers = assignCityWorkers(
-      slots,
-      Math.max(
-        0,
-        (economy.cityUnits.get(cityId) ?? 0) -
-          (cityGuards.get(cityId) ?? 0) -
-          (cityStrikes.get(cityId) ?? 0) -
-          (cityAway.get(cityId) ?? 0),
-      ),
-      catalog.necessities,
+    const eligibleCount = Math.max(
+      0,
+      (economy.cityUnits.get(cityId) ?? 0) -
+        (cityGuards.get(cityId) ?? 0) -
+        (cityStrikes.get(cityId) ?? 0) -
+        (cityAway.get(cityId) ?? 0),
+    );
+    const workers = assignCityWorkers(slots, eligibleCount, catalog.necessities);
+    // NPC 물류센터 운반꾼도 쉼터 계획(planCityRest)에 함께 넣어 숙소 배정(rests)·피로 바퀴(cycles)·침대 점유율(occupancy)을 맞춘다
+    let prodAssigned = 0;
+    for (const count of workers.values()) prodAssigned += count;
+    const centerSlots: NpcCenterSlots[] = [];
+    if (city && o.input.build) {
+      const facilityCatalog = o.input.build.catalog();
+      for (const entry of o.input.facilitiesIn(cityId)) {
+        if (entry.ownerId !== city.owner || entry.level < 1) continue;
+        const def = facilityCatalog.facility(entry.facility);
+        if (def?.logistics !== true) continue;
+        centerSlots.push({
+          buildingId: entry.buildingId,
+          slots: Math.max(0, entry.level * def.slotsPerLevel),
+        });
+      }
+    }
+    const centerRestFacilities = planCenterWorkFacilities(
+      Math.max(0, eligibleCount - prodAssigned),
+      centerSlots,
     );
     // 쉼터·옮김(질문 1047 다·1050 가): 일꾼이 쉬는 숙소·집과 채집소 → 창고 칸 → 생산 속도 배율·옮김 칸
     const rules = o.rules();
@@ -753,14 +777,17 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         ? o.input.cityRest(
             cityId,
             { ownerId: city.owner, housing: city.housing },
-            [...wanted].map(([id, want]) => ({
-              id,
-              buildingId: want.buildingId,
-              workers: workers.get(id) ?? 0,
-              // 건물 시설은 모두 산출을 창고로 나르는 시간을 센다(기획 D-569 1784 "거래소 반입은 실제 운반만", D-564 1626 "보이지 않는 곳은
-              // 시간 자동 계산" — 예전에는 채집소만, 가공 시설 산출은 도시 창고로 바로). 도시 직무(건물 없음)는 시청 칸에서 일해 거리가 없다
-              hauls: want.buildingId !== null,
-            })),
+            [
+              ...[...wanted].map(([id, want]) => ({
+                id,
+                buildingId: want.buildingId,
+                workers: workers.get(id) ?? 0,
+                // 건물 시설은 모두 산출을 창고로 나르는 시간을 센다(기획 D-569 1784 "거래소 반입은 실제 운반만", D-564 1626 "보이지 않는 곳은
+                // 시간 자동 계산" — 예전에는 채집소만, 가공 시설 산출은 도시 창고로 바로). 도시 직무(건물 없음)는 시청 칸에서 일해 거리가 없다
+                hauls: want.buildingId !== null,
+              })),
+              ...centerRestFacilities,
+            ],
             rules,
           )
         : undefined;
@@ -897,6 +924,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       scheduleProduce(economy, world, loop, facility, syncAt);
       noteRun(facility, syncAt, want.buildingId);
     }
+    centers.invalidate(cityId);
   };
 
   /**
@@ -1130,11 +1158,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     },
     afterDay(nowMs, day) {
       o.log.info({ npcEcon: { day, ...run.dayLine() } }, "npc economy day");
-      // 숙박비(npcWages.ts): 휴먼 지갑에서(옛 판은 국고에서)
-      const fees = wagesRef.current?.chargeLodgingFees(nowMs);
-      if (fees && (fees.paid > 0n || fees.short > 0))
-        o.log.info({ npcLodgingFees: { day, ...fees, paid: String(fees.paid) } }, "npc lodging fees");
-      // NPC 물류센터 운반꾼 임금(2347 나, npcLogistics.ts): 그 물류센터 금고(모자라면 국고가 넣음)에서 휴먼 지갑으로
+      // NPC 물류센터 운반꾼 임금(2347 나, npcLogistics.ts): 숙박비 차감 전에 먼저 지갑으로 넣어 첫날 미납 불이익을 막는다
       const haul = payCenterHaulers(
         {
           book,
@@ -1150,6 +1174,10 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       fed.clear();
       if (haul.paidHaulers + haul.unpaidHaulers + haul.hungryHaulers > 0)
         o.log.info({ npcHaulWages: { day, ...haul, paid: String(haul.paid) } }, "npc haul wages");
+      // 숙박비(npcWages.ts): 휴먼 지갑에서(생산 일꾼 + 물류센터 운반꾼 모두, 옛 판은 국고에서)
+      const fees = wagesRef.current?.chargeLodgingFees(nowMs);
+      if (fees && (fees.paid > 0n || fees.short > 0))
+        o.log.info({ npcLodgingFees: { day, ...fees, paid: String(fees.paid) } }, "npc lodging fees");
       syncAll(nowMs);
     },
     restPlan: (cityId) => restPlans.get(cityId),

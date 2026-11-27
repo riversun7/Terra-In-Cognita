@@ -18,8 +18,10 @@ import {
   createNpcLogistics,
   npcCenterHourly,
   payCenterHaulers,
+  planCenterWorkFacilities,
   withNpcStaff,
 } from "./npcLogistics.ts";
+import { planCityRest } from "./cityRest.ts";
 
 describe("NPC 물류센터 운반꾼", () => {
   it("assignCenterStaff: 건물 ID 차례로 자리 수만큼 앞에서부터, 사람이 모자라면 뒤 물류센터는 빈다", () => {
@@ -72,6 +74,45 @@ describe("NPC 물류센터 운반꾼", () => {
     expect(logistics.staffAt(40)).toEqual([3, 4]);
     now += 1_000;
     expect(logistics.staffAt(40)).toEqual([3, 5]);
+    // invalidate를 부르면 1초 안에도 바로 다시 센다
+    units.delete(5);
+    expect(logistics.staffAt(40)).toEqual([3, 5]);
+    logistics.invalidate(7);
+    expect(logistics.staffAt(40)).toEqual([3]);
+    expect(logistics.centerWorkers(7)).toEqual([
+      { unitId: 3, facilityId: LOGISTICS_WORK_BASE + 40, index: 0 },
+    ]);
+  });
+
+  it("planCenterWorkFacilities: 여분 휴먼을 물류센터 자리 수만큼 배정해 planCityRest에 포함시킨다", () => {
+    const centers = [
+      { buildingId: 42, slots: 3 },
+      { buildingId: 40, slots: 2 },
+    ];
+    expect(planCenterWorkFacilities(3, centers)).toEqual([
+      { id: LOGISTICS_WORK_BASE + 40, buildingId: 40, workers: 2, hauls: false },
+      { id: LOGISTICS_WORK_BASE + 42, buildingId: 42, workers: 1, hauls: false },
+    ]);
+    expect(planCenterWorkFacilities(0, centers)).toEqual([]);
+    const area = (x: number, y: number) => ({ minX: x, maxX: x + 2, minY: y, maxY: y + 2 });
+    const rest = planCityRest({
+      home: { x: 0, y: 0 },
+      housing: 10,
+      stores: [],
+      areas: new Map([
+        [10, area(5, 5)],
+        [40, area(10, 10)],
+        [42, area(20, 20)],
+      ]),
+      facilities: [{ id: 100, buildingId: 10, workers: 1 }, ...planCenterWorkFacilities(2, centers)],
+      lodgings: [{ id: 70, area: area(10, 10), level: 1, ownerId: 50 }],
+      rules: TEST_SOCIETY_COEFFICIENTS,
+    });
+    expect(rest.workers).toHaveLength(3);
+    expect(rest.workers[1]?.facilityId).toBe(LOGISTICS_WORK_BASE + 40);
+    expect(rest.workers[1]?.lodgingId).toBe(70);
+    expect(rest.workers[2]?.facilityId).toBe(LOGISTICS_WORK_BASE + 40);
+    expect(rest.occupancy.get(70)).toBe(3);
   });
 
   it("타 맵 이탈(away)·지시 불복(onStrike) 휴먼은 물류센터 운반꾼에서 빠지고 laborRank 차례를 따른다", () => {

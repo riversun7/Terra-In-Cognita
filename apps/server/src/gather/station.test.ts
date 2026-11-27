@@ -30,7 +30,13 @@ import { placeGatherObjects } from "./objects.ts";
 import { stationBuffs } from "./rules.ts";
 import type { HaulCarryHook } from "../logistics/haulService.ts";
 import { createObjectStore } from "./state.ts";
-import { createStationRuntime, fatigueRefundPm, scaleByPm } from "./station.ts";
+import {
+  DELIVERY_EXP_MAX_TRIPS,
+  createStationRuntime,
+  deliveryExp,
+  fatigueRefundPm,
+  scaleByPm,
+} from "./station.ts";
 import { mapLayers } from "./terrainLayers.ts";
 
 const NOW = 1_798_000_000_000;
@@ -140,6 +146,8 @@ function rig(
         deskHaulPm?: number | undefined;
         /** 물류센터 고리(기획 D-576) */
         haulService?: HaulCarryHook | undefined;
+        /** 배달 완료 경험치 기록(P0-3) */
+        gainExp?: ((unitId: number, amount: number) => void) | undefined;
       } = 1,
 ) {
   const opts = typeof level === "number" ? {} : level;
@@ -241,6 +249,7 @@ function rig(
     },
     ownerSale: opts.ownerSale,
     haulService: opts.haulService,
+    gainExp: opts.gainExp,
   });
   /** 그 채집소 일꾼(운반꾼 후보)으로 유닛을 놓는다 */
   const hire = (buildingId: number, unitId: number, cellX: number, cellY: number, ownerId = OWNER): void => {
@@ -869,5 +878,169 @@ describe("농장 채집소(오브젝트 없음, 756 ②)", () => {
     expect(r.ledger.balanceOf(OWNER, ORE, here)).toBe(2n);
     expect(r.ledger.balanceOf(OWNER, ORE, cityLocation(CITY))).toBe(3n);
     expect(asked).toEqual([5n, 5n]);
+  });
+
+  it("물류센터 배달 경험치(deliveryExp): 실패·0거리·1g 쪼개기 차단, 거리·무게·왕복·성공률에 따라 차등 산정", () => {
+    const carry = 50_000;
+    // 실패(0g)·거리 0·기준 경험치 0은 0
+    expect(
+      deliveryExp({ baseExp: 10, cells: 20, expectedGrams: 50_000n, deliveredGrams: 0n, carryGrams: carry }),
+    ).toBe(0);
+    expect(
+      deliveryExp({
+        baseExp: 10,
+        cells: 0,
+        expectedGrams: 50_000n,
+        deliveredGrams: 50_000n,
+        carryGrams: carry,
+      }),
+    ).toBe(0);
+    // 1g 쪼개기 악용 차단(1kg 미만 초소량은 0)
+    expect(
+      deliveryExp({ baseExp: 10, cells: 20, expectedGrams: 1n, deliveredGrams: 1n, carryGrams: carry }),
+    ).toBe(0);
+    // 기준: 20칸(1000‰) × 1회 만재(50kg, 1000‰) × 완주(1200‰) = 12
+    const baseline = deliveryExp({
+      baseExp: 10,
+      cells: 20,
+      expectedGrams: 50_000n,
+      deliveredGrams: 50_000n,
+      carryGrams: carry,
+    });
+    expect(baseline).toBe(12);
+    // 거리 차등: 가까움(4칸 = 600‰) < 기준(20칸 = 1000‰) < 멂(80칸 = 2500‰ 상한)
+    const near = deliveryExp({
+      baseExp: 10,
+      cells: 4,
+      expectedGrams: 50_000n,
+      deliveredGrams: 50_000n,
+      carryGrams: carry,
+    });
+    const far = deliveryExp({
+      baseExp: 10,
+      cells: 80,
+      expectedGrams: 50_000n,
+      deliveredGrams: 50_000n,
+      carryGrams: carry,
+    });
+    const veryFar = deliveryExp({
+      baseExp: 10,
+      cells: 200,
+      expectedGrams: 50_000n,
+      deliveredGrams: 50_000n,
+      carryGrams: carry,
+    });
+    expect(near).toBeLessThan(baseline);
+    expect(far).toBeGreaterThan(baseline);
+    expect(veryFar).toBe(far);
+    // 무게·왕복 차등: 10kg < 50kg(1왕복) < 150kg(3왕복) <= 상한(10왕복)
+    const light = deliveryExp({
+      baseExp: 10,
+      cells: 20,
+      expectedGrams: 10_000n,
+      deliveredGrams: 10_000n,
+      carryGrams: carry,
+    });
+    const threeTrips = deliveryExp({
+      baseExp: 10,
+      cells: 20,
+      expectedGrams: 150_000n,
+      deliveredGrams: 150_000n,
+      carryGrams: carry,
+    });
+    const atCap = deliveryExp({
+      baseExp: 10,
+      cells: 20,
+      expectedGrams: BigInt(DELIVERY_EXP_MAX_TRIPS * carry),
+      deliveredGrams: BigInt(DELIVERY_EXP_MAX_TRIPS * carry),
+      carryGrams: carry,
+    });
+    const overCap = deliveryExp({
+      baseExp: 10,
+      cells: 20,
+      expectedGrams: BigInt((DELIVERY_EXP_MAX_TRIPS + 5) * carry),
+      deliveredGrams: BigInt((DELIVERY_EXP_MAX_TRIPS + 5) * carry),
+      carryGrams: carry,
+    });
+    expect(light).toBeGreaterThan(0);
+    expect(light).toBeLessThan(baseline);
+    expect(threeTrips).toBe(baseline * 3);
+    expect(overCap).toBe(atCap);
+    // 부분 배달: 50kg 중 25kg만 전달되면 완주 보너스 없이 비율 감소
+    const partial = deliveryExp({
+      baseExp: 10,
+      cells: 20,
+      expectedGrams: 50_000n,
+      deliveredGrams: 25_000n,
+      carryGrams: carry,
+    });
+    expect(partial).toBeGreaterThan(0);
+    expect(partial).toBeLessThan(baseline);
+  });
+
+  it("물류센터 배달 완료(arriveDue): 물류센터 운반만 운반꾼 경험치를 주고, 일반 자체 운반·빈 화물 배달은 주지 않는다", () => {
+    const gained: [number, number][] = [];
+    let centerId = 0;
+    const hook: HaulCarryHook = {
+      centers: (via) => (via === centerId ? [centerId] : "service_closed"),
+      fee: () => 5n,
+      pay: () => null,
+      auto: () => false,
+    };
+    const r = rig({
+      store: { x: 30, y: 24 },
+      haulService: hook,
+      gainExp: (unitId, amount) => gained.push([unitId, amount]),
+    });
+    centerId = r.farmId;
+    const exchangeId = r.storeId ?? 0;
+    r.ledger.post({
+      kind: "test",
+      atMs: NOW,
+      entries: [
+        { account: r.ledger.systemAccount("source:item:copper_ore", ORE), amount: -200_000n },
+        { account: r.ledger.ownerAccount(OWNER, ORE, cityLocation(CITY)), amount: 200_000n },
+      ],
+    });
+    // 물류센터 일꾼 41: 50kg 배달 완료 시 경험치 지급
+    r.hire(centerId, 41, 86, 86, OWNER + 1);
+    expect(r.runtime.haulIn(OWNER, exchangeId, ORE, 50_000n, NOW, centerId)).toBeNull();
+    const firstTrip = r.runtime.trip(centerId);
+    expect(firstTrip).toBeDefined();
+    r.runtime.haulNow(firstTrip?.arriveAtMs ?? 0);
+    expect(gained).toHaveLength(1);
+    expect(gained[0]?.[0]).toBe(41);
+    expect(gained[0]?.[1]).toBeGreaterThan(0);
+
+    // 자체 운반(내 유닛 22, 물류센터 아님): 배달 완료해도 물류센터 경험치는 주지 않는다
+    r.map.addUnit({
+      id: 22,
+      size: 1,
+      speed: WALK_SPEED,
+      cellX: 40,
+      cellY: 30,
+      ownerId: OWNER,
+      kind: UNIT_KIND_HUMAN,
+    });
+    const t2 = (firstTrip?.arriveAtMs ?? NOW) + 10_000;
+    expect(r.runtime.haulIn(OWNER, exchangeId, ORE, 50_000n, t2, "own")).toBeNull();
+    r.runtime.haulNow(r.runtime.trip(exchangeId)?.arriveAtMs ?? 0);
+    expect(gained).toHaveLength(1);
+
+    // 도중 화물 유실(0g 배달): 경험치 0
+    const t3 = t2 + 10_000_000;
+    expect(r.runtime.haulIn(OWNER, exchangeId, ORE, 50_000n, t3, centerId)).toBeNull();
+    const lostTrip = r.runtime.trip(centerId);
+    // 운반꾼 화물에서 전량 차감해 유실 흉내
+    r.ledger.post({
+      kind: "test_loss",
+      atMs: t3 + 1,
+      entries: [
+        { account: r.ledger.ownerAccount(OWNER, ORE, cargoLocation(41)), amount: -50_000n },
+        { account: r.ledger.systemAccount("sink:item:copper_ore", ORE), amount: 50_000n },
+      ],
+    });
+    r.runtime.haulNow(lostTrip?.arriveAtMs ?? 0);
+    expect(gained).toHaveLength(1);
   });
 });

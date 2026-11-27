@@ -51,6 +51,8 @@ export interface NpcWagesDeps {
   currencyOf(cityId: number): string;
   /** 도시 경제 시설의 건물 ID(도시 직무면 null) */
   buildingOf(facilityId: number): number | null;
+  /** 도시 경제 생산 시설 밖의 추가 일꾼(NPC 물류센터 운반꾼 — 숙박비·유보금 함께 연동) */
+  readonly extraWorkers?: ((cityId: number) => readonly CityWorker[]) | undefined;
   readonly rules: () => SocietyCoefficients;
 }
 
@@ -102,7 +104,8 @@ export function createNpcWages(deps: NpcWagesDeps): {
     const c = deps.rules();
     const residences = residenceBookOf(book);
     const out = [];
-    for (const worker of cityWorkerUnits(world, economy, cityId)) {
+    const allWorkers = [...cityWorkerUnits(world, economy, cityId), ...(deps.extraWorkers?.(cityId) ?? [])];
+    for (const worker of allWorkers) {
       const rest = rests.get(workerKey(worker));
       if (!rest || rest.lodgingId === null) continue;
       const owner = plan.owners.get(rest.lodgingId) ?? null;

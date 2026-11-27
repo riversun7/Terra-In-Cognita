@@ -47,6 +47,10 @@ export interface PorterTrip {
   grams: bigint;
   /** 자산 → 운반꾼 화물로 실은 양 */
   readonly lines: Map<string, bigint>;
+  /** 자산 → 운반꾼 화물로 실은 무게(g, 부분 전달 비율·운반 경험치 셈용) */
+  readonly lineGrams: Map<string, bigint>;
+  /** 물류센터 운반 대행 짐인가(station.ts viaCenter) */
+  readonly service: boolean;
   /** 채집소·창고(없으면 도시 칸) 가운데 */
   readonly from: CellPoint;
   readonly to: CellPoint;
@@ -58,6 +62,16 @@ export interface PorterTrip {
   heading: "store" | "station";
   /** 이동 명령을 기다리는 중 */
   walking: boolean;
+}
+
+/** 짐 하나가 닿아 내려놓았을 때의 결과(물류센터 배달 완료 경험치 등) */
+export interface DeliveryReport {
+  readonly trip: PorterTrip;
+  readonly deliveredAccounts: number;
+  readonly expectedGrams: bigint;
+  readonly deliveredGrams: bigint;
+  /** 출발 ↔ 도착 편도 체비셰프 거리(칸) */
+  readonly cells: number;
 }
 
 export interface PorterDeps {
@@ -78,6 +92,8 @@ export interface PorterDeps {
   readonly busy?: ((unitId: number) => boolean) | undefined;
   /** 물건 받을 사람의 그 2차맵 유닛(일꾼 다음 운반꾼 후보, 기획 D-569 1784). 없으면 일꾼만 */
   readonly ownUnits?: ((ownerId: number, mapKey: number) => readonly number[]) | undefined;
+  /** 짐 하나가 도착해 내려놓은 뒤 알린다(물류센터 대행 배달 완료 경험치 등) */
+  readonly onDelivered?: ((report: DeliveryReport) => void) | undefined;
 }
 
 /** 목표 칸 둘레에서 가장 가까운 설 칸(체비셰프 고리). 없으면 null */
@@ -142,6 +158,8 @@ export interface Porters {
     readonly deliverTo?: number | undefined;
     /** 닿을 때 받을 자리를 다시 고른다(PorterTrip.redirect) */
     readonly redirect?: (() => number | undefined) | undefined;
+    /** 물류센터 운반 대행 짐인가(station.ts viaCenter) */
+    readonly service?: boolean | undefined;
   }): PorterTrip;
   /** 닿은 짐을 도시 창고에 넣는다. 넣은 계정 수 */
   arriveDue(nowMs: number): number;
@@ -193,9 +211,10 @@ export function createPorters(deps: PorterDeps): Porters {
     });
   };
 
-  const deliver = (trip: PorterTrip): number => {
+  const deliver = (trip: PorterTrip): { accounts: number; deliveredGrams: bigint } => {
     const entries: { account: number; amount: bigint }[] = [];
     let count = 0;
+    let deliveredGrams = 0n;
     const target = trip.redirect?.() ?? trip.deliverTo;
     for (const [asset, qty] of [...trip.lines].toSorted((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))) {
       const from = ledger.ownerAccount(trip.ownerId, asset, cargoLocation(trip.porter));
@@ -207,9 +226,11 @@ export function createPorters(deps: PorterDeps): Porters {
         { account: ledger.ownerAccount(trip.ownerId, asset, target), amount: moved },
       );
       count += 1;
+      const lineG = trip.lineGrams.get(asset) ?? 0n;
+      deliveredGrams += qty > 0n ? (lineG * moved) / qty : 0n;
     }
     if (entries.length > 0) ledger.post({ kind: "station_haul", atMs: trip.arriveAtMs, entries });
-    return count;
+    return { accounts: count, deliveredGrams };
   };
 
   return {
@@ -285,6 +306,7 @@ export function createPorters(deps: PorterDeps): Porters {
       const entries: { account: number; amount: bigint }[] = [];
       let grams = 0n;
       const lines = new Map<string, bigint>();
+      const lineGrams = new Map<string, bigint>();
       const source = spec.sourceOwnerId ?? spec.ownerId;
       for (const load of spec.loads) {
         if (load.qty <= 0n) continue;
@@ -300,6 +322,7 @@ export function createPorters(deps: PorterDeps): Porters {
             },
           );
         lines.set(load.asset, (lines.get(load.asset) ?? 0n) + load.qty);
+        lineGrams.set(load.asset, (lineGrams.get(load.asset) ?? 0n) + load.grams);
         grams += load.grams;
       }
       // 판매(D-569 1781·1784)면 물건이 산 사람에게 넘어가는 거래(장부 물건 칸), 아니면 옮겨 싣기
@@ -310,6 +333,7 @@ export function createPorters(deps: PorterDeps): Porters {
           entries,
         });
       const deliverTo = spec.deliverTo ?? cityLocation(spec.cityId);
+      const service = spec.service === true;
       // 같은 채집소·주인·운반꾼·받는 자리의 막 떠난 짐에 더한다
       for (const trip of trips.values()) {
         if (
@@ -317,10 +341,12 @@ export function createPorters(deps: PorterDeps): Porters {
           trip.deliverTo !== deliverTo ||
           trip.ownerId !== spec.ownerId ||
           trip.porter !== spec.porter ||
+          trip.service !== service ||
           spec.nowMs - trip.departAtMs > MERGE_MS
         )
           continue;
         for (const [asset, qty] of lines) trip.lines.set(asset, (trip.lines.get(asset) ?? 0n) + qty);
+        for (const [asset, g] of lineGrams) trip.lineGrams.set(asset, (trip.lineGrams.get(asset) ?? 0n) + g);
         trip.grams += grams;
         trip.arriveAtMs = trip.departAtMs + Math.max(1, spec.timeMs(trip.grams));
         return trip;
@@ -336,6 +362,8 @@ export function createPorters(deps: PorterDeps): Porters {
         arriveAtMs: spec.nowMs + Math.max(1, spec.timeMs(grams)),
         grams,
         lines,
+        lineGrams,
+        service,
         from: spec.from,
         to: spec.to,
         deliverTo,
@@ -352,7 +380,15 @@ export function createPorters(deps: PorterDeps): Porters {
       for (const trip of [...trips.values()].toSorted((a, b) => a.arriveAtMs - b.arriveAtMs || a.id - b.id)) {
         if (trip.arriveAtMs > nowMs) continue;
         trips.delete(trip.id);
-        accounts += deliver(trip);
+        const res = deliver(trip);
+        accounts += res.accounts;
+        deps.onDelivered?.({
+          trip,
+          deliveredAccounts: res.accounts,
+          expectedGrams: trip.grams,
+          deliveredGrams: res.deliveredGrams,
+          cells: Math.max(Math.abs(trip.to.x - trip.from.x), Math.abs(trip.to.y - trip.from.y)),
+        });
         sendBack(trip, nowMs);
       }
       return accounts;

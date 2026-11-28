@@ -371,7 +371,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     // NPC 2차맵 사이 이동 중(held — travel/npcTravel.ts)이면 그 길을 덮어쓰지 않는다
     if (!autoRoam || unit.aboard !== undefined || unit.held === true) return;
     if (event.kind === "arrive") {
-      const rest = arrivalIdleMs(nextRng(unit), unit, lastPoint(unit.motion), now(), options.botFatigue);
+      const rest = arrivalIdleMs(nextRng(unit), unit, lastPoint(unit.motion), now());
       scheduleEvent(unit, "wake", now() + rest);
       return;
     }
@@ -383,9 +383,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     }
     const rng = nextRng(unit);
     const from = lastPoint(unit.motion);
-    const area = unit.home
-      ? tripArea(from, unit.size, unit.home, unit.id, now(), options.botFatigue)
-      : undefined;
+    const area = unit.home ? tripArea(from, unit.size, unit.home, unit.id, now()) : undefined;
     const destination = pickDestination(grid, rng, unit.size, from, area);
     if (!destination) {
       scheduleEvent(unit, "wake", now() + retryMs(rng));

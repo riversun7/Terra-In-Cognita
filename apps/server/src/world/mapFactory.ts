@@ -11,7 +11,6 @@ import type { WorldWriter } from "./persist/writer.ts";
 import { type MapPin, loadPins, savePin } from "./pins.ts";
 import { type MapLog, type MapPersist, type SecondMap, createSecondMap } from "./secondMap.ts";
 import type { TerrainService } from "./terrainService.ts";
-import type { BotFatigueAccess } from "./bots.ts";
 import type { EdgeHooks } from "./edgeWatch.ts";
 import type { WalkUnit } from "./walkSpeed.ts";
 import type { ExploredStore } from "./vision.ts";
@@ -56,8 +55,6 @@ export interface MapFactory {
   attachEdge?(hooks: EdgeHooks): void;
   /** 걷기 빠르기 고리를 잇는다(D-540 실효 AGI, walkSpeed.ts — 이미 만든 2차맵도 이것을 부른다). 없으면 유닛 speed 그대로 */
   attachWalk?(speedOf: (unit: WalkUnit) => number): void;
-  /** NPC 일꾼 상태 기반 피로 고리를 잇는다(npc/npcFatigue.ts — 이미 만든 2차맵도 이것을 부른다) */
-  attachBotFatigue?(access: BotFatigueAccess): void;
 }
 
 export function createMapFactory(parts: MapFactoryParts): MapFactory {
@@ -71,11 +68,6 @@ export function createMapFactory(parts: MapFactoryParts): MapFactory {
   };
   let walkOf: ((unit: WalkUnit) => number) | undefined;
   const walkSpeed = (unit: WalkUnit): number => walkOf?.(unit) ?? unit.speed;
-  let fatigueAccess: BotFatigueAccess | undefined;
-  const botFatigue: BotFatigueAccess = {
-    snapshot: (unitId, nowMs) => fatigueAccess?.snapshot(unitId, nowMs),
-    commitState: (unitId, state, nowMs) => fatigueAccess?.commitState?.(unitId, state, nowMs),
-  };
 
   /** 2차맵 지형: 고정본 → 지형 서비스(캐시 → 생성기). 지형 서비스가 없으면 S1 임시 지형 */
   const terrainFor = async (
@@ -137,7 +129,6 @@ export function createMapFactory(parts: MapFactoryParts): MapFactory {
       onFirstEdit: pinned || !store ? undefined : pinner(store.db, mapKey),
       edge,
       walkSpeed,
-      botFatigue,
     });
 
   const prefetchAround = (mapKeys: readonly number[]): void => {
@@ -165,9 +156,6 @@ export function createMapFactory(parts: MapFactoryParts): MapFactory {
     },
     attachWalk(speedOf) {
       walkOf = speedOf;
-    },
-    attachBotFatigue(access) {
-      fatigueAccess = access;
     },
     async createMaps(mapKeys) {
       const pins = await pinsOf(mapKeys);

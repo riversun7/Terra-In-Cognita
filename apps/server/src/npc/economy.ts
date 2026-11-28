@@ -39,7 +39,6 @@ import {
   type SimEvent,
   type SimFaction,
   type LedgerBook,
-  type RestPlace,
   type SimHooks,
   type SimLoop,
   type SimWorld,
@@ -78,7 +77,6 @@ import { EVENT_NPC_DELIVER, type NpcBusiness, createNpcDeliveries } from "./npcD
 import { shopPriceSource } from "./npcShopPrice.ts";
 import { createNpcWages } from "./npcWages.ts";
 import {
-  LOGISTICS_WORK_BASE,
   type NpcCenterSlots,
   type NpcLogistics,
   createNpcLogistics,
@@ -274,14 +272,6 @@ export interface ServerEconomy {
   workFacilities(cityId: number): WorkFacility[];
   /** NPC 물류센터 운반꾼(house-10 기획 대조 2301, npcLogistics.ts — 운반 길·적정가가 본다). NPC 물류센터가 아니면 빈 목록 */
   centerStaff(buildingId: number): readonly number[];
-  /** 그 생산·도시직무 시설이 지금 실제로 가동 중인가(일꾼 > 0, 진행 중 배치 존재, 생산 끔·적자 멈춤·재료 부족 정지 아님) */
-  isFacilityActive(facilityId: number): boolean;
-  /** 그 유닛이 배정된 NPC 일자리(생산·도시직무·물류센터)와 쉼터 종류(NPC 상태 기반 피로 판정) */
-  workerAssignmentOf(
-    unitId: number,
-  ): { readonly facilityId: number; readonly isLogistics: boolean; readonly place: RestPlace } | undefined;
-  /** 현재 배정된 모든 NPC 일꾼 유닛 ID 목록(생산·도시직무·물류센터) */
-  workerIds(): number[];
   /** 만료 주문 거두기(런타임 틱이 부른다) */
   expire(nowMs: number): number;
   /** 다음 환전 회차 시각(회차 길이의 정시, 564 다: 마지막 회차 다음 정시, 아직 없으면 켠 시각 다음 정시) */
@@ -652,13 +642,6 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   const restPlans = new Map<number, CityRestPlan>();
   /** 시설 → 진행 중 생산 기록(화면용 + 파라미터 변동 시 진행률 보존) */
   const runs = new Map<number, FacilityRunNote>();
-  /** 생산 끔·적자 멈춤·재료 부족으로 직전 차례가 정지된 시설 ID(상태 기반 피로 가동 여부 판정) */
-  const stalledFacilities = new Set<number>();
-  /** 도시 → (유닛 ID → 일자리·쉼터 캐시, recount·syncCity 때 비운다) */
-  const workerIndex = new Map<
-    number,
-    Map<number, { readonly facilityId: number; readonly isLogistics: boolean; readonly place: RestPlace }>
-  >();
   // NPC 물류센터 운반꾼(2301): 시설 일꾼 다음 일 없는 휴먼 — 건물 서비스가 없으면(시험) 물류센터 없음
   const centers = createNpcLogistics({
     world,
@@ -922,7 +905,6 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       const recipe = catalog.recipes.get(want.recipe);
       const spec = catalog.facilities.get(want.facility);
       if (!recipe || !spec) continue;
-      stalledFacilities.delete(id);
       const facility: EcoFacility = {
         id,
         city: cityId,
@@ -943,7 +925,6 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       noteRun(facility, syncAt, want.buildingId);
     }
     centers.invalidate(cityId);
-    workerIndex.delete(cityId);
   };
 
   /**
@@ -1002,9 +983,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       if (facility.eventId !== undefined) loop.cancel(facility.eventId);
       economy.facilities.delete(id);
       runs.delete(id);
-      stalledFacilities.delete(id);
     }
-    workerIndex.clear();
   };
 
   // 처음 예약: 유지비·거래 판단·환전 회차(시뮬과 같은 함수) 다음에 시설을 놓는다(시설 예약은 syncAll이 한다)
@@ -1114,8 +1093,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
             atMs: nowMs,
           }) === true;
         if ((c.switches.productionEnabled === 0 || paused) && facility) {
-          // 생산 끔(49 N53)·적자 멈춤: 이번 차례를 건너뛰고 다음 차례만 잡는다(피로 가동 중지 표시)
-          stalledFacilities.add(subject);
+          // 생산 끔(49 N53)·적자 멈춤: 이번 차례를 건너뛰고 다음 차례만 잡는다
           scheduleProduce(economy, world, loop, facility, nowMs);
           noteRun(facility, nowMs, runs.get(subject)?.buildingId ?? null);
           return true;
@@ -1123,15 +1101,8 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         const batch = facility?.pending;
         const shortBefore = economy.today.inputShort;
         run.handle(event, nowMs);
-        // 일꾼 경험치·가동 상태: 실제로 생산한 번(재료가 모자라지 않은 번)만 가동으로 본다
-        if (facility) {
-          if (economy.today.inputShort === shortBefore) {
-            stalledFacilities.delete(subject);
-            giveWorkExp(facility, c);
-          } else {
-            stalledFacilities.add(subject);
-          }
-        }
+        // 일꾼 경험치: 실제로 생산한 번(재료가 모자라지 않은 번)만
+        if (facility && economy.today.inputShort === shortBefore) giveWorkExp(facility, c);
         // NPC 사업장(기획 대조 2053·2054, npcDelivery.ts): 산출은 시설 창고로, 재료비, 일꾼이 도시 창고로 실제로 나른다(닿으면 나라가 산 매출), 하루 끝 정산
         const buildingId = runs.get(subject)?.buildingId ?? null;
         const city = facility ? world.cities.get(facility.city) : undefined;
@@ -1168,10 +1139,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         deliveries?.arrive(subject, nowMs);
         return true;
       }
-      if (kind === EVENT_UPKEEP) {
-        recount();
-        workerIndex.clear();
-      }
+      if (kind === EVENT_UPKEEP) recount();
       if (kind === EVENT_TRADE && c.switches.marketEnabled === 0) {
         // 거래소 끔(49 N53): 판단을 건너뛰고 다음 판단만 잡는다
         loop.schedule(nowMs + economy.settings.tradeEveryMs, { kind: EVENT_TRADE, subject });
@@ -1234,59 +1202,15 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       return [...out.toSorted((a, b) => a.id - b.id), ...centers.workFacilities(cityId)];
     },
     centerStaff: (buildingId) => centers.staffAt(buildingId),
-    isFacilityActive(facilityId) {
-      if (o.rules().switches.productionEnabled === 0) return false;
-      const facility = economy.facilities.get(facilityId);
-      if (!facility || facility.workers <= 0 || facility.pending === undefined) return false;
-      return !stalledFacilities.has(facilityId);
-    },
-    workerAssignmentOf(unitId) {
-      const unit = world.units.get(unitId);
-      if (!unit || unit.guard === true || unit.away === true || unit.onStrike === true) return undefined;
-      let byUnit = workerIndex.get(unit.city);
-      if (!byUnit) {
-        byUnit = new Map();
-        const plan = restPlans.get(unit.city);
-        const restByKey = new Map<string, RestPlace>();
-        if (plan) {
-          const next = new Map<number, number>();
-          for (const entry of plan.workers) {
-            const idx = next.get(entry.facilityId) ?? 0;
-            next.set(entry.facilityId, idx + 1);
-            restByKey.set(`${entry.facilityId}:${idx}`, entry.place);
-          }
-        }
-        const all = [...cityWorkerUnits(world, economy, unit.city), ...centers.centerWorkers(unit.city)];
-        for (const w of all) {
-          byUnit.set(w.unitId, {
-            facilityId: w.facilityId,
-            isLogistics: w.facilityId >= LOGISTICS_WORK_BASE,
-            place: restByKey.get(`${w.facilityId}:${w.index}`) ?? { kind: "home" },
-          });
-        }
-        workerIndex.set(unit.city, byUnit);
-      }
-      return byUnit.get(unitId);
-    },
-    workerIds() {
-      const out: number[] = [];
-      for (const cityId of world.cities.keys()) {
-        for (const w of cityWorkerUnits(world, economy, cityId)) out.push(w.unitId);
-        for (const w of centers.centerWorkers(cityId)) out.push(w.unitId);
-      }
-      return out;
-    },
     cityJobsOf: (cityId) => personalityOfCity(cityId)?.cityJobs ?? CITY_JOBS,
     refreshCity(cityId, nowMs) {
       recount();
-      workerIndex.clear();
       syncCity(cityId, nowMs);
     },
     refreshPresence(nowMs) {
       if (!o.away) return 0;
       const before = new Map(cityAway);
       const awayChanged = recount();
-      workerIndex.clear();
       let changed = 0;
       for (const cityId of [...world.cities.keys()].toSorted((a, b) => a - b)) {
         if (!awayChanged.has(cityId) && (before.get(cityId) ?? 0) === (cityAway.get(cityId) ?? 0)) continue;

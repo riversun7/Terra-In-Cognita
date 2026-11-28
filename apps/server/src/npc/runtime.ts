@@ -82,7 +82,6 @@ import { nationBuildTargets, npcBuildRunOf } from "./cityBuild.ts";
 import { npcClaimsOf } from "./npcClaims.ts";
 import { createDecideClock, resumeDecides } from "./decideSchedule.ts";
 import { type ServerGardener, attachServerGardener } from "./gardener.ts";
-import { type NpcFatigueStore, createNpcFatigueStore } from "./npcFatigue.ts";
 import { createNpcWorkInjury } from "./npcWorkInjury.ts";
 import { type WaveRewardItems, grantWaveReward } from "./waveRewards.ts";
 import { type NationPreset, nationPresetOf, nationStartOf, presetOfCode } from "./nations.ts";
@@ -193,8 +192,6 @@ export interface NpcRuntimeOptions {
   readonly tierApply?: boolean | undefined;
   /** 죽은 휴먼을 저장할 때(2차맵 사이 이동 중이면 길을 버린다 — persist.ts onHumanDied, 질문 2696) */
   readonly onHumanDied?: ((unitId: number) => void) | undefined;
-  /** 그 유닛이 지금 물류센터 운반 짐을 나르는 중인가(gather/registry.ts stationOf — NPC 상태 기반 피로 판정) */
-  readonly isHauling?: ((unitId: number) => boolean) | undefined;
 }
 
 /** 켤 때 세운 것(국력 등급 씨앗 — 요청 결과 기록·시험이 본다) */
@@ -219,8 +216,6 @@ export interface NpcRuntime {
   readonly gardener: ServerGardener;
   /** 도시 경제·거래소(경제 입력이 있을 때만) */
   readonly economy: ServerEconomy | undefined;
-  /** NPC 일꾼 상태 기반 피로 저장소(메모리 전용 — docs/adr/2026-11-27-npc-stateful-fatigue.md) */
-  readonly fatigue: NpcFatigueStore;
   /** 폐허·복원 사업 바뀜을 바로 쓰기 대기열에 넣는다(유저 폐허 명령 뒤 같은 동기 처리, ruinsPersist.ts) */
   flushRuins(): void;
   /** 플레이어 가문 도시(마을 세우기·폐허 복원 고르기, houseRuntime.ts) */
@@ -956,56 +951,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   let stopped = false;
   let expiredAt = startMs;
   let presenceAt = startMs;
-  // NPC 일꾼 상태 기반 피로 저장소(메모리 전용 — 일할 때만 누적, 휴식·비가동은 단조 회복)
-  const fatigue = createNpcFatigueStore({
-    rules: o.rules,
-    workerIds: () => {
-      if (econ) return econ.workerIds();
-      const ids: number[] = [];
-      for (const unit of world.units.values()) {
-        if (unit.guard === true || unit.away === true || unit.onStrike === true) continue;
-        const place = persist.places.get(unit.city);
-        const info = place ? maps.get(place.mapKey)?.unitInfo(unit.id) : undefined;
-        if (info?.held !== true && (info?.home?.work !== undefined || info?.home?.cityJob === true))
-          ids.push(unit.id);
-      }
-      return ids;
-    },
-    workerOf: (unitId, nowMs) => {
-      const unit = world.units.get(unitId);
-      if (!unit || unit.guard === true || unit.away === true || unit.onStrike === true) return undefined;
-      const place = persist.places.get(unit.city);
-      const info = place ? maps.get(place.mapKey)?.unitInfo(unitId) : undefined;
-      if (info?.held === true) return undefined;
-      if (econ) {
-        const assigned = econ.workerAssignmentOf(unitId);
-        if (!assigned) return undefined;
-        const visualHaul =
-          info?.home?.haul !== undefined && nowMs >= info.home.haul.fromMs && nowMs < info.home.haul.untilMs;
-        const activeWork = assigned.isLogistics
-          ? o.isHauling?.(unitId) === true || visualHaul
-          : econ.isFacilityActive(assigned.facilityId);
-        const traits = aiBridge.traits.peek(unitId) ?? aiBridge.humanPlacesOptions().traitsOf?.(unitId);
-        return { activeWork, place: assigned.place, discipline: traits?.discipline, home: info?.home };
-      }
-      if (!info?.home || (info.home.work === undefined && info.home.cityJob !== true)) return undefined;
-      return {
-        activeWork: true,
-        place: { kind: "home" },
-        discipline: info.home.traits?.discipline,
-        home: info.home,
-      };
-    },
-  });
-  fatigue.tick(o.now());
   // NPC 일꾼의 작업 중 부상(질문 2702 나 — D-521·D-555 1509, npcWorkInjury.ts): 틱마다 지난 작업 주기 경계만 굴린다
-  const workInjury = createNpcWorkInjury({
-    units: world.units,
-    places: persist.places,
-    maps,
-    startMs,
-    fatigue,
-  });
+  const workInjury = createNpcWorkInjury({ units: world.units, places: persist.places, maps, startMs });
   const tick = async (force = false): Promise<void> => {
     if (busy || stopped) return;
     busy = true;
@@ -1016,7 +963,6 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       metrics.waveResults += results;
       const lifted = liftGovernments(world, o.ruins, o.now()) + (claims?.tick(o.now()) ?? 0);
       loop.runUntil(o.now() + 1);
-      fatigue.tick(o.now());
       metrics.workInjuries += workInjury.roll(o.now()); // 다치면 2차맵 유닛 상태로 바로 쓴다(월드 쓰기 대기열)
       // 걸어 둔 거래소 주문의 만료(쓰기 대기열로 바로 간다)
       if (econ && o.now() - expiredAt >= EXPIRE_EVERY_MS) {
@@ -1058,7 +1004,6 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     society,
     gardener,
     economy: econ,
-    fatigue,
     flushRuins: () => void persist.flushRuins(),
     houseRecruit,
     houses: attachNpcHouses({
@@ -1072,7 +1017,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     mayorOf: (cityId) => people.mayorOf(cityId),
     cityHouses,
     aiMonitor: (cityId) =>
-      aiBridge.monitor(o.now(), cityId, econ ? (id) => monitorCityEcon(econ, world, id) : undefined, fatigue),
+      aiBridge.monitor(o.now(), cityId, econ ? (id) => monitorCityEcon(econ, world, id) : undefined),
     unitTraits: (unitId) => aiBridge.humanPlacesOptions().traitsOf?.(unitId),
     // 휴먼 이름(773 나): 그 휴먼 주인 세력이 따르는 나라의 목록(도시 이름과 같은 길)
     humanName(unitId) {

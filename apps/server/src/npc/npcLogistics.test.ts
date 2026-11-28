@@ -94,17 +94,18 @@ describe("NPC 물류센터 운반꾼", () => {
       { id: LOGISTICS_WORK_BASE + 42, buildingId: 42, workers: 1, hauls: false },
     ]);
     expect(planCenterWorkFacilities(0, centers)).toEqual([]);
+    const area = (x: number, y: number) => ({ minX: x, maxX: x + 2, minY: y, maxY: y + 2 });
     const rest = planCityRest({
       home: { x: 0, y: 0 },
       housing: 10,
       stores: [],
       areas: new Map([
-        [10, { x: 5, y: 5, radius: 1 }],
-        [40, { x: 10, y: 10, radius: 1 }],
-        [42, { x: 20, y: 20, radius: 1 }],
+        [10, area(5, 5)],
+        [40, area(10, 10)],
+        [42, area(20, 20)],
       ]),
       facilities: [{ id: 100, buildingId: 10, workers: 1 }, ...planCenterWorkFacilities(2, centers)],
-      lodgings: [{ id: 70, area: { x: 10, y: 10, radius: 1 }, level: 1, ownerId: 50 }],
+      lodgings: [{ id: 70, area: area(10, 10), level: 1, ownerId: 50 }],
       rules: TEST_SOCIETY_COEFFICIENTS,
     });
     expect(rest.workers).toHaveLength(3);

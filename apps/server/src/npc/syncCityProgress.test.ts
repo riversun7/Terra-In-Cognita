@@ -46,6 +46,7 @@ const emptyPool: QueryPool = {
 /** 시험용 최소 경제 목록: 일반 가공(work 1000 → 1명 1시간) + 선택형 농장(티어 1/3) */
 function testCatalog(): ServerEconomyCatalog {
   return {
+    version: "test@1",
     bookItems: new Set(["timber", "plank", "grain", "wheat"]),
     catalog: {
       presets: [{ id: "alpha", currency: "gold", tradeTaxBp: 500, enabled: true }],
@@ -249,7 +250,7 @@ describe("syncCity 진행 중 생산 배치 진행률 보존(P0-4)", () => {
           {
             code: "alpha",
             name: { ko: "알파", en: "Alpha" },
-            currency: { code: "gold", name: { ko: "골드", en: "Gold" } },
+            currency: "gold",
             tradeTaxBp: 500,
             personality: { cityJobs: [{ facility: "sawmill", recipe: "cut_plank" }] },
           },
@@ -309,7 +310,7 @@ describe("syncCity 진행 중 생산 배치 진행률 보존(P0-4)", () => {
           {
             code: "alpha",
             name: { ko: "알파", en: "Alpha" },
-            currency: { code: "gold", name: { ko: "골드", en: "Gold" } },
+            currency: "gold",
             tradeTaxBp: 500,
             personality: { cityJobs: [{ facility: "sawmill", recipe: "cut_plank" }] },
           },
@@ -374,7 +375,7 @@ describe("syncCity 진행 중 생산 배치 진행률 보존(P0-4)", () => {
           {
             code: "alpha",
             name: { ko: "알파", en: "Alpha" },
-            currency: { code: "gold", name: { ko: "골드", en: "Gold" } },
+            currency: "gold",
             tradeTaxBp: 500,
             personality: { cityJobs: [{ facility: "farm", recipe: "farm_crop" }] },
           },
@@ -412,10 +413,8 @@ describe("syncCity 진행 중 생산 배치 진행률 보존(P0-4)", () => {
     const initialTier = initial.facility.selectTier;
     const altAsset = initialTier === 3 ? "item:grain" : "item:wheat";
     const curAsset = initialTier === 3 ? "item:wheat" : "item:grain";
-    const prices = econ.economy.catalog.startPrice;
-    if (!(prices instanceof Map)) throw new Error("mutable startPrice map expected");
-    prices.set(altAsset, 1_000_000n);
-    prices.set(curAsset, 1n);
+    econ.economy.catalog.startPrice.set(altAsset, 1_000_000n);
+    econ.economy.catalog.startPrice.set(curAsset, 1n);
     now = Math.floor(firstEndsAt / 3);
     loop.runUntil(now);
     econ.refreshCity(10, now);
@@ -456,7 +455,7 @@ describe("syncCity 진행 중 생산 배치 진행률 보존(P0-4)", () => {
           {
             code: "alpha",
             name: { ko: "알파", en: "Alpha" },
-            currency: { code: "gold", name: { ko: "골드", en: "Gold" } },
+            currency: "gold",
             tradeTaxBp: 500,
             get personality() {
               return { cityJobs: [{ facility: "sawmill", recipe }] };

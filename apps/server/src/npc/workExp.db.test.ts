@@ -131,7 +131,7 @@ describe.skipIf(!TEST_DATABASE_URL)("모든 유닛에 스탯·레벨 (DB)", () =
 });
 
 describe.skipIf(!TEST_DATABASE_URL)("운영 조회의 NPC 일꾼 (DB)", () => {
-  it("NPC 도시 일꾼: 지금 하는 일은 하나(거르기와 같은 값)이고, 상태 기반 실제 피로가 보이며 피로 정렬이 그 값을 쓴다", async () => {
+  it("NPC 도시 일꾼: 지금 하는 일은 하나(거르기와 같은 값)이고, 피로는 어림값으로 보이며 피로 정렬이 그 값을 쓴다", async () => {
     const world = await boot();
     const ops = createOpsServices(
       {
@@ -158,7 +158,7 @@ describe.skipIf(!TEST_DATABASE_URL)("운영 조회의 NPC 일꾼 (DB)", () => {
       const workers = list.rows.filter((row) => row.npcWorker === true);
       seenWorkers = Math.max(seenWorkers, workers.length);
       for (const row of workers) {
-        expect(row.job?.fatigueEstimated).toBeUndefined();
+        expect(row.job?.fatigueEstimated).toBe(true);
         // 일꾼은 "하는 일 없음"·"이동 중"으로 뜨지 않는다(일하는 중·가는 중·쉬는 중 … 가운데 하나)
         expect(["working", "to_work", "hauling", "resting", "to_rest", "need", "patrol", "evade"]).toContain(
           row.doing,

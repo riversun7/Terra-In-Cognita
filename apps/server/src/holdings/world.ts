@@ -93,11 +93,9 @@ export function createWorldHoldings(input: {
   readonly vitals?: HoldingVitals | undefined;
   /**
    * 피로 → 1차 스탯 감소 ‰(사용자 결정 2026-11-26 — @terra/sim fatigueStatCutPm, 설정 칸 피로 구간). 없으면 감소 없음. 유닛의 피로는 2차맵 직무
-   * 상태의 마지막 정산 값(또는 NPC 일꾼의 상태 기반 피로)이다
+   * 상태의 마지막 정산 값이다
    */
   readonly fatigueCutPm?: ((fatigue: number) => number) | undefined;
-  /** NPC 일꾼의 상태 기반 피로 조회(npc/npcFatigue.ts — N23 피로 스탯 불이익을 NPC에도 동일 적용) */
-  readonly npcFatigueOf?: ((unitId: number, nowMs: number) => number | undefined) | undefined;
   /** 유닛 성장 거울(growth/store.ts baseOf — 휴먼·사이보그 유닛의 저장된 스탯 + 레벨 성장). 없으면 기본 몸 */
   readonly baseOf?: ((unitId: number) => BodyBase | undefined) | undefined;
 }): WorldHoldings {
@@ -124,15 +122,14 @@ export function createWorldHoldings(input: {
     if (stage === 0) return 0;
     return (config?.rules?.() ?? TEST_HOLDING_RULES).vitals.injuryPenaltyPm[stage] ?? 0;
   };
-  /** 피로 구간의 스탯 감소 ‰(그 유닛의 지금 피로 — 플레이어 직무 피로 우선, 없으면 NPC 상태 기반 피로) */
-  const fatiguePmOf = (unitId: number, nowMs: number): number => {
-    const jobFatigue = infoOf(unitId)?.job.fatigue ?? 0;
-    const fatigue = jobFatigue > 0 ? jobFatigue : (input.npcFatigueOf?.(unitId, nowMs) ?? 0);
+  /** 피로 구간의 스탯 감소 ‰(그 유닛의 지금 피로) */
+  const fatiguePmOf = (unitId: number): number => {
+    const fatigue = infoOf(unitId)?.job.fatigue ?? 0;
     return fatigue > 0 ? (input.fatigueCutPm?.(fatigue) ?? 0) : 0;
   };
   const gearOf = (unitId: number, nowMs: number): UnitGear => ({
     injuryPm: injuryPmOf(unitId, nowMs),
-    fatiguePm: fatiguePmOf(unitId, nowMs),
+    fatiguePm: fatiguePmOf(unitId),
     equipped: service.equippedOn(unitId).map((record) => ({
       item: record.itemId,
       slot: record.slot ?? 0,

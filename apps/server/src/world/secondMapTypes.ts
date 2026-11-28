@@ -2,7 +2,7 @@
 import type { ResultCode, UnitMotionWire } from "@terra/protocol";
 import type { BuildingPlacement, CellRect, Motion, Point, SizeClass } from "@terra/sim";
 import type { WaterMask } from "@terra/shared/waterNearby";
-import type { BotFatigueAccess, BotHome } from "./bots.ts";
+import type { BotHome } from "./bots.ts";
 import type { EdgeHooks } from "./edgeWatch.ts";
 import type { MapTerrain, TerrainFile } from "./mapTerrain.ts";
 import type { MapStream } from "./mapStream.ts";
@@ -98,8 +98,6 @@ export interface SecondMapOptions {
   edge?: EdgeHooks | undefined;
   /** 이동을 시작하는 유닛의 빠르기(D-540 걷기 = 실효 AGI, walkSpeed.ts). 없으면 유닛 speed 그대로 */
   walkSpeed?: ((unit: WalkUnit) => number) | undefined;
-  /** NPC 일꾼 상태 기반 피로 조회·전이 동기화 고리(npc/npcFatigue.ts). 없으면 어림 피로 fallback */
-  botFatigue?: BotFatigueAccess | undefined;
 }
 
 export interface SecondMap {

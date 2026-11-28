@@ -59,19 +59,12 @@ const isNpcWorker = (info: UnitInfo): boolean =>
  * 지금 하는 일(하나): 직무 유닛은 직무 단계, 집이 있는 봇(NPC 휴먼)은 움직임을 정하는 판단(world/bots.ts botStatus — 화면에 보이는 움직임과 같다)과
  * 그 자리에 닿았는지, 그 밖 유닛은 걷는 중인지. "쉬는 중인데 이동 중" 같은 어긋난 표시를 내지 않는다(사용자 지적 2026-11-27)
  */
-function doingOf(world: World, info: UnitInfo, unitId: number, nowMs: number): OpsUnitDoing {
+function doingOf(info: UnitInfo, unitId: number, nowMs: number): OpsUnitDoing {
   if (info.job.job !== 0) return info.job.phase === 0 ? "working" : "resting";
   const moving = (info.motion.arrivals.at(-1) ?? info.motion.departAtMs) > nowMs;
   const home = info.home;
   if (!home) return moving ? "moving" : "idle";
-  const fatigue = world.npc?.fatigue;
-  const status = botStatus(
-    home,
-    { id: unitId, size: info.size },
-    positionAt(info.motion, nowMs),
-    nowMs,
-    fatigue,
-  );
+  const status = botStatus(home, { id: unitId, size: info.size }, positionAt(info.motion, nowMs), nowMs);
   if (status.state === "work") {
     if (status.job === "haul") return "hauling";
     return status.arrived ? "working" : "to_work";
@@ -79,16 +72,16 @@ function doingOf(world: World, info: UnitInfo, unitId: number, nowMs: number): O
   if (status.state === "need") return "need";
   if (status.state === "patrol") return "patrol";
   if (status.state === "evade") return "evade";
-  // 건물 없는 도시 직무 일꾼은 집(시청 칸) 둘레에서 일한다: 상태 기반 피로가 없을 때만 일하는 때 fallback
-  if (home.cityJob === true && !fatigue && atWork(home.shift ?? DEFAULT_WORK_SHIFT, unitId, nowMs))
+  // 건물 없는 도시 직무 일꾼은 집(시청 칸) 둘레에서 일한다: 일하는 때면 일하는 중
+  if (home.cityJob === true && atWork(home.shift ?? DEFAULT_WORK_SHIFT, unitId, nowMs))
     return status.arrived ? "working" : "to_work";
   if (isNpcWorker(info)) return status.arrived ? "resting" : "to_rest";
   return status.arrived ? "idle" : "moving";
 }
 
 /**
- * 피로: 직무 유닛은 직무 상태의 값. NPC 도시 일꾼은 상태 기반 피로 저장소(npc/npcFatigue.ts)의 실제 값을 읽고,
- * 저장소가 없는 환경(시험 등)에서만 어림 피로(shiftFatiguePm)로 fallback한다
+ * 피로: 직무 유닛은 직무 상태의 값. NPC 도시 일꾼은 직무 상태가 없어 어림 피로(bots.ts shiftFatiguePm ‰ — 일하는 때 오르고 쉬는 때 내린다, NPC 작업
+ * 중 부상 판정이 쓰는 값)를 피로 상한 눈금으로 바꿔 보인다
  */
 function fatigueOf(
   world: World,
@@ -96,9 +89,6 @@ function fatigueOf(
   unitId: number,
   nowMs: number,
 ): { fatigue: number; estimated: boolean } {
-  if (info.job.job !== 0) return { fatigue: info.job.fatigue, estimated: false };
-  const tracked = world.npc?.fatigue.fatigueOf(unitId, nowMs);
-  if (tracked !== undefined) return { fatigue: tracked, estimated: false };
   const max = isNpcWorker(info) ? unitLifeOf(world.persistence)?.fatigueMax() : undefined;
   if (max === undefined) return { fatigue: info.job.fatigue, estimated: false };
   const pm = shiftFatiguePm(info.home?.shift ?? DEFAULT_WORK_SHIFT, unitId, nowMs);
@@ -264,19 +254,19 @@ function unitCore(world: World, map: SecondMap, unitId: number, nowMs: number): 
       fatigue: fatigue.fatigue,
       ...(fatigue.estimated ? { fatigueEstimated: true } : {}),
     },
-    doing: doingOf(world, info, unitId, nowMs),
+    doing: doingOf(info, unitId, nowMs),
     npcWorker: isNpcWorker(info),
     workplace: world.persistence?.labor.workplaceOf(unitId) ?? null,
   };
 }
 
 /** 유닛이 그 상태인가(목록 거르기): 부상·포로, 그 밖은 지금 하는 일(doingOf) */
-function inState(world: World, map: SecondMap, unitId: number, state: OpsUnitState, nowMs: number): boolean {
+function inState(map: SecondMap, unitId: number, state: OpsUnitState, nowMs: number): boolean {
   const info = map.unitInfo(unitId);
   if (!info) return false;
   if (state === "injured") return info.condition.injury > 0;
   if (state === "captive") return info.condition.heldBy !== null;
-  return doingOf(world, info, unitId, nowMs) === state;
+  return doingOf(info, unitId, nowMs) === state;
 }
 
 /** 피로 정렬 값(NPC 도시 일꾼은 어림 피로) */
@@ -319,7 +309,7 @@ export function listUnits(
       if (filter.kind !== undefined && unit.kind !== filter.kind) return;
       if (filter.ownerKind !== undefined && ownerKindOf(world, unit.ownerId).kind !== filter.ownerKind)
         return;
-      if (state !== undefined && !inState(world, map, unit.id, state, nowMs)) return;
+      if (state !== undefined && !inState(map, unit.id, state, nowMs)) return;
       const key =
         sort === "level"
           ? levelKeyOf(world, unit.id)

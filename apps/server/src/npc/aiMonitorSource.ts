@@ -2,7 +2,7 @@
 // 2차맵 몸(지금 하는 일·움직임·부상)과 도시 경제(쉼터 계획·시설·생필품 재고·국고)를 읽기만 한다(계정·사건을 만들지 않는다).
 import { arrivalAt } from "@terra/sim";
 import type { SimWorld } from "@terra/sim";
-import { type BotFatigueAccess, botActivity } from "../world/bots.ts";
+import { botActivity } from "../world/bots.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { injuryAt, unavailable } from "../world/unitCondition.ts";
 import type { MonitorBody, MonitorCityEcon } from "./aiMonitor.ts";
@@ -22,7 +22,6 @@ export function monitorBodyOf(
   homeMapKey: number | undefined,
   unitId: number,
   nowMs: number,
-  fatigue?: BotFatigueAccess,
 ): { readonly body: MonitorBody | null; readonly injury: number } {
   const home = homeMapKey === undefined ? undefined : maps.get(homeMapKey);
   let info = home?.unitInfo(unitId);
@@ -45,7 +44,7 @@ export function monitorBodyOf(
   if (elsewhere || info.held === true || info.aboard !== undefined)
     return { body: { ...base, activity: "travel" }, injury };
   if (!info.home) return { body: { ...base, activity: "rest" }, injury };
-  const now = botActivity(info.home, unitId, nowMs, fatigue);
+  const now = botActivity(info.home, unitId, nowMs);
   const activity: MonitorBody["activity"] =
     now.state === "work" ? (now.job === "haul" ? "haul" : now.job === "post" ? "post" : "forage") : now.state;
   return { body: { ...base, activity }, injury };

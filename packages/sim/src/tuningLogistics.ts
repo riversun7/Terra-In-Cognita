@@ -45,6 +45,12 @@ export const LOGISTICS_TUNING_KEYS: readonly TuningKey[] = [
     "NPC workers walk between work and rest on the fatigue cycle (1 = fatigue, 0 = local day/night)",
   ),
   k(
+    "npc_worker_job_mode",
+    "npcJobMode",
+    "NPC 일꾼도 플레이어 유닛과 같은 직무 상태(1 = 묶음마다 피로·쉬면 생산에서 빠짐, 0 = 옛 셈)",
+    "NPC workers use the same job state as player units (1 = fatigue per lot, resting workers stop producing; 0 = old model)",
+  ),
+  k(
     "logistics_npc_build_waits",
     "npcBuildWaits",
     "NPC 물류센터 증축: 기다리는 운반 일 수(상업 성향 배율 곱)",

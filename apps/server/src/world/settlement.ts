@@ -127,6 +127,12 @@ export interface Settlement {
       | undefined,
   ): void;
   /**
+   * 직무 상태를 다른 곳이 맡은 유닛(NPC 일꾼 직무 판 — npc/workerJobs.ts, docs/adr/2026-11-27-npc-worker-jobs.md): 정산이 그 유닛의 직무 상태를
+   * 밀지도 쓰지도 않는다(일 주기마다 1점씩 쌓는 엔진을 타지 않는다 — 묶음마다 쌓고 쉼터에서 내리는 것은 그 판이 한다). 작업 중 부상도 그 판이
+   * 굴린다. 유지비는 그대로 낸다
+   */
+  externalJobs(hook: ((unitId: number) => boolean) | undefined): void;
+  /**
    * 좌표 유닛 목록(이동 서비스 — docs/adr/2026-11-15-unloaded-second-maps.md 6절): 띄우지 않은 2차맵 위 유닛도 유지비를 낸다(직무는 없다).
    * 없으면 띄운 2차맵 유닛만(예전과 같다)
    */
@@ -281,6 +287,7 @@ export function createSettlement(options: {
   let lifeHook:
     | ((unitId: number) => { readonly restAt: number; readonly resumeAt: number } | undefined)
     | undefined;
+  let externalHook: ((unitId: number) => boolean) | undefined;
   /** 유닛 생활 규칙(쉬러 가는 피로·다시 일하는 피로)을 직무가 있는 유닛의 규칙에 얹는다. 얹을 것이 없으면 받은 그대로 */
   const withLife = (
     rules: readonly (JobRules | undefined)[] | undefined,
@@ -300,9 +307,14 @@ export function createSettlement(options: {
   };
   const weightOf = options.upkeepWeightPm;
 
-  const settleWith = (owner: OwnerRow, units: readonly UnitRef[], toMs: number): SettleReport => {
+  const settleWith = (owner: OwnerRow, given: readonly UnitRef[], toMs: number): SettleReport => {
     const from = owner.settledAtMs;
     if (toMs <= from) return { cycles: 0, upkeepPaid: 0, upkeepUnpaid: 0 };
+    // 직무 상태를 다른 곳이 맡은 유닛(NPC 일꾼 직무 판)은 좌표 유닛처럼 본다: 직무 없음·쓰지 않음·부상 굴림 없음, 유지비만
+    const external = externalHook;
+    const units = external
+      ? given.map((unit) => (external(unit.id) ? { ...unit, map: undefined, job: NO_JOB } : unit))
+      : given;
     // 노동 계약을 같은 시각까지 정산하고 유닛마다 산출 구간을 받는다(계약이 없으면 undefined → 예전과 같다)
     const routes = router?.(owner.id, from, toMs);
     // 건물 작업에 묶인 유닛은 그 구간 산출이 없다(D-516 364). 멈춤이 없는 유닛은 계약 몫 구간 그대로
@@ -482,6 +494,9 @@ export function createSettlement(options: {
     },
     lifeRules(hook) {
       lifeHook = hook;
+    },
+    externalJobs(hook) {
+      externalHook = hook;
     },
     stop() {
       clearInterval(sweepTimer);

@@ -131,7 +131,7 @@ describe.skipIf(!TEST_DATABASE_URL)("모든 유닛에 스탯·레벨 (DB)", () =
 });
 
 describe.skipIf(!TEST_DATABASE_URL)("운영 조회의 NPC 일꾼 (DB)", () => {
-  it("NPC 도시 일꾼: 지금 하는 일은 하나(거르기와 같은 값)이고, 피로는 어림값으로 보이며 피로 정렬이 그 값을 쓴다", async () => {
+  it("NPC 도시 일꾼: 지금 하는 일은 하나(거르기와 같은 값)이고, 피로는 직무 상태의 진짜 값이며 피로 정렬이 그 값을 쓴다", async () => {
     const world = await boot();
     const ops = createOpsServices(
       {
@@ -158,7 +158,9 @@ describe.skipIf(!TEST_DATABASE_URL)("운영 조회의 NPC 일꾼 (DB)", () => {
       const workers = list.rows.filter((row) => row.npcWorker === true);
       seenWorkers = Math.max(seenWorkers, workers.length);
       for (const row of workers) {
-        expect(row.job?.fatigueEstimated).toBe(true);
+        // 일꾼 직무 판(설정 칸 npc_worker_job_mode 1): 플레이어 유닛과 같은 직무 상태 — 어림값이 아니다
+        expect(row.job?.kind).toBe(1);
+        expect(row.job?.fatigueEstimated).toBeUndefined();
         // 일꾼은 "하는 일 없음"·"이동 중"으로 뜨지 않는다(일하는 중·가는 중·쉬는 중 … 가운데 하나)
         expect(["working", "to_work", "hauling", "resting", "to_rest", "need", "patrol", "evade"]).toContain(
           row.doing,
@@ -175,7 +177,7 @@ describe.skipIf(!TEST_DATABASE_URL)("운영 조회의 NPC 일꾼 (DB)", () => {
       }
     }
     expect(seenWorkers).toBeGreaterThan(0);
-    // 일하는 때를 지나면 피로가 0보다 크고 피로 상한(120)을 넘지 않는다
+    // 묶음을 내면 피로가 쌓인다(0보다 크고 피로 상한 120을 넘지 않는다)
     expect(maxFatigue).toBeGreaterThan(0);
     expect(maxFatigue).toBeLessThanOrEqual(TEST_SOCIETY_COEFFICIENTS.fatigueMax);
   });

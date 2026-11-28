@@ -914,6 +914,8 @@ export function startWorld(
     );
     await life?.loaded;
     settlement.lifeRules((unitId) => life?.of(unitId));
+    // NPC 일꾼 직무 판이 맡은 유닛은 정산이 직무 상태를 건드리지 않는다(npc/workerJobs.ts — 묶음마다 피로·쉼터 회복은 그 판이 한다)
+    settlement.externalJobs((unitId) => npc?.workerJobs.has(unitId) === true);
     // 건물별 접근 권한 판정기(ADR 2026-11-25-building-access-and-foreign-build.md)
     attachBuildingAccess(
       ledger,
@@ -1051,6 +1053,7 @@ export function startWorld(
           log,
           rules: config.cyborgRules ?? defaultCyborgRules,
           gainExp: gainUnitExp, // NPC 일꾼 경험치(docs/adr/2026-11-27-npc-work-exp.md)
+          lifeOf: (unitId) => life?.of(unitId), // NPC 일꾼이 쉬러 가는 피로(생활 규칙 — 성향 기본값)
           dayMs: config.npc.dayMs,
           manual: config.npc.manual,
           gardenerWaves: config.npc.gardenerWaves,

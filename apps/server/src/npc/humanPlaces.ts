@@ -124,6 +124,11 @@ export function assignHumanPlaces(input: {
   readonly needsOf?: UnitNeedsLookup | undefined;
   /** 가문 일 지시(일꾼 차례·지시 불복, npc/laborOrders.ts). 없으면 유닛 ID 차례 */
   readonly laborOf?: UnitLaborLookup | undefined;
+  /**
+   * 직무 상태가 정한 일·쉼(NPC 일꾼 직무 판, npc/workerJobs.ts workingOf): true = 일 단계, false = 쉼 단계, undefined = 맡지 않은 유닛(옛 규칙 —
+   * 피로 바퀴·낮밤). 값이 있으면 그 일꾼은 피로 바퀴 대신 이 단계로 일터 ↔ 쉼터를 오간다
+   */
+  readonly phaseOf?: ((unitId: number) => boolean | undefined) | undefined;
   /** 도시 시장·상업 구역 네모(욕구 해결 need 상태 목적지) */
   readonly market?: TripArea | undefined;
   /** 소속 도시가 전쟁 중인지 */
@@ -169,7 +174,8 @@ export function assignHumanPlaces(input: {
           ? input.rests[order]
           : nearestArea(input.lodgings ?? [], work);
       const cycle = input.cycles?.[order];
-      const own = cycle ? { ...shift, cycle } : shift;
+      const on = input.phaseOf?.(unitId);
+      const own = on !== undefined ? { ...shift, on } : cycle ? { ...shift, cycle } : shift;
       const carry = taken === 0 && haul ? { haul } : {};
       if (taken === 0 && haul && facility.haul?.key !== undefined)
         input.onCarrier?.(facility.haul.key, unitId);
@@ -318,6 +324,8 @@ export interface HumanPlacesInput {
   readonly needsOf?: UnitNeedsLookup | undefined;
   /** 가문 일 지시 조회(일꾼 차례·지시 불복) */
   readonly laborOf?: UnitLaborLookup | undefined;
+  /** 직무 상태가 정한 일·쉼(NPC 일꾼 직무 판 — workerJobs.ts workingOf). 없으면 옛 규칙 */
+  readonly phaseOf?: ((unitId: number) => boolean | undefined) | undefined;
   /** 도시 시장·상업 구역 건물 ID 조회 */
   readonly marketOf?: ((cityId: number) => number | undefined) | undefined;
   /** 도시 전쟁 여부 조회 */
@@ -419,6 +427,7 @@ export function createHumanPlaces(): { sync(input: HumanPlacesInput): number } {
           traitsOf: input.traitsOf,
           needsOf: input.needsOf,
           laborOf: input.laborOf,
+          phaseOf: input.phaseOf,
           market: (() => {
             const marketBuildingId = input.marketOf?.(cityId);
             return marketBuildingId === undefined

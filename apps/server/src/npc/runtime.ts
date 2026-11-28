@@ -83,6 +83,7 @@ import { npcClaimsOf } from "./npcClaims.ts";
 import { createDecideClock, resumeDecides } from "./decideSchedule.ts";
 import { type ServerGardener, attachServerGardener } from "./gardener.ts";
 import { createNpcWorkInjury } from "./npcWorkInjury.ts";
+import { type WorkerJobs, createWorkerJobs } from "./workerJobs.ts";
 import { type WaveRewardItems, grantWaveReward } from "./waveRewards.ts";
 import { type NationPreset, nationPresetOf, nationStartOf, presetOfCode } from "./nations.ts";
 import { applyPresetTemper } from "./presetTemper.ts";
@@ -143,6 +144,12 @@ export interface NpcRuntimeOptions {
   readonly rules: () => SocietyCoefficients;
   /** 하루 길이(ms, 기본 실제 24시간). 측정용으로만 줄인다(NPC_DAY_MS) */
   readonly dayMs?: number | undefined;
+  /**
+   * 유닛 생활 규칙(쉬러 가는 피로·다시 일하는 피로 — life/store.ts). NPC 일꾼 직무 판(workerJobs.ts)이 쉴 때를 정한다. 없으면 피로 상한에서 쉰다
+   */
+  readonly lifeOf?:
+    | ((unitId: number) => { readonly restAt: number; readonly resumeAt: number } | undefined)
+    | undefined;
   /** 일꾼 경험치를 받는 곳(유닛 성장 거울 — 도시 경제가 생산할 때마다 부른다, economy.ts gainExp). 없으면 NPC 일꾼은 경험치를 받지 않는다 */
   readonly gainExp?: ((unitId: number, amount: number) => void) | undefined;
   /** 정원사 웨이브 켬(GARDENER_WAVES). false면 도시 웨이브 확률 0(오염은 그대로 쌓임). 없으면 켬 */
@@ -236,6 +243,8 @@ export interface NpcRuntime {
    * 옛 값으로 덮는다(persist.ts — 휴먼 줄은 거울의 레벨을 쓴다). 스탯이 없는 휴먼·거울에 없는 유닛은 아무 일도 없다
    */
   setHumanLevel(unitId: number, level: number): void;
+  /** NPC 일꾼 직무 판(workerJobs.ts — 소유 주체 정산이 맡은 유닛을 건드리지 않게 묻는다) */
+  readonly workerJobs: Pick<WorkerJobs, "has" | "workingOf" | "size">;
   /** 그 도시의 지난 하루 끝 생필품 충족 ‰(781 나, cityDayStore.ts). 아직 하루 끝 전이면 undefined */
   necessitiesOf(cityId: number): number | undefined;
   /** 그 세력(소유 주체 ID)의 수도 도시(D-528, capitals.ts). 도시가 없으면 undefined */
@@ -699,6 +708,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     const info = map.unitInfo(unitId);
     return !info || info.held === true;
   };
+  // NPC 일꾼 직무 판(설정 칸 npc_worker_job_mode — workerJobs.ts): 일꾼의 일·쉼·피로를 유닛 직무 상태로 든다
+  const workerJobs = createWorkerJobs({ maps, rules: o.rules, lifeOf: o.lifeOf });
   // 도시 경제(사회 규칙보다 먼저: 사회·판단이 경제 고리를 받는다)
   const econ = o.economy
     ? await startServerEconomy({
@@ -719,6 +730,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         catchmentSaved,
         away: awayFromCity,
         gainExp: o.gainExp,
+        workerJobs,
       })
     : undefined;
   const catchmentState = econ?.economy.catchment;
@@ -918,6 +930,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       places: persist.places,
       econ,
       lodgingsOf: o.economy?.lodgingsIn,
+      // 직무 상태가 정한 일·쉼(판이 꺼져 있으면 맡은 유닛이 없어 옛 규칙)
+      phaseOf: (unitId) => workerJobs.workingOf(unitId),
       nowMs: o.now(),
     });
     people.sync();
@@ -952,7 +966,13 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   let expiredAt = startMs;
   let presenceAt = startMs;
   // NPC 일꾼의 작업 중 부상(질문 2702 나 — D-521·D-555 1509, npcWorkInjury.ts): 틱마다 지난 작업 주기 경계만 굴린다
-  const workInjury = createNpcWorkInjury({ units: world.units, places: persist.places, maps, startMs });
+  const workInjury = createNpcWorkInjury({
+    units: world.units,
+    places: persist.places,
+    maps,
+    startMs,
+    fatigueMax: () => o.rules().fatigueMax,
+  });
   const tick = async (force = false): Promise<void> => {
     if (busy || stopped) return;
     busy = true;
@@ -970,13 +990,16 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         econ.expire(expiredAt);
       }
       const labored = aiBridge.laborTick(o.now(), econ); // 가문 일 지시 점검(바뀐 도시만 일꾼을 다시 센다)
+      // NPC 일꾼 직무 판: 쉬는 일꾼의 회복·일꾼 목록·시설 생산 속도(바뀐 것이 있으면 아래에서 휴먼 자리를 맞춘다)
+      const worked = econ?.workTick(o.now()) ?? 0;
       // 도시를 떠나거나 돌아온 휴먼(2차맵 사이 이동 — 질문 2697 나): 바뀐 도시만 일꾼을 다시 나눈다
       let moved = 0;
       if (econ && o.now() - presenceAt >= PRESENCE_EVERY_MS) {
         presenceAt = o.now();
         moved = econ.refreshPresence(presenceAt);
       }
-      if (loop.processed === before && results === 0 && lifted + labored + moved === 0 && !force) return;
+      if (loop.processed === before && results === 0 && lifted + labored + moved + worked === 0 && !force)
+        return;
       const started = performance.now();
       const result = await persist.flush(society.currentDay());
       warPersist.flush(o.now());
@@ -1024,6 +1047,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       const unit = world.units.get(unitId);
       return unit ? humanNameOf(namesOf(unit.owner), unitId) : undefined;
     },
+    workerJobs,
     setHumanLevel(unitId, level) {
       const unit = world.units.get(unitId);
       if (unit?.recruit && unit.recruit.level !== level) unit.recruit = { ...unit.recruit, level };

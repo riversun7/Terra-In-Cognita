@@ -125,6 +125,11 @@ export interface WorkShift {
    * 쉼터(오감 포함). 휴먼마다 바퀴 시작을 유닛 ID 해시로 흩는다(한꺼번에 쉬러 가지 않게). 바퀴는 도시 경제 생산 셈(npc/cityRest.ts)과 같다
    */
   readonly cycle?: RestCycle | undefined;
+  /**
+   * 직무 상태가 정한 일·쉼(NPC 일꾼 직무 판 — npc/workerJobs.ts, 설정 칸 npc_worker_job_mode 1): 있으면 시각·피로 바퀴 대신 이 값이 일하는 때다
+   * (true = 일 단계 → 일터, false = 쉼 단계 → 쉼터). 유닛의 진짜 피로가 쉬러 가는 값에 닿았을 때 바뀐다
+   */
+  readonly on?: boolean | undefined;
 }
 
 /** 일·쉼 한 바퀴(ms) */
@@ -214,6 +219,8 @@ function inShift(t: number, startPm: number, endPm: number): boolean {
 
 /** 그 유닛이 지금 일하는 때인가(그 2차맵 지역 시각의 낮, 유닛마다 조금 흩은 출근·퇴근) */
 export function atWork(shift: WorkShift, unitId: number, nowMs: number): boolean {
+  // 직무 상태가 정했으면 그 단계 그대로(NPC 일꾼 직무 판)
+  if (shift.on !== undefined) return shift.on;
   const cycle = shift.cycle;
   if (cycle && cycle.periodMs > 0) {
     // 피로 바퀴: 바퀴 시작을 유닛마다 흩는다
@@ -225,6 +232,9 @@ export function atWork(shift: WorkShift, unitId: number, nowMs: number): boolean
   return inShift(t, shift.startPm, shift.endPm);
 }
 
+/** [임시] 직무 상태가 일·쉼을 정한 일꾼의 판단용 어림 피로(‰): 일하는 때 낮게, 쉬는 때 높게(쉬러 온 까닭 = 지쳤다) */
+const ON_DUTY_FATIGUE_PM = 300;
+const OFF_DUTY_FATIGUE_PM = 650;
 /** [임시] 일하는 때가 끝날 무렵의 어림 피로(‰). 쉬는 동안 0으로 내려간다 */
 const SHIFT_FATIGUE_PEAK_PM = 600;
 
@@ -241,6 +251,8 @@ function fatigueRamp(pos: number, work: number, total: number): number {
  * 피로 바퀴(shift.cycle)가 있으면 그 바퀴, 없으면 지역 시각의 낮·밤
  */
 export function shiftFatiguePm(shift: WorkShift, unitId: number, nowMs: number): number {
+  // 직무 상태가 정한 일꾼: 판단(FSM)에는 일하는 때·쉬는 때의 어림값만 준다(진짜 피로는 유닛 직무 상태 — 작업 중 부상·운영 조회가 그것을 읽는다)
+  if (shift.on !== undefined) return shift.on ? ON_DUTY_FATIGUE_PM : OFF_DUTY_FATIGUE_PM;
   const cycle = shift.cycle;
   if (cycle && cycle.periodMs > 0) {
     const offset = (mix32(Math.imul(unitId, 0x2545_f491)) >>> 0) % cycle.periodMs;

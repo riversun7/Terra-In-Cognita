@@ -42,6 +42,7 @@ import {
   type SimHooks,
   type SimLoop,
   type SimWorld,
+  type RestPlace,
   type SocietyCoefficients,
   assignCityWorkers,
   batchDurationFor,
@@ -68,6 +69,7 @@ import {
   tierTemperOf,
 } from "@terra/sim";
 import type { CatchmentLand } from "@terra/shared/catchment";
+import type { WorkerJobs, WorkerSeat } from "./workerJobs.ts";
 import { planetCatchmentGeometry } from "./catchmentGeometry.ts";
 import { type CatchmentSaved, restoreCatchment } from "./catchmentStore.ts";
 import type { CityRestPlan, RestFacility } from "./cityRest.ts";
@@ -112,6 +114,8 @@ export { DEFAULT_TAX_BP } from "./currency.ts";
 import type { NpcJobSite } from "./npcJobs.ts";
 /** [임시] 보이는 운반 일정에 더하는 내려놓는 시간(ms) */
 const HAUL_SHOWN_EXTRA_MS = 20_000;
+/** NPC 일꾼 목록(직무 켬·끔)을 다 맞추는 간격(ms — 죽음·구인·이사로 일꾼 차례가 바뀐다. 쉬던 일꾼이 돌아오는 것은 틱마다 바로 본다) */
+const WORKER_SYNC_MS = 30_000;
 /** 처음 창고 중복 방지 키 앞머리 */
 const ENDOW_KEY = "npc_endow:";
 /** 도시 직무 시설 ID(건물 ID와 겹치지 않게 큰 수부터, 도시마다 16칸 — 팩 성격 칸 cityJobs는 8개까지) */
@@ -266,6 +270,11 @@ export interface ServerEconomy {
   /** 그 도시 일꾼 쉼터·옮김 계획(마지막 맞추기, 없으면 undefined — 휴먼 집·일터와 화면이 본다) */
   restPlan(cityId: number): CityRestPlan | undefined;
   /**
+   * NPC 일꾼 직무 상태를 지금까지 민다(런타임 틱 — npc/workerJobs.ts): 쉬는 일꾼의 회복, 일꾼 목록 맞추기(30초마다), 시설 생산 속도 맞추기.
+   * 바뀐 수(0이면 저장·휴먼 자리 맞추기를 건너뛴다)
+   */
+  workTick(nowMs: number): number;
+  /**
    * 휴먼 집·일터(humanPlaces.ts)가 쓰는 그 도시 시설 일꾼(시설 ID 차례). 건물 시설에 옮김 시간이 있으면 이번 산출의 끝 몫을 보이는 운반 일정으로
    * 붙인다(D-570 1886 — 판정은 시간 셈 그대로)
    */
@@ -310,6 +319,11 @@ export interface ServerEconomyOptions {
    * 생산할 때마다 그 시설 일꾼 한 명(차례로)에게 묶음 하나 몫의 경험치를 준다. 없으면 주지 않는다
    */
   readonly gainExp?: ((unitId: number, amount: number) => void) | undefined;
+  /**
+   * NPC 일꾼 직무 장부(npc/workerJobs.ts — 설정 칸 npc_worker_job_mode 1): 묶음마다 일꾼 피로를 쌓고, 쉬는 일꾼을 뺀 몫으로 시설 생산 속도를
+   * 맞춘다. 없거나 꺼져 있으면 옛 셈(숙소 회복 배율)
+   */
+  readonly workerJobs?: WorkerJobs | undefined;
   /** 도시 → 그 도시 2차맵(1차맵 칸 키, 배후지 칸을 센다). 없으면 배후지 다툼을 켜지 않는다 */
   readonly cityMapOf?: ((cityId: number) => number | undefined) | undefined;
   /**
@@ -673,6 +687,81 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     });
   };
 
+  // ── NPC 일꾼 직무 판(npc/workerJobs.ts, 설정 칸 npc_worker_job_mode — docs/adr/2026-11-27-npc-worker-jobs.md) ──
+  const jobs = o.workerJobs;
+  const jobMode = (): boolean => jobs?.enabled() === true;
+  /** 그 도시 일꾼을 시설마다(유닛 ID — cityWorkerUnits 차례) */
+  const workersByFacility = (cityId: number): Map<number, number[]> => {
+    const out = new Map<number, number[]>();
+    for (const worker of cityWorkerUnits(world, economy, cityId)) {
+      const list = out.get(worker.facilityId);
+      if (list) list.push(worker.unitId);
+      else out.set(worker.facilityId, [worker.unitId]);
+    }
+    return out;
+  };
+  /** 그 도시 일꾼 자리(시설·쉼터 — 쉼터 계획의 시설 안 차례, npcWages.ts와 같은 맞춤) */
+  const seatsOf = (cityId: number): WorkerSeat[] => {
+    const rests = new Map<string, RestPlace>();
+    const next = new Map<number, number>();
+    for (const rest of restPlans.get(cityId)?.workers ?? []) {
+      const index = next.get(rest.facilityId) ?? 0;
+      next.set(rest.facilityId, index + 1);
+      rests.set(`${rest.facilityId}:${index}`, rest.place);
+    }
+    return cityWorkerUnits(world, economy, cityId).map((worker) => ({
+      unitId: worker.unitId,
+      facilityId: worker.facilityId,
+      place: rests.get(`${worker.facilityId}:${worker.index}`),
+    }));
+  };
+  /**
+   * 시설 생산 속도를 지금 일하는 일꾼 몫(‰)으로 맞춘다. 아무도 일하지 않으면 생산을 세운다(잡아 둔 번을 거둔다 — 누가 다시 일하면 그때부터 새로).
+   * fresh = 방금 잡은 번(진행이 없다 → 새 속도로 다시 잡는다). 진행 중인 번은 잡힌 시간 그대로 끝나고 다음 번부터 새 속도다
+   */
+  const applyDuty = (
+    facility: EcoFacility,
+    workers: readonly number[],
+    nowMs: number,
+    fresh: boolean,
+  ): void => {
+    if (!jobs) return;
+    const duty =
+      facility.workers <= 0
+        ? 1000
+        : Math.min(1000, Math.floor((jobs.workingAt(workers) * 1000) / facility.workers));
+    const stalled = facility.eventId === undefined;
+    if (duty === (facility.dutyPm ?? 1000) && !(stalled && duty > 0)) return;
+    const next: EcoFacility = { ...facility, dutyPm: duty };
+    economy.facilities.set(facility.id, next);
+    const buildingId = runs.get(facility.id)?.buildingId ?? null;
+    if (duty <= 0) {
+      if (next.eventId !== undefined) loop.cancel(next.eventId);
+      next.eventId = undefined;
+      next.pending = undefined;
+      noteRun(next, nowMs, buildingId);
+      return;
+    }
+    if (!stalled && !fresh) return;
+    if (next.eventId !== undefined) loop.cancel(next.eventId);
+    next.eventId = undefined;
+    scheduleProduce(economy, world, loop, next, nowMs);
+    noteRun(next, nowMs, buildingId);
+  };
+  /** 그 도시의 일꾼 직무(켬·끔)와 시설 생산 속도를 맞춘다. 바뀐 일꾼 수 */
+  const refreshJobs = (cityId: number, nowMs: number, fresh?: ReadonlySet<number>, sync = true): number => {
+    if (!jobs) return 0;
+    const changed = sync ? jobs.sync(cityId, seatsOf(cityId), nowMs) : 0;
+    const by = workersByFacility(cityId);
+    // 맞추는 동안 같은 열쇠만 다시 넣는다(새 열쇠 없음 — 훑는 차례가 바뀌지 않는다)
+    for (const facility of economy.facilities.values())
+      if (facility.city === cityId)
+        applyDuty(facility, by.get(facility.id) ?? [], nowMs, fresh?.has(facility.id) === true);
+    return changed;
+  };
+  /** 일꾼 목록을 마지막으로 다 맞춘 시각 */
+  let jobsSyncedAt = Number.NEGATIVE_INFINITY;
+
   /** 그 도시의 생산 시설을 맞춘다(건물 + 도시 직무, 일꾼 = 휴먼을 돌려 나눔) */
   const syncCity = (cityId: number, nowMs: number): void => {
     const city = world.cities.get(cityId);
@@ -797,11 +886,13 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     else restPlans.delete(cityId);
     // 인구 상한 = 주거 + 씨앗 뒤 숙소 침대(질문 1089 나·1131 나, @terra/sim cityHousingCap): 구인 규칙식·붐빔·만족도 주거가 본다
     if (city) city.beds = plan?.capBeds ?? 0;
+    // 일꾼 직무 판(npc_worker_job_mode 1): 생산 속도 배율은 쉼터 계획이 아니라 지금 일하는 일꾼 몫이다(아래 applyDuty가 맞춘다)
+    const managed = jobMode();
     const logisticsOf = (id: number): Pick<EcoFacility, "dutyPm" | "haul"> => {
       const rest = plan?.facilities.get(id);
       if (!rest) return {};
       return {
-        ...(rest.dutyPm === 1000 ? {} : { dutyPm: rest.dutyPm }),
+        ...(managed || rest.dutyPm === 1000 ? {} : { dutyPm: rest.dutyPm }),
         ...(rest.haulCells > 0 && haulOn(rules)
           ? { haul: { cells: rest.haulCells, carryG: rules.gatherObjects.carryGrams } }
           : {}),
@@ -824,7 +915,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         want.level === facility.level &&
         want.plots === (facility.plots ?? 0) &&
         wantWorkers === facility.workers &&
-        logistics.dutyPm === facility.dutyPm &&
+        (managed || logistics.dutyPm === facility.dutyPm) &&
         logistics.haul?.cells === facility.haul?.cells &&
         logistics.haul?.carryG === facility.haul?.carryG;
       const sameTier = want.tier === undefined || want.tier === facility.selectTier;
@@ -865,6 +956,8 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         workers: wantWorkers,
         ...effects,
         ...logistics,
+        // 일꾼 직무 판에서는 생산 속도 배율을 일하는 일꾼 몫이 정한다 — 다시 맞출 때 그 값을 잃지 않는다
+        ...(managed && facility.dutyPm !== undefined ? { dutyPm: facility.dutyPm } : {}),
         batches: facility.batches,
         eventId: undefined,
       };
@@ -900,6 +993,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         noteRun(nextFacility, syncAt, want.buildingId);
       }
     }
+    const created = new Set<number>();
     for (const [id, want] of wanted) {
       if (economy.facilities.has(id)) continue;
       const recipe = catalog.recipes.get(want.recipe);
@@ -923,8 +1017,11 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       economy.facilities.set(id, facility);
       scheduleProduce(economy, world, loop, facility, syncAt);
       noteRun(facility, syncAt, want.buildingId);
+      created.add(id);
     }
     centers.invalidate(cityId);
+    // 일꾼 직무 판: 이 도시 일꾼의 직무를 맞추고(새 일꾼 켬·빠진 휴먼 끔), 시설 생산 속도를 지금 일하는 일꾼 몫으로 맞춘다
+    if (managed) refreshJobs(cityId, syncAt, created);
   };
 
   /**
@@ -1019,7 +1116,18 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
    * 일꾼 경험치: 생산 한 번 = 묶음 하나 몫(플레이어 채집·직무와 같은 식 @terra/sim gatherExp — 기본 + 티어당 더함. 티어는 선택형 채집소의 기르는
    * 티어, 그 밖 시설은 0)을 그 시설 일꾼 한 명에게 차례로 준다. 일꾼 ↔ 휴먼 = cityWorkerUnits(임금·보이는 일터와 같은 나눔)
    */
-  const giveWorkExp = (facility: EcoFacility, c: SocietyCoefficients): void => {
+  const giveWorkExp = (facility: EcoFacility, c: SocietyCoefficients, nowMs: number): void => {
+    const tier = isSelectRecipe(facility.recipe) ? facility.selectTier : 0;
+    const amount = gatherExp(tier, c.gatherObjects);
+    if (jobs && jobMode()) {
+      // 일꾼 직무 판: 묶음을 낸 일꾼(지금 일하는 일꾼 가운데 차례로)이 피로와 경험치를 함께 받는다. 쉬러 가면 다음 번부터 생산 속도가 준다
+      const workers = workersByFacility(facility.city).get(facility.id) ?? [];
+      const got = jobs.lot(facility, workers, nowMs);
+      if (got !== undefined && amount > 0) o.gainExp?.(got, amount);
+      const now = economy.facilities.get(facility.id);
+      if (now) applyDuty(now, workers, nowMs, true);
+      return;
+    }
     if (!o.gainExp) return;
     const workers = cityWorkerUnits(world, economy, facility.city).filter(
       (worker) => worker.facilityId === facility.id,
@@ -1029,8 +1137,6 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     expTurns.set(facility.id, turn + 1);
     const worker = workers[turn % workers.length];
     if (!worker) return;
-    const tier = isSelectRecipe(facility.recipe) ? facility.selectTier : 0;
-    const amount = gatherExp(tier, c.gatherObjects);
     if (amount > 0) o.gainExp(worker.unitId, amount);
   };
 
@@ -1102,7 +1208,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         const shortBefore = economy.today.inputShort;
         run.handle(event, nowMs);
         // 일꾼 경험치: 실제로 생산한 번(재료가 모자라지 않은 번)만
-        if (facility && economy.today.inputShort === shortBefore) giveWorkExp(facility, c);
+        if (facility && economy.today.inputShort === shortBefore) giveWorkExp(facility, c, nowMs);
         // NPC 사업장(기획 대조 2053·2054, npcDelivery.ts): 산출은 시설 창고로, 재료비, 일꾼이 도시 창고로 실제로 나른다(닿으면 나라가 산 매출), 하루 끝 정산
         const buildingId = runs.get(subject)?.buildingId ?? null;
         const city = facility ? world.cities.get(facility.city) : undefined;
@@ -1181,6 +1287,33 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       syncAll(nowMs);
     },
     restPlan: (cityId) => restPlans.get(cityId),
+    workTick(nowMs) {
+      if (!jobs) return 0;
+      const cityIds = [...world.cities.keys()].toSorted((a, b) => a - b);
+      if (!jobs.enabled()) {
+        // 판을 껐다: 맡았던 일꾼의 직무를 끄고 옛 셈으로 돌린다(다음 맞추기가 쉼터 계획 배율로 시설을 다시 놓는다)
+        if (jobs.size === 0) return 0;
+        let released = 0;
+        for (const cityId of cityIds) released += jobs.sync(cityId, [], nowMs);
+        for (const cityId of cityIds) syncCity(cityId, nowMs);
+        return released;
+      }
+      const resumed = jobs.tick(nowMs);
+      const full = nowMs - jobsSyncedAt >= WORKER_SYNC_MS;
+      if (!full && resumed.size === 0) return 0;
+      if (full) jobsSyncedAt = nowMs;
+      let changed = resumed.size;
+      const resumedCities = new Set<number>();
+      for (const facilityId of resumed) {
+        const cityId = economy.facilities.get(facilityId)?.city;
+        if (cityId !== undefined) resumedCities.add(cityId);
+      }
+      for (const cityId of cityIds) {
+        if (!full && !resumedCities.has(cityId)) continue;
+        changed += refreshJobs(cityId, nowMs, undefined, full);
+      }
+      return changed;
+    },
     workFacilities(cityId) {
       const out: WorkFacility[] = [];
       for (const facility of economy.facilities.values()) {

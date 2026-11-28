@@ -18,6 +18,12 @@ export interface LogisticsCoefficients {
    */
   readonly restCycleMode: number;
   /**
+   * 1 = NPC 도시 일꾼도 플레이어 유닛과 같은 직무 상태를 갖는다(사용자 결정 2026-11-27 "네, 똑같이", docs/adr/2026-11-27-npc-worker-jobs.md):
+   * 묶음마다 피로가 쌓이고(직무 묶음 피로 × 시설 피로 배율), 생활 규칙의 피로에 닿으면 쉼터에서 쉬며, 쉬는 일꾼은 생산에서 빠진다(시설 생산
+   * 속도 = 지금 일하는 일꾼 몫). 0 = 옛 셈(숙소 회복을 생산 속도 배율로만 셈하고 일꾼은 피로 바퀴·낮밤으로 오간다). 서버만 본다(시뮬 도시는 옛 셈)
+   */
+  readonly npcJobMode: number;
+  /**
    * [임시] NPC 물류센터 증축(house-10, 기획 대조 2301 — 성향 가중): 그 도시에서 운반꾼을 기다리는 NPC 운반 일이 이만큼(상업 성향 배율 500~1500‰을 곱한
    * 값)이 되면 물류센터 하나를 증축 목표에 넣는다. 서버 npc/npcLogistics.ts(시뮬 도시는 물류센터가 없어 판정에 쓰지 않는다).
    * 바뀜(fixes-1116t, 2348 다): k개가 있으면 이 값 × (k + 1)에서 하나 더(centerTarget)
@@ -34,6 +40,7 @@ export const START_LOGISTICS: LogisticsCoefficients = {
   homeRecoveryPm: 1000,
   haulMode: 1,
   restCycleMode: 1,
+  npcJobMode: 1,
   npcBuildWaits: 3,
   npcBuildHumans: 30,
 };

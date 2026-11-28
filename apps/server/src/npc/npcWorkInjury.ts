@@ -34,6 +34,8 @@ export interface WorkInjuryMap extends ConditionMap {
   unitInfo(unitId: number):
     | {
         readonly condition: UnitCondition;
+        /** 직무 상태(NPC 일꾼 직무 판이 맡은 일꾼은 진짜 피로를 쓴다) */
+        readonly job?: { readonly job: number; readonly fatigue: number } | undefined;
         readonly home?: BotHome | undefined;
         readonly held?: boolean | undefined;
       }
@@ -58,6 +60,8 @@ export function createNpcWorkInjury(o: {
   readonly startMs: number;
   /** 굴림(시험이 바꾼다). 없으면 플레이어 채집과 같은 판정·시드 */
   readonly hook?: GatherInjuryHook | undefined;
+  /** 피로 상한(설정 칸 실효 값 — 직무 상태가 있는 일꾼의 진짜 피로를 굴릴 때) */
+  readonly fatigueMax?: (() => number) | undefined;
 }): NpcWorkInjury {
   const hook = o.hook ?? createGatherInjury();
   let checkedMs = o.startMs;
@@ -82,14 +86,12 @@ export function createNpcWorkInjury(o: {
           const shift = info.home?.shift ?? DEFAULT_WORK_SHIFT;
           if (!atWork(shift, unit.id, at)) continue;
           // 경계 하나만 굴린다((at − 1, at] — 같은 경계 번호·시드라 나눠 불러도 같다)
-          const stage = hook(
-            map,
-            unit.id,
-            shiftFatiguePm(shift, unit.id, at),
-            NPC_WORK_FATIGUE_MAX,
-            at - 1,
-            at,
-          );
+          // 직무 상태가 있는 일꾼(NPC 일꾼 직무 판)은 플레이어 유닛처럼 진짜 피로 ÷ 피로 상한, 아니면 보이는 움직임의 어림 피로
+          const real = info.job && info.job.job !== 0 && o.fatigueMax ? o.fatigueMax() : undefined;
+          const stage =
+            real !== undefined && real > 0
+              ? hook(map, unit.id, info.job?.fatigue ?? 0, real, at - 1, at)
+              : hook(map, unit.id, shiftFatiguePm(shift, unit.id, at), NPC_WORK_FATIGUE_MAX, at - 1, at);
           if (stage > 0) hurt += 1;
         }
       }

@@ -57,6 +57,8 @@ export interface NpcAiBridge {
     readonly places: ReadonlyMap<number, CityPlace>;
     readonly econ?: ServerEconomy | undefined;
     readonly lodgingsOf?: ((cityId: number) => readonly number[]) | undefined;
+    /** 직무 상태가 정한 일·쉼(NPC 일꾼 직무 판 — workerJobs.ts workingOf) */
+    readonly phaseOf?: ((unitId: number) => boolean | undefined) | undefined;
     readonly nowMs: number;
   }): number;
 }
@@ -294,6 +296,7 @@ export function createNpcAiBridge(o: {
         traitsOf,
         needsOf,
         laborOf,
+        phaseOf: input.phaseOf,
         atWarOf,
         ai: rules.npcAi,
       });

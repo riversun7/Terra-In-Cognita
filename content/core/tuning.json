@@ -10976,6 +10976,24 @@
       "source": "ADR 2026-11-11-city-building-layout \"바뀜 (2026-11-12 2차)\" · 질문 1095 가(D-534) [임시]"
     },
     {
+      "id": "npc_worker_job_mode",
+      "code": "",
+      "name": {
+        "ko": "NPC 일꾼도 플레이어 유닛과 같은 직무 상태(1 = 묶음마다 피로·쉬면 생산에서 빠짐, 0 = 옛 셈)",
+        "en": "NPC workers use the same job state as player units (1 = fatigue per lot, resting workers stop producing; 0 = old model)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1,
+      "desc": {
+        "ko": "1이면 NPC 도시 일꾼이 플레이어 유닛과 같은 직무 상태를 갖는다: 시설이 묶음 하나를 낼 때마다 그 일꾼의 피로가 쌓이고(gather_obj_job_fatigue × 시설 피로 배율), 생활 규칙의 쉬러 가는 피로에 닿으면 쉼터(숙소·집)에서 회복한 뒤 다시 일한다. 쉬는 일꾼은 생산에서 빠진다(시설 생산 속도 = 지금 일하는 일꾼 몫). 0이면 옛 셈(숙소 회복을 생산 속도 배율로만 셈).",
+        "en": "1 = NPC city workers use the same job state as player units: each lot a facility produces adds fatigue to one worker (gather_obj_job_fatigue times the facility fatigue rate); at the worker's rest threshold it recovers at its rest spot (lodging or home) and then works again. Resting workers stop producing (facility speed = share of workers working now). 0 = old model (lodging recovery only scales output speed)."
+      },
+      "source": "ADR 2026-11-27-npc-worker-jobs · 사용자 결정 2026-11-27"
+    },
+    {
       "id": "logistics_npc_build_waits",
       "code": "",
       "name": {

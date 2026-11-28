@@ -48,9 +48,11 @@ const BASELINE_STATS: readonly number[] = Array.from({ length: 6 }, () => BASELI
 /** 조회가 읽는 유닛 정보(2차맵 unitInfo) */
 type UnitInfo = NonNullable<ReturnType<SecondMap["unitInfo"]>>;
 
-/** NPC 도시 일꾼인가(도시 경제가 일터나 건물 없는 도시 직무를 준 휴먼 — 2차맵 이동 중(held)은 제외, 직무 상태가 없다) */
+/**
+ * NPC 도시 일꾼인가(도시 경제가 일터나 건물 없는 도시 직무를 준 휴먼 — 2차맵 이동 중(held)은 제외). 일꾼 직무 판(npc/workerJobs.ts — 설정 칸
+ * npc_worker_job_mode 1)이 켜져 있으면 플레이어 유닛과 같은 직무 상태(일·쉼, 피로)를 갖고, 꺼져 있으면 직무 상태가 없다
+ */
 const isNpcWorker = (info: UnitInfo): boolean =>
-  info.job.job === 0 &&
   info.held !== true &&
   info.home !== undefined &&
   (info.home.work !== undefined || info.home.cityJob === true);
@@ -60,9 +62,10 @@ const isNpcWorker = (info: UnitInfo): boolean =>
  * 그 자리에 닿았는지, 그 밖 유닛은 걷는 중인지. "쉬는 중인데 이동 중" 같은 어긋난 표시를 내지 않는다(사용자 지적 2026-11-27)
  */
 function doingOf(info: UnitInfo, unitId: number, nowMs: number): OpsUnitDoing {
-  if (info.job.job !== 0) return info.job.phase === 0 ? "working" : "resting";
-  const moving = (info.motion.arrivals.at(-1) ?? info.motion.departAtMs) > nowMs;
   const home = info.home;
+  // 직무 유닛(플레이어): 직무 단계 그대로. 직무 상태가 있는 NPC 일꾼은 아래에서 그 자리에 닿았는지도 본다(가는 중)
+  if (info.job.job !== 0 && !home) return info.job.phase === 0 ? "working" : "resting";
+  const moving = (info.motion.arrivals.at(-1) ?? info.motion.departAtMs) > nowMs;
   if (!home) return moving ? "moving" : "idle";
   const status = botStatus(home, { id: unitId, size: info.size }, positionAt(info.motion, nowMs), nowMs);
   if (status.state === "work") {
@@ -89,7 +92,9 @@ function fatigueOf(
   unitId: number,
   nowMs: number,
 ): { fatigue: number; estimated: boolean } {
-  const max = isNpcWorker(info) ? unitLifeOf(world.persistence)?.fatigueMax() : undefined;
+  // 직무 상태가 있으면(플레이어 유닛·일꾼 직무 판의 NPC 일꾼) 그 피로가 진짜 값이다
+  const max =
+    info.job.job === 0 && isNpcWorker(info) ? unitLifeOf(world.persistence)?.fatigueMax() : undefined;
   if (max === undefined) return { fatigue: info.job.fatigue, estimated: false };
   const pm = shiftFatiguePm(info.home?.shift ?? DEFAULT_WORK_SHIFT, unitId, nowMs);
   return { fatigue: Math.round((pm * max) / 1000), estimated: true };

@@ -138,12 +138,12 @@ export function UnitTable({ rows, open, sort, onSort, onState }: UnitTableProps)
           {rows.map((row) => {
             // 지금 하는 일은 하나만 보인다(작업 상태와 이동을 따로 내지 않는다). 앞에 직무 이름(직무 유닛)·"도시 일꾼"(NPC 일꾼)
             const doing = row.doing ?? (row.moving ? "moving" : "idle");
-            const role =
-              row.job && row.job.kind !== 0
+            // NPC 도시 일꾼은 직무 상태가 있어도 "도시 일꾼"으로 보인다(시설 일 — 채집만이 아니다)
+            const role = row.npcWorker
+              ? m.ops_npc_worker()
+              : row.job && row.job.kind !== 0
                 ? jobLabel(row.job.kind)
-                : row.npcWorker
-                  ? m.ops_npc_worker()
-                  : null;
+                : null;
             return (
               <tr key={row.id}>
                 <td className="dev-num">

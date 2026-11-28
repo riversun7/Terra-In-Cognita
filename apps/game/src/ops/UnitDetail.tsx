@@ -109,10 +109,7 @@ function WorkSection({
       <h3 className="ops-h3">{m.ops_sec_work()}</h3>
       <KeyValues
         rows={[
-          [
-            m.ops_f_job_state(),
-            job.kind !== 0 ? jobLabel(job.kind) : npcWorker ? m.ops_npc_worker() : jobLabel(0),
-          ],
+          [m.ops_f_job_state(), npcWorker ? m.ops_npc_worker() : jobLabel(job.kind)],
           [m.ops_f_doing(), UNIT_STATE_LABELS[doing]()],
           [m.ops_f_job_progress(), m.ops_f_ms({ ms: formatInt(job.progressMs) })],
           [

@@ -1,6 +1,6 @@
 # ADR: NPC 일꾼 상태 기반 피로(메모리 추적) 도입
 
-- 상태: 확정
+- 상태: 대체됨: 2026-11-27-npc-worker-jobs.md
 - 날짜: 2026-11-27
 - 관련 문서: [2026-11-26-fatigue-stat-penalty.md](./2026-11-26-fatigue-stat-penalty.md), [2026-11-26-unit-life-rules.md](./2026-11-26-unit-life-rules.md), [2026-11-27-npc-work-exp.md](./2026-11-27-npc-work-exp.md)
 

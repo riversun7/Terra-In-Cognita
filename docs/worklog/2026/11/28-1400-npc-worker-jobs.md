@@ -65,3 +65,14 @@
 
 - NPC 생산을 유닛마다의 묶음으로까지 바꿀지(도시 경제 생산 통째 교체).
 - 숙박비를 실제로 쉰 횟수로 걷을지.
+
+## 덧붙임 (2026-11-28 21:20) — main 위로 옮기며 한 일
+
+올리려는 사이 main에 NPC 일꾼 피로를 메모리 저장소로 추적하는 묶음(ADR `2026-11-27-npc-stateful-fatigue.md`)이 먼저 들어가 있었다. 사용자에게 두 방식의 차이를 설명했고, 사용자가 이 작업의 직무 상태를 쓰기로 정했다(2026-11-28).
+
+- 그 묶음의 마지막 커밋(`69979ef3`, 피로 저장소)만 되돌렸다: `npc/npcFatigue.ts`·`npcFatigue.test.ts` 삭제, 운반 중 여부 고리(`gather/porter.ts`·`registry.ts`·`station.ts`·`world.ts`), 봇 피로 접근(`world/bots.ts`·`mapFactory.ts`·`secondMap.ts`·`secondMapTypes.ts`·`world.ts`), `holdings/world.ts`의 NPC 피로 조회, `npc/aiBridge.ts`·`aiMonitorSource.ts`·`runtime.ts`·`economy.ts`·`npcWorkInjury.ts`·`ops/world.ts`의 그 몫.
+- 같은 커밋에 섞여 있던 시험 타입 고침(`npcLogistics.test.ts`·`syncCityProgress.test.ts`)은 남겼다.
+- 다른 세 수정(일꾼 거르기, `syncCity` 진행 보존, 운반꾼 쉼 계획·배달 경험치)과 합쳤다: `syncCity`가 시설을 다시 맞출 때 일하는 일꾼 몫(`dutyPm`)을 잃지 않게 했고, 운영 조회의 NPC 일꾼 판정에 "2차맵 사이 이동 중 제외"를 남겼다.
+- ADR `2026-11-27-npc-stateful-fatigue.md`는 "대체됨"으로, `2026-11-27-npc-worker-jobs.md`에는 "바뀜 (2026-11-28)" 절을 더했다.
+- 검증(Verified): 서버 타입 검사, `oxlint`, DB 시험 `apps/server/src/npc`·`ops`·`world` 108개 파일 531개 통과.
+
